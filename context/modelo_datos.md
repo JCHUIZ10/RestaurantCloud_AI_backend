@@ -6,7 +6,7 @@
 
 * **Esquema único compartido:** todas las empresas (*tenants*) conviven en las mismas tablas, aisladas mediante `empresa_id` (directo o heredado a través de `local_id`).
 * Se recomienda activar **Row-Level Security (RLS)** en PostgreSQL sobre `empresa_id` para que el aislamiento entre *tenants* lo garantice la base de datos, no solo el código de la aplicación.
-* `usuario.correo` es único a nivel global de la plataforma (regla de negocio: un usuario pertenece a una sola empresa).
+* `usuario.correo` es único **por empresa** (`UNIQUE(empresa_id, correo)`), permitiendo que una misma persona tenga cuentas independientes en distintos restaurantes/empresas (resuelto en login mediante `CU-AUTH-01`).
 * Toda tabla operativa de un local incluye `local_id`, y a través de `local.empresa_id` se resuelve el *tenant* — no es necesario duplicar `empresa_id` en cada tabla hija de `local`.
 * Los identificadores primarios (`id`) se recomiendan como **UUID** para evitar colisiones y facilitar la futura sincronización o particionamiento por *tenant*.
 * Las tablas de configuración de reservas (`duracion`, `buffer`, `minutos_bloqueo_previo`, etc.) viven como columnas de `local`, ya que son parámetros por local, no entidades independientes.
@@ -77,7 +77,7 @@ Todos los actores humanos del sistema (Admin SaaS, Propietario, Admin local, Moz
 | `empresa_id` | UUID | FK -> empresa (nullable) | Nulo para admin_saas |
 | `local_id` | UUID | FK -> local (nullable) | Nulo para propietario y admin_saas |
 | `nombre` | varchar | — | Nombre del usuario |
-| `correo` | varchar | UNIQUE global | Un correo pertenece a una sola empresa |
+| `correo` | varchar | UNIQUE(empresa_id, correo) | Único por empresa; permite multi-cuenta |
 | `password_hash` | varchar | — | Contraseña cifrada |
 | `rol` | enum | — | admin_saas, propietario, admin_local, mozo, cocina, cajero |
 | `estado` | enum | — | activo, inactivo |
@@ -462,9 +462,25 @@ Fotografía diaria del stock, usada como insumo del modelo de predicción.
 
 ---
 
-## 4. Recomendaciones para la siguiente etapa
+### 2.9 Almacenamiento en memoria y datos efímeros (Redis)
+
+Para evitar la saturación de PostgreSQL por *table bloat* (acumulación de tuplas muertas por MVCC) y escrituras continuas en el log de transacciones (WAL), los datos con alta tasa de creación, lectura y expiración **no se almacenan en tablas relacionales**, sino en **Redis** mediante claves estructuradas con TTL automático (*Time-To-Live*):
+
+| Patrón de Clave (Key) | Tipo de Dato | TTL Sugerido | Descripción y Uso |
+| :--- | :--- | :--- | :--- |
+| `auth:refresh:<usuario_id>:<token_hash>` | String / Hash | 7 – 15 días | Refresh token opaco para renovación de sesión. Permite rotación y revocación inmediata al cerrar sesión. |
+| `auth:blacklist:<jti>` | String (`"revoked"`) | Restante del JWT (~15-30m) | Lista de revocación de Access Tokens (JWT) antes de su expiración natural. |
+| `auth:otp:<tipo>:<usuario_id>` | String | 15 minutos | Tokens de restablecimiento de contraseña o verificación de un solo uso; se consumen atómicamente con `GETDEL`. |
+| `ratelimit:<ip_o_correo>:<accion>` | Integer (Incr) | 1 – 15 minutos | Conteo de intentos de login o peticiones para mitigar ataques de fuerza bruta. |
+| `cache:identidad:<tipo_doc>:<num_doc>` | JSON String | 24 – 48 horas | Caché temporal de consultas a APIs externas de identidad (RENIEC / SUNAT) para comprobantes. |
+
+> **Aclaración de diseño:** El campo `comprobante.token_qr` **sí permanece en PostgreSQL** porque constituye un identificador permanente de acceso al comprobante digital emitido. Por el contrario, los tokens de sesión, códigos OTP y tokens de revocación residen exclusivamente en Redis.
+
+---
+
+## 3. Recomendaciones para la siguiente etapa
 
 1. **Definir índices compuestos** por `(local_id, fecha)` en las tablas de alto volumen de consulta (`pedido`, `pedido_item`, `snapshot_stock_diario`) para acelerar reportes y forecasting.
-2. **Confirmar el motor de base de datos** (se recomienda PostgreSQL por su soporte nativo de Row-Level Security, JSONB y UUID).
-2. **Definición de arquitectura de servicios:** cuando se defina la arquitectura, decidir si Go será el único servicio con acceso directo a estas tablas, para evitar duplicar lógica de aislamiento por tenant en dos lenguajes distintos.
+2. **Confirmar el motor de base de datos:** PostgreSQL 16 con Row-Level Security (RLS) para persistencia relacional y Redis 7 para datos volátiles/sesiones.
+3. **Definición de arquitectura de servicios:** Core API (Go) es el único servicio con acceso de escritura a PostgreSQL y acceso a Redis; AI Service solo lee de PostgreSQL.
 4. **Validación de precisión:** las tablas `producto_insumo` y `ficha_compra_detalle` son las de mayor sensibilidad para la precisión del forecasting; conviene validarlas con datos reales apenas se tenga el primer local operando.

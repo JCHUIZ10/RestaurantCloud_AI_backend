@@ -63,12 +63,19 @@ El detalle completo de casos de uso por actor está en un documento aparte.
 Nginx (reverse proxy, SSL)
  ├── Core API (Go)         → toda la lógica de negocio, único acceso de escritura a la BD
  ├── AI Service (Python/FastAPI) → forecasting + RAG, acceso de solo lectura a la BD
+ ├── Redis 7 (In-Memory)   → tokens de sesión/refresh, revocación, rate limiting y caché temporal
  └── PostgreSQL (esquema único + RLS)
 
 ```
 
 - **Core API → AI Service:** HTTP interno, no expuesto a internet, protegido con API key interna simple.
 - **AI Service:** nunca implementa lógica de tenant/autenticación propia — recibe `empresa_id`/`local_id` ya resueltos por el Core API.
+- **Gestión de Sesiones, Tokens y Caché (Redis):** Para evitar la saturación de PostgreSQL por *table bloat* (MVCC dead tuples) y escrituras continuas en WAL debido a creación/eliminación de datos efímeros:
+  - **Tokens de sesión / Refresh Tokens:** Almacenados en Redis con TTL nativo (7 a 15 días), permitiendo revocación inmediata y rotación sin consultar la BD relacional.
+  - **Tokens temporales de selección multi-cuenta:** Emitidos como JWTs *stateless* de vida ultracorta (3-5 min) validados en CPU, sin necesidad de persistencia.
+  - **Tokens de un solo uso (OTP / Reseteo de contraseña):** Gestionados en Redis con consumo atómico (`GETDEL`) y TTL corto (15 min) para mitigar ataques de repetición.
+  - **Lista negra (Blacklist) de JWTs:** Clave temporal en Redis con TTL equivalente al tiempo de expiración restante del access token al cerrar sesión.
+  - **Rate Limiting y Caché de APIs externas:** Control de intentos de autenticación (fuerza bruta) y caché de consultas de DNI/RUC (RENIEC/SUNAT).
 - **Notificaciones:** **SSE (Server-Sent Events)**, no WebSocket ni polling — el flujo es unidireccional (servidor → cliente), SSE es nativo en HTTP (sin librerías extra en Go) y el navegador reconecta solo (`EventSource`). Requiere `proxy_buffering off` en Nginx para esa ruta.
 - **PHP fue descartado** del stack — todo el backend de negocio es Go; Python solo para IA.
 - **Despliegue:** cada servicio en su propio contenedor Docker desde el día 1 (`docker-compose` en la VPS), migrable tal cual a un orquestador en la nube (ECS/Kubernetes/Cloud Run) sin rediseño. Nunca hardcodear host/credenciales — todo vía variables de entorno.
@@ -85,13 +92,14 @@ restaurantcloud-core-api/
 │   ├── empresas/  locales/  mesas/  reservas/
 │   ├── pedidos/   cocina/   inventario/  compras/
 │   ├── caja/      reportes/ notificaciones/
-│   └── auth/      (JWT + middleware de tenant vía RLS)
+│   └── auth/      (JWT + middleware de tenant vía RLS + gestión de refresh tokens en Redis)
 ├── pkg/
 │   ├── apiresponse/   (envoltorio estándar de respuestas)
 │   ├── apierror/      (errores tipados con código HTTP)
 │   └── validator/  logger/
 ├── platform/
 │   ├── database/postgres.go
+│   ├── cache/redis.go
 │   └── router/router.go         (chi)
 ├── config/
 ├── migrations/
@@ -152,7 +160,7 @@ Estas reglas surgieron de iteraciones específicas durante el diseño y son impo
 
 | Semana | Contenido |
 | --- | --- |
-| 1 | Auth + multi-tenant (RLS) + Empresas/Locales/Usuarios. Frontend: login, navegación por rol. |
+| 1 | Auth + multi-tenant (RLS) + Redis (refresh tokens / sesiones) + Empresas/Locales/Usuarios. Frontend: login, navegación por rol. |
 | 2 | Núcleo operativo: Mesas → Pedidos → Cocina → Caja (con notificaciones SSE). |
 | 3 | Reservas + Inventario/Compras (insumos, recetas, proveedores, fichas de compra). |
 | 4 | Reportes, flujo de caja, IA (forecasting) si el tiempo alcanza, y despliegue en VPS. |
