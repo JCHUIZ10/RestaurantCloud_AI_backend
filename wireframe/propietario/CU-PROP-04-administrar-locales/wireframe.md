@@ -35,17 +35,28 @@ sequenceDiagram
     BE-->>FE: 200 OK (LocalesListDTO con métricas de uso)
     FE->>P: Renderiza Vista 1: Directorio de Locales con medidor de cupo
 
-    %% Flujo 2: Registro de Nueva Sede
-    alt Propietario registra nueva sede
+    %% Flujo 2: Registro de Nueva Sede (Wizard de 2 Pasos)
+    alt Propietario registra nueva sede con plantilla
         P->>FE: 2. Clic en "[ + Registrar Nuevo Local ]"
         FE->>BE: GET /api/v1/propietario/locales/verificar-disponibilidad
         BE-->>FE: 200 OK {puede_crear: true, cupos_disponibles: 1, admins_disponibles: [...]}
-        FE->>P: Despliega Vista 2: Modal Formulario de Local
-        P->>FE: Ingresa nombre, dirección, teléfono y modo de administración
-        FE->>BE: POST /api/v1/propietario/locales {datos_local}
-        BE->>DB: Valida cuota atómica (RLS) + Inserta local en estado 'activo'
-        DB-->>BE: Retorna local creado con ID
-        BE-->>FE: 201 Created {local_id, mensaje: "Local registrado exitosamente"}
+        FE->>P: Despliega Vista 2 (Paso 1): Datos de la sede y supervisión
+        P->>FE: Ingresa nombre, dirección, teléfono -> Clic en "[ Siguiente: Elegir Giro ]"
+        FE->>P: Despliega Vista 2 (Paso 2): Selector de 4 Giros Gastronómicos
+        P->>FE: Selecciona tarjeta "[ 🍗 Pollería & Brasas ]" y pulsa "[ Crear y Activar Sede ]"
+        FE->>BE: POST /api/v1/propietario/locales {datos_local, giro_negocio: "polleria"}
+        
+        rect rgb(240, 245, 255)
+            Note over BE,DB: Transacción Atómica de Aprovisionamiento
+            BE->>DB: 1. Valida cuota atómica (RLS max_locales)
+            BE->>DB: 2. INSERT INTO local (empresa_id, ..., giro_negocio: 'polleria')
+            BE->>DB: 3. INSERT INTO piso (local_id, nombre: 'Salón Principal', columnas: 5, filas: 3)
+            BE->>DB: 4. INSERT INTO categoria_producto (5 categorías de Pollería)
+            BE->>DB: 5. INSERT INTO insumo (15 insumos de Pollería con catálogo limpio)
+        end
+        
+        DB-->>BE: Commit de transacción
+        BE-->>FE: 201 Created {local_id, categorias_creadas: 5, insumos_creados: 15, mensaje: "Local registrado e inicializado"}
         FE->>P: Cierra modal, actualiza tabla y muestra Toast de éxito
     end
 
@@ -121,17 +132,18 @@ Muestra la lista de sedes de la empresa, el estado operativo de cada una, el adm
 
 ---
 
-### 3.2 Vista 2: Modal de Registro y Edición de Local
+### 3.2 Vista 2: Asistente de Registro de Sede (Wizard de 2 Pasos)
 
-Formulario enfocado exclusivamente en datos comerciales y operativos para el mercado peruano.
+Modal guiado en dos etapas para registrar los datos comerciales y definir el giro gastronómico con aprovisionamiento atómico inicial.
 
-#### Distribución Estructural (Layout ASCII)
+#### Distribución Estructural — Paso 1: Datos de la Sede & Supervisión (Layout ASCII)
 ```text
 +-----------------------------------------------------------------------------------+
 |  [ Fondo difuminado / Backdrop ]                                                  |
 |                                                                                   |
 |  +-----------------------------------------------------------------------------+  |
-|  | Registrar Nueva Sede                                                   [X]  |  |
+|  | Registrar Nueva Sede — Paso 1 de 2: Datos Comerciales                  [X]  |  |
+|  | [ (1) Datos de Sede ● ] ---------------------- [ (2) Giro Gastronómico ○ ]    |  |
 |  |-----------------------------------------------------------------------------|  |
 |  |  (i) Consumirás 1 de 1 cupo disponible en tu Plan Pro (Máximo 3 locales)    |  |
 |  |                                                                             |  |
@@ -151,7 +163,41 @@ Formulario enfocado exclusivamente en datos comerciales y operativos para el mer
 |  |  | ( ) Asignar Administrador de Local existente                          |  |  |
 |  |  +-----------------------------------------------------------------------+  |  |
 |  |-----------------------------------------------------------------------------|  |
-|  |                                           [ Cancelar ]  [ Registrar Sede ]  |  |
+|  |                                    [ Cancelar ]  [ Siguiente: Elegir Giro >]|  |
+|  +-----------------------------------------------------------------------------+  |
++-----------------------------------------------------------------------------------+
+```
+
+#### Distribución Estructural — Paso 2: Giro Gastronómico & Plantilla Inicial (Layout ASCII)
+```text
++-----------------------------------------------------------------------------------+
+|  [ Fondo difuminado / Backdrop ]                                                  |
+|                                                                                   |
+|  +-----------------------------------------------------------------------------+  |
+|  | Registrar Nueva Sede — Paso 2 de 2: Giro Gastronómico                  [X]  |  |
+|  | [ (1) Datos de Sede ✓ ] ---------------------- [ (2) Giro Gastronómico ● ]    |  |
+|  |-----------------------------------------------------------------------------|  |
+|  |  Elige una plantilla para inicializar automáticamente la carta e inventario |  |
+|  |  de tu local. Podrás personalizar todo libremente en cualquier momento.     |  |
+|  |                                                                             |  |
+|  |  +-----------------------------------+   +--------------------------------+  |  |
+|  |  | [•] 🍗 Pollería & Brasas          |   | [ ] 🐟 Cevichería & Mariscos   |  |  |
+|  |  | Categorías: Pollos, Guarniciones, |   | Categorías: Ceviches, Causas,  |  |  |
+|  |  | Ensaladas, Bebidas y Cremas       |   | Arroces marinos, Chicharrones  |  |  |
+|  |  | Insumos: Pollo, papa, aderezos... |   | Insumos: Pescado, limón, maris.|  |  |
+|  |  +-----------------------------------+   +--------------------------------+  |  |
+|  |                                                                             |  |
+|  |  +-----------------------------------+   +--------------------------------+  |  |
+|  |  | [ ] 🥢 Chifa & Comida China       |   | [ ] ⚪ Totalmente en Blanco    |  |  |
+|  |  | Categorías: Wantanes, Chaufa,     |   | Sin categorías ni insumos.     |  |  |
+|  |  | Tallarines, Platos Especiales     |   | Ideal para conceptos únicos    |  |  |
+|  |  | Insumos: Pechuga, arroz, sillao...|   | o cartas personalizadas desde 0|  |  |
+|  |  +-----------------------------------+   +--------------------------------+  |  |
+|  |                                                                             |  |
+|  |  (i) En todas las opciones se creará el ambiente inicial "Salón Principal"  |  |
+|  |      con cuadrícula base 5x3 mesas listo para operar.                       |  |
+|  |-----------------------------------------------------------------------------|  |
+|  |                                 [ < Volver a Datos ]  [ Crear y Activar Sede]  |  |
 |  +-----------------------------------------------------------------------------+  |
 +-----------------------------------------------------------------------------------+
 ```
@@ -163,6 +209,10 @@ Formulario enfocado exclusivamente en datos comerciales y operativos para el mer
 1. **Mercado Peruano Específico:** Zona horaria fijada automáticamente en `America/Lima (UTC-5)` y moneda en Soles (`PEN - S/`).
 2. **Validación Telefónica:** Valida formato de línea fija (`01 445-8920`) o celular (`9XX XXX XXX`).
 3. **Desacoplamiento de Personal:** El Propietario puede crear sedes sin necesidad de haber contratado o asignado previamente un administrador.
+4. **Giro Gastronómico Cerrado (4 Opciones):** `polleria`, `cevicheria`, `chifa`, `en_blanco`.
+5. **Aprovisionamiento Atómico:**
+   - Para `polleria`, `cevicheria` y `chifa`: genera de inmediato "Salón Principal" (5x3), sus 5 categorías de carta y 15 insumos iniciales de almacén.
+   - Para `en_blanco`: genera "Salón Principal" (5x3) con carta y almacén vacíos para configuración manual.
 
 ---
 
@@ -338,7 +388,9 @@ Registra un local validando atómicamente la cuota del plan bajo RLS.
   "distrito": "San Isidro",
   "ciudad": "Lima",
   "telefono": "+51 1 221-3410",
-  "administrador_usuario_id": null
+  "modo_administracion": "propietario",
+  "administrador_usuario_id": null,
+  "giro_negocio": "polleria"
 }
 ```
 
@@ -349,11 +401,18 @@ Registra un local validando atómicamente la cuota del plan bajo RLS.
   "datos": {
     "id": "loc-2222-aaaa-bbbb-cccc",
     "nombre": "Sede San Isidro - Conquistadores",
+    "giro_negocio": "polleria",
     "estado": "activo",
     "zona_horaria": "America/Lima",
     "moneda": "PEN",
     "administrador_asignado": false,
-    "mensaje": "Sede registrada exitosamente. Ya puedes configurar sus pisos y mesas."
+    "resumen_inicializacion": {
+      "pisos_creados": 1,
+      "piso_nombre": "Salón Principal",
+      "categorias_creadas": 5,
+      "insumos_creados": 15
+    },
+    "mensaje": "Sede registrada exitosamente y catálogo inicial de Pollería & Brasas aprovisionado."
   },
   "meta": {
     "timestamp": "2026-10-02T19:40:30Z"
