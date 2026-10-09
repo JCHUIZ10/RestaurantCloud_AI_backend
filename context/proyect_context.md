@@ -32,10 +32,12 @@ El detalle completo de casos de uso por actor está en un documento aparte.
 
 ## 3. Modelo de negocio (SaaS)
 
-- **Planes por niveles:** Starter, Pro, Enterprise — combinando límites de recursos (locales, mesas, pisos) con features de IA como diferenciador (forecasting y asistente solo en planes pagos superiores).
-- **Registro de empresa:** autoservicio público, con pago vía **Stripe** (único método de pago habilitado para el MVP; se descartó el pago con moneda digital/QR + verificación manual por complejidad operativa, pero **se reutilizará ese esquema en el futuro módulo de reserva online con depósito**).
-- **Cambio de plan:** *upgrade* inmediato (prorrateado); *downgrade* al finalizar el ciclo de facturación actual, y solo si el uso actual no excede los límites del nuevo plan.
-- **Cobro recurrente:** vía método de pago guardado en Stripe (tokenizado) — la plataforma nunca almacena datos de tarjeta directamente.
+- **Planes por niveles:** Catálogo con IDs enteros (1 = Starter, 2 = Pro, 3 = Enterprise) que combina límites de **4 recursos clave** (`max_locales`, `max_pisos`, `max_mesas`, `max_usuarios`) con módulos de IA como diferenciador (forecasting de demanda y asistente conversacional solo en planes superiores).
+- **Registro de empresa (Onboarding):** Autoservicio público enfocado inicialmente en el mercado peruano mediante validación estricta de **RUC** (RUC 20 Persona Jurídica o RUC 10 Persona Natural con Negocio, exactamente 11 dígitos numéricos). Incorpora verificación previa mediante código OTP al buzón de correo del propietario antes de proceder al pago para garantizar que las credenciales sean válidas. La persistencia temporal del formulario se maneja en **Redis** (`registro:onboarding:<UUID>`, TTL 30 min) y `sessionStorage`, manteniendo PostgreSQL completamente limpio hasta que Stripe confirme el cobro.
+- **Cambio de plan (Upgrade y Downgrade):**
+  - **Upgrade (Escalar a plan superior):** Efectivo de forma inmediata con previsualización transparente del cobro prorrateado de Stripe (`POST /simular-upgrade`) y habilitación instantánea de nuevos límites y módulos de IA.
+  - **Downgrade (Reducir a plan inferior):** Programado para el final del ciclo de facturación actual, garantizando que el usuario conserve acceso total a lo que ya pagó durante el mes en curso. Aplica una **política de congelamiento preventivo de creación** ($\min(\text{actual}, \text{futuro})$) y un **asistente de conciliación jerárquica en cascada** (`Locales` → `Pisos` → `Mesas` → `Personal`) bajo un principio de **preservación no destructiva (*soft-archiving*)**, conmutando excedentes a `estado = 'inactivo'` sin jamás eliminar (`DELETE`) registros ni historial de ventas.
+- **Cobro recurrente y Dunning:** Administrado mediante una tabla relacional dedicada `suscripcion` vinculada a Stripe Billing (métodos tokenizados vía SetupIntent). Si un cobro mensual falla, se activa un periodo de gracia (Dunning) de 5 días con reintentos automáticos y alertas visuales al propietario, evitando suspender la operación en salón de mozos y cocina hasta agotar la gestión de cobro.
 
 ---
 
@@ -73,8 +75,8 @@ Nginx (reverse proxy, SSL)
 - **Gestión de Sesiones, Tokens y Caché (Redis):** Para evitar la saturación de PostgreSQL por *table bloat* (MVCC dead tuples) y escrituras continuas en WAL debido a creación/eliminación de datos efímeros:
   - **Tokens de sesión / Refresh Tokens:** Almacenados en Redis con TTL nativo (7 a 15 días), permitiendo revocación inmediata y rotación sin consultar la BD relacional.
   - **Tokens temporales de selección multi-cuenta:** Emitidos como JWTs *stateless* de vida ultracorta (3-5 min) validados en CPU, sin necesidad de persistencia.
-  - **Tokens de un solo uso (OTP / Reseteo de contraseña):** Gestionados en Redis con consumo atómico (`GETDEL`) y TTL corto (15 min) para mitigar ataques de repetición.
-  - **Lista negra (Blacklist) de JWTs:** Clave temporal en Redis con TTL equivalente al tiempo de expiración restante del access token al cerrar sesión.
+  - **Tokens de un solo uso (OTP / Reseteo de contraseña / Magic Link de Invitación):** Gestionados en Redis con consumo atómico (`GETDEL`) y TTL específico (15 min para OTP de autenticación/recuperación; 24 horas para tokens de activación de personal invitado) para mitigar ataques de repetición y prescindir de contraseñas provisionales en texto claro.
+  - **Lista negra (Blacklist) de JWTs:** Clave temporal en Redis con TTL equivalente al tiempo de expiración restante del access token al cerrar sesión o al desactivar a un usuario por parte del propietario.
   - **Rate Limiting y Caché de APIs externas:** Control de intentos de autenticación (fuerza bruta) y caché de consultas de DNI/RUC (RENIEC/SUNAT).
 - **Notificaciones:** **SSE (Server-Sent Events)**, no WebSocket ni polling — el flujo es unidireccional (servidor → cliente), SSE es nativo en HTTP (sin librerías extra en Go) y el navegador reconecta solo (`EventSource`). Requiere `proxy_buffering off` en Nginx para esa ruta.
 - **PHP fue descartado** del stack — todo el backend de negocio es Go; Python solo para IA.

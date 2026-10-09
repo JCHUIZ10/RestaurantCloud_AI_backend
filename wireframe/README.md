@@ -8,37 +8,46 @@ Este directorio contiene las especificaciones de diseño estructural, arquitectu
 
 En lugar de construir endpoints de backend a ciegas o diseñar interfaces sin reglas de negocio, seguimos una metodología desacoplada:
 
-1. **Estructural (Sin Tokens UI):** En esta etapa nos enfocamos estrictamente en layout, jerarquía de información, orden de lectura, densidad y accesibilidad. No aplicamos estilos cosméticos ni tokens finales (colores o fuentes de marca) hasta consolidar el Design System.
+1. **Estándar Visual Grayscale Blueprint:**
+   - Paleta cromática estricta en escala de grises y slate:
+     - Backgrounds: `#FFFFFF` (superficies), `#F8FAFC` (canvas), `#F1F5F9` (tarjetas secundarias).
+     - Bordes y líneas: `#E2E8F0`, `#CBD5E1`, `#94A3B8`.
+     - Textos y contrastes: `#0F172A` (títulos y acentos dark), `#1E293B`, `#475569`, `#64748B`.
+   - Tipografía limpia: `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`.
+   - Contraste accesible: Cumplimiento estricto de WCAG 2.1 AA (contraste > 4.5:1 para cuerpo de texto y > 14:1 para títulos).
+   - Sin tokens cosméticos de marca finales: el diseño se concentra en jerarquía de información, orden de lectura, densidad y accesibilidad.
 2. **Matriz de 5 Estados UX:** Toda pantalla debe definir su comportamiento en:
-   - **Ideal:** Vista óptima con datos.
-   - **Vacío (Empty):** Primera carga o colecciones en cero.
-   - **Carga (Loading):** Skeletons, spinners y prevención de doble submit.
+   - **Ideal:** Vista óptima con datos completos y paginados.
+   - **Vacío (Empty):** Primera carga, búsqueda sin coincidencias o colecciones en cero con Call-To-Action (CTA).
+   - **Carga (Loading):** Skeletons, spinners y prevención de doble submit idempotente.
    - **Error / Validación:** Alertas semánticas y mensajes de feedback al usuario.
-   - **Borde / Inesperado:** Concurrencia, límites de suscripción SaaS, desconexión de red.
-3. **Contratos Inmutables:** Los payloads de Request y Response respetan el estándar del proyecto en Go ([`context/mock.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/mock.md)), encapsulados en `apiresponse.Response{Exito, Datos, Errores, Meta}`.
+   - **Borde / Inesperado:** Concurrencia, límites de suscripción SaaS, desconexión de red y salvaguardas transaccionales.
+3. **Contratos Inmutables y Respuestas Go:** Los payloads de Request y Response respetan el estándar del proyecto en Go ([`context/mock.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/mock.md)), encapsulados bajo el envoltorio `pkg/apiresponse.Response{Exito, Datos, Errores, Meta}` y tipados con `pkg/apierror.AppError`.
 
 ---
 
-## 2. Convención de Directorios
+## 2. Convención de Directorios y Organización
 
 La estructura organiza las pantallas por **Rol** y **Caso de Uso** (trazable con [`context/cu.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/cu.md)):
 
 ```text
 wireframe/
-├── README.md                                          # Este archivo
-└── <rol>/                                             # Rol del actor
-    └── <codigo_cu>-<slug-descriptivo>/                # Caso de uso específico
-        ├── wireframe.md                               # Especificación de layout, estados y contratos
-        └── assets/                                    # Wireframes gráficos y assets referenciales
-            ├── wf_<pantalla_1>.png
-            └── wf_<pantalla_2>.png
+├── README.md                                          # Este archivo (Guía maestra del sistema)
+├── <rol>/                                             # Rol del actor
+│   └── <codigo_cu>-<slug-descriptivo>/                # Caso de uso específico
+│       ├── wireframe.md                               # Especificación técnica, layout, estados y contratos
+│       └── assets/                                    # Wireframes gráficos de alta fidelidad (.jpg)
+│           ├── wf_<cu>_<pantalla_1>.jpg
+│           ├── wf_<cu>_<pantalla_2>.jpg
+│           ├── wf_<cu>_<pantalla_3>.jpg
+│           └── wf_<cu>_<pantalla_4>.jpg
 ```
 
 ### Roles del Sistema:
 - **`usuario`**: Casos de uso transversales a todos los actores autenticados (Login, Selección de cuenta, Perfil, etc.).
 - **`saas_admin`**: Operaciones de plataforma global, gestión de tenants y catálogo de planes.
 - **`propietario`**: Configuración corporativa, gestión de sedes/locales, suscripción Stripe y reportes consolidados.
-- **`admin_local`**: Operación del local, configuración de salones/mesas, carta, personal y compras.
+- **`administrador` / `admin_local`**: Operación del local, configuración de salones/mesas, carta, personal, compras e incidentes.
 - **`mozo`**: Punto de venta móvil/tablet, mapa de mesas, comanda digital y reservas.
 - **`cocina`**: Sistema KDS (Kitchen Display System), estados de preparación y control de stock rápido.
 - **`cajero`**: Facturación, cobros multimoneda/tarjeta, arqueo y cierre de caja.
@@ -46,12 +55,69 @@ wireframe/
 
 ---
 
-## 3. Plantilla Estándar para Nuevos Casos de Uso
+## 3. Estructura Obligatoria de `wireframe.md`
 
-Al agregar un nuevo wireframe en `wireframe/<rol>/<cu>/wireframe.md`, se debe seguir la siguiente estructura:
+Todo documento de especificación técnica debe incluir rigurosamente las siguientes 8 secciones:
 
-1. **Ficha Técnica:** CU trazable, Actor, Viewport (*Mobile / Tablet / Desktop*), Precondiciones y Permisos.
-2. **Arquitectura de Información & Layout:** Diagramas de bloques / ASCII y enlace a las imágenes en `assets/`.
-3. **Matriz de Estados UX (Casos Esperados e Inesperados):** Tabla exhaustiva de los 5 estados.
-4. **Contratos de API (Frontend ↔ Backend):** Endpoints HTTP, Schemas JSON y Structs de Go.
-5. **Consideraciones de Seguridad y Backend:** Tenant Isolation (RLS), Concurrencia y Eventos.
+1. **Ficha Técnica del Caso de Uso:** Código CU, Nombre, Actor(es), Dispositivos/Viewports (`1440x900`, `768x1024`, `375x812`), Precondiciones y Postcondiciones.
+2. **Diagrama de Flujo y Secuencia (Mermaid):** Interacciones numeradas entre Actor, Frontend, Backend Go, PostgreSQL con RLS y canales reactivos (SSE / S3).
+3. **Especificación de Pantallas y Wireframes Blueprint (4 Vistas Estándar):**
+   - Vista 1: Dashboard / Bandeja principal con métricas KPI.
+   - Vista 2: Formulario / Modal interactivo de creación o acción con validaciones.
+   - Vista 3: Modal de inspección, detalle, seguimiento o resolución definitiva.
+   - Vista 4: Estado vacío positivo / Onboarding inicial o Paywall.
+   - *Cada vista incluye:* enlace a imagen en `assets/`, layout estructural en arte ASCII y desglose de interacciones.
+4. **Matriz de Control de Acceso (RBAC):** Permisos cruzados entre roles (Propietario vs Admin Local vs Mozo vs Cocina vs Cajero).
+5. **Contratos de API Go y DTOs (`internal/domain/<modulo>/dto.go`):** Structs en Go tipados con UUID, enums y etiquetas de binding/JSON.
+6. **Catálogo de Endpoints REST:** Métodos HTTP, URIs, códigos de estado y catálogo de errores de negocio `AppError`.
+7. **Modelo Relacional PostgreSQL 16:** DDL de tablas, secuencias, constraints de consistencia, índices de optimización y políticas RLS (`app.current_local_id`).
+8. **Checklist de Accesibilidad WCAG 2.1 AA:** Contrastes medidos, navegación completa por teclado, atributos semánticos ARIA y live regions.
+
+---
+
+## 4. Pipeline de Generación de Wireframes Blueprint
+
+Para garantizar wireframes vectoriales pixel-perfect con tipografía Segoe UI exacta, sin distorsiones ni dependencia de cuotas de APIs externas, se utiliza el motor automatizado con **Microsoft Edge Headless** y **Pillow (PIL)**:
+
+```python
+# Flujo ejecutado desde python en la máquina local:
+# 1. Se define la plantilla HTML con COMMON_CSS (Grayscale Blueprint: #0F172A, #F8FAFC, bordes #E2E8F0).
+# 2. Se toma captura de pantalla headless a 1440x900:
+#    msedge.exe --headless=new --disable-gpu --screenshot="assets/wf.png" --window-size=1440,900 "file:///ruta.html"
+# 3. Pillow convierte y optimiza la imagen a JPG calidad 95:
+#    Image.open("wf.png").convert("RGB").save("assets/wf.jpg", "JPEG", quality=95)
+```
+
+---
+
+## 5. Inventario de Casos de Uso Culminados
+
+La bitácora histórica detallada de todas las decisiones, esquemas y capturas se encuentra en [`context/walkthrough.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/walkthrough.md).
+
+| Caso de Uso | Módulo / Pantalla | Estado | Directorio de Especificación |
+| :--- | :--- | :---: | :--- |
+| **`CU-PROP-01`** | Registro de empresa y autoservicio | ✅ Completado | `wireframe/propietario/CU-PROP-01-registro-empresa/` |
+| **`CU-PROP-02`** | Gestión de suscripción y método de pago | ✅ Completado | `wireframe/propietario/CU-PROP-02-gestionar-suscripcion/` |
+| **`CU-PROP-03`** | Cambio de plan y límites SaaS | ✅ Completado | `wireframe/propietario/CU-PROP-03-cambiar-plan/` |
+| **`CU-PROP-04`** | Registrar y administrar locales | ✅ Completado | `wireframe/propietario/CU-PROP-04-administrar-locales/` |
+| **`CU-PROP-05`** | Crear y gestionar administradores de local | ✅ Completado | `wireframe/propietario/CU-PROP-05-administradores-local/` |
+| **`CU-PROP-09`** | Ver incidentes corporativos de la empresa | ✅ Completado | `wireframe/propietario/CU-PROP-09-incidentes-empresa/` |
+| **`CU-ADMIN-01`** | Gestión del plano de mesas de sede | ✅ Completado | `wireframe/administrador/CU-ADMIN-01-plano-mesas/` |
+| **`CU-ADMIN-02`** | Categorías de la carta | ✅ Completado | `wireframe/administrador/CU-ADMIN-02-categorias-carta/` |
+| **`CU-ADMIN-03`** | Productos y combos de la carta | ✅ Completado | `wireframe/administrador/CU-ADMIN-03-productos-carta/` |
+| **`CU-ADMIN-04`** | Personal operativo del local | ✅ Completado | `wireframe/administrador/CU-ADMIN-04-personal-local/` |
+| **`CU-ADMIN-05`** | Insumos y stock inicial | ✅ Completado | `wireframe/administrador/CU-ADMIN-05-insumos-stock/` |
+| **`CU-ADMIN-06`** | Proveedores de insumos | ✅ Completado | `wireframe/administrador/CU-ADMIN-06-proveedores/` |
+| **`CU-ADMIN-07`** | Ficha y recepción de compra | ✅ Completado | `wireframe/administrador/CU-ADMIN-07-recepcion-compra/` |
+| **`CU-ADMIN-08`** | Roles y permisos de sede | ✅ Completado | `wireframe/administrador/CU-ADMIN-08-personal-local/` |
+| **`CU-ADMIN-09`** | Horario de atención y feriados del local | ✅ Completado | `wireframe/administrador/CU-ADMIN-09-horario-atencion/` |
+| **`CU-ADMIN-10`** | Políticas y parámetros de reservas | ✅ Completado | `wireframe/administrador/CU-ADMIN-10-politicas-reservas/` |
+| **`CU-ADMIN-11`** | Historial de incidentes internos de sede | ✅ Completado | `wireframe/administrador/CU-ADMIN-11-incidentes-internos/` |
+| **`CU-ADMIN-17`** | Gestionar promociones del local | ✅ Completado | `wireframe/administrador/CU-ADMIN-17-gestionar-promociones/` |
+| **`CU-MOZO-01`** | Ver estado de mesas y centro de comandas en vivo | ✅ Completado | `wireframe/mozo/CU-MOZO-01-estado-mesas/` |
+| **`CU-MOZO-02`** | Tomar pedido y comanda móvil (unifica CU-MOZO-03 y 07) | ✅ Completado | `wireframe/mozo/CU-MOZO-02-tomar-pedido/` |
+| **`CU-MOZO-06`** | Anular pedido (o ítem de pedido) con motivo | ✅ Completado | `wireframe/mozo/CU-MOZO-06-anular-pedido/` |
+
+**Próximos Casos de Uso a Ejecutar:**
+👉 **`CU-MOZO-04: Unir o dividir mesas`** / **`CU-MOZO-05: Gestionar reservas`** (para culminar al 100% el rol Mozo en salón), o continuar con **`CU-ADMIN-12: Recibir notificación de anulación de pedido`** / **`CU-ADMIN-13: Ver reportes de ventas y desempeño`**.
+
