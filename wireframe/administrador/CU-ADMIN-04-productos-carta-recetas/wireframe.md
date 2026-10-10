@@ -140,6 +140,10 @@ sequenceDiagram
 |                                                                               |
 | +---------------------------------------------------------------------------+ |
 | | PLATO: Lomo Saltado Criollo | CATEGORÍA: Segundos Criollos | PRECIO: S/36 | |
+| |                                                                           | |
+| | DESTINO OPERATIVO / DESPACHO:                                             | |
+| | (●) Requiere preparación en cocina (KDS)  [Comidas, fondos, elaboración]  | |
+| | ( ) Despacho directo en salón / barra     [Gaseosas, bebidas embotelladas]| |
 | +---------------------------------------------------------------------------+ |
 |                                                                               |
 | RECETA DE COCINA (Insumos que descuenta al venderse)                          |
@@ -173,6 +177,9 @@ sequenceDiagram
 4. **Disponibilidad Inicial Inteligente:**
    - Si todos los insumos tienen stock > 0, nace `disponible`.
    - Si al menos un insumo tiene stock 0, nace automáticamente `agotado` con aviso visual para proteger la cocina.
+5. **Destino Operativo (`requiere_preparacion`):**
+   - **`true` (Default):** El producto se envía a los monitores KDS de Cocina (`CU-COCINA-01`) para su cocción.
+   - **`false`:** Producto de despacho directo por salón/mozo (gaseosas, aguas, cervezas en botella, snacks). No se despacha al KDS de cocina, evitando ruido visual en fogones y permitiendo al mozo servirlo de inmediato en mesa en `CU-MOZO-01`. Si descuenta insumo, descuenta 1 unidad directa sin exigir receta por porciones.
 
 ---
 
@@ -395,6 +402,7 @@ Alta atómica de plato y receta vinculada.
   "descripcion": "Lomo fino salteado al wok con papas fritas y arroz",
   "precio": 36.00,
   "foto_url": null,
+  "requiere_preparacion": true, // true: cocina KDS, false: despacho directo en salón (gaseosas, aguas)
   "receta": [
     {
       "insumo_id": "7b8f9e12-4c3a-4e2b-a8d1-9f2e3d4c5b6a", // Papa Yungay (saco)
@@ -425,6 +433,7 @@ Alta atómica de plato y receta vinculada.
     "precio": 36.00,
     "costo_teorico": 9.29,
     "margen_bruto_pct": 74.2,
+    "requiere_preparacion": true,
     "disponibilidad": "disponible",
     "mensaje": "Plato y receta registrados exitosamente. Disponible en comanda de mozos."
   },
