@@ -841,6 +841,397 @@ Modal asistido para el caso alternativo donde el plato ya fue entregado a los co
    - Si se anula un ítem y quedan otros activos en la comanda, la mesa permanece `ocupada` con el subtotal recalculado en vivo.
    - Si se anulan todos los ítems de la cuenta (o se ejecuta la anulación total de la mesa), la mesa pasa inmediatamente a `libre`, cancelando cualquier solicitud de cobro en caja (`CU-CAJA-02`).
 
+---
+
+## 41. Vistas Estructurales de CU-MOZO-04 (Unir o Dividir Mesas)
+
+### Vista 1: Salón con Mesas Unidas Activas y Quick-Drawer Unificado (`wf_mozo_04_salon_mesas_unidas.jpg`)
+Pantalla principal en tablet/desktop (`1440x900`) plenamente alineada con `CU-MOZO-01`. En el plano de salón (70%), la barra de herramientas se presenta limpia y enfocada en el servicio (`Salón Principal — Turno Almuerzo en Servicio`) sin sobrecarga de aforo. La Mesa 02 y Mesa 03 se exhiben conectadas mediante un marco perimetral continuo con el badge de enlace superior **`🔗 MESA [ 02 ; 03 ] • UNIFICADA (Capacidad: 👤 x 8)`**. La tarjeta titular muestra la permanencia (`⏱️ 28 min`), mozo titular (`Carlos M.`), subtotal consolidado (`S/ 216.00`) y platos listos (`🔔 1 LISTO`). En el Quick-Drawer lateral (30%, 440px), la comanda se despliega consolidada con la alerta informativa del grupo y el botón contextual **`[ ✂️ Desvincular / Separar Mesas ]`**.
+![Salón con Mesas Unidas Activas](wireframe/mozo/CU-MOZO-04-unir-dividir-mesas/assets/wf_mozo_04_salon_mesas_unidas.jpg)
+
+### Vista 2: Modal Interactivo con Mini-Mapa Espacial de Salón (720px)
+Diálogo modal táctil centrado que se abre al pulsar `[ 🔗 Unir Mesa ]`. Para maximizar la intuición y mejorar la UX sin fricción, incorpora un **Mini-Plano de Salón interactivo (cuadrícula de 5 columnas x 2 filas)** con la distribución física real del ambiente: destaca a `Mesa 02 ★` como titular, permite seleccionar la mesa adyacente (`Mesa 03 ✓`) con feedback visual directo, muestra mesas candidatas libres y bloquea mesas no elegibles (ocupadas, fijas o reservas). Incorpora la **Calculadora Proyectiva en Vivo**, que actualiza al instante la nueva identificación **`Mesa [ 02 ; 03 ]`** y la capacidad sumada (**`👤 x 8 comensales`**).
+![Modal Interactivo de Selección](wireframe/mozo/CU-MOZO-04-unir-dividir-mesas/assets/wf_mozo_04_modal_unir_mesas.jpg)
+
+### Vista 3: Modal de Separación / Desvinculación de Mesas (540px)
+Modal de separación para mesas desocupadas o recién cobradas en Caja. Certifica que la comanda fue liquidada (`Boleta B001-00248`), detallando que cada mesa retornará a su estado individual independiente (`LIBRE`) con su capacidad original recuperada (Mesa 02: 4 personas, Mesa 03: 4 personas) sin generar registros residuales.
+![Modal de Separación de Mesas](wireframe/mozo/CU-MOZO-04-unir-dividir-mesas/assets/wf_mozo_04_modal_dividir_mesas.jpg)
+
+### Vista 4: Diálogo de Bloqueo Asistido por Consumo Activo (560px)
+Alerta de seguridad operativa que intercepta intentos indebidos de división cuando aún hay comida o cuentas pendientes (`HTTP 409 Conflict`). Explica con claridad que `Mesa [ 02 ; 03 ]` tiene 5 platos activos (S/ 216.00) y ofrece dos salidas asistidas en 1 solo toque: `[ 🧾 Solicitar Cuenta a Caja (CU-CAJA-02) ]` para liquidar la cuenta, o `[ ⚠️ Anular Comanda si los clientes se retiraron (CU-MOZO-06) ]` para anulación auditada y liberación inmediata.
+![Diálogo de Bloqueo Asistido](wireframe/mozo/CU-MOZO-04-unir-dividir-mesas/assets/wf_mozo_04_bloqueo_validacion.jpg)
+
+---
+
+## 42. Reglas de Negocio, Nomenclatura Oficial, Cero Sobreingeniería y Guía Asistida (`CU-MOZO-04`)
+
+1. **Disponibilidad Universal (Todos los Planes SaaS):**
+   - La unión física de mesas está disponible de forma universal en los planes **Starter, Pro y Enterprise**. Se eliminó cualquier paywall artificial, garantizando que todo restaurante pueda atender grupos numerosos sin fricción.
+2. **Nomenclatura Oficial Estandarizada `Mesa [ 02 ; 03 ]`:**
+   - La sintaxis de corchetes con separador punto y coma se estandariza en todo el ecosistema: en el plano de salón (`CU-MOZO-01`), comanda del mozo (`CU-MOZO-02`), monitor KDS de Cocina (`CU-COCINA-01`) y punto de cobro en Caja (`CU-CAJA-02` y `CU-CAJA-03`).
+3. **Cero Sobresaturación en Salón (`CU-MOZO-01`):**
+   - La grilla del salón se mantiene 100% limpia en reposo. No existen botones invasivos por celda; la unión se dispara desde el Quick-Drawer al tocar la mesa titular o desde un modal táctil ágil.
+   - Al unirse, las mesas muestran un marco perimetral continuo con badge superior, permitiendo abrir la cuenta tocando cualquiera de las mesas del grupo.
+4. **Modelo Relacional sin Sobreingeniería en PostgreSQL 16:**
+   - Se implementó una autorreferencia directa `mesa.mesa_principal_id UUID NULL REFERENCES mesa(id) ON DELETE SET NULL` respaldada por la restricción `chk_mesa_no_auto_referencia` y el índice parcial `idx_mesa_uniones`.
+   - Se prescinde de tablas intermedias redundantes (`mesa_grupo`), logrando consultas sub-milisegundo (< 1ms).
+5. **División de Mesas vs División de Cuentas:**
+   - `CU-MOZO-04` gestiona la separación física de las mesas en el salón (permitida cuando están desocupadas).
+   - La división de cuentas entre comensales (cuentas separadas, pagar por partes) le corresponde al Cajero en `CU-CAJA-04`.
+6. **Bloqueo Asistido vs Errores Secos (UX de Servicio):**
+   - El sistema no arroja un error 409 genérico al intentar dividir una mesa con comida; le ofrece al mozo en 1 toque ir a pedir la cuenta a Caja o proceder a la anulación si la mesa se marchó, erradicando confusiones en horas punta.
+
+---
+
+## 43. Vistas Estructurales de CU-MOZO-05 (Gestionar Reservas y Recepción en Salón)
+
+### Vista 1: Bandeja Central y Centro de Mando de Reservas de Salón (`wf_mozo_05_bandeja_reservas.jpg`)
+Pantalla principal en tablet/desktop (`1440x900` / `1024x768`) para supervisión y recepción en sala. Dispone de un selector de fecha dinámico `[ < Hoy, 09 Octubre 2026 > ]` con conmutador de turno (`Almuerzo` / `Cena`) y métricas ejecutivas con terminología intuitiva en español (*Reservas de Hoy: 8*, *Próximas en 1 h: 2*, *Atendidas: 4*, *Inasistencias del Día: 1*). La tabla cronológica exhibe la hora pactada, badge de cuenta regresiva en vivo (`⏱️ En 20 min`), nombre del comensal, teléfono con enlace directo a WhatsApp, comensales, mesa(s) asignada(s) (con soporte para combinaciones `Mesa [ 02 ; 03 ]`), estado operativo y accesos táctiles directos (`[ Sentar ]`, `[ Ficha ]`, `[ WhatsApp ]`). Incluye el botón primario táctil `[ + Nueva Reserva ]` (48px).
+![Bandeja Central de Reservas](wireframe/mozo/CU-MOZO-05-gestionar-reservas/assets/wf_mozo_05_bandeja_reservas.jpg)
+
+### Vista 2: Modal Interactivo de Nueva Reserva con Mini-Mapa de Salón (760px)
+Modal ergonómico para agendar reservas en 3 pasos touch-first:
+1. **Parámetros del Turno:** Selector rápido de fecha (`Hoy`, `Mañana`), franjas horarias táctiles (`13:00`, `13:30`, `14:00`, `14:30`, `15:00`, `20:00`) y stepper numérico de comensales (`[ - ] [ 4 ] [ + ]`).
+2. **Mini-Mapa Espacial de Salón (5x2):** Reproduce la distribución física real del Salón Principal. Resalta en vivo las mesas libres con capacidad suficiente, atenúa las mesas ocupadas en esa franja horaria (`Ocupada 13:30-15:00`) y permite marcar combinaciones contiguas con `permite_union = true`. La mesa elegida (`M-08`) se resalta en azul con el badge **`[✓ SELECCIONADA]`**.
+3. **Ficha del Comensal:** Nombre completo (`Fam. Gómez`), teléfono móvil (+51) y notas especiales opcionales (*"Viene con niño, requiere silla alta"*).
+Al pulsar `[ 📅 Confirmar y Asignar Mesa ]`, la cita queda guardada con su mesa fijada desde el origen.
+![Modal Nueva Reserva con Mini-Mapa](wireframe/mozo/CU-MOZO-05-gestionar-reservas/assets/wf_mozo_05_modal_nueva_reserva.jpg)
+
+### Vista 3: Modal de Ficha de Reserva, Recepción y Tolerancia por Inasistencia (560px)
+Modal de inspección táctil que se abre al tocar una fila de la bandeja o una mesa bloqueada en el salón. Muestra la ficha del cliente, número de personas, mesa asignada y el **Reloj de Cortesía en Vivo**:
+- Informa: *"Hora pactada: 14:00 • Espera de cortesía: 15 min (hasta 14:15)"*.
+- Si se encuentra en tolerancia: muestra el aviso *"En ventana de cortesía de espera (faltan X min)"*.
+- Si supera los 15 minutos de retraso: conmuta a *"Tolerancia expirada (16 min de retraso)"* y habilita en rojo el botón contextual **`[ ⚠️ Cliente No Se Presentó / Liberar Mesa ]`**.
+- Acciones en 1 toque: `[ ✓ Sentar Comensales y Abrir Pedido (CU-MOZO-02) ]`, `[ ⚠️ Cliente No Se Presentó / Liberar Mesa ]`, `[ 💬 Enviar WhatsApp de Recordatorio ]` y `[ ✕ Cancelar Reserva ]`.
+![Ficha de Reserva y Recepción](wireframe/mozo/CU-MOZO-05-gestionar-reservas/assets/wf_mozo_05_modal_detalle_recepcion.jpg)
+
+### Vista 4: Estados de Frontera — Forzar Sobreasignación y Paywall Starter (Modales 540px)
+Composición dual que documenta los casos de borde:
+- **Panel Izquierdo (Sobreasignación Preventiva):** Se activa cuando un mozo intenta sentar comensales espontáneos en una mesa con reserva inminente (< 30 min). Alerta del riesgo y brinda alternativas asistidas: `[ Reasignar Reserva a Mesa 05 y Continuar ]`, `[ Ocupar Solo para Consumo Rápido (< 20 min) ]` o `[ Cancelar y Elegir Otra Mesa Libre ]`.
+- **Panel Derecho (Paywall Didáctico Plan Starter):** Despliega un diálogo informativo claro para locales en plan Starter (`plan.incluye_reservas = false`), explicando que las reservas y el bloqueo espacial están reservados para planes Pro y Enterprise, guiando al operador a contactar al propietario sin frustrar la experiencia.
+![Estados de Frontera y Paywall](wireframe/mozo/CU-MOZO-05-gestionar-reservas/assets/wf_mozo_05_estados_excepcion.jpg)
+
+---
+
+## 44. Reglas de Negocio, Exclusividad SaaS Pro/Enterprise, Bloqueo Espacial y Cortesía No-Show (`CU-MOZO-05`)
+
+1. **Exclusividad Comercial y Políticas SaaS (`CU-PROP-03`):**
+   - El módulo de reservas está condicionado estrictamente al flag de suscripción `plan.incluye_reservas = true` (disponible únicamente para planes **Pro y Enterprise**).
+   - Los locales en plan Starter no quedan bloqueados con errores crudos: reciben el paywall didáctico asistido (Vista 4).
+2. **Asignación Espacial desde el Origen:**
+   - La reserva no se crea "en el aire" ni depende de algoritmos opacos. El operador visualiza la cuadrícula física del local en el Mini-Mapa y asigna la mesa física concreta desde el momento del registro.
+3. **Coexistencia con Clientes Casuales y Bloqueo Preventivo Automático:**
+   - Una mesa reservada para las 20:00 permanece en estado visual `libre` durante el servicio previo, permitiendo sentar comensales casuales de rotación rápida.
+   - Cuando el reloj del sistema alcanza los `minutos_bloqueo_previo` configurados por administración (ej. 30 minutos antes, a las 19:30), el backend conmuta la mesa a `bloqueada` en tiempo real vía SSE, proyectando el borde ámbar punteado en todos los dispositivos de sala.
+4. **Ventana de Cortesía y Terminología Intuitiva para Inasistencias (No-Show):**
+   - En base de datos y contratos de API se utiliza de forma estándar el enum `no_show`.
+   - A nivel de UI/UX, para maximizar la adopción y comprensión del personal de salón, la interfaz utiliza terminología diáfana en español: badge `[ INASISTENCIA ]`, KPI `Inasistencias del Día` y botón contextual `[ ⚠️ Cliente No Se Presentó / Liberar Mesa ]`.
+   - El sistema impide registrar la inasistencia antes de cumplirse los `tolerancia_no_show_min` (ej. 15 minutos), evitando liberaciones prematuras injustas.
+5. **Transición Atómica al Sentar Comensales (`CU-MOZO-02`):**
+   - Al pulsar `[ ✓ Sentar Comensales y Abrir Pedido ]`, el sistema conmuta la reserva a `atendida`, la mesa a `ocupada`, crea el pedido en borrador y redirige al mozo de inmediato a la comanda interactiva, erradicando pasos dobles.
+6. **Soporte Nativo de Mesas Agrupadas (`CU-MOZO-04`):**
+   - Si la reserva supera la capacidad de una mesa individual, el mozo puede seleccionar mesas contiguas con `permite_union = true`, agendando y bloqueando la combinación bajo la etiqueta oficial **`Mesa [ 02 ; 03 ]`**.
+
+---
+
+## 45. Vistas Estructurales de CU-ADMIN-12 (Recibir Notificación de Anulación de Pedido)
+
+### Vista 1: Bandeja Central de Control de Anulaciones y Auditoría de Sede (`wf_admin_12_bandeja_anulaciones.jpg`)
+Pantalla principal en tablet/desktop (`1440x900` / `1024x768`) para supervisión y auditoría en sede. Dispone de selector de fecha limpio `[ < Hoy, 09 Octubre 2026 > ]` con atajos rápidos (`Hoy`, `Ayer`, `7 Días`, `Calendario`) sin fragmentación de turnos. Exhibe KPIs consolidados del día (*Total Anulaciones: 5*, *Monto Acumulado: S/ 274.00*, *Con Merma Culinaria: 2 platos (S/ 28.50)*, *Mesas Afectadas: 3*), filtros rápidos por píldora (`[ Todas ]`, `[ ● Pendientes ]`, `[ Con Merma ]`, etc.), selector por mozo y tabla de auditoría con cronómetro de espera real (`⏱️ 25m`), semáforo de merma y estado de revisión. Incluye el **Toast Flotante en Tiempo Real** en la esquina superior derecha.
+![Bandeja Central de Anulaciones](wireframe/administrador/CU-ADMIN-12-notificacion-anulacion/assets/wf_admin_12_bandeja_anulaciones.jpg)
+
+### Vista 2: Modal de Inspección y Ficha de Auditoría de la Anulación (680px)
+Modal de alta fidelidad que se abre al pulsar una fila o el Toast. Desglosa:
+1. **Identificación:** Mesa de origen (`Mesa 04`), Comanda `#154`, Mozo titular y Usuario que ejecutó la anulación.
+2. **Trazabilidad Temporal de Auditoría:** Compara `pedido_created_at` (13:50:12) vs `anulado_at` (14:15:30), informando el tiempo transcurrido (`25 min 18 seg`) y el estado en que se encontraba el plato al corte (`En Preparación en Cocina`). Diagnóstica automáticamente: *"Demora confirmada: El plato excedió los 20 min de cocina caliente"*.
+3. **Motivo y Justificación Textual:** Categoría (`Demora en entrega`) y texto obligatorio redactado por el mozo (*"El comensal lleva esperando >25m y solicita retirar..."*).
+4. **Impacto Culinario y Merma:** Partida (Pase Caliente) y merma contable (`es_merma = false`, ingredientes detenidos a tiempo).
+Acciones directas: `[ ✓ Marcar como Revisado / Conforme ]` y `[ ⚠️ Escalar a Incidente Operativo (CU-ADMIN-11) ]`.
+![Ficha de Auditoría de Anulación](wireframe/administrador/CU-ADMIN-12-notificacion-anulacion/assets/wf_admin_12_modal_detalle_anulacion.jpg)
+
+### Vista 3: Dropdown de Campana de Notificaciones y Alerta Toast Flotante (390px)
+Muestra la interacción omnipresente en el portal administrativo mientras el supervisor opera en el plano de salón, inventario o reportes:
+- **Campana de Alertas (`[ 🔔 2 ]`):** Menú desplegable con 2 notificaciones no leídas de anulaciones recientes (con punto azul indicador y tiempos relativos *"Hace 3 min"*), alerta de stock mínimo y enlace a la bandeja completa.
+- **Toast Reactivo en Vivo:** Demuestra la captura acústica y visual en < 30ms cuando ocurre un corte en salón.
+![Campana de Notificaciones y Toast](wireframe/administrador/CU-ADMIN-12-notificacion-anulacion/assets/wf_admin_12_dropdown_campana_toast.jpg)
+
+### Vista 4: Estados de Excepción — Diálogo de Escalamiento a Incidente y Estado Vacío Positivo (540px)
+Composición dual:
+- **Panel Izquierdo (Modal de Escalamiento 540px):** Formulario de transferencia asistida hacia `CU-ADMIN-11` cuando se detecta queja severa, agresión o merma cuantiosa. Prellena título, categoría (`Rotura / Merma Culinaria`), gravedad (`Media`), mozo involucrado, plato e importe revocado, asociando `pedido_anulacion.incidente_id`.
+- **Panel Derecho (Tarjeta de Estado Vacío 540px):** Celebra la excelencia operativa cuando no hay cancelaciones en el día: *"Cero Anulaciones Registradas Hoy. 100% Eficiencia Operativa en Salón, 48 Comandas Despachadas con Éxito y S/ 0.00 en Pérdidas por Merma"*.
+![Estados de Excepción y Vacío](wireframe/administrador/CU-ADMIN-12-notificacion-anulacion/assets/wf_admin_12_escalamiento_y_vacio.jpg)
+
+---
+
+## 46. Reglas de Negocio, Tabla Especializada `pedido_anulacion`, Trazabilidad Temporal y Escalamiento (`CU-ADMIN-12`)
+
+1. **Tabla Especializada `pedido_anulacion` vs. Sobrecarga de Entidades Vivas:**
+   - Para no degradar la velocidad de la tabla caliente de salón (`pedido_item`), se desacoplaron las 8 columnas de auditoría gerencial en la tabla dedicada `pedido_anulacion`.
+   - `pedido_item` solo conmuta a `estado = 'anulado'`, mientras que `pedido_anulacion` congela el contexto, precios, justificación y marcas temporales.
+2. **Cálculo Objetivo de Tiempos de Espera:**
+   - La plataforma no depende de la percepción subjetiva del mozo o cliente. Contrasta `pedido_created_at` (inserción de comanda en `CU-MOZO-02`) contra `anulado_at` (corte en `CU-MOZO-06`), calculando fáticamente `minutos_espera` para evaluar si existió demora culinaria imputable al restaurante.
+3. **Control Antifraude y Acuse Administrativo:**
+   - Los mozos tienen autonomía para anular sin clave gerencial para no atrasar la cocina, pero el administrador debe visar cada novedad mediante `[ ✓ Marcar como Revisado ]` (`revisado = true`, `revisado_por`, `revisado_at`).
+4. **Puente Natural con Incidentes Internos (`CU-ADMIN-11`):**
+   - Una anulación no queda aislada: si involucra merma reiterada o sospecha de fraude, el sistema permite escalarla en 1 clic a un expediente formal correlativo (`INC-YYYY-###`), alertando al propietario en `CU-PROP-09` si la gravedad es calificada como alta.
+5. **Base Sólida para Reportes Gerenciales (`CU-ADMIN-13`):**
+   - Al estar normalizada en `pedido_anulacion`, la generación de reportes mensuales de pérdidas por mermas y causas de anulación se ejecuta en < 2 milisegundos mediante índices compuestos por `(local_id, anulado_at)`.
+
+---
+
+## 47. Vistas Estructurales de CU-MOZO-07 (Atender Incidencia de Plato No Disponible y Resolver en Mesa)
+
+### Vista 1: Plano de Salón con Alerta de Quiebre de Cocina y Quick-Drawer (`wf_mozo_07_salon_alerta_quiebre.jpg`)
+Pantalla táctil para tablet de salón (`1440x900` / `1024x768`):
+- **Barra Reactiva Superior:** Emite toast contextual con badge de advertencia: *"⚠️ Incidencia en Cocina (CU-COCINA-04): Lomo Saltado Criollo AGOTADO • Mesa 04 requiere atención inmediata"* con botón táctil directo `[ Ver y Resolver en Mesa 04 ]`.
+- **Plano Espacial de Mesas (70%):** La tarjeta de `Mesa 04` se resalta en contorno de advertencia reforzado con la etiqueta **`[ ⚠️ QUIEBRE COCINA ]`** y la indicación: `1 Plato No Disponible • S/ 140.00`.
+- **Quick-Drawer Lateral de Mesa 04 (30% / 440px):** Exhibe en la parte superior el banner de acción prioritaria: *"⚠️ PLATO OBSERVADO POR COCINA — 1x Lomo Saltado Criollo (S/ 38.00) • Insumo agotado en cocina"*, ofreciendo los botones táctiles inmediatos:
+  - `[ 🔄 Sustituir Plato ]` (conduce a la selección asistida de carta).
+  - `[ ✕ Anular de Cuenta ]` (conduce al retiro sin costo del ítem).
+  - Listado de ítems regulares de la mesa (*1x Arroz con Pollo en preparación, 1x Causa servida, 2x Chicha servida*) y subtotal acumulado.
+![Plano de Salón con Alerta y Quick Drawer](wireframe/mozo/CU-MOZO-07-atender-plato-no-disponible/assets/wf_mozo_07_salon_alerta_quiebre.jpg)
+
+### Vista 2: Modal de Resolución Asistida Frente al Cliente — Sustituir vs. Anular (620px)
+Modal de diálogo asistido que se activa al pulsar sobre la alerta. Orienta al mozo sobre cómo proceder con empatía ante el comensal:
+1. **Cabecera Contextual:** Identifica Mesa 04, Mozo a cargo (Carlos Mendoza) y la causa: *"Cocina marcó Lomo Saltado Criollo como 'Agotado' por quiebre de stock en insumo clave"*.
+2. **Tarjeta de Alternativa A (Sugerida): `[ 🔄 Sustituir por Otro Plato de la Carta ]`**: Permite al comensal elegir otra opción gastronómica disponible. Se calcula la diferencia de precio y se envía la comanda de reemplazo a cocina sin cancelar la ronda.
+3. **Tarjeta de Alternativa B: `[ ✕ Retirar de la Cuenta y Anular Sin Costo ]`**: Retira el ítem de la comanda de la mesa, descuenta su importe íntegro (S/ 38.00), genera la auditoría obligatoria en `pedido_anulacion` (`es_merma = false`) y notifica al Administrador en `CU-ADMIN-12`.
+4. Botón de pie: `[ Posponer y Continuar Ronda ]`.
+![Modal de Resolución Asistida](wireframe/mozo/CU-MOZO-07-atender-plato-no-disponible/assets/wf_mozo_07_modal_resolucion_incidencia.jpg)
+
+### Vista 3: Modal de Sustitución Universal con Búsqueda en Toda la Carta y 6 Sugerencias Directas (760px)
+Modal táctil de 760px que responde al feedback de salón con navegación universal:
+- **Navegación Superior con Retorno Seguro:** Botón táctil `[ ← Volver a Opciones ]` en la cabecera para regresar al diálogo de decisión sin pérdida de contexto si el cliente no desea ver opciones alternativas.
+- **Buscador en Toda la Carta:** Input de búsqueda libre `[ 🔍 Buscar por nombre en toda la carta (ej. Ceviche, Chaufa, Fettuccine)... ]` para comensales que desean cambiar de categoría culinaria.
+- **Barra de Chips de Categorías:** Pestaña inicial `[ ⭐ 6 Sugerencias Directas ]` activa por defecto, más chips de familias gastronómicas (`Toda la Carta`, `Carnes & Brasas`, `Pescados & Mariscos`, `Criollos`, `Pastas`, `Bebidas`).
+- **6 Recomendaciones Directas en SQL Simple:** Cuadrícula de 6 tarjetas ordenadas por afinidad de categoría y cercanía matemática de precio (`ABS(precio - original)`):
+  - *Asado de Tira con Puré* — S/ 38.00 (`Mismo Precio S/ 0.00`).
+  - *Bife Angosto Criollo* — S/ 42.00 (`+ S/ 4.00 Dif.`).
+  - *Seco de Res con Frejoles* — S/ 38.00 (`Mismo Precio S/ 0.00`).
+  - *Ají de Gallina Clásico* — S/ 32.00 (`- S/ 6.00 A Favor`).
+  - *Fettuccine a la Huancaína* — S/ 36.00 (`- S/ 2.00 A Favor`).
+  - *Ceviche Mixto Tradicional* — S/ 42.00 (`+ S/ 4.00 Dif.`).
+- **Calculadora de Impacto en Comanda:** Refleja la variación exacta en la cuenta de mesa (`S/ 140.00 (Sin variación)`).
+- **Doble Vía de Decisión en Footer:**
+  - Izquierda: `[ ✕ Cliente Desiste: Anular Plato (S/ 0.00) ]` para saltar de inmediato a la anulación sin costo si el cliente decide no pedir ningún sustituto.
+  - Derecha: `[ ✓ Confirmar Sustitución y Enviar a Cocina ]` para despachar el reemplazo a KDS.
+![Modal de Sustitución de Carta](wireframe/mozo/CU-MOZO-07-atender-plato-no-disponible/assets/wf_mozo_07_modal_sustitucion_carta.jpg)
+
+### Vista 4: Modal de Confirmación de Retiro, Recálculo de Precuenta y Auditoría (580px)
+Modal de confirmación segura cuando el cliente no desea sustitución:
+- **Resumen Financiero:** Muestra el impacto en la comanda: *Subtotal Anterior S/ 140.00* $\rightarrow$ *Monto Deducido - S/ 38.00* $\rightarrow$ **Nuevo Subtotal de Mesa S/ 102.00**.
+- **Categoría de Auditoría Fija:** Congela la clasificación `quiebre_stock_cocina` y marca `es_merma = false` (sin costo para el cliente ni desperdicio cocinado).
+- **Detalle Textual Obligatorio:** Prellena o permite redactar la justificación de auditoría (*"Cliente no deseó sustitución ante quiebre de insumo en cocina"*).
+- **Advertencia Regulatoria:** Informa que la notificación se transmitirá al instante al Administrador del Local (`CU-ADMIN-12`) y al Cajero (`CU-CAJA-02`).
+- Botón de acción: `[ Confirmar Retiro del Plato y Recalcular Cuenta ]`.
+![Modal de Anulación por Quiebre](wireframe/mozo/CU-MOZO-07-atender-plato-no-disponible/assets/wf_mozo_07_anulacion_quiebre_cuenta.jpg)
+
+---
+
+## 48. Reglas de Negocio, Flujo Reactivo SSE, Sustitución de Carta y Conexión con `CU-COCINA-04` y `CU-ADMIN-12` (`CU-MOZO-07`)
+
+1. **Activación Reactiva en Tiempo Real vía Server-Sent Events (`CU-COCINA-04` $\rightarrow$ `CU-MOZO-07`):**
+   - Cuando el personal de cocina marca un producto como `agotado` en su monitor KDS (`CU-COCINA-04`), el backend conmuta atómicamente todos los pedidos pendientes que contienen ese ítem a `estado = 'no_disponible'`.
+   - Se emite de inmediato el evento SSE `plato_no_disponible` con payload `{ local_id, mesa_id, mesa_numero, producto_nombre, mozo_id }` capturado por la tablet del mozo en < 30ms, desplegando banner y badge en salón.
+2. **Autonomía y Empatía Operativa en Salón (Sin Clave Gerencial):**
+   - Para no hacer esperar al cliente en mesa mientras se busca a un supervisor, el mozo posee autonomía total para resolver la incidencia (sustituyendo o anulando) sin ingresar claves ni aprobaciones presenciales.
+3. **Algoritmo SQL Simple de 6 Recomendaciones por Defecto (Cero Sobreingeniería):**
+   - Sin inventar sistemas de estrellas, ratings o tiempos de cocción ficticios en base de datos.
+   - El sistema consulta estrictamente los platos activos del local con `disponibilidad = 'disponible'`, priorizando primero la misma categoría del plato quebrado (`(categoria_id = :cat_id) DESC`) y ordenando por **cercanía matemática de precio** (`ABS(precio - precio_original) ASC`) con `LIMIT 6`.
+   - Esto presenta de inmediato alternativas que respetan el presupuesto que el comensal ya estaba dispuesto a pagar.
+4. **Búsqueda Universal en Toda la Carta:**
+   - Si el cliente no desea platos de la misma categoría o sugerencias predeterminadas, el mozo puede buscar libremente por texto (`LOWER(nombre) LIKE %q%`) o filtrar por chips de cualquier categoría del restaurante.
+   - Solo se exhiben productos con stock garantizado en cocina.
+5. **Doble Vía de Retorno y Desistimiento sin Fricción:**
+   - El mozo puede volver atrás en cualquier momento con `[ ← Volver a Opciones ]`.
+   - Si el cliente decide no ordenar ningún sustituto tras revisar las opciones, el botón `[ ✕ Cliente Desiste: Anular Plato (S/ 0.00) ]` permite transicionar directamente al flujo de anulación sin costo, ahorrando clics en el salón.
+6. **Auditoría Inmutable en `pedido_anulacion` sin Merma Culinaria (`es_merma = false`):**
+   - Si el comensal opta por anular el plato, se genera un registro en la tabla especializada `pedido_anulacion` con `motivo_categoria = 'quiebre_stock_cocina'`, `estado_anterior = 'no_disponible'` y `es_merma = false` (dado que el plato nunca se preparó ni se consumieron insumos físicos).
+   - Se emite el evento SSE `notificacion_anulacion` hacia la campana y bandeja de `CU-ADMIN-12` para trazabilidad de compras y control gerencial.
+7. **Sincronización Inmediata con KDS y Precuenta en Caja (`CU-CAJA-02`):**
+   - Si se sustituye el plato, se emite una nueva orden directa a Cocina KDS con prioridad normal.
+   - En ambos casos (sustitución o anulación), el subtotal acumulado de la mesa se actualiza en tiempo real, garantizando que cuando el Cajero consulte la cuenta en `CU-CAJA-02`, el monto refleje con precisión matemática los consumos reales.
+8. **Cierre de Mesa si Queda sin Consumos:**
+   - Si el plato anulado era el único de la mesa, el sistema pregunta al mozo y libera la mesa a estado `libre` en el plano de salón.
+
+---
+
+## 49. Arquitectura de Despacho Directo vs. Cocina KDS y Actualización de CU-ADMIN-04, CU-MOZO-01 y CU-MOZO-02
+
+1. **Desacoplamiento Estricto de Almacén (`CU-ADMIN-03`) y Eficiencia Sub-milisegundo (< 0.5ms):**
+   - El atributo booleano **`requiere_preparacion`** se ubica directamente en la tabla `producto` (`ALTER TABLE producto ADD COLUMN requiere_preparacion BOOLEAN NOT NULL DEFAULT true`), desvinculando la lógica operativa del catálogo de insumos de almacén (`CU-ADMIN-03`).
+   - Gracias al índice parcial `CREATE INDEX idx_producto_requiere_prep ON producto(local_id, requiere_preparacion) WHERE activo = true;`, las pantallas de comandas móviles del Mozo y los monitores KDS de Cocina filtran directamente en memoria sin realizar costosos `JOIN` contra `producto_insumo` o `insumo`.
+
+2. **Gestión del Administrador en la Carta (`CU-ADMIN-04`):**
+   - En la ficha de alta/edición de productos, el administrador define en el Paso 1 el switch:
+     ```text
+     DESTINO OPERATIVO / DESPACHO:
+     (●) Requiere preparación en cocina (KDS)  [Comidas, fondos, platos elaborados]
+     ( ) Despacho directo en salón / barra     [Gaseosas, bebidas en botella, snacks]
+     ```
+   - Si selecciona *"Despacho directo"*, el producto no exige recetas complejas por porciones o rendimientos en el Paso 2; permite opcionalmente asociar 1 unidad directa de insumo de almacén (ej. 1 botella de gaseosa) para control estricto de mermas y existencias.
+
+3. **Split Transaccional Atómico en Comandas (`CU-MOZO-02`):**
+   - Al registrar la orden táctil, el ticket muestra la segmentación de ítems: `[ 🍳 Cocina KDS ]` vs. `[ 🥤 Despacho Directo / Salón ]`.
+   - Al despachar (`POST /api/v1/mozo/pedidos/enviar`):
+     - Ítems con `requiere_preparacion = true` nacen en `pedido_item.estado = 'en_cola'` y viajan vía SSE al monitor KDS (`CU-COCINA-01`).
+     - Ítems con `requiere_preparacion = false` nacen inmediatamente en `pedido_item.estado = 'listo'`, omitiéndose del KDS para erradicar ruido innecesario en fogones.
+
+4. **Operación Inmediata en Salón (`CU-MOZO-01`):**
+   - En la **Vista 1 (Barra Lateral 390px)**, el mozo visualiza el bloque prioritario `🥤 BEBIDAS & DESPACHO DIRECTO (LISTO)` con botón `[ ✓ Marcar Servido ]` que conmuta a `entregado` al instante de entregar la bebida en mesa.
+   - En la **Vista 2 (Quick-Drawer de Inspección 440px)**, los consumos de la mesa se exhiben clasificados en `-- PLATOS EN COCINA KDS --` y `-- BEBIDAS Y DESPACHO DIRECTO SALÓN --`, garantizando trazabilidad integral de tiempos y servicio.
+
+---
+
+## 50. Vistas Estructurales y Parámetros Operativos de Cocina y KDS (`CU-ADMIN-18`)
+
+### Vista 1: Panel de Configuración de KDS y Simulador del Semáforo en Tiempo Real (`wf_admin_18_configuracion_kds.jpg`)
+Pantalla de escritorio (`1440x900`):
+- **Panel Izquierdo (50%): Formulario de Parámetros Operativos de Sede:**
+  - Steppers numéricos táctiles para calibrar el **Tiempo Óptimo Verde** (`tiempo_optimo_verde_min`, default 15 min), el **Tiempo de Alerta Ámbar** (`tiempo_alerta_ambar_min`, default 25 min) y la **Tolerancia en Pase Caliente de Salón** (`tiempo_maximo_pase_min`, default 3 min para `CU-MOZO-01`).
+  - Interruptores interactivos para timbres de comanda nueva y alarmas repetitivas periódicas para comandas en rojo crítico (`intervalo_sonido_rojo_seg = 60s`).
+  - Selector de vista de inicio del monitor: `Comandas FIFO por Mesa` vs `Consolidado All-Day de Producción`.
+  - Botón de restauración a valores estándar de la industria gastronómica en un solo clic.
+- **Panel Derecho (50%): Previsualizador del Semáforo KDS en Vivo:**
+  - Renderizado con el tema visual oscuro de cocina (`#1E293B`) que muestra dinámicamente 3 tarjetas de comanda simuladas:
+    - *Mesa 04 (10 min):* `[ 🟢 ESTADO ÓPTIMO ]` con cronómetro verde.
+    - *Mesa 01 (19 min):* `[ 🟡 ADVERTENCIA DEMORA ]` con notas de preparación y cronómetro ámbar.
+    - *Mesa 07 (28 min):* `[ 🔴 CRÍTICO / PRIORIDAD ]` con cronómetro rojo y alerta acústica.
+  - Al tipear o mover los minutos en el formulario, las tarjetas de prueba mutan instantáneamente, permitiendo al administrador previsualizar los efectos antes de guardar.
+- **Sincronización Reactiva SSE:** Al presionar `[ ✓ Guardar Parámetros de KDS ]`, el backend persiste en `configuracion_kds` y emite el evento SSE `configuracion_kds_actualizada`, actualizando los monitores KDS (`CU-COCINA-01`) y tablets de mozos (`CU-MOZO-01`) en menos de 30 milisegundos sin refresco manual.
+
+---
+
+## 51. Vistas Estructurales y Operación del Kitchen Display System (KDS) de Cocina (`CU-COCINA-01`)
+
+### Vista 1: Tablero KDS de Comandas en Vivo (`wf_cocina_01_tablero_kds_comandas.jpg`)
+Pantalla táctil KDS industrial en formato horizontal (`1440x900`):
+- **Cabecera KDS Oscura (`#0B1120`):** Reloj digital de alta precisión en tiempo real (`14:28:45`), indicador de latencia SSE `(•) KDS En Vivo (SSE)` y perfil del usuario (`Chef Roberto - Jefe Cocina`).
+- **Filtro de Partidas Culinarias:** Botonera superior táctil para filtrar estaciones: `[ Todas las Partidas (12) ]`, `[ 🍳 Calientes / Fogones (7) ]`, `[ 🐟 Fríos / Ceviches (3) ]` y `[ 🔥 Brasas / Horno (2) ]`.
+- **Selector de Modo de Visualización:** Permite conmutar con 1 toque entre `[ ⊞ Comandas FIFO (4) ]` y `[ ☰ Consolidado All-Day ]`.
+- **Barra de Métricas de Cocina y Umbrales Activos:** Informa `Comandas Activas: 4`, `Platos en Cocina: 12`, `En Fuego: 7`, `En Cola: 3`, `Listos en Pase: 2` y los umbrales dinámicos calibrados en `CU-ADMIN-18` (`🟢 <= 15m`, `🟡 16-25m`, `🔴 > 25m`).
+- **Rejilla Columnar FIFO con Semáforo Cromático Dinámico:**
+  - **Columna 1 (Estado Óptimo - Verde):** *Mesa 04 (Salón)* • Mozo: Carlos M. • 4 comensales • Ronda 1 • `⏱️ 08:30 min`. Platos en preparación (`2x Lomo Saltado`) con botón naranja `[ 🔥 En Fuego ]` y platos listos (`1x Causa Limeña`) con botón `[ Deshacer ]` en 30s. Chip de pie: `[ 🥤 2 Bebidas salón (atendidas por mozo) ]`.
+  - **Columna 2 (Advertencia de Demora - Ámbar):** *Mesa 01 (Terraza)* • Mozo: Ana P. • 2 comensales • Ronda 1 • `⏱️ 18:45 min`. Ceviche con notas resaltadas (`⚠️ Sin ají para el ceviche • Hielo aparte`) y botón `[ ✓ Marcar Listo ]`. Chip de pie: `[ 🥤 1 Bebida salón ]`.
+  - **Columna 3 (Mesas Agrupadas - Ámbar):** `🔗 Mesa [ 02 ; 03 ]` • Mozo: Carlos M. • 8 comensales • `Ronda 2 Adicionales` • `⏱️ 21:10 min` (`GRUPO UNIDO`). Platos coordinados (`3x 1/2 Pollo a la Brasa`, `1x Tequeños Criollos`). Chip de pie: `[ 🥤 4 Bebidas salón ]`.
+  - **Columna 4 (Crítico Demorado - Rojo):** *Mesa 07 (Salón)* • Mozo: Carlos M. • 3 comensales • `PRIORIDAD 1` • `⏱️ 28:50 min` (`CRÍTICO DEMORADO > 25m`). Banner de advertencia `🚨 REQUERIDO FOGÓN INMEDIATO`, botón de urgencia `[ ✓ Listo Urgente ]` y acción masiva `[ 🚨 Despachar Todo y Notificar Mozo ]`.
+
+### Vista 2: Modal de Detalle Ampliado de Comanda (`wf_cocina_01_modal_detalle_comanda.jpg`)
+Diálogo táctil modal centrado (`680px`):
+- **Encabezado y Metadatos:** Identifica `Comanda #149 • MESA 04`, Salón Principal, Ronda 1, Mozo Carlos Mendoza, 4 comensales, hora de envío (`14:20:15 - Hace 8m`), y estado global. Badge de tiempo en cabecera: `⏱️ 08:30 min (Óptimo <= 15m)`.
+- **Desglose Técnico de Platos con Receta:**
+  - Platos culinarios con estado en vivo (`EN FUEGO (6 min)`).
+  - Caja de notas en crema claro (`#FEF3C7`) destacando términos y alérgenos: `Término 3/4 • Una porción sin cebolla (comensal alérgico)`.
+  - Trazabilidad de receta culinaria (`CU-ADMIN-04`): descuento de insumos en bodega (`0.400 kg Carne Lomo Fino`, `0.014 sacos Papa Yungay`, `0.004 bidones Aceite Vegetal`).
+  - Metadatos de estación: Partida (Fogones), Cocción (Wok / Fuego Alto), Pase (Caliente #01).
+- **Caja Informativa de Salón (`requiere_preparacion = false`):** Detalla que `2x Inka Kola 500ml Heladas` fueron despachadas directamente por el Mozo y ya cuentan con el badge `[ ✓ SERVIDO EN MESA ]`.
+- **Acciones Táctiles:** `[ ← Volver al Tablero KDS ]` y `[ ✓ Despachar Todo al Pase de Salón ]` para liberación masiva.
+
+### Vista 3: Alerta Reactiva de Parada de Fogones (`wf_cocina_01_alerta_anulacion_kds.jpg`)
+Modal urgente de alta visibilidad (`620px`) con borde rojo brillante y efecto glow pulsante:
+- **Disparo Reactivo SSE (< 30ms):** Captura el evento `item_pedido_anulado` emitido cuando salón anula un plato por demora o quiebre (`CU-MOZO-06` / `CU-MOZO-07`).
+- **Plato y Mesa Involucrada:** Despliega el ítem tachado `~~1x Lomo Saltado Criollo~~` con badge `[ ANULADO ]`, Mesa 04, Mozo Carlos Mendoza y tiempo transcurrido (25 min).
+- **Motivo Operativo de Salón:** Caja explicativa: `⚠️ Causa reportada por Salón: Demora excesiva en entrega. Comensal desistió del plato.`
+- **Directriz de Prevención de Merma:** Instrucción obligatoria: *"Detener inmediatamente la cocción en wok o sartén. No emplatar para evitar merma de insumos físicos no cocinados (es_merma = false)"*.
+- **Desbloqueo Táctil:** Botón grande `[ ✓ Entendido / Retirar Plato de la Comanda ]` para silenciar la alarma y retirar el plato del tablero.
+
+### Vista 4: Consolidado de Producción en Vivo ("All-Day Summary" - `wf_cocina_01_consolidado_produccion_all_day.jpg`)
+Pantalla general de acumulación de fuegos (`1440x900`):
+- **Barra Superior de Control Global:** Suma `12 Raciones Pendientes`, `7 En Fuego / Sartenes`, `5 En Cola de Fuego`, `4 Mesas Involucradas`.
+- **Organización por Estaciones Físicas de Cocina:**
+  - **Partida 1: Fogones & Criollos (6 raciones):** Acumula `4x Lomo Saltado Criollo` (Mesa 04 [2x], Mesa 07 [2x crítico]) y `2x Bife Angosto Criollo` (Mesa 07 [2x crítico]).
+  - **Partida 2: Brasas & Horno (4 raciones):** Acumula `3x 1/2 Pollo a la Brasa` (Mesa [ 02 ; 03 ] [3x grupo]) y `1x Pastel de Choclo Criollo` (Mesa 07 [1x]).
+  - **Partida 3: Fríos & Entradas (2 raciones):** Acumula `1x Ceviche Mixto Tradicional` (Mesa 01 [1x]) y `1x Porción Tequeños Criollos` (Mesa [ 02 ; 03 ] [1x]).
+- **Optimización Energética y Velocidad:** Permite a los cocineros saltear o cocinar por tandas masivas, optimizando la capacidad de fuego de los fogones y reduciendo drásticamente los tiempos globales de espera del restaurante.
+
+---
+
+## 52. Vistas Estructurales y Actualización de Estado de Preparación en Cocina (`CU-COCINA-02`)
+
+### Vista 1: Interacción de Pase y Estados en el Tablero de Cocina (`wf_cocina_02_pase_estados_kds.jpg`)
+Tablero táctil de cocina industrial (`1440x900`) con lenguaje directo y cotidiano:
+- **Poner en Fuego / En Marcha:** Botón gris `[ 🔥 Poner en Fuego ]` cuando el plato está en cola; al tocarlo, se asienta `fecha_inicio_coccion = NOW()` y muta a botón naranja `#EA580C` `[ 🔥 En Fuego (MM:SS) ]` con timer en segundos.
+- **Listo en Pase:** Botón verde esmeralda `[ ✓ Listo en Pase ]` que transiciona el plato a terminado, descuenta insumos de bodega según receta (`CU-COCINA-03`) y alerta vía SSE a sala.
+- **Mecanismo Anti-Error (Deshacer 30s):** Contador regresivo visible `[ ↺ Deshacer (24s) ]`. Al tocarlo, revierte la orden a preparación y ejecuta el **rollback atómico de insumos** hacia el inventario.
+- **Despacho Completo:** Botón verde al pie del ticket `[ ✓ Despachar Pedido Completo ]` para liberar la orden cuando todos los platos están servidos.
+- **Historial Accesible:** Botón ámbar en la cabecera `[ ⏱️ Pedidos Despachados (4) ]` informando cuántas órdenes han salido en los últimos 30 minutos.
+
+### Vista 2: Bandeja de Pedidos Despachados y Recuperación ("Devolver a Cocina" - `wf_cocina_02_historial_despachados_recall.jpg`)
+Modal superpuesto (`1120px` centrado) que previene extravíos de comandas:
+- **Búfer de Seguridad de 30 Minutos:** Almacena sin eliminar las comandas despachadas recientemente.
+- **Métricas del Turno:** Exhibe `Despachados Últimos 30 min: 6 Comandas`, `Tiempo Promedio Cocción: 11m 40s`, `Tiempo Promedio en Pase: 2m 15s`, `Total Turno Hoy: 42 Pedidos`.
+- **Botón "Devolver a Cocina":** Al presionar `[ ↺ Devolver a Cocina (Recuperar Comanda) ]`, la orden regresa al instante al tablero activo del KDS en su posición FIFO cronológica exacta, permitiendo resolver confusiones o añadir guarniciones faltantes sin tener que reabrir mesas en sala.
+
+### Vista 3: Preparación Masiva por Tandas en Consolidado All-Day (`wf_cocina_02_consolidado_accion_tandas.jpg`)
+Pantalla de acumulación táctil por estación (`1440x900`):
+- **Tandas en Fogones y Sartenes:** Tarjeta agrupada `Lomo Saltado Criollo (4x)` con botones `[ 🔥 Poner Todos en Fuego (4x) ]` y `[ ✓ 2x Listos en Pase ]`.
+- **Despacho FIFO Automático:** Al marcar raciones parciales, el backend asigna las primeras porciones a las mesas más antiguas en espera.
+- **Garantía Transaccional:** Cada porción despachada descuenta atómicamente sus ingredientes según la receta de `CU-ADMIN-04`.
+
+### Vista 4: Notificación Reactiva en Salón — Plato Listo en Pase Caliente (`wf_cocina_02_notificacion_pase_salon.jpg`)
+Pantalla de la tablet del Mozo (`CU-MOZO-01` Tablet Salón):
+- **Banner Flotante Inmediato (< 25ms):** *"🔔 ¡PLATO LISTO EN PASE CALIENTE! • MESA 04: 2x Lomo Saltado Criollo (Pase Caliente #01)"*.
+- **Cuenta Regresiva de Tolerancia:** Temporizador decreciente `⏱️ 02:40 restantes (Tolerancia Pase: 3 min)` sincronizado con `tiempo_maximo_pase_min` de `CU-ADMIN-18`.
+- **Plano de Mesas Reactivo:** La tarjeta de la Mesa 04 en el plano de salón parpadea con borde verde y badge `[ 🔔 ¡LISTO EN PASE! ]`.
+- **Cierre del Ciclo:** Botón `[ ✓ Recoger y Servir en Mesa ]` que conmuta el estado a `entregado`.
+
+---
+
+## 53. Arquitectura Transaccional y Descuento Automático de Insumos por Consumo (`CU-COCINA-03`)
+
+1. **Naturaleza Transaccional del Sistema (Cero Fricción en Fogones):**
+   - `CU-COCINA-03` opera como un proceso de backend automático que se dispara cuando el cocinero pulsa `[ ✓ Listo en Pase ]` en `CU-COCINA-02`.
+   - La deducción se computa en milisegundos multiplicando las raciones de la comanda por `producto_insumo.cantidad_descuenta` en la unidad de almacén limpia del insumo (`kg`, `saco`, `bidon`, etc.).
+2. **Política de Continuidad del Servicio (Prioridad Comensal):**
+   - Si el stock registrado en el sistema es inferior al consumo teórico (ej. compra física aún no ingresada en el sistema), **el servicio en cocina jamás se detiene**. El plato sale al pase caliente normalmente.
+   - La base de datos aplica `stock_actual = GREATEST(0, stock_actual - consumo)` respetando el constraint `CHECK (stock_actual >= 0)`.
+   - La discrepancia se asienta en `auditoria_stock_ajuste` con motivo `'inconsistencia_cocina'`.
+3. **Notificación Flotante Toast y Campana al Administrador (`wf_cocina_03_alerta_stock_toast.jpg`):**
+   - El sistema emite en tiempo real el evento SSE `alerta_stock_insuficiente` hacia el Portal del Administrador.
+   - En la esquina superior derecha se despliega un **Toast flotante** que detalla la comanda (#149), el plato (2x Lomo Saltado), el insumo afectado (Aceite Vegetal) y el faltante teórico (0.003 bidones), ofreciendo un botón directo `[ 📝 Registrar Compra / Ajuste ]` para regularización inmediata.
+   - La campana `[ 🔔 ]` conserva la notificación activa para trazabilidad en auditoría.
+4. **Cascada Automática a Carta Digital (`CU-COCINA-04`):**
+   - Cuando un insumo llega a 0, conmuta automáticamente a `'agotado'` y propaga `producto.disponibilidad = 'agotado'` a todos los platos que lo requieren, impidiendo nuevas órdenes en mozos y menú digital QR.
+5. **Rollback de Inventario ante Deshacer (Undo 30s):**
+   - Si el cocinero presiona `[ ↺ Deshacer ]` dentro de la ventana de 30 segundos de `CU-COCINA-02`, el sistema ejecuta una transacción atómica que repone exactamente las cantidades a `insumo.stock_actual` y restablece el estado a `'activo'`, garantizando cero descuadres contables en bodega.
+
+---
+
+## 54. Gestión Táctil de Quiebres y Disponibilidad de Carta en Cocina (`CU-COCINA-04`)
+
+### Vista 1: Modal Táctil de Disponibilidad de Platos (`wf_cocina_04_modal_disponibilidad_platos.jpg`)
+Modal táctil superpuesto sobre el KDS de cocina (`1440x900`), diseñado para operar con guantes o dedos húmedos:
+- **Acceso Directo en KDS:** Botón superior permanente `[ 🚫 GESTIÓN DE QUIEBRES / AGOTADOS (3) ]` con contador en vivo de platos fuera de servicio en la sede.
+- **Pestañas por Partidas Culinarias:** Botones táctiles generosos (`Todas`, `🔥 Brasas & Carnes`, `🍳 Salteados & Wok [2 apagados]`, `🐟 Pescados & Mariscos [1 apagado]`, `🍟 Entradas & Guarniciones`).
+- **Diferenciación de Origen de Quiebre:**
+  - **Apagado Manual en Cocina:** Badge `[ ⚠️ Apagado Manual en Cocina (Hace 12 min por Marco V.) ]` con botón verde `[ ↺ REACTIVAR A DISPONIBLE (Llegó Insumo) ]`.
+  - **Quiebre Automático por Stock Cero (`CU-COCINA-03`):** Badge `[ 🤖 Quiebre Automático por Stock: Insumo "Limón fresco" en 0 kg ]` con botón bloqueado `[ 🔒 Bloqueado por Stock Teórico ]` que exige registro de compras en almacén.
+- **Sincronización Ultrarrápida (< 30ms):** El cambio de estado se propaga vía SSE a todas las tablets de mozo y a la carta pública en código QR de inmediato.
+
+### Vista 2: Diálogo Táctil de Resolución de Órdenes en Fuego (`wf_cocina_04_dialogo_resolucion_ordenes_fuego.jpg`)
+Diálogo táctil de decisión culinaria ante quiebre con pedidos activos en curso:
+- **Separación Cero Fricción en Cola:** Las órdenes en cola (aún no iniciadas en fogones) se conmutan de forma 100% automática a `no_disponible`, ahorrando tiempo y esfuerzo cognitivo al chef.
+- **Resolución Parcial de Fuego Activo (Caso Crítico $K < N$):** Resuelve el problema donde hay 5 porciones en fuego y la mise en place solo alcanza para 2 platos.
+- **Selector Rápido Táctil FIFO:** Botones numéricos directos de 56px de alto `[ 0 ] [ 1 ] [ 2 ✓ Seleccionado ] [ 3 ] [ 4 ] [ 5 - Todas ]`. Al tocar `[ 2 ]`, el sistema preasigna las 2 porciones a las comandas más antiguas en espera.
+- **Desglose y Ajuste Fino Comanda por Comanda:** Lista táctil ordenada por antigüedad que muestra:
+  - `Mesa 04 (14 min espera)` $\rightarrow$ `[ ✓ SE PREPARA EN FUEGO (2 de 2) ]` (Mise en place reservada).
+  - `Mesa 07 (9 min espera)` $\rightarrow$ `[ 🚫 NO ALCANZA - AVISAR MOZO ]` (Alerta sonora reactiva a tablet de Carlos D. en `CU-MOZO-07`).
+  - `Mesa 01 (6 min espera)` $\rightarrow$ `[ 🚫 NO ALCANZA - AVISAR MOZO ]` (Alerta reactiva a tablet de Rosa P. en `CU-MOZO-07`).
+- **Trazabilidad y Alerta a Compras:** Selector de motivo y notificación Toast SSE instantánea al Administrador de sede para reposición urgente de insumos.
+
+---
+
+## 55. Consolidación del Módulo Cocina (KDS) y Enlace con Caja
+
+Con la culminación de `CU-COCINA-01`, `CU-COCINA-02`, `CU-COCINA-03`, `CU-COCINA-04` y la alerta reactiva de parada de fogones (`CU-COCINA-05` integrado en la Vista 3 de `CU-COCINA-01`), el ciclo operativo de cocina queda 100% cubierto:
+1. **Recepción:** Tablero KDS con 4 columnas FIFO y semáforo dinámico de sede (`CU-ADMIN-18`).
+2. **Preparación y Pase:** Poner en fuego, listo en pase, temporizador anti-error Deshacer (30s) con rollback de inventario, y recuperación de despachados (30 min).
+3. **Consumo Culinario:** Deducción atómica por receta, política de continuidad sin bloqueo de cocina y cascada a carta.
+4. **Quiebres y Pausas:** Gestión táctil de disponibilidad con resolución parcial de fuego (FIFO) y conexión con `CU-MOZO-07`.
+5. **Parada de Emergencia:** Alerta reactiva sonora ante anulaciones en sala (`CU-COCINA-05`).
+
+El sistema se encuentra listo para abordar el eslabón final de la cadena de valor: **El Módulo de Caja (`CU-CAJA-01` a `CU-CAJA-06`)**.
+
 
 
 

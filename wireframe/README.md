@@ -113,11 +113,31 @@ La bitácora histórica detallada de todas las decisiones, esquemas y capturas s
 | **`CU-ADMIN-09`** | Horario de atención y feriados del local | ✅ Completado | `wireframe/administrador/CU-ADMIN-09-horario-atencion/` |
 | **`CU-ADMIN-10`** | Políticas y parámetros de reservas | ✅ Completado | `wireframe/administrador/CU-ADMIN-10-politicas-reservas/` |
 | **`CU-ADMIN-11`** | Historial de incidentes internos de sede | ✅ Completado | `wireframe/administrador/CU-ADMIN-11-incidentes-internos/` |
+| **`CU-ADMIN-12`** | Recibir notificación de anulación de pedido y auditoría | ✅ Completado | `wireframe/administrador/CU-ADMIN-12-notificacion-anulacion/` |
 | **`CU-ADMIN-17`** | Gestionar promociones del local | ✅ Completado | `wireframe/administrador/CU-ADMIN-17-gestionar-promociones/` |
+| **`CU-ADMIN-18`** | Configurar parámetros operativos de comanda y tiempos de KDS | ✅ Completado | `wireframe/administrador/CU-ADMIN-18-configurar-parametros-kds/` |
 | **`CU-MOZO-01`** | Ver estado de mesas y centro de comandas en vivo | ✅ Completado | `wireframe/mozo/CU-MOZO-01-estado-mesas/` |
 | **`CU-MOZO-02`** | Tomar pedido y comanda móvil (unifica CU-MOZO-03 y 07) | ✅ Completado | `wireframe/mozo/CU-MOZO-02-tomar-pedido/` |
+| **`CU-MOZO-04`** | Unir o dividir mesas en salón | ✅ Completado | `wireframe/mozo/CU-MOZO-04-unir-dividir-mesas/` |
+| **`CU-MOZO-05`** | Gestionar reservas y recepción en salón | ✅ Completado | `wireframe/mozo/CU-MOZO-05-gestionar-reservas/` |
 | **`CU-MOZO-06`** | Anular pedido (o ítem de pedido) con motivo | ✅ Completado | `wireframe/mozo/CU-MOZO-06-anular-pedido/` |
+| **`CU-MOZO-07`** | Atender incidencia de plato no disponible y resolver en mesa | ✅ Completado | `wireframe/mozo/CU-MOZO-07-atender-plato-no-disponible/` |
+| **`CU-COCINA-01`** | Ver cola de pedidos entrantes (Kitchen Display System - KDS) | ✅ Completado | `wireframe/cocina/CU-COCINA-01-cola-pedidos-kds/` |
+| **`CU-COCINA-02`** | Actualizar estado de preparación (Pase Caliente, Deshacer y Despacho) | ✅ Completado | `wireframe/cocina/CU-COCINA-02-actualizar-estado-preparacion/` |
+| **`CU-COCINA-03`** | Descuento automático de insumos por consumo | ✅ Completado | `wireframe/cocina/CU-COCINA-03-descuento-automatico-insumos/` |
+| **`CU-COCINA-04`** | Marcar producto como agotado / disponible (Quiebres y Asignación FIFO) | ✅ Completado | `wireframe/cocina/CU-COCINA-04-marcar-producto-agotado/` |
+| **`CU-COCINA-05`** | Recibir notificación de anulación de pedido (Parada de Fogón en KDS) | ✅ Completado | `wireframe/cocina/CU-COCINA-01-cola-pedidos-kds/` (Vista 3) |
 
-**Próximos Casos de Uso a Ejecutar:**
-👉 **`CU-MOZO-04: Unir o dividir mesas`** / **`CU-MOZO-05: Gestionar reservas`** (para culminar al 100% el rol Mozo en salón), o continuar con **`CU-ADMIN-12: Recibir notificación de anulación de pedido`** / **`CU-ADMIN-13: Ver reportes de ventas y desempeño`**.
+> 🏆 **ROL MOZO 100% CULMINADO:** Todos los casos de uso del rol Mozo (`CU-MOZO-01` a `CU-MOZO-07`) se encuentran plenamente especificados con wireframes Blueprint, modelos relacionales, contratos Go y flujo reactivo SSE.
+> 
+> 👨‍🍳 **ROL COCINA 100% CULMINADO:** Todos los casos de uso del rol Cocina (`CU-COCINA-01`, `02`, `03`, `04` y `05`) se encuentran 100% terminados y sincronizados: KDS interactivo con semáforo dinámico de sede (`CU-ADMIN-18`), pase caliente táctil con timer y rollback de inventario al deshacer (30s), recuperación de tickets despachados (30m), deducción atómica de recetas sin bloqueo de servicio, gestión de quiebres con asignación FIFO justa para porciones parciales en fuego y alertas reactivas de parada.
+
+**Próximo Módulo a Ejecutar (Fase Final de la Operación Gastronómica):**
+👉 **`CU-CAJA-01: Apertura de turno de caja`** (Fondo inicial de efectivo, asignación de caja física y validación de turnos).
+
+
+
+
+
+
 

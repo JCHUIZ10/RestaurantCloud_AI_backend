@@ -89,41 +89,42 @@ A la fecha, se han completado y documentado con wireframes en alta fidelidad y c
 - `CU-ADMIN-09`: Horario de atención y feriados extraordinarios.
 - `CU-ADMIN-10`: Políticas y parámetros de reserva.
 - `CU-ADMIN-11`: Historial de incidentes internos de sede.
+- `CU-ADMIN-12`: Recibir notificación de anulación de pedido y auditoría de sala (Tabla especializada `pedido_anulacion`, alertas reactivas SSE con Toast y campana `[ 🔔 ]`, trazabilidad temporal fáctica `created_at` vs `anulado_at`, control de mermas, acuse de supervisión administrativa `revisado = true` y escalamiento directo a `CU-ADMIN-11`).
 - `CU-ADMIN-17`: Gestionar promociones del local (cálculo predictivo para caja, semántica NULL, plantilla de inauguración).
+- `CU-ADMIN-18`: Configurar parámetros operativos de comanda y tiempos de KDS (Tabla dedicada `configuracion_kds`, calibración con steppers táctiles de umbral verde óptimo, ámbar de advertencia y tolerancia en pase, simulador de semáforo interactivo en tiempo real y broadcast SSE reactivo a pantallas de cocina y salón en < 30ms).
 
-### 4.4 Rol Mozo en Salón (`wireframe/mozo/`)
+### 4.4 Rol Mozo en Salón (`wireframe/mozo/`) — 🏆 100% CULMINADO
 - `CU-MOZO-01`: Ver estado de mesas y centro de comandas en vivo (Workspace unificado 70% salón / 30% barra lateral KDS en tiempo real con SSE).
 - `CU-MOZO-02`: Tomar pedido y comanda móvil en salón (Unifica funcionalmente `CU-MOZO-03` y `CU-MOZO-07`; pantalla 65% catálogo / 35% ticket borrador, nota de cocina simplificada con soporte NULL, gestión de rondas múltiples, enrutamiento KDS < 30ms).
+- `CU-MOZO-04`: Unir o dividir mesas en salón (Agrupación física y contable universal para todos los planes con etiqueta oficial `Mesa [ 02 ; 03 ]`, modelo relacional `mesa_principal_id` sin sobreingeniería, flujo asistido en Quick-Drawer de `CU-MOZO-01` y bloqueo de división si hay consumo activo).
+- `CU-MOZO-05`: Gestionar reservas y recepción en salón (Exclusivo SaaS Pro/Enterprise, Bandeja Central, asignación táctil con Mini-Mapa 5x2, bloqueo preventivo automático 30 min antes vía SSE, recepción en 1 toque hacia `CU-MOZO-02`, tolerancia de cortesía con botón intuitivo `[ ⚠️ Cliente No Se Presentó / Liberar Mesa ]` y paywall asistido Starter).
 - `CU-MOZO-06`: Anular pedido (o ítem de pedido) con motivo (Extensión directa del Quick-Drawer de `CU-MOZO-01`, autonomía operativa sin clave gerencial, chips de motivos frecuentes, tratamiento automático de merma `es_merma = true`, parada inmediata en KDS y alerta a administración).
+- `CU-MOZO-07`: Atender incidencia de plato no disponible y resolver en mesa (Enlace reactivo ante quiebre de stock en cocina `CU-COCINA-04`, alerta SSE prioritaria en < 30ms con badge `[ ⚠️ QUIEBRE COCINA ]`, diálogo asistido en mesa: Opción A de Sustitución en catálogo inteligente con diferencial de precio vs. Opción B de Anulación sin costo para el cliente con auditoría inmutable en `pedido_anulacion`, `es_merma = false` y acuse en `CU-ADMIN-12`).
+
+### 4.5 Rol Cocina (`wireframe/cocina/`) — 👨‍🍳 100% CULMINADO
+- `CU-COCINA-01`: Ver cola de pedidos entrantes (Kitchen Display System - KDS) (Filtro estricto `pr.requiere_preparacion = true`, semáforo cromático dinámico basado en `configuracion_kds`, orden FIFO columnar en 4 cuadrantes, vista dual con Consolidado Global "All-Day Summary" por partidas de fuego, soporte para mesas unidas `Mesa [ 02 ; 03 ]`, rondas y parada reactiva de fogones por SSE ante cancelaciones de salón).
+- `CU-COCINA-02`: Actualizar estado de preparación (Pase Caliente, Deshacer y Despacho) (Estados táctiles en lenguaje cotidiano `Por Preparar`, `En Fuego` y `Listo en Pase`; timestamps `fecha_inicio_coccion` y `fecha_listo_cocina`; ventana de Deshacer de 30s con rollback atómico de insumos al inventario; búfer de recuperación "Devolver a Cocina" de 30m; tandas masivas en All-Day; y alerta reactiva SSE al mozo/runner con cuenta regresiva de pase de 3 minutos).
+- `CU-COCINA-03`: Descuento automático de insumos por consumo (Proceso de sistema con deducción atómica según receta culinaria `producto_insumo`, política de servicio continuo sin bloqueo de fogones, piso no negativo `GREATEST`, auditoría de discrepancias en `auditoria_stock_ajuste`, cascada a carta digital y notificación Toast SSE al Administrador).
+- `CU-COCINA-04`: Marcar producto como agotado / disponible (Modal táctil de quiebres en KDS, selector numérico ultra rápido FIFO para porciones parciales en fuego $K < N$, ajuste fino comanda por comanda, y alerta reactiva a salón `CU-MOZO-07` y Administrador).
+- `CU-COCINA-05`: Recibir notificación de anulación de pedido (Parada acústica y visual en pantalla KDS, retiro de comanda, descarte o merma según avance de cocción; integrado en Vista 3 de `CU-COCINA-01`).
 
 ---
 
-## 5. Próximos Casos de Uso Pendientes
+## 5. Próximos Casos de Uso Pendientes (Prioridad: Entrega en 1 Semana)
 
-Para continuar con el proyecto en una nueva sesión, se recomienda abordar:
+Con **Mozo** y **Cocina** 100% culminados, el camino más directo para completar el ciclo del restaurante es el **Rol Cajero (Punto de Venta y Liquidación)**:
 
-1. **Culminar el Rol Mozo:**
-   - **`CU-MOZO-04: Unir o dividir mesas`**: Agrupación física y contable de mesas contiguas para comensales numerosos y separación tras desocupación.
-   - **`CU-MOZO-05: Gestionar reservas`**: Asignación de mesas para reservas programadas, bloqueo preventivo automático y recepción de clientes.
-2. **O continuar con Administrador del Local:**
-   - **`CU-ADMIN-12: Recibir notificación de anulación de pedido`**: Monitor de auditoría en vivo que recibe las alertas emitidas por `CU-MOZO-06`.
-   - **`CU-ADMIN-13: Ver reportes de ventas y desempeño`**.
-   - **`CU-ADMIN-14: Consultar flujo de caja del local`**.
-   - **`CU-ADMIN-15: Supervisar cierre de caja diario`**.
-   - **`CU-ADMIN-16: Ver log de auditoría del local`**.
-3. **O avanzar con el Rol Cocina (KDS):**
-   - **`CU-COCINA-01: Ver cola de pedidos entrantes`**.
-   - **`CU-COCINA-02: Cambiar estado de plato (en preparación, listo)`**.
+1. **`CU-CAJA-01: Apertura de turno de caja`**:
+   - Registro de monto inicial / fondo de caja en efectivo, verificación de turno previo cerrado y validación de terminal físico.
+2. **`CU-CAJA-02: Generar cuenta a partir de pedidos de una mesa`**:
+   - Precuenta de mesa (consumos consolidados, mesas unidas `Mesa [ 02 ; 03 ]`, desglose de IGV 18%, cálculo predictivo de promociones `CU-ADMIN-17` y solicitud desde mozo).
+3. **`CU-CAJA-03: Cobrar comanda y emitir comprobante electrónico (Boleta/Factura)`**:
+   - Medios de pago mixtos (Efectivo, Tarjeta, Yape/Plin), cálculo de vuelto, propina opcional y emisión legal.
+4. **`CU-CAJA-04: Dividir cuenta entre varios comensales`**:
+   - División equitativa (entre $N$ personas) o por ítems consumidos individualmente.
+5. **`CU-CAJA-05: Anular pedido ya cobrado`**:
+   - Emisión de Nota de Crédito con motivo y control de seguridad.
+6. **`CU-CAJA-06: Cerrar caja (arqueo)`**:
+   - Cuadre ciego de efectivo, conciliación POS/bancaria, sobrantes/faltantes y generación de reporte Z de cierre de turno.
 
 ---
-
-## 6. Prompt Sugerido para Iniciar la Nueva Sesión
-
-Copia y pega este mensaje al iniciar el nuevo chat para retomar inmediatamente el trabajo:
-
-```text
-Continuamos con el proyecto RestaurantCloud AI. 
-Revisa @[context/INSTRUCCIONES_NUEVA_SESION.md], @[context/cu.md], @[context/modelo_datos.md] y @[context/walkthrough.md].
-Hemos culminado exitosamente CU-MOZO-01, CU-MOZO-02 (unificado con 03 y 07) y CU-MOZO-06.
-Prosigamos con /plan para CU-MOZO-04: Unir o dividir mesas (o indícame el siguiente caso de uso que prefieras abordar).
-```

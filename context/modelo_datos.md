@@ -173,6 +173,28 @@ Cierres o cambios puntuales de horario (feriados oficiales, inventario, mantenim
 
 Restricción: `UNIQUE(local_id, fecha)`.
 
+#### `configuracion_kds`
+
+Políticas, umbrales del semáforo de comanda y parámetros de visualización del monitor de cocina KDS por sede (relación 1:1 con `local`, aprovisionada para todas las sedes gastronómicas, gestionada por el Administrador del Local en `CU-ADMIN-18`).
+
+| Campo | Tipo | Clave / Restricción | Descripción |
+| :--- | :--- | :--- | :--- |
+| `local_id` | UUID | PK / FK -> local (ON DELETE CASCADE) | Sede a la que aplica la configuración de KDS |
+| `tiempo_optimo_verde_min` | int | NOT NULL DEFAULT 15 CHECK (tiempo_optimo_verde_min BETWEEN 3 AND 60) | Minutos máximos para considerar la comanda en estado verde/óptimo |
+| `tiempo_alerta_ambar_min` | int | NOT NULL DEFAULT 25 CHECK (tiempo_alerta_ambar_min BETWEEN 5 AND 120) | Minutos en que la comanda pasa a ámbar/atención; superado este valor pasa a rojo crítico |
+| `tiempo_maximo_pase_min` | int | NOT NULL DEFAULT 3 CHECK (tiempo_maximo_pase_min BETWEEN 1 AND 30) | Minutos máximos que un plato listo puede esperar en el pase antes de alertar al mozo (`CU-MOZO-01`) |
+| `alerta_sonora_nueva_comanda` | bool | NOT NULL DEFAULT true | Emite chime acústico en el KDS al recibir un nuevo pedido vía SSE |
+| `alerta_sonora_comanda_roja` | bool | NOT NULL DEFAULT true | Emite sonido de advertencia periódico cuando una comanda supera el umbral crítico |
+| `intervalo_sonido_rojo_seg` | int | NOT NULL DEFAULT 60 CHECK (intervalo_sonido_rojo_seg BETWEEN 15 AND 300) | Frecuencia en segundos de la alerta sonora para comandas rojas |
+| `vista_predeterminada` | varchar(20) | NOT NULL DEFAULT 'fifo' CHECK (vista_predeterminada IN ('fifo', 'all_day')) | Vista inicial de la pantalla KDS: 'fifo' (comandas por mesa) o 'all_day' (consolidado de producción) |
+| `created_at` | timestamp with time zone | DEFAULT NOW() | Fecha de creación del registro |
+| `updated_at` | timestamp with time zone | DEFAULT NOW() | Fecha de última modificación |
+
+Restricción de integridad:
+```sql
+ALTER TABLE configuracion_kds ADD CONSTRAINT chk_kds_umbrales_coherentes CHECK (tiempo_alerta_ambar_min > tiempo_optimo_verde_min);
+```
+
 #### `piso`
 
 Piso o área física dentro de un local (ej. Piso 1, Terraza).
@@ -200,22 +222,34 @@ Mesa física dentro de un piso/ambiente del local.
 | `posicion_x` | int | DEFAULT 0 | Columna en la grilla visual del salón |
 | `posicion_y` | int | DEFAULT 0 | Fila en la grilla visual del salón |
 | `permite_union` | bool | DEFAULT true | Si puede combinarse con otra mesa para pedidos de grupos |
+| `mesa_principal_id` | UUID | nullable FK -> mesa(id) ON DELETE SET NULL | Mesa titular si integra un grupo unido (`CU-MOZO-04`); NULL si es independiente o titular |
 | `estado` | enum | — | `activa`, `inactiva`, `bloqueada` |
 | `created_at` | timestamp | DEFAULT NOW() | Fecha de creación del registro |
 | `updated_at` | timestamp | DEFAULT NOW() | Fecha de última modificación |
 
-##### Resolución de Estados Operativos en Salón (`CU-MOZO-01`):
-En el frontend del Mozo, el estado operativo se resuelve dinámicamente combinando la base relacional:
+Restricción de integridad:
+```sql
+ALTER TABLE mesa ADD CONSTRAINT chk_mesa_no_auto_referencia CHECK (mesa_principal_id IS NULL OR mesa_principal_id != id);
+```
+
+##### Resolución de Estados Operativos y Agrupación en Salón (`CU-MOZO-01` y `CU-MOZO-04`):
+En el frontend del Mozo, el estado operativo y la agrupación se resuelven dinámicamente combinando la base relacional:
 1. **`libre`:** Mesa `activa` sin pedidos activos (`pedido.estado NOT IN ('borrador', 'enviado')`) ni reservas inminentes.
 2. **`ocupada`:** Mesa con pedido activo (`pedido.estado IN ('borrador', 'enviado')`).
 3. **`cuenta_pedida`:** Mesa ocupada cuyos comensales solicitaron la cuenta; esperando liquidación en Caja.
 4. **`bloqueada`:** Mesa `bloqueada` automáticamente por la ventana temporal preventiva de una reserva confirmada (`CU-ADMIN-10: politicas_reserva.minutos_bloqueo_previo`).
+5. **Mesas Unidas (`CU-MOZO-04`):**
+   - Si `mesa_principal_id IS NULL` y ninguna mesa apunta a ella: Mesa individual independiente.
+   - Si `mesa_principal_id IS NULL` y tiene una o más mesas hijas apuntando a su `id`: Mesa titular del grupo; centraliza la comanda contable y genera la etiqueta oficial **`Mesa [ 02 ; 03 ]`**.
+   - Si `mesa_principal_id IS NOT NULL`: Mesa secundaria vinculada al grupo de la titular. Al tocarla en salón, redirige al Quick-Drawer de la mesa titular.
+   - **Regla de división:** La separación solo se permite si la comanda asociada está cobrada o anulada (`COUNT(pedido_item activos) == 0`). De lo contrario, se bloquea con `409 Conflict (ERR_MESAS_CON_CONSUMO_ACTIVO)`.
 
 ##### Índices Compuestos para Salón y Despacho en Vivo:
 ```sql
 CREATE INDEX IF NOT EXISTS idx_pedido_mozo_activo ON pedido(local_id, mozo_id, mesa_id) WHERE estado IN ('borrador', 'enviado');
 CREATE INDEX IF NOT EXISTS idx_pedido_item_estado_entrega ON pedido_item(pedido_id, estado) WHERE estado IN ('listo', 'en_preparacion');
 CREATE INDEX IF NOT EXISTS idx_reserva_bloqueo_inminente ON reserva(local_id, estado, fecha_hora) WHERE estado = 'confirmada';
+CREATE INDEX IF NOT EXISTS idx_mesa_uniones ON mesa(local_id, piso_id, mesa_principal_id) WHERE mesa_principal_id IS NOT NULL;
 ```
 
 ---
@@ -250,10 +284,29 @@ Plato o producto de la carta (requiere obligatoriamente categoría asignada y re
 | `precio` | decimal(10, 2) | CHECK (precio >= 0) | Precio de venta al público en salón |
 | `moneda` | varchar(3) | DEFAULT 'PEN' | Moneda del precio de venta |
 | `foto_url` | varchar(255) | nullable | Imagen del producto para menú digital |
-| `disponibilidad` | enum | DEFAULT 'disponible' | `disponible`, `agotado` (sincronizado con stock de insumos) |
+| `disponibilidad` | enum | DEFAULT 'disponible' | `disponible`, `agotado` (sincronizado con stock de insumos o conmutado manualmente por cocina) |
+| `motivo_agotado` | enum | nullable | `quiebre_stock_receta`, `apagado_manual_cocina`, `decision_admin` |
+| `usuario_modifico_disp_id` | UUID | nullable FK -> usuario | Usuario (cocinero/administrador) que conmutó la disponibilidad |
+| `fecha_modificacion_disp` | timestamp | nullable | Fecha y hora de última conmutación de disponibilidad |
+| `requiere_preparacion` | bool | DEFAULT true | True si se elabora en cocina/fogones y viaja a KDS (`CU-COCINA-01`); False si es de despacho directo por salón/mozo (gaseosas, aguas, cervezas en botella, snacks) |
 | `activo` | bool | DEFAULT true | Archivado lógico (prohibido DELETE físico con ventas históricas) |
 | `created_at` | timestamp | DEFAULT NOW() | Fecha de creación del registro |
 | `updated_at` | timestamp | DEFAULT NOW() | Fecha de última modificación |
+
+##### Índice Parcial de Alto Rendimiento para KDS y Salón:
+```sql
+CREATE INDEX IF NOT EXISTS idx_producto_requiere_prep ON producto(local_id, requiere_preparacion) WHERE activo = true;
+CREATE INDEX IF NOT EXISTS idx_producto_disponibilidad ON producto(local_id, disponibilidad) WHERE activo = true;
+```
+
+##### Reglas de Disponibilidad y Resolución de Quiebres en Cocina (`CU-COCINA-04`):
+1. **Apagado Táctil en KDS:** La brigada de cocina cuenta con acceso directo en la barra superior del monitor KDS para pausar temporalmente cualquier plato (`disponibilidad = 'agotado'`, `motivo_agotado = 'apagado_manual_cocina'`).
+2. **Resolución Granular de Órdenes en Fuego:**
+   - **Ítems `en_cola`:** Conmutan de inmediato a `estado = 'no_disponible'` (`motivo_anulacion = 'quiebre_stock_cocina'`) y emiten evento SSE prioritario a la tablet del mozo titular ([`CU-MOZO-07`](file:///d:/Proyecto/RestaurantCloud_AI_backend/wireframe/mozo/CU-MOZO-07-atender-plato-no-disponible/wireframe.md)).
+   - **Ítems `en_preparacion` (en fuegos/sartenes):** Si el chef dispone de insumos para $K$ de $N$ platos ($K < N$), el sistema asigna por criterio FIFO de antigüedad las $K$ porciones a las comandas más antiguas (manteniéndolas `en_preparacion`), y conmuta las $N - K$ porciones restantes a `no_disponible` (`motivo_anulacion = 'quiebre_fuego_parcial'`), alertando a los mozos responsables para coordinar sustitución o anulación con el cliente.
+3. **Auditoría y Supervisión de Compras:** El apagado manual de un plato registra la autoría en `usuario_modifico_disp_id` y emite un Toast SSE instantáneo al Administrador de local (`tipo = 'quiebre_manual_cocina'`) para abastecimiento urgente.
+4. **Reactivación en Tiempo Real:** Al recibir nueva mise en place o insumos, cocina conmuta el switch a `'disponible'`. En < 30ms se emite el evento SSE `plato_reactivado_carta`, liberando la comanda en tablets de mozo y en el menú digital QR sin recargar interfaz.
+
 
 #### `insumo`
 
@@ -288,9 +341,15 @@ Registro auditable de ajustes manuales de stock, recuentos físicos periódicos 
 | `stock_anterior` | decimal(12, 3) | — | Stock registrado antes del ajuste |
 | `stock_nuevo` | decimal(12, 3) | CHECK (stock_nuevo >= 0) | Stock resultante verificado |
 | `diferencia` | decimal(12, 3) | — | Diferencia numérica (stock_nuevo - stock_anterior) |
-| `motivo` | enum | — | `conteo_fisico_inventario`, `merma_desperdicio`, `ingreso_manual`, `vencimiento_caducidad`, `rotura_accidente` |
+| `motivo` | enum | — | `conteo_fisico_inventario`, `merma_desperdicio`, `ingreso_manual`, `vencimiento_caducidad`, `rotura_accidente`, `inconsistencia_cocina` (`CU-COCINA-03`) |
 | `notas` | text | nullable | Detalle descriptivo u observaciones del auditor |
 | `created_at` | timestamp | DEFAULT NOW() | Fecha y hora exacta del ajuste |
+
+##### Reglas de Deducción Automática por Consumo Culinario (`CU-COCINA-03`):
+1. **Deducción Culinaria Atómica:** Al pasar a `listo` en KDS, se descuenta de forma atómica: `stock_actual = GREATEST(0, stock_actual - (pi.cantidad * pin.cantidad_descuenta))` para cada insumo en `producto_insumo`.
+2. **Política de No-Bloqueo del Servicio (Prioridad Comensal):** Si `stock_actual < deduccion`, el sistema **no interrumpe la preparación ni bloquea la comanda**; fija `stock_actual = 0` respetando el constraint `CHECK (stock_actual >= 0)`, asienta la discrepancia en `auditoria_stock_ajuste` con motivo `'inconsistencia_cocina'` y emite alerta SSE reactiva al Administrador (`alerta_stock_insuficiente`).
+3. **Cascada Automática de Insumo Agotado (`CU-COCINA-04`):** Si `stock_actual` llega a 0, conmuta `insumo.estado = 'agotado'` y propaga `producto.disponibilidad = 'agotado'` a los platos de la carta dependientes, bloqueando nuevos pedidos en salón y QR.
+4. **Rollback de Inventario ante Deshacer (`CU-COCINA-02`):** Si se pulsa `[ ↺ Deshacer ]` en 30s, se restituyen los insumos consumidos: `stock_actual = stock_actual + (pi.cantidad * pin.cantidad_descuenta)`.
 
 #### `producto_insumo`
 
@@ -458,8 +517,18 @@ Pedido o comanda asociada a una mesa en salón (cuenta abierta de consumo).
 | `motivo_anulacion` | varchar(255) | nullable | Justificación si el ítem fue anulado (`CU-MOZO-06`) |
 | `anulado_por` | UUID | nullable FK -> usuario | Colaborador que anuló el ítem |
 | `es_merma` | bool | DEFAULT false | Si la anulación ocurrió tras estar listo o entregado (merma de inventario) |
+| `fecha_inicio_coccion` | timestamp with time zone | nullable | Momento en que cocina presiona "En Fuego" (`CU-COCINA-02`) |
+| `fecha_listo_cocina` | timestamp with time zone | nullable | Momento en que cocina marca "Listo en Pase" (`CU-COCINA-02`) |
 | `created_at` | timestamp with time zone | DEFAULT NOW() | Momento de despacho a cocina |
 | `updated_at` | timestamp with time zone | DEFAULT NOW() | Momento de último cambio de estado |
+
+##### Reglas de Integridad, Trazabilidad y Rollback de Insumos (`CU-COCINA-02`):
+1. **Restricción Temporal de Cocción:** `CHECK (fecha_listo_cocina IS NULL OR fecha_inicio_coccion IS NULL OR fecha_listo_cocina >= fecha_inicio_coccion)` garantiza que un plato no pueda estar listo antes de haberse empezado a cocinar.
+2. **Índices Parciales de Alto Rendimiento (< 0.2ms):**
+   - `CREATE INDEX idx_pedido_item_cocina_activo ON pedido_item(pedido_id, estado, fecha_listo_cocina) WHERE estado IN ('en_cola', 'en_preparacion', 'listo');`: Indexa únicamente las órdenes en curso de la jornada, descartando millones de filas históricas.
+   - `CREATE INDEX idx_pedido_item_despachados_recientes ON pedido_item(pedido_id, fecha_listo_cocina) WHERE estado = 'listo';`: Acelera la consulta de pedidos despachados en los últimos 30 minutos para la función de recuperación ("Devolver a Cocina").
+3. **Rollback Atómico de Insumos al Deshacer (Undo 30s):** Al presionar `[ ↺ Deshacer ]` dentro de la ventana de 30 segundos, el sistema revierte atómicamente el estado a `'en_preparacion'`, limpia `fecha_listo_cocina = NULL` y ejecuta la restitución exacta de stock en `insumo`:
+   `UPDATE insumo i SET stock_actual = i.stock_actual + (pi.cantidad * pin.cantidad_descuenta), estado = CASE WHEN (i.stock_actual + (pi.cantidad * pin.cantidad_descuenta)) > 0 THEN 'disponible' ELSE i.estado END, updated_at = NOW() FROM producto_insumo pin WHERE pin.producto_id = pi.producto_id AND i.id = pin.insumo_id;`, protegiendo el 100% de la integridad de los kardex de bodega.
 
 ---
 
@@ -611,6 +680,41 @@ Registro de acciones sensibles (anulaciones, descuentos, cambios de carta, etc.)
 | `entidad_id` | UUID | — | Identificador de la entidad afectada |
 | `detalle` | jsonb | nullable | Detalle adicional en formato estructurado |
 | `fecha` | timestamp | — | Fecha del evento |
+
+#### `pedido_anulacion`
+
+Registro inmutable de auditoría para platos o comandas completas canceladas en sala (`CU-MOZO-06`), con trazabilidad temporal, control de mermas y supervisión administrativa (`CU-ADMIN-12`, `CU-ADMIN-13`).
+
+| Campo | Tipo | Clave / Restricción | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id` | UUID | PK | Identificador único de la anulación |
+| `local_id` | UUID | FK -> local (ON DELETE CASCADE) | Sede a la que pertenece |
+| `pedido_id` | UUID | FK -> pedido (ON DELETE CASCADE) | Pedido al que pertenecía |
+| `pedido_item_id` | UUID | nullable FK -> pedido_item (ON DELETE CASCADE) | Ítem individual cancelado (NULL si fue comanda completa) |
+| `tipo_anulacion` | enum | NOT NULL | `item_individual`, `comanda_completa` |
+| `mesa_id` | UUID | FK -> mesa (ON DELETE RESTRICT) | Mesa en la que se encontraba la orden |
+| `mesa_numero` | varchar(50) | NOT NULL | Número o etiqueta congelada (ej. `Mesa 04` o `Mesa [ 02 ; 03 ]`) |
+| `producto_id` | UUID | nullable FK -> producto (ON DELETE SET NULL) | Plato o bebida cancelado |
+| `producto_nombre` | varchar(120) | nullable | Nombre comercial del producto congelado al corte |
+| `cantidad` | int | NOT NULL DEFAULT 1 CHECK (cantidad > 0) | Unidades canceladas |
+| `precio_unitario` | decimal(10, 2) | NOT NULL DEFAULT 0.00 | Precio de venta congelado |
+| `monto_total` | decimal(10, 2) | NOT NULL DEFAULT 0.00 | Importe total revocado en la orden |
+| `mozo_id` | UUID | FK -> usuario (ON DELETE RESTRICT) | Mozo responsable de la mesa |
+| `anulado_por` | UUID | FK -> usuario (ON DELETE RESTRICT) | Usuario (mozo o cajero) que ejecutó la anulación |
+| `motivo_categoria` | varchar(30) | NOT NULL | `error_registro`, `demora_cliente`, `queja_calidad`, `cambio_plato`, `retiro_sin_consumo`, `otro` |
+| `motivo_detalle` | text | NOT NULL | Justificación obligatoria (mínimo 10 caracteres) |
+| `pedido_created_at` | timestamp with time zone | NOT NULL | Momento en que se envió la comanda a cocina |
+| `anulado_at` | timestamp with time zone | DEFAULT NOW() | Momento en que se ejecutó la anulación |
+| `minutos_espera` | int | NOT NULL | Tiempo de espera fáctico en minutos (`anulado_at - pedido_created_at`) |
+| `estado_anterior` | varchar(30) | NOT NULL | Estado del plato al corte (`en_cola`, `en_preparacion`, `listo`, `servido`) |
+| `es_merma` | bool | DEFAULT false | Indica si generó merma contable culinaria |
+| `costo_merma` | decimal(10, 2) | nullable | Costo teórico de insumos según receta si hubo merma |
+| `revisado` | bool | DEFAULT false | Acuse de lectura y auditoría del administrador (`CU-ADMIN-12`) |
+| `revisado_por` | UUID | nullable FK -> usuario | Administrador que marcó la conformidad |
+| `revisado_at` | timestamp with time zone | nullable | Momento de la supervisión administrativa |
+| `notas_supervision` | text | nullable | Observaciones del administrador de sede |
+| `incidente_id` | UUID | nullable FK -> incidente | Vinculación si el caso fue escalado a `CU-ADMIN-11` |
+| `created_at` | timestamp with time zone | DEFAULT NOW() | Fecha de inserción del registro |
 
 ---
 
