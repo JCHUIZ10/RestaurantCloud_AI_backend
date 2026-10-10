@@ -13,7 +13,7 @@ Especificación técnica de interfaz de usuario, arquitectura de información, c
 | **Actor(es)** | `mozo` (personal de atención en salón; titular operativo de comandas móviles) |
 | **Dispositivo / Viewport** | Responsive Tablet (`1024x768` / `1280x800`), Desktop POS (`1440x900`), Mobile Smartphone (`375x812` / `412x915`) |
 | **Precondición** | El local se encuentra activo y dentro de su horario de atención (`CU-ADMIN-09`); existen ambientes y mesas configurados (`CU-ADMIN-01`); el usuario cuenta con sesión activa y rol `mozo` asignado a la sede. |
-| **Postcondición** | El mozo visualiza la distribución física de mesas con estados cromáticos en tiempo real (`Libre`, `Ocupada`, `Cuenta Pedida`, `Bloqueada por Reserva`); dispone de una barra lateral persistente con avisos de platos listos en cocina (`CU-COCINA-02`) con botón en 1 toque para marcar servido; recibe alertas de quiebre de insumos (`CU-COCINA-04`) y bloqueos preventivos por reservas confirmadas (`CU-ADMIN-10`) vía Server-Sent Events (SSE) sin refresco manual. |
+| **Postcondición** | El mozo visualiza la distribución física de mesas con estados cromáticos en tiempo real (`Libre`, `Ocupada`, `Cuenta Pedida`, `Bloqueada por Reserva`); dispone de una barra lateral persistente con avisos de platos listos en cocina (`CU-COCINA-02`) y bebidas de despacho directo listas en salón (`requiere_preparacion = false`), ambas con botón en 1 toque para marcar servido; recibe alertas de quiebre de insumos (`CU-COCINA-04`) y bloqueos preventivos por reservas confirmadas (`CU-ADMIN-10`) vía Server-Sent Events (SSE) sin refresco manual. |
 
 ---
 
@@ -33,14 +33,26 @@ sequenceDiagram
     %% 1. Carga Inicial y Conexión al Bus Reactivo
     M->>FE: 1. Inicia jornada y abre Centro de Salón en tablet
     FE->>BE: GET /api/v1/mozo/plano-completo?piso_id=:piso_id
-    BE->>DB: SELECT mesas, pedidos activos, items listos y reservas próximas
+    BE->>DB: SELECT mesas, pedidos activos, items listos (cocina + bebidas salón)
     DB-->>BE: Retorna estado consolidado
     BE-->>FE: 200 OK (apiresponse.Response con PlanoCompletoMozoDTO)
     FE->>BE: GET /api/v1/mozo/stream (Abre conexión SSE persistente)
     BE->>SSE: Registra tablet de Mozo en canal :local_id
     FE->>M: Renderiza Vista 1: Plano 70% + Barra Lateral de Pedidos 30%
 
-    %% 2. Notificación en Vivo de Plato Listo en Cocina
+    %% 2. Despacho Directo de Bebidas en Salón vs. Cocina KDS
+    Note over M,BE: Mozo toma comanda mixta en CU-MOZO-02 (Comida + Gaseosas)
+    M->>FE: Confirma pedido mixto
+    FE->>BE: POST /api/v1/mozo/pedidos/enviar
+    BE->>DB: Transacción atómica: comidas en 'en_cola', bebidas en 'listo'
+    BE->>SSE: Broadcast 'nuevo_pedido_cocina' (Solo items requiere_preparacion = true)
+    BE-->>FE: 200 OK -> Tarjeta inmediata en sidebar: "🥤 Bebida Lista: 2x Inca Kola"
+    M->>FE: Mozo retira gaseosas de vitrina/barra y pulsa "[ ✓ Marcar Servido ]"
+    FE->>BE: PATCH /api/v1/mozo/items/{item_id}/servido
+    BE->>DB: UPDATE pedido_item SET estado = 'entregado', updated_at = NOW()
+    BE-->>FE: 200 OK -> Remueve bebida de pendientes
+
+    %% 3. Notificación en Vivo de Plato Listo en Cocina
     Note over K,BE: Cocina termina de emplatar en KDS y presiona [Listo]
     K->>BE: PATCH /api/v1/cocina/items/{item_id}/listo
     BE->>DB: UPDATE pedido_item SET estado = 'listo', updated_at = NOW()
@@ -48,12 +60,12 @@ sequenceDiagram
     SSE-->>FE: Stream SSE recibido en < 25ms
     FE->>FE: Reproduce chime discreto + Añade tarjeta a Barra Lateral
     FE->>M: Tarjeta destacada: "Mesa 04: Lomo Saltado x2 listo hace 5s"
-    M->>FE: Mozo retira platos y presiona "[ ✓ Marcar Servido ]"
+    M->>FE: Mozo retira platos del pase y presiona "[ ✓ Marcar Servido ]"
     FE->>BE: PATCH /api/v1/mozo/items/{item_id}/servido
     BE->>DB: UPDATE pedido_item SET estado = 'entregado', updated_at = NOW()
     BE-->>FE: 200 OK -> Remueve tarjeta de la barra lateral
 
-    %% 3. Bloqueo Preventivo Automático por Reserva Próxima
+    %% 4. Bloqueo Preventivo Automático por Reserva Próxima
     Note over BE,FE: Faltan 30 min para una reserva confirmada (CU-ADMIN-10)
     BE->>SSE: Broadcast evento 'mesa_bloqueada_reserva' { mesa_id: "...", hora: "14:00", cliente: "Familia Gómez" }
     SSE-->>FE: Conmuta Mesa 08 a color azul [BLOQUEADA]
@@ -91,29 +103,37 @@ Pantalla principal táctil en formato horizontal (`1440x900` / Tablet `1024x768`
 +------------------------------------------------------------------+---------------------------------+
 | ÁREA PRINCIPAL: PLANO VISUAL DE MESAS (70% ancho)                | BARRA LATERAL: PEDIDOS EN VIVO  |
 |                                                                  | (30% ancho ~390px)              |
-| [ Salón Principal (10) ] [ Terraza (4) ] [ Barra (3) ]           | 🔔 PEDIDOS EN VIVO & COCINA     |
-| Aforo actual: 24 / 42 comensales (57%)                           | [ 2 LISTOS PARA SERVIR ]        |
+| [ Salón Principal (10) ] [ Terraza (4) ] [ Barra (3) ]           | 🥤 SALÓN & COCINA EN VIVO       |
+| Aforo actual: 24 / 42 comensales (57%)                           | [ 3 LISTOS PARA SERVIR ]        |
 |                                                                  |---------------------------------|
-| Filtrar: [● Mis Mesas (4)] [ Todo Salón ] [ Libres ] [ Ocupadas] | 🔔 LISTOS PARA LLEVAR A MESA    |
+| Filtrar: [● Mis Mesas (4)] [ Todo Salón ] [ Libres ] [ Ocupadas] | 🥤 BEBIDAS & DESPACHO DIRECTO   |
+|                                                                  | +-----------------------------+ |
+| +------------+ +------------+ +------------+ +------------+      | | MESA 04 (Salón)  ⏱️ Hace 30s | |
+| | MESA 01    | | MESA 02    | | MESA 03    | | MESA 04    |      | | • 2x Inca Kola 500ml Helada | |
+| | LIBRE      | | OCUPADA    | | LIBRE      | | OCUPADA    |      | | Salón / Barra • Despacho Inm| |
+| | Cap: 4     | | ⏱️ 34 min  | | Cap: 4     | | ⏱️ 12 min  |      | | [ ✓ Marcar Servido ]        | |
+| | [ Abrir ]  | | S/ 145.00  | | [ Abrir ]  | | S/ 94.00   |      | +-----------------------------+ |
+| |            | | Carlos M.  | |            | | 🔔 2 LISTOS|      |---------------------------------|
+| +------------+ +------------+ +------------+ +------------+      | 🔔 LISTOS EN PASE DE COCINA     |
 |                                                                  | +-----------------------------+ |
 | +------------+ +------------+ +------------+ +------------+      | | MESA 04 (Salón)  ⏱️ Hace 1m  | |
-| | MESA 01    | | MESA 02    | | MESA 03    | | MESA 04    |      | | • 2x Lomo Saltado Criollo   | |
-| | LIBRE      | | OCUPADA    | | LIBRE      | | OCUPADA    |      | | Pase Caliente #01 • Carlos M| |
-| | Cap: 4     | | ⏱️ 34 min  | | Cap: 4     | | ⏱️ 12 min  |      | | [ ✓ Marcar Servido ]        | |
-| | [ Abrir ]  | | S/ 145.00  | | [ Abrir ]  | | S/ 84.00   |      | +-----------------------------+ |
-| |            | | Carlos M.  | |            | | 🔔 2 LISTOS|      | +-----------------------------+ |
+| | MESA 05    | | MESA 06    | | MESA 07    | | MESA 08    |      | | • 2x Lomo Saltado Criollo   | |
+| | CUENTA     | | OCUPADA    | | OCUPADA    | | RESERVA    |      | | Pase Caliente #01 • Carlos M| |
+| | ⏱️ 52 min  | | ⏱️ 25 min  | | ⏱️ 18 min  | | 14:00 (20m)|      | | [ ✓ Marcar Servido ]        | |
+| | S/ 210.00  | | S/ 168.00  | | S/ 92.00   | | Fam. Gómez |      | +-----------------------------+ |
+| | Espera POS | | Ana P.     | | [● Redonda]| | [ Sentar ] |      | +-----------------------------+ |
 | +------------+ +------------+ +------------+ +------------+      | | MESA 12 (Terraza) ⏱️ Hace 2m| |
 |                                                                  | | • 1x Ceviche Clásico        | |
-| +------------+ +------------+ +------------+ +------------+      | | [ ✓ Marcar Servido ]        | |
-| | MESA 05    | | MESA 06    | | MESA 07    | | MESA 08    |      | +-----------------------------+ |
-| | CUENTA     | | OCUPADA    | | OCUPADA    | | RESERVA    |      |                                 |
-| | ⏱️ 52 min  | | ⏱️ 25 min  | | ⏱️ 18 min  | | 14:00 (20m)|      | ⏳ EN PREPARACIÓN EN COCINA     |
-| | S/ 210.00  | | S/ 168.00  | | S/ 92.00   | | Fam. Gómez |      | • Mesa 02 — Comanda #148 (14m)  |
-| | Espera POS | | Ana P.     | | [● Redonda]| | [ Sentar ] |      | • Mesa 07 — Comanda #151 (6m)   |
-| +------------+ +------------+ +------------+ +------------+      |                                 |
+| Simbología: (Verde) Libre | (Negro) Ocupada | (Ámbar) Cuenta     | | [ ✓ Marcar Servido ]        | |
+|             (Punteado) Bloqueada Reserva | [+] Permite Unión     | +-----------------------------+ |
+|                                                                  |                                 |
+|                                                                  | ⏳ EN PREPARACIÓN COCINA KDS    |
+|                                                                  | • Mesa 02 — Comanda #148 (14m)  |
+|                                                                  | • Mesa 07 — Comanda #151 (6m)   |
+|                                                                  |                                 |
 |                                                                  | ⚠️ ALERTAS OPERATIVAS (1)       |
-| Simbología: (Verde) Libre | (Negro) Ocupada | (Ámbar) Cuenta     | • Mesa 07: Quiebre Papa Amarilla|
-|             (Punteado) Bloqueada Reserva | [+] Permite Unión     | [ Mis Mesas: 4 | S/ 531.00 ]    |
+|                                                                  | • Mesa 07: Quiebre Papa Amarilla|
+|                                                                  | [ Mis Mesas: 4 | S/ 541.00 ]    |
 +------------------------------------------------------------------+---------------------------------+
 ```
 
@@ -121,7 +141,9 @@ Pantalla principal táctil en formato horizontal (`1440x900` / Tablet `1024x768`
 - **Selector de Ambientes y Medidor de Aforo:** Conmuta entre pisos físicos del restaurante (`Salón Principal`, `Terraza`, `Barra`) mostrando el aforo en vivo.
 - **Filtro de Foco Operativo:** Píldora destacada `[● Mis Mesas Asignadas (4)]` para que el mozo supervise exclusivamente sus comandas, con opción de un toque para ver `[Todo el Salón (10)]`.
 - **Tarjetas de Mesa Touch-First:** Muestran número, tiempo de ocupación, comensales, monto consumido, nombre del mozo y badge de platos listos o en preparación.
-- **Barra Lateral de Despacho en Vivo:** Prioriza en la parte superior los platos calientes listos en cocina con cronómetro y botón en 1 toque `[ ✓ Marcar Servido ]`.
+- **Barra Lateral de Despacho Dual en Vivo:** 
+  - **`🥤 BEBIDAS & DESPACHO DIRECTO`**: Lista bebidas embotelladas e infusiones que no requieren cocina y nacen inmediatamente listas para servir al comensal.
+  - **`🔔 LISTOS EN PASE DE COCINA`**: Prioriza los platos calientes finalizados en KDS con cronómetro y botón en 1 toque `[ ✓ Marcar Servido ]`.
 
 ---
 
@@ -139,13 +161,18 @@ Panel lateral táctil de 440px que se sobrepone suavemente al tocar una mesa ocu
 |-----------------------------------------------------------|
 | Mozo: Carlos Mendoza (Tú) | Salón Piso 1 | 4 / 4 puestos  |
 |                                                           |
-| DETALLE DE LA COMANDA:                      ESTADO COCINA |
+| DETALLE DE LA COMANDA:                      ESTADO / ACCIÓN|
+| -- PLATOS EN COCINA KDS (Requiere Preparación) --         |
 | • 2x Lomo Saltado Criollo (Término 3/4)     [🔔 LISTO] S/76|
-| • 1x Causa Limeña de Pollo                  [✓ SERVIDO]S/24|
-| • 1x Jarra Chicha Morada 1L (Hielo aparte)  [✓ SERVIDO]S/22|
 | • 1x Suspiro a la Limeña                    [⏳ PREP 8m]S/18|
+| • 1x Causa Limeña de Pollo                  [✓ SERVIDO]S/24|
 |                                                           |
-| TOTAL CONSUMO ACTUAL:                          S/ 140.00  |
+| -- BEBIDAS Y DESPACHO DIRECTO SALÓN --                    |
+| • 2x Inca Kola 500ml (Helada)               [🥤 LISTO] S/18|
+|   ↳ [ ✓ Marcar Bebida Servida ]                           |
+| • 1x Jarra Chicha Morada 1L (Hielo aparte)  [✓ SERVIDO]S/22|
+|                                                           |
+| TOTAL CONSUMO ACTUAL:                          S/ 158.00  |
 |                                                           |
 | 📝 Nota: Mesa celebrando cumpleaños. Servir postre velita.|
 |-----------------------------------------------------------|
@@ -156,7 +183,8 @@ Panel lateral táctil de 440px que se sobrepone suavemente al tocar una mesa ocu
 ```
 
 #### Elementos Visuales y Funcionalidades
-- **Trazabilidad Plato por Plato:** Informa qué platos ya fueron llevados a la mesa, cuáles están listos en el pase de cocina y cuáles siguen preparándose.
+- **Trazabilidad Plato por Plato con Split Operativo:** Distingue con claridad los platos elaborados en fogones (`requiere_preparacion = true`) de las bebidas despachadas directamente por el mozo desde la vitrina o barra (`requiere_preparacion = false`).
+- **Botón Directo para Servir Bebidas:** Permite marcar como entregada una gaseosa o agua mineral en 1 toque sin esperar la cocina.
 - **Botón Primario de Adicionales:** Acceso directo en 1 toque a la carta para añadir bebidas o postres ([`CU-MOZO-02`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/cu.md#L911)).
 - **Solicitud de Cuenta en 1 Clic:** Conmuta la mesa a `cuenta_pedida` y dispara una alerta instantánea a Caja ([`CU-CAJA-02`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/cu.md#L1094)) para llevar la cuenta o el POS.
 
@@ -287,35 +315,38 @@ type MesaCardDTO struct {
 	EsMiMesa           bool                `json:"es_mi_mesa"`
 	PlatosListos       int                 `json:"platos_listos"`
 	PlatosEnCocina     int                 `json:"platos_en_cocina"`
+	BebidasPendientes  int                 `json:"bebidas_pendientes"`
 	
 	// Datos si está bloqueada por reserva
 	ReservaCliente     *string             `json:"reserva_cliente,omitempty"`
 	ReservaHora        *string             `json:"reserva_hora,omitempty"`
 }
 
-// ItemCocinaListoDTO tarjeta para la barra lateral
-type ItemCocinaListoDTO struct {
-	ItemID        uuid.UUID `json:"item_id"`
-	PedidoID      uuid.UUID `json:"pedido_id"`
-	MesaNumero    string    `json:"mesa_numero"`
-	Ambiente      string    `json:"ambiente"`
-	ProductoNombre string   `json:"producto_nombre"`
-	Cantidad      int       `json:"cantidad"`
-	NotaEspecial  *string   `json:"nota_especial,omitempty"`
-	PaseCocina    string    `json:"pase_cocina"` // "Pase Caliente #01", "Pase Frío"
-	SegundosListo int       `json:"segundos_listo"`
+// ItemDespachoListoDTO tarjeta para la barra lateral (cocina KDS o bebidas de salón)
+type ItemDespachoListoDTO struct {
+	ItemID              uuid.UUID `json:"item_id"`
+	PedidoID            uuid.UUID `json:"pedido_id"`
+	MesaNumero          string    `json:"mesa_numero"`
+	Ambiente            string    `json:"ambiente"`
+	ProductoNombre      string    `json:"producto_nombre"`
+	Cantidad            int       `json:"cantidad"`
+	NotaEspecial        *string   `json:"nota_especial,omitempty"`
+	RequierePreparacion bool      `json:"requiere_preparacion"` // true = Cocina KDS; false = Salón / Barra
+	TipoDespacho        string    `json:"tipo_despacho"`        // "cocina" o "directo_salon"
+	PaseCocina          *string   `json:"pase_cocina,omitempty"`// "Pase Caliente #01", "Pase Frío" (solo si requiere cocina)
+	SegundosListo       int       `json:"segundos_listo"`
 }
 
 // PlanoCompletoMozoDTO payload de carga inicial del salón
 type PlanoCompletoMozoDTO struct {
-	PisoID           uuid.UUID            `json:"piso_id"`
-	PisoNombre       string               `json:"piso_nombre"`
-	Mesas            []MesaCardDTO        `json:"mesas"`
-	PlatosListos     []ItemCocinaListoDTO `json:"platos_listos"`
-	AforoOcupado     int                  `json:"aforo_ocupado"`
-	AforoTotal       int                  `json:"aforo_total"`
-	MisMesasActivas  int                  `json:"mis_mesas_activas"`
-	TotalVentaTurno  float64              `json:"total_venta_turno"`
+	PisoID              uuid.UUID              `json:"piso_id"`
+	PisoNombre          string                 `json:"piso_nombre"`
+	Mesas               []MesaCardDTO          `json:"mesas"`
+	ItemsListos         []ItemDespachoListoDTO `json:"items_listos"`
+	AforoOcupado        int                    `json:"aforo_ocupado"`
+	AforoTotal          int                    `json:"aforo_total"`
+	MisMesasActivas     int                    `json:"mis_mesas_activas"`
+	TotalVentaTurno     float64                `json:"total_venta_turno"`
 }
 
 // MesaDetalleMozoDTO payload para el Quick-Drawer al tocar mesa
@@ -329,13 +360,15 @@ type MesaDetalleMozoDTO struct {
 	MinutosEnMesa  int       `json:"minutos_en_mesa"`
 	Comensales     int       `json:"comensales"`
 	Items          []struct {
-		ID             uuid.UUID `json:"id"`
-		ProductoNombre string    `json:"producto_nombre"`
-		Cantidad       int       `json:"cantidad"`
-		PrecioUnitario float64   `json:"precio_unitario"`
-		Subtotal       float64   `json:"subtotal"`
-		Nota           *string   `json:"nota,omitempty"`
-		EstadoCocina   string    `json:"estado_cocina"` // "en_cola", "en_preparacion", "listo", "entregado"
+		ID                  uuid.UUID `json:"id"`
+		ProductoNombre      string    `json:"producto_nombre"`
+		Cantidad            int       `json:"cantidad"`
+		PrecioUnitario      float64   `json:"precio_unitario"`
+		Subtotal            float64   `json:"subtotal"`
+		Nota                *string   `json:"nota,omitempty"`
+		RequierePreparacion bool      `json:"requiere_preparacion"`
+		TipoDespacho        string    `json:"tipo_despacho"` // "cocina", "directo_salon"
+		Estado              string    `json:"estado"`        // "en_cola", "en_preparacion", "listo", "entregado"
 	} `json:"items"`
 	TotalSubtotal  float64   `json:"total_subtotal"`
 }
@@ -345,10 +378,10 @@ type MesaDetalleMozoDTO struct {
 
 | Método | Ruta | Rol Requerido | Descripción | Códigos HTTP |
 | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/mozo/plano-completo` | `mozo`, `admin_local` | Carga integral de mesas, platos listos y KPIs de salón | `200`, `401`, `403` |
+| `GET` | `/api/v1/mozo/plano-completo` | `mozo`, `admin_local` | Carga integral de mesas, platos/bebidas listos y KPIs de salón | `200`, `401`, `403` |
 | `GET` | `/api/v1/mozo/stream` | `mozo`, `admin_local` | Conexión persistente Server-Sent Events (SSE) | `200 (text/event-stream)` |
 | `GET` | `/api/v1/mozo/mesas/{id}/detalle` | `mozo`, `admin_local` | Detalle de comanda activa para el Quick-Drawer | `200`, `404` |
-| `PATCH`| `/api/v1/mozo/items/{id}/servido` | `mozo` | Marca plato como entregado en salón (limpia tarjeta) | `200`, `404` |
+| `PATCH`| `/api/v1/mozo/items/{id}/servido` | `mozo` | Marca plato o bebida como entregado en salón (limpia tarjeta) | `200`, `404` |
 | `POST` | `/api/v1/mozo/mesas/{id}/solicitar-cuenta` | `mozo` | Conmuta mesa a `cuenta_pedida` y alerta a Caja | `200`, `409` |
 | `PATCH`| `/api/v1/mozo/mesas/{id}/reasignar` | `mozo`, `admin_local` | Transfiere comanda a otro mozo compañero de turno | `200`, `400` |
 

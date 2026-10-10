@@ -92,33 +92,43 @@ Pantalla principal de venta táctil en tablet (`1440x900` / `1024x768`). Divide 
 |                                                                  |                                 |
 | [ 🔍 Buscar plato, bebida o postre en la carta...              ] | 🧾 COMANDA MESA 04  [Ronda #01] |
 |                                                                  | ------------------------------- |
-| [ Todas (35) ] [ Criollos & Brasas ] [ Entradas ] [ Bebidas ]    | +-----------------------------+ |
-|                                                                  | | 2x Lomo Saltado Criollo     | |
-| +-----------------------------+ +-----------------------------+  | | S/ 76.00                    | |
-| | Lomo Saltado Criollo  [DISP]| | Ceviche Clásico       [DISP]|  | | 📝 Nota: Término 3/4, s/ceb | |
-| | Carne salteada al wok...    | | Pesca del día en limón...   |  | | [ - ] [ 2 ] [ + ]     [ 🗑️ ]| |
-| | S/ 38.00         [ + Añadir]| | S/ 36.00         [ + Añadir]|  | +-----------------------------+ |
-| +-----------------------------+ +-----------------------------+  | +-----------------------------+ |
-| +-----------------------------+ +-----------------------------+  | | 1x Causa Limeña Pollo       | |
-| | 1/4 Pollo a Brasa     [DISP]| | Jarra Chicha 1L       [DISP]|  | | S/ 24.00                    | |
-| | Papas fritas y ensalada...  | | Maíz morado con especias... |  | | [ + Agregar nota a cocina ] | |
-| | S/ 26.00         [ + Añadir]| | S/ 22.00         [ + Añadir]|  | | [ - ] [ 1 ] [ + ]     [ 🗑️ ]| |
+| [ Todas (35) ] [ Criollos & Brasas ] [ Entradas ] [ Bebidas ]    | 🍳 COCINA KDS (PREPARACIÓN):    |
+|                                                                  | +-----------------------------+ |
+| +-----------------------------+ +-----------------------------+  | | 2x Lomo Saltado Criollo     | |
+| | Lomo Saltado Criollo  [DISP]| | Ceviche Clásico       [DISP]|  | | S/ 76.00                    | |
+| | Carne salteada al wok...    | | Pesca del día en limón...   |  | | 📝 Nota: Término 3/4, s/ceb | |
+| | S/ 38.00         [ + Añadir]| | S/ 36.00         [ + Añadir]|  | | [ - ] [ 2 ] [ + ]     [ 🗑️ ]| |
 | +-----------------------------+ +-----------------------------+  | +-----------------------------+ |
 | +-----------------------------+ +-----------------------------+  | +-----------------------------+ |
-| | Tiradito Ají Amar  [AGOTADO]| | Anticuchos Tradic     [DISP]|  | | 1x Jarra Chicha Morada 1L   | |
-| | Láminas en crema de ají...  | | Corazón con papa dorada...  |  | | S/ 22.00                    | |
-| | S/ 38.00        [🔒 Agotado]| | S/ 28.00         [ + Añadir]|  | | 📝 Nota: Hielo en vaso apar | |
-| +-----------------------------+ +-----------------------------+  | | [ - ] [ 1 ] [ + ]     [ 🗑️ ]| |
+| | 1/4 Pollo a Brasa     [DISP]| | Inca Kola 500ml       [DISP]|  | | 1x Causa Limeña Pollo       | |
+| | Papas fritas y ensalada...  | | Bebida personal fría...     |  | | S/ 24.00                    | |
+| | S/ 26.00         [ + Añadir]| | S/  7.00         [ + Añadir]|  | | [ - ] [ 1 ] [ + ]     [ 🗑️ ]| |
+| +-----------------------------+ +-----------------------------+  | +-----------------------------+ |
+| +-----------------------------+ +-----------------------------+  | ------------------------------- |
+| | Tiradito Ají Amar  [AGOTADO]| | Anticuchos Tradic     [DISP]|  | 🥤 DESPACHO DIRECTO / SALÓN:    |
+| | Láminas en crema de ají...  | | Corazón con papa dorada...  |  | +-----------------------------+ |
+| | S/ 38.00        [🔒 Agotado]| | S/ 28.00         [ + Añadir]|  | | 1x Inca Kola 500ml (Botella)| |
+| +-----------------------------+ +-----------------------------+  | | S/  7.00                    | |
+|                                                                  | | 📝 Servicio: Helada         | |
+|                                                                  | | [ - ] [ 1 ] [ + ]     [ 🗑️ ]| |
 |                                                                  | +-----------------------------+ |
 |                                                                  | ------------------------------- |
-|                                                                  | Subtotal Consumo:     S/ 103.39 |
-|                                                                  | IGV (18% incluido):   S/  18.61 |
-|                                                                  | TOTAL COMANDA:        S/ 122.00 |
+|                                                                  | Subtotal Consumo:     S/  89.83 |
+|                                                                  | IGV (18% incluido):   S/  16.17 |
+|                                                                  | TOTAL COMANDA:        S/ 107.00 |
 |                                                                  | ------------------------------- |
-|                                                                  | [ 🚀 Enviar a Cocina (4 platos)]|
+|                                                                  | [ 🚀 Despachar (2 Cocina • 1 Salón) ]
 |                                                                  | [ ✕ Descartar Borrador        ] |
 +------------------------------------------------------------------+---------------------------------+
 ```
+
+#### Reglas de Despacho y Split Transaccional:
+1. **Identificación Inmediata por `producto.requiere_preparacion`:**
+   - La interfaz divide visualmente los ítems en dos secciones: **`🍳 COCINA KDS`** (`requiere_preparacion = true`) y **`🥤 DESPACHO DIRECTO / SALÓN`** (`requiere_preparacion = false`).
+2. **Split Atómico en el Backend (`POST /api/v1/mozo/mesas/{id}/pedidos`):**
+   - Los ítems de cocina se insertan con `estado = 'en_cola'` y disparan evento SSE al KDS de Cocina (`CU-COCINA-01`).
+   - Los ítems de despacho directo (gaseosas, cervezas en botella, aguas) se insertan directamente con **`estado = 'listo'`**, alertando a la tablet del Mozo para que los sirva de inmediato en mesa sin esperar a cocina.
+   - En el monitor KDS de cocina, los cocineros **jamás ven las gaseosas**, erradicando la saturación visual.
 
 ---
 
