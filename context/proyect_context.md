@@ -50,7 +50,7 @@ El detalle completo de casos de uso por actor está en un documento aparte.
 - RLS falla "cerrado" (si no se fija el tenant, no se ven datos de nadie) — el esquema-por-tenant falla "abierto" (un `search_path` mal cambiado puede filtrar datos de otra empresa silenciosamente), riesgo agravado con *connection pooling*.
 - Migraciones y reportes cross-tenant (panel del Admin SaaS) son mucho más simples con esquema único.
 
-**Implementación:** un middleware central (capa `auth/` del backend) resuelve `empresa_id` del JWT y ejecuta `SET app.tenant_id` antes de cada consulta. Ningún módulo de negocio filtra manualmente por tenant — lo garantiza la base de datos.
+**Implementación:** un middleware central del backend resuelve `empresa_id` y el rol desde la sesión autenticada; dentro de **cada transacción** ejecuta `SET LOCAL app.current_empresa_id` (y, cuando corresponda, el contexto de rol). El cliente nunca envía ni decide el tenant. El usuario de aplicación de PostgreSQL no debe tener `BYPASSRLS`; ningún módulo de negocio filtra manualmente por tenant — lo garantiza la base de datos.
 
 **Usuarios y correo:** `usuario.correo` es único **por empresa** (`UNIQUE(empresa_id, correo)`), no global — una misma persona puede tener cuentas independientes en distintas empresas de la plataforma (sin compartir sesión ni contexto). Si el login coincide con más de una cuenta (mismo correo y contraseña en dos empresas), el sistema pide seleccionar la empresa antes de emitir el token.
 
@@ -58,57 +58,63 @@ El detalle completo de casos de uso por actor está en un documento aparte.
 
 ## 5. Arquitectura
 
-**Tipo:** orientada a servicios simple (no monolito puro, no microservicios completos) — un **monolito modular** para el core de negocio + un servicio separado solo para IA (stack distinto).
+**Tipo:** monolito modular **API-first** para el core de negocio, con frontend SPA separado a nivel de código. No se crean microservicios por módulo: se conserva una única fuente de verdad transaccional y un despliegue coordinado. El servicio de IA es la única separación prevista, y se incorpora cuando esa funcionalidad entre al producto.
 
 ```
 
-Nginx (reverse proxy, SSL)
- ├── Core API (Go)         → toda la lógica de negocio, único acceso de escritura a la BD
- ├── AI Service (Python/FastAPI) → forecasting + RAG, acceso de solo lectura a la BD
- ├── Redis 7 (In-Memory)   → tokens de sesión/refresh, revocación, rate limiting y caché temporal
- └── PostgreSQL (esquema único + RLS)
+Nginx (reverse proxy, SSL, mismo dominio)
+ ├── Frontend SPA (Vue 3 + TypeScript + Vite) → interfaces de salón, KDS, caja y gestión
+ ├── Laravel API modular (`/api/v1`)           → lógica de negocio y único acceso de escritura a la BD
+ ├── Laravel Octane / SSE                      → streams persistentes de eventos en tiempo real
+ ├── Worker de colas Laravel                   → correos, Stripe, PDFs, exportaciones y tareas diferidas
+ ├── Redis 7                                   → sesiones, caché, rate limit, colas y Pub/Sub
+ ├── PostgreSQL 16 (esquema único + RLS)       → datos transaccionales
+ ├── MinIO                                     → documentos, PDFs, imágenes y exportaciones privadas
+ └── AI Service (Python/FastAPI, fase posterior) → forecasting + RAG, acceso de solo lectura
 
 ```
 
-- **Core API → AI Service:** HTTP interno, no expuesto a internet, protegido con API key interna simple.
-- **AI Service:** nunca implementa lógica de tenant/autenticación propia — recibe `empresa_id`/`local_id` ya resueltos por el Core API.
+- **Frontend y backend:** viven en el mismo repositorio, pipeline y despliegue inicial, pero son aplicaciones separadas (`apps/web` y `apps/api`). Nginx las expone bajo el mismo dominio para evitar complejidad innecesaria de CORS y permitir autenticación de stream basada en cookies seguras. El frontend consume exclusivamente contratos REST versionados y SSE; puede desplegarse o evolucionar de forma independiente más adelante.
+- **Laravel API → AI Service:** HTTP interno, no expuesto a internet, protegido con API key interna simple. El servicio de IA no bloquea el MVP y solo se habilita cuando forecasting o RAG sea necesario.
+- **AI Service:** nunca implementa lógica de tenant/autenticación propia — recibe `empresa_id`/`local_id` ya resueltos por Laravel y no tiene acceso de escritura a la base de datos.
 - **Gestión de Sesiones, Tokens y Caché (Redis):** Para evitar la saturación de PostgreSQL por *table bloat* (MVCC dead tuples) y escrituras continuas en WAL debido a creación/eliminación de datos efímeros:
-  - **Tokens de sesión / Refresh Tokens:** Almacenados en Redis con TTL nativo (7 a 15 días), permitiendo revocación inmediata y rotación sin consultar la BD relacional.
+  - **Tokens de sesión / Refresh Tokens:** Almacenados en Redis con TTL nativo (7 a 15 días), permitiendo revocación inmediata y rotación sin consultar la BD relacional. Para la SPA del mismo origen se priorizan cookies seguras con Laravel Sanctum; los tokens de integración externa se gestionan por separado.
   - **Tokens temporales de selección multi-cuenta:** Emitidos como JWTs *stateless* de vida ultracorta (3-5 min) validados en CPU, sin necesidad de persistencia.
   - **Tokens de un solo uso (OTP / Reseteo de contraseña / Magic Link de Invitación):** Gestionados en Redis con consumo atómico (`GETDEL`) y TTL específico (15 min para OTP de autenticación/recuperación; 24 horas para tokens de activación de personal invitado) para mitigar ataques de repetición y prescindir de contraseñas provisionales en texto claro.
   - **Lista negra (Blacklist) de JWTs:** Clave temporal en Redis con TTL equivalente al tiempo de expiración restante del access token al cerrar sesión o al desactivar a un usuario por parte del propietario.
   - **Rate Limiting y Caché de APIs externas:** Control de intentos de autenticación (fuerza bruta) y caché de consultas de DNI/RUC (RENIEC/SUNAT).
-- **Notificaciones:** **SSE (Server-Sent Events)**, no WebSocket ni polling — el flujo es unidireccional (servidor → cliente), SSE es nativo en HTTP (sin librerías extra en Go) y el navegador reconecta solo (`EventSource`). Requiere `proxy_buffering off` en Nginx para esa ruta.
-- **PHP fue descartado** del stack — todo el backend de negocio es Go; Python solo para IA.
-- **Despliegue:** cada servicio en su propio contenedor Docker desde el día 1 (`docker-compose` en la VPS), migrable tal cual a un orquestador en la nube (ECS/Kubernetes/Cloud Run) sin rediseño. Nunca hardcodear host/credenciales — todo vía variables de entorno.
+- **Tiempo real y notificaciones:** **SSE (Server-Sent Events)**, no WebSocket ni polling — el flujo requerido es mayormente unidireccional (servidor → cliente) y el navegador reconecta automáticamente con `EventSource`. Las conexiones persistentes se atienden con Laravel Octane, no con PHP-FPM puro. Redis Pub/Sub distribuye los eventos entre procesos; Nginx debe configurar `proxy_buffering off` y `X-Accel-Buffering: no` para las rutas de stream. Cada stream se autoriza por usuario, empresa, local y rol; se incluyen *heartbeat*, reconexión y `event_id`/`Last-Event-ID`.
+- **Consistencia de eventos:** un cambio operativo se confirma primero en PostgreSQL y solo después se publica. Se implementa patrón **Outbox** para registrar eventos de dominio en la misma transacción y procesarlos de forma asíncrona, evitando notificaciones de transacciones fallidas y permitiendo reintentos idempotentes.
+- **Trabajos diferidos:** Laravel Queue/Horizon sobre Redis procesa correos, OTP, webhooks de Stripe, generación de comprobantes/PDF, exportaciones, tareas de reserva y reintentos. Ninguna de esas tareas bloquea solicitudes operativas.
+- **Archivos y PDFs:** MinIO, compatible con S3, conserva comprobantes, reportes Z, exportaciones, imágenes y adjuntos en un volumen persistente. PostgreSQL guarda solo metadatos y `object_key`; los archivos privados se entregan tras autorización Laravel mediante URL firmada de vida corta o descarga mediada por API. Los volúmenes locales no sustituyen copias de seguridad externas.
+- **Despliegue:** cada componente operativo corre en su propio contenedor Docker desde el día 1 (`docker-compose` en la VPS), migrable a la nube sin rediseño. Nunca hardcodear hosts o credenciales — todo vía variables de entorno. PostgreSQL y MinIO requieren backups periódicos cifrados fuera de la VPS.
 
-### Estilo de arquitectura del Core API (Go)
+### Estilo de arquitectura del backend Laravel
 
-Clean Architecture simplificada, organizada **por dominio** (no por capa técnica), con comunicación entre módulos por **interfaces (puertos)**, nunca importando implementaciones concretas entre sí:
+Arquitectura modular organizada **por dominio** (no únicamente por capa técnica). Cada módulo encapsula sus acciones, reglas, políticas, DTOs, eventos, consultas y persistencia. Los módulos se comunican mediante contratos y eventos de dominio; no importan implementaciones internas entre sí.
 
 ```
 
-restaurantcloud-core-api/
-├── cmd/api/main.go              // Wiring manual de dependencias
-├── internal/
-│   ├── empresas/  locales/  mesas/  reservas/
-│   ├── pedidos/   cocina/   inventario/  compras/
-│   ├── caja/      reportes/ notificaciones/
-│   └── auth/      (JWT + middleware de tenant vía RLS + gestión de refresh tokens en Redis)
-├── pkg/
-│   ├── apiresponse/   (envoltorio estándar de respuestas)
-│   ├── apierror/      (errores tipados con código HTTP)
-│   └── validator/  logger/
-├── platform/
-│   ├── database/postgres.go
-│   ├── cache/redis.go
-│   └── router/router.go         (chi)
-├── config/
-├── migrations/
+restaurantcloud/
+├── apps/
+│   ├── api/                         // Laravel
+│   │   ├── app/Domains/
+│   │   │   ├── Auth/       Tenancy/       Empresas/      Locales/
+│   │   │   ├── Mesas/      Reservas/      Pedidos/       Cocina/
+│   │   │   ├── Inventario/ Compras/       Caja/          Reportes/
+│   │   │   ├── Suscripciones/ Notificaciones/ Archivos/
+│   │   │   └── Shared/                 // contratos y utilidades transversales
+│   │   ├── app/Jobs/                  // colas y procesadores Outbox
+│   │   ├── routes/api.php             // rutas /api/v1
+│   │   └── database/migrations/
+│   └── web/                           // Vue 3 + TypeScript + Vite + Pinia
+│       └── src/modules/               // pantallas y estado por dominio
+├── services/ai/                       // FastAPI, fase posterior
+├── infra/nginx/
 └── docker-compose.yml
 ```
 
-Cada módulo de dominio contiene: `domain.go` (entidades + interfaces), `service.go` (lógica de negocio, testeable sin BD real), `repository_pg.go` (implementación concreta), `handler.go` (HTTP).
+Cada módulo de dominio contiene, según su necesidad: acciones o casos de uso, reglas de negocio, DTOs/Requests/Resources, políticas de autorización, modelos/repositorios, listeners y eventos. Los controladores HTTP son delgados; la lógica crítica se prueba a nivel de acción o servicio.
 
 **Formato estándar de respuesta de API** (usado en todos los endpoints):
 
@@ -117,7 +123,7 @@ Cada módulo de dominio contiene: `domain.go` (entidades + interfaces), `service
 { "exito": false, "errores": [{ "codigo": "...", "mensaje": "..." }], "meta": { "timestamp": "..." } }
 ```
 
-**Convenciones:** rutas versionadas (`/api/v1/...`), `context.Context` como primer parámetro en toda función de service/repository, DTOs de entrada/salida separados de las entidades de dominio, `golangci-lint` desde el inicio.
+**Convenciones:** rutas versionadas (`/api/v1/...`), DTOs/Requests/Resources separados de los modelos de persistencia, respuestas API homogéneas, Policies/Gates por rol y ámbito, transacciones explícitas para operaciones críticas, PHPStan/Larastan + Pint desde el inicio y pruebas automatizadas de reglas de negocio, RLS y autorización.
 
 ---
 
@@ -162,10 +168,10 @@ Estas reglas surgieron de iteraciones específicas durante el diseño y son impo
 
 | Semana | Contenido |
 | --- | --- |
-| 1 | Auth + multi-tenant (RLS) + Redis (refresh tokens / sesiones) + Empresas/Locales/Usuarios. Frontend: login, navegación por rol. |
-| 2 | Núcleo operativo: Mesas → Pedidos → Cocina → Caja (con notificaciones SSE). |
-| 3 | Reservas + Inventario/Compras (insumos, recetas, proveedores, fichas de compra). |
-| 4 | Reportes, flujo de caja, IA (forecasting) si el tiempo alcanza, y despliegue en VPS. |
+| 1 | Base de `apps/api` (Laravel) y `apps/web` (Vue): autenticación, multi-tenancy con RLS, Redis, estructura modular, Empresas/Locales/Usuarios y navegación por rol. Preparar Docker, Nginx, MinIO y el contrato `/api/v1`. |
+| 2 | Núcleo operativo: Mesas → Pedidos → Cocina → Caja. Implementar Redis Pub/Sub, Outbox, SSE con Octane y las pantallas reactivas de salón/KDS/POS. |
+| 3 | Reservas + Inventario/Compras (insumos, recetas, proveedores, fichas de compra), colas para tareas diferidas y generación segura de documentos. |
+| 4 | Reportes, flujo de caja, PDFs/exportaciones, backups de PostgreSQL/MinIO, endurecimiento de autorización/RLS y despliegue en VPS. Forecasting con FastAPI solo si el núcleo operativo está estable y el tiempo alcanza. |
 
 **Fuera de alcance del MVP (diferido a futuro):**
 
