@@ -256,9 +256,11 @@ CREATE TABLE IF NOT EXISTS categoria_producto (
     orden INT NOT NULL DEFAULT 0 CHECK (orden >= 0),
     activa BOOL NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_categoria_local_nombre UNIQUE (local_id, LOWER(nombre))
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_categoria_local_nombre 
+    ON categoria_producto (local_id, LOWER(nombre));
 
 -- 3.2 Directorio Comercial de Proveedores de Insumos (CU-ADMIN-05)
 CREATE TABLE IF NOT EXISTS proveedor (
@@ -271,9 +273,11 @@ CREATE TABLE IF NOT EXISTS proveedor (
     direccion VARCHAR(150),
     activo BOOL NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_proveedor_local_nombre UNIQUE (local_id, LOWER(nombre))
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_proveedor_local_nombre 
+    ON proveedor (local_id, LOWER(nombre));
 
 -- 3.3 Catálogo de Insumos e Ingredientes en Bodega (CU-ADMIN-03, CU-COCINA-03)
 CREATE TABLE IF NOT EXISTS insumo (
@@ -289,9 +293,11 @@ CREATE TABLE IF NOT EXISTS insumo (
     fecha_ultima_compra TIMESTAMPTZ,
     estado VARCHAR(20) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo', 'agotado', 'inactivo')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_insumo_local_nombre UNIQUE (local_id, LOWER(nombre))
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_insumo_local_nombre 
+    ON insumo (local_id, LOWER(nombre));
 
 -- 3.4 Insumos Habituales Suministrados por Proveedor (CU-ADMIN-05)
 CREATE TABLE IF NOT EXISTS proveedor_insumo_habitual (
@@ -319,9 +325,11 @@ CREATE TABLE IF NOT EXISTS producto (
     requiere_preparacion BOOL NOT NULL DEFAULT true, -- true = fogones/KDS; false = despacho directo mozo
     activo BOOL NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_producto_local_nombre UNIQUE (local_id, LOWER(nombre))
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_producto_local_nombre 
+    ON producto (local_id, LOWER(nombre));
 
 -- 3.6 Fichas Técnicas / Recetas Culinarias por Producto (CU-ADMIN-04, CU-COCINA-03)
 CREATE TABLE IF NOT EXISTS producto_insumo (
@@ -436,9 +444,11 @@ CREATE TABLE IF NOT EXISTS promocion (
     activa BOOL NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_promocion_local_nombre UNIQUE (local_id, LOWER(nombre)),
     CONSTRAINT chk_promocion_fechas CHECK (fecha_inicio <= fecha_fin)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_promocion_local_nombre 
+    ON promocion (local_id, LOWER(nombre));
 
 -- 5.4 Formas de Pago y Comisiones de Pasarela por Sede (CU-ADMIN-19)
 CREATE TABLE IF NOT EXISTS metodo_pago_local (

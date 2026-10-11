@@ -187,7 +187,7 @@ LEFT JOIN gastos g ON g.local_id = fl.local_id AND g.fecha = fl.fecha;
 -- 6. HISTORIAL DINÁMICO DE CONSUMO POR COMENSAL (CU-CAJA-03)
 CREATE OR REPLACE VIEW vw_cliente_resumen_consumo AS
 SELECT 
-    c.empresa_id,
+    cl.empresa_id,
     cl.id AS cliente_id,
     cl.tipo_documento,
     cl.numero_documento,
@@ -199,4 +199,4 @@ SELECT
 FROM cliente cl
 JOIN empresa c ON c.id = cl.empresa_id
 LEFT JOIN comprobante comp ON comp.cliente_id = cl.id AND comp.estado = 'emitido'
-GROUP BY c.empresa_id, cl.id, cl.tipo_documento, cl.numero_documento, cl.nombre_identificativo;
+GROUP BY cl.empresa_id, cl.id, cl.tipo_documento, cl.numero_documento, cl.nombre_identificativo;
