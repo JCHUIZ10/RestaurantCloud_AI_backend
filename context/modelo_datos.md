@@ -128,14 +128,20 @@ Sucursal/local de una empresa.
 | `id` | UUID | PK | Identificador del local |
 | `empresa_id` | UUID | FK -> empresa | Empresa a la que pertenece |
 | `nombre` | varchar | — | Nombre del local |
+| `slug` | varchar(100) | UNIQUE NOT NULL | Identificador amigable para URL pública de la carta web (ej. 'miraflores') |
 | `direccion` | varchar | — | Dirección física |
 | `distrito` | varchar | — | Distrito de ubicación |
 | `ciudad` | varchar | — | Ciudad / Región (ej. Lima) |
-| `telefono` | varchar | — | Teléfono del local |
+| `telefono` | varchar | — | Teléfono del local (usado para contacto directo de WhatsApp y llamadas en carta web) |
 | `zona_horaria` | varchar | DEFAULT 'America/Lima' | Zona horaria del local |
 | `moneda` | varchar(3) | DEFAULT 'PEN' | Moneda base de operación (Soles) |
 | `giro_negocio` | enum | DEFAULT 'en_blanco' | Giro culinario del local: polleria, cevicheria, chifa, en_blanco |
 | `estado` | enum | — | activo, inactivo |
+
+Restricción e índice de optimización:
+```sql
+CREATE INDEX IF NOT EXISTS idx_local_slug ON local(slug) WHERE estado = 'activo';
+```
 
 #### `horario_atencion`
 

@@ -1682,18 +1682,33 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 # 7. Cliente
 
-### CU-CLIENTE-01: Consultar carta digital
+### CU-CLIENTE-01: Consultar carta digital (Catálogo Interactivo Web)
 
-**Actor(es):** Cliente
+**Actor(es):** Cliente / Comensal
 
-**Precondiciones:** El local está activo.
+**Precondiciones:** La sede gastronómica se encuentra activa (`estado = 'activo'`); existen categorías (`CU-ADMIN-02`) y productos activos (`CU-ADMIN-04`) configurados en el sistema; la sede cuenta con un slug público único registrado (ej. `miraflores`).
 
 #### Flujo principal
 
-1. El cliente accede a la carta (vía QR en mesa o app/web).
-2. El sistema muestra los productos disponibles, organizados por categoría, con precio y descripción.
+1. El cliente accede a la carta digital escaneando el código QR general disponible en el restaurante o mediante enlace web público (`https://app.restaurantcloud.pe/sede/<slug>/carta`) desde redes sociales, WhatsApp o navegadores móviles.
+2. El sistema resuelve la sede en base a su `slug` y carga en una sola consulta de alto rendimiento (`GET /api/v1/public/sedes/{slug}/carta`) los datos de la sede (nombre, dirección, horario de atención y teléfono de contacto), las promociones comerciales activas (`CU-ADMIN-17`) y la oferta gastronómica organizada por categorías (`CU-ADMIN-02`).
+3. El cliente visualiza en su smartphone el catálogo interactivo:
+   - **Cabecera informativa:** Nombre del restaurante, dirección, badge de horario (`● Abierto hoy`) y botones accesibles de contacto directo: `[ 💬 WhatsApp ]` (enlace directo a chat) y `[ 📞 Llamar ]` (enlace telefónico directo) vinculados al teléfono del local (`local.telefono`).
+   - **Banner de promociones vigentes:** Exhibe descuentos activos configurados por la administración (ej. *"15% dscto en Almuerzos Ejecutivos"*).
+   - **Buscador reactivo con debounce:** Permite buscar platos o ingredientes en tiempo real mediante filtrado client-side instantáneo en memoria.
+   - **Pestañas deslizables de categorías:** Navegación táctil horizontal con sticky header (`[ Todos ]`, `[ Pollos & Brasas ]`, `[ Parrillas ]`, `[ Guarniciones ]`, `[ Bebidas ]`).
+   - **Fichas gastronómicas:** Cada plato exhibe fotografía, nombre comercial, descripción culinaria y precio oficial en Soles (`PEN S/`) con IGV (18%) incluido.
+   - **Sincronización en vivo de disponibilidad:** Si la cocina reporta quiebre de stock o apaga un plato en KDS (`CU-COCINA-04`), el plato se muestra atenuado visualmente con el badge `[ Agotado por hoy ]`.
+4. El cliente puede tocar cualquier tarjeta de plato para abrir la **Ficha de Inspección Culinaria (Modal Bottom-Sheet)**, donde aprecia la fotografía ampliada en alta resolución, la descripción detallada de ingredientes y preparación, el precio en grande y una microcopia informativa amigable: *"ℹ️ Para degustar este plato, indícaselo al personal de salón al visitarnos o consúltanos por WhatsApp."*
+5. El cliente pulsa `[ ← Volver a la Carta ]` para regresar al catálogo principal.
 
-**Postcondiciones:** Ninguna (consulta).
+#### Flujos alternativos
+
+- **Búsqueda sin coincidencias (Empty State):** Si el comensal ingresa un término que no coincide con ningún plato (ej. *"mariscos"* en una pollería), el sistema despliega el estado vacío ilustrado informando de forma empática la especialidad del restaurante, proveyendo el botón `[ ↺ Ver Toda la Carta ]` para limpiar la búsqueda y un acceso rápido para consultas por WhatsApp.
+- **Sede no encontrada o inactiva:** Si el slug no existe o la sede fue desactivada temporalmente, el sistema presenta una pantalla amigable indicando que el restaurante no se encuentra disponible.
+- **Acceso desde desktop o tablet:** El sistema adapta su diseño a pantalla ancha mediante un layout de dos columnas (sidebar izquierdo con datos y contacto + grilla derecha fluida de tres columnas de platos).
+
+**Postcondiciones:** Ninguna (caso de uso de consulta pura; el catálogo es 100% informativo sin emisión de pedidos ni creación de reservas por el cliente).
 
 ### CU-CLIENTE-02: Buscar comprobante de pago
 

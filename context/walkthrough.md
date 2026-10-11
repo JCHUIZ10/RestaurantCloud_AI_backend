@@ -1665,6 +1665,57 @@ Pantalla post-cierre bajo política *Cero Papel*:
 5. **🏆 HITO HISTÓRICO: MÓDULO DE CAJA 100% CULMINADO (5 Casos de Uso):**
    - Con `CU-CAJA-01` (Apertura de turno), `CU-CAJA-02` (Precuenta digital / Monitor POS), `CU-CAJA-03` (Cobro de comanda y comprobantes oficiales), `CU-CAJA-04` (Anulación, Nota de Crédito y reversión de caja) y `CU-CAJA-05` (Arqueo Z y Reporte Z digital), el **Módulo de Caja, Punto de Venta y Facturación de RestaurantCloud AI queda 100% terminado (5 Casos de Uso canónicos)**.
 
+---
+
+## 72. Vistas Wireframe: `CU-CLIENTE-01: Consultar carta digital (Catálogo Interactivo Web)`
+
+Se diseñaron y renderizaron 4 vistas en alta resolución (1440x900, JPG calidad 95) ubicadas en `wireframe/cliente/CU-CLIENTE-01-consultar-carta/assets/`:
+
+### Vista 1: Catálogo Digital Interactivo en Smartphone (`wf_cliente_01_catalogo_smartphone.jpg`)
+Experiencia mobile-first canónica para comensales en smartphone (viewport central 412x880):
+- **Barra Superior y Estado del Negocio:** Marca del restaurante ("🔥 El Carbón & Leña"), Sede Miraflores (Av. Larco 450) y badge de apertura (`● Abierto hoy`).
+- **Botones de Contacto Directo:** Accesos directos a `[ 💬 WhatsApp ]` y `[ 📞 Llamar (987 654 321) ]` consumiendo directamente `local.telefono`.
+- **Banner de Promoción Activa:** Descuento vigente configurado en `CU-ADMIN-17` (*"15% dscto en Almuerzos Ejecutivos"*).
+- **Buscador Omnicanal Reactivo:** Input con debounce para búsqueda por nombre de plato o ingrediente en memoria (0ms latencia).
+- **Carrusel Sticky de Categorías:** Tabs deslizables táctiles con conteo de platos (`[ Todos (28) ]`, `[ 🔥 Pollos & Brasas ]`, `[ 🥩 Parrillas ]`, `[ 🍟 Guarniciones ]`, `[ 🥤 Bebidas ]`).
+- **Lista de Platos Gastronómicos:** Tarjetas con miniatura culinaria, nombre comercial, descripción corta, precio oficial en Soles (`S/ 24.50`) con IGV incluido y estado de stock.
+- **Sincronización en Vivo de Quiebres:** Platos marcados como agotados en cocina (`CU-COCINA-04`) se atenúan con el badge visual `[ ✕ Agotado por hoy ]`.
+
+### Vista 2: Ficha de Inspección de Plato (`wf_cliente_01_modal_detalle_plato.jpg`)
+Modal / bottom-sheet al presionar cualquier plato de la carta:
+- **Hero Image HD Gastronómica:** Fotografía culinaria en alta resolución.
+- **Datos Comerciales:** Nombre comercial ("Lomo Saltado Criollo"), categoría y precio destacado (`S/ 42.00`).
+- **Descripción Culinaria:** Detalle de preparación e ingredientes clave sin matrices complejas de alérgenos ni dietas.
+- **Aviso Informativo Poka-Yoke:** *"ℹ️ Para degustar este plato, indícaselo al personal de salón al visitarnos o escríbenos a nuestro WhatsApp."*
+- **Botón de Cierre Táctil:** Botón de 48px de altura `[ ← Volver a la Carta ]` que regresa al catálogo sin crear carritos ni pedidos.
+
+### Vista 3: Catálogo en Pantalla Ancha Desktop / Tablet (`wf_cliente_01_catalogo_desktop.jpg`)
+Adaptación responsiva fluida a pantallas anchas (1440x900):
+- **Sidebar Izquierdo Fijo (320px):** Identidad del local, dirección física, horario de atención semanal (`CU-ADMIN-09`), caja de contacto directo con WhatsApp y llamada, y menú vertical de categorías con contador.
+- **Área Principal Derecha (1040px):** Banner de promociones activas, buscador superior con debounce y grilla de 3 columnas de platos culinarios con precios y badges de disponibilidad.
+
+### Vista 4: Estado Vacío de Búsqueda sin Coincidencias (`wf_cliente_01_busqueda_vacia.jpg`)
+Manejo de estados UX sin callejones sin salida (Zero Dead-Ends):
+- **Filtro sin Resultados:** Búsqueda de término no disponible (ej. *"mariscos"* en pollería).
+- **Ilustración y Mensaje Empático:** Notifica con claridad la especialidad culinaria de la sede.
+- **Botón CTA de Recuperación:** `[ ↺ Ver Toda la Carta (28 Platos) ]` para limpiar la búsqueda en 1 clic.
+- **Asistencia Alternativa:** Botón directo a WhatsApp para coordinar pedidos especiales.
+
+---
+
+## 73. Reglas de Negocio, Cero Carrito, Contacto Multicanal y Contrato REST de `CU-CLIENTE-01`
+
+1. **Hiper-Simplificación y Cero Fricción:**
+   - No se exige registro de usuario, inicio de sesión ni descarga de aplicaciones.
+   - Cualquier código QR impreso en el local redirige unívocamente a la URL pública amigable de la sede (`https://app.restaurantcloud.pe/sede/:slug/carta`).
+2. **Cero Carrito de Compras / Cero Autocomandas:**
+   - La carta es estrictamente un catálogo de consulta visual e informativa. La toma de comanda formal y envío a cocina permanece 100% a cargo del Mozo en salón (`CU-MOZO-02`), preservando la integridad del KDS y caja.
+3. **Contacto Multicanal con Datos Existentes:**
+   - No se requieren tablas adicionales de mensajería; los botones de WhatsApp y llamada telefónica consumen de forma transparente `local.telefono`.
+4. **Endpoint REST Único de Alto Rendimiento:**
+   - `GET /api/v1/public/sedes/{slug}/carta` resuelve en una sola consulta agrupada (`JSON_AGG`) la sede, promociones activas y categorías con platos en sub-5ms.
+
+
 
 
 

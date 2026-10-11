@@ -135,14 +135,18 @@ La bitácora histórica detallada de todas las decisiones, esquemas y capturas s
 | **`CU-CAJA-03`** | Cobro de comanda y emisión de comprobantes oficiales (Factura, Boleta, Nota Venta) | ✅ Completado | `wireframe/cajero/CU-CAJA-03-cobrar-comanda/` |
 | **`CU-CAJA-04`** | Anular comprobante / pedido ya cobrado y emisión de Nota de Crédito Electrónica | ✅ Completado | `wireframe/cajero/CU-CAJA-04-anular-comprobante/` |
 | **`CU-CAJA-05`** | Cerrar caja (arqueo Z) y rendición de cuentas del turno | ✅ Completado | `wireframe/cajero/CU-CAJA-05-cerrar-caja/` |
+| **`CU-CLIENTE-01`** | Consultar carta digital (Catálogo Interactivo Web) | ✅ Completado | `wireframe/cliente/CU-CLIENTE-01-consultar-carta/` |
 
 > 🏆 **ROL MOZO 100% CULMINADO (9 Casos de Uso):** Todos los casos de uso del rol Mozo (`CU-MOZO-01` a `CU-MOZO-09`) se encuentran plenamente especificados con wireframes Blueprint, modelos relacionales, contratos Go y flujo reactivo SSE. Incluye salón en vivo, comandas táctiles, unión de mesas, reservas con mini-mapa, comercialización con promociones independientes (`CU-ADMIN-17`), precuenta digital con pago QR y **subdivisión determinista de comandas en mesa con tres comprobantes (Factura, Boleta y Nota de Venta)**.
 > 
 > 👨‍🍳 **ROL COCINA 100% CULMINADO:** Todos los casos de uso del rol Cocina (`CU-COCINA-01`, `02`, `03`, `04` y `05`) se encuentran 100% terminados y sincronizados: KDS interactivo con semáforo dinámico de sede (`CU-ADMIN-18`), pase caliente táctil con timer y rollback de inventario al deshacer (30s), recuperación de tickets despachados (30m), deducción atómica de recetas sin bloqueo de servicio, gestión de quiebres con asignación FIFO justa para porciones parciales en fuego y alertas reactivas de parada.
 > 
 > 💳 **ROL CAJERO 100% CULMINADO (5 Casos de Uso: CU-CAJA-01 a CU-CAJA-05):** Todos los casos de uso de Caja, POS y Facturación se encuentran 100% completados con wireframes Blueprint en alta resolución (1440x900) y especificaciones técnicas canónicas. Incluye política de terminal única por sede (`uq_caja_abierta_local`), fondo inicial directo, precuenta digital desacoplada con promociones predictivas (`CU-ADMIN-17`) y medios de pago (`CU-ADMIN-19`), cobro formal con tres comprobantes (Factura, Boleta y Nota de Venta) con consulta ApiPerú y persistencia en tabla `cliente` (`detalle JSONB`), control de series y correlatividad monótona con bloqueo transaccional ACID (`comprobante_serie`), digitación directa de efectivo con display de vuelto, liquidación atómica por comanda completa o subcuentas (`CU-MOZO-09` / `CU-CAJA-03`), anulación formal con Nota de Crédito Electrónica (`FC01`/`BC01`), catálogo SUNAT 09, filtros segmentados por estado (Vigentes vs Anulados), reversión en flujo de caja (`caja_movimiento`), verificación Poka-Yoke de salón al día, arqueo Z con digitación directa, y emisión de Reporte Z Digital oficial con consolidación fiscal bajo estricta política Cero Papel.
+>
+> 📱 **ROL CLIENTE (CU-CLIENTE-01 CULMINADO):** Catálogo digital interactivo web de la carta (`CU-CLIENTE-01`) especificado y renderizado al 100% en alta resolución (1440x900 Blueprint). Incluye acceso público web por slug (`/sede/:slug/carta`), botones de contacto directo a WhatsApp y llamada con `local.telefono`, carrusel de categorías táctil, buscador en tiempo real con debounce, sincronización en vivo de platos agotados con cocina (`CU-COCINA-04`), modal de ficha ampliada del plato, estado vacío accesible para búsquedas sin coincidencias y diseño mobile-first sin carritos ni fricción de login.
 
-**Próximo Módulo a Ejecutar (Autoservicio y Experiencia Comensal):**
-👉 **`CU-CLIENTE-01: Consultar carta digital`** (Acceso web responsive optimizado para móviles vía código QR en mesa con token de ubicación, visualización de categorías, platos, precios, alérgenos, fotos y sincronización reactiva de stock con cocina `CU-COCINA-04`).
+**Próximo Módulo a Ejecutar (Experiencia Comensal):**
+👉 **`CU-CLIENTE-02: Buscar comprobante de pago`** (Acceso público vía token QR único para visualización de comprobante electrónico oficial [Factura/Boleta] y descarga en PDF sin registro previo).
+
 
 

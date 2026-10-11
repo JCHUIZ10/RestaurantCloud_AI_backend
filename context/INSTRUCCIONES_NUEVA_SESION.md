@@ -117,32 +117,24 @@ Por cada nuevo Caso de Uso abordado, se ejecuta sin excepciones este flujo:
 - `CU-CAJA-04`: Anular comprobante / pedido ya cobrado y emisión de Nota de Crédito Electrónica (Emisión de Nota de Crédito oficial bajo normativa SUNAT con series `FC01` para Factura y `BC01` para Boleta mediante correlatividad ACID; filtros segmentados de dos niveles [Vigentes vs Anulados]; catálogo oficial SUNAT Catálogo 09 [01 anulación total, 02 error en documento, 06 devolución total] con sustento textual obligatorio; conmutación atómica de `comprobante.estado = 'anulado'` y `pedido.estado = 'anulado'`; asiento contable de egreso en `caja_movimiento` [`tipo = 'egreso_devolucion'`] con reversión en gaveta de S/ 385 a S/ 300 para cuadratura exacta; bloqueo Poka-Yoke contra re-anulación; alerta reactiva SSE al panel `CU-ADMIN-12`; y diálogo de entrega digital con token QR dinámico [UUID v8] y entrega multicanal).
 - `CU-CAJA-05`: Cerrar caja (arqueo Z) y rendición de cuentas del turno (Verificación Poka-Yoke de salón al día sin mesas activas con comanda abierta; conciliación de pagos electrónicos por tarjetas POS [Lote #012] y billeteras digitales Yape/Plin; digitación directa de efectivo físico contado en gaveta con cálculo dinámico de diferencia a S/ 0.00; justificación textual obligatoria ante cualquier discrepancia; transacción atómica ACID que actualiza `caja.estado = 'cerrada'`, fija `fecha_cierre = NOW()` y libera el índice único `uq_caja_abierta_local`; emisión del Reporte Z Digital oficial con consolidación fiscal SUNAT descargable en PDF bajo política Cero Papel, archivo inmutable para supervisión administrativa `CU-ADMIN-15` y alerta reactiva SSE a `CU-ADMIN-12`).
 
+### 4.7 Rol Cliente (`wireframe/cliente/`) — 📱 1 CU CULMINADO
+- `CU-CLIENTE-01`: Consultar carta digital (Catálogo Interactivo Web) (Acceso público web por slug `https://app.restaurantcloud.pe/sede/<slug>/carta`, botones de contacto directo a WhatsApp y llamada mediante `local.telefono`, categorías con tabs táctiles, buscador reactivo en tiempo real con debounce, sincronización en vivo con quiebres de cocina `CU-COCINA-04` [`Agotado por hoy`], modal de ficha ampliada del plato, estado vacío accesible para búsquedas sin coincidencias y diseño mobile-first sin carritos ni registros).
+
 ---
 
 ## 5. Objetivo Inmediato de la Nueva Sesión: Rol Cliente
 
-Al iniciar una nueva sesión de chat, el asistente debe concentrarse exclusivamente en el siguiente caso de uso:
+Al iniciar una nueva sesión de chat, el asistente debe concentrarse en el siguiente caso de uso:
 
-### 👉 **`CU-CLIENTE-01: Consultar carta digital`**
+### 👉 **`CU-CLIENTE-02: Buscar comprobante de pago`**
 
 #### 5.1 Propósito y Contexto de Negocio
-Permitir a los comensales visualizar la oferta gastronómica del restaurante desde su teléfono inteligente de manera inmediata, fluida y sin barreras de entrada (sin obligar a descargas de apps ni registros de usuario previos).
+Permitir a los comensales visualizar y descargar su comprobante de pago oficial (Factura, Boleta o Nota de Venta) en formato digital PDF oficial, accediendo de forma inmediata mediante el escaneo del código QR dinámico de su comanda o enlace único (`https://app.restaurantcloud.pe/c/<token_uuid_v8>`), sin requerir registro de cuenta ni login, bajo la política de Cero Papel.
 
-#### 5.2 Modos de Acceso
-1. **Acceso en Mesa (Vía Código QR Físico):**
-   - El comensal escanea el QR ubicado en la mesa (`https://app.restaurantcloud.pe/m/<token_mesa>`).
-   - El sistema reconoce automáticamente la sede y la mesa asignada (ej. `Mesa 04`).
-2. **Acceso Público / Exploratorio (Enlace o Redes Sociales):**
-   - Acceso web abierto a la sede (`https://app.restaurantcloud.pe/sede/<slug_sede>/carta`).
-   - Muestra la carta completa en modo consulta informativa general (sin mesa vinculada).
-
-#### 5.3 Requerimientos Funcionales y de Interfaz Clave
-- **Mobile-First Responsive:** Diseñado con prioridad para pantallas de smartphones (viewport 375px a 430px de ancho), pero con escalabilidad limpia a desktop/tablet (1440x900 Blueprint para el wireframe canónico).
-- **Navegación Táctil Ágil:** Pestañas superiores fijas de categorías (`CU-ADMIN-02`) con scroll horizontal reactivo y sticky header.
-- **Fichas de Platos de Alta Calidad:** Nombre comercial, fotografía gastronómica optimizada, descripción culinaria, precio de venta con IGV incluido (S/ PEN), etiquetas dietéticas/alérgenos (Sin Gluten, Vegano, Picante, etc.).
-- **Disponibilidad en Tiempo Real:** Integración reactiva con el stock de cocina (`CU-COCINA-04`): si un plato cae en quiebre, se muestra con badge visual `[ Agotado por hoy ]` y selección bloqueada.
-- **Promociones Activas Visibles:** Exhibición atractiva de descuentos vigentes configurados en `CU-ADMIN-17` (ej. *"15% dscto en Almuerzos Ejecutivos"*).
-- **Acción Asistida (Si escaneó QR de mesa):** Botón flotante accesible `[ 🛎️ Llamar al Mozo ]` para emitir una solicitud prioritaria a la tablet del mozo asignado (`CU-MOZO-01`).
+#### 5.2 Requerimientos Clave
+- **Acceso Criptográfico Seguro:** Acceso restringido exclusivamente a través del token unívoco (UUID v8) generado al momento del cobro en `CU-CAJA-03`; sin buscador público por DNI/RUC para proteger la privacidad de datos personales.
+- **Detalle Tributario Oficial:** Visualización transparente de la serie y correlativo (ej. `B001-0012894`), desglose fiscal SUNAT (Base Imponible e IGV 18%), detalle plato por plato, medio de pago y datos del emisor.
+- **Descarga de PDF Oficial:** Botón de un solo clic para generar y descargar la representación impresa electrónica en PDF.
 
 ---
 
@@ -151,5 +143,6 @@ Permitir a los comensales visualizar la oferta gastronómica del restaurante des
 Cuando el usuario inicie el nuevo chat y salude o solicite continuar:
 1. **Confirma la lectura de este archivo** [`context/INSTRUCCIONES_NUEVA_SESION.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/INSTRUCCIONES_NUEVA_SESION.md).
 2. **Declara formalmente el estado del sistema:**
-   - Propietario (6 CUs), Administrador (15 CUs), Mozo (8 CUs), Cocina (5 CUs) y Cajero (5 CUs canónicos) están **100% culminados y consolidados**.
-3. **Presenta de inmediato la propuesta de `/plan` interactivo para `CU-CLIENTE-01: Consultar carta digital`**, desglosando las vistas requeridas, el contrato de API pública, el soporte QR de mesa y los criterios de accesibilidad móvil.
+   - Propietario (6 CUs), Administrador (15 CUs), Mozo (8 CUs), Cocina (5 CUs), Cajero (5 CUs canónicos) y Cliente (`CU-CLIENTE-01`) están **100% culminados y consolidados (42 CUs totales)**.
+3. **Presenta de inmediato la propuesta de `/plan` interactivo para `CU-CLIENTE-02: Buscar comprobante de pago`**, desglosando las vistas de visor web del comprobante, descarga de PDF y validación del token criptográfico.
+
