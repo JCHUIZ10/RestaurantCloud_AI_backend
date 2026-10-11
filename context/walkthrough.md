@@ -1887,8 +1887,8 @@ Se diseñaron, renderizaron y validaron 4 vistas en resolución canónica (1440x
 
 ### Vista 2: Expediente Detallado de Empresa y Estado de Cobros (`wf_saas_01_detalle_tenant.jpg`)
 ![Vista 2: Expediente de Tenant](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-01-supervisar-tenants/assets/wf_saas_01_detalle_tenant.jpg)
-- **Modal de Auditoría 360° (900px):** Inspección completa del cliente gastronómico *La Mar Cevichería E.I.R.L.* en estado `⚠️ En Período de Gracia (Día 2 de 5)`.
-- **Bloque 1 (Identificación Fiscal y Contacto):** RUC 20551928371, estado verificado SUNAT `✓ ACTIVO / HABIDO`, titular Carlos Benavides y correo de cobranza.
+- **Modal de Auditoría 360° (900px):** Inspección completa del cliente gastronómico *El Tenedor Gourmet S.A.C.* en estado `⚠️ En Período de Gracia (Día 2 de 5)`.
+- **Bloque 1 (Identidad de Empresa & Titular Propietario):** 100% nativa de base de datos (`empresa.razon_social`, `empresa.ruc`, derivación interna `RUC 20 — Persona Jurídica`, dirección de sede principal `local.direccion`, teléfono de contacto, titular y badge `● CUENTA ACTIVA & OPERATIVA`).
 - **Bloque 2 (Contrato SaaS y Pasarela Stripe):** Plan Pro (S/ 249/mes), fecha de cobro en reintento, IDs técnicos (`cus_Q8x9L2k1mP09`, `sub_1N9a8b2c4e5f6`), tarjeta Visa vinculada y cuenta regresiva de gracia (`3 días restantes, corte 14/10/2026 23:59`).
 - **Bloque 3 (Historial de Transacciones de la Tabla `pago`):** Visualización inmutable de cobros sincronizados vía webhooks; resalta en rosa el cargo fallido del 09/10 (`REC-RENOV-02`, "Fondos insuficientes") y el cobro exitoso del alta inicial.
 - **Bloque 4 (Consumo de Límites del Plan):** Medición de uso: Locales 2/3 (67%), Mesas 28/30 (93%) y Personal 11/15 (73%).
@@ -1897,7 +1897,7 @@ Se diseñaron, renderizaron y validaron 4 vistas en resolución canónica (1440x
 ### Vista 3: Modal de Alta Manual con Pago Verificado (`wf_saas_01_modal_alta_manual.jpg`)
 ![Vista 3: Alta Manual Corporativa](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-01-supervisar-tenants/assets/wf_saas_01_modal_alta_manual.jpg)
 - **Formulario Compacto de Alta B2B (820px):** Diseñado sin scrollbars verticales, agrupando 4 bloques esenciales:
-  - *Bloque 1 (Validación SUNAT):* Consulta en línea de RUC `20603849201` con confirmación automática de `Cevichería Puerto Marino S.A.C.` y dirección fiscal.
+  - *Bloque 1 (Identificación de la Empresa):* Ingreso directo de RUC `20603849201` con validación sintáctica matemática Módulo 11 (dígito verificador conforme), deducción automática de `RUC 20 — Persona Jurídica`, Razón Social y dirección de la sede principal (sin depender de APIs externas).
   - *Bloque 2 (Datos del Titular):* Nombre, teléfono/WhatsApp y correo corporativo `admin@puertomarino.pe`.
   - *Bloque 3 (Plan y Vigencia):* Plan Pro Anual (`S/ 2,490 / año`) con fechas de inicio y vencimiento a 1 año.
   - *Bloque 4 (Registro de Pago Bancario Verificado):* Monto cobrado en Soles, selector de medio bancario (`Transferencia Bancaria BCP`), N° de constancia `OP-90481239-BCP` y nota administrativa de tesorería que se persiste con estado `exitoso` en la tabla `pago`.

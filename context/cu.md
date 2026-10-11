@@ -31,28 +31,29 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
    - **Sedes Operativas Conectadas:** Total de locales físicos activos en la plataforma y promedio de sedes por cliente.
 3. El administrador filtra por pestañas (`[Todos]`, `[Activos]`, `[En Gracia]`, `[Suspendidos]`, `[Baja]`) o busca por RUC, razón social o nombre comercial en tiempo real.
 4. El administrador puede inspeccionar el **Expediente 360°** de cualquier empresa (`GET /api/v1/saas/tenants/:id`):
-   - Datos fiscales validados contra SUNAT / ApiPerú (RUC, razón social, dirección y contacto titular).
+   - Identidad de la empresa y titular resuelta 100% de la base de datos interna (`empresa.razon_social`, `empresa.ruc`, derivación de tipo `RUC 20 — Persona Jurídica` o `RUC 10`, dirección de sede principal `local.direccion`, teléfono y correo).
+   - Semáforo operativo en plataforma (`● Cuenta Activa & Operativa`, `⚠️ En Período de Gracia`, `🚫 Suspendida`) sin llamadas a APIs externas.
    - Contrato SaaS y referencias a Stripe (`customer_id`, `subscription_id`, método de pago, días de gracia restantes).
    - Historial de transacciones de la tabla `pago` (cargos exitosos y cobros fallidos sincronizados vía webhooks).
    - Uso de recursos en tiempo real vs límites del plan (locales, mesas y usuarios de personal).
 5. Ante cobros fallidos en período de gracia, el administrador puede despachar recordatorios de cobro por correo electrónico con enlace directo para actualización de tarjeta en Stripe.
 6. **Alta Manual de Clientes Corporativos B2B (`POST /api/v1/saas/tenants/alta-manual`):**
    - El administrador pulsa `[ ➕ Nueva Alta Manual ]`.
-   - Ingresa el RUC de 11 dígitos y el sistema valida en línea contra SUNAT (obteniendo Razón Social y condición Habido).
+   - Ingresa el RUC de 11 dígitos, validado localmente con el algoritmo matemático Módulo 11 (garantizando dígito verificador correcto sin consultar APIs externas), la Razón Social y la Dirección de la sede principal.
    - Digita los datos del propietario (nombre, teléfono y correo electrónico corporativo).
    - Selecciona el Plan contratado y el ciclo de facturación (mensual o anual).
    - **Registro de Pago Verificado Obligatorio:** Registra el monto en PEN, medio de pago bancario (Transferencia BCP/BBVA, Depósito, Yape Empresa), número de constancia/operación y nota administrativa de respaldo.
-   - Al confirmar, el sistema ejecuta una transacción atómica insertando la empresa, suscripción, usuario propietario y el pago en la tabla `pago` con estado `exitoso`.
+   - Al confirmar, el sistema ejecuta una transacción atómica insertando la empresa, sede principal, suscripción, usuario propietario y el pago en la tabla `pago` con estado `exitoso`.
    - El sistema genera un capability token criptográfico (TTL 72 horas) y despacha automáticamente un correo de bienvenida para que el titular establezca su contraseña e inicie el aprovisionamiento de su restaurante.
 
 #### Flujos alternativos
 
 - No existen empresas en período de gracia ni cobros pendientes al filtrar → El sistema presenta el estado vacío orientador con escudo de solvencia (`wf_saas_01_estado_vacio.jpg`).
-- El RUC ingresado en el alta manual no existe en SUNAT o se encuentra no habido → El sistema emite advertencia bloqueante requiriendo corregir el número o ingresar la razón social manualmente con justificación.
+- El RUC ingresado en el alta manual no cumple con el algoritmo Módulo 11 → El sistema emite advertencia bloqueante en el formulario impidiendo el registro hasta ingresar un RUC matemáticamente válido.
 - Se intenta registrar un alta manual con monto S/ 0.00 o sin número de operación bancaria → Validación estricta impidiendo el registro, garantizando que todo tenant activo posea respaldo económico en la tabla `pago`.
 - Una empresa en período de gracia alcanza el día 6 sin regularizar el cobro → El sistema ejecuta la suspensión automática del tenant (`CU-SAAS-02`), inhabilitando el acceso a sus terminales de salón.
 
-**Postcondiciones:** Base de datos de tenants auditada en tiempo real; expedientes actualizados; altas corporativas B2B creadas con pago inmutable en `pago` y propietario invitado vía capability token.
+**Postcondiciones:** Base de datos de tenants auditada en tiempo real; expedientes actualizados con datos relacionales nativos; altas corporativas B2B creadas con pago inmutable en `pago` y propietario invitado vía capability token.
 
 ### CU-SAAS-02: Dar de baja / suspender empresa (conforme a ley)
 

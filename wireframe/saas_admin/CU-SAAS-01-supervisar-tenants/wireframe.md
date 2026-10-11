@@ -41,6 +41,12 @@
    - **En Período de Gracia:** Cuentas con pago de renovación en reintento dentro de la ventana de 5 días (ej. 3 empresas, S/ 747 MRR en riesgo).
    - **Sedes Operativas Conectadas:** Total acumulado de locales físicos en producción (ej. 112 locales, promedio 2.3 sedes por empresa), indicador directo del uso real de la infraestructura.
 
+6. **Independencia de APIs Externas (SUNAT / ApiPerú) y Validación Matemática Local:**
+   - La visualización del expediente (Vista 2) y el formulario de alta manual (Vista 3) no dependen de llamadas a APIs externas de SUNAT ni ApiPerú, eliminando costos por consulta, riesgos de timeout y cuellos de botella de red.
+   - El RUC de 11 dígitos se valida internamente en frontend y backend mediante el **algoritmo matemático de Módulo 11**, verificando la consistencia de su dígito verificador.
+   - La tipificación del contribuyente se deduce limpiamente del prefijo del RUC: prefijo `20` $\rightarrow$ `Persona Jurídica (Empresa)`; prefijo `10` $\rightarrow$ `Persona Natural con Negocio`.
+   - El estado tributario se reemplaza por el **Estado de Cuenta en Plataforma** (`● ACTIVA & OPERATIVA`, `⚠️ EN PERÍODO DE GRACIA`, `🚫 SUSPENDIDA`), resolviéndose con un `JOIN` local de base de datos en $< 10\text{ ms}$.
+
 ---
 
 ## 2. Diagrama de Secuencia Mermaid
@@ -64,11 +70,11 @@ sequenceDiagram
     API-->>SPA: 200 OK (TenantListResponseDTO)
     SPA-->>SAAS: Renderiza Bandeja de Tenants (Vista 1: wf_saas_01_bandeja_tenants.jpg)
 
-    opt Flujo 2: Inspección de Expediente de Tenant en Gracia
-        SAAS->>SPA: Clic en [ 👁️ Ver Expediente ] (La Mar Cevichería)
+    opt Flujo 2: Inspección de Expediente de Tenant en Gracia (100% Local)
+        SAAS->>SPA: Clic en [ 👁️ Ver Expediente ] (El Tenedor Gourmet)
         SPA->>API: GET /api/v1/saas/tenants/EMP-004
-        API->>BD: SELECT e.*, s.*, p.* FROM empresa e JOIN suscripcion s ...
-        BD-->>API: Datos fiscales, Stripe IDs, historial de pagos, sedes y mesas
+        API->>BD: SELECT e.*, s.*, p.*, l.direccion FROM empresa e JOIN suscripcion s ...
+        BD-->>API: Datos nativos, tipo deducido, Stripe IDs, pagos, sedes y mesas
         API-->>SPA: 200 OK (TenantDetailResponseDTO)
         SPA-->>SAAS: Despliega Expediente Modal (Vista 2: wf_saas_01_detalle_tenant.jpg)
         
@@ -77,29 +83,30 @@ sequenceDiagram
         API->>MAIL: Enviar email recordatorio con botón de actualización de tarjeta
         MAIL-->>API: 202 Dispatched
         API-->>SPA: 200 OK (Notificación despachada)
-        SPA-->>SAAS: Toast: "✓ Recordatorio enviado al propietario (gerencia@lamar.pe)"
+        SPA-->>SAAS: Toast: "✓ Recordatorio enviado al propietario (mgarcia@eltenedor.pe)"
     end
 
-    opt Flujo 3: Alta Manual de Empresa con Pago Verificado (B2B)
+    opt Flujo 3: Alta Manual B2B con Validación Sintáctica Local
         SAAS->>SPA: Clic en botón [ ➕ Nueva Alta Manual ]
         SPA-->>SAAS: Despliega Modal de Formulario (Vista 3: wf_saas_01_modal_alta_manual.jpg)
-        SAAS->>SPA: Ingresa RUC 20603849201 y pulsa [ 🔍 Consultar SUNAT ]
-        SPA->>API: GET /api/v1/saas/sunat/consultar-ruc?ruc=20603849201
-        API-->>SPA: 200 OK (Cevichería Puerto Marino S.A.C., ACTIVO/HABIDO)
+        SAAS->>SPA: Digita RUC 20603849201, Razón Social y Sede Principal
+        SPA->>SPA: Valida algoritmo Módulo 11 (Frontend) y deduce: RUC 20 — Persona Jurídica
         
         SAAS->>SPA: Completa titular, selecciona Plan Pro Anual y registra pago BCP (S/ 2,490)
         SAAS->>SPA: Marca "Despachar correo automático de bienvenida" y pulsa [ ✓ Confirmar Pago y Activar Empresa ]
         
         SPA->>API: POST /api/v1/saas/tenants/alta-manual (AltaManualTenantRequestDTO)
+        API->>API: Valida algoritmo Módulo 11 (Backend Go)
         
         rect rgb(240, 249, 255)
             Note over API, BD: Transacción Atómica de Alta y Pago
             API->>BD: INSERT INTO empresa (ruc, razon_social, estado='activa', origen_alta='manual_admin', ...)
+            API->>BD: INSERT INTO local (empresa_id, nombre='Sede Principal', direccion=..., ...)
             API->>BD: INSERT INTO suscripcion (empresa_id, plan_id, estado='activa', ciclo='anual', ...)
             API->>BD: INSERT INTO pago (empresa_id, monto=2490.00, estado='exitoso', origen_pago='transferencia_bancaria', numero_operacion='OP-90481239-BCP', ...)
             API->>BD: INSERT INTO usuario (empresa_id, rol='propietario', email='admin@puertomarino.pe', ...)
             API->>BD: INSERT INTO capability_token (usuario_id, token, expira_en=72h, accion='fijar_password')
-            BD-->>API: Tenant, suscripción, pago y propietario creados
+            BD-->>API: Tenant, local, suscripción, pago y propietario creados
         end
 
         API->>MAIL: Enviar correo de bienvenida con enlace para configurar contraseña
@@ -174,14 +181,14 @@ Modal de auditoría 360° que desglosa la relación comercial, estado en SUNAT, 
 +-------------------------------------------------------------------------------------------------------------------------------------+
 | [MODAL DE EXPEDIENTE: CU-SAAS-01: DETALLE DE EMPRESA & SUSCRIPCIÓN]                                                                 |
 +-------------------------------------------------------------------------------------------------------------------------------------+
-|  EXPEDIENTE DE EMPRESA: LA MAR CEVICHERÍA E.I.R.L.                                                                        [✕]      |
-|  RUC: 20551928371 • Creado el 15/09/2026 • Estado: [⚠️ En Período de Gracia (Día 2 de 5)]                                           |
+|  EXPEDIENTE DEL TENANT: EL TENEDOR GOURMET S.A.C.                                                                          [✕]      |
+|  ID Tenant: e9a8b7c6-1234-5678-9abc-def012345678 • Registro: 15/09/2026 • Estado: [⚠️ EN PERÍODO DE GRACIA (DÍA 2 DE 5)]            |
 |-------------------------------------------------------------------------------------------------------------------------------------|
 |  +-------------------------------------------------------------------------------------------------------------------------------+  |
-|  | 1. DATOS FISCALES & CONTACTO TITULAR                                                                                          |  |
-|  | Razón Social: La Mar Cevichería E.I.R.L.               | Estado SUNAT: ✓ ACTIVO / HABIDO (Verificado SUNAT)                   |  |
-|  | Titular / Contacto: Carlos Benavides (Propietario)    | Email Titular: gerencia@lamar.pe                                     |  |
-|  | Teléfono: +51 987 654 321                             | Dirección Fiscal: Av. Mariscal La Mar 770, Miraflores, Lima          |  |
+|  | 1. IDENTIDAD DE EMPRESA & TITULAR PROPIETARIO                              | [● CUENTA ACTIVA & OPERATIVA]                    |  |
+|  | Razón Social Registrada: El Tenedor Gourmet S.A.C.                         | RUC & Tipo: 20601234567 (RUC 20 — Persona Juríd.)|  |
+|  | Sede Principal / Dirección: Av. Mariscal La Mar 1285, Miraflores, Lima     | Teléfono de Contacto: +51 1 445-8920 (Principal) |  |
+|  | Titular Propietario: Manuel García Mendoza (rol: propietario)              | Correo Electrónico: mgarcia@eltenedor.pe [✓ Act.]|  |
 |  +-------------------------------------------------------------------------------------------------------------------------------+  |
 |  +-------------------------------------------------------------------------------------------------------------------------------+  |
 |  | 2. CONTRATO SAAS & PASARELA STRIPE                    | Origen: Autoservicio Online (CU-PROP-01)                              |  |
@@ -205,8 +212,8 @@ Modal de auditoría 360° que desglosa la relación comercial, estado en SUNAT, 
 ```
 
 #### Guía de Elementos y Microcopias
-- **Cabecera del Expediente:** Nombre legal, RUC, fecha de creación y badge de estado `⚠️ En Período de Gracia (Día 2 de 5)`.
-- **Sección 1 (Identificación Fiscal):** Datos verificados contra API SUNAT (Razón social, RUC, dirección fiscal, teléfono y contacto titular).
+- **Cabecera del Expediente:** Nombre legal, UUID del tenant, fecha de creación y badge de estado `⚠️ En Período de Gracia (Día 2 de 5)`.
+- **Sección 1 (Identidad de Empresa & Titular Propietario):** 100% nativa de base de datos (`empresa.razon_social`, `empresa.ruc`, derivación de tipo `RUC 20 — Persona Jurídica`, dirección de sede principal `local.direccion`, teléfono de contacto y titular con badge `● CUENTA ACTIVA & OPERATIVA`).
 - **Sección 2 (Contrato SaaS & Stripe):** Plan actual (Pro S/ 249/mes), ID de cliente y suscripción en Stripe con deep links a la consola de Stripe, tarjeta vinculada y fecha exacta de corte de servicio tras cumplirse los 5 días de gracia.
 - **Sección 3 (Historial de Pagos):** Tabla con registros inmutables de cobro provenientes de la tabla `pago`. Destaca en fondo rosado el cobro fallido del 09/10 con causa `"Fondos insuficientes"` y el cargo exitoso del alta inicial.
 - **Sección 4 (Uso de Recursos):** Barras de progreso de locales (2 de 3), mesas (28 de 30) y cuentas de personal (11 de 15).
@@ -231,9 +238,9 @@ Formulario de registro administrativo para clientes corporativos B2B que cancela
 |  Registro administrativo para clientes corporativos con pago por transferencia bancaria (sin pasarela Stripe online)                |
 |-------------------------------------------------------------------------------------------------------------------------------------|
 |  +-------------------------------------------------------------------------------------------------------------------------------+  |
-|  | 1. IDENTIFICACIÓN TRIBUTARIA (VALIDACIÓN SUNAT / APIPERÚ)                                                                     |  |
-|  | RUC de la Empresa (11 dígitos): * [ 20603849201 ] [🔍 Consultar SUNAT]  | Estado SUNAT: ✓ ACTIVO / HABIDO                     |  |
-|  | Razón Social Oficial: * [ Cevichería Puerto Marino S.A.C.           ]  | Dirección: * [ Av. Primavera 450, Surco, Lima     ] |  |
+|  | 1. IDENTIFICACIÓN DE LA EMPRESA (INGRESO DIRECTO & VALIDACIÓN SINTÁCTICA LOCAL)                                               |  |
+|  | RUC de la Empresa (11 dígitos): * [ 20603849201 ]        | Tipo Deducido: ✓ RUC 20 — Persona Jurídica (Módulo 11 conforme)|  |
+|  | Razón Social Oficial: * [ Cevichería Puerto Marino S.A.C.           ]  | Dirección Sede: * [ Av. Primavera 450, Surco, Lima ]|  |
 |  +-------------------------------------------------------------------------------------------------------------------------------+  |
 |  +-------------------------------------------------------------------------------------------------------------------------------+  |
 |  | 2. DATOS DEL PROPIETARIO ADMINISTRADOR                                                                                         |  |
@@ -258,7 +265,7 @@ Formulario de registro administrativo para clientes corporativos B2B que cancela
 ```
 
 #### Guía de Elementos y Microcopias
-- **Bloque 1 (Validación SUNAT):** Input de RUC con botón de consulta automática. Al validar, auto-completa Razón Social y Dirección Fiscal, mostrando el badge verde `✓ ACTIVO / HABIDO`.
+- **Bloque 1 (Identificación de la Empresa):** Ingreso directo de RUC (11 dígitos con máscara), validación local matemática Módulo 11 sin llamadas externas, deducción de tipo de contribuyente (`RUC 20 — Persona Jurídica`), Razón Social y Dirección física de la primera sede.
 - **Bloque 2 (Datos del Titular):** Nombres, apellidos, teléfono corporativo y email donde se despachará la invitación de bienvenida.
 - **Bloque 3 (Plan y Términos):** Selector de Plan (Starter, Pro, Enterprise), periodicidad (Mensual o Anual con 2 meses de bonificación) y fechas de vigencia.
 - **Bloque 4 (Pago Verificado):** Monto en Soles, selector de medio de pago bancario (Transferencia BCP, BBVA, Interbank, Yape Empresa, Efectivo Corporativo), número de constancia bancaria y nota administrativa de tesorería.
@@ -401,29 +408,31 @@ type ConsumoRecursosDTO struct {
 }
 
 type TenantDetailResponseDTO struct {
-	EmpresaID           string             `json:"empresa_id"`
-	CodigoEmpresa       string             `json:"codigo_empresa"`
-	RUC                 string             `json:"ruc"`
-	RazonSocial         string             `json:"razon_social"`
-	DireccionFiscal     string             `json:"direccion_fiscal"`
-	EstadoSUNAT         string             `json:"estado_sunat"`
-	ContactoNombre      string             `json:"contacto_nombre"`
-	ContactoEmail       string             `json:"contacto_email"`
-	ContactoTelefono    string             `json:"contacto_telefono"`
-	PlanID              string             `json:"plan_id"`
-	PlanNombre          string             `json:"plan_nombre"`
-	PrecioPeriodoPEN    float64            `json:"precio_periodo_pen"`
-	CicloFacturacion    string             `json:"ciclo_facturacion"` // "mensual", "anual"
-	EstadoSuscripcion   string             `json:"estado_suscripcion"`
-	DiaGraciaActual     *int               `json:"dia_gracia_actual"`
-	FechaInicio         time.Time          `json:"fecha_inicio"`
-	FechaProximoCobro   time.Time          `json:"fecha_proximo_cobro"`
-	FechaCorteGracia    *time.Time         `json:"fecha_corte_gracia"`
-	StripeCustomerID    string             `json:"stripe_customer_id,omitempty"`
-	StripeSubscriptionID string            `json:"stripe_subscription_id,omitempty"`
-	MetodoPagoRegistrado string            `json:"metodo_pago_registrado"`
-	HistorialPagos      []PagoHistorialDTO `json:"historial_pagos"`
-	Consumo             ConsumoRecursosDTO `json:"consumo"`
+	EmpresaID              string             `json:"empresa_id"`
+	CodigoEmpresa          string             `json:"codigo_empresa"`
+	RUC                    string             `json:"ruc"`
+	TipoContribuyente      string             `json:"tipo_contribuyente"`       // "RUC 20 — Persona Jurídica" o "RUC 10 — Persona Natural"
+	RazonSocial            string             `json:"razon_social"`
+	DireccionSedePrincipal string             `json:"direccion_sede_principal"`
+	EstadoCuentaPlataforma string             `json:"estado_cuenta_plataforma"` // "activa", "periodo_gracia", "suspendida"
+	FechaRegistro          time.Time          `json:"fecha_registro"`
+	ContactoNombre         string             `json:"contacto_nombre"`
+	ContactoEmail          string             `json:"contacto_email"`
+	ContactoTelefono       string             `json:"contacto_telefono"`
+	PlanID                 string             `json:"plan_id"`
+	PlanNombre             string             `json:"plan_nombre"`
+	PrecioPeriodoPEN       float64            `json:"precio_periodo_pen"`
+	CicloFacturacion       string             `json:"ciclo_facturacion"`        // "mensual", "anual"
+	EstadoSuscripcion      string             `json:"estado_suscripcion"`
+	DiaGraciaActual        *int               `json:"dia_gracia_actual"`
+	FechaInicio            time.Time          `json:"fecha_inicio"`
+	FechaProximoCobro      time.Time          `json:"fecha_proximo_cobro"`
+	FechaCorteGracia       *time.Time         `json:"fecha_corte_gracia"`
+	StripeCustomerID       string             `json:"stripe_customer_id,omitempty"`
+	StripeSubscriptionID   string             `json:"stripe_subscription_id,omitempty"`
+	MetodoPagoRegistrado   string             `json:"metodo_pago_registrado"`
+	HistorialPagos         []PagoHistorialDTO `json:"historial_pagos"`
+	Consumo                ConsumoRecursosDTO `json:"consumo"`
 }
 ```
 
@@ -436,10 +445,10 @@ package dto
 import "time"
 
 type AltaManualTenantRequestDTO struct {
-	// Identificación Fiscal
-	RUC                 string    `json:"ruc" binding:"required,len=11"`
+	// Identificación de la Empresa (Ingreso Directo & Validación Módulo 11)
+	RUC                 string    `json:"ruc" binding:"required,len=11"` // Validado con algoritmo Módulo 11 en Go
 	RazonSocial         string    `json:"razon_social" binding:"required,min=3"`
-	DireccionFiscal     string    `json:"direccion_fiscal" binding:"required,min=5"`
+	DireccionSede       string    `json:"direccion_sede" binding:"required,min=5"`
 	
 	// Datos Propietario
 	PropietarioNombre   string    `json:"propietario_nombre" binding:"required,min=3"`
@@ -569,13 +578,14 @@ Escenario: Identificación visual y seguimiento de cuentas en período de gracia
   Entonces la empresa aparece con badge ámbar indicando "Día X de 5 de gracia"
   Y al abrir el expediente se visualiza el motivo del fallo y la fecha exacta de corte.
 
-Escenario: Registro exitoso de alta manual corporativa con pago verificado
+Escenario: Registro exitoso de alta manual corporativa con validación sintáctica local
   Dado que el administrador SaaS se encuentra en el modal de Alta Manual
-  Cuando consulta el RUC "20603849201" contra la API de SUNAT
-  Y el sistema autocompleta la Razón Social y confirma estado "ACTIVO / HABIDO"
+  Cuando ingresa el RUC "20603849201", la Razón Social "Cevichería Puerto Marino S.A.C." y la Dirección "Av. Primavera 450"
+  Entonces el sistema valida localmente el RUC mediante el algoritmo Módulo 11 sin consultar APIs externas
+  Y deduce automáticamente la clasificación "RUC 20 — Persona Jurídica"
   Y el administrador selecciona "Plan Pro Anual", ingresa "S/ 2,490.00", número de operación "OP-90481239-BCP" y nota de respaldo
   Y confirma la creación
-  Entonces se inserta la empresa con origen_alta "manual_admin"
+  Entonces se inserta la empresa con origen_alta "manual_admin" y su sede principal
   Y se inserta el registro en la tabla "pago" con estado "exitoso" y origen "transferencia_bancaria"
   Y se despacha un correo con capability token de 72h al propietario para configurar su contraseña.
 
