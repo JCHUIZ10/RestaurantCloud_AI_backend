@@ -1868,5 +1868,42 @@ Se diseñaron, renderizaron y validaron 4 vistas en resolución canónica (1440x
   - Cuadratura Automática: Callout advirtiendo que el efectivo de caja descuenta el arqueo esperado de `caja_movimiento` para evitar falsos faltantes al cajero en `CU-CAJA-05`.
   - Proveedor/Beneficiario, Tipo de Comprobante (Recibo de Servicios, Factura, Boleta), Número de Suministro y Justificación textual obligatoria.
 
+---
 
+## 78. Vistas Wireframe y Arquitectura de `CU-SAAS-01: Supervisar Empresas Registradas, Activaciones y Renovaciones de Suscripción`
 
+Se diseñaron, renderizaron y validaron 4 vistas en resolución canónica (1440x900, JPG calidad 95) ubicadas en [`wireframe/saas_admin/CU-SAAS-01-supervisar-tenants/assets/`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-01-supervisar-tenants/assets/), transformando el caso de uso en el Hub Integral de Monitoreo de Tenants y Gestión de Onboarding SaaS:
+
+### Vista 1: Consola Central de Supervisión de Tenants (`wf_saas_01_bandeja_tenants.jpg`)
+![Vista 1: Consola Central de Tenants](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-01-supervisar-tenants/assets/wf_saas_01_bandeja_tenants.jpg)
+- **Barra de Navegación y URL Canónica:** Encabezado con badge `CONSOLA ADMIN SAAS`, indicador `Admin Root` y ruta `https://admin.restaurantcloud.pe/saas/tenants`.
+- **4 Tarjetas de KPIs Globales:**
+  - *Total Empresas Registradas:* `48 Empresas` con crecimiento de `▲ +4 este mes` y MRR global de `S/ 11,450.00`.
+  - *Suscripciones Activas:* `41 Activas (85.4%)` con facturación regular al día.
+  - *En Período de Gracia:* `3 en Gracia (Día 1-5)` con alerta ámbar de `⚠️ S/ 747 MRR en riesgo de suspensión`.
+  - *Sedes Operativas Conectadas:* `112 Locales Activos` con promedio de `2.3 sedes por cliente`, reflejando la utilización real de infraestructura sin contrasentidos contables.
+- **Barra de Filtros y Segmentación:** Pestañas por estado (`[Todos (48)]`, `[Activos (41)]`, `[En Gracia (3)]`, `[Suspendidos (3)]`, `[Baja (1)]`), buscador reactivo (`Buscar por razón social, nombre o RUC...`), selector de plan y botón `[ ➕ Nueva Alta Manual ]`.
+- **Grilla de Tenants:** Razón social, RUC de 11 dígitos, plan contratado, conteo de sedes, estado de suscripción con microcopia de días de gracia (`Día 2 de 5 de gracia`, `Día 4 de 5 de gracia`), fecha de próximo cobro, medio de pago registrado y botón `[ 👁️ Ver Expediente ]`.
+
+### Vista 2: Expediente Detallado de Empresa y Estado de Cobros (`wf_saas_01_detalle_tenant.jpg`)
+![Vista 2: Expediente de Tenant](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-01-supervisar-tenants/assets/wf_saas_01_detalle_tenant.jpg)
+- **Modal de Auditoría 360° (900px):** Inspección completa del cliente gastronómico *La Mar Cevichería E.I.R.L.* en estado `⚠️ En Período de Gracia (Día 2 de 5)`.
+- **Bloque 1 (Identificación Fiscal y Contacto):** RUC 20551928371, estado verificado SUNAT `✓ ACTIVO / HABIDO`, titular Carlos Benavides y correo de cobranza.
+- **Bloque 2 (Contrato SaaS y Pasarela Stripe):** Plan Pro (S/ 249/mes), fecha de cobro en reintento, IDs técnicos (`cus_Q8x9L2k1mP09`, `sub_1N9a8b2c4e5f6`), tarjeta Visa vinculada y cuenta regresiva de gracia (`3 días restantes, corte 14/10/2026 23:59`).
+- **Bloque 3 (Historial de Transacciones de la Tabla `pago`):** Visualización inmutable de cobros sincronizados vía webhooks; resalta en rosa el cargo fallido del 09/10 (`REC-RENOV-02`, "Fondos insuficientes") y el cobro exitoso del alta inicial.
+- **Bloque 4 (Consumo de Límites del Plan):** Medición de uso: Locales 2/3 (67%), Mesas 28/30 (93%) y Personal 11/15 (73%).
+- **Acciones Administrativas:** Botones para `[ ⚠️ Suspender Empresa Preventivamente ]`, `[ ✉️ Reenviar Notificación de Cobro ]` (disparo de email inmediato con link de actualización de tarjeta) y `[ 💳 Ver en Stripe Dashboard ]`.
+
+### Vista 3: Modal de Alta Manual con Pago Verificado (`wf_saas_01_modal_alta_manual.jpg`)
+![Vista 3: Alta Manual Corporativa](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-01-supervisar-tenants/assets/wf_saas_01_modal_alta_manual.jpg)
+- **Formulario Compacto de Alta B2B (820px):** Diseñado sin scrollbars verticales, agrupando 4 bloques esenciales:
+  - *Bloque 1 (Validación SUNAT):* Consulta en línea de RUC `20603849201` con confirmación automática de `Cevichería Puerto Marino S.A.C.` y dirección fiscal.
+  - *Bloque 2 (Datos del Titular):* Nombre, teléfono/WhatsApp y correo corporativo `admin@puertomarino.pe`.
+  - *Bloque 3 (Plan y Vigencia):* Plan Pro Anual (`S/ 2,490 / año`) con fechas de inicio y vencimiento a 1 año.
+  - *Bloque 4 (Registro de Pago Bancario Verificado):* Monto cobrado en Soles, selector de medio bancario (`Transferencia Bancaria BCP`), N° de constancia `OP-90481239-BCP` y nota administrativa de tesorería que se persiste con estado `exitoso` en la tabla `pago`.
+- **Despacho Automático de Bienvenida:** Checkbox activo para enviar capability token seguro de 72 horas al titular para que fije su contraseña e inicie la configuración de su restaurante.
+
+### Vista 4: Estado Vacío de Filtro / Suscripciones al Día (`wf_saas_01_estado_vacio.jpg`)
+![Vista 4: Estado Vacío Solvente](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-01-supervisar-tenants/assets/wf_saas_01_estado_vacio.jpg)
+- **Indicador de Solvencia:** Card ilustrado con ícono de escudo `🛡️`, informando pedagógicamente que no existen cuentas en mora ni cobros fallidos en los últimos 30 días.
+- **Acciones Rápidas:** Botón `[ 🔄 Actualizar Estado ]` para re-evaluar webhooks de Stripe y `[ Ver Todas las Empresas ]` para restablecer los filtros de la tabla.

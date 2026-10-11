@@ -51,10 +51,12 @@ Ciclo de vida de facturación, estado y programación de planes SaaS (vía Strip
 | `proximo_plan_id` | int | FK -> plan (nullable) | Plan programado para fin de ciclo (downgrade) |
 | `fecha_inicio` | timestamp | — | Inicio del periodo de facturación actual |
 | `fecha_fin_periodo` | timestamp | — | Fin del periodo (fecha de corte/renovación) |
-| `estado` | enum | — | activa, en_gracia, pendiente_ajuste, cancelada |
+| `estado` | enum | — | activa, en_gracia, pendiente_ajuste, cancelada, suspendida |
+| `dias_gracia_restantes` | int | DEFAULT 5 | Días restantes antes del corte del servicio (reintentos Stripe) |
+| `fecha_corte_gracia` | timestamp | nullable | Fecha y hora exacta de suspensión programada |
 | `recursos_conciliados` | bool | DEFAULT false | Indica si el usuario completó la conciliación de downgrade |
 | `config_downgrade` | jsonb | nullable | IDs de locales, pisos, mesas y personal a mantener activos |
-| `stripe_subscription_id` | varchar | — | Referencia a la suscripción activa en Stripe |
+| `stripe_subscription_id` | varchar | nullable | Referencia a la suscripción activa en Stripe |
 | `stripe_schedule_id` | varchar | nullable | Referencia al Subscription Schedule programado en Stripe |
 | `created_at` | timestamp | — | Fecha de creación del registro |
 
@@ -73,12 +75,14 @@ Tenant de la plataforma: cada restaurante registrado.
 | `plan_id` | int | FK -> plan | Plan de suscripción activo (desnormalizado) |
 | `ultima_suscripcion_id` | UUID | FK -> suscripcion (nullable) | Referencia a la suscripción activa más reciente |
 | `estado` | enum | — | activa, suspendida, pendiente_baja |
-| `stripe_customer_id` | varchar | — | Referencia al cliente en Stripe |
+| `origen_alta` | varchar(30) | DEFAULT 'autoservicio_stripe' | 'autoservicio_stripe' (CU-PROP-01) o 'manual_admin' (CU-SAAS-01 B2B) |
+| `nota_alta` | text | nullable | Justificación administrativa de alta manual / contrato B2B |
+| `stripe_customer_id` | varchar | nullable | Referencia al cliente en Stripe (opcional si es alta manual B2B) |
 | `fecha_registro` | timestamp | — | Fecha de alta en la plataforma |
 
 #### `pago`
 
-Historial de cobros de suscripción SaaS (vía Stripe).
+Historial de cobros de suscripción SaaS (vía Stripe o transferencias bancarias verificadas).
 
 | Campo | Tipo | Clave / Restricción | Descripción |
 | :--- | :--- | :--- | :--- |
@@ -86,10 +90,13 @@ Historial de cobros de suscripción SaaS (vía Stripe).
 | `empresa_id` | UUID | FK -> empresa | Empresa que paga |
 | `suscripcion_id` | UUID | FK -> suscripcion (nullable) | Suscripción asociada al cobro |
 | `plan_id` | int | FK -> plan | Plan vigente al momento del cobro |
-| `monto` | decimal | — | Monto cobrado |
-| `fecha` | timestamp | — | Fecha del cobro |
-| `estado` | enum | — | exitoso, fallido |
-| `stripe_payment_id` | varchar | — | Referencia de la transacción en Stripe |
+| `monto` | decimal | — | Monto cobrado en Soles (PEN) |
+| `fecha` | timestamp | — | Fecha del cobro / confirmación bancaria |
+| `estado` | enum | — | exitoso, fallido, reembolsado |
+| `origen_pago` | varchar(40) | DEFAULT 'stripe' | 'stripe', 'transferencia_bancaria', 'deposito_bancario', 'yape_empresa', 'efectivo' |
+| `stripe_payment_id` | varchar | nullable | Referencia de la transacción en Stripe |
+| `numero_operacion` | varchar(100) | nullable | N° de constancia/operación bancaria (requerido para pagos manuales) |
+| `nota` | text | nullable | Glosa administrativa o motivo de fallo |
 
 #### `usuario`
 
@@ -925,6 +932,17 @@ Para garantizar que los dashboards gerenciales y reportes de ventas no degraden 
    - `CREATE INDEX idx_comanda_analitica ON comanda (sede_id, estado, created_at) WHERE estado = 'cobrada';`
    - `CREATE INDEX idx_detalle_comanda_plato_analitica ON detalle_comanda (plato_id, comanda_id);`
    - `CREATE INDEX idx_gasto_manual_analitica ON gasto_manual (local_id, fecha, origen_fondos);`
+
+---
+
+### 2.11 Vista y políticas de aislamiento multitenant con bypass para Admin SaaS (`CU-SAAS-01`)
+
+Para soportar la consola central de supervisión global sin vulnerar el principio de aislamiento entre restaurantes:
+
+1. **`v_saas_tenants_resumen`:** Vista consolidada que cruza `empresa`, `suscripcion`, `plan`, `pago` y el conteo de `local` activos. Expone: código de empresa, razón social, RUC, plan contratado, total de locales activos, estado de suscripción (`activa`, `en_gracia`, `suspendida`), días de gracia restantes (1 a 5), fecha de próximo cobro y último medio de pago registrado.
+2. **Políticas de Row-Level Security (RLS) con Bypass:**
+   - La sesión del usuario regular inyecta `app.current_empresa_id`.
+   - Para el Administrador Global SaaS (`rol = 'admin_saas'`), las políticas evalúan `fn_es_admin_saas()` (`current_setting('app.current_user_role', true) = 'admin_saas'`). Al ser verdadero, se omite el filtro de `empresa_id`, habilitando la lectura y auditoría transversal de todas las empresas de la plataforma.
 
 ---
 

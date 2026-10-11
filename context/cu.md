@@ -15,23 +15,44 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 # 1. Administrador SaaS
 
-### CU-SAAS-01: Confirmar registro de empresa (tenant)
+### CU-SAAS-01: Supervisar empresas registradas, activaciones y renovaciones de suscripción
 
-**Actor(es):** Administrador SaaS
+**Actor(es):** Administrador Global SaaS (`admin_saas`)
 
-**Precondiciones:** Existe una solicitud de registro de empresa por confirmar (proceso de alta iniciado por el Propietario, CU-PROP-01).
+**Precondiciones:** Sesión activa como administrador global de la plataforma (`rol = 'admin_saas'`, `empresa_id = NULL`, `local_id = NULL`). Existen restaurantes registrados vía autoservicio Stripe ([`CU-PROP-01`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/propietario/CU-PROP-01-registro-empresa/wireframe.md)) o altas corporativas manuales.
 
 #### Flujo principal
 
-1. El administrador accede a la bandeja de solicitudes de nuevas empresas.
-2. Revisa los datos de la empresa registrados por el propietario.
-3. Aprueba el registro.
+1. El administrador SaaS accede a la consola central de supervisión de empresas (`GET /api/v1/saas/tenants`).
+2. El sistema aplica bypass de Row-Level Security (RLS) y renderiza el panel de control con 4 KPIs estratégicos:
+   - **Total Empresas:** Base instalada global y variación neta mensual (MRR total).
+   - **Suscripciones Activas:** Empresas al día con cobros consolidados en Stripe o transferencias B2B.
+   - **En Período de Gracia:** Empresas con renovación en reintento dentro de la ventana de 5 días (ingresos en riesgo).
+   - **Sedes Operativas Conectadas:** Total de locales físicos activos en la plataforma y promedio de sedes por cliente.
+3. El administrador filtra por pestañas (`[Todos]`, `[Activos]`, `[En Gracia]`, `[Suspendidos]`, `[Baja]`) o busca por RUC, razón social o nombre comercial en tiempo real.
+4. El administrador puede inspeccionar el **Expediente 360°** de cualquier empresa (`GET /api/v1/saas/tenants/:id`):
+   - Datos fiscales validados contra SUNAT / ApiPerú (RUC, razón social, dirección y contacto titular).
+   - Contrato SaaS y referencias a Stripe (`customer_id`, `subscription_id`, método de pago, días de gracia restantes).
+   - Historial de transacciones de la tabla `pago` (cargos exitosos y cobros fallidos sincronizados vía webhooks).
+   - Uso de recursos en tiempo real vs límites del plan (locales, mesas y usuarios de personal).
+5. Ante cobros fallidos en período de gracia, el administrador puede despachar recordatorios de cobro por correo electrónico con enlace directo para actualización de tarjeta en Stripe.
+6. **Alta Manual de Clientes Corporativos B2B (`POST /api/v1/saas/tenants/alta-manual`):**
+   - El administrador pulsa `[ ➕ Nueva Alta Manual ]`.
+   - Ingresa el RUC de 11 dígitos y el sistema valida en línea contra SUNAT (obteniendo Razón Social y condición Habido).
+   - Digita los datos del propietario (nombre, teléfono y correo electrónico corporativo).
+   - Selecciona el Plan contratado y el ciclo de facturación (mensual o anual).
+   - **Registro de Pago Verificado Obligatorio:** Registra el monto en PEN, medio de pago bancario (Transferencia BCP/BBVA, Depósito, Yape Empresa), número de constancia/operación y nota administrativa de respaldo.
+   - Al confirmar, el sistema ejecuta una transacción atómica insertando la empresa, suscripción, usuario propietario y el pago en la tabla `pago` con estado `exitoso`.
+   - El sistema genera un capability token criptográfico (TTL 72 horas) y despacha automáticamente un correo de bienvenida para que el titular establezca su contraseña e inicie el aprovisionamiento de su restaurante.
 
 #### Flujos alternativos
 
-- El administrador detecta un dato inconsistente → puede contactar al propietario antes de aprobar (fuera de flujo automático).
+- No existen empresas en período de gracia ni cobros pendientes al filtrar → El sistema presenta el estado vacío orientador con escudo de solvencia (`wf_saas_01_estado_vacio.jpg`).
+- El RUC ingresado en el alta manual no existe en SUNAT o se encuentra no habido → El sistema emite advertencia bloqueante requiriendo corregir el número o ingresar la razón social manualmente con justificación.
+- Se intenta registrar un alta manual con monto S/ 0.00 o sin número de operación bancaria → Validación estricta impidiendo el registro, garantizando que todo tenant activo posea respaldo económico en la tabla `pago`.
+- Una empresa en período de gracia alcanza el día 6 sin regularizar el cobro → El sistema ejecuta la suspensión automática del tenant (`CU-SAAS-02`), inhabilitando el acceso a sus terminales de salón.
 
-**Postcondiciones:** Empresa activada; propietario notificado.
+**Postcondiciones:** Base de datos de tenants auditada en tiempo real; expedientes actualizados; altas corporativas B2B creadas con pago inmutable en `pago` y propietario invitado vía capability token.
 
 ### CU-SAAS-02: Dar de baja / suspender empresa (conforme a ley)
 

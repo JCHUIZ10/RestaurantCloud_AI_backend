@@ -139,6 +139,7 @@ La bitácora histórica detallada de todas las decisiones, esquemas y capturas s
 | **`CU-CAJA-05`** | Cerrar caja (arqueo Z) y rendición de cuentas del turno | ✅ Completado | `wireframe/cajero/CU-CAJA-05-cerrar-caja/` |
 | **`CU-CLIENTE-01`** | Consultar carta digital (Catálogo Interactivo Web) | ✅ Completado | `wireframe/cliente/CU-CLIENTE-01-consultar-carta/` |
 | **`CU-CLIENTE-02`** | Buscar comprobante de pago (Visor Digital de Comprobantes Electrónicos) | ✅ Completado | `wireframe/cliente/CU-CLIENTE-02-buscar-comprobante/` |
+| **`CU-SAAS-01`** | Supervisar empresas registradas, activaciones y renovaciones de suscripción | ✅ Completado | `wireframe/saas_admin/CU-SAAS-01-supervisar-tenants/` |
 
 > 🏆 **ROL MOZO 100% CULMINADO (9 Casos de Uso):** Todos los casos de uso del rol Mozo (`CU-MOZO-01` a `CU-MOZO-09`) se encuentran plenamente especificados con wireframes Blueprint, modelos relacionales, contratos Go y flujo reactivo SSE. Incluye salón en vivo, comandas táctiles, unión de mesas, reservas con mini-mapa, comercialización con promociones independientes (`CU-ADMIN-17`), precuenta digital con pago QR y **subdivisión determinista de comandas en mesa con tres comprobantes (Factura, Boleta y Nota de Venta)**.
 > 
@@ -150,7 +151,10 @@ La bitácora histórica detallada de todas las decisiones, esquemas y capturas s
 > - `CU-CLIENTE-01`: Catálogo digital interactivo web de la carta accesible por enlace amigable (`https://app.restaurantcloud.pe/sede/:slug/carta`), botones de contacto directo a WhatsApp y llamada, buscador en tiempo real, carrusel de categorías y sincronización en vivo con quiebres de cocina.
 > - `CU-CLIENTE-02`: Visor digital de comprobantes electrónicos (Boletas, Facturas y Notas de Venta) con capability token seguro (`token_qr` UUID v8), descarga de PDF oficial y XML electrónico (UBL 2.1), auditoría de comprobantes anulados con Nota de Crédito, y estricta privacidad de datos personales (cero búsqueda por DNI/RUC).
 >
-> 🏆 **TOTAL ACUMULADO:** **45 Casos de Uso 100% Culminados** con diseño de pantalla canónico, arquitectura de datos y contratos Go, cubriendo el ciclo operativo completo del restaurante de punta a punta.
+> 👨‍💼 **ROL ADMIN SAAS EN CURSO:**
+> - `CU-SAAS-01`: Centro de control global de tenants, supervisión proactiva del ciclo de vida de clientes gastronómicos, monitoreo de cobros en Stripe, período de gracia de 5 días según `CU-PROP-02`, e incorporación de altas manuales B2B con comprobantes bancarios verificados en la tabla `pago`.
+>
+> 🏆 **TOTAL ACUMULADO:** **46 Casos de Uso 100% Culminados** con diseño de pantalla canónico, arquitectura de datos y contratos Go, cubriendo el ciclo operativo completo del restaurante de punta a punta.
 
 ## 6. Casos de Uso Diferidos a Fase Futura (Backlog) y Omitidos
 
