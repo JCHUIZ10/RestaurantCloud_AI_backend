@@ -142,6 +142,7 @@ La bitácora histórica detallada de todas las decisiones, esquemas y capturas s
 | **`CU-SAAS-01`** | Supervisar empresas registradas, activaciones y renovaciones de suscripción | ✅ Completado | `wireframe/saas_admin/CU-SAAS-01-supervisar-tenants/` |
 | **`CU-SAAS-02`** | Dar de baja / suspender empresa conforme a ley | ✅ Completado | `wireframe/saas_admin/CU-SAAS-02-baja-suspension-empresa/` |
 | **`CU-SAAS-03`** | Configurar planes de suscripción (Tarifas, Cuotas y Cero Roturas) | ✅ Completado | `wireframe/saas_admin/CU-SAAS-03-configurar-planes/` |
+| **`CU-TRANS-01`** | Recibir notificaciones del sistema (Campana, Drawer in-situ y Toasts reactivos) | ✅ Completado | `wireframe/usuario/CU-TRANS-01-notificaciones-sistema/` |
 
 > 🏆 **ROL MOZO 100% CULMINADO (9 Casos de Uso):** Todos los casos de uso del rol Mozo (`CU-MOZO-01` a `CU-MOZO-09`) se encuentran plenamente especificados con wireframes Blueprint, modelos relacionales, contratos Go y flujo reactivo SSE. Incluye salón en vivo, comandas táctiles, unión de mesas, reservas con mini-mapa, comercialización con promociones independientes (`CU-ADMIN-17`), precuenta digital con pago QR y **subdivisión determinista de comandas en mesa con tres comprobantes (Factura, Boleta y Nota de Venta)**.
 > 
@@ -157,8 +158,12 @@ La bitácora histórica detallada de todas las decisiones, esquemas y capturas s
 > - `CU-SAAS-01`: Centro de control global de tenants, supervisión proactiva del ciclo de vida de clientes gastronómicos, monitoreo de cobros en Stripe, período de gracia de 5 días según `CU-PROP-02`, e incorporación de altas manuales B2B con comprobantes bancarios verificados en la tabla `pago`.
 > - `CU-SAAS-02`: Protocolo formal de suspensión preventiva y bajas conforme a la Ley N° 29733 de Protección de Datos Personales / RGPD, entidad dedicada `suscripcion_suspension`, paquete de portabilidad descargable (.ZIP), retención legal de 30 días, confirmación Poka-Yoke por RUC y pantalla informativa de corte operativo canalizada a WhatsApp (+51 930 723 537).
 > - `CU-SAAS-03`: Catálogo comercial de planes (Starter hasta 25 mesas sin reservas, Pro, Enterprise y convenios privados B2B), arquitectura de cero roturas con bloqueo de DELETE físico (`ON DELETE RESTRICT`), grandfathering nativo en Stripe para clientes existentes y respuestas estandarizadas bajo `apiresponse.Response` y `apierror`.
+| **`CU-TRANS-01`** | Recibir notificaciones del sistema (Campana, Drawer in-situ y Toasts reactivos) | ✅ Completado | `wireframe/usuario/CU-TRANS-01-notificaciones-sistema/` |
 >
-> 🏆 **TOTAL ACUMULADO:** **48 Casos de Uso 100% Culminados** con diseño de pantalla canónico, arquitectura de datos y contratos Go, cubriendo el ciclo operativo completo del restaurante de punta a punta.
+> 🔔 **SISTEMA TRANSVERSAL CULMINADO (CU-TRANS-01):**
+> - `CU-TRANS-01`: Recepción, visualización y gestión in-situ de notificaciones operativas y administrativas (SSE reactivo con polling fallback, campana global, panel lateral drawer 440px sin redirecciones de pantalla, detalle expandido y alertas flotantes Toasts).
+>
+> 🏆 **TOTAL ACUMULADO:** **49 Casos de Uso 100% Culminados** con diseño de pantalla canónico, arquitectura de datos y contratos Go, cubriendo el ciclo operativo completo del restaurante de punta a punta.
 
 ## 6. Casos de Uso Diferidos a Fase Futura (Backlog) y Omitidos
 

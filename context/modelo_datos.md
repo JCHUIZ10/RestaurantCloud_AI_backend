@@ -869,18 +869,49 @@ Incidente interno operativo, disciplinario o de servicio registrado por la admin
 
 #### `notificacion`
 
-Notificaciones internas del sistema (campana).
+Notificaciones internas del sistema (campana, drawer y alertas flotantes en tiempo real para `CU-TRANS-01`).
 
 | Campo | Tipo | Clave / Restricción | Descripción |
 | :--- | :--- | :--- | :--- |
-| `id` | UUID | PK | Identificador |
-| `usuario_id` | UUID | FK -> usuario | Destinatario |
-| `tipo` | varchar | — | Tipo de evento (reserva_proxima, anulacion, stock_critico, etc.) |
-| `mensaje` | text | — | Texto de la notificación |
-| `entidad_tipo` | varchar | nullable | Tipo de entidad relacionada (pedido, mesa, insumo...) |
-| `entidad_id` | UUID | nullable | Identificador de la entidad relacionada |
-| `leida` | bool | default false | Si el usuario ya la abrió |
-| `created_at` | timestamp | — | Fecha de generación |
+| `id` | UUID | PK DEFAULT gen_random_uuid() | Identificador único de la notificación |
+| `empresa_id` | UUID | FK -> empresa (ON DELETE CASCADE) NOT NULL | Tenant al que pertenece la notificación |
+| `local_id` | UUID | nullable FK -> local (ON DELETE CASCADE) | Sede específica donde ocurre el evento (NULL si es corporativo) |
+| `usuario_id` | UUID | nullable FK -> usuario (ON DELETE CASCADE) | Destinatario individual (NULL si es difusión por rol) |
+| `rol_destinatario` | varchar(30) | nullable CHECK (rol_destinatario IN ('mozo', 'cocina', 'cajero', 'admin_local', 'propietario')) | Rol al que se difunde la notificación en la sede |
+| `tipo` | varchar(50) | NOT NULL | Tipo de evento (`pedido_anulado`, `plato_agotado`, `plato_listo`, `reserva_proxima`, `stock_critico`, `cuenta_solicitada`, `incidente_nuevo`, `arqueo_discrepancia`, `suscripcion_gracia`) |
+| `prioridad` | enum | NOT NULL DEFAULT 'media' (`baja`, `media`, `alta`, `critica`) | Nivel de severidad para display visual y alerta acústica |
+| `titulo` | varchar(120) | NOT NULL | Encabezado conciso del aviso |
+| `mensaje` | text | NOT NULL | Detalle completo y autocontenido del evento |
+| `entidad_tipo` | varchar(50) | nullable | Entidad referencial (`pedido`, `mesa`, `insumo`, `reserva`, `incidente`, `caja`) |
+| `entidad_id` | UUID | nullable | Identificador de la entidad relacionada para auditoría |
+| `leida` | bool | NOT NULL DEFAULT false | Estado de lectura del usuario |
+| `fecha_leida` | timestamptz | nullable | Momento exacto en que fue marcada como leída |
+| `created_at` | timestamptz | NOT NULL DEFAULT NOW() | Fecha y hora de emisión del evento |
+
+**Índices y Políticas RLS:**
+```sql
+CREATE TYPE tipo_prioridad_notificacion AS ENUM ('baja', 'media', 'alta', 'critica');
+
+CREATE INDEX idx_notificacion_usuario_leida ON notificacion (empresa_id, usuario_id, leida, created_at DESC);
+CREATE INDEX idx_notificacion_local_rol ON notificacion (empresa_id, local_id, rol_destinatario, leida, created_at DESC);
+CREATE INDEX idx_notificacion_fecha ON notificacion (created_at DESC);
+
+ALTER TABLE notificacion ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY p_notificacion_tenant ON notificacion
+    FOR ALL
+    USING (
+        empresa_id = current_setting('app.current_empresa_id')::uuid
+        AND (
+            usuario_id = current_setting('app.current_user_id')::uuid
+            OR (
+                usuario_id IS NULL 
+                AND local_id = NULLIF(current_setting('app.current_local_id', true), '')::uuid
+                AND rol_destinatario = current_setting('app.current_user_role', true)
+            )
+        )
+    );
+```
 
 #### `log_auditoria`
 

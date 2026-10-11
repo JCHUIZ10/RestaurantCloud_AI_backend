@@ -1997,3 +1997,49 @@ Se diseñaron, renderizaron y validaron 4 vistas en resolución canónica (1440x
 ![Vista 4: Modal de Protección y Desactivación Comercial](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-03-configurar-planes/assets/wf_saas_03_modal_desactivar_plan.jpg)
 - **Alerta de Bloqueo de Borrado Físico (DELETE RESTRICT):** Informa que el plan cuenta con 26 empresas activas y 142 pagos registrados, prohibiendo el borrado físico para preservar la integridad ACID.
 - **Acción Segura de Desactivación Comercial (`activo = false`):** Oculta el plan de la web de precios y de `CU-PROP-01`, pero garantiza que las empresas existentes sigan operando y renovando en Stripe sin interrupción alguna, con reversibilidad en un clic.
+
+---
+
+## 81. Vistas Wireframe y Arquitectura de `CU-TRANS-01: Recibir Notificaciones del Sistema`
+
+Se diseñaron, renderizaron y validaron 4 vistas en resolución canónica (1440x900, JPG calidad 95) ubicadas en [`wireframe/usuario/CU-TRANS-01-notificaciones-sistema/assets/`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/usuario/CU-TRANS-01-notificaciones-sistema/assets/), implementando el subsistema transversal de alertas operativas y administrativas bajo una estricta política de **Cero Redirecciones e Interacción In-Situ**:
+
+### Vista 1: Panel Lateral de Notificaciones (*Flyout Drawer*) en Contexto Operativo (`wf_trans_01_flyout_notificaciones.jpg`)
+![Vista 1: Flyout Drawer de Notificaciones](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/usuario/CU-TRANS-01-notificaciones-sistema/assets/wf_trans_01_flyout_notificaciones.jpg)
+- **Campana Global con Badge en Vivo:** Ubicada en la barra superior compartida por todos los roles (`[ 🔔 Notificaciones (3) ]`), con actualización reactiva vía Server-Sent Events (SSE).
+- **Flyout Drawer Sobrepuesto (440px de ancho):** Se abre lateralmente a la derecha sobre la pantalla activa del usuario (ej. plano de salón del Mozo) sin recargar la página ni interferir con la navegación activa.
+- **Acciones y Filtros Inmediatos:**
+  - Encabezado con contador ("3 no leídas") y botón `[ ✓ Marcar todas leídas ]`.
+  - Pestañas rápidas para alternar entre `No leídas (3)` y `Todas (12)`.
+  - Tarjetas de aviso con badges de severidad (`🚨 Crítica`, `🍳 Cocina`, `📅 Reserva`, `🧾 Caja`), título, mensaje completo explicativo y botón directo `[ Marcar leída ]`.
+- **Cierre Rápido Ergonométrico:** Soporte nativo para tecla `Esc` y clic fuera del panel.
+
+### Vista 2: Detalle Expandido en Panel (*Inline Detail Accordion*) (`wf_trans_01_detalle_expandido.jpg`)
+![Vista 2: Detalle Expandido en el Mismo Panel](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/usuario/CU-TRANS-01-notificaciones-sistema/assets/wf_trans_01_detalle_expandido.jpg)
+- **Lectura In-Situ sin Salir de la Pantalla (Sin Deep Linking):**
+  - Al hacer clic en un aviso, se despliega un bloque acordeón interno con todos los metadatos relevantes del evento (comanda afectada, mesa, ítem cancelado, motivo y estado de insumos en KDS).
+  - La notificación se marca automáticamente como `leida = true` en base de datos.
+  - El usuario puede contraer el bloque en cualquier momento con el botón `[ ▲ Contraer detalle ]`.
+  - **Ventaja Operativa Decisiva:** El personal nunca pierde borradores de pedidos en salón, vistas de comanda al fuego en cocina ni estados de cobro en caja.
+
+### Vista 3: Toast Flotante Reactivo en Pantalla Operativa Viva (`wf_trans_01_toast_aviso_pantalla.jpg`)
+![Vista 3: Toast Flotante en Pantalla Operativa](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/usuario/CU-TRANS-01-notificaciones-sistema/assets/wf_trans_01_toast_aviso_pantalla.jpg)
+- **Alerta Flotante No Intrusiva para Eventos Críticos:** Banner en la esquina superior derecha que se dispara automáticamente ante eventos de severidad crítica (ej. anulación de un plato en preparación en cocina).
+- **Diseño de Alto Contraste:** Fondo oscuro `#0F172A`, borde luminoso `#CBD5E1`, badge `🚨 ALERTA CRÍTICA EN VIVO • SSE`.
+- **Autodesvanecimiento con Progreso Visual:** Barra de temporizador animada (6 segundos) y botón `[ Entendido / Cerrar ]` que descarta el aviso sin robar el foco del teclado ni interferir con la labor táctil en pantalla.
+
+### Vista 4: Estado Vacío Positivo del Panel (*"¡Estás al día!"*) (`wf_trans_01_estado_vacio.jpg`)
+![Vista 4: Estado Vacío Positivo](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/usuario/CU-TRANS-01-notificaciones-sistema/assets/wf_trans_01_estado_vacio.jpg)
+- **Indicador de Solvencia Operativa:** Icono blueprint de checkmark `( ✓ )`, encabezado tranquilizador *"¡Estás al día!"* y descripción informando que no existen avisos pendientes.
+- **Acceso Histórico:** Botón `[ Ver historial de 12 notificaciones leídas ]` para alternar rápidamente a la pestaña de auditoría histórica.
+
+---
+
+### Arquitectura de Entrega, Modelo Relacional y Contratos de `CU-TRANS-01`
+1. **Canal de Transporte Híbrido:**
+   - **Primario (SSE):** `GET /api/v1/notificaciones/stream` (latencia $< 30\text{ ms}$).
+   - **Respaldo (Polling Liviano):** `GET /api/v1/notificaciones/resumen` cada 30 segundos ante reconexión.
+2. **Modelo de Datos PostgreSQL 16 con RLS Multi-Tenant:**
+   - Tabla `notificacion` con tipos enumerados `tipo_prioridad_notificacion ('baja', 'media', 'alta', 'critica')`, claves foráneas indexadas (`idx_notificacion_usuario_leida`, `idx_notificacion_local_rol`), soporte para destinatarios directos o colectivos por rol, y política RLS `p_notificacion_tenant`.
+3. **Contratos Go Estandarizados (`@context/mock.md`):**
+   - Endpoints `GET /api/v1/notificaciones/resumen`, `GET /api/v1/notificaciones`, `PATCH /api/v1/notificaciones/:id/leer` y `POST /api/v1/notificaciones/marcar-todas-leidas`, todos formateados estrictamente con `apiresponse.Response{Exito, Datos, Errores, Meta}`.

@@ -64,9 +64,10 @@ Por cada nuevo Caso de Uso abordado, se ejecuta sin excepciones este flujo:
 
 ## 4. Inventario Consolidado de Módulos Culminados (45 Casos de Uso)
 
-### 4.1 Autenticación y Acceso Transversal (`wireframe/`) — ✅ 100% CULMINADO
+### 4.1 Autenticación y Acceso Transversal (`wireframe/`) — ✅ 100% CULMINADO (3 CUs)
 - `CU-AUTH-01`: Login y selección de cuenta/sede.
 - `CU-AUTH-02`: Recuperación de contraseña vía OTP.
+- `CU-TRANS-01`: Recibir notificaciones del sistema (Campana global, Flyout drawer in-situ de 440px sin redirecciones de pantalla, detalle expandido en panel, alertas flotantes Toasts para eventos críticos y canal híbrido SSE + polling de respaldo).
 
 ### 4.2 Rol Propietario (`wireframe/propietario/`) — 👑 100% CULMINADO (6 CUs Consecutivos)
 - `CU-PROP-01`: Registro de empresa y autoservicio.
@@ -129,10 +130,10 @@ Por cada nuevo Caso de Uso abordado, se ejecuta sin excepciones este flujo:
 
 ---
 
-## 5. Estado Integral del Alcance Operativo (48 Casos de Uso 100% Culminados)
+## 5. Estado Integral del Alcance Operativo (49 Casos de Uso 100% Culminados)
 
-El diseño de interfaces Grayscale Blueprint, arquitectura relacional en PostgreSQL 16 y contratos de API en Go de **RestaurantCloud AI** cuenta con **48 Casos de Uso Culminados**:
-- **Autenticación y Plataforma:** `CU-AUTH-01`, `CU-AUTH-02` (2 CUs).
+El diseño de interfaces Grayscale Blueprint, arquitectura relacional en PostgreSQL 16 y contratos de API en Go de **RestaurantCloud AI** cuenta con **49 Casos de Uso Culminados**:
+- **Autenticación y Plataforma:** `CU-AUTH-01`, `CU-AUTH-02`, `CU-TRANS-01` (3 CUs transversales).
 - **Rol Propietario:** `CU-PROP-01` a `CU-PROP-06` consecutivos (6 CUs).
 - **Rol Administrador de Local:** `CU-ADMIN-01` a `06`, `08` a `14` (`14` absorbe `15`), `17`, `18`, `19` (16 CUs funcionales).
 - **Rol Mozo:** `CU-MOZO-01` a `CU-MOZO-09` (9 CUs).
@@ -150,8 +151,8 @@ El diseño de interfaces Grayscale Blueprint, arquitectura relacional en Postgre
 Cuando el usuario inicie el nuevo chat y salude o solicite continuar:
 1. **Confirma la lectura de este archivo** [`context/INSTRUCCIONES_NUEVA_SESION.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/INSTRUCCIONES_NUEVA_SESION.md).
 2. **Declara formalmente el estado del sistema:**
-   - La fase de Wireframes, Modelado de Datos relacional y Contratos UI ↔ API cuenta con **48 CUs culminados y consolidados**, cubriendo el ciclo operativo completo de punta a punta (Propietario, Administrador, Mozo, Cocina, Cajero, Cliente y Admin SaaS).
+   - La fase de Wireframes, Modelado de Datos relacional y Contratos UI ↔ API cuenta con **49 CUs culminados y consolidados**, cubriendo el ciclo operativo completo de punta a punta (Propietario, Administrador, Mozo, Cocina, Cajero, Cliente, Admin SaaS y Notificaciones transversales).
 3. **Solicita al usuario las directrices para la siguiente etapa:**
-   - Abordar casos transversales / automáticos (`CU-TRANS-01` notificaciones, `CU-SISTEMA-01` snapshot stock) o **iniciar la construcción del backend monolítico modular en Go (Echo / Chi) con PostgreSQL 16 y Redis**.
+   - Iniciar la construcción formal del backend modular (en Go con Echo / Chi o PHP moderno según la decisión del stack) con PostgreSQL 16 (RLS) y Redis 7 (`CU-SISTEMA-01: Snapshot diario` queda pospuesto a fase futura).
 
 

@@ -1822,17 +1822,32 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 ### CU-TRANS-01: Recibir notificaciones del sistema
 
-**Actor(es):** Mozo, Cocina, Cajero, Administrador del local (según el tipo de evento)
+**Actor(es):** Mozo, Cocina, Cajero, Administrador del local, Propietario (según el tipo de evento)
 
-**Precondiciones:** Ocurre un evento relevante para el rol correspondiente (reserva próxima a bloquear, pedido anulado, stock crítico, agotamiento de producto, discrepancia de caja, incidente, entre otros).
+**Precondiciones:** Ocurre un evento operativo o administrativo relevante para el rol correspondiente (pedido anulado, plato marcado como agotado por cocina, plato listo en pase caliente, reserva próxima a bloquearse, precuenta solicitada, insumo con stock crítico, discrepancia en arqueo Z de caja, nuevo incidente interno, o aviso de suscripción Stripe en período de gracia).
 
 #### Flujo principal
 
-1. El sistema genera una notificación cuando ocurre el evento relevante para ese rol.
-2. El usuario ve un contador en un ícono de campana; al abrirlo, ve la lista de notificaciones (leídas/no leídas). La actualización se realiza mediante consulta periódica (polling) cada 15-30 segundos.
-3. Al hacer clic en una notificación, se le redirige a la pantalla relacionada (mesa, pedido, inventario, incidente).
+1. El sistema genera una notificación cuando ocurre el evento relevante y la distribuye en tiempo real mediante **Server-Sent Events (SSE)** (`GET /api/v1/notificaciones/stream`), con respaldo de **polling periódico liviano** cada 30 segundos (`GET /api/v1/notificaciones/resumen`).
+2. El usuario ve incrementarse el contador en el ícono de campana `[ 🔔 ]` en la cabecera global de la aplicación.
+3. Si el evento es clasificado como **crítico** (ej. parada inmediata de plato en cocina por anulación en salón), el sistema despliega adicionalmente una alerta flotante emergente (*Toast*) no intrusiva con temporizador de desvanecimiento de 6 segundos y botón `[ Entendido / Cerrar ]`.
+4. El usuario hace clic en el ícono de campana (o presiona el atajo `Alt+N`), lo cual despliega un panel lateral sobrepuesto (*Flyout Drawer*) sin salir de su pantalla de trabajo ni interrumpir su comanda activa.
+5. El panel presenta las notificaciones ordenadas cronológicamente con pestañas para alternar entre "No leídas" y "Todas", indicando categoría, severidad, título, descripción autocontenida y hora relativa.
+6. **Lectura y gestión in-situ (Sin Deep Linking ni Redirecciones):**
+   - El usuario lee la notificación directamente en el panel; cada aviso es 100% autocontenido y no requiere navegar hacia otra pantalla.
+   - Al hacer clic en una notificación o pulsar "Marcar leída", el sistema ejecuta `PATCH /api/v1/notificaciones/{id}/leer`, apaga el indicador de no leída y decrementa el contador de la campana.
+   - En notificaciones extensas, el usuario puede pulsar "Ver detalle" para desplegar un bloque acordeón con información ampliada dentro del mismo panel.
+7. Al pulsar el botón `[ ✓ Marcar todas leídas ]`, el sistema conmuta todas las notificaciones pendientes a leídas de forma masiva (`POST /api/v1/notificaciones/marcar-todas-leidas`).
+8. El usuario presiona la tecla `Esc` o hace clic fuera del panel para cerrarlo, continuando su labor operativa exactamente donde la dejó.
 
-**Postcondiciones:** Notificación marcada como leída al abrirla.
+#### Flujos alternativos y reglas de negocio
+
+- **Flujo alternativo A (Interrupción temporal de conexión SSE):** Si la conexión en tiempo real se interrumpe por microcortes de red, el frontend recurre al endpoint `GET /api/v1/notificaciones/resumen` cada 30 segundos hasta reestablecer el stream SSE automáticamente.
+- **Flujo alternativo B (Sin notificaciones pendientes):** Si todas las alertas fueron leídas o no hay eventos recientes, el panel muestra un estado vacío positivo (*"¡Estás al día! No tienes notificaciones pendientes"*).
+- **Regla de Cero Redirección:** Ninguna interacción dentro del panel de notificaciones redirige al usuario ni cambia de ruta web. Esto salvaguarda que el mozo no pierda borradores de comanda, el cocinero no pierda de vista el KDS y el cajero no interrumpa una transacción de cobro.
+- **Aislamiento Multi-Tenant (RLS):** Todas las consultas filtran obligatoriamente por `empresa_id` y por `usuario_id` o `rol_destinatario` en el `local_id` del usuario autenticado.
+
+**Postcondiciones:** Notificación persistida en PostgreSQL 16 con `leida = true` y `fecha_leida` registrada; contador de campana actualizado en tiempo real.
 
 ### CU-SISTEMA-01: Generar snapshot diario de stock e insumos
 
