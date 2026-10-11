@@ -1,5 +1,8 @@
 {
   "intelephense.files.exclude": [
     "**/vendor/symfony/polyfill-uuid/bootstrap85.php"
-  ]
+  ],
+  "files.associations": {
+    "**/vendor/symfony/polyfill-uuid/bootstrap85.php": "plaintext"
+  }
 }
