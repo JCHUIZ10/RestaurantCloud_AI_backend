@@ -1979,6 +1979,12 @@ Se diseñaron, renderizaron y validaron 4 vistas en resolución canónica (1440x
   - Switches para módulos: Reservas (`CU-ADMIN-10`), Reportes Avanzados (`CU-ADMIN-13`), Asistente IA y Predicción de Demanda IA.
 - **Callout de Alerta de Impacto:** Avisa que el plan cuenta con 26 empresas activas y que se evaluará la política de propagación comercial antes de persistir los cambios.
 
+### Vista 2B: Modal de Registro de Nuevo Plan (`wf_saas_03_modal_crear_plan.jpg`)
+![Vista 2B: Modal de Registro de Nuevo Plan](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-03-configurar-planes/assets/wf_saas_03_modal_crear_plan.jpg)
+- **Reutilización del Componente Polimórfico (`PlanFormModal`):** Mismo formulario con estado inicial limpio y placeholders orientadores.
+- **Slug Reactivo:** El identificador (`plan-fast-food-express`) se autogenera en vivo en formato kebab-case a medida que se ingresa el nombre comercial.
+- **Cero Fricción de Impacto:** Al partir con 0 empresas suscritas, el sistema no requiere abrir el modal de Grandfathering; se guarda y se registra automáticamente el nuevo `Product` y sus `Prices` en Stripe Billing de forma directa con el botón `[ ✓ Crear y Publicar Plan ]`.
+
 ### Vista 3: Modal de Impacto en Clientes Existentes — Grandfathering vs Propagación (`wf_saas_03_modal_impacto_clientes.jpg`)
 ![Vista 3: Modal de Impacto en Clientes Existentes](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-03-configurar-planes/assets/wf_saas_03_modal_impacto_clientes.jpg)
 - **Tabla de Diferencias (*Diff Table*):** Valores anteriores tachados vs nuevos valores propuestos (ej. tarifa mensual S/ 249 $\rightarrow$ S/ 269; mesas 30 $\rightarrow$ 35).

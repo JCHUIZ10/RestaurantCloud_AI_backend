@@ -223,7 +223,60 @@ Formulario estructurado y compacto para ajustar parámetros comerciales y cuotas
 
 ---
 
-### Vista 3: Modal de Impacto en Clientes Existentes — Grandfathering vs Propagación (`wf_saas_03_modal_impacto_clientes.jpg`)
+### Vista 2B: Modal de Registro de Nuevo Plan (`wf_saas_03_modal_crear_plan.jpg`)
+
+Implementación del componente polimórfico reutilizable `<PlanFormModal mode="crear" />` en modo de alta para registrar un nuevo plan desde cero.
+
+```
++------------------------------------------------------------------------------------------------------------------------+
+| RESTAURANTCLOUD AI   [ CONSOLA ADMIN SAAS ]              https://admin.restaurantcloud.pe/saas/planes/nuevo  Admin Root  PRODUCCIÓN |
++------------------------------------------------------------------------------------------------------------------------+
+|                                                                                                                        |
+|       +--------------------------------------------------------------------------------------------------------+       |
+|       | ➕ Registrar Nuevo Plan de Suscripción                                                             [ X ]|       |
+|       | Definición de tarifas comerciales en Soles (PEN), cuotas iniciales y módulos del sistema               |       |
+|       +--------------------------------------------------------------------------------------------------------+       |
+|       | NOMBRE DEL PLAN *                                        IDENTIFICADOR ÚNICO (SLUG / CÓDIGO) *         |       |
+|       | [ Fast Food & Cadenas Express                         ]  [ plan-fast-food-express ] ⚡ Autogenerado    |       |
+|       |                                                                                                        |       |
+|       | DESCRIPCIÓN COMERCIAL BREVE                                                                            |       |
+|       | [ Optimizado para cadenas de comida rápida, pollerías express y locales con alto volumen de pedidos.  ]|       |
+|       |                                                                                                        |       |
+|       | +----------------------------------------------------------------------------------------------------+ |       |
+|       | | VISIBILIDAD COMERCIAL                                                                              | |       |
+|       | | [X] VISIBLE PÚBLICAMENTE EN WEB Y AUTOSERVICIO STRIPE CHECKOUT (`CU-PROP-01`)                      | |       |
+|       | |     Si se desmarca (`visible_publico = false`), el plan será privado B2B y solo asignable en CU-01. | |       |
+|       | +----------------------------------------------------------------------------------------------------+ |       |
+|       | TARIFAS COMERCIALES EN SOLES (PEN)                                                                     |       |
+|       | PRECIO MENSUAL ESTÁNDAR (S/ PEN) *                       PRECIO ANUAL CON DESCUENTO (S/ PEN) *         |       |
+|       | [ 189.00                                              ]  [ 1,890.00            ] [✓ 2 Meses Gratis]    |       |
+|       |                                                                                                        |       |
+|       | LÍMITES CUANTITATIVOS MÁXIMOS POR EMPRESA                                                              |       |
+|       | MÁX. LOCALES / SEDES *       MÁX. PISOS POR SEDE *       MÁX. MESAS POR SEDE *     MÁX. PERSONAL *     |       |
+|       | [ 2                  ]       [ 1                 ]       [ 25                ]     [ 10          ]     |       |
+|       |                                                                                                        |       |
+|       | MÓDULOS DEL SISTEMA HABILITADOS                                                                        |       |
+|       | +----------------------------------------------------------------------------------------------------+ |       |
+|       | | [ ] Módulo de Reservas de Salón (CU-ADMIN-10 / 05)    [X] Reportes Avanzados & Menú Engin. (CU-13) | |       |
+|       | | [X] Asistente IA de Salón                             [ ] Predicción de Demanda IA (Forecasting)   | |       |
+|       | +----------------------------------------------------------------------------------------------------+ |       |
+|       | [✓] Aprovisionamiento Directo (Cero Fricción): Este plan parte con 0 empresas suscritas. Al presionar  |       |
+|       |     "Crear y Publicar", se persistirá en PostgreSQL y se creará el Product y Prices en Stripe Billing |       |
+|       |     sin requerir evaluación previa de Grandfathering.                                                  |       |
+|       +--------------------------------------------------------------------------------------------------------+       |
+|       |  [ Cancelar ]                                                      [ ✓ Crear y Publicar Plan ]         |       |
+|       +--------------------------------------------------------------------------------------------------------+       |
+|                                                                                                                        |
++------------------------------------------------------------------------------------------------------------------------+
+```
+
+#### Patrón de Reutilización de Componente (`PlanFormModal`):
+El modal comparte el 95% del código JSX/HTML, estados de formulario y validaciones con la Vista 2 (`mode="editar"`), diferenciándose en:
+1. **Slug Reactivo:** El identificador único (`slug`) se autogenera en vivo en formato kebab-case a medida que el usuario tipea el nombre del plan (mientras que en modo edición permanece de sólo lectura).
+2. **Cero Fricción de Impacto:** Al tratarse de una nueva entidad con **0 empresas suscritas**, no se dispara el diálogo de decisión de impacto (Grandfathering / Vista 3).
+3. **Sincronización Directa con Stripe:** El backend invoca de inmediato `stripe.Product.New` y `stripe.Price.New` para registrar el catálogo en la pasarela, retornando un código `201 Created`.
+
+---
 
 Diálogo crítico que previene roturas de contratos o facturación imprevista a los 26 restaurantes suscritos.
 
