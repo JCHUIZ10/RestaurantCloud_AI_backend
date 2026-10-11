@@ -746,6 +746,10 @@ Comprobante digital emitido al cobrar (sin impresión física obligatoria, con c
 | `fecha` | timestamp with time zone | NOT NULL DEFAULT NOW() | Fecha de emisión |
 | `estado` | enum | — | emitido, anulado |
 
+> **Indexación y Acceso Público de Alta Velocidad (`CU-CLIENTE-02`):**
+> `CREATE UNIQUE INDEX IF NOT EXISTS idx_comprobante_token_qr ON comprobante(token_qr);`
+> Permite resolver la consulta pública anónima de comprobantes por capability token en sub-milisegundos (< 0.5ms) mediante Index Scan directo, soportando alta concurrencia de comensales escaneando simultáneamente.
+
 #### `gasto_manual`
 
 Egresos operativos que no provienen de una ficha de compra.

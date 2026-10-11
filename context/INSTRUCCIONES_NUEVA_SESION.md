@@ -117,24 +117,25 @@ Por cada nuevo Caso de Uso abordado, se ejecuta sin excepciones este flujo:
 - `CU-CAJA-04`: Anular comprobante / pedido ya cobrado y emisión de Nota de Crédito Electrónica (Emisión de Nota de Crédito oficial bajo normativa SUNAT con series `FC01` para Factura y `BC01` para Boleta mediante correlatividad ACID; filtros segmentados de dos niveles [Vigentes vs Anulados]; catálogo oficial SUNAT Catálogo 09 [01 anulación total, 02 error en documento, 06 devolución total] con sustento textual obligatorio; conmutación atómica de `comprobante.estado = 'anulado'` y `pedido.estado = 'anulado'`; asiento contable de egreso en `caja_movimiento` [`tipo = 'egreso_devolucion'`] con reversión en gaveta de S/ 385 a S/ 300 para cuadratura exacta; bloqueo Poka-Yoke contra re-anulación; alerta reactiva SSE al panel `CU-ADMIN-12`; y diálogo de entrega digital con token QR dinámico [UUID v8] y entrega multicanal).
 - `CU-CAJA-05`: Cerrar caja (arqueo Z) y rendición de cuentas del turno (Verificación Poka-Yoke de salón al día sin mesas activas con comanda abierta; conciliación de pagos electrónicos por tarjetas POS [Lote #012] y billeteras digitales Yape/Plin; digitación directa de efectivo físico contado en gaveta con cálculo dinámico de diferencia a S/ 0.00; justificación textual obligatoria ante cualquier discrepancia; transacción atómica ACID que actualiza `caja.estado = 'cerrada'`, fija `fecha_cierre = NOW()` y libera el índice único `uq_caja_abierta_local`; emisión del Reporte Z Digital oficial con consolidación fiscal SUNAT descargable en PDF bajo política Cero Papel, archivo inmutable para supervisión administrativa `CU-ADMIN-15` y alerta reactiva SSE a `CU-ADMIN-12`).
 
-### 4.7 Rol Cliente (`wireframe/cliente/`) — 📱 1 CU CULMINADO
+### 4.7 Rol Cliente (`wireframe/cliente/`) — 📱 100% CULMINADO (2 CUs Canónicos)
 - `CU-CLIENTE-01`: Consultar carta digital (Catálogo Interactivo Web) (Acceso público web por slug `https://app.restaurantcloud.pe/sede/<slug>/carta`, botones de contacto directo a WhatsApp y llamada mediante `local.telefono`, categorías con tabs táctiles, buscador reactivo en tiempo real con debounce, sincronización en vivo con quiebres de cocina `CU-COCINA-04` [`Agotado por hoy`], modal de ficha ampliada del plato, estado vacío accesible para búsquedas sin coincidencias y diseño mobile-first sin carritos ni registros).
+- `CU-CLIENTE-02`: Buscar comprobante de pago (Visor Digital de Comprobantes Electrónicos) (Acceso público por capability token unívoco `https://app.restaurantcloud.pe/c/<token_uuid_v8>`, sin login y con estricta privacidad [sin buscador por DNI/RUC para proteger datos personales], visualización de ticket digital en smartphone y factura A4 en desktop, desglose de consumo e IGV en Soles, descargas oficiales en PDF y XML UBL 2.1, auditoría indeleble de comprobantes anulados con Nota de Crédito `CU-CAJA-04`, y estado accesible para búsqueda manual por código único con auxilio directo por WhatsApp).
 
 ---
 
-## 5. Objetivo Inmediato de la Nueva Sesión: Rol Cliente
+## 5. Objetivo Inmediato de la Nueva Sesión: Casos de Uso Transversales
 
 Al iniciar una nueva sesión de chat, el asistente debe concentrarse en el siguiente caso de uso:
 
-### 👉 **`CU-CLIENTE-02: Buscar comprobante de pago`**
+### 👉 **`CU-TRANS-01: Recibir notificaciones del sistema`**
 
 #### 5.1 Propósito y Contexto de Negocio
-Permitir a los comensales visualizar y descargar su comprobante de pago oficial (Factura, Boleta o Nota de Venta) en formato digital PDF oficial, accediendo de forma inmediata mediante el escaneo del código QR dinámico de su comanda o enlace único (`https://app.restaurantcloud.pe/c/<token_uuid_v8>`), sin requerir registro de cuenta ni login, bajo la política de Cero Papel.
+Centro unificado de alertas y notificaciones multirrol en tiempo real (Mozo, Cocina, Cajero, Administrador de Local y Propietario). Permite a los colaboradores estar informados de eventos operativos críticos: reservas próximas a expirar, pedidos anulados (`CU-MOZO-06`), stock crítico de insumos (`CU-ADMIN-05`), agotamiento de platos (`CU-COCINA-04`), incidentes reportados y discrepancias en arqueos de caja (`CU-CAJA-05`).
 
 #### 5.2 Requerimientos Clave
-- **Acceso Criptográfico Seguro:** Acceso restringido exclusivamente a través del token unívoco (UUID v8) generado al momento del cobro en `CU-CAJA-03`; sin buscador público por DNI/RUC para proteger la privacidad de datos personales.
-- **Detalle Tributario Oficial:** Visualización transparente de la serie y correlativo (ej. `B001-0012894`), desglose fiscal SUNAT (Base Imponible e IGV 18%), detalle plato por plato, medio de pago y datos del emisor.
-- **Descarga de PDF Oficial:** Botón de un solo clic para generar y descargar la representación impresa electrónica en PDF.
+- **Indicador y Centro de Notificaciones:** Ícono de campana en cabecera con contador de no leídas (`badge`) y panel desplegable (drawer/popover) categorizado por severidad (Informativa, Advertencia, Crítica).
+- **Redirección Operativa (Deep-Linking):** Al pulsar una notificación, redirige inmediatamente a la entidad correspondiente (mesa en salón, ticket en KDS, ficha de stock o incidente).
+- **Conexión en Tiempo Real y Polling:** Recepción reactiva mediante Server-Sent Events (SSE) y respaldo periódico cada 15-30 segundos.
 
 ---
 
@@ -143,6 +144,7 @@ Permitir a los comensales visualizar y descargar su comprobante de pago oficial 
 Cuando el usuario inicie el nuevo chat y salude o solicite continuar:
 1. **Confirma la lectura de este archivo** [`context/INSTRUCCIONES_NUEVA_SESION.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/INSTRUCCIONES_NUEVA_SESION.md).
 2. **Declara formalmente el estado del sistema:**
-   - Propietario (6 CUs), Administrador (15 CUs), Mozo (8 CUs), Cocina (5 CUs), Cajero (5 CUs canónicos) y Cliente (`CU-CLIENTE-01`) están **100% culminados y consolidados (42 CUs totales)**.
-3. **Presenta de inmediato la propuesta de `/plan` interactivo para `CU-CLIENTE-02: Buscar comprobante de pago`**, desglosando las vistas de visor web del comprobante, descarga de PDF y validación del token criptográfico.
+   - Propietario (6 CUs), Administrador (15 CUs), Mozo (9 CUs), Cocina (5 CUs), Cajero (5 CUs canónicos) y Cliente (2 CUs canónicos) están **100% culminados y consolidados (43 CUs totales)**.
+3. **Presenta de inmediato la propuesta de `/plan` interactivo para `CU-TRANS-01: Recibir notificaciones del sistema`**, desglosando el centro de notificaciones multirrol, la campana de alertas y la navegación profunda a módulos operativos.
+
 

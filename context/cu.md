@@ -1714,25 +1714,34 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 ### CU-CLIENTE-02: Buscar comprobante de pago
 
-**Actor(es):** Cliente
+**Actor(es):** Cliente (Comensal o Empresa adquiriente)
 
-**Precondiciones:** Existe un comprobante generado (CU-CAJA-03), con un enlace único (token) asociado.
+**Precondiciones:** Existe un comprobante generado y emitido en caja (`CU-CAJA-03`), con un identificador criptográfico único (`token_qr` UUID v8) asociado.
 
 #### Flujo principal
 
-1. El cliente escanea el código QR mostrado en pantalla al momento del pago.
-2. El sistema valida el token único del enlace y muestra el detalle del comprobante (ítems, total, tipo, fecha).
-3. El cliente presiona "Descargar" y obtiene el comprobante en PDF.
+1. El cliente escanea el código QR dinámico mostrado en pantalla al momento del cobro o presiona el enlace recibido directamente por WhatsApp / Correo electrónico (`https://app.restaurantcloud.pe/c/:token`).
+2. El sistema valida el token único en la base de datos y resuelve la representación gráfica oficial del comprobante:
+   - Datos del restaurante emisor: Razón social, RUC, sede, dirección física y teléfono.
+   - Datos del documento: Tipo (Boleta de Venta, Factura Electrónica o Nota de Venta), serie y correlativo (`B001-0012894`, `F001-0004521`), fecha y hora de emisión.
+   - Datos del cliente: Nombre o Razón Social, documento de identidad (DNI o RUC si fue suministrado) o consumidor final.
+   - Desglose de ítems: Platos y bebidas consumidas, cantidades, precios unitarios y subtotales.
+   - Liquidación financiera: Subtotal de consumo, descuento comercial (si hubo promoción), base imponible (operación gravada), I.G.V. (18.00%), total neto en Soles (`PEN - S/`) y medio de pago liquidado.
+3. El sistema renderiza la interfaz responsive adaptada al dispositivo (Vista 1 en Smartphone o Vista 2 en Desktop) con badge `[ ✓ COMPROBANTE EMITIDO ]`.
+4. El cliente presiona `[ 📥 Descargar Comprobante PDF ]` y obtiene el archivo oficial. Si se trata de una Factura con RUC, dispone además del botón `[ 📄 Descargar XML ]` para anexarlo a la contabilidad de su empresa.
+5. El cliente puede compartir el comprobante vía WhatsApp, copiar el enlace directo o presionar `[ 🍽️ Explorar Carta Digital del Restaurante ]` para navegar la carta del local (`CU-CLIENTE-01`).
 
 #### Flujos alternativos
 
-- El cliente perdió el enlace/QR → debe acercarse o comunicarse con el local; el Cajero localiza la transacción manualmente y le reenvía el enlace.
+- El cliente ingresa a `/comprobante` sin enlace o con código incompleto → el sistema despliega el estado orientador con el formulario `[ Ingrese el código de su comprobante ] [ 🔍 Consultar ]`, un aviso de protección de privacidad y un botón de WhatsApp para solicitar al personal del local el reenvío de su enlace.
+- El comprobante fue anulado con Nota de Crédito (`CU-CAJA-04`) → el sistema exhibe un banner de alerta, la marca de agua `ANULADO`, la referencia a la Nota de Crédito emitida (`BC01-0000042`), el motivo de anulación y genera el PDF con el sello permanente de anulación.
+- Se detecta exceso de solicitudes desde una misma IP (Rate Limiting en Redis: > 30 peticiones/minuto) → el sistema retorna error `429 Too Many Requests` previniendo ataques de fuerza bruta o scraping.
 
-**Postcondiciones:** Ninguna (consulta/descarga).
+**Postcondiciones:** Ninguna alteración de estado; consulta y descarga idempotente de comprobante digital.
 
-**Nota:** *El acceso es únicamente vía QR (token único e impredecible); no existe búsqueda pública por documento, para evitar exposición de datos de otros clientes.*
+**Nota de Privacidad:** *El acceso es estrictamente mediante token único o código recibido; no existe búsqueda pública por DNI o RUC para salvaguardar la privacidad de los comensales y evitar exposición de consumos ajenos.*
 
-*Diferido / opcional (solo si sobra tiempo dentro del plazo del proyecto): interactuar con un asistente conversacional de IA para consultas del cliente (horarios, recomendaciones, alérgenos).*
+*Diferido / opcional (solo si sobra tiempo dentro del plazo del proyecto): interactuar con un asistente conversacional de IA para consultas del cliente (horarios, recomendaciones).*
 
 *Fuera de alcance actual: reservar mesa y realizar pedido directamente por el cliente (quedan a cargo exclusivo del Mozo); consulta de historial propio de pedidos/reservas por parte del cliente.*
 

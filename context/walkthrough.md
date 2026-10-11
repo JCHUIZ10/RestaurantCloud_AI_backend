@@ -1735,3 +1735,46 @@ En alineación con la carta digital pública implementada en [`CU-CLIENTE-01`](#
    - La [`Vista 2B`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/propietario/CU-PROP-04-administrar-locales/assets/wf_prop_04_formulario_local.jpg) (Paso 2: Giro Gastronómico y Plantilla Inicial) permanece 100% intacta, garantizando la continuidad del aprovisionamiento automático de salón, categorías e insumos de inventario.
 4. **Contratos Go y Restricción de Base de Datos:**
    - Se incorporó el endpoint `GET /api/v1/propietario/locales/verificar-slug?slug={slug}` y el campo `slug` en los DTOs de creación (`POST`) y edición (`PUT`), respaldado por la restricción global `UNIQUE(slug)` y el índice B-Tree dedicado `idx_local_slug` en la tabla `local`.
+
+---
+
+## 75. Vistas Wireframe y Arquitectura de `CU-CLIENTE-02: Buscar Comprobante de Pago`
+
+Se diseñaron, renderizaron y optimizaron 4 vistas en resolución canónica (1440x900, JPG calidad 95) en [`wireframe/cliente/CU-CLIENTE-02-buscar-comprobante/assets/`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cliente/CU-CLIENTE-02-buscar-comprobante/assets/):
+
+### Vista 1: Visor Digital de Comprobante en Smartphone (`wf_cliente_02_comprobante_smartphone.jpg`)
+![Vista 1: Visor Digital en Smartphone](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cliente/CU-CLIENTE-02-buscar-comprobante/assets/wf_cliente_02_comprobante_smartphone.jpg)
+- **Viewport Mobile Smartphone (412x820):** Experiencia para clientes que escanean el código QR en mesa o abren el enlace directo recibido por WhatsApp/Correo.
+- **Detalle Fiscal y Comercial:** Datos del emisor ("🔥 El Carbón & Leña S.A.C.", RUC 20601234567), Boleta B001-0012894, comensal identificado con DNI, tabla de platos consumidos, desglose de descuento comercial, base gravada, IGV (18.00%) y total neto en Soles (`S/ 72.25`).
+- **Estado Limpio:** Badge `[ ✓ EMITIDO ]` sin textos superfluos de validación externa.
+- **Acciones Táctiles (44px):** Botón principal `[ 📥 Descargar Comprobante PDF ]`, botones de compartir por WhatsApp y copiar enlace, y botón de re-enganche `[ 🍽️ Explorar Carta Digital del Restaurante ]` hacia `CU-CLIENTE-01`.
+
+### Vista 2: Visor en Pantalla Ancha Desktop / Tablet (`wf_cliente_02_comprobante_desktop.jpg`)
+![Vista 2: Visor Desktop Factura A4](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cliente/CU-CLIENTE-02-buscar-comprobante/assets/wf_cliente_02_comprobante_desktop.jpg)
+- **Distribución en 2 Columnas (1440x900):**
+  - **Columna Izquierda (880px):** Representación gráfica oficial del comprobante tributario (formato Factura A4 formal con membrete, recuadro de RUC emisor, datos de la empresa compradora, tabla formal de conceptos con IGV desglosado, código QR oficial y hash SHA-256).
+  - **Columna Derecha (440px):** Panel lateral de gestión con estado `[ ● COMPROBANTE EMITIDO ]`, botones de descarga de PDF oficial y XML electrónico (UBL 2.1), input para copiar enlace y datos de contacto de la sede.
+
+### Vista 3: Auditoría de Comprobante Anulado con Nota de Crédito (`wf_cliente_02_comprobante_anulado.jpg`)
+![Vista 3: Auditoría Comprobante Anulado](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cliente/CU-CLIENTE-02-buscar-comprobante/assets/wf_cliente_02_comprobante_anulado.jpg)
+- **Protección Contable y Anti-Fraude:** Transparencia si el comprobante fue anulado en `CU-CAJA-04`.
+- **Marca de Agua Indeleble:** Sello transversal `ANULADO`, banner superior de advertencia y número de serie tachado.
+- **Trazabilidad Rectificatoria:** Ficha de auditoría con la Nota de Crédito asociada (`BC01-0000042`), fecha, motivo formal ("01 — Anulación de la operación") y botón para ver la nota de crédito. El PDF se genera con sello permanente de anulación.
+
+### Vista 4: Comprobante no Disponible / Búsqueda Manual por Código (`wf_cliente_02_token_invalido.jpg`)
+![Vista 4: Comprobante no Disponible](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cliente/CU-CLIENTE-02-buscar-comprobante/assets/wf_cliente_02_token_invalido.jpg)
+- **Zero Dead-Ends:** Para enlaces incompletos o usuarios que acceden directamente a `/comprobante`.
+- **Protección de Datos:** Aviso pedagógico explicando que no existe buscador por DNI/RUC para proteger la privacidad de los comensales.
+- **Búsqueda Manual por Código:** Formulario simple `[ Ingrese el código de su comprobante ] [ 🔍 Consultar ]` sin tecnicismos ("UUID").
+- **Acciones de Asistencia:** Botón para contactar al restaurante por WhatsApp y solicitar reenvío, y botón para explorar la carta digital.
+
+### Reglas de Acceso, Privacidad y Contratos Go de `CU-CLIENTE-02`
+1. **Acceso por Capability Token (Cero Login):**
+   - El token `token_qr` (UUID v8) indexado con `idx_comprobante_token_qr` permite consultar el comprobante en sub-milisegundos (< 0.5ms) sin autenticación JWT.
+2. **Rate Limiting Anti-Scraping:**
+   - Restringe las solicitudes a 30 consultas por minuto por dirección IP en Redis (`ratelimit:public:comprobante:{ip}`).
+3. **Endpoints REST Implementados:**
+   - `GET /api/v1/public/comprobantes/:token`: Detalle JSON agrupado en una sola consulta SQL.
+   - `GET /api/v1/public/comprobantes/:token/pdf`: Descarga de representación impresa oficial.
+   - `GET /api/v1/public/comprobantes/:token/xml`: Descarga de archivo estructurado electrónico UBL 2.1.
+
