@@ -95,7 +95,7 @@ sequenceDiagram
 |   | Datos de tu Empresa Gastronómica             |  | Resumen del Registro    | |
 |   |                                              |  +-------------------------+ |
 |   | Tipo de Contribuyente                        |  | Plan Seleccionado:      | |
-|   | [ RUC 20 - Persona Jurídica (S.A.C.)     ▼ ] |  | Pro (ID: 2) — $49/mes   | |
+|   | [ RUC 20 - Persona Jurídica (S.A.C.)     ▼ ] |  | Pro (ID: 2) — S/ 249/mes | |
 |   |                                              |  |                         | |
 |   | Número de RUC                                |  | Restaurante:            | |
 |   | [ 20601234567                              ] |  | El Tenedor S.A.C.       | |
@@ -190,7 +190,7 @@ Este paso garantiza que el correo ingresado realmente funciona, no tiene errores
 |   | [ 0000 0000 0000 0000         [VISA][MC][AMX] |  | Plan Pro                | |
 |   |                                              |  |                         | |
 |   | MM / AA                 CVC                  |  | Suscripción Mensual:    | |
-|   | [ 12/28            ]    [ 123              ] |  | $49.00 / mes            | |
+|   | [ 12/28            ]    [ 123              ] |  | S/ 249.00 / mes         | |
 |   |                                              |  |                         | |
 |   | Titular de la Tarjeta                        |  | Incluye:                | |
 |   | [ Manuel García                            ] |  | - Hasta 3 locales       | |
@@ -198,7 +198,7 @@ Este paso garantiza que el correo ingresado realmente funciona, no tiene errores
 |   | (Icono Candado) Pagar de forma segura vía     |  | - IA Forecasting        | |
 |   | Stripe. Cifrado TLS de extremo a extremo.    |  |                         | |
 |   |                                              |  | Total a Pagar Hoy:      | |
-|   | +------------------------------------------+ |  | $49.00                  | |
+|   | +------------------------------------------+ |  | S/ 249.00               | |
 |   | |         PAGAR Y ACTIVAR EMPRESA          | |  +-------------------------+ |
 |   | +------------------------------------------+ |                              |
 |   +----------------------------------------------+                              |
@@ -232,7 +232,7 @@ Esta pantalla confirma la activación del restaurante tras el cobro de Stripe, p
 |                   | | Resumen de Suscripción                    | |             |
 |                   | | Empresa: El Tenedor Gourmet S.A.C.        | |             |
 |                   | | RUC:     20601234567                      | |             |
-|                   | | Plan:    Pro ($49.00/mes)                 | |             |
+|                   | | Plan:    Pro (S/ 249.00/mes)              | |             |
 |                   | | Próxima facturación: 01 Nov 2026          | |             |
 |                   | |                                           | |             |
 |                   | | [ 📥 Descargar Constancia Registro (PDF) ]| |             |
@@ -370,8 +370,8 @@ Todos los contratos respetan el formato estándar del backend Go definido en [`c
     "correo_verificado": true,
     "stripe_client_secret": "seti_1N..._secret_...",
     "stripe_public_key": "pk_test_51Mz...",
-    "monto_total": 49.00,
-    "moneda": "USD"
+    "monto_total": 249.00,
+    "moneda": "PEN"
   },
   "meta": {
     "timestamp": "2026-10-01T22:32:00Z"
@@ -411,7 +411,7 @@ Todos los contratos respetan el formato estándar del backend Go definido en [`c
       "plan": {
         "id": 2,
         "nombre": "Pro",
-        "precio": 49.00
+        "precio": 249.00
       }
     },
     "usuario": {
@@ -425,8 +425,8 @@ Todos los contratos respetan el formato estándar del backend Go definido en [`c
       "periodo": "Mensual",
       "fecha_pago": "2026-10-01T22:33:00Z",
       "proximo_cobro": "2026-11-01T22:33:00Z",
-      "monto_pagado": 49.00,
-      "moneda": "USD",
+      "monto_pagado": 249.00,
+      "moneda": "PEN",
       "url_descarga_pdf": "/api/v1/descargas/constancia-registro/e9a8b7c6-1234-5678-9abc-def012345678"
     },
     "soporte_emergencia": {

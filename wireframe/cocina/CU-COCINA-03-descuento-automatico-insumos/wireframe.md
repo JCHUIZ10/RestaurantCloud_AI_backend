@@ -12,8 +12,8 @@ Especificación técnica de proceso transaccional del sistema, arquitectura de i
 | **Nombre** | Descuento automático de insumos por consumo culinario |
 | **Actor(es)** | `sistema` (Proceso transaccional de backend orquestado automáticamente) / `admin_local` (Supervisión) |
 | **Dispositivo / Viewport** | Ejecución en Core API Go (< 5ms) / Visualización en Portal Administrador (`1440x900`) y Modal KDS |
-| **Precondición** | La brigada de cocina marca un plato como "Listo en Pase" en el monitor KDS ([`CU-COCINA-02`](file:///d:/Proyecto/RestaurantCloud_AI_backend/wireframe/cocina/CU-COCINA-02-actualizar-estado-preparacion/wireframe.md)); el producto cuenta con su receta culinaria registrada en `producto_insumo` ([`CU-ADMIN-04`](file:///d:/Proyecto/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-04-personal-local/wireframe.md)). |
-| **Postcondición** | El sistema descuenta atómicamente de `insumo.stock_actual` las cantidades requeridas según receta; si las existencias descienden a 0, conmuta automáticamente a `'agotado'` y apaga los platos dependientes en la carta digital de mozos y QR ([`CU-COCINA-04`](file:///d:/Proyecto/RestaurantCloud_AI_backend/context/cu.md#cu-cocina-04-marcar-producto-como-agotado--disponible)); si el stock teórico era insuficiente, aplica la política de no bloqueo de servicio, fija stock en 0 y despacha una alerta SSE reactiva al Administrador; si el cocinero pulsa `[ ↺ Deshacer ]` en 30s, se ejecuta el rollback atómico del inventario. |
+| **Precondición** | La brigada de cocina marca un plato como "Listo en Pase" en el monitor KDS ([`CU-COCINA-02`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cocina/CU-COCINA-02-actualizar-estado-preparacion/wireframe.md)); el producto cuenta con su receta culinaria registrada en `producto_insumo` ([`CU-ADMIN-04`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-04-personal-local/wireframe.md)). |
+| **Postcondición** | El sistema descuenta atómicamente de `insumo.stock_actual` las cantidades requeridas según receta; si las existencias descienden a 0, conmuta automáticamente a `'agotado'` y apaga los platos dependientes en la carta digital de mozos y QR ([`CU-COCINA-04`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/cu.md#cu-cocina-04-marcar-producto-como-agotado--disponible)); si el stock teórico era insuficiente, aplica la política de no bloqueo de servicio, fija stock en 0 y despacha una alerta SSE reactiva al Administrador; si el cocinero pulsa `[ ↺ Deshacer ]` en 30s, se ejecuta el rollback atómico del inventario. |
 
 ---
 
@@ -76,7 +76,7 @@ sequenceDiagram
 Dado que `CU-COCINA-03` es un proceso automático del sistema de backend, su interacción con usuarios se manifiesta a través de **dos puntos de contacto clave**:
 
 1. **Notificación Flotante Toast y Campana al Administrador (`wf_cocina_03_alerta_stock_toast.jpg`):** Se dispara en tiempo real ante una discrepancia de stock sin bloquear la cocina.
-2. **Inspector de Insumos de la Comanda en KDS (`wf_cocina_01_modal_detalle_comanda.jpg`):** Permite a la brigada de cocina verificar los insumos deducidos directamente en la Ficha Técnica de la Comanda ([`CU-COCINA-01`](file:///d:/Proyecto/RestaurantCloud_AI_backend/wireframe/cocina/CU-COCINA-01-cola-pedidos-kds/wireframe.md)).
+2. **Inspector de Insumos de la Comanda en KDS (`wf_cocina_01_modal_detalle_comanda.jpg`):** Permite a la brigada de cocina verificar los insumos deducidos directamente en la Ficha Técnica de la Comanda ([`CU-COCINA-01`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cocina/CU-COCINA-01-cola-pedidos-kds/wireframe.md)).
 
 ---
 
@@ -119,8 +119,8 @@ Pantalla desktop corporativa (`1440x900`). Muestra la recepción reactiva SSE de
 
 #### Elementos Visuales y Funcionalidades
 1. **Toast Flotante No Intrusivo:** Aparece en la esquina superior derecha sin bloquear la navegación del Administrador, manteniéndose visible durante 15 segundos o hasta interacción.
-2. **Campana de Alertas Persistente:** El botón `[ 🔔 (1) ]` acumula la incidencia para revisión en la bandeja de auditoría ([`CU-ADMIN-11`](file:///d:/Proyecto/RestaurantCloud_AI_backend/context/cu.md#cu-admin-11-historial-de-incidentes-internos-de-sede) / [`CU-ADMIN-12`](file:///d:/Proyecto/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-12-notificacion-anulacion/wireframe.md)).
-3. **Acceso Directo a Regularización:** Botón `[ 📝 Registrar Compra / Ajuste ]` que abre la ficha de compra rápida de insumo ([`CU-ADMIN-07`](file:///d:/Proyecto/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-07-recepcion-compra/wireframe.md)) para reponer existencias con 1 clic.
+2. **Campana de Alertas Persistente:** El botón `[ 🔔 (1) ]` acumula la incidencia para revisión en la bandeja de auditoría ([`CU-ADMIN-11`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/cu.md#cu-admin-11-historial-de-incidentes-internos-de-sede) / [`CU-ADMIN-12`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-12-notificacion-anulacion/wireframe.md)).
+3. **Acceso Directo a Regularización:** Botón `[ 📝 Registrar Compra / Ajuste ]` que abre la ficha de compra rápida de insumo ([`CU-ADMIN-07`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-07-recepcion-compra/wireframe.md)) para reponer existencias con 1 clic.
 
 ---
 
@@ -130,9 +130,9 @@ Pantalla desktop corporativa (`1440x900`). Muestra la recepción reactiva SSE de
 | :--- | :--- | :--- |
 | **1. Deducción Óptima** | `stock_actual >= deduccion` y `stock_resultante > stock_minimo` | Descuenta insumos en < 5ms. El plato pasa a listo sin alertas de inventario. |
 | **2. Stock Bajo Mínimo** | `stock_actual >= deduccion` pero `stock_resultante <= stock_minimo` | Descuenta insumos. Emite notificación preventiva al Administrador: *"Insumo en stock crítico; sugerida orden de compra"*. |
-| **3. Stock Cero (Agotado)** | `stock_actual - deduccion == 0` | Descuenta a 0. Conmuta `insumo.estado = 'agotado'` y propaga `producto.disponibilidad = 'agotado'` a carta digital ([`CU-COCINA-04`](file:///d:/Proyecto/RestaurantCloud_AI_backend/context/cu.md#cu-cocina-04-marcar-producto-como-agotado--disponible)). |
+| **3. Stock Cero (Agotado)** | `stock_actual - deduccion == 0` | Descuenta a 0. Conmuta `insumo.estado = 'agotado'` y propaga `producto.disponibilidad = 'agotado'` a carta digital ([`CU-COCINA-04`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/cu.md#cu-cocina-04-marcar-producto-como-agotado--disponible)). |
 | **4. Inconsistencia / Faltante** | `stock_actual < deduccion` (Stock insuficiente) | **Aplica Política de Continuidad:** no bloquea la cocina; fija `stock_actual = 0`, asienta en `auditoria_stock_ajuste` con motivo `'inconsistencia_cocina'` y dispara Toast SSE al Administrador. |
-| **5. Reversión por Deshacer** | Cocinero pulsa `[ ↺ Deshacer ]` en < 30s ([`CU-COCINA-02`](file:///d:/Proyecto/RestaurantCloud_AI_backend/wireframe/cocina/CU-COCINA-02-actualizar-estado-preparacion/wireframe.md)) | **Rollback Atómico:** repone exactamente las cantidades a `insumo.stock_actual` y restaura a `'disponible'` si estaba agotado. |
+| **5. Reversión por Deshacer** | Cocinero pulsa `[ ↺ Deshacer ]` en < 30s ([`CU-COCINA-02`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cocina/CU-COCINA-02-actualizar-estado-preparacion/wireframe.md)) | **Rollback Atómico:** repone exactamente las cantidades a `insumo.stock_actual` y restaura a `'disponible'` si estaba agotado. |
 
 ---
 
@@ -292,4 +292,4 @@ COMMIT;
 
 1. **Notificación Toast Semántica y Accesible:** El contenedor de alertas Toast del Administrador implementa `role="alert"` y `aria-live="polite"`, permitiendo que los lectores de pantalla anuncien la inconsistencia sin interrumpir bruscamente el trabajo del usuario.
 2. **Contraste de Alertas Semánticas:** La caja de aviso utiliza fondo `#78350F` con texto `#FEF3C7` y bordes `#F59E0B`, logrando un contraste superior a **8.5:1** contra el canvas oscuro de la aplicación.
-3. **Persistencia en Bandeja:** Si el Administrador cierra el Toast o expira su temporizador, la alerta permanece intacta en el icono de la campana `[ 🔔 ]` hasta su resolución definitiva mediante el registro de compras ([`CU-ADMIN-07`](file:///d:/Proyecto/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-07-recepcion-compra/wireframe.md)).
+3. **Persistencia en Bandeja:** Si el Administrador cierra el Toast o expira su temporizador, la alerta permanece intacta en el icono de la campana `[ 🔔 ]` hasta su resolución definitiva mediante el registro de compras ([`CU-ADMIN-07`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-07-recepcion-compra/wireframe.md)).

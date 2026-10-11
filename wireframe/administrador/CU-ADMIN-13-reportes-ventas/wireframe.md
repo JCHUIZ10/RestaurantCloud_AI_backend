@@ -9,7 +9,7 @@
 | **Rol / Actor** | **Administrador del Restaurante** (Gerente de Sede / Administrador Operativo) |
 | **Módulo** | Inteligencia de Negocios & Auditoría Operativa de Salón |
 | **Objetivo de Negocio** | Proporcionar al administrador una interfaz unificada, modular y de alto rendimiento analítico para monitorear la facturación neta, identificar horas punta, evaluar la rentabilidad del menú mediante Menú Engineering de 4 cuadrantes, medir la productividad del personal de salón y exportar reportes ejecutivos con streaming HTTP. |
-| **Precondiciones** | Administrador autenticado con JWT de rol `administrador` o `propietario` con acceso asignado a la sede actual (`restaurante_id`, `sede_id`). Existen comandas cobradas y cerradas en [`CU-CAJA-03`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cajero/CU-CAJA-03-cobrar-comanda/wireframe.md). |
+| **Precondiciones** | Administrador autenticado con JWT de rol `administrador` o `propietario` con acceso asignado al local actual (`empresa_id`, `local_id`). Existen pedidos cobrados y cerrados en [`CU-CAJA-03`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cajero/CU-CAJA-03-cobrar-comanda/wireframe.md). |
 | **Postcondiciones** | Consulta analítica de solo lectura sin alteración del estado operacional. Posibilidad de descargar reportes consolidados en PDF o Excel/CSV mediante streaming comprimido con Gzip. |
 | **Tokens de Diseño** | Grayscale Blueprint: `#0F172A` (Primario / Slate Dark), `#1E293B` (Superficie Header), `#F8FAFC` (Canvas), `#FFFFFF` (Card), `#E2E8F0` (Bordes), `#0F172A` (Texto Principal), `#64748B` (Texto Muted), `#16A34A` (Verde Éxito / Incremento), `#EF4444` (Rojo Alerta / Anulaciones). |
 | **Resolución Canónica** | `1440x900` px (Desktop Blueprint, JPG calidad 95). |
@@ -17,7 +17,7 @@
 ### Reglas de Negocio y Políticas de Inteligencia Operativa
 1. **Segmentación por Pestañas Especializadas (Cero Saturación Cognitiva):**
    - Para evitar sobrecargar de datos al usuario y no transferir payloads pesados en red móvil, la interfaz se subdivide en tres submódulos estratégicos:
-     - **Pestaña 1: Ventas Generales & KPIs:** Facturación neta acumulada, comandas cobradas, ticket promedio por mesa/comensal, rotación horaria, histograma de horas punta y desglose por medios de pago/SUNAT.
+     - **Pestaña 1: Ventas Generales & KPIs:** Facturación neta acumulada, pedidos cobrados, ticket promedio por mesa/comensal, rotación horaria, histograma de horas punta y desglose por medios de pago/SUNAT.
      - **Pestaña 2: Menú Engineering & Mix de Platos:** Clasificación analítica de los platos en 4 cuadrantes (Estrellas, Caballitos de Batalla, Puzles y Rezagados), Top platos y distribución de ingresos por categoría.
      - **Pestaña 3: Equipo de Salón & Operatividad de Turno:** Métricas individuales de mozos (ventas, ticket promedio, velocidad de mesa, upselling de 2da ronda y tasa de anulaciones), con adaptación inteligente según el régimen de turnos del local.
 2. **Resiliencia Operativa de Turnos (Turno Único vs Doble Turno):**
@@ -54,7 +54,7 @@ sequenceDiagram
     
     rect rgb(240, 249, 255)
         Note over API, BD: Consulta Rápida con Vistas Materializadas / Agregaciones
-        API->>BD: SELECT * FROM v_analitica_ventas_kpi WHERE sede_id = :sede_id AND periodo = :periodo
+        API->>BD: SELECT * FROM v_analitica_ventas_horarias WHERE local_id = :local_id AND fecha BETWEEN :inicio AND :fin
         BD-->>API: Datos agregados de ventas, histograma horario y desglose de pago
     end
 
@@ -64,7 +64,7 @@ sequenceDiagram
     opt Navegación a Pestaña Menú Engineering
         ADM->>SPA: Clic en pestaña [ 🍽️ Menú & Platos ]
         SPA->>API: GET /api/v1/admin/reportes/ventas/menu-engineering?periodo=este_mes
-        API->>BD: SELECT * FROM v_menu_engineering_cuadrantes WHERE sede_id = :sede_id
+        API->>BD: SELECT * FROM v_menu_engineering_cuadrantes WHERE local_id = :local_id
         BD-->>API: Listado de platos categorizados por popularidad y margen
         API-->>SPA: 200 OK (MenuEngineeringDTO: 4 Cuadrantes, Top 8, Mix Categorías)
         SPA-->>ADM: Renderiza Vista 2 (wf_admin_13_menu_engineering.jpg)
@@ -73,7 +73,7 @@ sequenceDiagram
     opt Navegación a Pestaña Productividad de Mozos
         ADM->>SPA: Clic en pestaña [ 👥 Equipo de Salón ]
         SPA->>API: GET /api/v1/admin/reportes/ventas/personal?periodo=este_mes
-        API->>BD: SELECT * FROM v_desempeno_mozos_salon WHERE sede_id = :sede_id
+        API->>BD: SELECT * FROM v_desempeno_mozos_salon WHERE local_id = :local_id
         BD-->>API: Métricas de rotación, ticket medio, upselling y anulaciones
         API-->>SPA: 200 OK (PersonalSalonDTO: TurnoConfig, RankingMozos)
         SPA-->>ADM: Renderiza Vista 3 (wf_admin_13_desempeno_mozos.jpg)
@@ -332,7 +332,7 @@ import "time"
 
 // VentasResumenResponseDTO estructura el payload analítico de Vista 1
 type VentasResumenResponseDTO struct {
-	SedeID            string             `json:"sede_id"`
+	LocalID           string             `json:"local_id"`
 	Periodo           string             `json:"periodo"` // "hoy", "semana", "este_mes", "personalizado"
 	FechaInicio       time.Time          `json:"fecha_inicio"`
 	FechaFin          time.Time          `json:"fecha_fin"`
@@ -386,7 +386,7 @@ package dto
 
 // MenuEngineeringResponseDTO estructura el payload analítico de Vista 2
 type MenuEngineeringResponseDTO struct {
-	SedeID          string                 `json:"sede_id"`
+	LocalID         string                 `json:"local_id"`
 	TotalPlatos     int                    `json:"total_platos_carta"`
 	Cuadrantes      CuadrantesPlatosDTO    `json:"cuadrantes"`
 	TopPlatos       []ItemPlatoRankingDTO  `json:"top_platos"`
@@ -435,7 +435,7 @@ package dto
 
 // PersonalSalonResponseDTO estructura el payload analítico de Vista 3
 type PersonalSalonResponseDTO struct {
-	SedeID              string             `json:"sede_id"`
+	LocalID             string             `json:"local_id"`
 	ModalidadOperativa  string             `json:"modalidad_operativa"` // "doble_turno" o "turno_unico"
 	Turnos              []ResumenTurnoDTO  `json:"turnos"`
 	Mozos               []MozoRendimientoDTO `json:"mozos"`
@@ -489,7 +489,7 @@ type MozoRendimientoDTO struct {
 | Rol de Usuario | Acceso a Métricas de Ventas | Acceso a Menú Engineering | Acceso a Auditoría de Mozos | Capacidad de Exportar | Restricción de Alcance (Scope) |
 | :--- | :---: | :---: | :---: | :---: | :--- |
 | **Propietario (`propietario`)** | Pleno | Pleno | Pleno | Pleno | Todas las sedes de su empresa / organización. |
-| **Administrador (`administrador`)** | Pleno | Pleno | Pleno | Pleno | Exclusivamente la sede asignada en su JWT (`sede_id`). |
+| **Administrador (`administrador`)** | Pleno | Pleno | Pleno | Pleno | Exclusivamente el local asignado en su JWT (`local_id`). |
 | **Cajero (`cajero`)** | Denegado | Denegado | Denegado | Denegado | Solo accede al arqueo de caja de su propio turno ([`CU-CAJA-05`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cajero/CU-CAJA-05-arqueo-cierre-caja/wireframe.md)). |
 | **Mozo (`mozo`)** | Denegado | Denegado | Denegado | Denegado | No tiene acceso a métricas globales ni ranking de compañeros. |
 | **Cocinero / Barman** | Denegado | Denegado | Denegado | Denegado | Restringido exclusivamente al KDS ([`CU-COCINA-01`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cocina/CU-COCINA-01-recibir-comanda-kds/wireframe.md)). |
@@ -501,21 +501,24 @@ type MozoRendimientoDTO struct {
 ### Vista Analítica 1: Consolidado de Horas Punta y Ventas Horarias
 ```sql
 CREATE OR REPLACE VIEW v_analitica_ventas_horarias AS
-SELECT 
-    c.sede_id,
-    DATE(c.created_at) AS fecha,
-    EXTRACT(HOUR FROM c.created_at)::INT AS hora_jornada,
-    COUNT(c.id) AS total_comandas,
-    COALESCE(SUM(c.total), 0.00) AS recaudacion_neta,
-    ROUND(AVG(c.total), 2) AS ticket_promedio_hora,
+SELECT
+    p.local_id,
+    DATE(p.created_at) AS fecha,
+    EXTRACT(HOUR FROM p.created_at)::INT AS hora,
     CASE 
-        WHEN EXTRACT(HOUR FROM c.created_at) BETWEEN 12 AND 15 THEN 'almuerzo'
-        WHEN EXTRACT(HOUR FROM c.created_at) BETWEEN 19 AND 22 THEN 'cena'
-        ELSE 'intermedio'
-    END AS bloque_horario
-FROM comanda c
-WHERE c.estado = 'cobrada'
-GROUP BY c.sede_id, DATE(c.created_at), EXTRACT(HOUR FROM c.created_at);
+        WHEN EXTRACT(HOUR FROM p.created_at) BETWEEN 12 AND 15 THEN 'almuerzo'
+        WHEN EXTRACT(HOUR FROM p.created_at) BETWEEN 19 AND 22 THEN 'cena'
+        ELSE 'resto_jornada'
+    END AS franja_horaria,
+    COUNT(DISTINCT p.id)::INT AS total_pedidos,
+    COALESCE(SUM(c.total), 0) AS facturacion_bruta,
+    COALESCE(SUM(c.base_imponible), 0) AS base_imponible,
+    COALESCE(SUM(c.igv), 0) AS igv,
+    ROUND(COALESCE(AVG(c.total), 0), 2) AS ticket_promedio
+FROM pedido p
+JOIN comprobante c ON c.pedido_id = p.id AND c.estado = 'emitido'
+WHERE p.estado = 'cobrado'
+GROUP BY p.local_id, DATE(p.created_at), EXTRACT(HOUR FROM p.created_at);
 ```
 
 ### Vista Analítica 2: Cuadrantes de Menú Engineering
@@ -523,65 +526,72 @@ GROUP BY c.sede_id, DATE(c.created_at), EXTRACT(HOUR FROM c.created_at);
 CREATE OR REPLACE VIEW v_menu_engineering_cuadrantes AS
 WITH metricas_plato AS (
     SELECT 
-        p.sede_id,
-        p.id AS plato_id,
-        p.nombre AS plato_nombre,
+        pr.local_id,
+        pr.id AS producto_id,
+        pr.nombre AS producto_nombre,
         cat.nombre AS categoria_nombre,
-        p.precio AS precio_venta,
-        COALESCE(p.costo_estandar, p.precio * 0.35) AS costo_unitario,
-        (p.precio - COALESCE(p.costo_estandar, p.precio * 0.35)) AS margen_unitario,
-        SUM(di.cantidad) AS total_unidades_vendidas,
-        SUM(di.subtotal) AS recaudacion_total
-    FROM detalle_comanda di
-    INNER JOIN plato p ON di.plato_id = p.id
-    INNER JOIN categoria_menu cat ON p.categoria_id = cat.id
-    INNER JOIN comanda c ON di.comanda_id = c.id
-    WHERE c.estado = 'cobrada'
-    GROUP BY p.sede_id, p.id, p.nombre, cat.nombre, p.precio, p.costo_estandar
+        pr.precio,
+        pr.costo_estandar,
+        (pr.precio - pr.costo_estandar) AS margen_contribucion_unitario,
+        COALESCE(SUM(pi.cantidad), 0)::INT AS unidades_vendidas,
+        COALESCE(SUM(pi.cantidad * pr.precio), 0) AS total_facturado
+    FROM producto pr
+    JOIN categoria_producto cat ON cat.id = pr.categoria_id
+    LEFT JOIN pedido_item pi ON pi.producto_id = pr.id AND pi.estado = 'entregado'
+    LEFT JOIN pedido ped ON ped.id = pi.pedido_id AND ped.estado = 'cobrado'
+    WHERE pr.activo = true
+    GROUP BY pr.local_id, pr.id, pr.nombre, cat.nombre, pr.precio, pr.costo_estandar
 ),
-umbrales_sede AS (
-    SELECT 
-        sede_id,
-        AVG(total_unidades_vendidas) AS umbral_popularidad,
-        AVG(margen_unitario) AS umbral_margen
+umbrales_local AS (
+    SELECT
+        local_id,
+        COALESCE(AVG(unidades_vendidas), 0) AS media_popularidad,
+        COALESCE(AVG(margen_contribucion_unitario), 0) AS media_rentabilidad
     FROM metricas_plato
-    GROUP BY sede_id
+    GROUP BY local_id
 )
 SELECT 
-    mp.*,
+    mp.local_id,
+    mp.producto_id,
+    mp.producto_nombre,
+    mp.categoria_nombre,
+    mp.precio,
+    mp.costo_estandar,
+    mp.margen_contribucion_unitario,
+    mp.unidades_vendidas,
+    mp.total_facturado,
+    u.media_popularidad,
+    u.media_rentabilidad,
     CASE 
-        WHEN mp.total_unidades_vendidas >= u.umbral_popularidad AND mp.margen_unitario >= u.umbral_margen THEN 'ESTRELLA'
-        WHEN mp.total_unidades_vendidas >= u.umbral_popularidad AND mp.margen_unitario < u.umbral_margen THEN 'CABALLITO'
-        WHEN mp.total_unidades_vendidas < u.umbral_popularidad AND mp.margen_unitario >= u.umbral_margen THEN 'PUZLE'
+        WHEN mp.unidades_vendidas >= u.media_popularidad AND mp.margen_contribucion_unitario >= u.media_rentabilidad THEN 'ESTRELLA'
+        WHEN mp.unidades_vendidas >= u.media_popularidad AND mp.margen_contribucion_unitario < u.media_rentabilidad THEN 'CABALLITO'
+        WHEN mp.unidades_vendidas < u.media_popularidad AND mp.margen_contribucion_unitario >= u.media_rentabilidad THEN 'PUZLE'
         ELSE 'REZAGADO'
-    END AS cuadrante_engineering
+    END AS cuadrante
 FROM metricas_plato mp
-INNER JOIN umbrales_sede u ON mp.sede_id = u.sede_id;
+JOIN umbrales_local u ON u.local_id = mp.local_id;
 ```
 
 ### Vista Analítica 3: Desempeño y Productividad del Personal de Salón
 ```sql
 CREATE OR REPLACE VIEW v_desempeno_mozos_salon AS
 SELECT 
-    c.sede_id,
-    u.id AS usuario_id,
-    u.nombre_completo,
-    COUNT(DISTINCT c.id) AS mesas_atendidas,
-    SUM(c.total) AS venta_generada,
-    ROUND(AVG(c.total), 2) AS ticket_medio_mesa,
-    ROUND(AVG(EXTRACT(EPOCH FROM (c.fecha_cierre - c.created_at)) / 60))::INT AS tiempo_medio_mesa_minutos,
-    -- Conteo de mesas con 2da ronda (Upselling de bebidas/postres)
-    COUNT(DISTINCT CASE WHEN (
-        SELECT COUNT(DISTINCT di_sub.ronda) 
-        FROM detalle_comanda di_sub 
-        WHERE di_sub.comanda_id = c.id
-    ) > 1 THEN c.id END) AS mesas_con_upselling,
-    -- Conteo de items anulados con CU-MOZO-06
-    COALESCE(SUM(c.items_anulados_count), 0) AS total_items_anulados
-FROM comanda c
-INNER JOIN usuario u ON c.mozo_id = u.id
-WHERE c.estado = 'cobrada'
-GROUP BY c.sede_id, u.id, u.nombre_completo;
+    p.local_id,
+    u.id AS mozo_id,
+    u.nombre AS mozo_nombre,
+    DATE(p.created_at) AS fecha,
+    COUNT(DISTINCT p.id)::INT AS mesas_atendidas,
+    COALESCE(SUM(c.total), 0) AS facturacion_total,
+    ROUND(COALESCE(AVG(c.total), 0), 2) AS ticket_promedio,
+    ROUND(COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(p.precuenta_generada_at, p.updated_at) - p.created_at)) / 60), 0))::INT AS minutos_permanencia_promedio,
+    COUNT(DISTINCT p.id) FILTER (WHERE EXISTS (SELECT 1 FROM pedido_item pi WHERE pi.pedido_id = p.id AND pi.numero_ronda > 1))::INT AS mesas_con_upselling,
+    COALESCE(COUNT(pa.id), 0)::INT AS anulaciones_registradas
+FROM usuario u
+JOIN pedido p ON p.mozo_id = u.id AND p.estado = 'cobrado'
+LEFT JOIN comprobante c ON c.pedido_id = p.id AND c.estado = 'emitido'
+LEFT JOIN pedido_anulacion pa ON pa.pedido_id = p.id
+WHERE u.rol = 'mozo'
+GROUP BY p.local_id, u.id, u.nombre, DATE(p.created_at);
 ```
 
 ---

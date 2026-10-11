@@ -301,8 +301,8 @@ type ProcesarCobroResponseDTO struct {
 ```sql
 -- 1. Directorio de Clientes con soporte JSONB
 CREATE TABLE IF NOT EXISTS cliente (
-    id UUID PRIMARY KEY DEFAULT gen_uuid_v8(),
-    empresa_id UUID NOT NULL REFERENCES empresa(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
+    empresa_id UUID NOT NULL REFERENCES empresa(id) ON DELETE RESTRICT,
     tipo_documento VARCHAR(10) NOT NULL CHECK (tipo_documento IN ('DNI', 'RUC')),
     numero_documento VARCHAR(20) NOT NULL,
     nombre_identificativo VARCHAR(255) NOT NULL,
@@ -316,9 +316,9 @@ CREATE TABLE IF NOT EXISTS cliente (
 
 -- 2. Series de Comprobantes para Control ACID
 CREATE TABLE IF NOT EXISTS comprobante_serie (
-    id UUID PRIMARY KEY DEFAULT gen_uuid_v8(),
-    local_id UUID NOT NULL REFERENCES local(id) ON DELETE CASCADE,
-    tipo_comprobante VARCHAR(20) NOT NULL CHECK (tipo_comprobante IN ('factura', 'boleta', 'nota_venta')),
+    id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
+    local_id UUID NOT NULL REFERENCES local(id) ON DELETE RESTRICT,
+    tipo_comprobante VARCHAR(20) NOT NULL CHECK (tipo_comprobante IN ('factura', 'boleta', 'nota_venta', 'nota_credito')),
     serie VARCHAR(10) NOT NULL,
     correlativo_actual INT NOT NULL DEFAULT 0 CHECK (correlativo_actual >= 0),
     activo BOOLEAN NOT NULL DEFAULT true,

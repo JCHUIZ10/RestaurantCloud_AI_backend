@@ -9,14 +9,14 @@
 | **Rol / Actor** | **Administrador del Restaurante** (Gerente de Sede / Administrador Operativo) y **Propietario** (`propietario`) |
 | **Módulo** | Finanzas, Tesorería & Auditoría de Control Interno |
 | **Objetivo de Negocio** | Proporcionar al administrador un centro de control financiero integral para: (1) monitorear el flujo de caja operativo y el balance neto (ingresos 100% de salón vs egresos por insumos culinarios y gastos de sede), (2) registrar salidas de dinero manuales de operación o caja chica, y (3) auditar el historial de turnos de caja, supervisar los Reportes Z digitales, estampar visados de conformidad y ejecutar el cierre administrativo forzado ante emergencias. |
-| **Precondiciones** | Administrador o Propietario con sesión activa (`rol: administrador` o `rol: propietario`) con sede asignada (`restaurante_id`, `sede_id`). Existen órdenes cobradas en [`CU-CAJA-03`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cajero/CU-CAJA-03-cobrar-comanda/wireframe.md) y/o turnos de caja registrados en [`CU-CAJA-05`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cajero/CU-CAJA-05-cerrar-caja/wireframe.md). |
+| **Precondiciones** | Administrador o Propietario con sesión activa (`rol: administrador` o `rol: propietario`) con local asignado (`empresa_id`, `local_id`). Existen órdenes cobradas en [`CU-CAJA-03`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cajero/CU-CAJA-03-cobrar-comanda/wireframe.md) y/o turnos de caja registrados en [`CU-CAJA-05`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cajero/CU-CAJA-05-cerrar-caja/wireframe.md). |
 | **Postcondiciones** | Consulta analítica de balance financiero en tiempo real; registro inmutable de gastos operativos en `gasto_manual`; visado gerencial registrado en `caja` (`revisado = true`); o liberación de terminal mediante cierre forzado administrativo. Posibilidad de exportar reportes en PDF y Excel vía streaming HTTP con Gzip. |
 | **Tokens de Diseño** | Grayscale Blueprint: `#0F172A` (Primario / Slate Dark), `#1E293B` (Superficie), `#F8FAFC` (Canvas), `#FFFFFF` (Card), `#E2E8F0` (Bordes), `#0F172A` (Texto Principal), `#64748B` (Texto Muted), `#15803D` (Verde Cuadratura / Margen Positivo), `#B91C1C` (Rojo Descuadre / Faltante). |
 | **Resolución Canónica** | `1440x900` px (Desktop Blueprint, JPG calidad 95). |
 
 ### Reglas de Negocio y Políticas de Tesorería Operativa
 1. **Ingresos Exclusivos de Salón (100% Salón):**
-   - El 100% de los ingresos operativos proviene de comandas cobradas en mesas de salón (`comanda.tipo = 'salon'` en [`CU-CAJA-03`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cajero/CU-CAJA-03-cobrar-comanda/wireframe.md)).
+   - El 100% de los ingresos operativos proviene de pedidos cobrados en mesas de salón (`pedido.tipo_pedido = 'salon'` en [`CU-CAJA-03`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cajero/CU-CAJA-03-cobrar-comanda/wireframe.md)).
    - Los ingresos se clasifican por **Destino de Liquidez**:
      - *Efectivo en Gavetas:* Dinero tangible contado y recaudado en el local.
      - *Bancos / Pasarelas:* Dinero acreditado en cuentas bancarias por Tarjetas POS (Débito/Crédito) y Billeteras Digitales (Yape/Plin).
@@ -46,7 +46,7 @@ sequenceDiagram
     Note over ADM, SPA: Flujo 1: Consulta de Flujo de Caja y Balance Neto
     ADM->>SPA: Clic en menú lateral [ 💵 Finanzas & Cajas ]
     SPA->>API: GET /api/v1/admin/finanzas/flujo-caja?periodo=este_mes
-    API->>BD: SELECT * FROM v_analitica_flujo_caja_mensual WHERE sede_id = :sede_id
+    API->>BD: SELECT * FROM v_analitica_flujo_caja_mensual WHERE local_id = :local_id
     BD-->>API: Totales de ventas salon, compras insumos, gastos manuales y liquidacion
     API-->>SPA: 200 OK (FlujoCajaResumenDTO: Balance +11,630, Bancos vs Gaveta)
     SPA-->>ADM: Renderiza Vista 1 (wf_admin_14_dashboard_flujo_caja.jpg)
@@ -59,7 +59,7 @@ sequenceDiagram
         
         rect rgb(240, 249, 255)
             Note over API, BD: Transacción de Registro y Vínculo de Caja
-            API->>BD: INSERT INTO gasto_manual (sede_id, categoria, monto, origen_fondos, ...)
+            API->>BD: INSERT INTO gasto_manual (local_id, categoria, monto, origen_fondos, ...)
             opt Si origen_fondos == 'efectivo_caja'
                 API->>BD: INSERT INTO caja_movimiento (caja_id, tipo='egreso_gasto_manual', monto, ...)
             end
@@ -73,7 +73,7 @@ sequenceDiagram
     opt Flujo 3: Auditoría de Turnos y Visado de Reporte Z
         ADM->>SPA: Clic en pestaña [ 📋 Auditoría de Turnos & Cierres Z ]
         SPA->>API: GET /api/v1/admin/finanzas/turnos-caja?periodo=este_mes
-        API->>BD: SELECT c.*, u.nombre_completo FROM caja c ... WHERE sede_id = :sede_id
+        API->>BD: SELECT c.*, u.nombre FROM caja c JOIN usuario u ON u.id = c.cajero_id WHERE c.local_id = :local_id
         BD-->>API: Lista de turnos, efectivo esperado, real, diferencias y estatus de visado
         API-->>SPA: 200 OK ([]TurnoCajaResumenDTO)
         SPA-->>ADM: Renderiza Vista 2 (wf_admin_14_auditoria_turnos_z.jpg)
@@ -317,7 +317,7 @@ import "time"
 
 // FlujoCajaResumenDTO estructura el payload analítico de Vista 1
 type FlujoCajaResumenDTO struct {
-	SedeID              string                 `json:"sede_id"`
+	LocalID             string                 `json:"local_id"`
 	Periodo             string                 `json:"periodo"` // "hoy", "semana", "este_mes", "personalizado"
 	FechaInicio         time.Time              `json:"fecha_inicio"`
 	FechaFin            time.Time              `json:"fecha_fin"`
@@ -386,7 +386,7 @@ package dto
 import "time"
 
 type RegistrarGastoRequestDTO struct {
-	SedeID           string    `json:"sede_id" binding:"required,uuid"`
+	LocalID          string    `json:"local_id" binding:"required,uuid"`
 	Categoria        string    `json:"categoria" binding:"required"` // "servicios_basicos", "alquiler", "limpieza_aseo", "mantenimiento", "caja_chica", "otros"
 	Fecha            time.Time `json:"fecha" binding:"required"`
 	Monto            float64   `json:"monto" binding:"required,gt=0"`
@@ -477,45 +477,60 @@ CREATE INDEX IF NOT EXISTS idx_caja_revisado ON caja(local_id, revisado, fecha_c
 CREATE OR REPLACE VIEW v_analitica_flujo_caja_mensual AS
 WITH ventas AS (
     SELECT 
-        c.sede_id,
-        DATE(c.created_at) AS fecha,
-        SUM(c.total) AS total_ingresos,
-        SUM(CASE WHEN c.metodo_pago_codigo = 'efectivo' THEN c.total ELSE 0 END) AS ingresos_efectivo,
-        SUM(CASE WHEN c.metodo_pago_codigo IN ('tarjeta', 'billetera_digital') THEN c.total ELSE 0 END) AS ingresos_banco
-    FROM comanda c
-    WHERE c.estado = 'cobrada'
-    GROUP BY c.sede_id, DATE(c.created_at)
+        c.local_id,
+        DATE(comp.fecha) AS fecha,
+        SUM(CASE WHEN comp.medio_pago = 'efectivo' THEN comp.total ELSE 0 END) AS ingresos_efectivo,
+        SUM(CASE WHEN comp.medio_pago = 'tarjeta' THEN comp.total ELSE 0 END) AS ingresos_tarjeta,
+        SUM(CASE WHEN comp.medio_pago = 'billetera_digital' THEN comp.total ELSE 0 END) AS ingresos_digital,
+        SUM(comp.total) AS total_ingresos
+    FROM comprobante comp
+    JOIN caja c ON c.id = comp.caja_id
+    WHERE comp.estado = 'emitido'
+    GROUP BY c.local_id, DATE(comp.fecha)
 ),
 compras AS (
     SELECT 
-        fc.local_id AS sede_id,
-        DATE(fc.created_at) AS fecha,
-        SUM(fc.total) AS total_compras
-    FROM ficha_compra fc
-    WHERE fc.estado = 'registrada'
-    GROUP BY fc.local_id, DATE(fc.created_at)
+        local_id,
+        fecha_emision AS fecha,
+        SUM(total) AS total_compras_insumos
+    FROM ficha_compra
+    WHERE estado = 'registrada'
+    GROUP BY local_id, fecha_emision
 ),
 gastos AS (
     SELECT 
-        gm.local_id AS sede_id,
-        gm.fecha,
-        SUM(gm.monto) AS total_gastos,
-        SUM(CASE WHEN gm.origen_fondos = 'efectivo_caja' THEN gm.monto ELSE 0 END) AS gastos_efectivo,
-        SUM(CASE WHEN gm.origen_fondos = 'transferencia_bancaria' THEN gm.monto ELSE 0 END) AS gastos_banco
-    FROM gasto_manual gm
-    GROUP BY gm.local_id, gm.fecha
+        local_id,
+        fecha,
+        SUM(CASE WHEN origen_fondos = 'efectivo_caja' THEN monto ELSE 0 END) AS gastos_caja_chica,
+        SUM(CASE WHEN origen_fondos = 'transferencia_bancaria' THEN monto ELSE 0 END) AS gastos_transferencia,
+        SUM(monto) AS total_gastos_operativos
+    FROM gasto_manual
+    GROUP BY local_id, fecha
+),
+fechas_locales AS (
+    SELECT local_id, fecha FROM ventas
+    UNION
+    SELECT local_id, fecha FROM compras
+    UNION
+    SELECT local_id, fecha FROM gastos
 )
 SELECT 
-    COALESCE(v.sede_id, c.sede_id, g.sede_id) AS sede_id,
-    COALESCE(v.fecha, c.fecha, g.fecha) AS fecha,
-    COALESCE(v.total_ingresos, 0.00) AS ingresos_salon,
-    COALESCE(c.total_compras, 0.00) AS compras_insumos,
-    COALESCE(g.total_gastos, 0.00) AS gastos_operativos,
-    (COALESCE(c.total_compras, 0.00) + COALESCE(g.total_gastos, 0.00)) AS total_egresos,
-    (COALESCE(v.total_ingresos, 0.00) - (COALESCE(c.total_compras, 0.00) + COALESCE(g.total_gastos, 0.00))) AS balance_neto_dia
-FROM ventas v
-FULL OUTER JOIN compras c ON v.sede_id = c.sede_id AND v.fecha = c.fecha
-FULL OUTER JOIN gastos g ON COALESCE(v.sede_id, c.sede_id) = g.sede_id AND COALESCE(v.fecha, c.fecha) = g.fecha;
+    fl.local_id,
+    fl.fecha,
+    COALESCE(v.ingresos_efectivo, 0) AS ingresos_efectivo,
+    COALESCE(v.ingresos_tarjeta, 0) AS ingresos_tarjeta,
+    COALESCE(v.ingresos_digital, 0) AS ingresos_digital,
+    COALESCE(v.total_ingresos, 0) AS total_ingresos,
+    COALESCE(c.total_compras_insumos, 0) AS total_compras_insumos,
+    COALESCE(g.gastos_caja_chica, 0) AS gastos_caja_chica,
+    COALESCE(g.gastos_transferencia, 0) AS gastos_transferencia,
+    COALESCE(g.total_gastos_operativos, 0) AS total_gastos_operativos,
+    (COALESCE(c.total_compras_insumos, 0) + COALESCE(g.total_gastos_operativos, 0)) AS total_egresos,
+    (COALESCE(v.total_ingresos, 0) - (COALESCE(c.total_compras_insumos, 0) + COALESCE(g.total_gastos_operativos, 0))) AS balance_neto
+FROM fechas_locales fl
+LEFT JOIN ventas v ON v.local_id = fl.local_id AND v.fecha = fl.fecha
+LEFT JOIN compras c ON c.local_id = fl.local_id AND c.fecha = fl.fecha
+LEFT JOIN gastos g ON g.local_id = fl.local_id AND g.fecha = fl.fecha;
 ```
 
 ---

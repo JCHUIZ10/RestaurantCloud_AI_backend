@@ -104,14 +104,14 @@ Permite al propietario visualizar su plan actual, comparar los 4 recursos (`loca
 |                                                                                                   |
 |  +---------------------------+ +---------------------------+ +----------------------------------+ |
 |  | Starter                   | | Pro         [PLAN ACTUAL] | | Enterprise                       | |
-|  | $29 / mes                 | | $59 / mes                 | | $119 / mes                       | |
+|  | S/ 99 / mes               | | S/ 249 / mes              | | S/ 499 / mes                     | |
 |  |---------------------------| |---------------------------| |----------------------------------| |
-|  | • 1 Local                 | | • 3 Locales               | | • Locales ilimitados             | |
-|  | • 1 Piso por local        | | • 3 Pisos por local       | | • Pisos ilimitados               | |
-|  | • 10 Mesas por local      | | • 30 Mesas por local      | | • Mesas ilimitadas               | |
-|  | • 3 Usuarios staff        | | • 10 Usuarios staff       | | • 25 Usuarios staff              | |
-|  | • Sin módulo de IA        | | • Predicción de Demanda IA| | • Asistente Conversacional + IA  | |
-|  |                           | |                           | | • Soporte VIP 24/7               | |
+|  | • 1 Local                 | | • 3 Locales               | | • Hasta 10 Locales               | |
+|  | • 1 Piso por local        | | • 2 Pisos por local       | | • Hasta 5 Pisos por local        | |
+|  | • 25 Mesas por local      | | • 30 Mesas por local      | | • Hasta 60 Mesas por local       | |
+|  | • 5 Usuarios staff        | | • 15 Usuarios staff       | | • Hasta 40 Usuarios staff        | |
+|  | • Sin módulo de reservas  | | • Módulo de Reservas      | | • Reservas + Reportes Avanzados  | |
+|  | • Sin módulo de IA        | | • Asistente IA de Salón   | | • Asistente IA + Predicción IA   | |
 |  | +-----------------------+ | | +-----------------------+ | | +------------------------------+ | |
 |  | |   Bajar a este Plan   | | | |  Plan Actual Activo   | | | |    Mejorar a Enterprise      | | |
 |  | | (Requiere Conciliar)  | | | |      (Deshabilitado)  | | | |    (Upgrade Inmediato)       | | |
@@ -122,12 +122,13 @@ Permite al propietario visualizar su plan actual, comparar los 4 recursos (`loca
 |  | Matriz Detallada de Comparación de Recursos                                                   | |
 |  | Recurso / Característica  | Starter             | Pro (Actual)        | Enterprise           | |
 |  |---------------------------|---------------------|---------------------|----------------------| |
-|  | Locales permitidos        | 1 Local             | 3 Locales           | Ilimitados           | |
-|  | Pisos / Áreas por local   | 1 Piso              | 3 Pisos             | Ilimitados           | |
-|  | Mesas por local           | 10 Mesas            | 30 Mesas            | Ilimitadas           | |
-|  | Personal / Usuarios staff | 3 Cuentas           | 10 Cuentas          | 25 Cuentas           | |
-|  | Predicción de Demanda     | No disponible       | Semanal por local   | Diaria multinivel    | |
-|  | Asistente IA Operativo    | No disponible       | No disponible       | Incluido (Web y App) | |
+|  | Locales permitidos        | 1 Local             | 3 Locales           | 10 Locales           | |
+|  | Pisos / Áreas por local   | 1 Piso              | 2 Pisos             | 5 Pisos              | |
+|  | Mesas por local           | 25 Mesas            | 30 Mesas            | 60 Mesas             | |
+|  | Personal / Usuarios staff | 5 Cuentas           | 15 Cuentas          | 40 Cuentas           | |
+|  | Módulo de Reservas        | No disponible       | Incluido en salón   | Incluido en salón    | |
+|  | Asistente IA Operativo    | No disponible       | Incluido (Salón)    | Incluido (Salón)     | |
+|  | Predicción de Demanda IA  | No disponible       | No disponible       | Forecasting multi-sede| |
 |  | Reportes y Exportación    | Básico (CSV)        | Avanzado (PDF/Excel)| Auditoría + BI       | |
 |  | Soporte Técnico           | Correo (48h)        | Chat (24h)          | Prioritario 24/7     | |
 |  +----------------------------------------------------------------------------------------------+ |
@@ -160,14 +161,14 @@ Garantiza transparencia financiera total antes de emitir cualquier cobro bancari
 |  |-----------------------------------------------------------------------------|  |
 |  | [⚡] Activación Inmediata — Se aplicará prorrateo de Stripe por días restantes|  |
 |  |                                                                             |  |
-|  |  Plan Pro ($59.00/mes)  ━━━━━━>  Plan Enterprise ($119.00/mes)                |  |
+|  |  Plan Pro (S/ 249.00/mes)  ━━━━━━>  Plan Enterprise (S/ 499.00/mes)              |  |
 |  |                                                                             |  |
 |  |  +-----------------------------------------------------------------------+  |  |
 |  |  | Desglose de Facturación Inmediata                                      |  |  |
-|  |  | 1. Crédito a favor (15 días no utilizados de Plan Pro):    -$29.50 USD  |  |  |
-|  |  | 2. Costo proporcional (15 días restantes Enterprise):       +$59.50 USD  |  |  |
+|  |  | 1. Crédito a favor (15 días no utilizados de Plan Pro):   -S/ 124.50 PEN |  |  |
+|  |  | 2. Costo proporcional (15 días restantes Enterprise):      +S/ 249.50 PEN |  |  |
 |  |  |-----------------------------------------------------------------------|  |  |
-|  |  | 3. Monto total neto a cobrar hoy:                           $30.00 USD  |  |  |
+|  |  | 3. Monto total neto a cobrar hoy:                          S/ 125.00 PEN |  |  |
 |  |  +-----------------------------------------------------------------------+  |  |
 |  |                                                                             |  |
 |  |  Método de Pago para el cargo:                                              |  |
@@ -175,9 +176,9 @@ Garantiza transparencia financiera total antes de emitir cualquier cobro bancari
 |  |  | [ TARJETA ]  Visa terminada en •••• 4242 (Predeterminada)             |  |  |
 |  |  +-----------------------------------------------------------------------+  |  |
 |  |                                                                             |  |
-|  |  (i) A partir del 01/Nov/2026 tu tarifa regular recurrente será $119.00 USD |  |
+|  |  (i) A partir del 01/Nov/2026 tu tarifa regular recurrente será S/ 499.00 PEN|  |
 |  |-----------------------------------------------------------------------------|  |
-|  |                                      [ Cancelar ]  [ Confirmar y Pagar $30 ]|  |
+|  |                                     [ Cancelar ]  [ Confirmar y Pagar S/ 125 ]|  |
 |  +-----------------------------------------------------------------------------+  |
 +-----------------------------------------------------------------------------------+
 ```
@@ -379,11 +380,11 @@ Consulta la API de Stripe para previsualizar el crédito y débito proporcional 
     "plan_destino": "Enterprise",
     "dias_restantes_ciclo": 15,
     "fecha_proximo_ciclo": "2026-11-01T00:00:00Z",
-    "credito_plan_actual": 29.50,
-    "costo_nuevo_plan_proporcional": 59.50,
-    "monto_neto_a_pagar_hoy": 30.00,
-    "moneda": "USD",
-    "nuevo_monto_recurrente": 119.00,
+    "credito_plan_actual": 124.50,
+    "costo_nuevo_plan_proporcional": 249.50,
+    "monto_neto_a_pagar_hoy": 125.00,
+    "moneda": "PEN",
+    "nuevo_monto_recurrente": 499.00,
     "metodo_pago_defecto": {
       "marca": "visa",
       "ultimos_4": "4242",
@@ -427,8 +428,8 @@ Aplica el cambio en Stripe de inmediato, realiza el cargo bancario y activa las 
     "comprobante_pago": {
       "pago_id": "p8f7e6d5-1111-2222-3333-444455556666",
       "numero_factura": "F-100892",
-      "monto_cobrado": 30.00,
-      "moneda": "USD",
+      "monto_cobrado": 125.00,
+      "moneda": "PEN",
       "url_recibo_pdf": "/api/v1/propietario/suscripcion/facturas/p8f7e6d5-1111-2222-3333-444455556666/descargar"
     },
     "modulos_activados": [
@@ -569,7 +570,7 @@ Almacena la configuración elegida y programa el downgrade al corte del ciclo ac
       "mesas_a_inactivar": 16,
       "usuarios_a_inactivar": 2
     },
-    "aviso": "Tu plan actual Pro seguirá funcionando sin limitaciones hasta el 01/Nov/2026. A partir de esa fecha se aplicará la tarifa Starter ($29/mes)."
+    "aviso": "Tu plan actual Pro seguirá funcionando sin limitaciones hasta el 01/Nov/2026. A partir de esa fecha se aplicará la tarifa Starter (S/ 99/mes)."
   },
   "meta": {
     "timestamp": "2026-10-02T19:17:00Z"

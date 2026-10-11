@@ -307,7 +307,7 @@ ALTER TABLE caja_movimiento
 
 ALTER TABLE caja_movimiento
     ADD CONSTRAINT chk_caja_movimiento_tipo
-    CHECK (tipo IN ('apertura', 'ingreso_venta', 'egreso_devolucion', 'cierre'));
+    CHECK (tipo IN ('apertura', 'ingreso_venta', 'egreso_devolucion', 'egreso_gasto_manual', 'egreso_compra', 'ingreso_reversion_compra', 'ajuste_sobrante', 'ajuste_faltante', 'cierre'));
 ```
 
 ---

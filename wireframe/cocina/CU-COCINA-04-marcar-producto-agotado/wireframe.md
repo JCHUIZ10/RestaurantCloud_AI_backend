@@ -56,7 +56,7 @@ Permitir a la brigada de cocina apagar temporalmente cualquier plato de la carta
      - Nombre tachado, fondo sutil con tinte de aviso.
      - Badge: `[ ⚠️ Apagado Manual en Cocina (Hace 12 min por Marco V.) ]`.
      - Botón de reactivación táctil: `[ ↺ REACTIVAR A DISPONIBLE (Llegó Insumo) ]` (Verde esmeralda `#059669`, alto 48px).
-   - **Plato Agotado Automáticamente por Stock Cero ([`CU-COCINA-03`](file:///d:/Proyecto/RestaurantCloud_AI_backend/wireframe/cocina/CU-COCINA-03-descuento-automatico-insumos/wireframe.md)):**
+   - **Plato Agotado Automáticamente por Stock Cero ([`CU-COCINA-03`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cocina/CU-COCINA-03-descuento-automatico-insumos/wireframe.md)):**
      - Badge: `[ 🤖 Quiebre Automático por Stock: Insumo "Limón fresco" en 0 kg ]`.
      - Estado bloqueado: `[ 🔒 Bloqueado por Stock Teórico (Requiere recepción en compras) ]`.
 5. **Pie de Control:**
@@ -81,8 +81,8 @@ Resolver con justicia culinaria y sin desperdicios el apagado de un plato cuando
 3. **Paso 2: Asignación Granular por Comanda (Ajuste Fino Opcional):**
    - Lista táctil de comandas en preparación ordenadas por antigüedad:
      - **Comanda #104 (Mesa 04 - 14 min de espera):** `2x Lomo Saltado` $\rightarrow$ `[ ✓ SE PREPARA EN FUEGO (2 de 2) ]` (Cubierto con la mise en place).
-     - **Comanda #105 (Mesa 07 - 9 min de espera):** `2x Lomo Saltado` $\rightarrow$ `[ 🚫 NO ALCANZA - AVISAR MOZO ]` (Alerta sonora a tablet de Carlos D. vía [`CU-MOZO-07`](file:///d:/Proyecto/RestaurantCloud_AI_backend/wireframe/mozo/CU-MOZO-07-atender-plato-no-disponible/wireframe.md)).
-     - **Comanda #108 (Mesa 01 - 6 min de espera):** `1x Lomo Saltado` $\rightarrow$ `[ 🚫 NO ALCANZA - AVISAR MOZO ]` (Alerta a tablet de Rosa P. vía [`CU-MOZO-07`](file:///d:/Proyecto/RestaurantCloud_AI_backend/wireframe/mozo/CU-MOZO-07-atender-plato-no-disponible/wireframe.md)).
+     - **Comanda #105 (Mesa 07 - 9 min de espera):** `2x Lomo Saltado` $\rightarrow$ `[ 🚫 NO ALCANZA - AVISAR MOZO ]` (Alerta sonora a tablet de Carlos D. vía [`CU-MOZO-07`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/mozo/CU-MOZO-07-atender-plato-no-disponible/wireframe.md)).
+     - **Comanda #108 (Mesa 01 - 6 min de espera):** `1x Lomo Saltado` $\rightarrow$ `[ 🚫 NO ALCANZA - AVISAR MOZO ]` (Alerta a tablet de Rosa P. vía [`CU-MOZO-07`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/mozo/CU-MOZO-07-atender-plato-no-disponible/wireframe.md)).
    - Cada fila incluye botón `[ Cambiar ]` por si el chef necesita alterar la prioridad manualmente.
 4. **Paso 3: Motivo y Notificación al Administrador:**
    - Selector de causa: `Falta de insumo fresco` / `Merma imprevista` / `Falla en equipamiento`.
@@ -161,7 +161,7 @@ COMMIT;
 
 ## 6. Vinculación con Otros Casos de Uso
 
-- **[`CU-COCINA-01: Ver cola de pedidos entrantes (KDS)`](file:///d:/Proyecto/RestaurantCloud_AI_backend/wireframe/cocina/CU-COCINA-01-cola-pedidos-kds/wireframe.md):** El botón de acceso rápido vive en la barra superior del KDS. Los platos declarados `no_disponible` desaparecen de las tarjetas de comanda de cocina.
-- **[`CU-COCINA-03: Descuento automático de insumos por consumo`](file:///d:/Proyecto/RestaurantCloud_AI_backend/wireframe/cocina/CU-COCINA-03-descuento-automatico-insumos/wireframe.md):** Cuando un insumo llega a stock 0 en el despacho, el sistema conmuta el plato automáticamente a `agotado`, mostrando el badge de bloqueo por stock en la Vista 1.
-- **[`CU-MOZO-07: Atender plato no disponible`](file:///d:/Proyecto/RestaurantCloud_AI_backend/wireframe/mozo/CU-MOZO-07-atender-plato-no-disponible/wireframe.md):** Recibe los ítems no alcanzados y guía al mozo en el cambio por un plato de igual o mayor valor o anulación con motivo.
-- **[`CU-ADMIN-04: Gestionar carta y menú`](file:///d:/Proyecto/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-04-crear-producto/wireframe.md):** La disponibilidad se refleja en tiempo real en la ficha administrativa del producto.
+- **[`CU-COCINA-01: Ver cola de pedidos entrantes (KDS)`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cocina/CU-COCINA-01-cola-pedidos-kds/wireframe.md):** El botón de acceso rápido vive en la barra superior del KDS. Los platos declarados `no_disponible` desaparecen de las tarjetas de comanda de cocina.
+- **[`CU-COCINA-03: Descuento automático de insumos por consumo`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cocina/CU-COCINA-03-descuento-automatico-insumos/wireframe.md):** Cuando un insumo llega a stock 0 en el despacho, el sistema conmuta el plato automáticamente a `agotado`, mostrando el badge de bloqueo por stock en la Vista 1.
+- **[`CU-MOZO-07: Atender plato no disponible`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/mozo/CU-MOZO-07-atender-plato-no-disponible/wireframe.md):** Recibe los ítems no alcanzados y guía al mozo en el cambio por un plato de igual o mayor valor o anulación con motivo.
+- **[`CU-ADMIN-04: Gestionar carta y menú`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-04-crear-producto/wireframe.md):** La disponibilidad se refleja en tiempo real en la ficha administrativa del producto.

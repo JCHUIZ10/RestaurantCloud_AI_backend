@@ -63,7 +63,7 @@ sequenceDiagram
         BE->>DB: 1. INSERT INTO ficha_compra (...) RETURNING id
         BE->>DB: 2. INSERT INTO ficha_compra_detalle (items...)
         BE->>DB: 3. LOOP Ítems: UPDATE insumo SET stock_actual = stock_actual + :cant,<br/>costo_unitario = :pu, ultimo_proveedor_id = :prov_id,<br/>estado = CASE WHEN estado = 'agotado' THEN 'activo' ELSE estado END
-        BE->>DB: 4. INSERT INTO egreso_caja (local_id, ficha_compra_id, monto, metodo_pago)
+        BE->>DB: 4. opt Pago Efectivo Caja: INSERT INTO caja_movimiento (caja_id, tipo='egreso_compra', monto=:total, ficha_compra_id=:id)
         BE->>DB: COMMIT;
     end
 
@@ -94,7 +94,7 @@ sequenceDiagram
             BE->>DB: 1. UPDATE ficha_compra SET estado = 'anulada', motivo_anulacion = :motivo, anulado_por = :user, anulado_at = NOW()
             BE->>DB: 2. LOOP Ítems: UPDATE insumo SET stock_actual = GREATEST(0, stock_actual - :cant),<br/>estado = CASE WHEN GREATEST(0, stock_actual - :cant) = 0 THEN 'agotado' ELSE estado END
             BE->>DB: 3. LOOP Ítems con stock=0: UPDATE producto SET disponibilidad = 'agotado'<br/>WHERE id IN (SELECT producto_id FROM producto_insumo WHERE insumo_id = :insumo_id)
-            BE->>DB: 4. UPDATE egreso_caja SET estado = 'anulado' WHERE ficha_compra_id = :id
+            BE->>DB: 4. opt Pago Efectivo Caja: INSERT INTO caja_movimiento (caja_id, tipo='ingreso_reversion_compra', monto=:total, ficha_compra_id=:id)
             BE->>DB: 5. INSERT INTO log_auditoria (accion: 'compra_anulada', discrepancia_stock: ...)
             BE->>DB: COMMIT;
         end
@@ -258,7 +258,7 @@ stateDiagram-v2
     
     state Registrada {
         [*] --> Stock_Sumado: Insumo.stock_actual += cantidad
-        Stock_Sumado --> Egreso_Asentado: Egreso_caja registrado en turno
+        Stock_Sumado --> Egreso_Asentado: Movimiento egreso_compra en caja_movimiento
         Egreso_Asentado --> Platos_Reactivables: Alerta si insumo estaba agotado
     }
 
@@ -279,7 +279,7 @@ stateDiagram-v2
         Discrepancia_Auditada --> Cascada_Insumo_Agotado: Si stock == 0, insumo.estado = 'agotado'
         Cascada_Insumo_Agotado --> Cascada_Carta_Bloqueada: Platos dependientes -> 'agotado'
         Cascada_Carta_Bloqueada --> Alerta_KDS_Salón: Órdenes marcadas [Observado] + Push a Mozos
-        Alerta_KDS_Salón --> Egreso_Revertido: egreso_caja.estado = 'anulado'
+        Alerta_KDS_Salón --> Egreso_Revertido: Asiento ingreso_reversion_compra en caja_movimiento
         Egreso_Revertido --> Auditoria_Sellada: Registro inmutable en log_auditoria
     }
 ```
@@ -506,7 +506,7 @@ type FichaCompraDetalleCompletoDTO struct {
       "platos_desactivados": ["1/4 Pollo a la Brasa", "Pollo a la Brasa Entero"],
       "pedidos_cocina_observados": 1,
       "discrepancia_stock_registrada": 10.00,
-      "egreso_caja_revertido": 2450.00
+      "monto_compra_revertido": 2450.00
     },
     "mensaje": "La ficha de compra ha sido anulada. Se restó el stock del almacén con piso en 0, se bloquearon 2 platos en carta por quiebre de insumo y se alertó a cocina."
   },
@@ -640,9 +640,10 @@ BEGIN
     END LOOP;
 
     -- 3. Reversión del movimiento en flujo de caja chica
-    UPDATE egreso_caja
-    SET estado = 'anulado'
-    WHERE ficha_compra_id = v_compra_id;
+    INSERT INTO caja_movimiento (id, caja_id, tipo, monto, concepto, created_at)
+    SELECT fn_uuid_v8(), cm.caja_id, 'ingreso_reversion_compra', cm.monto, 'Reversión de compra ' || v_compra_id, NOW()
+    FROM caja_movimiento cm
+    WHERE cm.ficha_compra_id = v_compra_id AND cm.tipo = 'egreso_compra';
 
     -- 4. Registrar en log de auditoría
     INSERT INTO log_auditoria (local_id, usuario_id, accion, entidad, entidad_id, detalle)

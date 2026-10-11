@@ -443,7 +443,7 @@ type CancelarReservaRequestDTO struct {
 
 ## 8. Modelo Relacional PostgreSQL 16 y Migración
 
-Las tablas maestras se encuentran normalizadas en [`context/modelo_datos.md`](file:///d:/Proyecto/RestaurantCloud_AI_backend/context/modelo_datos.md#L397-L428):
+Las tablas maestras se encuentran normalizadas en [`context/modelo_datos.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/modelo_datos.md#L397-L428):
 
 ```sql
 -- 1. Tabla de Políticas Operativas de Reserva (Gobernadas por CU-ADMIN-10)

@@ -84,7 +84,7 @@ sequenceDiagram
 |  - Locales|  El Tenedor Gourmet S.A.C. (RUC 20601234567)                        |
 |  - Carta  |                                                                     |
 |  - Personal| +-------------------------------+  +-----------------------------+ |
-|  - Planes | | Plan Actual: Plan Pro ($49/mes) |  | Método de Pago              | |
+|  - Planes | | Plan Actual: Plan Pro (S/ 249/mes) |  | Método de Pago              | |
 |  * Suscrip| | Próxima facturación: 01 Nov 2026|  |                             | |
 |           | |                                 |  | [ VISA ]  •••• 4242         | |
 |           | | Locales (2 / 3)      [=====   ] |  | Vence: 12/28                | |
@@ -97,11 +97,11 @@ sequenceDiagram
 |           |                                                                     |
 |           | +-----------------------------------------------------------------+ |
 |           | | Historial de Pagos y Facturas                                   | |
-|           | | Fecha        | Comprobante N° | Monto    | Estado   | Acciones  | |
-|           | | -------------+----------------+----------+----------+---------- | |
-|           | | 01 Oct 2026  | F-100456       | $49.00   | [Pagado] | [📥 PDF]  | |
-|           | | 01 Sep 2026  | F-100389       | $49.00   | [Pagado] | [📥 PDF]  | |
-|           | | 01 Ago 2026  | F-100321       | $49.00   | [Pagado] | [📥 PDF]  | |
+|           | | Fecha        | Comprobante N° | Monto     | Estado   | Acciones | |
+|           | | -------------+----------------+-----------+----------+--------- | |
+|           | | 01 Oct 2026  | F-100456       | S/ 249.00 | [Pagado] | [📥 PDF] | |
+|           | | 01 Sep 2026  | F-100389       | S/ 249.00 | [Pagado] | [📥 PDF] | |
+|           | | 01 Ago 2026  | F-100321       | S/ 249.00 | [Pagado] | [📥 PDF] | |
 |           | +-----------------------------------------------------------------+ |
 +---------------------------------------------------------------------------------+
 ```
@@ -159,7 +159,7 @@ Cuando el cobro automático de Stripe falla (ej. tarjeta vencida, sin saldo o re
 +---------------------------------------------------------------------------------+
 |                                                                                 |
 |   +-------------------------------------------------------------------------+   |
-|   | ⚠️ COBRO AUTOMÁTICO NO PROCESADO ($49.00)                                |   |
+|   | ⚠️ COBRO AUTOMÁTICO NO PROCESADO (S/ 249.00)                             |   |
 |   | El cobro del 01 Nov 2026 falló (Fondos insuficientes). Tu servicio será    |   |
 |   | suspendido el 05 Nov si no se regulariza el pago.                       |   |
 |   |                                                                         |   |
@@ -244,8 +244,8 @@ Todos los contratos respetan el estándar general del backend Go definido en [`c
         "id": "p1a2b3c4-0001-0000-0000-000000000001",
         "numero_comprobante": "F-100456",
         "fecha": "2026-10-01T22:33:00Z",
-        "monto": 49.00,
-        "moneda": "USD",
+        "monto": 249.00,
+        "moneda": "PEN",
         "estado": "exitoso",
         "url_descarga_pdf": "/api/v1/propietario/suscripcion/facturas/p1a2b3c4-0001-0000-0000-000000000001/descargar"
       }

@@ -367,13 +367,13 @@ CREATE INDEX IF NOT EXISTS idx_local_slug ON local(slug) WHERE estado = 'activo'
 ### 7.2 Consulta Consolidada Agrupada (Single-Query JSON_AGG)
 ```sql
 SELECT 
-    l.id AS sede_id,
-    l.nombre AS sede_nombre,
-    l.slug AS sede_slug,
-    l.direccion AS sede_direccion,
-    l.distrito AS sede_distrito,
-    l.telefono AS sede_telefono,
-    l.moneda AS sede_moneda,
+    l.id AS local_id,
+    l.nombre AS local_nombre,
+    l.slug AS local_slug,
+    l.direccion AS local_direccion,
+    l.distrito AS local_distrito,
+    l.telefono AS local_telefono,
+    l.moneda AS local_moneda,
     COALESCE(
         (SELECT json_agg(json_build_object(
             'id', p.id,

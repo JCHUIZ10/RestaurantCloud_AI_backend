@@ -365,7 +365,7 @@ CREATE INDEX IF NOT EXISTS idx_producto_disponibilidad ON producto(local_id, dis
 ##### Reglas de Disponibilidad y Resolución de Quiebres en Cocina (`CU-COCINA-04`):
 1. **Apagado Táctil en KDS:** La brigada de cocina cuenta con acceso directo en la barra superior del monitor KDS para pausar temporalmente cualquier plato (`disponibilidad = 'agotado'`, `motivo_agotado = 'apagado_manual_cocina'`).
 2. **Resolución Granular de Órdenes en Fuego:**
-   - **Ítems `en_cola`:** Conmutan de inmediato a `estado = 'no_disponible'` (`motivo_anulacion = 'quiebre_stock_cocina'`) y emiten evento SSE prioritario a la tablet del mozo titular ([`CU-MOZO-07`](file:///d:/Proyecto/RestaurantCloud_AI_backend/wireframe/mozo/CU-MOZO-07-atender-plato-no-disponible/wireframe.md)).
+   - **Ítems `en_cola`:** Conmutan de inmediato a `estado = 'no_disponible'` (`motivo_anulacion = 'quiebre_stock_cocina'`) y emiten evento SSE prioritario a la tablet del mozo titular ([`CU-MOZO-07`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/mozo/CU-MOZO-07-atender-plato-no-disponible/wireframe.md)).
    - **Ítems `en_preparacion` (en fuegos/sartenes):** Si el chef dispone de insumos para $K$ de $N$ platos ($K < N$), el sistema asigna por criterio FIFO de antigüedad las $K$ porciones a las comandas más antiguas (manteniéndolas `en_preparacion`), y conmuta las $N - K$ porciones restantes a `no_disponible` (`motivo_anulacion = 'quiebre_fuego_parcial'`), alertando a los mozos responsables para coordinar sustitución o anulación con el cliente.
 3. **Auditoría y Supervisión de Compras:** El apagado manual de un plato registra la autoría en `usuario_modifico_disp_id` y emite un Toast SSE instantáneo al Administrador de local (`tipo = 'quiebre_manual_cocina'`) para abastecimiento urgente.
 4. **Reactivación en Tiempo Real:** Al recibir nueva mise en place o insumos, cocina conmuta el switch a `'disponible'`. En < 30ms se emite el evento SSE `plato_reactivado_carta`, liberando la comanda en tablets de mozo y en el menú digital QR sin recargar interfaz.
@@ -492,7 +492,7 @@ Insumos reabastecidos incluidos en la ficha de compra.
 2. **Protección de Saldo Físico No Negativo:** Al descontar existencias por anulación, el backend ejecuta `stock_actual = GREATEST(0, stock_actual - fcd.cantidad)`. Si durante el intervalo entre compra y anulación se registraron ventas de platos que consumieron parte del lote (`stock_actual < cantidad`), el piso queda fijado en 0 para evitar inconsistencias matemáticas (`CHECK (stock_actual >= 0)`), asentando la discrepancia en `log_auditoria` (`CU-ADMIN-16`).
 3. **Cascada de Insumo Agotado a Platos de la Carta:** Si `stock_actual` desciende a 0, `insumo.estado` pasa automáticamente a `'agotado'`. A su vez, el sistema localiza todo `producto` que tenga dicho insumo en su receta (`producto_insumo`) y conmuta `producto.disponibilidad = 'agotado'`, bloqueando inmediatamente comandas en mozo (`CU-MOZO-01`) y carta digital QR.
 4. **Contingencia en Cocina (KDS):** Pedidos en curso (`pedido.estado IN ('en_cola', 'en_preparacion')`) que contengan ítems afectados reciben el flag visual `[Observado por quiebre]`, disparando notificación reactiva al mozo asignado.
-5. **Reversión Financiera:** El movimiento asociado en `egreso_caja` (`CU-ADMIN-14`) pasa a `estado = 'anulado'`, reponiendo el saldo disponible en la caja chica del turno.
+5. **Reversión Financiera:** Se asienta el reintegro de liquidez en `caja_movimiento` (`tipo = 'ingreso_reversion_compra'`), reponiendo el saldo disponible en la caja chica del turno (`CU-ADMIN-14`).
 
 ---
 
@@ -1003,15 +1003,15 @@ Para evitar la saturación de PostgreSQL por *table bloat* (acumulación de tupl
 
 ### 2.10 Vistas y agregaciones analíticas para inteligencia de negocios (`CU-ADMIN-13`)
 
-Para garantizar que los dashboards gerenciales y reportes de ventas no degraden el rendimiento transaccional del motor relacional ni compitan por locks con las comandas activas, se establecen vistas analíticas de solo lectura y estrategias de agregación sobre `comanda`, `detalle_comanda` y `pedido_anulacion`:
+Para garantizar que los dashboards gerenciales y reportes de ventas no degraden el rendimiento transaccional del motor relacional ni compitan por locks con los pedidos activos, se establecen vistas analíticas de solo lectura y estrategias de agregación sobre `pedido`, `pedido_item`, `comprobante` y `pedido_anulacion`:
 
-1. **`v_analitica_ventas_horarias`:** Agrega facturación neta, volumen de comandas y ticket promedio por hora de jornada (`hora_jornada` de 11h a 23h), categorizando automáticamente los picos de `almuerzo` (12h-15h) y `cena` (19h-22h).
-2. **`v_menu_engineering_cuadrantes`:** Cruza las unidades vendidas de cada plato con su margen de contribución unitario (`precio_venta - costo_estandar`). Calcula los umbrales medios de popularidad y rentabilidad por sede, clasificando los ítems en 4 cuadrantes (`ESTRELLA`, `CABALLITO`, `PUZLE`, `REZAGADO`).
-3. **`v_desempeno_mozos_salon`:** Consolida por mozo las mesas atendidas, facturación total generada, ticket medio, tiempo promedio de permanencia en mesa, ratio de **Upselling** (comandas con 2da ronda de bebidas/postres) y tasa de cancelaciones registradas vía `pedido_anulacion` (`CU-MOZO-06`).
-4. **`v_analitica_flujo_caja_mensual` (`CU-ADMIN-14`):** Consolida por sede y fecha las entradas (ventas de salón 100% cobradas discriminadas por efectivo vs bancos), compras directas de insumos culinarios (`ficha_compra`) y egresos operativos manuales (`gasto_manual`), determinando el balance neto diario y la conciliación de liquidez.
+1. **`v_analitica_ventas_horarias`:** Agrega facturación neta, volumen de pedidos y ticket promedio por hora de jornada (`hora` de 11h a 23h), categorizando automáticamente los picos de `almuerzo` (12h-15h) y `cena` (19h-22h).
+2. **`v_menu_engineering_cuadrantes`:** Cruza las unidades vendidas de cada producto con su margen de contribución unitario (`precio - costo_estandar`). Calcula los umbrales medios de popularidad y rentabilidad por local, clasificando los ítems en 4 cuadrantes (`ESTRELLA`, `CABALLITO`, `PUZLE`, `REZAGADO`).
+3. **`v_desempeno_mozos_salon`:** Consolida por mozo las mesas atendidas, facturación total generada, ticket medio, tiempo promedio de permanencia en mesa, ratio de **Upselling** (pedidos con 2da ronda de bebidas/postres) y tasa de cancelaciones registradas vía `pedido_anulacion` (`CU-MOZO-06`).
+4. **`v_analitica_flujo_caja_mensual` (`CU-ADMIN-14`):** Consolida por local y fecha las entradas (ventas de salón 100% cobradas en `comprobante` discriminadas por efectivo vs bancos), compras directas de insumos culinarios (`ficha_compra`) y egresos operativos manuales (`gasto_manual`), determinando el balance neto diario y la conciliación de liquidez.
 5. **Índices de aceleración analítica recomendados:**
-   - `CREATE INDEX idx_comanda_analitica ON comanda (sede_id, estado, created_at) WHERE estado = 'cobrada';`
-   - `CREATE INDEX idx_detalle_comanda_plato_analitica ON detalle_comanda (plato_id, comanda_id);`
+   - `CREATE INDEX idx_pedido_cobrado_fecha ON pedido (local_id, created_at DESC) WHERE estado = 'cobrado';`
+   - `CREATE INDEX idx_pedido_item_producto_entregado ON pedido_item (producto_id, pedido_id) WHERE estado = 'entregado';`
    - `CREATE INDEX idx_gasto_manual_analitica ON gasto_manual (local_id, fecha, origen_fondos);`
 
 ---

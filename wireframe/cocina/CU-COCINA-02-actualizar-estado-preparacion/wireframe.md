@@ -13,7 +13,7 @@ Especificación técnica de interfaz de usuario, arquitectura de información, c
 | **Actor(es)** | `cocina` (Cocinero, Jefe de Cocina, Maestro Parrillero, Chef de Partida) y `mozo` (Recepción en sala) |
 | **Dispositivo / Viewport** | Monitor táctil industrial de cocina / Pantalla KDS de pared (`1440x900` horizontal oscuro) |
 | **Precondición** | El local está activo; existen ítems de comanda culinarios en estado `en_cola` o `en_preparacion` en el KDS de la sede (`CU-COCINA-01`). |
-| **Postcondición** | Los platos transicionan ágilmente entre estados operativos (`en_cola` → `en_preparacion` → `listo`); al marcar listo se descuentan automáticamente los insumos de bodega ([`CU-COCINA-03`](file:///d:/Proyecto/RestaurantCloud_AI_backend/context/cu.md#cu-cocina-03-descuento-automático-de-insumos-por-consumo)); se activa la ventana de seguridad de **30 segundos** con botón `[ ↺ Deshacer ]` que, de ser activada, ejecuta el **rollback atómico del inventario**; el runner o mozo de sala recibe la alerta reactiva SSE del pase caliente en **< 25ms** con temporizador de tolerancia configurado en `CU-ADMIN-18`; las comandas despachadas permanecen recuperables en la bandeja de **30 minutos** ("Devolver a Cocina"). |
+| **Postcondición** | Los platos transicionan ágilmente entre estados operativos (`en_cola` → `en_preparacion` → `listo`); al marcar listo se descuentan automáticamente los insumos de bodega ([`CU-COCINA-03`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/cu.md#cu-cocina-03-descuento-automático-de-insumos-por-consumo)); se activa la ventana de seguridad de **30 segundos** con botón `[ ↺ Deshacer ]` que, de ser activada, ejecuta el **rollback atómico del inventario**; el runner o mozo de sala recibe la alerta reactiva SSE del pase caliente en **< 25ms** con temporizador de tolerancia configurado en `CU-ADMIN-18`; las comandas despachadas permanecen recuperables en la bandeja de **30 minutos** ("Devolver a Cocina"). |
 
 ---
 
@@ -122,7 +122,7 @@ Tablero KDS en formato horizontal (`1440x900`). Utiliza terminología directa de
 
 #### Elementos Visuales y Funcionalidades
 1. **Poner en Fuego:** Botón gris `[ 🔥 Poner en Fuego ]` cuando el plato está en cola; al tocarlo, inicia inmediatamente el reloj de sartén y muta a botón naranja `#EA580C` `[ 🔥 En Fuego (MM:SS) ]`.
-2. **Listo en Pase:** Botón verde `[ ✓ Listo en Pase ]` que transiciona el plato a terminado, descuenta insumos según receta ([`CU-COCINA-03`](file:///d:/Proyecto/RestaurantCloud_AI_backend/context/cu.md#cu-cocina-03-descuento-automático-de-insumos-por-consumo)) y emite el evento SSE al salón.
+2. **Listo en Pase:** Botón verde `[ ✓ Listo en Pase ]` que transiciona el plato a terminado, descuenta insumos según receta ([`CU-COCINA-03`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/cu.md#cu-cocina-03-descuento-automático-de-insumos-por-consumo)) y emite el evento SSE al salón.
 3. **Botón Temporal de Deshacer (Undo 30s):** Contador regresivo en tiempo real `[ ↺ Deshacer (24s) ]`. Al tocarlo, revierte la comanda y ejecuta el rollback de existencias de insumos en bodega sin discrepancias.
 4. **Despachar Pedido Completo:** Botón grande al pie del ticket para liberar la comanda íntegra en un solo toque cuando todos los platos fueron emplatados.
 5. **Acceso al Historial de Despachados:** Botón ámbar en la cabecera `[ ⏱️ Pedidos Despachados (4) ]` con el conteo de órdenes terminadas en los últimos 30 minutos.
@@ -239,7 +239,7 @@ Vista complementaria en la tablet del Mozo (`CU-MOZO-01`), demostrando la sincro
 | :--- | :--- | :--- |
 | **1. Por Preparar (`en_cola`)** | Botón gris carbón `[ 🔥 Poner en Fuego ]`, sin temporizador activo. | Plato esperando en comanda FIFO. La receta de insumos aún no se descuenta. |
 | **2. En Marcha (`en_preparacion`)** | Botón naranja vibrante `[ 🔥 En Fuego (MM:SS) ]` con timer en segundos y botón verde `[ ✓ Listo en Pase ]`. | Plato en cocción en fogón/wok. Salón visualiza estado "En Preparación". Se registra `fecha_inicio_coccion = NOW()`. |
-| **3. Terminado / En Pase (`listo`)** | Badge verde `[ ✓ LISTO EN PASE ]` y botón con cuenta regresiva `[ ↺ Deshacer (30s) ]`. | Plato emplatado. Se descuentan insumos de bodega ([`CU-COCINA-03`](file:///d:/Proyecto/RestaurantCloud_AI_backend/context/cu.md#cu-cocina-03-descuento-automático-de-insumos-por-consumo)). Se emite evento SSE al runner en < 25ms. |
+| **3. Terminado / En Pase (`listo`)** | Badge verde `[ ✓ LISTO EN PASE ]` y botón con cuenta regresiva `[ ↺ Deshacer (30s) ]`. | Plato emplatado. Se descuentan insumos de bodega ([`CU-COCINA-03`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/cu.md#cu-cocina-03-descuento-automático-de-insumos-por-consumo)). Se emite evento SSE al runner en < 25ms. |
 | **4. Deshacer Activo (Undo 30s)** | Botón parpadeante verde esmeralda con segundos restantes decreciendo en vivo. | Si se pulsa, se ejecuta **rollback atómico de insumos** y el plato regresa a `en_preparacion`. Al expirar los 30s, el botón de deshacer desaparece permanentemente. |
 | **5. Despachado (Historial 30m)** | Comanda desaparece del KDS activo y se archiva en la bandeja `[ ⏱️ Pedidos Despachados ]`. | Permite pulsar `[ ↺ Devolver a Cocina ]` durante 30 minutos para revertir despachos accidentales. |
 

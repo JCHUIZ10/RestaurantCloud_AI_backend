@@ -105,7 +105,7 @@ sequenceDiagram
             API->>BD: INSERT INTO suscripcion (empresa_id, plan_id, estado='activa', ciclo='anual', ...)
             API->>BD: INSERT INTO pago (empresa_id, monto=2490.00, estado='exitoso', origen_pago='transferencia_bancaria', numero_operacion='OP-90481239-BCP', ...)
             API->>BD: INSERT INTO usuario (empresa_id, rol='propietario', email='admin@puertomarino.pe', ...)
-            API->>BD: INSERT INTO capability_token (usuario_id, token, expira_en=72h, accion='fijar_password')
+            API->>Redis: SET capability_token:<token> {usuario_id, accion: 'fijar_password'} EX 259200 (72h)
             BD-->>API: Tenant, local, suscripción, pago y propietario creados
         end
 
