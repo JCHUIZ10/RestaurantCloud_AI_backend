@@ -101,7 +101,7 @@ La bitácora histórica detallada de todas las decisiones, esquemas y capturas s
 | **`CU-PROP-03`** | Cambio de plan y límites SaaS | ✅ Completado | `wireframe/propietario/CU-PROP-03-cambiar-plan/` |
 | **`CU-PROP-04`** | Registrar y administrar locales | ✅ Completado | `wireframe/propietario/CU-PROP-04-administrar-locales/` |
 | **`CU-PROP-05`** | Crear y gestionar administradores de local | ✅ Completado | `wireframe/propietario/CU-PROP-05-administradores-local/` |
-| **`CU-PROP-09`** | Ver incidentes corporativos de la empresa | ✅ Completado | `wireframe/propietario/CU-PROP-09-incidentes-empresa/` |
+| **`CU-PROP-06`** | Ver incidentes corporativos de la empresa | ✅ Completado | `wireframe/propietario/CU-PROP-06-incidentes-empresa/` |
 | **`CU-ADMIN-01`** | Gestión del plano de mesas de sede | ✅ Completado | `wireframe/administrador/CU-ADMIN-01-plano-mesas/` |
 | **`CU-ADMIN-02`** | Categorías de la carta | ✅ Completado | `wireframe/administrador/CU-ADMIN-02-categorias-carta/` |
 | **`CU-ADMIN-03`** | Productos y combos de la carta | ✅ Completado | `wireframe/administrador/CU-ADMIN-03-productos-carta/` |
@@ -150,7 +150,25 @@ La bitácora histórica detallada de todas las decisiones, esquemas y capturas s
 > - `CU-CLIENTE-01`: Catálogo digital interactivo web de la carta accesible por enlace amigable (`https://app.restaurantcloud.pe/sede/:slug/carta`), botones de contacto directo a WhatsApp y llamada, buscador en tiempo real, carrusel de categorías y sincronización en vivo con quiebres de cocina.
 > - `CU-CLIENTE-02`: Visor digital de comprobantes electrónicos (Boletas, Facturas y Notas de Venta) con capability token seguro (`token_qr` UUID v8), descarga de PDF oficial y XML electrónico (UBL 2.1), auditoría de comprobantes anulados con Nota de Crédito, y estricta privacidad de datos personales (cero búsqueda por DNI/RUC).
 >
-> 🏆 **TOTAL ACUMULADO:** **45 Casos de Uso 100% Culminados** con diseño de pantalla canónico, arquitectura de datos y contratos Go.
+> 🏆 **TOTAL ACUMULADO:** **45 Casos de Uso 100% Culminados** con diseño de pantalla canónico, arquitectura de datos y contratos Go, cubriendo el ciclo operativo completo del restaurante de punta a punta.
 
-**Próximo Módulo a Abordar:**
-👉 **`CU-ADMIN-16: Consultar log de auditoría del local`** (Pistas de auditoría inmutables, eventos de seguridad y trazabilidad operativa).
+## 6. Casos de Uso Diferidos a Fase Futura (Backlog) y Omitidos
+
+Los siguientes casos de uso han sido reclasificados estratégicamente para optimizar el ciclo de entrega y focalizar el desarrollo en el motor operativo principal:
+
+### 6.1 Pospuestos a Fase Futura (Backlog Analítico / IA / Telemetría)
+- **`CU-ADMIN-07`**: *Ver recomendaciones de reposición de insumos (IA)* — Pronósticos predictivos de reabastecimiento culinario.
+- **`CU-ADMIN-16`**: *Consultar log de auditoría del local* — Visor consolidado de eventos de seguridad (cada acción sensible ya cuenta con auditoría transaccional ACID en su respectiva tabla: `pedido_anulacion`, `auditoria_stock_ajuste`, `comprobante`, `caja.revisado`).
+- **`CU-PROP-07`** *(ex-06)*: *Ver reportes consolidados de la empresa* — Consolidado multi-sede a nivel corporativo.
+- **`CU-PROP-08`** *(ex-07)*: *Ver predicciones de demanda a nivel empresa* — Forecasting macro multi-sede con IA.
+- **`CU-SAAS-04`**: *Monitorear salud de la plataforma* — Telemetría global de microservicios y cuotas multi-tenant.
+- **`CU-SAAS-05`**: *Consultar log de auditoría global* — Bitácora forense de soporte SaaS transversal.
+
+### 6.2 Omitidos por Absorción Arquitectónica
+- **`CU-PROP-08 (Antiguo)`**: *Configurar políticas generales de la empresa* — Omitido formalmente por ser incompatible con la autonomía de sede en gastronomía real. Absorbido de forma ágil y descentralizada en:
+  - `CU-PROP-04` (`giro_negocio` para aprovisionamiento inicial automático de carta por sede).
+  - `CU-ADMIN-10` (Políticas de reservas por sede).
+  - `CU-ADMIN-17` (Promociones comerciales por sede).
+  - `CU-ADMIN-18` (Tiempos y semáforos de KDS por sede).
+  - `CU-ADMIN-19` (Métodos de pago y comisiones por sede).
+- **`CU-ADMIN-15`**: *Supervisar cierre de caja diario e historial de Reportes Z* — Integrado formalmente en el módulo maestro `CU-ADMIN-14`.

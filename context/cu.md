@@ -72,7 +72,7 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 **Postcondiciones:** Catálogo de planes actualizado.
 
-### CU-SAAS-04: Monitorear salud de la plataforma
+### CU-SAAS-04: Monitorear salud de la plataforma (Pospuesto a Fase Futura / Backlog)
 
 **Actor(es):** Administrador SaaS
 
@@ -90,7 +90,7 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 **Postcondiciones:** Ninguna (caso de uso de consulta).
 
-### CU-SAAS-05: Consultar log de auditoría global
+### CU-SAAS-05: Consultar log de auditoría global (Pospuesto a Fase Futura / Backlog)
 
 **Actor(es):** Administrador SaaS
 
@@ -264,63 +264,7 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 **Postcondiciones:** Administrador invitado/activado mediante enlace seguro; sede titular asignada (regla 1:1); cupos de personal auditados; sesiones revocables en tiempo real.
 
-### CU-PROP-06: Ver reportes consolidados de la empresa
-
-**Actor(es):** Propietario del restaurante
-
-**Precondiciones:** La empresa tiene al menos un local con actividad registrada.
-
-#### Flujo principal
-
-1. El propietario accede a "Reportes" a nivel empresa.
-2. Selecciona tipo de reporte (ventas, inventario, incidentes, auditoría) y rango de fechas/locales a incluir.
-3. El sistema genera el reporte consolidado (todos los locales o los seleccionados).
-4. El propietario exporta el reporte en PDF o Excel.
-
-#### Flujos alternativos
-
-- El plan no incluye reportes avanzados (Starter) → el sistema muestra solo métricas básicas y sugiere upgrade.
-
-**Postcondiciones:** Reporte generado/exportado.
-
-### CU-PROP-07: Ver predicciones de demanda a nivel empresa
-
-**Actor(es):** Propietario del restaurante
-
-**Precondiciones:** El plan de la empresa incluye el módulo de predicción (Pro/Enterprise); existe historial de ventas suficiente.
-
-#### Flujo principal
-
-1. El propietario accede al módulo "Predicción".
-2. Selecciona local(es) y horizonte de tiempo (ej. próximo fin de semana).
-3. El sistema muestra la demanda estimada y recomendaciones de inventario asociadas.
-
-#### Flujos alternativos
-
-- El plan no incluye este módulo (Starter) → el sistema muestra pantalla de upgrade.
-- No hay suficiente historial de datos → el sistema informa que la predicción aún no es confiable.
-
-**Postcondiciones:** Ninguna (consulta).
-
-### CU-PROP-08: Configurar políticas generales de la empresa
-
-**Actor(es):** Propietario del restaurante
-
-**Precondiciones:** Empresa activa con al menos un local.
-
-#### Flujo principal
-
-1. El propietario accede a "Configuración general".
-2. Define una carta base (productos comunes a replicar en nuevos locales) y políticas de precios/promociones a nivel empresa.
-3. El sistema guarda la configuración como plantilla; cada administrador de local puede luego ajustarla localmente según reglas fijas de permisos (ej. no puede editar nombre/categoría de la carta base, sí precio local y disponibilidad).
-
-#### Flujos alternativos
-
-- El propietario restringe que un local no pueda modificar ciertos precios (política de marca uniforme) → el sistema bloquea esa edición a nivel local.
-
-**Postcondiciones:** Configuración general/plantilla guardada, disponible para los locales.
-
-### CU-PROP-09: Ver incidentes de la empresa
+### CU-PROP-06: Ver incidentes de la empresa
 
 **Actor(es):** Propietario del restaurante
 
@@ -344,6 +288,61 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 - No existen incidentes pendientes bajo los filtros aplicados → el sistema presenta el estado vacío positivo confirmando que todas las novedades operativas han sido revisadas.
 
 **Postcondiciones:** Incidente marcado automáticamente como leído por el propietario; directiva ejecutiva opcionalmente registrada y estado actualizado a `en_revision`; trazabilidad íntegra preservada.
+
+---
+
+### CU-PROP-07: Ver reportes consolidados de la empresa (Pospuesto a Fase Futura / Backlog)
+
+**Actor(es):** Propietario del restaurante
+
+**Precondiciones:** La empresa tiene al menos un local con actividad registrada.
+
+#### Flujo principal
+
+1. El propietario accede a "Reportes" a nivel empresa.
+2. Selecciona tipo de reporte (ventas, inventario, incidentes, auditoría) y rango de fechas/locales a incluir.
+3. El sistema genera el reporte consolidado (todos los locales o los seleccionados).
+4. El propietario exporta el reporte en PDF o Excel.
+
+#### Flujos alternativos
+
+- El plan no incluye reportes avanzados (Starter) → el sistema muestra solo métricas básicas y sugiere upgrade.
+
+**Postcondiciones:** Reporte generado/exportado.
+
+---
+
+### CU-PROP-08: Ver predicciones de demanda a nivel empresa (Pospuesto a Fase Futura / Backlog)
+
+**Actor(es):** Propietario del restaurante
+
+**Precondiciones:** El plan de la empresa incluye el módulo de predicción (Pro/Enterprise); existe historial de ventas suficiente.
+
+#### Flujo principal
+
+1. El propietario accede al módulo "Predicción".
+2. Selecciona local(es) y horizonte de tiempo (ej. próximo fin de semana).
+3. El sistema muestra la demanda estimada y recomendaciones de inventario asociadas.
+
+#### Flujos alternativos
+
+- El plan no incluye este módulo (Starter) → el sistema muestra pantalla de upgrade.
+- No hay suficiente historial de datos → el sistema informa que la predicción aún no es confiable.
+
+**Postcondiciones:** Ninguna (consulta).
+
+---
+
+### CU-PROP-08 (Antiguo): Configurar políticas generales de la empresa (Omitido / Absorbido)
+
+> [!NOTE]
+> **Caso de Uso Omitido por Descentralización Arquitectónica:** En el diseño inicial se planteaba una plantilla centralizada de carta base y bloqueo de precios a nivel empresa. No obstante, por la realidad de la industria gastronómica (cada sede opera con costos de abastecimiento, alquiler, competencia y márgenes distintos), sus responsabilidades fueron descentralizadas y resueltas de forma ágil en:
+> 1. **Carta base y giro comercial:** Resueltos en [`CU-PROP-04`](#cu-prop-04-registrar-y-administrar-locales) mediante el selector `giro_negocio` (`polleria`, `cevicheria`, `chifa`, `en_blanco`), que inicializa automáticamente los insumos, categorías y recetas por sede sin requerir plantillas abstractas.
+> 2. **Políticas de reservas:** Descentralizadas en [`CU-ADMIN-10`](#cu-admin-10-configurar-políticas-y-parámetros-de-reservas-de-mesas) (tabla `politicas_reserva` por `local_id`).
+> 3. **Políticas de promociones:** Descentralizadas en [`CU-ADMIN-17`](#cu-admin-17-gestionar-promociones) (promociones autónomas por sede).
+> 4. **Parámetros operativos de KDS:** Descentralizados en [`CU-ADMIN-18`](#cu-admin-18-configurar-parámetros-operativos-de-comanda-y-tiempos-de-kds) (tabla `configuracion_kds`).
+> 5. **Métodos de pago y comisiones:** Descentralizados en [`CU-ADMIN-19`](#cu-admin-19-configurar-métodos-de-pago-y-comisiones-de-cobro-del-local) (tabla `metodo_pago_local`).
+> 6. **Límites de empresa:** Gobernados por el plan SaaS en [`CU-PROP-02`](#cu-prop-02-gestionar-suscripción-y-método-de-pago) y [`CU-PROP-03`](#cu-prop-03-cambiar-plan-de-suscripción) mediante las tablas `plan` y `suscripcion`.
 
 # 3. Administrador del local
 
@@ -591,7 +590,7 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 ---
 
-### CU-ADMIN-07: Ver recomendaciones de reposición de insumos (IA)
+### CU-ADMIN-07: Ver recomendaciones de reposición de insumos (IA) (Pospuesto a Fase Futura / Backlog)
 
 **Actor(es):** Administrador del local
 
@@ -747,10 +746,10 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
    - **Evidencia fotográfica / Comprobante:** Carga opcional de fotografía o comprobante escaneado (JPG/PNG máx. 5MB) en dropzone.
 5. El administrador presiona `[ Registrar Incidente ]`.
 6. El sistema valida los campos, genera el código correlativo anual inmutable (`INC-YYYY-###`), persiste el incidente con estado `abierto` y registra la acción en el log de auditoría.
-7. Si el incidente es tipificado con gravedad `alta`, el backend emite un evento SSE broadcast que dispara una alerta prioritaria en la sesión del Propietario (`CU-PROP-09`).
+7. Si el incidente es tipificado con gravedad `alta`, el backend emite un evento SSE broadcast que dispara una alerta prioritaria en la sesión del Propietario (`CU-PROP-06`).
 8. El administrador puede consultar el historial completo de su sede utilizando filtros combinados (estado, gravedad, categoría, colaborador, rango de fechas) o el buscador reactivo.
 9. Al hacer clic en `[ Ver / Resolver ]`, el sistema abre el modal de detalle e inspección:
-   - Si el Propietario supervisó el caso desde `CU-PROP-09` e ingresó una directiva u observación (`nota_propietario`), se exhibe destacada en un panel directivo corporativo.
+   - Si el Propietario supervisó el caso desde `CU-PROP-06` e ingresó una directiva u observación (`nota_propietario`), se exhibe destacada en un panel directivo corporativo.
    - **Resolución Definitiva:** El administrador selecciona la pestaña predeterminada `[ Confirmar Resolución Definitiva ]`, ingresa obligatoriamente la nota de remediación final (`resolucion_nota`, mín. 10 caracteres) y confirma la acción. El sistema pasa el incidente a estado `resuelto`, guarda `resuelto_por` y `fecha_resolucion`, notifica al Propietario del cumplimiento y congela el expediente de forma inmutable en solo lectura.
    - **Dejar en Investigación / Seguimiento:** Si el incidente requiere peritaje pendiente (revisión de cámaras, informe de técnico de frío, conciliación bancaria), el administrador selecciona la pestaña `[ Dejar en Investigación / Seguimiento ]`, redacta el `motivo_revision` y confirma. El sistema pasa el estado a `en_revision` y muestra en la bandeja de sede los días transcurridos para prevenir casos abandonados.
 
@@ -868,7 +867,7 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 ---
 
-### CU-ADMIN-16: Consultar log de auditoría del local
+### CU-ADMIN-16: Consultar log de auditoría del local (Pospuesto a Fase Futura / Backlog)
 
 **Actor(es):** Administrador del local
 
@@ -881,6 +880,9 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 3. El sistema muestra el historial correspondiente.
 
 **Postcondiciones:** Ninguna (consulta).
+
+> [!NOTE]
+> **Trazabilidad Garantizada:** Las operaciones sensibles actuales del local ya cuentan con persistencia y auditoría inmutable directa en sus respectivas tablas transaccionales ACID (`pedido_anulacion`, `auditoria_stock_ajuste`, `comprobante`, `caja.revisado`), por lo que la postergación de esta pantalla centralizada no compromete la integridad forense del sistema.
 
 ---
 

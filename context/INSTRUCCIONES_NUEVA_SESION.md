@@ -68,22 +68,21 @@ Por cada nuevo Caso de Uso abordado, se ejecuta sin excepciones este flujo:
 - `CU-AUTH-01`: Login y selección de cuenta/sede.
 - `CU-AUTH-02`: Recuperación de contraseña vía OTP.
 
-### 4.2 Rol Propietario (`wireframe/propietario/`) — 👑 100% CULMINADO (6 CUs)
+### 4.2 Rol Propietario (`wireframe/propietario/`) — 👑 100% CULMINADO (6 CUs Consecutivos)
 - `CU-PROP-01`: Registro de empresa y autoservicio.
 - `CU-PROP-02`: Gestión de suscripción y método de pago (Stripe).
 - `CU-PROP-03`: Cambio de plan de suscripción y límites SaaS.
 - `CU-PROP-04`: Registrar y administrar locales/sedes.
 - `CU-PROP-05`: Crear y gestionar administradores de local.
-- `CU-PROP-09`: Ver incidentes corporativos consolidados de la empresa.
+- `CU-PROP-06`: Ver incidentes corporativos consolidados de la empresa.
 
-### 4.3 Rol Administrador del Local (`wireframe/administrador/`) — 🏢 100% CULMINADO (17 CUs)
+### 4.3 Rol Administrador del Local (`wireframe/administrador/`) — 🏢 100% CULMINADO (16 CUs Funcionales)
 - `CU-ADMIN-01`: Gestión del plano de mesas de sede.
 - `CU-ADMIN-02`: Categorías de la carta gastronómica.
 - `CU-ADMIN-03`: Insumos y stock inicial.
-- `CU-ADMIN-04`: Personal operativo del local.
-- `CU-ADMIN-05`: Productos y recetas culinarias.
-- `CU-ADMIN-06`: Proveedores de insumos.
-- `CU-ADMIN-07`: Ficha y recepción de compra de insumos.
+- `CU-ADMIN-04`: Productos de la carta y recetas culinarias.
+- `CU-ADMIN-05`: Catálogo de proveedores de insumos.
+- `CU-ADMIN-06`: Ficha y recepción de compra de insumos.
 - `CU-ADMIN-08`: Personal, roles y permisos de sede.
 - `CU-ADMIN-09`: Horario de atención y feriados extraordinarios.
 - `CU-ADMIN-10`: Políticas y parámetros de reserva de salón.
@@ -125,19 +124,18 @@ Por cada nuevo Caso de Uso abordado, se ejecuta sin excepciones este flujo:
 
 ---
 
-## 5. Objetivo Inmediato de la Nueva Sesión: Auditoría y Trazabilidad del Local
+## 5. Estado Integral del Alcance Operativo (45 Casos de Uso 100% Culminados)
 
-Al iniciar una nueva sesión de chat, el asistente debe concentrarse en el siguiente caso de uso:
-
-### 👉 **`CU-ADMIN-16: Consultar log de auditoría del local`**
-
-#### 5.1 Propósito y Contexto de Negocio
-Centro de control de seguridad operativa y trazabilidad legal de sede que registra en bitácora inmutable todos los eventos críticos y sensibles del local (aperturas de turno, ventas cobradas, anulaciones de pedidos con mermas, notas de crédito emitidas, cierres Z con o sin descuadre, visados gerenciales de auditoría, registro de gastos operativos y modificaciones de recetas o cartas).
-
-#### 5.2 Requerimientos Clave
-- **Filtros Forenses Multidimensionales:** Búsqueda por rango de fechas, usuario responsable (Rol/Nombre), tipo de evento/operación (`caja_arqueo`, `pedido_anulado`, `nota_credito`, `gasto_manual`, etc.) y nivel de criticidad (`INFO`, `ADVERTENCIA`, `CRÍTICO`).
-- **Detalle Comparativo de Payload:** Drawer o modal de inspección forense que muestra los datos antes y después del evento (diff JSON amigable) y la dirección IP / User-Agent.
-- **Exportación Inmutable:** Descarga de registros forenses en PDF y Excel para auditorías corporativas o tributarias.
+El diseño de interfaces Grayscale Blueprint, arquitectura relacional en PostgreSQL 16 y contratos de API en Go de **RestaurantCloud AI** ha culminado al 100% su alcance operativo canónico:
+- **Autenticación y Plataforma:** `CU-AUTH-01`, `CU-AUTH-02` (2 CUs).
+- **Rol Propietario:** `CU-PROP-01` a `CU-PROP-06` consecutivos (6 CUs).
+- **Rol Administrador de Local:** `CU-ADMIN-01` a `06`, `08` a `14` (`14` absorbe `15`), `17`, `18`, `19` (16 CUs funcionales).
+- **Rol Mozo:** `CU-MOZO-01` a `CU-MOZO-09` (9 CUs).
+- **Rol Cocina / KDS:** `CU-COCINA-01` a `CU-COCINA-05` (5 CUs).
+- **Rol Cajero / POS:** `CU-CAJA-01` a `CU-CAJA-05` (5 CUs canónicos).
+- **Rol Cliente Web:** `CU-CLIENTE-01`, `CU-CLIENTE-02` (2 CUs).
+- **Casos Diferidos a Fase Futura (Backlog):** `CU-ADMIN-07`, `CU-ADMIN-16`, `CU-PROP-07`, `CU-PROP-08`, `CU-SAAS-04`, `CU-SAAS-05`.
+- **Casos Omitidos / Absorbidos:** Antiguo `CU-PROP-08` (descentralizado en `CU-PROP-04`, `CU-ADMIN-10`, `17`, `18`, `19`) y `CU-ADMIN-15` (absorbido en `CU-ADMIN-14`).
 
 ---
 
@@ -146,7 +144,8 @@ Centro de control de seguridad operativa y trazabilidad legal de sede que regist
 Cuando el usuario inicie el nuevo chat y salude o solicite continuar:
 1. **Confirma la lectura de este archivo** [`context/INSTRUCCIONES_NUEVA_SESION.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/INSTRUCCIONES_NUEVA_SESION.md).
 2. **Declara formalmente el estado del sistema:**
-   - Propietario (6 CUs), Administrador (17 CUs con `CU-ADMIN-14` completado e integrando `CU-ADMIN-15`), Mozo (9 CUs), Cocina (5 CUs), Cajero (5 CUs canónicos) y Cliente (2 CUs canónicos) están **100% culminados y consolidados (45 CUs totales)**.
-3. **Presenta de inmediato la propuesta de `/plan` interactivo para `CU-ADMIN-16: Consultar log de auditoría del local`**, desglosando el panel forense de eventos operativos y trazabilidad de sede.
+   - La fase de Wireframes, Modelado de Datos relacional y Contratos UI ↔ API está **100% culminada y consolidada (45 CUs canónicos)**.
+3. **Solicita al usuario las directrices para la siguiente etapa del proyecto:**
+   - Por ejemplo: Construcción del backend monolito modular en Go (arquitectura de capas, handlers, repositorios con RLS, eventos SSE), configuración de tests o integración de frontend.
 
 

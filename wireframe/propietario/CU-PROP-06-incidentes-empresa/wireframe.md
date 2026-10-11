@@ -1,4 +1,4 @@
-# CU-PROP-09: Ver Incidentes de la Empresa
+# CU-PROP-06: Ver Incidentes de la Empresa
 
 Especificación técnica de interfaz de usuario, arquitectura de información, estados UX y contratos de API para la supervisión y control ejecutivo de incidentes operativos en **RestaurantCloud AI**.
 
@@ -8,7 +8,7 @@ Especificación técnica de interfaz de usuario, arquitectura de información, e
 
 | Atributo | Detalle |
 | :--- | :--- |
-| **Código CU** | `CU-PROP-09` |
+| **Código CU** | `CU-PROP-06` |
 | **Nombre** | Ver incidentes de la empresa |
 | **Actor(es)** | `propietario` (acceso a todos los locales de la empresa) |
 | **Dispositivo / Viewport** | Responsive Desktop (`1440x900`), Tablet (`768x1024`), Mobile (`375x812`) |
@@ -73,9 +73,9 @@ sequenceDiagram
 
 ## 3. Especificación de Pantallas y Wireframes Blueprint
 
-### Vista 1: Bandeja Consolidada Multi-Sede (`wf_prop_09_bandeja_incidentes.jpg`)
+### Vista 1: Bandeja Consolidada Multi-Sede (`wf_prop_06_bandeja_incidentes.jpg`)
 
-![Bandeja Consolidada de Incidentes](assets/wf_prop_09_bandeja_incidentes.jpg)
+![Bandeja Consolidada de Incidentes](assets/wf_prop_06_bandeja_incidentes.jpg)
 
 #### Layout Estructural ASCII (Desktop 1440x900)
 ```text
@@ -129,9 +129,9 @@ sequenceDiagram
 
 ---
 
-### Vista 2: Modal de Detalle, Evidencia y Paso a Revisión (`wf_prop_09_detalle_incidente.jpg`)
+### Vista 2: Modal de Detalle, Evidencia y Paso a Revisión (`wf_prop_06_detalle_incidente.jpg`)
 
-![Detalle de Incidente y Paso a Revisión](assets/wf_prop_09_detalle_incidente.jpg)
+![Detalle de Incidente y Paso a Revisión](assets/wf_prop_06_detalle_incidente.jpg)
 
 #### Layout Estructural ASCII
 ```text
@@ -172,9 +172,9 @@ sequenceDiagram
 
 ---
 
-### Vista 3: Estado Vacío Positivo (`wf_prop_09_incidentes_vacio.jpg`)
+### Vista 3: Estado Vacío Positivo (`wf_prop_06_incidentes_vacio.jpg`)
 
-![Estado Vacío Positivo](assets/wf_prop_09_incidentes_vacio.jpg)
+![Estado Vacío Positivo](assets/wf_prop_06_incidentes_vacio.jpg)
 
 #### Layout Estructural ASCII
 ```text

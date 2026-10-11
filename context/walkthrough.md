@@ -215,19 +215,19 @@ Transferencia inmediata de la supervisión de un local a otro con advertencia cl
 
 ---
 
-## 10. Vistas Estructurales de CU-PROP-09 (Ver Incidentes de la Empresa)
+## 10. Vistas Estructurales de CU-PROP-06 (Ver Incidentes de la Empresa)
 
 ### Vista 1: Bandeja Consolidada Multi-Sede y Tarjetas KPI
 Supervisión corporativa con métricas de incidentes no revisados, hechos de gravedad alta en curso y total acumulado del mes, con filtrado multi-sede, categorías y alerta en vivo vía Server-Sent Events (SSE).
-![Bandeja Consolidada de Incidentes](C:/Users/chuiz/.gemini/antigravity/brain/74e37ba9-daaf-4ed1-9ce1-a249be0d0c2e/wf_prop_09_bandeja_incidentes.jpg)
+![Bandeja Consolidada de Incidentes](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/propietario/CU-PROP-06-incidentes-empresa/assets/wf_prop_06_bandeja_incidentes.jpg)
 
 ### Vista 2: Modal de Detalle con Marcado Automático de Lectura y Paso a Revisión
 Inspección pormenorizada de los hechos y evidencia fotográfica. Al abrir el modal, el backend registra automáticamente el acuse de lectura (`visto_por_propietario = true`, `fecha_visto = NOW()`). Si el propietario decide intervenir, puede redactar una directiva ejecutiva opcional (`nota_propietario`) y conmutar el estado a `en_revision`.
-![Detalle de Incidente y Paso a Revisión](C:/Users/chuiz/.gemini/antigravity/brain/74e37ba9-daaf-4ed1-9ce1-a249be0d0c2e/wf_prop_09_detalle_incidente.jpg)
+![Detalle de Incidente y Paso a Revisión](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/propietario/CU-PROP-06-incidentes-empresa/assets/wf_prop_06_detalle_incidente.jpg)
 
 ### Vista 3: Estado Vacío Positivo
 Pantalla informativa que valida que todas las sedes operan con normalidad sin novedades pendientes de revisión por parte del propietario.
-![Estado Vacío Positivo](C:/Users/chuiz/.gemini/antigravity/brain/74e37ba9-daaf-4ed1-9ce1-a249be0d0c2e/wf_prop_09_incidentes_vacio.jpg)
+![Estado Vacío Positivo](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/propietario/CU-PROP-06-incidentes-empresa/assets/wf_prop_06_incidentes_vacio.jpg)
 
 ---
 
@@ -661,11 +661,11 @@ Panel de supervisión interna en desktop (`1440x900`) para el Administrador del 
 ![Historial de Incidentes](C:/Users/chuiz/.gemini/antigravity/brain/74e37ba9-daaf-4ed1-9ce1-a249be0d0c2e/wf_admin_11_historial_incidentes.jpg)
 
 ### Vista 2: Modal de Registro con Checkbox Condicional de Colaborador y Alerta SSE (700px)
-Formulario estructurado para documentar anomalías operativas. Incorpora el control interactivo `[X] Involucra a un colaborador específico`, desplegando el selector de personal únicamente al activarse para no recargar la interfaz en casos fortuitos. Al clasificar la gravedad como **Alta**, la interfaz presenta un badge reactivo advirtiendo la emisión de una alerta Server-Sent Events (SSE) en tiempo real hacia el portal corporativo del Propietario (`CU-PROP-09`). Incluye dropzone blueprint para adjuntar fotografías o comprobantes (máx. 5MB).
+Formulario estructurado para documentar anomalías operativas. Incorpora el control interactivo `[X] Involucra a un colaborador específico`, desplegando el selector de personal únicamente al activarse para no recargar la interfaz en casos fortuitos. Al clasificar la gravedad como **Alta**, la interfaz presenta un badge reactivo advirtiendo la emisión de una alerta Server-Sent Events (SSE) en tiempo real hacia el portal corporativo del Propietario (`CU-PROP-06`). Incluye dropzone blueprint para adjuntar fotografías o comprobantes (máx. 5MB).
 ![Modal de Registro de Incidente](C:/Users/chuiz/.gemini/antigravity/brain/74e37ba9-daaf-4ed1-9ce1-a249be0d0c2e/wf_admin_11_registro_incidente_modal.jpg)
 
 ### Vista 3: Modal de Detalle, Directiva Corporativa y Resolución Definitiva (720px)
-Expediente completo del incidente con trazabilidad del hecho, colaborador y evidencia. Exhibe de forma destacada la **Directiva del Propietario** registrada desde `CU-PROP-09` (`nota_propietario`) y provee dos pestañas de acción claras: *Pestaña 1: Confirmar Resolución Definitiva (Cierre Inmutable)*, que exige obligatoriamente las acciones correctivas finales y congela el caso en modo solo lectura; y *Pestaña 2: Dejar en Investigación / Seguimiento*, para asentar avances de peritaje (`motivo_revision`) sin generar limbos indefinidos.
+Expediente completo del incidente con trazabilidad del hecho, colaborador y evidencia. Exhibe de forma destacada la **Directiva del Propietario** registrada desde `CU-PROP-06` (`nota_propietario`) y provee dos pestañas de acción claras: *Pestaña 1: Confirmar Resolución Definitiva (Cierre Inmutable)*, que exige obligatoriamente las acciones correctivas finales y congela el caso en modo solo lectura; y *Pestaña 2: Dejar en Investigación / Seguimiento*, para asentar avances de peritaje (`motivo_revision`) sin generar limbos indefinidos.
 ![Modal de Detalle y Resolución](C:/Users/chuiz/.gemini/antigravity/brain/74e37ba9-daaf-4ed1-9ce1-a249be0d0c2e/wf_admin_11_detalle_resolucion_modal.jpg)
 
 ### Vista 4: Estado Inicial / Vacío Positivo (Operación sin Incidentes Activos)
@@ -678,7 +678,7 @@ Pantalla de confirmación visual en desktop (`1440x900`) con KPIs en cero e ilus
 
 1. **Diferenciación de Responsabilidades (Local vs Propietario):**
    - **Administrador Local (`CU-ADMIN-11`):** Responsable operativo en la sede física. Registra el hecho en caliente, adopta medidas inmediatas de contención, conduce la investigación de campo y ejecuta el cierre definitivo con remediación técnica o disciplinaria.
-   - **Propietario (`CU-PROP-09`):** Supervisión multi-sede corporativa. Recibe alertas reactivas SSE ante incidentes críticos (`gravedad = alta`), visualiza el consolidado de todos los locales de la empresa y puede emitir directivas mandatorias (`nota_propietario`).
+   - **Propietario (`CU-PROP-06`):** Supervisión multi-sede corporativa. Recibe alertas reactivas SSE ante incidentes críticos (`gravedad = alta`), visualiza el consolidado de todos los locales de la empresa y puede emitir directivas mandatorias (`nota_propietario`).
 2. **Formulario Ágil con Checkbox Condicional:**
    - Muchos incidentes de restaurante no involucran directamente a un colaborador (cortes de energía, falla de hornos, queja por lentitud general de cocina, clientes conflictivos).
    - El control `[ ] Involucra a un colaborador específico` mantiene el formulario ultraligero por defecto (`empleado_id = NULL`). Solo al activarse se despliega la lista del personal de la sede (`CU-ADMIN-04`).
@@ -997,7 +997,7 @@ Composición dual:
 3. **Control Antifraude y Acuse Administrativo:**
    - Los mozos tienen autonomía para anular sin clave gerencial para no atrasar la cocina, pero el administrador debe visar cada novedad mediante `[ ✓ Marcar como Revisado ]` (`revisado = true`, `revisado_por`, `revisado_at`).
 4. **Puente Natural con Incidentes Internos (`CU-ADMIN-11`):**
-   - Una anulación no queda aislada: si involucra merma reiterada o sospecha de fraude, el sistema permite escalarla en 1 clic a un expediente formal correlativo (`INC-YYYY-###`), alertando al propietario en `CU-PROP-09` si la gravedad es calificada como alta.
+   - Una anulación no queda aislada: si involucra merma reiterada o sospecha de fraude, el sistema permite escalarla en 1 clic a un expediente formal correlativo (`INC-YYYY-###`), alertando al propietario en `CU-PROP-06` si la gravedad es calificada como alta.
 5. **Base Sólida para Reportes Gerenciales (`CU-ADMIN-13`):**
    - Al estar normalizada en `pedido_anulacion`, la generación de reportes mensuales de pérdidas por mermas y causas de anulación se ejecuta en < 2 milisegundos mediante índices compuestos por `(local_id, anulado_at)`.
 
