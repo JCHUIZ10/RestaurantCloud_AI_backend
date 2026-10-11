@@ -900,9 +900,22 @@ Para evitar la saturación de PostgreSQL por *table bloat* (acumulación de tupl
 
 ---
 
+### 2.10 Vistas y agregaciones analíticas para inteligencia de negocios (`CU-ADMIN-13`)
+
+Para garantizar que los dashboards gerenciales y reportes de ventas no degraden el rendimiento transaccional del motor relacional ni compitan por locks con las comandas activas, se establecen vistas analíticas de solo lectura y estrategias de agregación sobre `comanda`, `detalle_comanda` y `pedido_anulacion`:
+
+1. **`v_analitica_ventas_horarias`:** Agrega facturación neta, volumen de comandas y ticket promedio por hora de jornada (`hora_jornada` de 11h a 23h), categorizando automáticamente los picos de `almuerzo` (12h-15h) y `cena` (19h-22h).
+2. **`v_menu_engineering_cuadrantes`:** Cruza las unidades vendidas de cada plato con su margen de contribución unitario (`precio_venta - costo_estandar`). Calcula los umbrales medios de popularidad y rentabilidad por sede, clasificando los ítems en 4 cuadrantes (`ESTRELLA`, `CABALLITO`, `PUZLE`, `REZAGADO`).
+3. **`v_desempeno_mozos_salon`:** Consolida por mozo las mesas atendidas, facturación total generada, ticket medio, tiempo promedio de permanencia en mesa, ratio de **Upselling** (comandas con 2da ronda de bebidas/postres) y tasa de cancelaciones registradas vía `pedido_anulacion` (`CU-MOZO-06`).
+4. **Índices de aceleración analítica recomendados:**
+   - `CREATE INDEX idx_comanda_analitica ON comanda (sede_id, estado, created_at) WHERE estado = 'cobrada';`
+   - `CREATE INDEX idx_detalle_comanda_plato_analitica ON detalle_comanda (plato_id, comanda_id);`
+
+---
+
 ## 3. Recomendaciones para la siguiente etapa
 
-1. **Definir índices compuestos** por `(local_id, fecha)` en las tablas de alto volumen de consulta (`pedido`, `pedido_item`, `snapshot_stock_diario`) para acelerar reportes y forecasting.
+1. **Definir índices compuestos** por `(local_id, fecha)` en las tablas de alto volumen de consulta (`pedido`, `pedido_item`, `snapshot_stock_diario`, `comanda`) para acelerar reportes y forecasting.
 2. **Confirmar el motor de base de datos:** PostgreSQL 16 con Row-Level Security (RLS) para persistencia relacional y Redis 7 para datos volátiles/sesiones.
 3. **Definición de arquitectura de servicios:** Core API (Go) es el único servicio con acceso de escritura a PostgreSQL y acceso a Redis; AI Service solo lee de PostgreSQL.
 4. **Validación de precisión:** las tablas `producto_insumo` y `ficha_compra_detalle` son las de mayor sensibilidad para la precisión del forecasting; conviene validarlas con datos reales apenas se tenga el primer local operando.

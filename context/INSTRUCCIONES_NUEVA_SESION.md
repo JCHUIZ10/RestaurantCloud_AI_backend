@@ -62,7 +62,7 @@ Por cada nuevo Caso de Uso abordado, se ejecuta sin excepciones este flujo:
 
 ---
 
-## 4. Inventario Consolidado de Módulos Culminados (41 Casos de Uso)
+## 4. Inventario Consolidado de Módulos Culminados (44 Casos de Uso)
 
 ### 4.1 Autenticación y Acceso Transversal (`wireframe/`) — ✅ 100% CULMINADO
 - `CU-AUTH-01`: Login y selección de cuenta/sede.
@@ -76,7 +76,7 @@ Por cada nuevo Caso de Uso abordado, se ejecuta sin excepciones este flujo:
 - `CU-PROP-05`: Crear y gestionar administradores de local.
 - `CU-PROP-09`: Ver incidentes corporativos consolidados de la empresa.
 
-### 4.3 Rol Administrador del Local (`wireframe/administrador/`) — 🏢 100% CULMINADO (15 CUs)
+### 4.3 Rol Administrador del Local (`wireframe/administrador/`) — 🏢 100% CULMINADO (16 CUs)
 - `CU-ADMIN-01`: Gestión del plano de mesas de sede.
 - `CU-ADMIN-02`: Categorías de la carta gastronómica.
 - `CU-ADMIN-03`: Insumos y stock inicial.
@@ -89,6 +89,7 @@ Por cada nuevo Caso de Uso abordado, se ejecuta sin excepciones este flujo:
 - `CU-ADMIN-10`: Políticas y parámetros de reserva de salón.
 - `CU-ADMIN-11`: Historial de incidentes internos de sede.
 - `CU-ADMIN-12`: Notificación de anulación de pedido y auditoría de salón (Tabla `pedido_anulacion`, broadcast SSE reactivo con campana `[ 🔔 ]`, control de mermas y visado administrativo).
+- `CU-ADMIN-13`: Ver reportes de ventas y desempeño (Dashboard ejecutivo de 3 pestañas: Ventas y Horas Punta Almuerzo/Cena, Menú Engineering de 4 cuadrantes con Top 8, y Rendimiento individual de mozos con rotación, upselling y resiliencia de turnos; exportación en streaming HTTP Gzip).
 - `CU-ADMIN-17`: Gestionar promociones del local (Validación predictiva para caja, semántica NULL, cálculo antes de impuestos).
 - `CU-ADMIN-18`: Configurar parámetros operativos de comanda y tiempos de KDS (Tabla `configuracion_kds`, steppers táctiles de semáforo verde/ámbar/rojo y broadcast SSE a cocina < 30ms).
 - `CU-ADMIN-19`: Configurar métodos de pago y comisiones del local (Tabla `metodo_pago_local`, Efectivo, Tarjeta POS [+comisión], Yape/Plin, regla de al menos 1 medio activo y sincronización reactiva al POS).
@@ -123,19 +124,19 @@ Por cada nuevo Caso de Uso abordado, se ejecuta sin excepciones este flujo:
 
 ---
 
-## 5. Objetivo Inmediato de la Nueva Sesión: Casos de Uso Transversales
+## 5. Objetivo Inmediato de la Nueva Sesión: Reportes Financieros y Flujo de Caja
 
 Al iniciar una nueva sesión de chat, el asistente debe concentrarse en el siguiente caso de uso:
 
-### 👉 **`CU-TRANS-01: Recibir notificaciones del sistema`**
+### 👉 **`CU-ADMIN-14: Consultar flujo de caja del local`**
 
 #### 5.1 Propósito y Contexto de Negocio
-Centro unificado de alertas y notificaciones multirrol en tiempo real (Mozo, Cocina, Cajero, Administrador de Local y Propietario). Permite a los colaboradores estar informados de eventos operativos críticos: reservas próximas a expirar, pedidos anulados (`CU-MOZO-06`), stock crítico de insumos (`CU-ADMIN-05`), agotamiento de platos (`CU-COCINA-04`), incidentes reportados y discrepancias en arqueos de caja (`CU-CAJA-05`).
+Reporte analítico y de supervisión financiera que consolida en un solo panel los ingresos por ventas cobradas (`CU-CAJA-03`), los egresos por compras de insumos registradas a crédito/contado (`CU-ADMIN-06` / `CU-ADMIN-07`), los gastos operativos manuales de sede (servicios, alquiler, mantenimiento) y el balance financiero neto resultante de la jornada o período seleccionado.
 
 #### 5.2 Requerimientos Clave
-- **Indicador y Centro de Notificaciones:** Ícono de campana en cabecera con contador de no leídas (`badge`) y panel desplegable (drawer/popover) categorizado por severidad (Informativa, Advertencia, Crítica).
-- **Redirección Operativa (Deep-Linking):** Al pulsar una notificación, redirige inmediatamente a la entidad correspondiente (mesa en salón, ticket en KDS, ficha de stock o incidente).
-- **Conexión en Tiempo Real y Polling:** Recepción reactiva mediante Server-Sent Events (SSE) y respaldo periódico cada 15-30 segundos.
+- **Consolidación de Ingresos y Egresos:** Visualización del flujo monetario discriminado por métodos de pago y cuentas bancarias/gaveta.
+- **Registro Ágil de Gastos Menores:** Modal para registrar egresos manuales no vinculados a compras formales de proveedores, con categoría de gasto, comprobante y sustento.
+- **Exportación en Streaming HTTP:** Descarga de balance contable en PDF y Excel con compresión Gzip nativa.
 
 ---
 
@@ -144,7 +145,7 @@ Centro unificado de alertas y notificaciones multirrol en tiempo real (Mozo, Coc
 Cuando el usuario inicie el nuevo chat y salude o solicite continuar:
 1. **Confirma la lectura de este archivo** [`context/INSTRUCCIONES_NUEVA_SESION.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/INSTRUCCIONES_NUEVA_SESION.md).
 2. **Declara formalmente el estado del sistema:**
-   - Propietario (6 CUs), Administrador (15 CUs), Mozo (9 CUs), Cocina (5 CUs), Cajero (5 CUs canónicos) y Cliente (2 CUs canónicos) están **100% culminados y consolidados (43 CUs totales)**.
-3. **Presenta de inmediato la propuesta de `/plan` interactivo para `CU-TRANS-01: Recibir notificaciones del sistema`**, desglosando el centro de notificaciones multirrol, la campana de alertas y la navegación profunda a módulos operativos.
+   - Propietario (6 CUs), Administrador (16 CUs con `CU-ADMIN-13` completado), Mozo (9 CUs), Cocina (5 CUs), Cajero (5 CUs canónicos) y Cliente (2 CUs canónicos) están **100% culminados y consolidados (44 CUs totales)**.
+3. **Presenta de inmediato la propuesta de `/plan` interactivo para `CU-ADMIN-14: Consultar flujo de caja del local`**, desglosando el panel financiero de ingresos, egresos y balance neto operativo.
 
 

@@ -1778,3 +1778,54 @@ Se diseñaron, renderizaron y optimizaron 4 vistas en resolución canónica (144
    - `GET /api/v1/public/comprobantes/:token/pdf`: Descarga de representación impresa oficial.
    - `GET /api/v1/public/comprobantes/:token/xml`: Descarga de archivo estructurado electrónico UBL 2.1.
 
+---
+
+## 76. Vistas Wireframe y Arquitectura de `CU-ADMIN-13: Ver Reportes de Ventas y Desempeño`
+
+Se diseñaron, renderizaron y validaron 4 vistas en resolución canónica (1440x900, JPG calidad 95) ubicadas en [`wireframe/administrador/CU-ADMIN-13-reportes-ventas/assets/`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-13-reportes-ventas/assets/):
+
+### Vista 1: Dashboard Estratégico & KPIs de Ventas (`wf_admin_13_dashboard_ventas.jpg`)
+![Vista 1: Dashboard Estratégico y KPIs](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-13-reportes-ventas/assets/wf_admin_13_dashboard_ventas.jpg)
+- **Barra de Navegación Modular y Filtros:** Pestañas especializadas `[ 📈 Ventas Generales (Activo) ]`, `[ 🍽️ Menú & Platos ]`, `[ 👥 Equipo de Salón ]`, filtros temporales (`Hoy`, `Ayer`, `Semana`, `Este Mes (Octubre)`), checkbox `[✓ vs. Mes anterior]` para cálculo de deltas y botón `[ 📥 Exportar Reporte ]`.
+- **4 Tarjetas de KPIs Clave:**
+  - *Facturación Total Neta:* `S/ 28,450.00` con delta verde `▲ +12.4%` y desglose de base imponible gravada (`S/ 24,110.17`) e IGV 18% (`S/ 4,339.83`).
+  - *Comandas Cobradas:* `412 Cuentas` (`▲ +5.2%`) con promedio diario de `13.7 mesas/día`.
+  - *Ticket Promedio:* `S/ 69.05 / mesa` (`▲ +6.8%`) y gasto individual por comensal de `S/ 24.30` (1,170 comensales atendidos).
+  - *Rotación Media de Mesa:* `48 Minutos` con reducción de permanencia de `▼ -4 min` (mayor agilidad desde pedido hasta pago).
+- **Curva Horaria de Facturación (11h a 22h):** Gráfico de barras de alta legibilidad destacando los dos momentos cumbre de la jornada:
+  - *Pico Almuerzo (13:00 - 15:00):* Concentra el 45.6% de los ingresos (`S/ 12,940.00`), con alto volumen ejecutivo y rotación rápida.
+  - *Pico Cena (20:00 - 22:00):* Concentra el 38.8% de los ingresos (`S/ 11,030.00`), con mayor ticket promedio por consumo familiar.
+- **Recaudación por Medios de Pago (`CU-ADMIN-19`):** Tarjetas POS (`S/ 15,363.00`, 54%), Efectivo (`S/ 9,104.00`, 32%) y Billeteras Digitales Yape/Plin (`S/ 3,983.00`, 14%).
+- **Emisión por Tipo de Comprobante (`CU-CAJA-03` / `CU-CAJA-04`):** Boletas Electrónicas (280, 68%), Facturas Electrónicas (99, 24%), Notas de Venta (33, 8%) y Notas de Crédito por anulación (3, 0.7%).
+
+### Vista 2: Menú Engineering & Mix Culinario (`wf_admin_13_menu_engineering.jpg`)
+![Vista 2: Menú Engineering y Mix Culinario](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-13-reportes-ventas/assets/wf_admin_13_menu_engineering.jpg)
+- **Matriz de 4 Cuadrantes de Menú Engineering:**
+  - *⭐ ESTRELLAS (Alta Venta • Alto Margen):* 1/4 Pollo a la Brasa (148 u. • Margen 68%) y Lomo Saltado (92 u. • Margen 62%). Estrategia: Preservar receta, calidad y visibilidad preferencial.
+  - *🐎 CABALLITOS (Alta Venta • Margen Medio):* Arroz Chaufa Especial (114 u. • Margen 42%) y Papas Nativas Grandes (86 u. • Margen 39%). Estrategia: Negociar insumos con proveedores o aplicar micro-ajuste de precio.
+  - *🧩 PUZLES (Baja Venta • Alto Margen):* Parrilla Especial de Lomo (28 u. • Margen 71%) y Tiradito de Ají Amarillo (22 u. • Margen 66%). Estrategia: Impulsar recomendación activa de mozos en salón y combos promocionales (`CU-ADMIN-17`).
+  - *⚠️ REZAGADOS (Baja Venta • Bajo Margen):* Sopa Criolla Familiar (14 u. • Margen 34%) y Ensalada Mixta Simple (16 u. • Margen 31%). Estrategia: Evaluar reformulación o descontinuar en carta (`CU-ADMIN-01`).
+- **Tabla Top 8 Platos Más Vendidos:** Ranking por unidades vendidas, importe facturado, participación del mix de ventas y estado de stock en tiempo real.
+- **Participación por Categoría:** Pollos & Brasas (42.5%), Parrillas & Carnes (26.1%), Bebidas & Bar (15.4%), Guarniciones (9.2%) y Postres (6.8%).
+- **Hallazgo Culinario & Alertas:** Nota contextual destacando que Brasas y Parrillas representan el 68.6% del revenue, alertando sobre quiebre de stock en Torta Helada de Maracuyá durante el fin de semana (`CU-COCINA-04`).
+
+### Vista 3: Productividad del Equipo de Salón & Operaciones de Turno (`wf_admin_13_desempeno_mozos.jpg`)
+![Vista 3: Productividad del Equipo de Salón](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-13-reportes-ventas/assets/wf_admin_13_desempeno_mozos.jpg)
+- **Modalidad Operativa Adaptable de Turnos:**
+  - En sedes de *Doble Turno*, visualiza comparativa entre Turno Mañana (11:30 - 16:30, 228 mesas, S/ 15,932.00) y Turno Noche (18:30 - 23:30, 184 mesas, S/ 12,518.00).
+  - En locales que operan en *Turno Único Continuo*, el sistema se adapta limpiamente consolidando el 100% de la jornada continua sin forzar comparaciones artificiales ni generar errores de datos nulos.
+- **Tabla de Rendimiento Individual de Mozos (`CU-MOZO-02`):**
+  - Auditoría de mesas atendidas, facturación directa atribuible y ticket medio por mesa.
+  - *Tiempo Promedio de Mesa:* Detección de agilidad con badges (`Rápido`, `Óptimo`, `Lento`). Marco Valdivia rota mesas en 44 min (9 min más rápido que el promedio).
+  - *Upselling de 2da Ronda:* Medición de mesas donde el mozo logró colocar rondas adicionales de bebidas o postres (38.0% en líder de salón), incrementando el ticket promedio en +S/ 14.50.
+  - *Auditoría de Anulaciones:* Conteo transparente de ítems revocados con `CU-MOZO-06` para identificar errores de comandera móvil o incidentes en cocina.
+  - *Insignias de Desempeño:* Reconocimiento motivacional (`👑 LÍDER VENTAS`, `⭐ DESTACADO`, `⚠️ POR MEJORAR`).
+
+### Vista 4: Modal de Exportación Asíncrona con Streaming (`wf_admin_13_modal_exportar.jpg`)
+![Vista 4: Modal de Exportación](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-13-reportes-ventas/assets/wf_admin_13_modal_exportar.jpg)
+- **Selector de Formato:** Tarjetas interactivas para elegir entre `Reporte Ejecutivo en PDF` (documento formal con gráficos vectoriales y balance gerencial) y `Hoja de Cálculo Excel / CSV` (datos tabulares desglosados para contabilidad).
+- **Rango de Fechas Personalizado:** Selección precisa de fechas `Desde` y `Hasta`.
+- **Selector Modular de Secciones:** Checkboxes independientes para incluir o excluir Resumen Financiero, Curva Horaria, Mix Culinario, Productividad de Mozos, Medios de Pago / SUNAT o Detalle Comanda por Comanda.
+- **Garantía de Rendimiento y Streaming HTTP:** Aviso pedagógico sobre la descarga en streaming HTTP con compresión nativa Gzip (`Transfer-Encoding: chunked`), transfiriendo chunks binarios directamente al disco local y reduciendo el consumo de ancho de banda en ~80% sin sobrecargar la memoria RAM del servidor ni del cliente.
+
+

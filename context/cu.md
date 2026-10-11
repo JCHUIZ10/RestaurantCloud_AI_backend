@@ -798,18 +798,29 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 ### CU-ADMIN-13: Ver reportes de ventas y desempeño
 
-**Actor(es):** Administrador del local
+**Actor(es):** Administrador del local (Gerente de Sede / Administrador Operativo)
 
-**Precondiciones:** Existe actividad de ventas registrada.
+**Precondiciones:** El administrador tiene una sesión activa (`rol: administrador` o `rol: propietario`) con sede asignada. Existen comandas cobradas y cerradas en caja (`CU-CAJA-03`).
 
 #### Flujo principal
 
-1. El administrador accede a "Reportes".
-2. Selecciona tipo (ventas por periodo, por producto, por mesero) y rango de fechas.
-3. El sistema genera el reporte.
-4. El administrador exporta en PDF/Excel.
+1. El administrador accede a la sección "Reportes" → "Ventas y Desempeño" en su panel administrativo.
+2. El sistema despliega el **Dashboard Estratégico y Analítico de Ventas**, organizado en tres pestañas especializadas para prevenir sobrecarga cognitiva y optimizar transferencia de red:
+   - **Pestaña 1: Ventas Generales & KPIs:** 4 métricas macro (Facturación Total Neta con desglose gravado/IGV, Comandas Cobradas con promedio diario, Ticket Promedio por mesa y comensal, Rotación Media de Mesa en minutos); Histograma de Curva Horaria con identificación visual de horas punta (Almuerzo 13h-15h vs Cena 20h-22h); Distribución de recaudación por Medios de Pago (POS, Efectivo, Billeteras Digitales `CU-ADMIN-19`) y desglose de emisión tributaria SUNAT (Boletas, Facturas, Notas de Venta, Notas de Crédito `CU-CAJA-03` / `CU-CAJA-04`).
+   - **Pestaña 2: Menú Engineering & Mix Culinario:** Matriz de 4 cuadrantes basada en la ingeniería de menú (Estrellas: alta venta y alto margen; Caballitos: alta venta y margen medio/bajo; Puzles: baja venta y alto margen; Rezagados: baja demanda y bajo margen); Top 8 Platos más vendidos con alerta de quiebre de stock si aplica (`CU-COCINA-04`); y Gráfico de cuota de mercado por categoría culinaria.
+   - **Pestaña 3: Productividad del Equipo de Salón & Operaciones de Turno:** Métricas de rendimiento individual por mozo (mesas atendidas, facturación generada, ticket promedio, tiempo medio de rotación de mesa, efectividad de Upselling de 2da ronda de bebidas/postres y auditoría de anulaciones trazadas a `CU-MOZO-06`); y Bloque adaptable de turnos que detecta si el local opera en Doble Turno (Almuerzo y Cena) o en Turno Único Continuo (consolidando el 100% de la actividad sin forzar comparativas).
+3. El administrador filtra por período (`Hoy`, `Ayer`, `Semana`, `Este Mes` o rango personalizado) con opción de activar comparativa delta porcentual contra el período anterior (`vs. Mes anterior`).
+4. El administrador puede pulsar `[ 📥 Exportar Reporte ]`:
+   - El sistema despliega el modal de configuración de exportación permitiendo seleccionar el formato (`Reporte Ejecutivo en PDF` o `Hoja de Cálculo Excel / CSV`) y marcar modularmente las secciones a incluir.
+   - El backend Go transmite el archivo mediante **Streaming HTTP Asíncrono** con compresión nativa Gzip (`Transfer-Encoding: chunked`), transfiriendo los datos directamente al disco del dispositivo sin saturar la memoria RAM.
 
-**Postcondiciones:** Reporte generado/exportado.
+#### Flujos alternativos
+
+- **Sede con Turno Único Continuo:** Si la sede gastronómica opera en horario ininterrumpido (ej. 12:00 a 22:00 sin división de turnos), el sistema adapta automáticamente la tarjeta de operaciones de turno en la Pestaña 3 para mostrar una sola métrica unificada de jornada, evitando mostrar bloques vacíos o comparativas artificiales.
+- **Período sin Actividad (Estado Vacío):** Si el rango seleccionado no registra comandas cobradas, el sistema muestra una tarjeta informativa neutral con invitación a ampliar el filtro de fechas o pulsar `[ Ver Últimos 30 Días ]`.
+- **Detección de Plato en Quiebre:** Si un plato clave del Top 8 o cuadrante Puzles sufrió quiebres de stock temporales en cocina (`CU-COCINA-04`), el sistema añade una nota explicativa al pie para que la baja rotación no sea atribuida erróneamente a falta de demanda de los clientes.
+
+**Postcondiciones:** Métricas analíticas consultadas en tiempo real; reportes consolidados exportados en streaming de solo lectura sin alteración del estado operacional.
 
 ---
 

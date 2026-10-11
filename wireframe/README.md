@@ -114,6 +114,7 @@ La bitácora histórica detallada de todas las decisiones, esquemas y capturas s
 | **`CU-ADMIN-10`** | Políticas y parámetros de reservas | ✅ Completado | `wireframe/administrador/CU-ADMIN-10-politicas-reservas/` |
 | **`CU-ADMIN-11`** | Historial de incidentes internos de sede | ✅ Completado | `wireframe/administrador/CU-ADMIN-11-incidentes-internos/` |
 | **`CU-ADMIN-12`** | Recibir notificación de anulación de pedido y auditoría | ✅ Completado | `wireframe/administrador/CU-ADMIN-12-notificacion-anulacion/` |
+| **`CU-ADMIN-13`** | Ver reportes de ventas y desempeño (Dashboard, Menú Engineering y Mozos) | ✅ Completado | `wireframe/administrador/CU-ADMIN-13-reportes-ventas/` |
 | **`CU-ADMIN-17`** | Gestionar promociones del local | ✅ Completado | `wireframe/administrador/CU-ADMIN-17-gestionar-promociones/` |
 | **`CU-ADMIN-18`** | Configurar parámetros operativos de comanda y tiempos de KDS | ✅ Completado | `wireframe/administrador/CU-ADMIN-18-configurar-parametros-kds/` |
 | **`CU-ADMIN-19`** | Configurar métodos de pago y comisiones de cobro del local | ✅ Completado | `wireframe/administrador/CU-ADMIN-19-configurar-metodos-pago/` |
@@ -148,7 +149,7 @@ La bitácora histórica detallada de todas las decisiones, esquemas y capturas s
 > - `CU-CLIENTE-01`: Catálogo digital interactivo web de la carta accesible por enlace amigable (`https://app.restaurantcloud.pe/sede/:slug/carta`), botones de contacto directo a WhatsApp y llamada, buscador en tiempo real, carrusel de categorías y sincronización en vivo con quiebres de cocina.
 > - `CU-CLIENTE-02`: Visor digital de comprobantes electrónicos (Boletas, Facturas y Notas de Venta) con capability token seguro (`token_qr` UUID v8), descarga de PDF oficial y XML electrónico (UBL 2.1), auditoría de comprobantes anulados con Nota de Crédito, y estricta privacidad de datos personales (cero búsqueda por DNI/RUC).
 >
-> 🏆 **TOTAL ACUMULADO:** **43 Casos de Uso 100% Culminados** con diseño de pantalla canónico, arquitectura de datos y contratos Go.
+> 🏆 **TOTAL ACUMULADO:** **44 Casos de Uso 100% Culminados** con diseño de pantalla canónico, arquitectura de datos y contratos Go.
 
 **Próximo Módulo a Abordar:**
-👉 **`CU-TRANS-01: Recibir notificaciones del sistema`** (Centro de alertas y notificaciones multirrol en tiempo real).
+👉 **`CU-ADMIN-14: Consultar flujo de caja del local`** (Reporte integral de ingresos de ventas, egresos de compras y gastos operativos con balance neto).
