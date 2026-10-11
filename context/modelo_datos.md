@@ -8,7 +8,7 @@
 * Se recomienda activar **Row-Level Security (RLS)** en PostgreSQL sobre `empresa_id` para que el aislamiento entre *tenants* lo garantice la base de datos, no solo el código de la aplicación.
 * `usuario.correo` es único **por empresa** (`UNIQUE(empresa_id, correo)`), permitiendo que una misma persona tenga cuentas independientes en distintos restaurantes/empresas (resuelto en login mediante `CU-AUTH-01`).
 * Toda tabla operativa de un local incluye `local_id`, y a través de `local.empresa_id` se resuelve el *tenant* — no es necesario duplicar `empresa_id` en cada tabla hija de `local`.
-* Los identificadores primarios (`id`) se recomiendan como **UUID** para entidades transaccionales y operativas para evitar colisiones y facilitar la sincronización por *tenant*. Las tablas de catálogo (`plan.id`) utilizan identificador numérico secuencial (`int`: 1 = Starter, 2 = Pro, 3 = Enterprise) para simplificar comparaciones de jerarquía de nivel y reglas de negocio.
+* Los identificadores primarios (`id`) se implementan como **UUID v8 (RFC 9562 time-ordered)** para todas las entidades transaccionales y operativas (`empresa`, `local`, `pedido`, `comprobante`, `cliente`, etc.). A diferencia de UUID v4 (aleatorio que genera fragmentación severa en índices B-tree de PostgreSQL y sobrecosto de I/O en disco), UUID v8 incorpora ordenamiento temporal secuencial y alta entropía criptográfica, garantizando indexación óptima por orden cronológico de inserción, soporte nativo en el tipo `uuid` de PostgreSQL y reducción drástica de *page splits*. Las tablas de catálogo (`plan.id`) utilizan identificador numérico secuencial (`int`: 1 = Starter, 2 = Pro, 3 = Enterprise) para simplificar comparaciones de jerarquía de nivel y reglas de negocio.
 * Las políticas y parámetros de reserva viven en la tabla dedicada 1:1 `politicas_reserva` (asociada a `local_id`), evitando sobrecargar la entidad `local` y aprovisionándose únicamente para empresas en planes superiores (Pro y Enterprise), lo que optimiza el tamaño de tupla y la tasa de aciertos de caché en PostgreSQL.
 * `horario_atencion` y `horario_excepcion` permiten múltiples turnos por día y cierres puntuales, sin sobrecargar la tabla `local`.
 * **Política de preservación no destructiva (*Soft Archival*):** Cuando una empresa reduce su plan (*downgrade*), los recursos excedentes (`local`, `piso`, `mesa`, `usuario`) nunca se eliminan físicamente de la base de datos (`DELETE` estrictamente prohibido). En su lugar, se conmutan a `estado = 'inactivo'`. Esto garantiza la integridad referencial de auditoría, ventas históricas y reportes contables, permitiendo reactivarlos en un solo clic si el restaurante vuelve a mejorar su plan en el futuro.
@@ -495,8 +495,10 @@ Pedido o comanda asociada a una mesa en salón (cuenta abierta de consumo).
 | `local_id` | UUID | FK -> local (ON DELETE CASCADE) | Local al que pertenece |
 | `mesa_id` | UUID | FK -> mesa (ON DELETE RESTRICT) | Mesa de origen de la comanda |
 | `mozo_id` | UUID | FK -> usuario (ON DELETE RESTRICT) | Mozo responsable de la mesa |
-| `estado` | enum | DEFAULT 'enviado' | `borrador`, `enviado`, `cobrado`, `anulado` |
+| `estado` | enum | DEFAULT 'enviado' | `borrador`, `enviado`, `cuenta_pedida`, `cobrado`, `anulado` |
 | `comensales` | int | DEFAULT 1 CHECK (comensales > 0) | Cantidad de personas en la mesa |
+| `precuenta_generada_at` | timestamp with time zone | nullable | Momento en que se emitió la precuenta digital (`CU-CAJA-02`) |
+| `promocion_id` | UUID | nullable FK -> promocion (ON DELETE RESTRICT) | Promoción comercial activa aplicada a la mesa (`CU-ADMIN-17`) |
 | `created_at` | timestamp with time zone | DEFAULT NOW() | Fecha de creación del pedido |
 | `updated_at` | timestamp with time zone | DEFAULT NOW() | Fecha de última modificación |
 
@@ -529,6 +531,47 @@ Pedido o comanda asociada a una mesa en salón (cuenta abierta de consumo).
    - `CREATE INDEX idx_pedido_item_despachados_recientes ON pedido_item(pedido_id, fecha_listo_cocina) WHERE estado = 'listo';`: Acelera la consulta de pedidos despachados en los últimos 30 minutos para la función de recuperación ("Devolver a Cocina").
 3. **Rollback Atómico de Insumos al Deshacer (Undo 30s):** Al presionar `[ ↺ Deshacer ]` dentro de la ventana de 30 segundos, el sistema revierte atómicamente el estado a `'en_preparacion'`, limpia `fecha_listo_cocina = NULL` y ejecuta la restitución exacta de stock en `insumo`:
    `UPDATE insumo i SET stock_actual = i.stock_actual + (pi.cantidad * pin.cantidad_descuenta), estado = CASE WHEN (i.stock_actual + (pi.cantidad * pin.cantidad_descuenta)) > 0 THEN 'disponible' ELSE i.estado END, updated_at = NOW() FROM producto_insumo pin WHERE pin.producto_id = pi.producto_id AND i.id = pin.insumo_id;`, protegiendo el 100% de la integridad de los kardex de bodega.
+
+#### `pedido_subcuenta`
+
+Subcuentas de pago generadas al dividir una comanda entre varios comensales en mesa (`CU-MOZO-09`) o en counter POS (`CU-CAJA-04`). Permite que cada parte elija su propio tipo de comprobante (Boleta, Factura o Nota de Venta), aplique su propia promoción comercial independiente (`CU-ADMIN-17`) y declare su medio de pago preferido.
+
+| Campo | Tipo | Clave / Restricción | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id` | UUID | PK | Identificador único de la subcuenta |
+| `pedido_id` | UUID | FK -> pedido (ON DELETE CASCADE) | Comanda padre a la que pertenece |
+| `numero_subcuenta` | int | NOT NULL CHECK (numero_subcuenta >= 1) | Correlativo de subcuenta (1, 2, 3...) |
+| `promocion_id` | UUID | nullable FK -> promocion (ON DELETE RESTRICT) | Promoción comercial independiente aplicada a esta subcuenta (`CU-ADMIN-17`) |
+| `tipo_comprobante` | enum | NOT NULL | `boleta`, `factura`, `nota_venta` |
+| `documento_cliente` | varchar(20) | nullable | RUC (11 dígitos para factura) o DNI/CE (8 dígitos para boleta); NULL en nota_venta |
+| `nombre_cliente` | varchar(150) | NOT NULL | Razón Social, Nombre de titular o Nombre informal en nota de venta |
+| `direccion_cliente` | varchar(255) | nullable | Dirección fiscal (autocompletada por API SUNAT si es Factura) |
+| `metodo_pago_id` | UUID | nullable FK -> metodo_pago_local (ON DELETE RESTRICT) | Método de pago configurado en la sede |
+| `medio_pago` | enum | NOT NULL | `efectivo`, `tarjeta`, `billetera_digital` |
+| `subtotal_bruto` | decimal(10, 2) | NOT NULL CHECK (subtotal_bruto > 0) | Consumo bruto de los platos asignados |
+| `descuento` | decimal(10, 2) | NOT NULL DEFAULT 0.00 | Descuento aplicado por promoción a esta subcuenta |
+| `monto_recargo` | decimal(10, 2) | NOT NULL DEFAULT 0.00 | Recargo por comisión de pasarela (+3.5%) |
+| `total` | decimal(10, 2) | NOT NULL CHECK (total > 0) | Importe neto final a liquidar: `(subtotal_bruto - descuento) + monto_recargo` |
+| `estado` | enum | NOT NULL DEFAULT 'pendiente' | `pendiente`, `cobrado`, `anulado` |
+| `comprobante_id` | UUID | nullable FK -> comprobante (ON DELETE SET NULL) | Comprobante fiscal emitido al cobrar en Caja (`CU-CAJA-03`) |
+| `created_at` | timestamp with time zone | DEFAULT NOW() | Fecha de creación de la subcuenta |
+| `updated_at` | timestamp with time zone | DEFAULT NOW() | Fecha de última modificación |
+
+Restricción de unicidad: `UNIQUE(pedido_id, numero_subcuenta)`.
+
+#### `pedido_subcuenta_item`
+
+Asignación detallada de ítems de la comanda hacia cada subcuenta, con soporte para desglosar unidades fraccionadas si la cantidad original fue mayor a 1 (`CU-MOZO-09`).
+
+| Campo | Tipo | Clave / Restricción | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id` | UUID | PK | Identificador único de la asignación |
+| `subcuenta_id` | UUID | FK -> pedido_subcuenta (ON DELETE CASCADE) | Subcuenta a la que se destina el ítem |
+| `pedido_item_id` | UUID | FK -> pedido_item (ON DELETE RESTRICT) | Ítem original de la comanda |
+| `cantidad` | int | NOT NULL CHECK (cantidad > 0) | Cantidad de porciones asignadas a esta subcuenta |
+| `precio_unitario` | decimal(10, 2) | NOT NULL CHECK (precio_unitario >= 0) | Precio unitario congelado del plato |
+| `subtotal` | decimal(10, 2) | NOT NULL CHECK (subtotal >= 0) | `cantidad * precio_unitario` |
+| `created_at` | timestamp with time zone | DEFAULT NOW() | Fecha de asignación |
 
 ---
 
@@ -564,43 +607,137 @@ Promoción y descuento configurado por el Administrador del local para incentiva
 2. **Índice Parcial para Caja (`CU-CAJA-02`):** `CREATE INDEX idx_promocion_caja_vigencia ON promocion(local_id, fecha_inicio, fecha_fin) WHERE activa = true;` garantiza que las consultas de cobro en el POS se ejecuten en sub-milisegundos (< 1ms).
 3. **Salvaguarda de Integridad Contable (Prohibición de DELETE Físico):** La clave foránea `comprobante.promocion_id REFERENCES promocion(id) ON DELETE RESTRICT` impide que una promoción con ventas pasadas sea borrada de la base de datos (`ERR_PROMOCION_CON_HISTORIAL`). Se debe utilizar el switch de estado (`activa = false`) para pausarla sin quebrar la auditoría contable ni reportes históricos. Si tiene 0 usos (`usos_actuales == 0`), sí se permite el borrado físico.
 
-#### `caja`
+#### `metodo_pago_local`
 
-Apertura y cierre de caja por turno/día.
+Configuración y disponibilidad de formas de pago aceptadas en la sede con comisiones y recargos porcentuales trasladados al comensal (`CU-ADMIN-19`).
 
 | Campo | Tipo | Clave / Restricción | Descripción |
 | :--- | :--- | :--- | :--- |
-| `id` | UUID | PK | Identificador |
-| `local_id` | UUID | FK -> local | Local al que pertenece |
-| `cajero_id` | UUID | FK -> usuario | Cajero responsable |
-| `fecha_apertura` | timestamp | — | Momento de apertura |
-| `monto_apertura` | decimal | — | Fondo inicial |
-| `fecha_cierre` | timestamp | nullable | Momento de cierre |
-| `monto_esperado` | decimal | nullable | Monto calculado por el sistema |
-| `monto_real` | decimal | nullable | Monto contado físicamente |
-| `discrepancia` | decimal | nullable | Diferencia entre real y esperado |
-| `comentario_discrepancia` | text | nullable | Justificación si hay diferencia |
-| `estado` | enum | — | abierta, cerrada |
+| `id` | UUID | PK | Identificador único del método de pago |
+| `local_id` | UUID | FK -> local (ON DELETE CASCADE) | Local/sede al que aplica la configuración |
+| `codigo` | varchar(30) | NOT NULL | Identificador canónico: `efectivo`, `tarjeta`, `billetera_digital`, `transferencia` |
+| `nombre` | varchar(60) | NOT NULL | Nombre visible en el POS: "Efectivo", "Tarjeta (POS)", "Yape / Plin" |
+| `activo` | boolean | NOT NULL DEFAULT true | Switch de habilitación en el Punto de Venta |
+| `comision_porcentaje` | decimal(5, 2) | NOT NULL DEFAULT 0.00 CHECK (comision_porcentaje >= 0 AND comision_porcentaje <= 50.00) | Recargo porcentual trasladado al cliente (default 0.00%) |
+| `datos_adicionales` | jsonb | DEFAULT '{}'::jsonb | Metadata: `{"telefono": "987654321", "titular": "Restaurant S.A.C.", "qr_url": "..."}` |
+| `icono` | varchar(30) | DEFAULT 'wallet' | Icono para el POS móvil y pantalla de precuenta |
+| `orden` | int | NOT NULL DEFAULT 1 CHECK (orden >= 1) | Posición de ordenamiento en la botonera de cobro |
+| `created_at` | timestamp with time zone | NOT NULL DEFAULT NOW() | Fecha de registro |
+| `updated_at` | timestamp with time zone | NOT NULL DEFAULT NOW() | Fecha de última modificación |
+
+Restricciones e Índices:
+```sql
+ALTER TABLE metodo_pago_local ADD CONSTRAINT uq_metodo_pago_local UNIQUE(local_id, codigo);
+CREATE INDEX IF NOT EXISTS idx_metodo_pago_local_pos ON metodo_pago_local(local_id, orden) WHERE activo = true;
+```
+
+##### Reglas de Integridad y Parametrización Financiera (`CU-ADMIN-19`):
+1. **Regla de No-Paralización de Cajas (Mínimo 1 Medio Activo):** La sede debe mantener al menos un método de pago en estado `activo = true` en todo momento. Si el administrador intenta desactivar el último método disponible, el backend bloquea la acción con `409 Conflict (ERR_MINIMO_UN_PAGO)`.
+2. **Semántica de Comisión Cero por Defecto:** Toda sede recién creada nace con los métodos estándar con `comision_porcentaje = 0.00%`. El efectivo tiene recargo inmutable fijado en 0.00%.
+3. **Sincronización Reactiva SSE:** Al actualizar comisiones o conmutar métodos, el backend emite `metodos_pago_actualizados` vía SSE, refrescando los botones del Punto de Venta en < 30ms.
+4. **Inicialización Segura de Billeteras Digitales (Poka-Yoke Operativo):** A diferencia de Efectivo o Tarjeta (que operan con hardware independiente), `billetera_digital` nace **deshabilitada por defecto (`activo = false`)** en sedes nuevas hasta que el administrador registre obligatoriamente el número de celular receptor de 9 dígitos y la razón social del titular. Esto garantiza que el cajero en `CU-CAJA-03` nunca intente cobrar a un número en blanco ni imprima códigos QR vacíos en la precuenta.
+
+#### `caja`
+
+Apertura y cierre de caja por turno/día. El sistema opera bajo la **Política de Terminal Única de Caja** por sede para máxima agilidad de gestión y estricta integridad contable.
+
+| Campo | Tipo | Clave / Restricción | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id` | UUID | PK | Identificador único del turno de caja |
+| `local_id` | UUID | FK -> local NOT NULL | Local/sede al que pertenece la caja |
+| `cajero_id` | UUID | FK -> usuario NOT NULL | Cajero responsable del turno |
+| `correlativo` | serial | NOT NULL | Número correlativo secuencial del turno por sede (ej. Turno #042) |
+| `fecha_apertura` | timestamp with time zone | NOT NULL DEFAULT NOW() | Momento exacto de apertura de la caja |
+| `monto_apertura` | decimal(10, 2) | NOT NULL CHECK (monto_apertura >= 0.00) | Fondo inicial de efectivo (cambio/vuelto) |
+| `notas_apertura` | text | DEFAULT NULL | Observaciones registradas por el cajero al iniciar turno |
+| `fecha_cierre` | timestamp with time zone | nullable | Momento exacto de cierre formal y arqueo |
+| `monto_esperado` | decimal(10, 2) | nullable | Monto calculado automáticamente por el sistema (fondo + cobros en efectivo) |
+| `monto_real` | decimal(10, 2) | nullable | Monto físico contado durante el arqueo de cierre |
+| `discrepancia` | decimal(10, 2) | nullable | Diferencia entre monto real y esperado (sobrante (+) o faltante (-)) |
+| `comentario_discrepancia` | text | nullable | Justificación obligatoria en caso de descuadre de caja |
+| `notas_cierre` | text | DEFAULT NULL | Observaciones finales de entrega de turno |
+| `estado` | varchar(20) | NOT NULL DEFAULT 'abierta' CHECK (estado IN ('abierta', 'cerrada')) | Estado operativo del turno |
+| `created_at` | timestamp with time zone | NOT NULL DEFAULT NOW() | Fecha de creación del registro |
+| `updated_at` | timestamp with time zone | NOT NULL DEFAULT NOW() | Fecha de última modificación |
+
+##### Reglas de Negocio y Restricciones Estructurales de Caja:
+1. **Terminal Única por Sede (`uq_caja_abierta_local`):**
+   ```sql
+   CREATE UNIQUE INDEX uq_caja_abierta_local ON caja(local_id) WHERE estado = 'abierta';
+   ```
+   Garantiza que una sede solo pueda tener **un único turno de caja en estado abierto simultáneamente**. Si otro cajero intenta aperturar sin que el titular anterior haya efectuado su arqueo de cierre (`CU-CAJA-06`), el backend rechaza con `409 Conflict (ERR_TURNO_PREVIO_NO_CERRADO)`.
+2. **Registro Directo de Fondo Inicial de Efectivo:** El fondo de cambio o sencillo se declara como un monto directo en Soles (`monto_apertura decimal(10, 2)`), agilizando radicalmente la apertura de turno y asegurando un único valor de verdad contable sin dispersión de denominaciones.
+3. **Flexibilidad Horaria y Modelo Guiado por Eventos (Event-Driven):** Los turnos no se interrumpen artificialmente por temporizadores rígidos si el cajero atiende comensales más allá de su hora pactada (+30 min o más post-turno). La caja permanece operativa hasta que se ejecute la acción explícita de Arqueo y Cierre.
+
+#### `cliente`
+
+Directorio unificado de clientes y comensales (personas naturales con DNI y empresas con RUC) alimentado automáticamente por consultas a ApiPerú y compras de salón.
+
+| Campo | Tipo | Clave / Restricción | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id` | UUID | PK (UUID v8) | Identificador único ordenado temporalmente |
+| `empresa_id` | UUID | FK -> empresa (ON DELETE CASCADE) | Tenant al que pertenece el cliente |
+| `tipo_documento` | varchar(10) | NOT NULL CHECK (tipo_documento IN ('DNI', 'RUC')) | Identidad fiscal oficial |
+| `numero_documento` | varchar(20) | NOT NULL | 8 dígitos para DNI u 11 dígitos para RUC |
+| `nombre_identificativo`| varchar(255) | NOT NULL | Nombres y apellidos completos o Razón Social |
+| `telefono` | varchar(20) | nullable | Teléfono celular / WhatsApp para envío de comprobante |
+| `email` | varchar(100) | nullable | Correo para envío de comprobante digital en PDF |
+| `detalle` | jsonb | NOT NULL DEFAULT '{}'::jsonb | Payload completo de ApiPerú (dirección fiscal, ubigeo, condición, estado) |
+| `created_at` | timestamp with time zone | NOT NULL DEFAULT NOW() | Fecha de primer registro |
+| `updated_at` | timestamp with time zone | NOT NULL DEFAULT NOW() | Fecha de última actualización |
+
+> **Unicidad e Indexación:** `UNIQUE(empresa_id, tipo_documento, numero_documento)` e índice `idx_cliente_busqueda_pos ON cliente(empresa_id, tipo_documento, numero_documento)`.
+> **Métricas de Frecuencia y Consumo:** No se desnormalizan en columnas para evitar cuellos de botella y bloqueos concurrentes en inserción; se resuelven dinámicamente mediante la vista `vw_cliente_resumen_consumo` agregando sobre la tabla `comprobante`.
+
+#### `comprobante_serie`
+
+Configuración y control estricto de series electrónicas y correlatividad correlativa sin saltos (SUNAT / ACID) por cada sede y tipo de comprobante.
+
+| Campo | Tipo | Clave / Restricción | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id` | UUID | PK (UUID v8) | Identificador de la serie |
+| `local_id` | UUID | FK -> local (ON DELETE CASCADE) | Sede titular de la serie |
+| `tipo_comprobante` | varchar(20) | NOT NULL CHECK (tipo_comprobante IN ('factura', 'boleta', 'nota_venta')) | Documento que emite la serie |
+| `serie` | varchar(10) | NOT NULL | Serie electrónica oficial (ej. 'F001', 'B001', 'NV01') |
+| `correlativo_actual` | int | NOT NULL DEFAULT 0 CHECK (correlativo_actual >= 0) | Último correlativo emitido y confirmado |
+| `activo` | bool | NOT NULL DEFAULT true | Habilitada para emisión en POS |
+| `created_at` | timestamp with time zone | NOT NULL DEFAULT NOW() | Fecha de creación |
+| `updated_at` | timestamp with time zone | NOT NULL DEFAULT NOW() | Fecha de última emisión |
+
+> **Garantía Transaccional ACID:** La asignación de correlativos se realiza mediante la función de PostgreSQL `fn_obtener_siguiente_correlativo(local_id, tipo, serie)` que aplica un bloqueo exclusivo a nivel de fila (`ROW-LEVEL LOCK / FOR UPDATE`), serializando transacciones concurrentes y garantizando correlatividad estricta sin saltos ni duplicados.
 
 #### `comprobante`
 
-Comprobante digital emitido al cobrar (sin impresión física).
+Comprobante digital emitido al cobrar (sin impresión física obligatoria, con código QR dinámico, desglose fiscal SUNAT, promociones y recargos por medio de pago).
 
 | Campo | Tipo | Clave / Restricción | Descripción |
 | :--- | :--- | :--- | :--- |
-| `id` | UUID | PK | Identificador |
+| `id` | UUID | PK (UUID v8) | Identificador único temporalmente ordenado |
 | `pedido_id` | UUID | FK -> pedido | Pedido cobrado |
 | `caja_id` | UUID | FK -> caja | Caja donde se registró el cobro |
+| `cliente_id` | UUID | nullable FK -> cliente | Cliente recurrente registrado en BD |
 | `tipo` | enum | — | boleta, factura, nota_venta |
-| `documento_cliente` | varchar | nullable | DNI/CE (boleta) o RUC (factura) |
-| `nombre_cliente` | varchar | nullable | Nombre o razón social |
+| `serie` | varchar(10) | NOT NULL | Serie electrónica (ej. F001, B001, NV01) |
+| `correlativo` | int | NOT NULL | Número correlativo unívoco secuencial por serie y local |
+| `documento_cliente` | varchar | nullable | DNI (boleta) o RUC (factura). NULL en nota de venta o consumidor final |
+| `nombre_cliente` | varchar | NOT NULL | Nombre o razón social del pagador |
+| `telefono_envio` | varchar(20) | nullable | Número al que se despachó el comprobante por WhatsApp |
+| `email_envio` | varchar(100) | nullable | Correo al que se despachó el PDF del comprobante |
+| `metodo_pago_id` | UUID | nullable FK -> metodo_pago_local | Método de pago utilizado |
 | `medio_pago` | enum | — | tarjeta, billetera_digital, efectivo |
-| `monto_recibido` | decimal | nullable | Monto recibido (si es efectivo) |
-| `vuelto` | decimal | nullable | Vuelto entregado |
-| `total` | decimal | — | Total cobrado |
+| `subtotal_consumo` | decimal(10, 2) | NOT NULL DEFAULT 0.00 | Consumo bruto antes de descuentos y recargos |
+| `descuento` | decimal(10, 2) | NOT NULL DEFAULT 0.00 | Descuento aplicado por promoción |
+| `porcentaje_recargo` | decimal(5, 2) | NOT NULL DEFAULT 0.00 | Porcentaje de comisión de pasarela aplicada |
+| `monto_recargo` | decimal(10, 2) | NOT NULL DEFAULT 0.00 | Importe en Soles del recargo por método de pago |
+| `monto_recibido` | decimal | nullable | Monto recibido digitado directamente por el cajero (efectivo) |
+| `vuelto` | decimal | nullable | Vuelto calculado: `monto_recibido - total` |
+| `total` | decimal | NOT NULL | Total neto cobrado: `(subtotal_consumo - descuento) + monto_recargo` |
+| `base_imponible` | decimal(10, 2) | NOT NULL DEFAULT 0.00 | Operación gravada: `total / 1.18` (SUNAT) |
+| `igv` | decimal(10, 2) | NOT NULL DEFAULT 0.00 | Impuesto General a las Ventas: `total - base_imponible` |
 | `promocion_id` | UUID | FK -> promocion (nullable) | Promoción aplicada, si hubo |
-| `token_qr` | varchar | UNIQUE | Token único e impredecible del enlace QR |
-| `fecha` | timestamp | — | Fecha de emisión |
+| `token_qr` | UUID | UNIQUE (UUID v8) | Token único e impredecible para acceso público al QR |
+| `impreso` | bool | NOT NULL DEFAULT false | Control de impresión (actualmente deshabilitado por Cero Papel) |
+| `fecha` | timestamp with time zone | NOT NULL DEFAULT NOW() | Fecha de emisión |
 | `estado` | enum | — | emitido, anulado |
 
 #### `gasto_manual`

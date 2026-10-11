@@ -832,23 +832,30 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 ---
 
-### CU-ADMIN-15: Supervisar cierre de caja diario
+### CU-ADMIN-15: Supervisar cierre de caja diario e historial de Reportes Z
 
 **Actor(es):** Administrador del local
 
-**Precondiciones:** El cajero realizó apertura de caja durante el día.
+**Precondiciones:** La sede cuenta con turnos de caja registrados o en proceso de cierre (`CU-CAJA-05`).
 
 #### Flujo principal
 
-1. El administrador accede a "Cierre de caja" al final del día/turno.
-2. El sistema muestra el resumen del cajero: monto de apertura, ventas cobradas, monto esperado en caja.
-3. El administrador confirma el cierre o revisa la discrepancia (con comentario) si el monto real no coincide.
+1. El administrador accede a la sección "Finanzas y Arqueos" → "Supervisión de Cierres de Caja" en su panel administrativo, o hace clic en la notificación reactiva SSE recibida al confirmarse un cierre (`caja_cerrada` desde `CU-CAJA-05`).
+2. El sistema despliega el **Historial Consolidado de Cierres de Turno y Reportes Z**:
+   - Selector de fecha o rango de turnos (ej. Turno #042 Miraflores Centro).
+   - Indicadores KPI ejecutivos: Total Facturado, Total Efectivo Recaudado, Discrepancias Totales y Turnos Auditados.
+   - Directorio de cierres: correlativo de turno, fecha/hora de apertura y cierre, cajero titular, monto de apertura, efectivo esperado, efectivo real contado, diferencia (`S/ 0.00` o valor de discrepancia) y estado de supervisión.
+3. El administrador selecciona un turno para inspección:
+   - El sistema despliega la ficha oficial inmutable del **Reporte Z Digital** (generado en `CU-CAJA-05`), con el desglose por método de pago (Efectivo, Tarjetas POS, Billeteras Yape/Plin), desglose fiscal SUNAT (Base Imponible, IGV 18%) y auditoría de comprobantes (Boletas, Facturas, Notas de Venta y Notas de Crédito emitidas).
+4. Si el turno cerró con discrepancia ($\text{Diferencia} \neq 0.00$), el sistema resalta el comentario justificativo redactado obligatoriamente por el cajero (`comentario_discrepancia`), permitiendo al administrador registrar observaciones de visado o derivar a auditoría interna.
+5. El administrador puede descargar el Reporte Z en PDF o imprimirlo administrativamente si lo requiere.
 
 #### Flujos alternativos
 
-- Hay discrepancia → el sistema la registra y queda visible en reportes/auditoría.
+- El cajero del turno anterior no ha cerrado caja o abandonó la terminal sin arquear → El administrador dispone de la opción de **"Cierre de Turno Forzado Supervisado"**, permitiendo realizar el arqueo administrativo de rescate para desbloquear la apertura del siguiente cajero (`CU-CAJA-01`).
+- No existen discrepancias en el turno inspeccionado → El sistema muestra el estado `[ ✓ ARQUEO CONFORME - CUADRADO ]`.
 
-**Postcondiciones:** Caja cerrada para el día; discrepancias registradas si las hay.
+**Postcondiciones:** Cierres de caja diarios y turnos históricos debidamente supervisados y visados; trazabilidad contable inmutable de todos los Reportes Z persistida en `auditoria_caja_cierre`.
 
 ---
 
@@ -946,6 +953,44 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 - El usuario pulsa `[ Restaurar Valores Recomendados ]` → El sistema precarga los estándares gastronómicos de la industria (15 min óptimo, 25 min alerta, 3 min pase caliente, sonidos activados y vista FIFO).
 
 **Postcondiciones:** Parámetros y umbrales de tiempos de cocina KDS actualizados en `configuracion_kds`; monitores KDS de cocina y tablets de salón sincronizados en tiempo real vía SSE.
+
+---
+
+### CU-ADMIN-19: Configurar métodos de pago y comisiones de cobro del local
+
+**Actor(es):** Administrador del local (facultad exclusiva de sede)
+
+**Precondiciones:** El local está activo; el usuario cuenta con sesión activa y rol `admin_local` asignado a la sede (`local_id`).
+
+#### Flujo principal
+
+1. El administrador accede a "Configuración" → "Métodos de Pago y Comisiones" desde el panel de control de su sede.
+2. El sistema despliega el panel de parametrización dividido en dos columnas integradas (Layout 50/50):
+   - **Catálogo de Métodos de Pago (Columna Izquierda):** Carga los medios registrados desde la tabla `metodo_pago_local` (o inicializa automáticamente los 3 métodos canónicos si es un local nuevo):
+     - **Efectivo (Cash):** Medio obligatorio por ley. Siempre habilitado (`activo = true`), recargo fijo en `0.00%`.
+     - **Tarjeta Débito / Crédito (POS):** Switch de activación (`activo = true/false`), selector numérico de comisión porcentual (`comision_porcentaje`, por defecto `0.00%`, configurable entre 0% y 50%) para compensar costos de pasarela POS, y botón de configuración de terminales.
+     - **Billetera Digital (Yape / Plin):** Nace inactiva por defecto (`activo = false`) hasta que el administrador configure los datos del receptor (número telefónico de 9 dígitos y titular/razón social) y cargue el código QR interoperable de cobro. Una vez registrado, se habilita para cobro en salón y precuenta.
+     - **Métodos Adicionales (Transferencia Bancaria):** Habilitable para eventos corporativos o pagos anticipados.
+   - **Simulador Interactivo de Checkout y Precuenta (Columna Derecha):**
+     - Campo numérico interactivo de consumo de prueba (por defecto `S/ 100.00`).
+     - Al alternar comisiones o cambiar métodos, el simulador recalcula al vuelo las opciones del Punto de Venta del cajero y proyecta la previsualización del ticket de precuenta de salón con desglose transparente: Subtotal, IGV 18%, Recargo por método de pago (si aplica) y Total a pagar.
+3. El administrador pulsa `[ ✓ Guardar Parámetros de Pago ]`.
+4. El backend valida:
+   - Que al menos un método de pago permanezca en estado `activo = true` (`ERR_MINIMO_UN_PAGO`).
+   - Que las comisiones estén dentro del rango permitido (`0.00% <= comision <= 50.00%`).
+   - Si una billetera está activa, valida que cuente con su número telefónico de 9 dígitos.
+5. El sistema persiste los cambios en la base de datos PostgreSQL 16 y emite el evento reactivo `metodos_pago_actualizados` vía Server-Sent Events (SSE) a todas las terminales conectadas en < 30ms.
+6. El Punto de Venta del Cajero (`CU-CAJA-02`, `CU-CAJA-03`) y la comanda de los mozos actualizan de inmediato sus botones de cobro y recargos sin necesidad de recargar la sesión.
+
+#### Flujos alternativos
+
+- **Intento de desactivar todos los métodos de pago (Bloqueo de Seguridad):** Si el administrador intenta desactivar el último medio de pago activo (ej. Efectivo cuando los demás están pausados), el sistema bloquea la acción con error `409 Conflict (ERR_MINIMO_UN_PAGO)` y despliega el modal de contingencia informando que una sede debe mantener al menos una forma de pago activa para evitar la paralización del cobro de comandas en salón.
+- **Configuración de datos de Yape/Plin:** Al pulsar `[ Editar Celular & QR ]`, se despliega el modal especializado para registrar el número de celular de 9 dígitos, la razón social del titular y cargar la imagen del código QR interoperable que se proyectará en la precuenta y terminales de cobro.
+- **Local nuevo (Primer ingreso):** Si la sede recién fue creada, el sistema despliega el estado de bienvenida guiado (Onboarding) con los 3 métodos pre-aprovisionados con 0% de comisión, permitiendo confirmar la configuración estándar en un solo clic.
+
+**Postcondiciones:** Catálogo de métodos de pago y comisiones porcentuales actualizado en `metodo_pago_local`; terminales de Punto de Venta (POS) sincronizadas en tiempo real vía SSE.
+
+---
 
 # 4. Mozo
 
@@ -1194,7 +1239,98 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 **Postcondiciones:** Incidencia de quiebre de cocina resuelta en sala sin fricción con el cliente; comanda de reemplazo enviada a Cocina KDS (si sustituye) o ítem retirado de la cuenta sin costo (si anula); auditoría asentada en `pedido_anulacion` con `es_merma = false` y reportada a `CU-ADMIN-12`; total de mesa actualizado.
 
+---
+
+### CU-MOZO-08: Consultar y presentar precuenta digital en mesa
+
+**Actor(es):** `mozo` (Personal de atención en sala; operador táctil en tablet/móvil), `comensal` (Receptor de la precuenta y emisor del pago), `cajero` (Validador de cobro y emisor del comprobante formal en `CU-CAJA-03`)
+
+**Precondiciones:** La mesa se encuentra en estado `ocupada` con pedidos despachados activos en `pedido` y `pedido_item`; el mozo cuenta con sesión activa asignada a la sede; las promociones vigentes de `CU-ADMIN-17` y los métodos de pago de `CU-ADMIN-19` están pre-configurados. **No requiere que el cajero esté interactuando ni aprobando previamente la cuenta (cálculo determinista on-demand en < 15ms).**
+
+#### Flujo principal
+
+1. **Solicitud directa en mesa:** El comensal solicita la cuenta al mozo (*"Joven, la cuenta por favor"*).
+2. **Apertura de precuenta digital:** El mozo toca la mesa en el plano visual de salón (`CU-MOZO-01`), abre el Quick-Drawer lateral de inspección y presiona el botón contextual `[ 🧾 Precuenta Digital ]`.
+3. **Cálculo determinista instantáneo (< 15ms):** El sistema consulta `GET /api/v1/mozo/mesas/{mesa_id}/precuenta` y despliega el **Modal Táctil de Precuenta Digital con Promociones Integradas (Vista 1)**:
+   - Resumen de la mesa: Mesa 04, 4 comensales, comanda #108, tiempo activa (32 min).
+   - Banner conciso de cocina: `⚠️ 1 plato 'Lomo Saltado' en 'preparación'` (no bloqueante).
+   - Consolidado de platos y bebidas pedidos con notas agregadas, cantidades, precio unitario congelado y subtotales (Consumo Bruto: S/ 100.00).
+   - Promociones comerciales vigentes de `CU-ADMIN-17`: Chip activo *"Descuento Almuerzo Ejecutivo (15% dscto) - Ahorro: - S/ 15.00"* con botón de alternancia en 1 toque.
+   - Desglose oficial SUNAT Perú: Consumo Bruto (S/ 100.00), Descuento Comercial (- S/ 15.00), **Total Neto a Cobrar (S/ 85.00)**, Base Imponible gravada (S/ 72.03) e IGV 18% (S/ 12.97).
+   - Selector limpio de métodos de pago (`CU-ADMIN-19`): `[ 💵 Efectivo — S/ 85.00 ]`, `[ 📱 Billetera Digital (Yape / Plin) — S/ 85.00 (Tocar para ver QR) ]`, y `[ 💳 Tarjeta POS — S/ 87.98 (+3.5%) ]`.
+4. **Presentación de opciones al comensal:** El mozo gira la tablet o informa verbalmente los importes exactos según el canal de pago preferido.
+5. **Divulgación Progresiva para Billetera Digital (Vista 2):**
+   - Si el comensal decide pagar con Yape o Plin, el mozo toca la tarjeta de Billetera Digital.
+   - Se abre el panel enfocado exhibiendo el **Código QR dinámico en alta resolución** en pantalla, el número del local (`987 654 321`), el titular (`Restaurant S.A.C.`) y el monto exacto a transferir (`S/ 85.00`).
+   - El comensal escanea el QR desde su propio móvil en la mesa y transfiere el dinero.
+   - El mozo verifica el voucher en la pantalla del cliente, captura opcionalmente el código de operación (`581902`) y presiona `[ ⚡ Confirmar y Notificar a Caja ]`.
+6. **Notificación reactiva a Caja (Cero Papel y Cero Esperas):**
+   - El sistema ejecuta `POST /api/v1/mozo/mesas/{mesa_id}/solicitar-cuenta`.
+   - Conmuta `pedido.estado = 'cuenta_pedida'`, registra `precuenta_generada_at = NOW()` y asienta el método tentativo y número de operación.
+   - Emite vía Server-Sent Events (SSE) el evento `cuenta_solicitada` al hub local de la sede.
+   - El Monitor POS de Caja (`CU-CAJA-02`) recibe la notificación instantánea (< 25ms) con los montos precargados.
+7. **Retorno al plano de salón (Vista 3):**
+   - El mozo vuelve al plano de salón. La Mesa 04 luce el badge ámbar prioritario `[ 💳 CUENTA PEDIDA • S/ 85.00 • YAPE ]`.
+   - La cabecera despliega el toast accesible: *"✓ Precuenta de Mesa 04 (S/ 85.00) enviada a Caja vía SSE. Esperando confirmación de cajero."*.
+   - El Quick-Drawer indica que la mesa está a la espera de que el cajero valide el voucher y emita el comprobante formal en `CU-CAJA-03`.
+
+#### Flujos alternativos
+
+- **El comensal prefiere pagar en efectivo:** El mozo selecciona la opción de efectivo y presiona directamente `[ ⚡ Notificar a Caja para Cobro ]`. El mozo traslada el efectivo al counter o acompaña al cliente para la validación.
+- **El comensal paga con tarjeta física:** El mozo selecciona Tarjeta POS (`S/ 87.98`); el cajero o runner acerca la terminal POS inalámbrica a la mesa.
+- **Retiro o cambio de promoción comercial:** El mozo toca `[ ✕ Quitar ]` en el chip de promoción; el sistema restaura el consumo bruto (S/ 100.00) y recalcula la Base Imponible e IGV en < 10ms.
+- **Platos en cocina pendientes de entrega:** El banner informativo conciso previene confusiones pero **no bloquea** la precuenta ni el cobro.
+
+**Postcondiciones:** Precuenta digital presentada en mesa sin tickets de papel térmico; promoción comercial y desglose fiscal SUNAT fijados; comensal atendido en menos de 10 segundos; mesa conmutada a `cuenta_pedida`; notificación SSE recibida en Caja con comanda lista para validación y emisión de Boleta/Factura electrónica (`CU-CAJA-03`).
+
+---
+
+### CU-MOZO-09: Subdividir comanda en mesa y asociar comprobantes (Factura, Boleta, Nota de Venta)
+
+**Actor(es):** `mozo` (Personal de atención en sala; operador táctil en tablet/móvil), `comensal` (Receptor de subcuentas y pagador), `cajero` (Receptor de la estructura dividida en `CU-CAJA-02` y emisor formal en `CU-CAJA-03`)
+
+**Precondiciones:** La mesa se encuentra en estado `ocupada` con pedidos despachados activos en `pedido` y `pedido_item`; el mozo cuenta con sesión activa asignada a la sede; la comanda cuenta con más de un ítem consumido o más de un comensal. Puede invocarse directamente desde el Quick-Drawer de mesa en `CU-MOZO-01` o desde el modal de precuenta digital en `CU-MOZO-08`.
+
+#### Flujo principal
+
+1. **Invocación de subdivisión:** El comensal solicita pagar por separado en mesa. El mozo pulsa `[ ➗ Dividir Cuenta ]` en el Quick-Drawer de `CU-MOZO-01` o `[ ➗ Dividir en Subcuentas ]` en la precuenta de `CU-MOZO-08`.
+2. **Paso 1: Asignación determinista de platos (Cero azar):**
+   - El sistema despliega la Vista 1 con la bandeja de ítems de la mesa (izquierda) y las subcuentas activas (derecha).
+   - El mozo asigna uno por uno (o mediante selección múltiple táctil / drag & drop) los platos a la Subcuenta 1, Subcuenta 2, o crea nuevas subcuentas (`[ ＋ Añadir Subcuenta ]`).
+   - Si un plato tiene cantidad $> 1$, puede presionar `[ ✂ Desglosar Unidades ]` para asignar unidades independientes a comensales distintos.
+   - El indicador valida en tiempo real: *"4 de 4 platos distribuidos (100%) • S/ 0.00 pendiente"*.
+   - El botón de avance permanece inhabilitado hasta que el 100% de los ítems estén distribuidos.
+3. **Paso 2: Configuración individual por subcuenta:**
+   - El sistema transiciona a la Vista 2 presentando tarjetas paralelas para cada subcuenta creada.
+   - **Promoción comercial independiente (`CU-ADMIN-17`):** Cada subcuenta cuenta con su propio selector de promociones vigentes. Subcuenta 1 aplica a *Descuento Almuerzo Ejecutivo (15% dscto)* con ahorro de `- S/ 5.70`; Subcuenta 2 abona tarifa íntegra regular.
+   - **Tipo de comprobante solicitado (3 opciones):**
+     - Si **Factura:** Digita RUC (11 dígitos, inicia 10 o 20) y consulta SUNAT, autocompletando Razón Social y Domicilio Fiscal.
+     - Si **Boleta:** Digita DNI (8 dígitos) y consulta RENIEC, autocompletando Nombres y Apellidos. Permite casilla *"Consumidor Final sin documento"* si el monto es menor a S/ 700.00.
+     - Si **Nota de Venta:** Solicita únicamente el *Nombre del Cliente* (ej. "Andrés Pérez"), sin requerir DNI/RUC ni validación fiscal, con emisión/impresión física opcional.
+   - **Medio de pago previsto (`CU-ADMIN-19`):** Asigna Efectivo, Tarjeta POS (con recargo proyectado +3.5%) o Billetera Digital (Yape/Plin).
+   - **Cálculo tributario individual:** Cada subcuenta desglosa su propio Consumo Bruto, Descuento Comercial, Subtotal Neto, Base Imponible e IGV del 18%.
+4. **Envío y notificación a Caja (Límite Mozo):**
+   - El mozo presiona `[ 📤 Confirmar y Enviar Subcuentas a Caja ]`.
+   - El backend persiste las subcuentas en `pedido_subcuenta` y `pedido_subcuenta_item`.
+   - Conmuta el pedido a estado `cuenta_pedida`.
+   - Emite el evento Server-Sent Events (SSE) `cuenta_dividida_solicitada` hacia el Monitor POS de Caja (`CU-CAJA-02` / `CU-CAJA-03`).
+5. **Retorno a salón (Vista 3):**
+   - La tablet regresa al plano de salón exhibiendo la Mesa 04 con el badge prioritario `[ 💳 DIVIDIDA (2) • S/ 95.43 NETO ]`.
+   - El toast accesible confirma: *"✓ Subdivisión de Mesa 04 (2 subcuentas) enviada a Caja vía SSE. Esperando cobro del cajero."*
+   - El Quick-Drawer lateral visualiza el estado individual de cada subcuenta en espera. El mozo no emite comprobantes ni cobra.
+
+#### Flujos alternativos
+
+- **Un ítem queda sin asignar en Paso 1:** El sistema bloquea el avance al Paso 2 y resalta con borde de advertencia la bandeja izquierda.
+- **RUC inválido o no habido en SUNAT:** El sistema informa el error de consulta y permite corregir el número o cambiar a Boleta/Nota de Venta.
+- **Reapertura de comanda por comensales que desean ordenar algo más:** El mozo puede pulsar `[ ↺ Reabrir Comanda ]` en el Quick-Drawer; el sistema anula las subcuentas tentativas y retorna la mesa a `ocupada` para admitir nuevas rondas.
+
+**Postcondiciones:** Subcuentas estructuradas y guardadas en base de datos; comanda en estado `cuenta_pedida`; desglose tributario y promociones congeladas por subcuenta; notificación SSE recibida en Caja lista para validación y emisión en `CU-CAJA-03`; mesa bloqueada para nuevos platos en cocina; mozo deslindado de cobranza fiscal.
+
+---
+
 # 5. Cocina
+
 
 ### CU-COCINA-01: Ver cola de pedidos entrantes (Kitchen Display System - KDS)
 
@@ -1353,113 +1489,196 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 # 6. Cajero
 
-### CU-CAJA-01: Abrir caja
+### CU-CAJA-01: Apertura de turno de caja
 
-**Actor(es):** Cajero
+**Actor(es):** Cajero, Administrador del local
 
-**Precondiciones:** El local está en horario de atención; no existe una caja abierta previamente sin cerrar.
+**Precondiciones:** La sede está activa; el usuario cuenta con sesión autenticada con rol `cajero` o `admin_local`; el turno anterior de la sede debe encontrarse cerrado formalmente (`estado = 'cerrada'`). No existe otra caja abierta en la sede (**Política de Terminal Única de Caja**).
 
 #### Flujo principal
 
-1. El cajero accede a "Caja" → "Abrir caja".
-2. Ingresa el monto inicial en efectivo (fondo de caja).
-3. El sistema registra la apertura con fecha/hora y cajero responsable.
+1. El cajero inicia sesión en la terminal del Punto de Venta (POS).
+2. El sistema consulta automáticamente el estado operativo de caja (`GET /api/v1/caja/estado-sesion`).
+3. Al detectar que la caja se encuentra cerrada, el sistema bloquea preventivamente la interfaz del salón mediante una cortina modal de alto contraste (Vista 1) impidiendo la liquidación o cobro de mesas hasta declarar el fondo inicial.
+4. El sistema presenta la ficha del cajero (nombre, avatar, turno correlativo proyectado ej. `#042`, fecha y hora actual).
+5. Para registrar el fondo inicial de efectivo (fondo de cambio o vuelto), el cajero digita el monto en el campo numérico `PEN S/` (ej. `S/ 300.00`) o utiliza los chips de incremento rápido táctil (`[ + S/ 50 ]`, `[ + S/ 100 ]`, `[ + S/ 200 ]`, `[ Borrar ]`).
+6. El cajero ingresa opcionalmente notas u observaciones de apertura (ej. *"Fondo recibido en sobre sellado de administración"*).
+7. El cajero presiona `[ ⚡ Confirmar y Abrir Turno de Caja ]`.
+8. El sistema valida los datos, inserta el registro en la tabla `caja` con `estado = 'abierta'`, emite el evento en tiempo real `caja_abierta` vía Server-Sent Events (SSE) y desbloquea el Monitor de Caja y Cuentas (Vista 3).
 
 #### Flujos alternativos
 
-- Ya existe una caja abierta sin cerrar (turno anterior) → el sistema bloquea la apertura y notifica al administrador.
+- **Turno previo pendiente de cierre (`409 Conflict: ERR_TURNO_PREVIO_NO_CERRADO`):**
+  - Si el cajero del turno anterior no ejecutó su Arqueo Z de cierre (`CU-CAJA-05`) o intentó abrirse un turno simultáneo en otra pestaña/dispositivo, el sistema deniega la apertura y despliega la Vista 2 con el detalle del conflicto:
+    - Muestra el turno activo, nombre del cajero saliente, hora de apertura original y volumen de ventas cobradas pendientes de liquidación.
+    - Provee opciones guiadas: Solicitud de relevo presencial para que el cajero saliente concluya su arqueo o intervención del Administrador de sede para ejecutar un cierre forzado supervisado (`CU-ADMIN-15`).
+- **Monto de apertura inválido (`422 Unprocessable: ERR_MONTO_APERTURA_INVALIDO`):**
+  - Si se ingresa un monto negativo o un formato numérico corrupto, el sistema resalta el campo en rojo y bloquea el botón de confirmación.
+- **Flexibilidad horaria sin bloqueo punitivo (Event-Driven):**
+  - Si un cajero permanece operando 30 o 45 minutos más allá de su horario teórico de turno, el sistema **no bloquea las ventas de salón**. Los turnos se rigen por eventos de apertura y cierre explícitos, garantizando la continuidad del servicio del restaurante.
 
-**Postcondiciones:** Caja abierta, lista para operar.
+**Postcondiciones:** Turno de caja creado en estado `abierta`; `monto_apertura` escalar y marca temporal registrados; terminal POS de salón desbloqueada para precuentas (`CU-CAJA-02`) y cobros (`CU-CAJA-03`). Concurrencia de múltiples cajas en la misma sede prevenida a nivel de base de datos (`uq_caja_abierta_local`).
 
-### CU-CAJA-02: Generar cuenta a partir de pedido(s) de una mesa
+### CU-CAJA-02: Generar cuenta a partir de pedido(s) de una mesa (Precuenta Digital)
 
-**Actor(es):** Cajero
+**Actor(es):** Cajero (Titular o relevo de caja), Administrador del Local (con permisos de supervisión de caja)
 
-**Precondiciones:** La mesa tiene uno o más pedidos activos, con ítems en estado "listo" o "entregado".
-
-#### Flujo principal
-
-1. El cajero selecciona la mesa a cobrar.
-2. El sistema muestra el consolidado de ítems pedidos, con su precio y total (incluye ambas mesas si están unidas).
-3. El cajero, si corresponde, selecciona una promoción vigente de la lista que el sistema ofrece (filtradas automáticamente por fecha) y la aplica a la cuenta.
-4. El sistema calcula el total final a cobrar.
-
-**Postcondiciones:** Cuenta generada, lista para cobro.
-
-### CU-CAJA-03: Cobrar y mostrar comprobante
-
-**Actor(es):** Cajero
-
-**Precondiciones:** Existe una cuenta generada.
+**Precondiciones:** La sede cuenta con turno de caja abierto (`CU-CAJA-01`, `caja.estado = 'abierta'`); la mesa se encuentra en estado `ocupada` o con `cuenta_pedida` solicitada por el mozo (`CU-MOZO-01`); existen pedidos activos asociados a la mesa en `pedido` y `pedido_item` (los ítems pueden encontrarse en estado `listo`, `entregado`, o incluso `en_cola`/`en_preparacion` con advertencia no bloqueante).
 
 #### Flujo principal
 
-1. El cajero selecciona el tipo de comprobante: Boleta (solicita DNI/Carnet de Extranjería \+ nombre), Factura (solicita RUC \+ razón social) o Nota de venta (sin datos adicionales).
-2. Si aplica documento (Boleta/Factura), el sistema busca primero en su propia base de datos; si no lo encuentra, consulta la API externa (RENIEC/SUNAT) para obtener el nombre/razón social y guarda el dato localmente para futuras consultas.
-3. El cajero selecciona el medio de pago: Tarjeta, Billetera digital o Efectivo (registro declarativo, sin integración bancaria real). Si es efectivo, ingresa el monto recibido; el sistema calcula el vuelto.
-4. El cajero confirma el cobro.
-5. El sistema marca el pedido como "cobrado", libera la mesa y muestra en pantalla el detalle del pago junto con un código QR de token único e impredecible, que enlaza al comprobante digital descargable en PDF.
-6. El sistema registra el ingreso en el flujo de caja del día.
+1. El flujo de precuenta se inicia por una de dos vías:
+   - **Vía Mozo:** El mozo solicita la cuenta desde su terminal móvil al comensal pedir la cuenta (`CU-MOZO-01`). El backend conmuta el estado a `cuenta_pedida` y emite vía Server-Sent Events (SSE) una notificación prioritaria al Monitor POS de Caja (< 25ms).
+   - **Vía Cajero:** El cajero pulsa directamente sobre la tarjeta de la mesa en el Monitor POS de Caja (`[ ⚡ Cobrar / Precuenta ]`).
+2. El sistema carga y consolida los consumos de la mesa:
+   - Agrupa automáticamente las unidades idénticas solicitadas a lo largo de sucesivas rondas en una única línea con su cantidad total, notas de cocina agregadas, precio unitario congelado y subtotal.
+   - Si la mesa forma parte de una unión física (`mesa_principal_id IS NOT NULL`, `CU-MOZO-04`), el sistema consolida los pedidos de todo el grupo bajo el identificador oficial **`Mesa [ 02 ; 03 ]`**.
+3. **Validación Informativa de Cocina (No Bloqueante):** Si la comanda contiene platos en preparación (`en_cola` o `en_preparacion`), el sistema despliega un banner informativo ámbar (*"⚠️ Aviso Informativo: 1 plato 'Lomo Saltado' en preparación en cocina. No bloquea la emisión ni el cobro de la cuenta"*). Esta independencia operativa garantiza el funcionamiento fluido en restaurantes con modelo de cobro por adelantado o comida rápida.
+4. **Aplicación de Promociones Comerciales (`CU-ADMIN-17`):** El sistema consulta en sub-milisegundos (`idx_promocion_caja_vigencia`) las promociones vigentes según fecha, hora y día de la semana. El cajero puede seleccionar en 1 clic una promoción aplicable (ej. *"Descuento Almuerzo Ejecutivo 15% dscto"*).
+5. **Cálculo Tributario Oficial SUNAT Perú:** El sistema liquida la cuenta en caliente:
+   - **Consumo Bruto ($C_{bruto}$):** Sumatoria de los precios de venta al público en salón (incluyen IGV).
+   - **Descuento Comercial ($D$):** Bonificación calculada antes de impuestos ($C_{bruto} \times \% \text{ o monto fijo}$).
+   - **Total Neto a Pagar ($T_{neto}$):** $T_{neto} = C_{bruto} - D$.
+   - **Base Imponible / Operación Gravada ($B$):** $B = T_{neto} / 1.18$.
+   - **Impuesto General a las Ventas (IGV 18%):** $\text{IGV} = T_{neto} - B$.
+6. **Proyección Comparativa de Medios de Pago (`CU-ADMIN-19`):** El sistema proyecta de inmediato el total a cobrar en cada canal de pago aceptado en el local (Efectivo S/ 85.00 [0%], Yape/Plin S/ 85.00 [0%], Tarjeta POS S/ 87.98 [+3.5% pasarela]), permitiendo al personal informar al comensal el importe exacto según su preferencia de pago.
+7. **Enrutamiento Operativo Inmediato desde POS:** Con la cuenta revisada y las promociones aplicadas, el cajero dispone de enrutamiento directo:
+   - **`[ ⚡ Cobrar Comanda o Subcuentas (CU-CAJA-03) ]`**: Transiciona de inmediato a la pantalla/modal de cobro y emisión de comprobante tributario oficial (Factura, Boleta, Nota de Venta), ya sea liquidando la comanda completa o procesando subcuentas divididas en salón (`CU-MOZO-09`).
+   El Punto de Venta no reenvía precuentas al mozo; la arquitectura es desacoplada y paralela. El mozo ya dispone de su propia consulta táctil en mesa (`CU-MOZO-08` / `CU-MOZO-09`).
 
 #### Flujos alternativos
 
-- El monto recibido en efectivo es menor al total → el sistema no permite confirmar el cobro hasta corregir.
+- **Platos en cocina pendientes de entrega:** El banner informativo alerta al operador pero **no bloquea** la generación de la precuenta ni la transición al cobro (`CU-CAJA-03`).
+- **Retiro o cambio de promoción comercial:** El cajero pulsa `[ ✕ Quitar Dscto ]` en el chip de promoción activa; el sistema restaura el consumo bruto original y recalcula la Base Imponible e IGV en < 10ms.
+- **La mesa no alcanza el consumo mínimo de la promoción:** Si una promoción exige un consumo mínimo de S/ 120.00 y la comanda suma S/ 100.00, el dropdown la muestra deshabilitada con el texto explicativo *"Requiere consumo mínimo de S/ 120.00"*.
+- **Mesa sin pedidos activos (`404 Not Found`):** Si una mesa no tiene ítems enviados a comanda o todos fueron anulados previamente (`CU-MOZO-06`), el botón de precuenta se deshabilita con el tooltip *"Mesa sin consumos activos"*.
 
-**Postcondiciones:** Pedido cobrado; mesa liberada; comprobante digital disponible vía QR (sin impresión física); ingreso reflejado en caja.
+**Postcondiciones:** Cuenta consolidada y liquidada tributariamente bajo norma SUNAT Perú; promoción comercial asociada en `pedido.promocion_id`; comanda en estado `cuenta_pedida` o lista para cobro inmediato; Punto de Venta posicionado para enrutamiento directo a cobro íntegro o liquidación por subcuentas en `CU-CAJA-03`. Flujo 100% digital sin dependencia de impresoras térmicas.
 
-### CU-CAJA-04: Dividir cuenta entre varios comensales
+### CU-CAJA-03: Cobro de comanda y emisión de comprobantes oficiales (Factura, Boleta y Nota de Venta)
 
-**Actor(es):** Cajero
+**Actor(es):** `cajero` (Titular o relevo de caja en terminal POS), `admin_local` (con permisos de supervisión de caja)
 
-**Precondiciones:** Existe una cuenta generada con más de un ítem o comensal.
+**Precondiciones:** La sede cuenta con turno de caja abierto (`CU-CAJA-01`, `caja.estado = 'abierta'`); existe comanda activa en estado `enviado` o `cuenta_pedida` (desde el monitor POS en `CU-CAJA-02` o desde salón vía SSE en `CU-MOZO-08` / `CU-MOZO-09`); existen series electrónicas activas registradas en `comprobante_serie`.
 
 #### Flujo principal
 
-1. El cajero selecciona "Dividir cuenta" sobre una cuenta activa.
-2. Elige el método de división: por partes iguales (ingresando número de personas) o asignando ítems específicos a cada sub-cuenta.
-3. El sistema genera los montos correspondientes a cada parte.
-4. El cajero cobra cada parte por separado, pudiendo usar métodos de pago distintos por persona.
+1. **Selección del comprobante oficial:** El cajero pulsa `[ ⚡ Cobrar Comanda Completa ]` en el POS y selecciona el tipo de comprobante tributario:
+   - **Factura:** Exige RUC de 11 dígitos numéricos (prefijo 10 o 20) + búsqueda ApiPerú/SUNAT + Razón Social y Domicilio Fiscal.
+   - **Boleta:** Exige DNI de 8 dígitos numéricos + búsqueda ApiPerú/RENIEC (o *Consumidor Final* sin documento si el consumo es menor a S/ 700.00).
+   - **Nota de Venta:** Comprobante simplificado de control interno. Solicita exclusivamente el *Nombre del Cliente* (sin DNI/RUC ni validaciones fiscales).
+2. **Búsqueda y persistencia de cliente en BD:**
+   - El sistema busca primero en la tabla relacional `cliente` en PostgreSQL (UUID v8); si el cliente ya existe, autocompleta en < 1ms su `nombre_identificativo`, `telefono` (WhatsApp) y `email`, mostrando el badge `[ • Cliente registrado en base de datos local ]`.
+   - Si no existe en la base de datos, consulta la API externa (ApiPerú), autocompleta el formulario y persiste el nuevo registro en `cliente` con su payload completo en `detalle JSONB`.
+3. **Selección de medio de pago y liquidación (`CU-ADMIN-19`):**
+   - **Efectivo:** El cajero digita directamente el monto recibido en efectivo (`monto_recibido`); el sistema calcula y muestra instantáneamente el vuelto en grande (`VUELTO A ENTREGAR: S/ 15.00`).
+   - **Tarjeta POS:** Aplica el recargo trasladado de pasarela bancaria configurado (+3.5%) y registra el número de voucher/referencia POS.
+   - **Billetera Digital (Yape / Plin):** Muestra los datos de la cuenta del local y registra el código de operación.
+4. **Confirmación del cobro y transacción atómica ACID:** El cajero presiona `[ ⚡ Confirmar Cobro y Emitir Comprobante (F9) ]`. En una transacción atómica `BEGIN ... COMMIT`:
+   - Invoca la función `fn_obtener_siguiente_correlativo` con bloqueo de fila (`FOR UPDATE`) en `comprobante_serie`, asignando el correlativo monótono estricto (ej. `12894`).
+   - Inserta el registro oficial en `comprobante` con serie, correlativo, token digital único QR (UUID v8), desglose fiscal SUNAT (Base Imponible e IGV 18%) y medios de pago.
+   - Inserta el asiento contable en `caja_movimiento` (`ingreso_venta`), sumando el importe cobrado al efectivo en gaveta del turno actual.
+   - Conmuta `pedido.estado = 'cobrado'`.
+   - Conmuta `mesa.estado = 'libre'`, emitiendo un evento SSE reactivo al salón en < 20ms para liberar la mesa a nuevos clientes.
+   - Si se modificó el teléfono o email, sincroniza los cambios en la tabla `cliente`.
+5. **Entrega digital con token QR (Cero Papel):**
+   - El sistema despliega el diálogo de confirmación exhibiendo un gran código QR dinámico de alta resolución para que el comensal lo capture con la cámara de su teléfono inteligente y descargue su comprobante en PDF oficial (`https://app.restaurantcloud.pe/c/<token_uuid_v8>`).
+   - **Opciones de entrega digital asistida:** Muestra el número de WhatsApp y correo guardados con botones `[ ✓ Confirmar y Enviar ]` y `[ ✏️ Modificar ]`; si el cliente indica un número nuevo, el cajero lo actualiza en el acto.
+   - **Impresión térmica física:** El botón `[ 🖨️ Imprimir Ticket ]` se muestra en estado temporalmente deshabilitado (`disabled`), reforzando la directriz de cero papel.
+6. **Retorno al monitor POS:** El cajero presiona `[ ✓ Finalizar y Volver al Salón (Esc) ]`; el sistema regresa al monitor de salón donde la mesa se visualiza en estado verde `[ LIBRE ]` y el efectivo en gaveta refleja el nuevo balance actualizado.
 
 #### Flujos alternativos
 
-- Queda un ítem sin asignar a ninguna sub-cuenta → el sistema no permite continuar hasta que todos los ítems estén asignados.
+- **Monto recibido en efectivo menor al total:** El botón de cobro permanece inhabilitado y el panel de vuelto resalta en advertencia hasta ingresar una cifra igual o mayor al total.
+- **Venta mayor o igual a S/ 700.00 en Boleta:** La opción de *Consumidor Final* se deshabilita automáticamente por disposición de SUNAT, exigiendo obligatoriamente DNI válido.
+- **RUC con condición de No Habido o Inactivo:** El sistema notifica la condición tributaria obtenida de ApiPerú/SUNAT para que el cajero coordine con el cliente.
 
-**Postcondiciones:** Cuenta dividida y cobrada en partes; mesa se libera solo cuando todas las partes están cobradas.
+**Postcondiciones:** Pedido conmutado a `cobrado`; mesa liberada a `libre` y disponible en tiempo real; comprobante electrónico emitido con correlatividad ACID garantizada; token digital QR público disponible; cliente registrado/actualizado en PostgreSQL; ingreso registrado en el arqueo de caja del turno. Flujo 100% digital cero papel.
 
-### CU-CAJA-05: Anular pedido ya cobrado
+### CU-CAJA-04: Anular comprobante / pedido ya cobrado y emisión de Nota de Crédito Electrónica
 
-**Actor(es):** Cajero
+**Actor(es):** `cajero` (Principal), `admin_local` (Auditoría y supervisión), `comensal` (Receptor de fondos y constancia digital)
 
-**Precondiciones:** Existe un pedido en estado "cobrado".
-
-#### Flujo principal
-
-1. El cajero selecciona el pedido/comprobante a anular.
-2. Ingresa el motivo (obligatorio).
-3. El sistema anula el pedido de inmediato, genera el ajuste correspondiente (nota de crédito/reverso) y notifica automáticamente al administrador del local.
-4. El sistema revierte el ingreso registrado en el flujo de caja.
-
-**Postcondiciones:** Pedido anulado post-cobro; ajuste contable reflejado en caja; evento registrado en auditoría.
-
-### CU-CAJA-06: Cerrar caja (arqueo)
-
-**Actor(es):** Cajero
-
-**Precondiciones:** La caja está abierta.
+**Precondiciones:**
+1. La sede cuenta con un turno de caja abierto en estado `abierta` (`CU-CAJA-01`).
+2. Existe un comprobante previamente emitido en estado `emitido` en la tabla `comprobante` (Factura, Boleta o Nota de Venta) con su respectivo pedido en estado `cobrado` (`CU-CAJA-03`).
+3. Existen series electrónicas activas de Notas de Crédito registradas en `comprobante_serie` para la sede (`FC01` para Facturas, `BC01` para Boletas, o serie interna para Notas de Venta).
 
 #### Flujo principal
 
-1. El cajero accede a "Cerrar caja" al final de su turno.
-2. El sistema muestra el resumen automático: monto de apertura, total de ventas cobradas por método de pago, total esperado en efectivo.
-3. El cajero cuenta el efectivo físico real y lo ingresa al sistema.
-4. El sistema compara el monto real vs. el esperado y muestra la diferencia (si existe).
-5. El cajero confirma el cierre.
+1. El cajero accede a la vista de "Facturación y Comprobantes Emitidos" de su turno activo (`GET /api/v1/caja/comprobantes`).
+2. Utiliza los filtros segmentados de estado (`Vigentes / Emitidos`, `Anulados`, `Todos`) y tipo de documento para segregar rápidamente comprobantes activos de los ya rectificados, o localiza el comprobante a rectificar mediante búsqueda omnicanal con debounce por número (ej. `B001-0012894`), mesa o titular.
+3. El cajero pulsa `[ ⚠️ Anular (Nota Crédito) ]`. El sistema consulta los metadatos de anulación (`GET /api/v1/caja/comprobantes/{id}/preparar-anulacion`), precargando la serie oficial (`BC01` o `FC01`), el documento modificado, el desglose tributario y el cálculo del reembolso.
+4. En el modal interactivo de emisión, el cajero selecciona obligatoriamente el Motivo Oficial SUNAT (Catálogo de Tablas N° 09):
+   - `01 — Anulación de la operación` (reemisión por cambio de tipo de comprobante o error en la venta).
+   - `02 — Anulación por error en el RUC / Documento`.
+   - `06 — Devolución total del consumo`.
+5. Redacta el sustento detallado obligatorio (mínimo 10 caracteres) para auditoría fiscal e interna (ej. *"Comensal solicita cambio a Factura con RUC de empresa"*).
+6. El sistema exhibe la ficha de reversión financiera: egreso de gaveta por el importe pagado en efectivo (`- S/ 85.00`, recalculando el efectivo en caja de `S/ 385.00` a `S/ 300.00`) o ajuste de liquidación digital.
+7. El cajero pulsa `[ ⚡ Confirmar y Emitir Nota de Crédito (F9) ]`.
+8. El backend ejecuta una transacción atómica ACID (`POST /api/v1/caja/comprobantes/{id}/anular`):
+   - Bloquea la serie en `comprobante_serie` (`FOR UPDATE`) y obtiene el correlativo monótono sin saltos (`fn_obtener_siguiente_correlativo`).
+   - Inserta el registro oficial inmutable en `comprobante` con `tipo = 'nota_credito'`, serie, correlativo, `comprobante_modificado_id` referenciando al documento original, motivo SUNAT y sustento.
+   - Conmuta el comprobante original a `estado = 'anulado'`.
+   - Conmuta `pedido.estado = 'anulado'` y registra auditoría inmutable en `pedido_anulacion`.
+   - Registra asiento de egreso en `caja_movimiento` (`tipo = 'egreso_devolucion'`) cuadrando el efectivo de caja para el Arqueo Z (`CU-CAJA-05`).
+   - Emite broadcast reactivo Server-Sent Events (SSE) al panel del Administrador del Local (`CU-ADMIN-12`) para notificación inmediata y prevención de fraude.
+   - Confirma la transacción (`COMMIT`).
+9. El sistema despliega el diálogo modal de emisión de Nota de Crédito con Gran Código QR SVG dinámico de alta resolución (UUID v8) para escaneo del comensal (política *Cero Papel*), opciones asistidas de confirmación/modificación de envío telemático por WhatsApp y Correo electrónico, y botón de impresión térmica física visible pero temporalmente inactivo (`disabled`).
 
 #### Flujos alternativos
 
-- Existe una discrepancia → el sistema exige un comentario obligatorio antes de permitir el cierre, visible para el administrador.
+- Se intenta anular un comprobante que ya fue anulado o que ya tiene Nota de Crédito emitida → El sistema deniega la operación con `409 Conflict (ERR_COMPROBANTE_YA_ANULADO)` y en la interfaz mantiene el botón de anulación bloqueado con la etiqueta `[ 🚫 Anulado ]`, mostrando el enlace directo a su Nota de Crédito vinculada.
+- Se ingresa un sustento de anulación vacío o menor a 10 caracteres → El sistema bloquea el botón de confirmación y exige justificación descriptiva (`ERR_SUSTENTO_INSUFICIENTE`).
+- Cobro original realizado con Tarjeta POS o Billetera Digital → El asiento en `caja_movimiento` registra el egreso para la conciliación bancaria/digital del Arqueo Z sin restar del efectivo físico de gaveta.
+- El efectivo disponible en la gaveta es menor al importe a devolver → El sistema bloquea el egreso con `422 Unprocessable (ERR_EFECTIVO_GAVETA_INSUFICIENTE)` alertando la falta de liquidez en gaveta antes de autorizar la devolución.
 
-**Postcondiciones:** Caja cerrada; resumen disponible para supervisión del administrador.
+**Postcondiciones:** Nota de Crédito Electrónica emitida con correlativo ACID bajo normativa SUNAT Perú; comprobante original y pedido marcados como anulados; asiento de egreso en `caja_movimiento` garantizando cuadratura para `CU-CAJA-05`; evento auditado y notificado en tiempo real a `CU-ADMIN-12`; constancia digital accesible vía token QR dinámico sin emisión de papel térmico.
+
+### CU-CAJA-05: Cerrar caja (arqueo Z) y rendición de cuentas del turno
+
+**Actor(es):** `cajero` (Principal), `admin_local` (Receptor del reporte gerencial y auditor de discrepancias), `sistema` (Procesador contable y emisor de broadcast SSE)
+
+**Precondiciones:**
+1. La sede cuenta con un turno de caja abierto en estado `abierta` (`CU-CAJA-01`).
+2. El salón se encuentra al día (0 mesas con comanda activa, o cuentas 100% liquidadas).
+3. Todos los comprobantes del turno (Boletas, Facturas, Notas de Venta y egresos por Notas de Crédito emitidas en `CU-CAJA-04`) se encuentran registrados en la base de datos.
+
+#### Flujo principal
+
+1. El cajero accede al módulo de "Cierre de Caja y Arqueo Z" al finalizar su jornada laboral (`GET /api/v1/caja/turnos/actual/balance-cierre`).
+2. El sistema exhibe la pantalla de Pre-Arqueo y Balance Operativo:
+   - Verificación Poka-Yoke de salón: confirma que no existen mesas activas con consumo pendiente ni pedidos en cola de cocina.
+   - Recaudación y flujo por método de pago: fondo de apertura (`S/ 300.00`), ingresos en efectivo (`+ S/ 85.00`), devoluciones por Nota de Crédito (`- S/ 85.00`), arrojando el efectivo objetivo esperado en gaveta (`S/ 300.00`).
+   - Conciliación de medios electrónicos: total por tarjetas POS (Lote verificado) y billeteras digitales (Yape/Plin).
+   - Resumen fiscal preliminar SUNAT (Base Imponible, IGV 18%, Total Neto Facturado).
+3. El cajero pulsa `[ 📋 Iniciar Arqueo y Cierre de Caja (F8) ]`.
+4. El sistema despliega el modal interactivo de Arqueo y Conteo Físico.
+5. El cajero cuenta el dinero físico presente en la gaveta y digita directamente la cantidad total en Soles (`monto_real`, ej. `300.00`).
+6. El sistema compara en tiempo real el monto real contado contra el esperado:
+   - Si coinciden exactamente ($\text{Diferencia} = \text{S/ 0.00}$), el sistema muestra el badge verde de éxito: `[ ✓ CAJA CUADRADA CON ÉXITO • DIF: S/ 0.00 ]`.
+7. El cajero ingresa notas opcionales de entrega de turno y pulsa `[ 🔒 Confirmar y Cerrar Turno Definitivamente (F9) ]`.
+8. El backend ejecuta una transacción atómica ACID (`POST /api/v1/caja/turnos/actual/cerrar`):
+   - Bloquea la fila del turno de caja (`FOR UPDATE`).
+   - Actualiza `caja.estado = 'cerrada'`, fija `fecha_cierre = NOW()`, registra `monto_esperado`, `monto_real`, `discrepancia = 0.00`, notas y libera el índice único `uq_caja_abierta_local`.
+   - Genera e inserta el registro inmutable del Reporte Z en `auditoria_caja_cierre`.
+   - Emite broadcast reactivo Server-Sent Events (SSE) `caja_cerrada` al Administrador del Local (`CU-ADMIN-12`) con los indicadores clave del turno.
+   - Confirma la transacción (`COMMIT`).
+9. El sistema despliega la pantalla de Reporte Z Oficial Emitido:
+   - Ficha formal con encabezado fiscal (RUC, Sede, Turno #042, Cajero, Duración del turno).
+   - Detalle de movimiento y arqueo físico de efectivo (fondo, cobros, devoluciones, contado, diferencia).
+   - Total facturado neto por canal de cobro.
+   - Desglose tributario SUNAT (Base Gravada e IGV).
+   - Auditoría de documentos emitidos (Boletas, Facturas, Notas de Venta, Notas de Crédito y Anulados).
+   - Opciones digitales (Cero Papel): descarga de Reporte Z en PDF, archivado inmutable e integración directa en el historial de supervisión del administrador (`CU-ADMIN-15`), notificación reactiva SSE a `CU-ADMIN-12`, botón de impresión térmica deshabilitado y bloqueo de la terminal POS hasta la apertura de un nuevo turno (`CU-CAJA-01`).
+
+#### Flujos alternativos
+
+- Existen mesas con consumos activos o comandas abiertas en salón → El sistema emite una alerta bloqueante con el listado de mesas pendientes, prohibiendo el arqueo hasta que las cuentas sean cobradas o transferidas (`ERR_SALON_CON_MESAS_ACTIVAS`).
+- Existe discrepancia física entre el efectivo contado y el esperado (sobrante o faltante) → El sistema resalta la diferencia en ámbar/rojo (ej. `Faltante de - S/ 15.00`) y **bloquea el botón de confirmación** hasta que el cajero redacte obligatoriamente una justificación detallada de al menos 10 caracteres (`comentario_discrepancia`), la cual se reporta de inmediato a la administración (`ERR_DISCREPANCIA_SIN_JUSTIFICAR`).
+- Se intenta cerrar un turno que ya fue cerrado previamente → El backend rechaza la operación con `409 Conflict (ERR_CAJA_YA_CERRADA)`.
+
+**Postcondiciones:** Turno de caja cerrado formalmente en estado `cerrada`; índice único `uq_caja_abierta_local` liberado para el próximo turno; Reporte Z digital generado y descargable en PDF bajo política Cero Papel; notificación reactiva recibida en `CU-ADMIN-12`; terminal POS bloqueada para nuevas ventas hasta una nueva apertura.
 
 # 7. Cliente
 

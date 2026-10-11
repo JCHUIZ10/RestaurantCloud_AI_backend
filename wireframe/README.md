@@ -116,28 +116,33 @@ La bitácora histórica detallada de todas las decisiones, esquemas y capturas s
 | **`CU-ADMIN-12`** | Recibir notificación de anulación de pedido y auditoría | ✅ Completado | `wireframe/administrador/CU-ADMIN-12-notificacion-anulacion/` |
 | **`CU-ADMIN-17`** | Gestionar promociones del local | ✅ Completado | `wireframe/administrador/CU-ADMIN-17-gestionar-promociones/` |
 | **`CU-ADMIN-18`** | Configurar parámetros operativos de comanda y tiempos de KDS | ✅ Completado | `wireframe/administrador/CU-ADMIN-18-configurar-parametros-kds/` |
+| **`CU-ADMIN-19`** | Configurar métodos de pago y comisiones de cobro del local | ✅ Completado | `wireframe/administrador/CU-ADMIN-19-configurar-metodos-pago/` |
 | **`CU-MOZO-01`** | Ver estado de mesas y centro de comandas en vivo | ✅ Completado | `wireframe/mozo/CU-MOZO-01-estado-mesas/` |
 | **`CU-MOZO-02`** | Tomar pedido y comanda móvil (unifica CU-MOZO-03 y 07) | ✅ Completado | `wireframe/mozo/CU-MOZO-02-tomar-pedido/` |
 | **`CU-MOZO-04`** | Unir o dividir mesas en salón | ✅ Completado | `wireframe/mozo/CU-MOZO-04-unir-dividir-mesas/` |
 | **`CU-MOZO-05`** | Gestionar reservas y recepción en salón | ✅ Completado | `wireframe/mozo/CU-MOZO-05-gestionar-reservas/` |
 | **`CU-MOZO-06`** | Anular pedido (o ítem de pedido) con motivo | ✅ Completado | `wireframe/mozo/CU-MOZO-06-anular-pedido/` |
 | **`CU-MOZO-07`** | Atender incidencia de plato no disponible y resolver en mesa | ✅ Completado | `wireframe/mozo/CU-MOZO-07-atender-plato-no-disponible/` |
+| **`CU-MOZO-08`** | Consultar y presentar precuenta digital en mesa | ✅ Completado | `wireframe/mozo/CU-MOZO-08-precuenta-digital/` |
+| **`CU-MOZO-09`** | Subdividir comanda en mesa y asociar comprobantes (Factura, Boleta, Nota Venta) | ✅ Completado | `wireframe/mozo/CU-MOZO-09-subdividir-comanda/` |
 | **`CU-COCINA-01`** | Ver cola de pedidos entrantes (Kitchen Display System - KDS) | ✅ Completado | `wireframe/cocina/CU-COCINA-01-cola-pedidos-kds/` |
 | **`CU-COCINA-02`** | Actualizar estado de preparación (Pase Caliente, Deshacer y Despacho) | ✅ Completado | `wireframe/cocina/CU-COCINA-02-actualizar-estado-preparacion/` |
 | **`CU-COCINA-03`** | Descuento automático de insumos por consumo | ✅ Completado | `wireframe/cocina/CU-COCINA-03-descuento-automatico-insumos/` |
 | **`CU-COCINA-04`** | Marcar producto como agotado / disponible (Quiebres y Asignación FIFO) | ✅ Completado | `wireframe/cocina/CU-COCINA-04-marcar-producto-agotado/` |
 | **`CU-COCINA-05`** | Recibir notificación de anulación de pedido (Parada de Fogón en KDS) | ✅ Completado | `wireframe/cocina/CU-COCINA-01-cola-pedidos-kds/` (Vista 3) |
+| **`CU-CAJA-01`** | Apertura de turno de caja (Terminal única e ingreso directo de efectivo) | ✅ Completado | `wireframe/cajero/CU-CAJA-01-apertura-turno/` |
+| **`CU-CAJA-02`** | Generar cuenta a partir de pedidos de una mesa (Precuenta Digital / POS) | ✅ Completado | `wireframe/cajero/CU-CAJA-02-generar-precuenta/` |
+| **`CU-CAJA-03`** | Cobro de comanda y emisión de comprobantes oficiales (Factura, Boleta, Nota Venta) | ✅ Completado | `wireframe/cajero/CU-CAJA-03-cobrar-comanda/` |
+| **`CU-CAJA-04`** | Anular comprobante / pedido ya cobrado y emisión de Nota de Crédito Electrónica | ✅ Completado | `wireframe/cajero/CU-CAJA-04-anular-comprobante/` |
+| **`CU-CAJA-05`** | Cerrar caja (arqueo Z) y rendición de cuentas del turno | ✅ Completado | `wireframe/cajero/CU-CAJA-05-cerrar-caja/` |
 
-> 🏆 **ROL MOZO 100% CULMINADO:** Todos los casos de uso del rol Mozo (`CU-MOZO-01` a `CU-MOZO-07`) se encuentran plenamente especificados con wireframes Blueprint, modelos relacionales, contratos Go y flujo reactivo SSE.
+> 🏆 **ROL MOZO 100% CULMINADO (9 Casos de Uso):** Todos los casos de uso del rol Mozo (`CU-MOZO-01` a `CU-MOZO-09`) se encuentran plenamente especificados con wireframes Blueprint, modelos relacionales, contratos Go y flujo reactivo SSE. Incluye salón en vivo, comandas táctiles, unión de mesas, reservas con mini-mapa, comercialización con promociones independientes (`CU-ADMIN-17`), precuenta digital con pago QR y **subdivisión determinista de comandas en mesa con tres comprobantes (Factura, Boleta y Nota de Venta)**.
 > 
 > 👨‍🍳 **ROL COCINA 100% CULMINADO:** Todos los casos de uso del rol Cocina (`CU-COCINA-01`, `02`, `03`, `04` y `05`) se encuentran 100% terminados y sincronizados: KDS interactivo con semáforo dinámico de sede (`CU-ADMIN-18`), pase caliente táctil con timer y rollback de inventario al deshacer (30s), recuperación de tickets despachados (30m), deducción atómica de recetas sin bloqueo de servicio, gestión de quiebres con asignación FIFO justa para porciones parciales en fuego y alertas reactivas de parada.
+> 
+> 💳 **ROL CAJERO 100% CULMINADO (5 Casos de Uso: CU-CAJA-01 a CU-CAJA-05):** Todos los casos de uso de Caja, POS y Facturación se encuentran 100% completados con wireframes Blueprint en alta resolución (1440x900) y especificaciones técnicas canónicas. Incluye política de terminal única por sede (`uq_caja_abierta_local`), fondo inicial directo, precuenta digital desacoplada con promociones predictivas (`CU-ADMIN-17`) y medios de pago (`CU-ADMIN-19`), cobro formal con tres comprobantes (Factura, Boleta y Nota de Venta) con consulta ApiPerú y persistencia en tabla `cliente` (`detalle JSONB`), control de series y correlatividad monótona con bloqueo transaccional ACID (`comprobante_serie`), digitación directa de efectivo con display de vuelto, liquidación atómica por comanda completa o subcuentas (`CU-MOZO-09` / `CU-CAJA-03`), anulación formal con Nota de Crédito Electrónica (`FC01`/`BC01`), catálogo SUNAT 09, filtros segmentados por estado (Vigentes vs Anulados), reversión en flujo de caja (`caja_movimiento`), verificación Poka-Yoke de salón al día, arqueo Z con digitación directa, y emisión de Reporte Z Digital oficial con consolidación fiscal bajo estricta política Cero Papel.
 
-**Próximo Módulo a Ejecutar (Fase Final de la Operación Gastronómica):**
-👉 **`CU-CAJA-01: Apertura de turno de caja`** (Fondo inicial de efectivo, asignación de caja física y validación de turnos).
-
-
-
-
-
+**Próximo Módulo a Ejecutar (Autoservicio y Experiencia Comensal):**
+👉 **`CU-CLIENTE-01: Consultar carta digital`** (Acceso web responsive optimizado para móviles vía código QR en mesa con token de ubicación, visualización de categorías, platos, precios, alérgenos, fotos y sincronización reactiva de stock con cocina `CU-COCINA-04`).
 
 

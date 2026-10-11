@@ -58,7 +58,16 @@ Todos los archivos han sido organizados bajo la estructura convenida `wireframe/
    - Vista 2: [`assets/wf_admin_17_formulario_modal.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-17-gestionar-promociones/assets/wf_admin_17_formulario_modal.jpg)
    - Vista 3: [`assets/wf_admin_17_detalle_metricas_modal.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-17-gestionar-promociones/assets/wf_admin_17_detalle_metricas_modal.jpg)
    - Vista 4: [`assets/wf_admin_17_onboarding_vacio.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-17-gestionar-promociones/assets/wf_admin_17_onboarding_vacio.jpg)
-10. **CU-MOZO-01: Ver Estado de Mesas y Centro de Comandas en Vivo:**
+10. **CU-ADMIN-18: Configurar Parámetros Operativos de Comanda y Tiempos de KDS:**
+   - Especificación: [`wireframe/administrador/CU-ADMIN-18-configurar-parametros-kds/wireframe.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-18-configurar-parametros-kds/wireframe.md)
+   - Vista 1: [`assets/wf_admin_18_configuracion_kds.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-18-configurar-parametros-kds/assets/wf_admin_18_configuracion_kds.jpg)
+11. **CU-ADMIN-19: Configurar Métodos de Pago y Comisiones de Cobro del Local:**
+   - Especificación: [`wireframe/administrador/CU-ADMIN-19-configurar-metodos-pago/wireframe.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-19-configurar-metodos-pago/wireframe.md)
+   - Vista 1: [`assets/wf_admin_19_panel_configuracion.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-19-configurar-metodos-pago/assets/wf_admin_19_panel_configuracion.jpg)
+   - Vista 2: [`assets/wf_admin_19_modal_detalle_metodo.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-19-configurar-metodos-pago/assets/wf_admin_19_modal_detalle_metodo.jpg)
+   - Vista 3: [`assets/wf_admin_19_bloqueo_desactivacion.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-19-configurar-metodos-pago/assets/wf_admin_19_bloqueo_desactivacion.jpg)
+   - Vista 4: [`assets/wf_admin_19_onboarding_inicial.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-19-configurar-metodos-pago/assets/wf_admin_19_onboarding_inicial.jpg)
+12. **CU-MOZO-01: Ver Estado de Mesas y Centro de Comandas en Vivo:**
    - Especificación: [`wireframe/mozo/CU-MOZO-01-estado-mesas/wireframe.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/mozo/CU-MOZO-01-estado-mesas/wireframe.md)
    - Vista 1: [`assets/wf_mozo_01_plano_pedidos.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/mozo/CU-MOZO-01-estado-mesas/assets/wf_mozo_01_plano_pedidos.jpg)
    - Vista 2: [`assets/wf_mozo_01_inspeccion_mesa_drawer.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/mozo/CU-MOZO-01-estado-mesas/assets/wf_mozo_01_inspeccion_mesa_drawer.jpg)
@@ -76,6 +85,20 @@ Todos los archivos han sido organizados bajo la estructura convenida `wireframe/
    - Vista 2: [`assets/wf_mozo_06_modal_anular_item.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/mozo/CU-MOZO-06-anular-pedido/assets/wf_mozo_06_modal_anular_item.jpg)
    - Vista 3: [`assets/wf_mozo_06_modal_anular_comanda_total.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/mozo/CU-MOZO-06-anular-pedido/assets/wf_mozo_06_modal_anular_comanda_total.jpg)
    - Vista 4: [`assets/wf_mozo_06_alerta_merma.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/mozo/CU-MOZO-06-anular-pedido/assets/wf_mozo_06_alerta_merma.jpg)
+13. **CU-MOZO-08: Consultar y Presentar Precuenta Digital en Mesa:**
+   - Especificación: [`wireframe/mozo/CU-MOZO-08-precuenta-digital/wireframe.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/mozo/CU-MOZO-08-precuenta-digital/wireframe.md)
+   - Vista 1: [`assets/wf_mozo_08_modal_precuenta.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/mozo/CU-MOZO-08-precuenta-digital/assets/wf_mozo_08_modal_precuenta.jpg)
+   - Vista 2: [`assets/wf_mozo_08_detalle_billetera_qr.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/mozo/CU-MOZO-08-precuenta-digital/assets/wf_mozo_08_detalle_billetera_qr.jpg)
+   - Vista 3: [`assets/wf_mozo_08_mesa_notificada_salon.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/mozo/CU-MOZO-08-precuenta-digital/assets/wf_mozo_08_mesa_notificada_salon.jpg)
+14. **CU-CAJA-01: Apertura de Turno de Caja:**
+   - Especificación: [`wireframe/cajero/CU-CAJA-01-apertura-turno/wireframe.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cajero/CU-CAJA-01-apertura-turno/wireframe.md)
+   - Vista 1: [`assets/wf_caja_01_modal_apertura.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cajero/CU-CAJA-01-apertura-turno/assets/wf_caja_01_modal_apertura.jpg)
+   - Vista 2: [`assets/wf_caja_01_bloqueo_turno_previo.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cajero/CU-CAJA-01-apertura-turno/assets/wf_caja_01_bloqueo_turno_previo.jpg)
+   - Vista 3: [`assets/wf_caja_01_pos_desbloqueado.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cajero/CU-CAJA-01-apertura-turno/assets/wf_caja_01_pos_desbloqueado.jpg)
+15. **CU-CAJA-02: Generar Cuenta a partir de Pedidos de una Mesa (Precuenta Digital):**
+   - Especificación: [`wireframe/cajero/CU-CAJA-02-generar-precuenta/wireframe.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cajero/CU-CAJA-02-generar-precuenta/wireframe.md)
+   - Vista 1: [`assets/wf_caja_02_panel_pos.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cajero/CU-CAJA-02-generar-precuenta/assets/wf_caja_02_panel_pos.jpg)
+   - Vista 2: [`assets/wf_caja_02_promocion_aplicada.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cajero/CU-CAJA-02-generar-precuenta/assets/wf_caja_02_promocion_aplicada.jpg)
 
 ---
 
@@ -877,7 +900,7 @@ Alerta de seguridad operativa que intercepta intentos indebidos de división cua
    - Se prescinde de tablas intermedias redundantes (`mesa_grupo`), logrando consultas sub-milisegundo (< 1ms).
 5. **División de Mesas vs División de Cuentas:**
    - `CU-MOZO-04` gestiona la separación física de las mesas en el salón (permitida cuando están desocupadas).
-   - La división de cuentas entre comensales (cuentas separadas, pagar por partes) le corresponde al Cajero en `CU-CAJA-04`.
+   - La división de cuentas entre comensales (cuentas separadas, pagar por partes) le corresponde a la estructuración de subcuentas en `CU-MOZO-09` y cobro atómico en `CU-CAJA-03`.
 6. **Bloqueo Asistido vs Errores Secos (UX de Servicio):**
    - El sistema no arroja un error 409 genérico al intentar dividir una mesa con comida; le ofrece al mozo en 1 toque ir a pedir la cuenta a Caja o proceder a la anulación si la mesa se marchó, erradicando confusiones en horas punta.
 
@@ -1230,7 +1253,417 @@ Con la culminación de `CU-COCINA-01`, `CU-COCINA-02`, `CU-COCINA-03`, `CU-COCIN
 4. **Quiebres y Pausas:** Gestión táctil de disponibilidad con resolución parcial de fuego (FIFO) y conexión con `CU-MOZO-07`.
 5. **Parada de Emergencia:** Alerta reactiva sonora ante anulaciones en sala (`CU-COCINA-05`).
 
-El sistema se encuentra listo para abordar el eslabón final de la cadena de valor: **El Módulo de Caja (`CU-CAJA-01` a `CU-CAJA-06`)**.
+---
+
+## 56. Vistas Estructurales y Parametrización Financiera de Cobros (`CU-ADMIN-19`)
+
+Para blindar la consistencia financiera antes de abrir el turno de caja, se implementó la pantalla de parametrización de cobros para el Administrador del Local (`CU-ADMIN-19`), estableciendo las reglas de juego que gobernarán el Punto de Venta del Cajero (`CU-CAJA-02` y `CU-CAJA-03`):
+
+### Vista 1: Panel Principal de Configuración y Simulador Reactivo 50/50 (`wf_admin_19_panel_configuracion.jpg`)
+Pantalla de escritorio (`1440x900`):
+- **Barra de Métricas Financieras Superiores:** Exhibe *Formas de Pago Habilitadas (3/3 Activas)*, *Métodos con Comisión (1: Tarjeta POS al 3.5%)*, *Ventas con Tarjeta del Mes (S/ 24,850.00)* y *Recargos Trasladados (S/ 869.75)* para compensar costos de pasarela bancaria.
+- **Columna Izquierda (50%): Catálogo de Formas de Pago:**
+  - **Efectivo:** Activo por ley, con recargo fijo inmutable en `0.00%`.
+  - **Tarjeta POS:** Conmutador de activación, selector con steppers para calibrar la comisión porcentual (`comision_porcentaje`, ej. `3.50%`) y texto legal visible en el comprobante.
+  - **Billetera Digital (Yape / Plin):** Conmutador de activación, comisión (default `0.00%`), datos del receptor (`987 654 321` - `Restaurant S.A.C.`) y acceso al modal de edición de QR.
+  - **Transferencia Bancaria:** Método opcional pausado por defecto.
+- **Columna Derecha (50%): Simulador de Cobro y Precuenta en Vivo:**
+  - Input interactivo para ingresar cualquier monto de consumo de prueba (default `S/ 100.00`).
+  - Lista de radio-botones que simula la botonera del cajero en salón, calculando al vuelo:
+    - *Efectivo:* S/ 100.00 (Recargo: S/ 0.00) $\rightarrow$ Total: S/ 100.00.
+    - *Tarjeta POS (3.5%):* S/ 100.00 (Recargo: S/ 3.50) $\rightarrow$ Total: S/ 103.50.
+    - *Yape / Plin (0%):* S/ 100.00 (Recargo: S/ 0.00) $\rightarrow$ Total: S/ 100.00.
+  - Previsualizador térmico de la **Precuenta Informativa** con desglose de ítems, base imponible, IGV 18%, recargo por tarjeta y total neto a pagar.
+
+### Vista 2: Modal de Configuración Detallada de Billetera Digital (`wf_admin_19_modal_detalle_metodo.jpg`)
+Diálogo interactivo de 680px:
+- Switch maestro de habilitación para el Punto de Venta (POS) y carta digital QR.
+- Formulario de número celular receptor (9 dígitos validados Perú) y razón social del titular.
+- Componente de previsualización y reemplazo de imagen del código QR interoperable (`Yape / Plin`).
+- Instrucción operativa visible para el cajero (*"Verificar código de operación de 6 dígitos antes de emitir boleta"*).
+
+### Vista 3: Bloqueo de Regla de Negocio (Mínimo 1 Medio de Pago Activo) (`wf_admin_19_bloqueo_desactivacion.jpg`)
+Modal de contención de seguridad (540px):
+- Si el administrador intenta desactivar el último método de pago habilitado (ej. Efectivo cuando los demás están pausados), el sistema intercepta la acción con `409 Conflict (ERR_MINIMO_UN_PAGO)`.
+- Explica que una sede activa no puede operar sin al menos una vía de liquidación para evitar la paralización del salón.
+
+### Vista 4: Onboarding de Sede Nueva con Métodos Pre-Aprovisionados (`wf_admin_19_onboarding_inicial.jpg`)
+Pantalla de bienvenida para nuevos locales:
+- Pre-aprovisiona automáticamente los 3 métodos canónicos (`Efectivo`, `Tarjeta POS`, `Billetera Digital Yape/Plin`) con `0.00%` de comisión por defecto.
+- Permite iniciar operaciones en salón con un solo clic o personalizar comisiones.
+
+---
+
+## 57. Reglas de Negocio, Integridad Financiera y Simulador Reactivo (`CU-ADMIN-19`)
+
+1. **Tabla Dedicada `metodo_pago_local`:** Almacena la configuración de pagos por local con RLS (`local_id`), unicidad `(local_id, codigo)`, constraints de rango de comisiones (`0% <= comision <= 50%`) y metadata en `jsonb`.
+2. **Sincronización Reactiva SSE en < 30ms:** Al presionar `[ ✓ Guardar Parámetros de Pago ]`, el backend emite el evento `metodos_pago_actualizados`. Las terminales de Punto de Venta del Cajero (`CU-CAJA-02` y `CU-CAJA-03`) actualizan de inmediato sus botones de cobro y recargos sin requerir recargar la sesión.
+3. **Regla de Integridad de Servicio:** Garantía estricta de al menos 1 método activo en todo momento. Prohibido el `DELETE` físico de métodos de pago.
+4. **Desglose Transparente en Comprobantes:** Los recargos se registran formalmente en la tabla `comprobante` en las columnas `subtotal_consumo`, `porcentaje_recargo` y `monto_recargo`, asegurando que el arqueo de caja (`CU-CAJA-05`) y los reportes de ventas distingan con precisión el consumo neto de la comisión de pasarela.
+
+---
+
+## 58. Vistas Estructurales de CU-CAJA-01: Apertura de Turno de Caja
+
+Para dar inicio a las operaciones comerciales del salón y garantizar la cuadratura contable de ingresos, se diseñó e implementó la compuerta operativa de **Apertura de Turno de Caja (`CU-CAJA-01`)** bajo la modalidad directa de fondo de sencillo:
+
+### Vista 1: Modal Central de Apertura de Turno (POS Bloqueado) (`wf_caja_01_modal_apertura.jpg`)
+Terminal de escritorio / táctil (`1440x900`):
+- **Capa Modal de Contención:** Fondo oscurecido (`background: rgba(15, 23, 42, 0.72)`) que bloquea las mesas y cobros del salón hasta registrar formalmente el fondo inicial de la gaveta.
+- **Ficha de Identidad del Cajero:** Correlativo de turno proyectado (`Turno #042`), avatar del cajero responsable (`Carlos Mendoza`), fecha y hora de inicio de jornada.
+- **Input Directo de Monto Inicial:** Permite tipeo numérico directo en Soles (`PEN S/ 300.00`) con chips de incremento rápido táctil (`+ S/ 50`, `+ S/ 100`, `+ S/ 200`, `Borrar`).
+- **Microcopia de Seguridad Poka-Yoke:** Clarificación explícita de la política de terminal unificada por sede.
+
+### Vista 2: Bloqueo de Pantalla por Turno Previo Pendiente (`wf_caja_01_bloqueo_turno_previo.jpg`)
+Alerta modal de contención de integridad (`409 Conflict: ERR_TURNO_PREVIO_NO_CERRADO`):
+- Se activa cuando un cajero nuevo intenta abrir caja mientras el turno del cajero saliente sigue activo sin arqueo formal (`CU-CAJA-05`).
+- Exhibe ficha de auditoría: Cajero saliente (`Juan Pérez`), hora de apertura (`08:30 AM`), fondo registrado (`S/ 250.00`) y volumen transaccional en salón (`24 Ventas / S/ 2,480.00`).
+- Opciones de resolución clara: Relevo presencial con el cajero saliente o cierre forzado supervisado por el Administrador de sede (`CU-ADMIN-15`).
+
+### Vista 3: Monitor POS Desbloqueado y Operativo en Salón (`wf_caja_01_pos_desbloqueado.jpg`)
+Punto de Venta activo y sincronizado:
+- **Cabecera Persistente:** Muestra badge verde de turno activo (`Turno #042 Abierto • Fondo: S/ 300.00 • 12:05 PM`), cajero autenticado y botón directo de `[ 🔒 Cerrar Turno (Arqueo Z) ]`.
+- **Métricas Operativas del Salón:** Cuentas pendientes de cobro (2 mesas), monto acumulado por cobrar en sala (`S/ 245.00`), efectivo disponible en caja (`S/ 300.00`) y ocupación de mesas (`10 / 16 Mesas - 62.5%`).
+- **Grilla de Mesas con Estados en Tiempo Real:** Priorización visual de mesas con cuenta solicitada por el mozo (`Mesa 04`, `Mesa 08` con badge azul marino `CUENTA PEDIDA`) listas para emitir precuenta (`CU-CAJA-02`) o cobrar (`CU-CAJA-03`).
+
+---
+
+## 59. Reglas de Negocio, Política de Terminal Única y Manejo de Efectivo (`CU-CAJA-01`)
+
+1. **Política de Caja Única por Sede (Single Terminal Policy):**
+   - Para maximizar la agilidad de desarrollo y simplificar la gestión contable del restaurante, cada sucursal opera bajo un esquema unificado de 1 terminal de caja.
+   - En la base de datos PostgreSQL 16 se asegura mediante el índice parcial único:
+     ```sql
+     CREATE UNIQUE INDEX uq_caja_abierta_local ON caja(local_id) WHERE estado = 'abierta';
+     ```
+     Cualquier intento concurrente de aperturar otra caja es rechazado atómicamente por la base de datos con código `409 Conflict`.
+2. **Registro Directo y Eficiente de Efectivo:**
+   - Para maximizar la agilidad de inicio de jornada y simplificar la operativa diaria, el fondo inicial se registra como un monto monetario directo en Soles (`monto_apertura decimal(10,2)`), eliminando la complejidad y potenciales discrepancias del desglose manual de denominaciones.
+3. **Flexibilidad Horaria y Operación Guiada por Eventos (Event-Driven Shifts):**
+   - El sistema no impone bloqueos temporales arbitrarios ni castigos punitivos si el cajero extiende su permanencia en el local (+30 min o más post-turno) atendiendo el flujo de salón. La caja permanece operativa hasta el arqueo explícito.
+4. **Sincronización Reactiva SSE en < 20ms:**
+   - La confirmación de apertura emite el evento `caja_abierta` al hub local, notificando al instante a las vistas del administrador y habilitando los flujos de cobro en salón.
+
+---
+
+## 60. Vistas Estructurales de CU-CAJA-02: Generar Cuenta a partir de Pedidos de una Mesa (Precuenta Digital)
+
+Para consolidar los pedidos de los comensales, aplicar promociones comerciales y generar la liquidación previa al cobro sin intermediación de papel físico ni periféricos térmicos, se diseñó e implementó la especificación canónica de **Generar Cuenta / Precuenta Digital (`CU-CAJA-02`)**:
+
+### Vista 1: Panel Principal de Precuenta en POS Monitor (`wf_caja_02_panel_pos.jpg`)
+Terminal de escritorio táctil (`1440x900` Grayscale Blueprint):
+- **Selector de Salón Integrado:** Panel lateral izquierdo con planos de mesas y filtros rápidos (`Todas`, `💳 Cta Pedida`, `Ocupadas`, `Libres`). Identifica visualmente mesas individuales y mesas unificadas (`Mesa [ 02 ; 03 ]`).
+- **Banner Informativo de Cocina (No Bloqueante):** Notificación ámbar de advertencia de cocción (`⚠️ Aviso Informativo: 1 plato 'Lomo Saltado' en preparación en cocina. No bloquea la emisión ni el cobro de la cuenta`). Resuelve la operatividad en restaurantes con cobro anticipado.
+- **Consolidado de Comanda en Alta Densidad:** Lista detallada de platos pedidos con especificación de notas de preparación, cantidades acumuladas y subtotales (Consumo Bruto: `S/ 100.00`).
+- **Selector de Promociones Vigentes (`CU-ADMIN-17`):** Menú interactivo que valida en tiempo real la vigencia, horarios y mínimos de compra.
+- **Desglose Tributario Oficial SUNAT:** Muestra Consumo Bruto (`S/ 100.00`), Descuento (`S/ 0.00`), Total Neto (`S/ 100.00`), Base Imponible gravada (`S/ 84.75`) e IGV 18% incluido (`S/ 15.25`).
+- **Proyección de Medios de Pago (`CU-ADMIN-19`):** Tarjetas dinámicas que muestran el importe final a abonar según el método seleccionado (Efectivo `S/ 100.00`, Yape/Plin `S/ 100.00`, Tarjeta POS con +3.5% `S/ 103.50`).
+
+### Vista 2: Precuenta con Promoción Comercial Aplicada (`wf_caja_02_promocion_aplicada.jpg`)
+Recálculo tributario y financiero reactivo en tiempo real (< 10ms):
+- **Chip de Promoción Activa con Deshacer en 1 Clic:** Despliega el badge de campaña (*"Descuento Almuerzo Ejecutivo (15% dscto) - Ahorro: S/ 15.00"*) con botón `[ ✕ Quitar Dscto ]` para revertir la deducción si el cliente no cumple los términos.
+- **Liquidación SUNAT Recalculada:**
+  - Consumo Bruto: `S/ 100.00`
+  - Descuento Comercial (15%): `- S/ 15.00`
+  - Total Neto a Pagar: `S/ 85.00`
+  - Base Imponible: `S/ 72.03` ($85.00 / 1.18$)
+  - IGV 18%: `S/ 12.97` ($85.00 - 72.03$)
+- **Ajuste Proyectado de Pasarelas:** La tarjeta de Tarjeta POS actualiza en vivo el cálculo del recargo del 3.5% sobre la nueva base neta (`S/ 87.98`), manteniendo total transparencia tarifaria frente al comensal.
+- **Enrutamiento Operativo Directo:** En lugar de rebotar la precuenta al mozo, el monitor POS ofrece enrutamiento de acción inmediata hacia `[ ⚡ Cobrar Comanda o Subcuentas (CU-CAJA-03) ]` para pasar a la liquidación con emisión fiscal (comanda completa o subcuentas divididas en salón).
+
+---
+
+## 61. Reglas de Negocio, Cálculo Tributario SUNAT Perú e Independencia de Cocina (`CU-CAJA-02`)
+
+1. **Flujo Desacoplado y 100% Digital (Cero Papel):**
+   - El sistema prescinde por completo del uso de tickets térmicos impresos para la precuenta y opera de forma paralela y desacoplada entre Mozo y Cajero. El cajero en el POS no 'envía la precuenta de vuelta al mozo'; cuenta con acceso inmediato a los consumos para aplicar promociones y enrutar en 1 clic a `CU-CAJA-03`. En paralelo, el mozo puede consultar o dividir la cuenta en mesa con total autonomía (`CU-MOZO-08` / `CU-MOZO-09`).
+2. **Fórmula Tributaria Oficial SUNAT Perú:**
+   - La deducción comercial se aplica estrictamente al Consumo Bruto antes de la segregación fiscal:
+     $$T_{neto} = C_{bruto} - D$$
+     $$\text{Base Imponible} = \frac{T_{neto}}{1.18}$$
+     $$\text{IGV (18\%)} = T_{neto} - \text{Base Imponible}$$
+   - Esto impide que el establecimiento tribute impuestos sobre importes descontados comercialmente.
+3. **Independencia Operativa Respecto a Cocina:**
+   - El estado de cocción en KDS (`en_cola`, `en_preparacion`) no bloquea la precuenta ni el cobro. Un banner informativo previene errores de servicio pero permite total flexibilidad para modelos de negocio gastronómicos con cobro en mostrador o anticipado.
+4. **Proyección Comparativa de Medios de Pago (`CU-ADMIN-19`):**
+   - La pantalla proyecta de forma transparente el recargo porcentual de pasarelas bancarias, asegurando que tanto el personal como el cliente conozcan con exactitud el total liquidable antes de emitir el comprobante formal (`CU-CAJA-03`).
+
+---
+
+## 62. Vistas Estructurales de CU-MOZO-08: Consultar y Presentar Precuenta Digital en Mesa
+
+Para dotar al personal de salón de completa autonomía operativa, eliminar cuellos de botella con caja y ofrecer atención inmediata al cliente sin esperas ni rollos térmicos de papel, se diseñó e implementó la especificación canónica de **`CU-MOZO-08: Consultar y Presentar Precuenta Digital en Mesa`**:
+
+### Vista 1: Modal Táctil de Precuenta con Promociones Integradas (`wf_mozo_08_modal_precuenta.jpg`)
+Modal táctil responsive centrado (640px de ancho) superpuesto sobre el plano de salón atenuado de `CU-MOZO-01`:
+- **Cabecera Contextual:** Mesa 04, 4 comensales, comanda #108, tiempo de permanencia (32 min) y mozo titular (`Marco Valdivia`).
+- **Banner Conciso de Cocina:** Alerta ámbar directa: `⚠️ 1 plato 'Lomo Saltado' en 'preparación'` (no bloqueante para la cuenta).
+- **Consolidado de Comanda en Salón:** Tabla compacta de platos pedidos con especificación de notas de cliente, cantidades y subtotales (Consumo Bruto: `S/ 100.00`).
+- **Sección de Promociones Integrada (`CU-ADMIN-17`):** Chip de campaña comercial activa (*"Descuento Almuerzo Ejecutivo (15% dscto) - Ahorro: - S/ 15.00"*) con acción de alternar o desmarcar en 1 toque.
+- **Desglose Fiscal SUNAT:** Consumo Bruto (`S/ 100.00`), Descuento Comercial (`- S/ 15.00`), Total Neto a Cobrar (`S/ 85.00`), Base Imponible gravada (`S/ 72.03`) e IGV 18% incluido (`S/ 12.97`).
+- **Selector Limpio de Métodos de Pago (`CU-ADMIN-19`):** Tarjetas táctiles directas: Efectivo (`S/ 85.00`), Billetera Digital Yape/Plin (`S/ 85.00` con invitación táctil `▶ Tocar para ver QR`), y Tarjeta POS (`S/ 87.98` con +3.5% pasarela trasladada).
+- **Acciones:** `[ Volver al Salón ]` y botón primario `[ ⚡ Notificar a Caja para Cobro ]`.
+
+### Vista 2: Despliegue de Información y QR de Billetera Digital (`wf_mozo_08_detalle_billetera_qr.jpg`)
+Divulgación progresiva bajo demanda al seleccionar Billetera Digital (Yape / Plin):
+- **Importe Destacado en Alto Contraste:** Muestra `Total a Transferir: S/ 85.00` con badge `0% Recargo de comisión`.
+- **Código QR Dinámico en Mesa:** Recuadro central con código QR vectorial de alta definición para escaneo directo del comensal desde su propio celular a más de 40 cm.
+- **Datos Comerciales de Transferencia:** Número del local (`987 654 321` con botón `[ Copiar ]`), titular (`Restaurant S.A.C.`) y RUC (`20601234567`).
+- **Verificación Asistida en Mesa:** Campo numérico para capturar el voucher del cliente (`Op: 581902`) y checkbox de certificación visual por el mozo.
+- **Acciones:** `[ ‹ Cambiar Método ]` y botón primario `[ ⚡ Confirmar y Notificar a Caja ]`.
+
+### Vista 3: Salón en Vivo con Mesa Notificada a Caja (`wf_mozo_08_mesa_notificada_salon.jpg`)
+Sincronización reactiva del plano de salón tras la confirmación:
+- **Toast Superior Accesible:** `✓ Precuenta de Mesa 04 (S/ 85.00) enviada a Caja vía SSE. Esperando confirmación de cajero.`
+- **Tarjeta de Mesa Resaltada:** Mesa 04 con contorno destacado, badge ámbar `[ ESPERANDO CAJERO ]`, monto liquidado (`S/ 85.00`) y detalle del método declarado (`Yape • Op #581902`).
+- **Quick-Drawer Informativo:** Permite al mozo consultar el estado, volver a abrir la precuenta digital (`[ 👁️ Reabrir Precuenta Digital ]`) o incorporar pedidos de última hora si los comensales lo solicitan.
+
+---
+
+## 63. Reglas de Negocio, Divulgación Progresiva y Autonomía de Salón (`CU-MOZO-08`)
+
+1. **Autonomía Operativa del Mozo (Cero Cuello de Botella):**
+   - El mozo no depende de que el cajero esté en el mostrador para consultar la precuenta o presentarla en mesa. El cálculo es determinista on-demand en el backend Go (< 15ms).
+2. **Divulgación Progresiva (Progressive Disclosure):**
+   - La pantalla inicial de precuenta se mantiene limpia y legible sin saturar al cliente con un QR gigante a menos que exprese su deseo de pagar mediante billetera digital.
+3. **Microcopia Sintética de Cocina:**
+   - Estandarización de alertas operativas con la fórmula concisa: `⚠️ {num} plato '{nombre}' en '{estado}'`.
+4. **Delimitación Precisa de Responsabilidades:**
+   - **Mozo:** Presenta la precuenta digital, aplica promociones y atiende el pago en mesa mediante QR.
+   - **Cajero:** Valida el ingreso de fondos (voucher/efectivo) y emite formalmente el comprobante electrónico fiscal con valor tributario (Boleta/Factura) en `CU-CAJA-03`.
+
+---
+
+## 64. Vistas Estructurales de CU-MOZO-09: Subdividir Comanda en Mesa y Asociar Comprobantes
+
+Para resolver de manera definitiva las esperas y aglomeraciones en caja cuando un grupo de comensales desea pagar por separado con comprobantes y métodos diferenciados, se diseñó e implementó la especificación canónica de **`CU-MOZO-09: Subdividir Comanda en Mesa y Asociar Comprobantes (Factura, Boleta, Nota de Venta)`**:
+
+### Vista 1: Asignación Determinista de Ítems a Subcuentas (`wf_mozo_09_asignacion_items.jpg`)
+Modal táctil responsive centrado (1100px de ancho) con dos columnas principales sobre fondo atenuado de salón (`CU-MOZO-01`):
+- **Cabecera Contextual:** Mesa 04, 4 comensales, comanda #108, Consumo Bruto Total: `S/ 100.00`.
+- **Barra de Progreso y Cero Azar:** Indicador en tiempo real: `[✓ 100% ASIGNADO] 4 de 4 platos distribuidos • Total asignado: S/ 100.00 de S/ 100.00 (Pendiente: S/ 0.00)`. Salvaguarda que prohíbe repartos aleatorios o ítems huérfanos.
+- **Columna Izquierda (Bandeja de Ítems de la Comanda - 480px):**
+  - Lista de platos con checkboxes de selección y botón `[ ✂ Desglosar Unidades ]` para platos con cantidad $>1$.
+  - Items asignados: Lomo Saltado (S/ 38.00) -> Subcuenta 1; Arroz con Mariscos (S/ 34.00), Chicha Jarra 1L (S/ 16.00) y Causa Limeña (S/ 12.00) -> Subcuenta 2.
+  - Dock de transferencia táctil ergonómica: `[ Asignar a Subcuenta 1 > ]` y `[ Asignar a Subcuenta 2 > ]`.
+- **Columna Derecha (Subcuentas Creadas en Mesa - 580px):**
+  - Tarjetas dinámicas `SUB-01` (S/ 38.00) y `SUB-02` (S/ 62.00) con botón de reversión individual `[ ↶ Devolver ]` y acción `[ ＋ Añadir Subcuenta 3 ]`.
+- **Acciones:** `[ ✕ Cancelar y Volver a Precuenta ]` y botón primario activo `[ Continuar a Comprobantes y Promociones (Paso 2) ▶ ]`.
+
+### Vista 2: Configuración de Comprobantes, Promociones y Métodos de Pago por Subcuenta (`wf_mozo_09_configuracion_comprobantes.jpg`)
+Formulario adaptativo en dos columnas con configuración independiente para cada subcuenta:
+- **Subcuenta 1 (Comensal A — 1 plato, Bruto S/ 38.00):**
+  - **Promoción Comercial Independiente (`CU-ADMIN-17`):** Selector activo con *"Descuento Almuerzo Ejecutivo (15% dscto)"* -> Descuento aplicado: `- S/ 5.70`.
+  - **Tipo de Comprobante:** Factura Electrónica. Campo RUC (`20601234567`) con botón de consulta SUNAT que autocompleta la Razón Social (*INVERSIONES GASTRONÓMICAS S.A.C.*) y Dirección Fiscal (*AV. LARCO 1045, MIRAFLORES, LIMA*).
+  - **Medio de Pago:** Tarjeta POS (+3.5% pasarela trasladada = S/ 33.43).
+  - **Desglose Fiscal SUNAT:** Consumo Bruto (S/ 38.00), Descuento Comercial (- S/ 5.70), Subtotal Neto (S/ 32.30), Recargo (+ S/ 1.13), Total a Pagar (**S/ 33.43**), Base Imponible (S/ 27.37) e IGV 18% (S/ 4.93).
+- **Subcuenta 2 (Comensal B — 3 platos, Bruto S/ 62.00):**
+  - **Promoción Comercial:** Sin promoción comercial aplicada (Tarifa regular de carta).
+  - **Tipo de Comprobante:** Boleta Electrónica. Campo DNI (`72819201`) con consulta RENIEC que autocompleta *CARLOS MENDOZA QUISPE*, con checkbox opcional para ventas menores a S/ 700.00.
+  - **Medio de Pago:** Billetera Digital (Yape / Plin S/ 62.00).
+  - **Desglose Fiscal SUNAT:** Consumo Bruto (S/ 62.00), Descuento (S/ 0.00), Total a Pagar (**S/ 62.00**), Base Imponible (S/ 52.54) e IGV 18% (S/ 9.46).
+- **Callout Oficial para Nota de Venta:** Explicación visual que aclara que si un cliente solicita *Nota de Venta*, el sistema solo solicita el *Nombre del Cliente* (ej. "Andrés Pérez"), sin requerir DNI/RUC ni validación tributaria, sirviendo como comprobante de control interno de impresión opcional.
+- **Acciones:** `[ ◀ Volver a Platos ]` y botón primario de despacho `[ 📤 Confirmar y Enviar Subcuentas a Caja (cuenta_pedida) ]`.
+
+### Vista 3: Salón en Vivo con Mesa Subdividida Notificada a Caja (`wf_mozo_09_mesa_notificada_salon.jpg`)
+Sincronización reactiva del plano de salón tras la confirmación de las subcuentas:
+- **Toast Superior Accesible:** `✓ Subdivisión de Mesa 04 (2 subcuentas) enviada a Caja vía SSE. Subcuenta 1 (S/ 33.43 Factura) y Subcuenta 2 (S/ 62.00 Boleta). Esperando cobro del cajero.`
+- **Tarjeta de Mesa Resaltada:** Mesa 04 con contorno destacado, badge oscuro `[ DIVIDIDA (2) ]`, desglose resumido (`Sub-1: S/ 33.43 • Sub-2: S/ 62.00`), total neto consolidado (`S/ 95.43`) y estado `[ Espera POS Caja ]`.
+- **Quick-Drawer Informativo:** Visualiza las tarjetas de Subcuenta 1 y Subcuenta 2 indicando su estado `⏳ Esperando cobro en POS de Caja` y `⏳ Esperando validación en POS de Caja`, con acciones para ver detalle o reabrir la comanda.
+
+---
+
+## 65. Reglas de Negocio y Arquitectura del Motor de Subdivisión (`CU-MOZO-09` y `CU-CAJA-03`)
+
+1. **Arquitectura Compartida de Subdivisión (Split Bill Engine):**
+   - El motor lógico de división de ítems y cálculo tributario es un componente estructurado por el Mozo en salón (`CU-MOZO-09`) y liquidado de forma atómica por subcuenta en el Punto de Venta de Caja (`CU-CAJA-03`).
+2. **Promociones Comerciales Independientes por Subcuenta (`CU-ADMIN-17`):**
+   - Cada comensal decide si aplica o no una promoción comercial. El motor recalcula la Base Imponible y el IGV del 18% de forma aislada para cada subcuenta, garantizando la integridad de cada comprobante electrónico emitido.
+3. **Soporte Riguroso de los Tres Comprobantes Oficiales:**
+   - **Factura:** RUC de 11 dígitos validado contra SUNAT + Razón Social + Dirección Fiscal.
+   - **Boleta:** DNI de 8 dígitos validado contra RENIEC + Nombres y Apellidos (o Consumidor Final si $< S/ 700.00$).
+   - **Nota de Venta:** Comprobante interno simplificado. Requiere únicamente *Nombre del Cliente*, sin validación fiscal ni reporte a SUNAT, con impresión opcional.
+4. **Delimitación Inviolable de Responsabilidades por Rol:**
+   - **Mozo (`CU-MOZO-09`):** Estructura platos, captura datos de comprobantes y predetermina formas de pago. Su proceso culmina en estado **`cuenta_pedida`**.
+   - **Cajero (`CU-CAJA-03`):** Valida los pagos reales (POS, efectivo, Yape) y emite formalmente las Boletas/Facturas electrónicas ante SUNAT, transicionando la comanda a **`cobrado`** y liberando la mesa a **`libre`**.
+
+---
+
+## 66. Vistas Estructurales de CU-CAJA-03: Cobro de Comanda y Emisión de Comprobantes Oficiales (Factura, Boleta y Nota de Venta)
+
+Para cerrar el ciclo transaccional con valor fiscal, liquidar ingresos y liberar el salón de forma 100% digital sin intermediación de papel térmico, se diseñó e implementó la especificación canónica de **`CU-CAJA-03: Cobro de Comanda y Emisión de Comprobantes Oficiales`**:
+
+### Vista 1: Modal Principal de Cobro POS (`wf_caja_03_modal_cobro.jpg`)
+Workspace modal responsive de alta densidad (1140px de ancho) sobre fondo POS oscurecido:
+- **Cabecera Contextual:** Identifica Mesa 04 (4 comensales, comanda #108, mozo Marco Valdivia, promoción Almuerzo Ejecutivo 15%) y total neto a cobrar (`S/ 85.00 NETO`).
+- **Columna Izquierda (50% - Tipo de Comprobante e Identidad):**
+  - Selector de 3 comprobantes: Factura (RUC 11 dígitos), Boleta (DNI 8 dígitos) y Nota de Venta (solo Nombre).
+  - Consulta y persistencia con ApiPerú: Autocompleta `CARLOS MENDOZA QUISPE` y precarga teléfono/WhatsApp (`987 654 321`) y email (`carlos.mendoza@gmail.com`).
+  - Badge informativo: `[ • Cliente registrado en base de datos local (UUID v8) • 12 visitas anteriores ]`.
+- **Columna Derecha (50% - Liquidación y Manejo de Efectivo):**
+  - Selector de métodos: Efectivo (0%), Tarjeta POS (+3.5%) y Billetera Yape/Plin (0%).
+  - Manejo de Efectivo con Digitación Directa: Campo numérico amplio con ingreso de `S/ 100.00` y tarjeta destacada de `VUELTO A ENTREGAR: S/ 15.00`.
+  - Desglose SUNAT: Consumo Bruto `S/ 100.00`, Descuento `- S/ 15.00`, Base Imponible `S/ 72.03` e IGV `S/ 12.97`.
+  - Acción Primaria: `[ ⚡ Confirmar Cobro y Emitir Comprobante (F9) ]`.
+
+### Vista 2: Diálogo de Comprobante Emitido y Token Digital QR (`wf_caja_03_comprobante_qr_exito.jpg`)
+Modal de confirmación transaccional (780px de ancho):
+- **Encabezado Verde de Éxito:** `✓ Cobro Confirmado con Éxito • Mesa 04 LIBERADA`.
+- **Ficha Fiscal Emitida:** `Boleta de Venta Electrónica B001-0012894`, total `S/ 85.00`, medio Efectivo (Recibido `S/ 100.00` - Vuelto `S/ 15.00`).
+- **Token Digital QR Central (Cero Papel):** Gran código QR SVG de alta resolución con URL pública `https://app.restaurantcloud.pe/c/0192d2f4...` (UUID v8) para escaneo directo por la cámara del comensal.
+- **Entrega Digital Asistida (Confirmar / Modificar):**
+  - Fila WhatsApp: `+51 987 654 321 [ Guardado ]` con `[ ✓ Confirmar y Enviar ]` y `[ ✏️ Modificar ]`.
+  - Fila Correo: `carlos.mendoza@gmail.com [ Guardado ]` con `[ ✓ Confirmar y Enviar ]` y `[ ✏️ Modificar ]`.
+- **Acciones Secundarias:** `[ 📄 Ver Comprobante PDF en Nueva Pestaña ]` y botón `[ 🖨️ Imprimir Ticket Térmico ]` en estado **`DESHABILITADO • CERO PAPEL`**.
+- **Acción Primaria:** `[ ✓ Finalizar y Volver al Salón (Esc) ]`.
+
+### Vista 3: Monitor POS en Vivo con Mesa Liberada (`wf_caja_03_pos_mesa_liberada.jpg`)
+Pantalla de escritorio del POS tras el cobro y liberación:
+- **Toast Superior Reactivo SSE (18ms):** `✓ Cobro Exitoso: Comanda #108 liquidada con Boleta Electrónica B001-0012894 (S/ 85.00). Mesa 04 liberada para nuevos comensales • Ingreso registrado en arqueo de caja.`
+- **Métricas de Turno Actualizadas:** Efectivo en Gaveta incrementado a `S/ 385.00` (+S/ 85.00), cuentas por cobrar reducidas a `1 Mesa (S/ 145.00)`.
+- **Grilla de Salón:** Mesa 04 conmutada al estado verde claro `[ ✓ LIBRE ]` (0 comensales, disponible para asignación).
+- **Drawer de Caja en Espera:** Exhibe la siguiente cuenta pendiente (`Mesa 08` con botón `[ ⚡ Cobrar en POS ]`).
+
+---
+
+## 67. Reglas de Negocio, Integridad ACID de Correlativos y Directorio de Clientes (`CU-CAJA-03`)
+
+1. **Garantía Transaccional ACID y Control de Correlativos (`comprobante_serie`):**
+   - Para cumplir rigurosamente con SUNAT y evitar saltos o duplicidades en concurrencia, la función `fn_obtener_siguiente_correlativo` bloquea a nivel de fila (`FOR UPDATE`) la serie respectiva en la base de datos PostgreSQL 16, serializando los incrementos en `correlativo_actual`.
+2. **Directorio de Clientes Esencial con `detalle JSONB` (`cliente`):**
+   - El almacenamiento de comensales y empresas se simplifica en la tabla `cliente` con clave única `(empresa_id, tipo_documento, numero_documento)` y `nombre_identificativo`. Los atributos secundarios de ApiPerú (dirección, ubigeo, estado, condición) se resguardan en `detalle JSONB`, sin columnas de agregación prematura.
+3. **Manejo de Efectivo con Poka-Yoke y Digitación Directa:**
+   - Se prescinde de selectores de billetes; el cajero ingresa la cantidad exacta y el sistema calcula dinámicamente el vuelto, bloqueando la confirmación si `monto_recibido < total`.
+4. **Entrega Digital Asistida con Confirmación Previa:**
+   - El sistema exhibe los datos de contacto guardados (WhatsApp/Email) permitiendo confirmarlos o modificarlos antes del despacho telemático, actualizando de inmediato la ficha del cliente.
+5. **Estandarización Transversal a UUID v8 (RFC 9562):**
+   - Todos los identificadores operan bajo UUID v8 time-ordered, optimizando los árboles B-tree y acelerando consultas e inserciones en PostgreSQL.
+6. **Política Cero Papel:**
+   - La entrega del comprobante es primordialmente telemática mediante código QR dinámico. El módulo de impresión térmica física se mantiene visible pero temporalmente inactivo.
+
+---
+
+## 68. Vistas Wireframe: `CU-CAJA-04: Anular comprobante / pedido ya cobrado y emisión de Nota de Crédito Electrónica`
+
+Se diseñaron y renderizaron 3 vistas en alta resolución (1440x900, JPG calidad 95) ubicadas en `wireframe/cajero/CU-CAJA-04-anular-comprobante/assets/`:
+
+### Vista 1: Historial de Comprobantes Emitidos en Turno (`wf_caja_04_historial_comprobantes.jpg`)
+Workspace de auditoría de ventas del turno (Turno #042):
+- **Barra Superior de Auditoría:** Métricas clave del turno: 14 Vigentes / 1 Anulado (15 Total), S/ 1,485.00 Total Facturado y S/ 385.00 Efectivo en Gaveta.
+- **Filtros Segmentados de Dos Niveles:**
+  - Nivel 1 (Estado): `[ ● Vigentes / Emitidos (14) ]` (activo por defecto), `[ 🚫 Anulados (1) ]` y `[ Todos (15) ]`. Permite al cajero separar de inmediato los comprobantes susceptibles de anulación de los ya rectificados.
+  - Nivel 2 (Tipo de Documento): `[ Todos (15) ]`, `[ Boletas (11) ]`, `[ Facturas (3) ]`, `[ Notas de Venta (1) ]`, `[ NC (1) ]`.
+- **Buscador Omnicanal con Debounce:** Entrada para serie-número, DNI, RUC o mesa (con búsqueda activa de `B001-0012894`).
+- **Tabla de Comprobantes Oficiales:**
+  - Fila objetivo (`B001-0012894`): Resaltada en ámbar suave, estado `[ ✓ EMITIDO ]`, con botones `[ 📄 Ver QR ]` y acción crítica `[ ⚠️ Anular (Nota Crédito) ]`.
+  - Fila demostrativa de salvaguarda (`B001-0012890`): Representa un comprobante ya anulado previamente; muestra texto tachado, badge rojo `[ 🚫 ANULADO (Por NC BC01-0000041) ]`, botón de enlace `[ 📄 Ver NC BC01-0000041 ]` y botón de anular **bloqueado (`[ 🚫 Anulado ]` inactivo)** para ilustrar el principio Poka-Yoke de no re-anulación.
+- **Banner de Salvaguarda Contable:** Informa que cada Nota de Crédito en efectivo genera un asiento `egreso_devolucion` en `caja_movimiento` garantizando cuadratura milimétrica a S/ 0.00 en el Arqueo Z (`CU-CAJA-05`).
+
+### Vista 2: Modal de Emisión de Nota de Crédito Electrónica (`wf_caja_04_modal_nota_credito.jpg`)
+Modal formal de rectificación tributaria (1020px de ancho) dividido en dos columnas:
+- **Columna Izquierda (50% - Comprobante de Origen Afectado):**
+  - Identificación formal: Boleta de Venta Electrónica `B001-0012894`, emitido a Carlos Mendoza Quispe (DNI 72819201), Mesa 04 / Comanda #108.
+  - Medio de pago original: Efectivo (Recibido S/ 100.00 - Vuelto S/ 15.00).
+  - Desglose tributario exacto: Consumo Bruto S/ 100.00, Descuento Comercial 15% (-S/ 15.00), Base Imponible Gravada S/ 72.03, IGV 18% S/ 12.97 e Importe Total a Rectificar S/ 85.00.
+  - Badge de serie asignada: `[ Serie Electrónica Asignada: BC01 (Boleta Crédito) ]`.
+- **Columna Derecha (50% - Parámetros SUNAT Catálogo 09 y Cuadratura):**
+  - Selector de Motivos Oficiales SUNAT: `01 — Anulación de la operación` (seleccionado por defecto), `02 — Anulación por error en el RUC/Documento`, `06 — Devolución total del consumo`.
+  - Campo de Sustento Textual Obligatorio: Textarea con validación en tiempo real (mínimo 10 caracteres): *"Comensal solicita cambio a Factura con RUC de empresa"*.
+  - Tarjeta de Devolución de Efectivo: `💵 DEVOLUCIÓN DE EFECTIVO DE GAVETA: - S/ 85.00` con advertencia de que el efectivo en caja disminuirá de S/ 385.00 a S/ 300.00 para mantener la cuadratura exacta del Arqueo Z (`CU-CAJA-05`).
+  - Badge de Auditoría SSE: Notificación preventiva de broadcast reactivo al administrador (`CU-ADMIN-12`).
+  - Botón de Acción Primaria: `[ ⚡ Confirmar y Emitir Nota de Crédito BC01 (F9) ]`.
+
+### Vista 3: Diálogo de Nota de Crédito Emitida y Token QR (`wf_caja_04_nota_credito_emitida.jpg`)
+Modal de culminación transaccional (820px de ancho) bajo política *Cero Papel*:
+- **Encabezado Ámbar/Tributario:** `✓ Nota de Crédito Emitida • Comprobante B001-0012894 ANULADO`.
+- **Ficha Fiscal de la Nota de Crédito:** `Nota de Crédito Electrónica BC01-0000042`, vinculada a Boleta `B001-0012894 [ ANULADA ]`, Motivo: 01 Anulación de la operación, Total Revertido `- S/ 85.00`, Gaveta Actualizada `S/ 300.00`.
+- **Gran Token Digital QR Central:** Código QR dinámico SVG (UUID v8) para descarga de la constancia digital en PDF.
+- **Entrega Digital Asistida:**
+  - WhatsApp: `+51 987 654 321 [ Guardado ]` con botones `[ ✓ Confirmar y Enviar ]` y `[ ✏️ Modificar ]`.
+  - Correo Electrónico: `carlos.mendoza@gmail.com [ Guardado ]` con botones `[ ✓ Confirmar y Enviar ]` y `[ ✏️ Modificar ]`.
+- **Acciones de Cierre:** Botón `[ 🖨️ Imprimir Ticket Térmico ]` visible pero temporalmente inactivo (`DESHABILITADO • CERO PAPEL`) y botón primario `[ ✓ Finalizar y Volver al Historial (Esc) ]`.
+
+---
+
+## 69. Reglas de Negocio, Estándar SUNAT de Notas de Crédito y Salvaguardas de Arqueo (`CU-CAJA-04`)
+
+1. **Inmutabilidad Fiscal y Cero Borrados Físicos (`comprobante`):**
+   - Conforme a la legislación tributaria peruana (Resolución de Superintendencia N° 097-2012/SUNAT y modif.), los comprobantes de pago electrónicos emitidos no admiten eliminación física (`DELETE`). Toda rectificación, cambio de cliente o anulación total de consumo exige la emisión de una **Nota de Crédito Electrónica** vinculada mediante `comprobante_modificado_id`.
+2. **Separación Estricta de Series Electrónicas (`comprobante_serie`):**
+   - Las Facturas Electrónicas (`F001`) solo pueden anularse con Notas de Crédito de serie `FC01`.
+   - Las Boletas de Venta Electrónicas (`B001`) solo pueden anularse con Notas de Crédito de serie `BC01`.
+   - La asignación de correlativos se ejecuta mediante la función transaccional `fn_obtener_siguiente_correlativo` con bloqueo de fila (`FOR UPDATE`), imposibilitando duplicidades o saltos numéricos.
+3. **Catálogo SUNAT N° 09 y Sustento Textual Obligatorio:**
+   - Todo registro de anulación requiere obligatoriamente un código válido de SUNAT (01, 02, 06) y un sustento justificado de al menos 10 caracteres para blindar la auditoría tributaria y descartar evasión.
+4. **Cuadratura Contable y Salvaguarda Milimétrica de Arqueo Z (`caja_movimiento` $\rightarrow$ `CU-CAJA-05`):**
+   - Cuando un comprobante cancelado en efectivo es anulado con devolución, se inserta inmediatamente un registro en `caja_movimiento` con `tipo = 'egreso_devolucion'` y monto negativo. Esto descuenta físicamente el efectivo esperado en gaveta (de S/ 385.00 a S/ 300.00). Al contar el efectivo físico en `CU-CAJA-05` (S/ 300.00), el sistema reporta diferencia `S/ 0.00`, blindando la caja contra falsos faltantes.
+5. **Bloqueo Poka-Yoke de Re-Anulación y Blindaje de Turno:**
+   - Un comprobante marcado como `anulado` tiene sus acciones de anulación bloqueadas tanto a nivel de interfaz (botón deshabilitado) como a nivel de API (`409 Conflict: ERR_COMPROBANTE_YA_ANULADO`). Las Notas de Crédito no pueden re-anularse en terminal POS.
+   - Solo se permite anular transacciones del turno de caja activo; una vez cerrada la caja en `CU-CAJA-05`, cualquier reclamo extemporáneo debe ser gestionado por la administración.
+6. **Prevención de Fraude y Alerta Reactiva SSE (`CU-ADMIN-12`):**
+   - Cada anulación dispara un evento reactivo Server-Sent Events (`comprobante_anulado`) al panel del Administrador del Local en menos de 25ms, generando una alerta prioritaria para supervisar la devolución física del dinero en salón.
+7. **Tokenización Cero Papel y Entrega Multicanal:**
+   - La Nota de Crédito cuenta con su propio token criptográfico público (UUID v8) para consulta web y descarga PDF, ofreciendo entrega asistida por WhatsApp y correo electrónico antes de retornar al historial.
+
+---
+
+## 70. Vistas Wireframe: `CU-CAJA-05: Cerrar caja (arqueo Z) y rendición de cuentas del turno`
+
+Se diseñaron y renderizaron 3 vistas en alta resolución (1440x900, JPG calidad 95) ubicadas en `wireframe/cajero/CU-CAJA-05-cerrar-caja/assets/`:
+
+### Vista 1: Pre-Arqueo y Balance Operativo del Turno (`wf_caja_05_balance_turno.jpg`)
+Workspace de balance y comprobación previa al cierre:
+- **Barra Superior de Turno y KPIs:** Turno #042 Abierto (Apertura: 11:30 AM), Fondo de Apertura `S/ 300.00`, Total Facturado en Turno `S/ 1,485.00` y Efectivo Estimado en Gaveta `S/ 300.00`.
+- **Banner Poka-Yoke de Salón al Día:** `✓ SALÓN 100% AL DÍA` (0 mesas con comanda activa, todas las cuentas liquidadas, cero pedidos en cola de cocina).
+- **Columna Izquierda (60%):**
+  - Tabla de Recaudación por Método de Pago: Efectivo en gaveta (Fondo S/ 300 + Ingreso S/ 85 - NC Devolución S/ 85 = S/ 300.00 esperado), Tarjetas POS (S/ 245.00 - Lote #012), Billeteras Digitales (S/ 54.00 - Yape/Plin), Otros cobros del turno (S/ 1,186.00). Total: S/ 1,485.00 neto.
+  - Resumen Fiscal SUNAT: Base Imponible Gravada S/ 1,258.47, IGV 18% S/ 226.53, Total S/ 1,485.00.
+- **Columna Derecha (40%):**
+  - Checklist Poka-Yoke de Verificación: Salón sin comandas abiertas, auditoría de comprobantes (14 vigentes / 1 anulado), flujo de gaveta validado.
+  - Tarjeta de Acción Primaria: Botón prominente `[ 📋 Iniciar Arqueo y Cierre de Caja (F8) ]` y botón secundario `[ Volver al Monitor POS de Salón (Esc) ]`.
+
+### Vista 2: Modal de Arqueo y Conteo Físico (`wf_caja_05_modal_arqueo_conteo.jpg`)
+Modal formal de rendición de cuentas (1040px de ancho) con layout de dos columnas:
+- **Columna Izquierda (50% - Montos del Sistema):**
+  - Desglose contable: Fondo Apertura S/ 300.00, Ingresos en Efectivo +S/ 85.00, Egresos/NC -S/ 85.00.
+  - Tarjeta destacada verde: `EFECTIVO OBJETIVO EN GAVETA: S/ 300.00` (calculado automáticamente).
+  - Conciliación de Medios Electrónicos: Tarjetas POS S/ 245.00 (`✓ Lote Conciliado`), Billeteras Yape/Plin S/ 54.00 (`✓ Verificado`).
+- **Columna Derecha (50% - Conteo Físico y Cuadre):**
+  - Campo numérico principal: Digitación directa del efectivo contado real con tipografía monospace 24px: `S/ [ 300.00 ]`.
+  - Tarjeta de Cuadre Instantáneo: `✓ CAJA CUADRADA CON ÉXITO • DIF: S/ 0.00` (Esperado S/ 300.00 vs Contado S/ 300.00).
+  - Textarea de notas de cierre y aviso de notificación reactiva SSE al administrador (`CU-ADMIN-12`).
+  - Acción Primaria: `[ 🔒 Confirmar y Cerrar Turno Definitivamente (F9) ]`.
+
+### Vista 3: Reporte Z Digital Formal y Terminal Cerrada (`wf_caja_05_reporte_z_cerrado.jpg`)
+Pantalla post-cierre bajo política *Cero Papel*:
+- **Toast Superior de Éxito:** `✓ Cierre Confirmado: Turno #042 cerrado con éxito • Reporte Z emitido • Broadcast enviado a CU-ADMIN-12 • Terminal Bloqueada`.
+- **Ficha Fiscal de Reporte Z:**
+  - Encabezado tributario formal con RUC, sede, cajero, timestamp apertura/cierre y duración (8h 15m 07s).
+  - Movimiento y arqueo físico de efectivo: Fondo S/ 300.00, Real S/ 300.00, Discrepancia S/ 0.00 (CUADRADA).
+  - Desglose por método de pago: Total Facturado Neto S/ 1,485.00.
+  - Resumen tributario SUNAT: Base Imponible Gravada S/ 1,258.47, IGV S/ 226.53.
+  - Auditoría de documentos: 11 Boletas, 3 Facturas, 1 Nota de Venta, 1 Nota de Crédito.
+- **Acciones Digitales:** `[ 📄 Descargar Reporte Z (PDF) ]`, botón de ticket térmico inactivo (`DESHABILITADO • CERO PAPEL`), badge informativo de archivo inmutable para supervisión administrativa (`CU-ADMIN-15`), `[ 🚪 Cerrar Sesión ]` y botón primario `[ ⚡ Ir a Apertura de Nuevo Turno (CU-CAJA-01) ]`.
+
+---
+
+## 71. Reglas de Negocio, Arqueo Z y CULMINACIÓN AL 100% DEL MÓDULO DE CAJA (`CU-CAJA-05`)
+
+1. **Cuadratura Milimétrica y Fórmulas del Arqueo Z:**
+   - La recaudación esperada en efectivo se rige por:
+     $$\text{Efectivo Esperado} = \text{monto\_apertura} + \sum \text{ingresos\_efectivo} - \sum \text{egresos\_devolucion\_efectivo}$$
+   - En este turno: $\text{S/ } 300.00 + \text{S/ } 85.00 - \text{S/ } 85.00 = \text{S/ } 300.00$.
+   - La discrepancia se define como:
+     $$\text{Discrepancia} = \text{monto\_real} - \text{monto\_esperado}$$
+   - Al digitar `S/ 300.00`: $\text{Discrepancia} = \text{S/ } 0.00$ (Caja perfectamente cuadrada).
+2. **Poka-Yoke Bloqueante de Mesas Activas:**
+   - El sistema impide iniciar el arqueo y cierre si existen mesas con consumo en salón pendientes de pago (`ocupada`, `cuenta_pedida`). Esto elimina pedidos "colgados" y previene pérdidas financieras.
+3. **Poka-Yoke Obligatorio ante Discrepancias:**
+   - Si $\text{Discrepancia} \neq 0.00$ (sobrante o faltante), el botón de cierre se bloquea hasta que el operador ingrese obligatoriamente una justificación textual (`comentario_discrepancia`) de al menos 10 caracteres.
+4. **Transacción Atómica ACID y Liberación de Terminal:**
+   - El cierre conmuta `caja.estado = 'cerrada'`, fija `fecha_cierre = NOW()`, registra la auditoría inmutable del Reporte Z en `auditoria_caja_cierre` y libera el índice `uq_caja_abierta_local`.
+5. **🏆 HITO HISTÓRICO: MÓDULO DE CAJA 100% CULMINADO (5 Casos de Uso):**
+   - Con `CU-CAJA-01` (Apertura de turno), `CU-CAJA-02` (Precuenta digital / Monitor POS), `CU-CAJA-03` (Cobro de comanda y comprobantes oficiales), `CU-CAJA-04` (Anulación, Nota de Crédito y reversión de caja) y `CU-CAJA-05` (Arqueo Z y Reporte Z digital), el **Módulo de Caja, Punto de Venta y Facturación de RestaurantCloud AI queda 100% terminado (5 Casos de Uso canónicos)**.
 
 
 
