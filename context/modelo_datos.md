@@ -21,23 +21,35 @@
 
 #### `plan`
 
-Catálogo de planes de suscripción (1: Starter, 2: Pro, 3: Enterprise).
+Catálogo de planes de suscripción (1: Starter, 2: Pro, 3: Enterprise, y planes privados B2B).
 
 | Campo | Tipo | Clave / Restricción | Descripción |
 | :--- | :--- | :--- | :--- |
-| `id` | int | PK | Identificador numérico secuencial (1, 2, 3) |
-| `nombre` | varchar | — | Starter, Pro, Enterprise |
-| `precio_mensual` | decimal | — | Tarifa mensual estándar |
-| `precio_anual` | decimal | — | Tarifa con descuento anual |
-| `max_locales` | int | — | Límite de locales permitidos por empresa |
-| `max_pisos` | int | — | Límite de pisos/áreas por local |
-| `max_mesas` | int | — | Límite de mesas por local |
-| `max_usuarios` | int | — | Límite de cuentas de personal activas por empresa |
-| `incluye_prediccion_ia` | bool | — | Habilita forecasting de demanda |
-| `incluye_asistente_ia` | bool | — | Habilita asistente conversacional |
-| `incluye_reportes_avanzados` | bool | — | Habilita exportación y reportes avanzados |
-| `incluye_reservas` | bool | — | Habilita el módulo de reservas |
-| `created_at` | timestamp | — | Fecha de creación del plan |
+| `id` | int | PK | Identificador numérico secuencial (1, 2, 3...) |
+| `nombre` | varchar(50) | UNIQUE NOT NULL | Starter, Pro, Enterprise o nombre comercial |
+| `descripcion` | varchar(255) | nullable | Glosa comercial del plan |
+| `precio_mensual` | decimal(10,2) | CHECK >= 0 | Tarifa mensual estándar en Soles (PEN) |
+| `precio_anual` | decimal(10,2) | CHECK >= 0 | Tarifa con descuento anual en Soles (PEN) |
+| `max_locales` | int | CHECK >= 1 | Límite de locales permitidos por empresa |
+| `max_pisos` | int | CHECK >= 1 | Límite de pisos/áreas por local |
+| `max_mesas` | int | CHECK >= 1 | Límite de mesas por local (Starter: hasta 25 mesas) |
+| `max_usuarios` | int | CHECK >= 1 | Límite de cuentas de personal activas por empresa |
+| `incluye_reservas` | bool | DEFAULT false | Habilita el módulo de reservas de salón (Starter: false) |
+| `incluye_reportes_avanzados` | bool | DEFAULT false | Habilita exportación y Menú Engineering |
+| `incluye_asistente_ia` | bool | DEFAULT false | Habilita asistente conversacional de salón |
+| `incluye_prediccion_ia` | bool | DEFAULT false | Habilita forecasting predictivo de demanda |
+| `activo` | bool | DEFAULT true | Bandera de comercialización (false = pausado / archivado) |
+| `visible_publico` | bool | DEFAULT true | true = público en web/Stripe; false = privado B2B / convenios |
+| `stripe_product_id` | varchar(100) | nullable | Referencia al Product ID en Stripe Billing |
+| `stripe_price_id_mensual` | varchar(100) | nullable | Referencia al Price ID mensual en Stripe Billing |
+| `stripe_price_id_anual` | varchar(100) | nullable | Referencia al Price ID anual en Stripe Billing |
+| `created_at` | timestamp | DEFAULT NOW() | Fecha de creación del plan |
+| `updated_at` | timestamp | DEFAULT NOW() | Fecha de última modificación |
+
+##### Reglas de Integridad y Cero Roturas (`CU-SAAS-03`):
+1. **Protección contra Borrado Físico (`ON DELETE RESTRICT`):** Las claves foráneas `empresa.plan_id`, `suscripcion.plan_id` y `pago.plan_id` implementan restricción estricta `ON DELETE RESTRICT`. Está prohibido eliminar físicamente planes con empresas suscritas o historial contable; en su lugar se aplica desactivación comercial (`activo = false`).
+2. **Grandfathering de Tarifas:** Si se modifican tarifas para nuevas contrataciones, se crea un nuevo `price_id` en Stripe dejando intactas las suscripciones vigentes con su precio histórico.
+3. **Salvaguarda de Recursos:** Ante reducciones de cuota (`max_mesas`, `max_usuarios`), los recursos preexistentes se mantienen operativos; solo se bloquea la creación de nuevos recursos que excedan el límite.
 
 #### `suscripcion`
 

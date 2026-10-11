@@ -93,23 +93,48 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 **Postcondiciones:** Evento auditado e inmutable registrado en `suscripcion_suspension`; `empresa.estado` actualizado a `suspendida` o `pendiente_baja`; tokens de acceso revocados en Redis; paquete de portabilidad `.zip` emitido y despachado conforme a Ley N° 29733; suscripción periódica en Stripe cancelada en caso de baja; pantalla de corte con canal directo a WhatsApp (+51 930 723 537) activada para terminales del restaurante.
 
-### CU-SAAS-03: Configurar planes de suscripción
+### CU-SAAS-03: Configurar planes de suscripción (Gestión de Tarifas, Cuotas y Cero Roturas)
 
-**Actor(es):** Administrador SaaS
+**Actor(es):** Administrador Global SaaS (`admin_saas`)
 
-**Precondiciones:** Ninguna (gestión de catálogo de planes).
+**Precondiciones:** Sesión activa como administrador global de la plataforma (`rol = 'admin_saas'`, `empresa_id = NULL`, `local_id = NULL`). Existen planes base registrados en la tabla `plan` (Starter, Pro, Enterprise).
 
 #### Flujo principal
 
-1. El administrador accede a "Planes de suscripción".
-2. Crea o edita un plan definiendo: nombre, precio, periodicidad, límites (locales, mesas, pisos, uso de IA, reservas, etc.).
-3. El sistema guarda el plan y lo hace disponible para asignación a empresas.
+1. El administrador SaaS accede a la consola de gestión de catálogo comercial (`GET /api/v1/saas/planes`).
+2. El sistema recupera los planes activos y privados y renderiza el catálogo interactivo (`wf_saas_03_catalogo_planes.jpg`) con 4 KPIs estratégicos:
+   - **Planes en Catálogo:** Total de planes (3 públicos + 1 privado B2B).
+   - **Empresas Suscritas:** Base instalada global (48 restaurantes).
+   - **MRR Total del Catálogo:** Ingresos mensuales consolidados (S/ 11,450.00).
+   - **Plan Líder en Adopción:** Plan Pro con 26 empresas activas (54.2% de adopción).
+3. La interfaz presenta las tarjetas comparativas con cuotas operativas y módulos:
+   - **Plan Starter (S/ 99/mes — S/ 990/año):** 1 Local único, 1 Piso, **hasta 25 Mesas** de salón, hasta 5 cuentas de personal. Sin reservas (`incluye_reservas = false`), sin reportes avanzados ni IA.
+   - **Plan Pro (S/ 249/mes — S/ 2,490/año):** Hasta 3 Locales, 2 Pisos por local, **hasta 30 Mesas** por local, hasta 15 cuentas de personal. Incluye Reservas ([`CU-ADMIN-10`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-10-politicas-reservas/wireframe.md)), Menú Engineering y Asistente IA de Salón.
+   - **Plan Enterprise (S/ 499/mes — S/ 4,990/año):** Hasta 10 Locales, 5 Pisos por local, **hasta 60 Mesas** por local, hasta 40 cuentas de personal. Incluye suite completa y **Predicción de Demanda IA**.
+   - **Planes Privados / Ocultos (`visible_publico = false`):** Convenios B2B especiales o pilotos gastronómicos ocultos del registro web público ([`CU-PROP-01`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/propietario/CU-PROP-01-registro-empresa/wireframe.md)), asignables exclusivamente por el admin en altas manuales de [`CU-SAAS-01`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-01-supervisar-tenants/wireframe.md).
+4. El administrador puede crear un nuevo plan (`[ ➕ Crear Nuevo Plan ]`) o editar uno existente (`[ ✏️ Editar Plan ]`), desplegando el modal de configuración (`wf_saas_03_modal_editar_plan.jpg`):
+   - Modifica tarifas en Soles (mensual y anual con descuento sugerido equivalente a 2 meses bonificados).
+   - Ajusta cuotas operativas por sede (locales, pisos, mesas, personal).
+   - Conmuta módulos del sistema mediante switches interactivos.
+   - Define visibilidad comercial (`visible_publico = true/false`).
+5. Al pulsar `[ Guardar Parámetros del Plan ]`, el backend ejecuta una evaluación previa de impacto (`POST /api/v1/saas/planes/:id/evaluar-impacto`):
+   - Si el plan cuenta con empresas activas y se modificaron precios o cuotas, el sistema presenta el Modal de Decisión de Impacto (`wf_saas_03_modal_impacto_clientes.jpg`).
+   - El administrador elige la política de propagación comercial:
+     - **Opción A: Aplicar ÚNICAMENTE a Nuevas Contrataciones (Recomendado — Grandfathering):** Se respeta la tarifa y límites a los clientes vigentes. En Stripe Billing se genera un nuevo `Price` para compras futuras, manteniendo las suscripciones actuales intactas sin generar fricción ni cobros imprevistos.
+     - **Opción B: Propagar a Empresas Existentes:** Las cuotas ampliadas rigen de inmediato. El ajuste de tarifa se programa para regir a partir de la próxima renovación mensual en Stripe (sin cobros retroactivos), notificando automáticamente por correo electrónico a los propietarios.
+6. El sistema guarda los cambios en la base de datos y retorna la respuesta bajo el envoltorio `apiresponse.Response{Exito: true, Datos: {...}}`.
 
 #### Flujos alternativos
 
-- Se edita un plan ya asignado a empresas existentes → el sistema pregunta si el cambio aplica solo a nuevas contrataciones o también a empresas actuales.
+- **Intento de Eliminación Física de Plan con Empresas Asociadas (Integridad ACID):**
+  1. El administrador intenta borrar un plan que tiene empresas suscritas o historial en la tabla `pago`.
+  2. El backend rechaza la solicitud retornando código HTTP `409 Conflict` con el error tipificado `ERR_PLAN_TIENE_EMPRESAS_ACTIVAS`.
+  3. El frontend despliega el Modal de Protección (`wf_saas_03_modal_desactivar_plan.jpg`), explicando que el borrado físico está bloqueado por restricciones de clave foránea (`ON DELETE RESTRICT`) y canalizando a la acción segura de **Desactivación Comercial (`activo = false`)**.
+  4. Al desactivar el plan, este se oculta inmediatamente del catálogo comercial de registro público, pero todas las empresas actuales continúan operando sus terminales de salón sin ninguna interrupción de servicio.
+- **Reducción de Límites sin Destrucción de Recursos:** Si el administrador reduce la cuota de mesas o usuarios y la propaga a clientes existentes, el sistema **nunca elimina mesas ni expulsa personal preexistente**; los recursos existentes continúan funcionando y solo se bloquea la adición de nuevos ítems que superen la nueva cuota.
+- **Eliminación Física Permitida (Planes Borrador):** Si el plan tiene `0` empresas asociadas y `0` registros en `pago`, el sistema permite el borrado físico (`DELETE /api/v1/saas/planes/:id`) previa confirmación.
 
-**Postcondiciones:** Catálogo de planes actualizado.
+**Postcondiciones:** Registro actualizado en la tabla `plan`; nuevo `Price` generado en Stripe Billing si aplica; suscripciones vigentes protegidas bajo política de Grandfathering o programadas para renovación; respuestas estandarizadas bajo `apiresponse.Response`.
 
 ### CU-SAAS-04: Monitorear salud de la plataforma (Pospuesto a Fase Futura / Backlog)
 

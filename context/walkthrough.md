@@ -1948,3 +1948,46 @@ Se diseñaron, renderizaron y validaron 4 vistas en resolución canónica (1440x
 - **Información Transparente del Incidente:** Razón social del restaurante (*El Tenedor Gourmet S.A.C.*), RUC, sede y explicación clara informando que el período de gracia oficial de 5 días concluyó sin registro de pago exitoso.
 - **Certificación de Indemnidad de Datos:** Mensaje tranquilizador confirmando que las cartas, mesas, clientes y ventas históricas están 100% protegidas y no han sido borradas.
 - **Canal Exclusivo de Asistencia Directa:** Botón verde destacado `[ 💬 Contactar a Soporte por WhatsApp (+51 930 723 537) ]` que enlaza a WhatsApp con mensaje prellenado y el código de soporte `#SUS-0042`, con atención de Tesorería de 08:00 a 22:00 hrs y reactivación garantizada en menos de 5 minutos.
+---
+
+## 80. Vistas Wireframe y Arquitectura de `CU-SAAS-03: Configurar Planes de Suscripción`
+
+Se diseñaron, renderizaron y validaron 4 vistas en resolución canónica (1440x900, JPG calidad 95) ubicadas en [`wireframe/saas_admin/CU-SAAS-03-configurar-planes/assets/`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-03-configurar-planes/assets/), implementando la gestión centralizada de planes comerciales bajo una estricta política de **Cero Roturas**:
+
+### Vista 1: Catálogo y Gestión de Planes SaaS (`wf_saas_03_catalogo_planes.jpg`)
+![Vista 1: Catálogo y Gestión de Planes](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-03-configurar-planes/assets/wf_saas_03_catalogo_planes.jpg)
+- **Barra de Navegación y URL Canónica:** Encabezado con badge `CONSOLA ADMIN SAAS`, indicador `Admin Root` y ruta `https://admin.restaurantcloud.pe/saas/planes`.
+- **4 Tarjetas de Métricas:**
+  - *Planes en Catálogo:* `3 Públicos + 1 B2B` (Starter, Pro, Enterprise y convenio Piloto B2B).
+  - *Empresas Suscritas:* `48 Cuentas` en producción.
+  - *MRR Total Catálogo:* `S/ 11,450.00` mensuales recurrentes.
+  - *Plan Líder en Adopción:* `Plan Pro (54.2%)` con 26 restaurantes activos a S/ 249/mes.
+- **Segmentación por Visibilidad:** Pestañas `[ Todos los Planes (4) ]`, `[ Públicos Web (3) ]` y `[ Privados / Ocultos B2B (1) ]`.
+- **Línea Base del Catálogo:**
+  - *Plan Starter:* S/ 99.00/mes (S/ 990/año), local único, 1 piso, **hasta 25 mesas**, hasta 5 usuarios, sin módulo de reservas ni IA.
+  - *Plan Pro:* S/ 249.00/mes (S/ 2,490/año), hasta 3 sedes, 2 pisos, 30 mesas, 15 usuarios, reservas, Menú Engineering y Asistente IA.
+  - *Plan Enterprise:* S/ 499.00/mes (S/ 4,990/año), hasta 10 sedes, 5 pisos, 60 mesas, 40 usuarios, suite completa y Predicción de Demanda IA.
+  - *Piloto Cadenas B2B:* Plan bonificado privado (`visible_publico = false`) para convenios de franquicias.
+
+### Vista 2: Modal de Configuración y Edición de Plan (`wf_saas_03_modal_editar_plan.jpg`)
+![Vista 2: Modal de Configuración y Edición de Plan](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-03-configurar-planes/assets/wf_saas_03_modal_editar_plan.jpg)
+- **Formulario Compacto sin Scroll (860px):**
+  - Nombre del plan, slug interno protegido (`plan-pro`), y descripción comercial.
+  - Switch de visibilidad comercial (`visible_publico = true/false`) para decidir si se publica en el autoservicio Stripe Checkout (`CU-PROP-01`).
+  - Tarifas en Soles con cálculo dinámico del beneficio anual (`✓ 2 Meses Gratis - 16.7%`).
+  - Cuotas operativas cuantitativas (máx. locales, pisos, mesas, personal).
+  - Switches para módulos: Reservas (`CU-ADMIN-10`), Reportes Avanzados (`CU-ADMIN-13`), Asistente IA y Predicción de Demanda IA.
+- **Callout de Alerta de Impacto:** Avisa que el plan cuenta con 26 empresas activas y que se evaluará la política de propagación comercial antes de persistir los cambios.
+
+### Vista 3: Modal de Impacto en Clientes Existentes — Grandfathering vs Propagación (`wf_saas_03_modal_impacto_clientes.jpg`)
+![Vista 3: Modal de Impacto en Clientes Existentes](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-03-configurar-planes/assets/wf_saas_03_modal_impacto_clientes.jpg)
+- **Tabla de Diferencias (*Diff Table*):** Valores anteriores tachados vs nuevos valores propuestos (ej. tarifa mensual S/ 249 $\rightarrow$ S/ 269; mesas 30 $\rightarrow$ 35).
+- **Selector de Política Comercial:**
+  - *Opción A (Recomendada — Grandfathering):* Aplica únicamente a nuevas contrataciones. Genera un nuevo Price en Stripe para futuros clientes de `CU-PROP-01`, conservando la tarifa y cuotas de las 26 empresas ya suscritas sin fricción comercial.
+  - *Opción B (Propagación Global):* Aplica cuotas ampliadas de inmediato y programa el nuevo cobro para la próxima renovación en Stripe.
+- **Garantía de Cero Roturas (*Zero-Breakage*):** Banner verde certificando que ningún restaurante supera los nuevos límites (la empresa con mayor uso actual tiene 28 mesas de 35 permitidas), garantizando que no se destruyen ni desactivan mesas o usuarios existentes.
+
+### Vista 4: Modal de Protección y Desactivación Comercial de Plan (`wf_saas_03_modal_desactivar_plan.jpg`)
+![Vista 4: Modal de Protección y Desactivación Comercial](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-03-configurar-planes/assets/wf_saas_03_modal_desactivar_plan.jpg)
+- **Alerta de Bloqueo de Borrado Físico (DELETE RESTRICT):** Informa que el plan cuenta con 26 empresas activas y 142 pagos registrados, prohibiendo el borrado físico para preservar la integridad ACID.
+- **Acción Segura de Desactivación Comercial (`activo = false`):** Oculta el plan de la web de precios y de `CU-PROP-01`, pero garantiza que las empresas existentes sigan operando y renovando en Stripe sin interrupción alguna, con reversibilidad en un clic.

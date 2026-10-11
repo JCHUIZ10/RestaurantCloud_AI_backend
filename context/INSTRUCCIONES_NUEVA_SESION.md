@@ -122,15 +122,16 @@ Por cada nuevo Caso de Uso abordado, se ejecuta sin excepciones este flujo:
 - `CU-CLIENTE-01`: Consultar carta digital (Catálogo Interactivo Web) (Acceso público web por slug `https://app.restaurantcloud.pe/sede/<slug>/carta`, botones de contacto directo a WhatsApp y llamada mediante `local.telefono`, categorías con tabs táctiles, buscador reactivo en tiempo real con debounce, sincronización en vivo con quiebres de cocina `CU-COCINA-04` [`Agotado por hoy`], modal de ficha ampliada del plato, estado vacío accesible para búsquedas sin coincidencias y diseño mobile-first sin carritos ni registros).
 - `CU-CLIENTE-02`: Buscar comprobante de pago (Visor Digital de Comprobantes Electrónicos) (Acceso público por capability token unívoco `https://app.restaurantcloud.pe/c/<token_uuid_v8>`, sin login y con estricta privacidad [sin buscador por DNI/RUC para proteger datos personales], visualización de ticket digital en smartphone y factura A4 en desktop, desglose de consumo e IGV en Soles, descargas oficiales en PDF y XML UBL 2.1, auditoría indeleble de comprobantes anulados con Nota de Crédito `CU-CAJA-04`, y estado accesible para búsqueda manual por código único con auxilio directo por WhatsApp).
 
-### 4.8 Rol Administrador SaaS (`wireframe/saas_admin/`) — 👨‍💼 EN CURSO
+### 4.8 Rol Administrador SaaS (`wireframe/saas_admin/`) — 👨‍💼 100% CULMINADO (3 CUs Esenciales)
 - `CU-SAAS-01`: Supervisar empresas registradas, activaciones y renovaciones de suscripción (Consola central de supervisión de tenants con bypass de RLS para `admin_saas`, 4 KPIs estratégicos [Total Empresas, Activas, En Gracia, Sedes Operativas Conectadas], seguimiento estricto del período de gracia de 5 días según `CU-PROP-02` ante cobros fallidos de Stripe, expediente 360° con desglose de consumo y transacciones inmutables de `pago`, e incorporación de altas manuales B2B con comprobantes bancarios verificados y despacho automático de correo de bienvenida con capability token de 72h).
 - `CU-SAAS-02`: Dar de baja / suspender empresa conforme a ley (Protocolo formal de suspensión preventiva y bajas conforme a la Ley N° 29733 de Protección de Datos Personales / RGPD, entidad dedicada `suscripcion_suspension`, paquete de portabilidad descargable [.ZIP], retención legal de 30 días con reversibilidad, confirmación Poka-Yoke por RUC y pantalla informativa de corte operativo canalizada exclusivamente a WhatsApp de soporte [+51 930 723 537]).
+- `CU-SAAS-03`: Configurar planes de suscripción (Gestión de catálogo comercial con Starter hasta 25 mesas sin reservas, Pro, Enterprise y convenios privados B2B; arquitectura de cero roturas con bloqueo de DELETE físico [`ON DELETE RESTRICT`], grandfathering nativo en Stripe Billing para preservar tarifas históricas a clientes actuales, salvaguarda de no destrucción de recursos preexistentes y respuestas estandarizadas bajo `apiresponse.Response` y `apierror`).
 
 ---
 
-## 5. Estado Integral del Alcance Operativo (47 Casos de Uso 100% Culminados)
+## 5. Estado Integral del Alcance Operativo (48 Casos de Uso 100% Culminados)
 
-El diseño de interfaces Grayscale Blueprint, arquitectura relacional en PostgreSQL 16 y contratos de API en Go de **RestaurantCloud AI** cuenta con **47 Casos de Uso Culminados**:
+El diseño de interfaces Grayscale Blueprint, arquitectura relacional en PostgreSQL 16 y contratos de API en Go de **RestaurantCloud AI** cuenta con **48 Casos de Uso Culminados**:
 - **Autenticación y Plataforma:** `CU-AUTH-01`, `CU-AUTH-02` (2 CUs).
 - **Rol Propietario:** `CU-PROP-01` a `CU-PROP-06` consecutivos (6 CUs).
 - **Rol Administrador de Local:** `CU-ADMIN-01` a `06`, `08` a `14` (`14` absorbe `15`), `17`, `18`, `19` (16 CUs funcionales).
@@ -138,7 +139,7 @@ El diseño de interfaces Grayscale Blueprint, arquitectura relacional en Postgre
 - **Rol Cocina / KDS:** `CU-COCINA-01` a `CU-COCINA-05` (5 CUs).
 - **Rol Cajero / POS:** `CU-CAJA-01` a `CU-CAJA-05` (5 CUs canónicos).
 - **Rol Cliente Web:** `CU-CLIENTE-01`, `CU-CLIENTE-02` (2 CUs).
-- **Rol Administrador SaaS:** `CU-SAAS-01` y `CU-SAAS-02` (2 CUs culminados). Siguiente caso en cola: `CU-SAAS-03` (Configurar planes de suscripción).
+- **Rol Administrador SaaS:** `CU-SAAS-01`, `CU-SAAS-02` y `CU-SAAS-03` (3 CUs culminados al 100%).
 - **Casos Diferidos a Fase Futura (Backlog):** `CU-ADMIN-07`, `CU-ADMIN-16`, `CU-PROP-07`, `CU-PROP-08`, `CU-SAAS-04`, `CU-SAAS-05`.
 - **Casos Omitidos / Absorbidos:** Antiguo `CU-PROP-08` (descentralizado en `CU-PROP-04`, `CU-ADMIN-10`, `17`, `18`, `19`) y `CU-ADMIN-15` (absorbido en `CU-ADMIN-14`).
 
@@ -149,8 +150,8 @@ El diseño de interfaces Grayscale Blueprint, arquitectura relacional en Postgre
 Cuando el usuario inicie el nuevo chat y salude o solicite continuar:
 1. **Confirma la lectura de este archivo** [`context/INSTRUCCIONES_NUEVA_SESION.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/INSTRUCCIONES_NUEVA_SESION.md).
 2. **Declara formalmente el estado del sistema:**
-   - La fase de Wireframes, Modelado de Datos relacional y Contratos UI ↔ API cuenta con **47 CUs culminados y consolidados**.
+   - La fase de Wireframes, Modelado de Datos relacional y Contratos UI ↔ API cuenta con **48 CUs culminados y consolidados**, cubriendo el ciclo operativo completo de punta a punta (Propietario, Administrador, Mozo, Cocina, Cajero, Cliente y Admin SaaS).
 3. **Solicita al usuario las directrices para la siguiente etapa:**
-   - Proponer la planificación y desarrollo del siguiente caso de uso SaaS: `CU-SAAS-03: Configurar planes de suscripción`, o el paso a la construcción de backend.
+   - Abordar casos transversales / automáticos (`CU-TRANS-01` notificaciones, `CU-SISTEMA-01` snapshot stock) o **iniciar la construcción del backend monolítico modular en Go (Echo / Chi) con PostgreSQL 16 y Redis**.
 
 
