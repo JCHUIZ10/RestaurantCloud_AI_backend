@@ -204,10 +204,11 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 1. El propietario accede a "Mis locales".
 2. Selecciona "Registrar nuevo local".
 3. El sistema despliega el **Asistente de Registro en 2 Pasos (Wizard)**:
-   - **Paso 1 (Datos de la Sede & Supervisión):**
+   - **Paso 1 (Datos de la Sede, Dirección Web & Supervisión):**
      - Ingresa datos comerciales: nombre del local, dirección física, distrito, ciudad (Lima/Perú) y teléfono de contacto.
+     - **Configura la dirección web de la carta digital (`slug`):** El sistema autogenera reactivamente en memoria la dirección web combinando `slugify(nombre) + "-" + slugify(distrito)` y comprueba su disponibilidad inicial en segundo plano contra la base de datos (`UNIQUE(slug)`). Si el usuario desea personalizarla, edita el campo libremente y presiona el botón `[ 🔍 Comprobar Disponibilidad ]`, evitando consultas repetitivas por cada pulsación de teclado. Si existe colisión, el sistema ofrece una alternativa disponible con 1 clic (ej. `nombre-distrito-2`).
      - Elige el modo de supervisión: auto-administración directa por el Propietario (por defecto, no consume cupos adicionales de personal) o asignación de un administrador de local existente.
-     - Presiona `[ Siguiente: Elegir Giro ]`.
+     - Presiona `[ Siguiente: Elegir Giro ]` (el frontend valida que la dirección web esté comprobada y disponible antes de habilitar el avance).
    - **Paso 2 (Giro Gastronómico & Plantilla Inicial):**
      - El sistema despliega 4 tarjetas visuales interactivas:
        - `🍗 Pollería & Brasas`: Inicializa categorías de carta típicas e insumos clave (pollo entero, papas, aderezos, carbón).
@@ -218,7 +219,7 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 4. El propietario presiona `[ Crear y Activar Sede ]`.
 5. El sistema valida atómicamente que no se exceda la cuota de locales activos del plan (`max_locales`).
 6. El sistema ejecuta una **transacción atómica de aprovisionamiento**:
-   - Inserta la sede en estado `activo` (zona horaria fija `America/Lima`, moneda `PEN - S/`, `giro_negocio`).
+   - Inserta la sede en estado `activo` con su dirección web única (`slug`), zona horaria fija `America/Lima`, moneda `PEN - S/`, `giro_negocio`.
    - Inserta el piso inicial "Salón Principal" (5 columnas x 3 filas).
    - Si se seleccionó un giro gastronómico (`polleria`, `cevicheria`, `chifa`): inserta sus categorías de carta predefinidas y sus insumos de inventario calibrados con las 10 unidades limpias.
 7. El sistema confirma la creación y actualiza el directorio de sedes. El propietario puede editar los datos comerciales o desactivar/reactivar locales existentes.
@@ -227,11 +228,12 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 - Se excede el límite del plan (`max_locales`) → el sistema bloquea el registro e invita a realizar upgrade (`CU-PROP-03`).
 - Existe un downgrade programado con tope inferior → el sistema aplica la política de congelamiento preventivo y bloquea la creación hasta cancelar el downgrade.
+- La dirección web elegida (`slug`) ya está ocupada por otra sede en la plataforma → el sistema bloquea el avance (`LOCAL_SLUG_DUPLICADO`), sugiere una alternativa disponible y requiere que el usuario la adopte o ingrese una dirección libre.
 - Se intenta desactivar el único local activo de la empresa → el sistema bloquea la acción (*"Una empresa activa debe contar con al menos una sede operativa"*).
 - Se intenta dar de baja un local con actividad operativa en curso (**Bloqueo Duro**) → el sistema audita en tiempo real: si existen cajas abiertas (`cajas_abiertas > 0`) o comandas pendientes en salón (`pedidos_activos > 0`), la desactivación queda estrictamente bloqueada hasta que el personal cierre los turnos y facture las órdenes pendientes.
 - Si no hay actividad operativa en curso → el sistema solicita confirmación de seguridad y conmuta la sede a `estado = 'inactivo'` (*soft-deactivation*), preservando el 100% del historial de ventas y comandas.
 
-**Postcondiciones:** Local creado con su giro gastronómico registrado (`giro_negocio`), piso base ("Salón Principal") y catálogos iniciales aprovisionados (o en blanco); histórico preservado en desactivaciones.
+**Postcondiciones:** Local creado con su dirección web única (`slug`), giro gastronómico registrado (`giro_negocio`), piso base ("Salón Principal") y catálogos iniciales aprovisionados (o en blanco); histórico preservado en desactivaciones.
 
 ---
 

@@ -45,7 +45,8 @@ Todos los archivos han sido organizados bajo la estructura convenida `wireframe/
 7. **CU-PROP-04: Registrar y Administrar Locales:**
    - Especificación: [`wireframe/propietario/CU-PROP-04-administrar-locales/wireframe.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/propietario/CU-PROP-04-administrar-locales/wireframe.md)
    - Vista 1: [`assets/wf_prop_04_directorio_locales.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/propietario/CU-PROP-04-administrar-locales/assets/wf_prop_04_directorio_locales.jpg)
-   - Vista 2: [`assets/wf_prop_04_formulario_local.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/propietario/CU-PROP-04-administrar-locales/assets/wf_prop_04_formulario_local.jpg)
+   - Vista 2A: [`assets/wf_prop_04_paso1_datos_enlace_web.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/propietario/CU-PROP-04-administrar-locales/assets/wf_prop_04_paso1_datos_enlace_web.jpg)
+   - Vista 2B: [`assets/wf_prop_04_formulario_local.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/propietario/CU-PROP-04-administrar-locales/assets/wf_prop_04_formulario_local.jpg)
    - Vista 3: [`assets/wf_prop_04_modal_desactivar_local.jpg`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/propietario/CU-PROP-04-administrar-locales/assets/wf_prop_04_modal_desactivar_local.jpg)
 8. **CU-PROP-05: Crear y Gestionar Administradores de Local:**
    - Especificación: [`wireframe/propietario/CU-PROP-05-administradores-local/wireframe.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/propietario/CU-PROP-05-administradores-local/wireframe.md)
@@ -1715,8 +1716,22 @@ Manejo de estados UX sin callejones sin salida (Zero Dead-Ends):
 4. **Endpoint REST Único de Alto Rendimiento:**
    - `GET /api/v1/public/sedes/{slug}/carta` resuelve en una sola consulta agrupada (`JSON_AGG`) la sede, promociones activas y categorías con platos en sub-5ms.
 
+---
 
+## 74. Actualización de CU-PROP-04: Dirección Web Pública (`slug`), Comprobación Bajo Demanda y Nueva Vista 2A
 
+En alineación con la carta digital pública implementada en [`CU-CLIENTE-01`](#72-vistas-estructurales-de-cu-cliente-01-consultar-carta-digital-catálogo-interactivo-web), se perfeccionó el flujo de registro y administración de sedes en **`CU-PROP-04`**:
 
+### Vista 2A: Asistente de Registro — Paso 1: Datos de Sede & Dirección Web (`wf_prop_04_paso1_datos_enlace_web.jpg`)
+![Vista 2A: Paso 1 - Datos Comerciales y Enlace Web](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/propietario/CU-PROP-04-administrar-locales/assets/wf_prop_04_paso1_datos_enlace_web.jpg)
 
-
+1. **Autogeneración Predictiva y Validación Inicial:**
+   - La dirección web de la carta digital (`slug`) se compone reactivamente en memoria del frontend combinando el nombre comercial y distrito (`slugify(nombre) + "-" + slugify(distrito)`).
+   - Al cargar el modal o completarse los campos, se realiza una verificación inicial en segundo plano contra la base de datos confirmando la disponibilidad con `[ ✓ Enlace disponible para tu restaurante ]`.
+2. **Validación Bajo Demanda sin Saturación de Red:**
+   - Si el Propietario personaliza manualmente el enlace, el estado pasa a pendiente y se habilita el botón `[ 🔍 Comprobar Disponibilidad ]`, eliminando consultas repetitivas innecesarias por cada tecla presionada.
+   - Si se detecta colisión con otro restaurante (`LOCAL_SLUG_DUPLICADO`), el backend ofrece una alternativa de un solo clic (ej. `san-isidro-conquistadores-2`), permitiendo adoptarla inmediatamente con `[ Usar Sugerencia ]`.
+3. **Preservación Intacta de la Vista 2B:**
+   - La [`Vista 2B`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/propietario/CU-PROP-04-administrar-locales/assets/wf_prop_04_formulario_local.jpg) (Paso 2: Giro Gastronómico y Plantilla Inicial) permanece 100% intacta, garantizando la continuidad del aprovisionamiento automático de salón, categorías e insumos de inventario.
+4. **Contratos Go y Restricción de Base de Datos:**
+   - Se incorporó el endpoint `GET /api/v1/propietario/locales/verificar-slug?slug={slug}` y el campo `slug` en los DTOs de creación (`POST`) y edición (`PUT`), respaldado por la restricción global `UNIQUE(slug)` y el índice B-Tree dedicado `idx_local_slug` en la tabla `local`.
