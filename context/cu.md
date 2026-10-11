@@ -55,26 +55,43 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 **Postcondiciones:** Base de datos de tenants auditada en tiempo real; expedientes actualizados con datos relacionales nativos; altas corporativas B2B creadas con pago inmutable en `pago` y propietario invitado vía capability token.
 
-### CU-SAAS-02: Dar de baja / suspender empresa (conforme a ley)
+### CU-SAAS-02: Dar de baja / suspender empresa conforme a ley (Protocolo Legal y Retención de 30 Días)
 
-**Actor(es):** Administrador SaaS
+**Actor(es):** Administrador Global SaaS (`admin_saas`)
 
-**Precondiciones:** La empresa existe y está activa.
+**Precondiciones:** El usuario cuenta con sesión activa autenticada con rol `admin_saas`. Existe un tenant registrado en el sistema en estado `activa` o en `periodo_gracia` ([`CU-PROP-01`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/propietario/CU-PROP-01-registro-empresa/wireframe.md), [`CU-SAAS-01`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-01-supervisar-tenants/wireframe.md)).
 
 #### Flujo principal
 
-1. El administrador busca la empresa e indica el motivo de suspensión o baja.
-2. El sistema bloquea el acceso operativo de la empresa (suspensión) o inicia el proceso formal de baja.
-3. Si es baja definitiva, el sistema: (a) notifica al propietario con anticipación; (b) ofrece exportación de sus datos (derecho de portabilidad) antes del borrado; (c) aplica un periodo de retención (ej. 30 días) antes de la eliminación definitiva, permitiendo reversión.
-4. Cumplido el plazo, el sistema elimina los datos de forma definitiva y registra la acción en auditoría.
+1. El administrador SaaS accede al Centro de Bajas y Suspensiones (`GET /api/v1/saas/tenants/bajas-suspensiones`) o selecciona la opción desde el Expediente 360° de la empresa en `CU-SAAS-01`.
+2. El sistema distingue operativamente dos rutas de acción formal:
+   - **Ruta A: Suspensión Preventiva / Temporal (`POST /api/v1/saas/tenants/:id/suspender`):**
+     a. El administrador abre el Modal de Suspensión Inmediata (`wf_saas_02_modal_suspension.jpg`).
+     b. Selecciona el motivo canónico: `Mora e Impago Recurrente` (tras agotar los 5 días de gracia de [`CU-PROP-02`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/propietario/CU-PROP-02-gestionar-suscripcion/wireframe.md)), `Infracción de Términos de Servicio` o `Solicitud Temporal del Propietario` (cierre temporal por remodelación).
+     c. Ingresa la justificación administrativa obligatoria ($\ge 15$ caracteres) para auditoría.
+     d. Marca la opción para notificar automáticamente al titular por correo electrónico y pulsa `[ ⚠️ Confirmar Suspensión Inmediata ]`.
+     e. El sistema ejecuta una transacción atómica que crea un registro en la entidad dedicada `suscripcion_suspension` (`tipo_evento = 'suspension_temporal'`), actualiza `empresa.estado = 'suspendida'`, y revoca inmediatamente las sesiones y tokens JWT en Redis.
+     f. **Preservación Inmutable:** Los datos históricos (comandas, cartas, clientes, comprobantes e inventarios) permanecen 100% intactos y seguros.
+     g. Cualquier terminal POS o usuario del restaurante que intente operar recibe un error `403 Forbidden` y visualiza la Pantalla de Bloqueo Informativa (`wf_saas_02_pantalla_bloqueo_tenant.jpg`), orientando a contactar al Soporte Oficial vía WhatsApp (`+51 930 723 537`).
+   - **Ruta B: Baja Definitiva de Empresa conforme a Ley N° 29733 / RGPD (`POST /api/v1/saas/tenants/:id/baja-legal`):**
+     a. El administrador abre el Modal de Protocolo Legal de Baja (`wf_saas_02_modal_baja_legal.jpg`).
+     b. El sistema exhibe el cronograma legal de 3 etapas: Paso 1 (Solicitud y corte inmediato), Paso 2 (Ventana de Retención Legal Obligatoria de 30 días, reversible) y Paso 3 (Purga y anonimización definitiva al día 31).
+     c. **Derecho a la Portabilidad de Datos (Art. 19 Ley N° 29733):** El backend compila automáticamente un archivo comprimido estándar (`respaldo_portabilidad_EMPX_YYYYMMDD.zip`) con el catálogo de platos, recetas, inventario, ventas y comprobantes electrónicos XML/PDF emitidos, habilitando descarga directa para el administrador y emitiendo un capability token con vigencia de 30 días enviado por correo electrónico al titular.
+     d. Cancela la suscripción periódica en Stripe (`sub_...`), asegurando que no se ejecuten cobros futuros ni cargos por mora en la tarjeta del titular.
+     e. **Mecanismo de Seguridad Poka-Yoke:** El botón `[ Iniciar Protocolo Legal de Baja (30 Días) ]` permanece estrictamente bloqueado hasta que el administrador digite manualmente el RUC de 11 dígitos exacto de la empresa, previniendo bajas accidentales por error humano.
+     f. Al confirmar, el sistema inserta el evento en `suscripcion_suspension` con `fecha_eliminacion_programada = NOW() + 30 días` y actualiza `empresa.estado = 'pendiente_baja'`.
 
 #### Flujos alternativos
 
-- El propietario no responde ni exporta datos dentro del plazo → el sistema procede igualmente con la eliminación al finalizar el periodo de retención.
+- **Reactivación en 1 Clic (`POST /api/v1/saas/tenants/:id/reactivar`):**
+  1. Ante una regularización de pago o acuerdo comercial, el administrador SaaS pulsa `[ ↺ Reactivar Empresa ]` en la Bandeja de Suspensiones (`wf_saas_02_bandeja_bajas_suspensiones.jpg`).
+  2. Ingresa la nota de reactivación y confirma.
+  3. El sistema actualiza `suscripcion_suspension.estado = 'resuelta_reactivada'`, restaura `empresa.estado = 'activa'` y `suscripcion.estado = 'activa'`, elimina la clave de bloqueo en Redis y rehabilita inmediatamente todas las terminales sin pérdida alguna de información.
+- **Cancelación de Protocolo de Baja dentro de los 30 días (`POST /api/v1/saas/tenants/:id/cancelar-baja`):** Si el propietario revoca su decisión de retiro dentro del período de retención legal de 30 días, el administrador SaaS cancela la baja, restableciendo la cuenta y reactivando la facturación.
+- **Vencimiento de la Ventana de Retención (Día 31 — Purga Automática):** Un proceso automatizado en segundo plano (*cron job de saneamiento*) identifica registros con `fecha_eliminacion_programada <= NOW()`, anonimiza los datos de carácter personal de los usuarios, purga contraseñas y claves criptográficas, y actualiza el estado a `eliminada`, preservando exclusivamente los comprobantes de pago requeridos por SUNAT durante 5 años conforme al Código Tributario.
+- **RUC no coincide en confirmación Poka-Yoke:** El sistema mantiene deshabilitado el botón de inicio de baja y muestra mensaje visual en rojo indicando discrepancia con el RUC de la empresa seleccionada.
 
-**Postcondiciones:** Empresa suspendida o eliminada conforme a normativa de protección de datos; acción trazable en auditoría.
-
-**Nota:** *Los plazos exactos (notificación previa, retención) deben ajustarse con asesoría legal en producción.*
+**Postcondiciones:** Evento auditado e inmutable registrado en `suscripcion_suspension`; `empresa.estado` actualizado a `suspendida` o `pendiente_baja`; tokens de acceso revocados en Redis; paquete de portabilidad `.zip` emitido y despachado conforme a Ley N° 29733; suscripción periódica en Stripe cancelada en caso de baja; pantalla de corte con canal directo a WhatsApp (+51 930 723 537) activada para terminales del restaurante.
 
 ### CU-SAAS-03: Configurar planes de suscripción
 

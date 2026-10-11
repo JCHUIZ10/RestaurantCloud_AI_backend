@@ -1907,3 +1907,44 @@ Se diseñaron, renderizaron y validaron 4 vistas en resolución canónica (1440x
 ![Vista 4: Estado Vacío Solvente](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-01-supervisar-tenants/assets/wf_saas_01_estado_vacio.jpg)
 - **Indicador de Solvencia:** Card ilustrado con ícono de escudo `🛡️`, informando pedagógicamente que no existen cuentas en mora ni cobros fallidos en los últimos 30 días.
 - **Acciones Rápidas:** Botón `[ 🔄 Actualizar Estado ]` para re-evaluar webhooks de Stripe y `[ Ver Todas las Empresas ]` para restablecer los filtros de la tabla.
+---
+
+## 79. Vistas Wireframe y Arquitectura de `CU-SAAS-02: Dar de Baja / Suspender Empresa Conforme a Ley`
+
+Se diseñaron, renderizaron y validaron 4 vistas en resolución canónica (1440x900, JPG calidad 95) ubicadas en [`wireframe/saas_admin/CU-SAAS-02-baja-suspension-empresa/assets/`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-02-baja-suspension-empresa/assets/), estableciendo el protocolo oficial de suspensión inmediata, reversibilidad y baja legal conforme a la Ley N° 29733 de Protección de Datos Personales:
+
+### Vista 1: Modal de Suspensión Preventiva / Temporal (`wf_saas_02_modal_suspension.jpg`)
+![Vista 1: Modal de Suspensión Preventiva](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-02-baja-suspension-empresa/assets/wf_saas_02_modal_suspension.jpg)
+- **Ficha Resumen del Tenant:** Identificación legal (*El Tenedor Gourmet S.A.C.*, RUC `20601234567`), plan vigente (Plan Pro, 2 sedes activas), estado de cuenta (`⚠️ En Período de Gracia — Día 5 de 5`) y correo del titular.
+- **Tipificación Formal del Motivo:** Selector de radio buttons que mapea a la entidad `suscripcion_suspension` (`Mora e Impago Recurrente tras 5 días de gracia`, `Infracción de Términos de Servicio`, `Solicitud Temporal del Propietario por Cierre/Remodelación`).
+- **Justificación Obligatoria de Auditoría:** Campo de texto con validación mínima de 15 caracteres para asentar el sustento legal y administrativo del corte.
+- **Canal de Despacho y Garantía de Preservación:** Checkbox para despachar aviso de corte formal por correo y callout de seguridad certificando que las comandas, mesas, recetas e inventarios permanecen 100% seguros y que la empresa puede reactivarse en 1 clic.
+
+### Vista 2: Modal de Protocolo Legal de Baja Definitiva — Ley N° 29733 / RGPD (`wf_saas_02_modal_baja_legal.jpg`)
+![Vista 2: Modal de Baja Definitiva Legal](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-02-baja-suspension-empresa/assets/wf_saas_02_modal_baja_legal.jpg)
+- **Ficha Legal y Encabezado Crítico:** Registro de *Pizzería Bella Napoli E.I.R.L.* solicitando desvinculación comercial voluntaria.
+- **Cronograma Legal de 3 Fases:**
+  - *Paso 1 (Corte y Solicitud):* Corte operativo de terminales y cancelación de cargos futuros en pasarela Stripe (`sub_1O8b2c4e5f6`).
+  - *Paso 2 (Ventana Legal de Retención de 30 Días):* Del 11/10 al 10/11/2026, reversible en cualquier momento si el cliente desiste de la baja.
+  - *Paso 3 (Purga y Anonimización al Día 31):* Ejecución del cron de saneamiento para destruir credenciales y anonimizar datos personales conforme a ley.
+- **Derecho a la Portabilidad de Datos (Art. 19 Ley N° 29733):** Generación automática de archivo comprimido estándar `respaldo_portabilidad_EMP007_20261011.zip` (14.2 MB) con catálogo de platos, recetas, inventario, ventas y comprobantes XML/PDF, con botón de descarga y capability token por correo válido por 30 días.
+- **Verificación de Seguridad Poka-Yoke:** Bloqueo estricto del botón de confirmación hasta que el operador digite el RUC exacto de 11 dígitos (`20519283019`), previniendo eliminaciones accidentales.
+
+### Vista 3: Centro de Gestión de Suspensiones y Bajas Legales SaaS (`wf_saas_02_bandeja_bajas_suspensiones.jpg`)
+![Vista 3: Bandeja de Suspensiones y Bajas](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-02-baja-suspension-empresa/assets/wf_saas_02_bandeja_bajas_suspensiones.jpg)
+- **4 Tarjetas de Métricas Especializadas:**
+  - *Empresas Suspendidas:* `3 Cuentas` (desglosadas en 2 por mora y 1 por infracción).
+  - *En Retención de Baja (30d):* `1 Cuenta` (indicando avance del día 12 de 30 y cuenta regresiva de 18 días para purga).
+  - *MRR en Pausa / Afectado:* `S/ 747.00` mensuales en riesgo de pérdida pero recuperables tras cobro.
+  - *Respaldos de Portabilidad:* `100%` de cumplimiento legal (1 de 1 con ZIP generado).
+- **Control y Gestión Contextual:** Grilla con badges diferenciados (`🚫 Suspensión Temporal`, `⏸ Pausa Solicitada`, `⏳ Pendiente de Baja`), ID de auditoría correlativo (`SUS-0042`, `BAJ-004`) y acciones directas:
+  - `[ ↺ Reactivar Empresa ]`: Levantamiento de suspensión en 1 solo clic.
+  - `[ ↺ Cancelar Baja ]`: Cancelación del protocolo legal dentro de los 30 días.
+  - `[ 📦 Backup ZIP ]` y `[ ✉ Enlace ]`: Acceso y reenvío de paquetes de portabilidad.
+
+### Vista 4: Pantalla de Bloqueo de Acceso para el Tenant (`wf_saas_02_pantalla_bloqueo_tenant.jpg`)
+![Vista 4: Pantalla de Bloqueo del Tenant](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/saas_admin/CU-SAAS-02-baja-suspension-empresa/assets/wf_saas_02_pantalla_bloqueo_tenant.jpg)
+- **Diseño Empático de Seguridad (HTTP 403 Forbidden):** Card centrado con icono de candado `🔒` y badge "Servicio Temporalmente Suspendido".
+- **Información Transparente del Incidente:** Razón social del restaurante (*El Tenedor Gourmet S.A.C.*), RUC, sede y explicación clara informando que el período de gracia oficial de 5 días concluyó sin registro de pago exitoso.
+- **Certificación de Indemnidad de Datos:** Mensaje tranquilizador confirmando que las cartas, mesas, clientes y ventas históricas están 100% protegidas y no han sido borradas.
+- **Canal Exclusivo de Asistencia Directa:** Botón verde destacado `[ 💬 Contactar a Soporte por WhatsApp (+51 930 723 537) ]` que enlaza a WhatsApp con mensaje prellenado y el código de soporte `#SUS-0042`, con atención de Tesorería de 08:00 a 22:00 hrs y reactivación garantizada en menos de 5 minutos.

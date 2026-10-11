@@ -74,7 +74,7 @@ Tenant de la plataforma: cada restaurante registrado.
 | `telefono` | varchar | — | Teléfono de contacto |
 | `plan_id` | int | FK -> plan | Plan de suscripción activo (desnormalizado) |
 | `ultima_suscripcion_id` | UUID | FK -> suscripcion (nullable) | Referencia a la suscripción activa más reciente |
-| `estado` | enum | — | activa, suspendida, pendiente_baja |
+| `estado` | enum | — | activa, periodo_gracia, suspendida, pendiente_baja, eliminada |
 | `origen_alta` | varchar(30) | DEFAULT 'autoservicio_stripe' | 'autoservicio_stripe' (CU-PROP-01) o 'manual_admin' (CU-SAAS-01 B2B) |
 | `nota_alta` | text | nullable | Justificación administrativa de alta manual / contrato B2B |
 | `stripe_customer_id` | varchar | nullable | Referencia al cliente en Stripe (opcional si es alta manual B2B) |
@@ -97,6 +97,44 @@ Historial de cobros de suscripción SaaS (vía Stripe o transferencias bancarias
 | `stripe_payment_id` | varchar | nullable | Referencia de la transacción en Stripe |
 | `numero_operacion` | varchar(100) | nullable | N° de constancia/operación bancaria (requerido para pagos manuales) |
 | `nota` | text | nullable | Glosa administrativa o motivo de fallo |
+
+#### `suscripcion_suspension`
+
+Entidad dedicada para el registro histórico y gestión legal de suspensiones preventivas y bajas definitivas conforme a la Ley N° 29733 / RGPD (`CU-SAAS-02`).
+
+| Campo | Tipo | Clave / Restricción | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id` | UUID | PK | Identificador único del evento de corte o baja |
+| `empresa_id` | UUID | FK -> empresa (ON DELETE CASCADE) | Empresa afectada |
+| `suscripcion_id` | UUID | FK -> suscripcion (ON DELETE CASCADE) | Suscripción pausada o cancelada |
+| `tipo_evento` | varchar(30) | CHECK ('suspension_temporal', 'baja_definitiva') | Clasificación operativa del evento |
+| `motivo` | varchar(100) | — | mora_impago, infraccion_terminos, solicitud_propietario, cierre_definitivo_negocio, otro |
+| `detalle_justificacion` | text | NOT NULL | Argumento administrativo obligatorio ($\ge 15$ caracteres) |
+| `fecha_inicio` | timestamptz | DEFAULT NOW() | Momento exacto del corte operativo |
+| `fecha_reactivacion` | timestamptz | nullable | Fecha en que se levantó la suspensión temporal |
+| `reactivado_por` | UUID | FK -> usuario (nullable) | Administrador SaaS que ejecutó la reactivación |
+| `nota_reactivacion` | text | nullable | Sustento de la reactivación (ej. comprobante de pago) |
+| `ejecutado_por` | UUID | FK -> usuario | Administrador SaaS que ejecutó la suspensión o baja |
+| `fecha_eliminacion_programada` | timestamptz | nullable | Ventana legal de 30 días (NOW() + 30d) para bajas definitivas |
+| `token_portabilidad` | varchar(255) | nullable | Token criptográfico de descarga del archivo .ZIP de portabilidad |
+| `token_portabilidad_expira_at` | timestamptz | nullable | Vencimiento del enlace de descarga (30 días de validez legal) |
+| `estado` | varchar(30) | DEFAULT 'activa' | activa, resuelta_reactivada, ejecutada_baja |
+| `creado_at` | timestamptz | DEFAULT NOW() | Fecha de registro inmutable |
+| `actualizado_at` | timestamptz | DEFAULT NOW() | Fecha de última modificación |
+
+##### Índices de rendimiento y seguridad:
+```sql
+CREATE INDEX IF NOT EXISTS idx_suspension_activa 
+    ON suscripcion_suspension(empresa_id) 
+    WHERE estado = 'activa';
+
+CREATE INDEX IF NOT EXISTS idx_suspension_empresa_historial 
+    ON suscripcion_suspension(empresa_id, creado_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_suspension_bajas_pendientes 
+    ON suscripcion_suspension(fecha_eliminacion_programada) 
+    WHERE estado = 'activa' AND tipo_evento = 'baja_definitiva';
+```
 
 #### `usuario`
 
