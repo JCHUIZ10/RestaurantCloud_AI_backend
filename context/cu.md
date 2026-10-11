@@ -824,51 +824,47 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 ---
 
-### CU-ADMIN-14: Consultar flujo de caja del local
+### CU-ADMIN-14: Gestión de flujo de caja, gastos operativos y auditoría de cierres Z
 
-**Actor(es):** Administrador del local
+**Actor(es):** Administrador del local (Gerente de Sede / Administrador Operativo) y Propietario (`propietario`)
 
-**Precondiciones:** El local tiene actividad registrada (ventas y/o compras).
+**Precondiciones:** El administrador tiene una sesión activa (`rol: administrador` o `rol: propietario`) con sede asignada. Existen comandas cobradas en salón (`CU-CAJA-03`), compras de insumos registradas (`CU-ADMIN-06` / `CU-ADMIN-07`) o turnos de caja registrados/cerrados (`CU-CAJA-05`).
 
 #### Flujo principal
 
-1. El administrador accede a "Flujo de caja" dentro de Reportes.
-2. Selecciona un rango de fechas (día, semana, mes).
-3. El sistema muestra: ingresos (ventas cobradas en el periodo), egresos (compras de insumos más gastos manuales registrados) y balance neto del periodo.
-4. El administrador puede exportar el reporte (PDF/Excel).
+1. El administrador accede a la sección "Finanzas y Tesorería" → "Flujo de Caja & Cierres Z" en su panel administrativo.
+2. El sistema despliega el **Centro Unificado de Control Financiero y Supervisión de Cajas**, estructurado en tres pestañas especializadas:
+   - **Pestaña 1: Flujo de Caja & Balance Neto:**
+     - 4 KPIs macro: Total Ingresos de Salón (100% mesas cobradas desglosadas por Tarjetas POS, Efectivo y Yape/Plin), Total Egresos Operativos (Compras de Insumos Culinarios 67% + Gastos de Sede 33%), Balance Neto Operativo (+S/ 11,630.00 con ratio de margen libre 40.8%) y Conciliación de Liquidez Disponible (Cuentas Bancarias / Pasarelas vs Efectivo físico en gavetas).
+     - Histograma comparativo de entradas vs salidas y ratio de cobertura operativa.
+     - Desglose fáctico de egresos: Compras directas de insumos culinarios para carta (`ficha_compra`: Pollo, Lomo fino, Papas nativas, Carbón/leña, Abarrotes, Bebidas) y Gastos operativos de sede (`gasto_manual`: Alquiler, Servicios básicos luz/agua/gas, Limpieza y menaje interno, Mantenimiento, Caja chica).
+   - **Pestaña 2: Auditoría de Turnos & Reportes Z:**
+     - Directorio histórico de sesiones de caja de la sede con correlativo de turno, fecha/horario (Almuerzo vs Cena), cajero titular, fondo de apertura, efectivo esperado, efectivo real contado, diferencia (`S/ 0.00` o valor de faltante/sobrante) y estado de visado gerencial (`✓ Auditado y Conforme`, `⏳ Pendiente de Auditoría`).
+     - Banner de monitor de terminal con botón contextual para ejecutar **"Cierre Administrativo Forzado"** si un cajero abandonó la sede sin cerrar, liberando la restricción `uq_caja_abierta_local` para el siguiente turno.
+   - **Pestaña 3: Egresos & Gastos de Sede:**
+     - Historial y bandeja de comprobantes de servicios públicos, alquiler y compras menores.
+3. El administrador puede pulsar `[ ➕ Registrar Gasto ]` en cualquier momento:
+   - Ingresa categoría (Alquiler, Servicios básicos, Limpieza y aseo, Mantenimiento, Caja chica), monto, fecha, comprobante y justificación.
+   - Si selecciona origen de fondos `Efectivo de Caja Chica / Gaveta`, el sistema descuenta automáticamente el monto del turno de caja activo en `caja_movimiento`, garantizando que el arqueo Z del cajero en `CU-CAJA-05` cuadre milimétricamente sin falsos faltantes.
+4. El administrador selecciona un turno para inspección pulsando `[ 👁️ Auditar Reporte Z ]`:
+   - El sistema despliega el visor oficial del **Reporte Z Digital** (Vista 3) con la cuadratura física de gaveta, desglose de lotes de POS, transferencias digitales y correlativos fiscales SUNAT (Boletas, Facturas y Notas de Crédito).
+   - El administrador redacta una observación administrativa de auditoría y pulsa `[ ✓ Marcar Turno Auditado y Conforme ]`, persistiendo el visado inmutable (`revisado = true`, `revisado_por`, `revisado_at`).
+5. El administrador puede exportar el flujo de caja o la auditoría de turnos en PDF formal o Excel/CSV mediante streaming HTTP comprimido con Gzip.
 
 #### Flujos alternativos
 
-- El administrador necesita registrar un egreso que no viene de una compra formal (ej. alquiler, servicios) → el sistema permite registrar un gasto manual con categoría, monto, fecha y descripción.
+- **Cierre Forzado de Terminal Abandonada:** Si el cajero se retiró sin realizar el cierre Z, el administrador ingresa el efectivo contado en gaveta, redacta la justificación obligatoria y confirma el cierre administrativo forzado. El sistema actualiza `caja.estado = 'cerrada'`, libera la terminal y registra la auditoría.
+- **Turno con Discrepancia:** Si el turno cerró con diferencia ($\text{Diferencia} \neq S/ 0.00$), el sistema resalta el comentario obligatorio del cajero y exige al administrador asentar una nota de visado investigativo antes de marcarlo conforme.
+- **Filtro de Rango Personalizado:** El administrador puede alternar entre `Hoy`, `Semana`, `Este Mes` o seleccionar un rango de fechas personalizado (`Desde` y `Hasta`).
 
-**Postcondiciones:** Ninguna (consulta), salvo que se registre un gasto manual.
+**Postcondiciones:** Registro de gastos operativos en `gasto_manual` con afectación atómica a `caja_movimiento` si aplica; visado administrativo inmutable registrado en `caja`; reportes y balances exportables en streaming.
 
 ---
 
 ### CU-ADMIN-15: Supervisar cierre de caja diario e historial de Reportes Z
 
-**Actor(es):** Administrador del local
-
-**Precondiciones:** La sede cuenta con turnos de caja registrados o en proceso de cierre (`CU-CAJA-05`).
-
-#### Flujo principal
-
-1. El administrador accede a la sección "Finanzas y Arqueos" → "Supervisión de Cierres de Caja" en su panel administrativo, o hace clic en la notificación reactiva SSE recibida al confirmarse un cierre (`caja_cerrada` desde `CU-CAJA-05`).
-2. El sistema despliega el **Historial Consolidado de Cierres de Turno y Reportes Z**:
-   - Selector de fecha o rango de turnos (ej. Turno #042 Miraflores Centro).
-   - Indicadores KPI ejecutivos: Total Facturado, Total Efectivo Recaudado, Discrepancias Totales y Turnos Auditados.
-   - Directorio de cierres: correlativo de turno, fecha/hora de apertura y cierre, cajero titular, monto de apertura, efectivo esperado, efectivo real contado, diferencia (`S/ 0.00` o valor de discrepancia) y estado de supervisión.
-3. El administrador selecciona un turno para inspección:
-   - El sistema despliega la ficha oficial inmutable del **Reporte Z Digital** (generado en `CU-CAJA-05`), con el desglose por método de pago (Efectivo, Tarjetas POS, Billeteras Yape/Plin), desglose fiscal SUNAT (Base Imponible, IGV 18%) y auditoría de comprobantes (Boletas, Facturas, Notas de Venta y Notas de Crédito emitidas).
-4. Si el turno cerró con discrepancia ($\text{Diferencia} \neq 0.00$), el sistema resalta el comentario justificativo redactado obligatoriamente por el cajero (`comentario_discrepancia`), permitiendo al administrador registrar observaciones de visado o derivar a auditoría interna.
-5. El administrador puede descargar el Reporte Z en PDF o imprimirlo administrativamente si lo requiere.
-
-#### Flujos alternativos
-
-- El cajero del turno anterior no ha cerrado caja o abandonó la terminal sin arquear → El administrador dispone de la opción de **"Cierre de Turno Forzado Supervisado"**, permitiendo realizar el arqueo administrativo de rescate para desbloquear la apertura del siguiente cajero (`CU-CAJA-01`).
-- No existen discrepancias en el turno inspeccionado → El sistema muestra el estado `[ ✓ ARQUEO CONFORME - CUADRADO ]`.
-
-**Postcondiciones:** Cierres de caja diarios y turnos históricos debidamente supervisados y visados; trazabilidad contable inmutable de todos los Reportes Z persistida en `auditoria_caja_cierre`.
+> [!NOTE]
+> **Caso de Uso Integrado en `CU-ADMIN-14`:** Por decisión de arquitectura y optimización de flujos de trabajo administrativos, las facultades de supervisión de cierres Z, auditoría de turnos de gaveta, visado de Reportes Z digitales y cierre administrativo forzado han sido integradas de forma nativa en la **Pestaña 2 ("Auditoría de Turnos & Reportes Z")** y **Vista 3** del caso de uso maestro **[`CU-ADMIN-14`](#cu-admin-14-gestión-de-flujo-de-caja-gastos-operativos-y-auditoría-de-cierres-z)**. Esto proporciona al administrador un único centro de finanzas y control de cajas sin dispersión de pantallas.
 
 ---
 

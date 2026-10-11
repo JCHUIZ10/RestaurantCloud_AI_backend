@@ -62,7 +62,7 @@ Por cada nuevo Caso de Uso abordado, se ejecuta sin excepciones este flujo:
 
 ---
 
-## 4. Inventario Consolidado de Módulos Culminados (44 Casos de Uso)
+## 4. Inventario Consolidado de Módulos Culminados (45 Casos de Uso)
 
 ### 4.1 Autenticación y Acceso Transversal (`wireframe/`) — ✅ 100% CULMINADO
 - `CU-AUTH-01`: Login y selección de cuenta/sede.
@@ -76,7 +76,7 @@ Por cada nuevo Caso de Uso abordado, se ejecuta sin excepciones este flujo:
 - `CU-PROP-05`: Crear y gestionar administradores de local.
 - `CU-PROP-09`: Ver incidentes corporativos consolidados de la empresa.
 
-### 4.3 Rol Administrador del Local (`wireframe/administrador/`) — 🏢 100% CULMINADO (16 CUs)
+### 4.3 Rol Administrador del Local (`wireframe/administrador/`) — 🏢 100% CULMINADO (17 CUs)
 - `CU-ADMIN-01`: Gestión del plano de mesas de sede.
 - `CU-ADMIN-02`: Categorías de la carta gastronómica.
 - `CU-ADMIN-03`: Insumos y stock inicial.
@@ -90,6 +90,7 @@ Por cada nuevo Caso de Uso abordado, se ejecuta sin excepciones este flujo:
 - `CU-ADMIN-11`: Historial de incidentes internos de sede.
 - `CU-ADMIN-12`: Notificación de anulación de pedido y auditoría de salón (Tabla `pedido_anulacion`, broadcast SSE reactivo con campana `[ 🔔 ]`, control de mermas y visado administrativo).
 - `CU-ADMIN-13`: Ver reportes de ventas y desempeño (Dashboard ejecutivo de 3 pestañas: Ventas y Horas Punta Almuerzo/Cena, Menú Engineering de 4 cuadrantes con Top 8, y Rendimiento individual de mozos con rotación, upselling y resiliencia de turnos; exportación en streaming HTTP Gzip).
+- `CU-ADMIN-14`: Gestión de flujo de caja, gastos operativos y auditoría de cierres Z (Integra formalmente `CU-ADMIN-15`; Dashboard 360° de flujo neto con ingresos 100% salón discriminados por liquidez [Efectivo en Gavetas, Tarjetas POS, Yape/Plin], desglose de compras por insumo culinario directo [Pollo, Lomo, Papas, Carbón], egresos manuales de sede [limpieza, empaques, servicios, alquiler, mantenimiento] con conciliación automática de gaveta chica, auditoría y visado gerencial inmutable de 42 turnos de caja con modal de Reporte Z Digital oficial con PDF, y modal de registro ágil de egreso operativo).
 - `CU-ADMIN-17`: Gestionar promociones del local (Validación predictiva para caja, semántica NULL, cálculo antes de impuestos).
 - `CU-ADMIN-18`: Configurar parámetros operativos de comanda y tiempos de KDS (Tabla `configuracion_kds`, steppers táctiles de semáforo verde/ámbar/rojo y broadcast SSE a cocina < 30ms).
 - `CU-ADMIN-19`: Configurar métodos de pago y comisiones del local (Tabla `metodo_pago_local`, Efectivo, Tarjeta POS [+comisión], Yape/Plin, regla de al menos 1 medio activo y sincronización reactiva al POS).
@@ -124,19 +125,19 @@ Por cada nuevo Caso de Uso abordado, se ejecuta sin excepciones este flujo:
 
 ---
 
-## 5. Objetivo Inmediato de la Nueva Sesión: Reportes Financieros y Flujo de Caja
+## 5. Objetivo Inmediato de la Nueva Sesión: Auditoría y Trazabilidad del Local
 
 Al iniciar una nueva sesión de chat, el asistente debe concentrarse en el siguiente caso de uso:
 
-### 👉 **`CU-ADMIN-14: Consultar flujo de caja del local`**
+### 👉 **`CU-ADMIN-16: Consultar log de auditoría del local`**
 
 #### 5.1 Propósito y Contexto de Negocio
-Reporte analítico y de supervisión financiera que consolida en un solo panel los ingresos por ventas cobradas (`CU-CAJA-03`), los egresos por compras de insumos registradas a crédito/contado (`CU-ADMIN-06` / `CU-ADMIN-07`), los gastos operativos manuales de sede (servicios, alquiler, mantenimiento) y el balance financiero neto resultante de la jornada o período seleccionado.
+Centro de control de seguridad operativa y trazabilidad legal de sede que registra en bitácora inmutable todos los eventos críticos y sensibles del local (aperturas de turno, ventas cobradas, anulaciones de pedidos con mermas, notas de crédito emitidas, cierres Z con o sin descuadre, visados gerenciales de auditoría, registro de gastos operativos y modificaciones de recetas o cartas).
 
 #### 5.2 Requerimientos Clave
-- **Consolidación de Ingresos y Egresos:** Visualización del flujo monetario discriminado por métodos de pago y cuentas bancarias/gaveta.
-- **Registro Ágil de Gastos Menores:** Modal para registrar egresos manuales no vinculados a compras formales de proveedores, con categoría de gasto, comprobante y sustento.
-- **Exportación en Streaming HTTP:** Descarga de balance contable en PDF y Excel con compresión Gzip nativa.
+- **Filtros Forenses Multidimensionales:** Búsqueda por rango de fechas, usuario responsable (Rol/Nombre), tipo de evento/operación (`caja_arqueo`, `pedido_anulado`, `nota_credito`, `gasto_manual`, etc.) y nivel de criticidad (`INFO`, `ADVERTENCIA`, `CRÍTICO`).
+- **Detalle Comparativo de Payload:** Drawer o modal de inspección forense que muestra los datos antes y después del evento (diff JSON amigable) y la dirección IP / User-Agent.
+- **Exportación Inmutable:** Descarga de registros forenses en PDF y Excel para auditorías corporativas o tributarias.
 
 ---
 
@@ -145,7 +146,7 @@ Reporte analítico y de supervisión financiera que consolida en un solo panel l
 Cuando el usuario inicie el nuevo chat y salude o solicite continuar:
 1. **Confirma la lectura de este archivo** [`context/INSTRUCCIONES_NUEVA_SESION.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/INSTRUCCIONES_NUEVA_SESION.md).
 2. **Declara formalmente el estado del sistema:**
-   - Propietario (6 CUs), Administrador (16 CUs con `CU-ADMIN-13` completado), Mozo (9 CUs), Cocina (5 CUs), Cajero (5 CUs canónicos) y Cliente (2 CUs canónicos) están **100% culminados y consolidados (44 CUs totales)**.
-3. **Presenta de inmediato la propuesta de `/plan` interactivo para `CU-ADMIN-14: Consultar flujo de caja del local`**, desglosando el panel financiero de ingresos, egresos y balance neto operativo.
+   - Propietario (6 CUs), Administrador (17 CUs con `CU-ADMIN-14` completado e integrando `CU-ADMIN-15`), Mozo (9 CUs), Cocina (5 CUs), Cajero (5 CUs canónicos) y Cliente (2 CUs canónicos) están **100% culminados y consolidados (45 CUs totales)**.
+3. **Presenta de inmediato la propuesta de `/plan` interactivo para `CU-ADMIN-16: Consultar log de auditoría del local`**, desglosando el panel forense de eventos operativos y trazabilidad de sede.
 
 

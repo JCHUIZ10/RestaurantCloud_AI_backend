@@ -1828,4 +1828,45 @@ Se diseñaron, renderizaron y validaron 4 vistas en resolución canónica (1440x
 - **Selector Modular de Secciones:** Checkboxes independientes para incluir o excluir Resumen Financiero, Curva Horaria, Mix Culinario, Productividad de Mozos, Medios de Pago / SUNAT o Detalle Comanda por Comanda.
 - **Garantía de Rendimiento y Streaming HTTP:** Aviso pedagógico sobre la descarga en streaming HTTP con compresión nativa Gzip (`Transfer-Encoding: chunked`), transfiriendo chunks binarios directamente al disco local y reduciendo el consumo de ancho de banda en ~80% sin sobrecargar la memoria RAM del servidor ni del cliente.
 
+---
+
+## 77. Vistas Wireframe y Arquitectura de `CU-ADMIN-14: Gestión de Flujo de Caja, Gastos y Auditoría de Cierres Z`
+
+Se diseñaron, renderizaron y validaron 4 vistas en resolución canónica (1440x900, JPG calidad 95) ubicadas en [`wireframe/administrador/CU-ADMIN-14-flujo-caja-cierres-z/assets/`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-14-flujo-caja-cierres-z/assets/), integrando y absorbiendo formalmente las facultades de `CU-ADMIN-15`:
+
+### Vista 1: Dashboard de Flujo de Caja & Balance Neto (`wf_admin_14_dashboard_flujo_caja.jpg`)
+![Vista 1: Flujo de Caja y Balance Neto](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-14-flujo-caja-cierres-z/assets/wf_admin_14_dashboard_flujo_caja.jpg)
+- **Barra de Navegación y Filtros:** Pestañas especializadas `[ 💵 Flujo de Caja & Balance (Activo) ]`, `[ 📋 Auditoría de Turnos & Cierres Z ]`, `[ 🧾 Egresos & Gastos de Sede ]`, selector rápido (`Hoy`, `Semana`, `Este Mes (Octubre)`), badge con selector de rango `[📅 Rango: 01/10/2026 — 31/10/2026 (Personalizado)]`, y botones `[ ➕ Registrar Gasto ]` e `[ 📥 Exportar Reporte ]`.
+- **4 KPIs Financieros Macro:**
+  - *Ingresos Salón (Cobrados):* `S/ 28,450.00` (100% Salón, sin división artificial de delivery) desglosado en POS S/ 15,363.00 (54%), Efectivo S/ 9,104.00 (32%) y Yape/Plin S/ 3,983.00 (14%).
+  - *Egresos Totales Operativos:* `S/ 16,820.00` (Insumos culinarios 66.9% y Gastos de sede 33.1%).
+  - *Balance Neto Operativo:* `+ S/ 11,630.00` con margen de liquidez libre de `40.8%` ($Ingresos - Egresos$).
+  - *Conciliación de Liquidez Disponible:* Cuentas Bancarias / Pasarelas (`S/ 19,346.00`, 68%) vs Efectivo Físico en Gavetas (`S/ 9,104.00`, 32%).
+- **Histograma Diario de Entradas vs Salidas:** Barras pareadas ilustrando la solvencia por tramo semanal y callout interpretativo: *"Por cada S/ 1.00 de egreso operativo, la sede generó S/ 1.69 en ventas de salón"*.
+- **Composición Fáctica de Egresos:**
+  - *Insumos Culinarios Comprados (`ficha_compra` • S/ 11,250.00):* Pollo Entero (28.8%), Lomo Fino (25.3%), Papa Nativa (10.7%), Carbón/Leña (12.0%) y Abarrotes/Bebidas (23.2%).
+  - *Gastos Operativos de Sede (`gasto_manual` • S/ 5,570.00):* Alquiler de Local (50.3%), Servicios Básicos Luz/Agua/Gas (25.5%), Limpieza y Menaje Interno (10.4%), Mantenimiento (8.1%) y Caja Chica / Emergencias (5.7%).
+
+### Vista 2: Auditoría de Turnos de Caja & Reportes Z (`wf_admin_14_auditoria_turnos_z.jpg`)
+![Vista 2: Auditoría de Turnos y Reportes Z](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-14-flujo-caja-cierres-z/assets/wf_admin_14_auditoria_turnos_z.jpg)
+- **Barra de Indicadores de Control Interno:** 42 Turnos en el Mes • 40 Cuadrados Conformes (95.2%) • 2 Discrepancias Menores (Neto -S/ 14.50) • 41 Auditados y Visados • Efectivo Total Auditado S/ 9,104.00.
+- **Banner de Monitor de Terminal y Rescate:** Informa estado de terminal abierta y botón de rescate `[ ⚠️ Cierre Administrativo Forzado (Turno #043) ]` para liberar el bloqueo `uq_caja_abierta_local` si un cajero abandonó la sede.
+- **Directorio Histórico de Arqueos:** Tabla con correlativo, horario (Almuerzo vs Cena), cajero, fondo inicial, efectivo esperado, efectivo real contado, diferencia en Soles, estado de arqueo (`✓ Cuadrado` o `⚠️ Faltante`), visado gerencial (`⏳ Pendiente de Auditoría`, `✓ Auditado: Subsanado`, `✓ Auditado y Conforme`), y botones `[ 👁️ Auditar Reporte Z ]` y `[ 📄 Ver Reporte Z ]`.
+
+### Vista 3: Visor Oficial del Reporte Z Digital & Visado Administrativo (`wf_admin_14_modal_visor_reporte_z.jpg`)
+![Vista 3: Visor del Reporte Z Digital](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-14-flujo-caja-cierres-z/assets/wf_admin_14_modal_visor_reporte_z.jpg)
+- **Ficha Fiscal Inmutable (900px):** Membrete legal, correlativo oficial `#Z001-000042`, cajero titular Lucía Flores y badge `[ ✓ ARQUEO CUADRADO EXACTO ]`.
+- **Cuadratura Física de Gaveta:** Fondo Apertura S/ 200.00 + Cobros Efectivo S/ 885.00 - Devolución NC S/ 85.00 = Esperado S/ 1,000.00 vs Real Contado S/ 1,000.00 (Diferencia S/ 0.00).
+- **Recaudación por Medios de Pago & SUNAT:** Lote POS #012 (S/ 1,540.00), Billeteras (S/ 420.00), Base Imponible S/ 2,411.02, IGV S/ 433.98 y rango de Boletas/Facturas/NC emitidas.
+- **Visado Gerencial:** Campo para justificación o notas de auditoría interna y botón prioritario `[ ✓ Marcar Turno Auditado y Conforme ]`, persistiendo `revisado = true` y autoría administrativa.
+
+### Vista 4: Modal de Registro de Gasto Operativo Manual (`wf_admin_14_modal_registro_gasto.jpg`)
+![Vista 4: Registro de Gasto Operativo](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/administrador/CU-ADMIN-14-flujo-caja-cierres-z/assets/wf_admin_14_modal_registro_gasto.jpg)
+- **Formulario Estructurado (700px):**
+  - Categoría de Gasto: `Alquiler`, `Servicios Básicos (Luz/Agua/Gas)`, `Limpieza, Aseo & Menaje Interno`, `Mantenimiento`, `Caja Chica / Emergencias`.
+  - Fecha, Monto en Soles y Selector de Origen de Fondos: `Transferencia Bancaria` vs `Efectivo de Caja Chica / Gaveta Activa`.
+  - Cuadratura Automática: Callout advirtiendo que el efectivo de caja descuenta el arqueo esperado de `caja_movimiento` para evitar falsos faltantes al cajero en `CU-CAJA-05`.
+  - Proveedor/Beneficiario, Tipo de Comprobante (Recibo de Servicios, Factura, Boleta), Número de Suministro y Justificación textual obligatoria.
+
+
 

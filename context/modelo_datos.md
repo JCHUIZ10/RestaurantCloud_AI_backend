@@ -662,6 +662,10 @@ Apertura y cierre de caja por turno/día. El sistema opera bajo la **Política d
 | `discrepancia` | decimal(10, 2) | nullable | Diferencia entre monto real y esperado (sobrante (+) o faltante (-)) |
 | `comentario_discrepancia` | text | nullable | Justificación obligatoria en caso de descuadre de caja |
 | `notas_cierre` | text | DEFAULT NULL | Observaciones finales de entrega de turno |
+| `revisado` | bool | NOT NULL DEFAULT false | Acuse y visado de auditoría gerencial (`CU-ADMIN-14`) |
+| `revisado_por` | UUID | nullable FK -> usuario | Administrador o propietario que visó el arqueo |
+| `revisado_at` | timestamp with time zone | nullable | Momento exacto del visado |
+| `notas_auditoria` | text | nullable | Observaciones de control interno o resolución de faltantes |
 | `estado` | varchar(20) | NOT NULL DEFAULT 'abierta' CHECK (estado IN ('abierta', 'cerrada')) | Estado operativo del turno |
 | `created_at` | timestamp with time zone | NOT NULL DEFAULT NOW() | Fecha de creación del registro |
 | `updated_at` | timestamp with time zone | NOT NULL DEFAULT NOW() | Fecha de última modificación |
@@ -752,17 +756,26 @@ Comprobante digital emitido al cobrar (sin impresión física obligatoria, con c
 
 #### `gasto_manual`
 
-Egresos operativos que no provienen de una ficha de compra.
+Egresos operativos de sede que no provienen de una ficha de compra culinaria (alquiler, servicios públicos, limpieza y aseo interno, mantenimiento y compras menores de caja chica).
 
 | Campo | Tipo | Clave / Restricción | Descripción |
 | :--- | :--- | :--- | :--- |
-| `id` | UUID | PK | Identificador |
-| `local_id` | UUID | FK -> local | Local al que pertenece |
-| `categoria` | varchar | — | Categoría del gasto (ej. alquiler, servicios) |
-| `monto` | decimal | — | Monto del gasto |
-| `descripcion` | text | — | Detalle del gasto |
-| `fecha` | date | — | Fecha del gasto |
-| `registrado_por` | UUID | FK -> usuario | Quién lo registró |
+| `id` | UUID | PK | Identificador único del egreso |
+| `local_id` | UUID | FK -> local (ON DELETE CASCADE) | Local/sede al que pertenece el gasto |
+| `categoria` | varchar(60) | NOT NULL | `alquiler`, `servicios_basicos`, `limpieza_aseo`, `mantenimiento`, `caja_chica`, `otros` |
+| `monto` | decimal(12, 2) | NOT NULL CHECK (monto > 0.00) | Monto total del egreso en Soles |
+| `origen_fondos` | varchar(30) | NOT NULL DEFAULT 'transferencia_bancaria' | `transferencia_bancaria`, `efectivo_caja` |
+| `caja_id` | UUID | nullable FK -> caja (ON DELETE SET NULL) | Turno de caja afectado si se pagó con efectivo de gaveta |
+| `proveedor_nombre` | varchar(120) | NOT NULL | Nombre de la entidad, proveedor de servicios o beneficiario |
+| `tipo_comprobante` | varchar(50) | DEFAULT 'recibo_interno' | `factura`, `boleta`, `recibo_servicios`, `recibo_honorarios`, `recibo_interno` |
+| `numero_documento` | varchar(80) | nullable | Serie y número del comprobante o código de suministro |
+| `descripcion` | text | NOT NULL | Detalle o justificación obligatoria del egreso |
+| `fecha` | date | NOT NULL DEFAULT CURRENT_DATE | Fecha de imputación del gasto |
+| `registrado_por` | UUID | FK -> usuario NOT NULL | Administrador o usuario que registró el egreso |
+| `created_at` | timestamp with time zone | NOT NULL DEFAULT NOW() | Momento de registro en el sistema |
+
+> **Vínculo Transaccional con Arqueo de Caja (`CU-ADMIN-14` $\rightarrow$ `CU-CAJA-05`):**
+> Si `origen_fondos = 'efectivo_caja'`, se inserta en la misma transacción un movimiento en `caja_movimiento` (`tipo = 'egreso_gasto_manual'`) vinculado al turno abierto (`caja_id`), descontándolo del efectivo esperado del cajero para no generar falsos faltantes en el arqueo Z.
 
 ---
 
@@ -907,9 +920,11 @@ Para garantizar que los dashboards gerenciales y reportes de ventas no degraden 
 1. **`v_analitica_ventas_horarias`:** Agrega facturación neta, volumen de comandas y ticket promedio por hora de jornada (`hora_jornada` de 11h a 23h), categorizando automáticamente los picos de `almuerzo` (12h-15h) y `cena` (19h-22h).
 2. **`v_menu_engineering_cuadrantes`:** Cruza las unidades vendidas de cada plato con su margen de contribución unitario (`precio_venta - costo_estandar`). Calcula los umbrales medios de popularidad y rentabilidad por sede, clasificando los ítems en 4 cuadrantes (`ESTRELLA`, `CABALLITO`, `PUZLE`, `REZAGADO`).
 3. **`v_desempeno_mozos_salon`:** Consolida por mozo las mesas atendidas, facturación total generada, ticket medio, tiempo promedio de permanencia en mesa, ratio de **Upselling** (comandas con 2da ronda de bebidas/postres) y tasa de cancelaciones registradas vía `pedido_anulacion` (`CU-MOZO-06`).
-4. **Índices de aceleración analítica recomendados:**
+4. **`v_analitica_flujo_caja_mensual` (`CU-ADMIN-14`):** Consolida por sede y fecha las entradas (ventas de salón 100% cobradas discriminadas por efectivo vs bancos), compras directas de insumos culinarios (`ficha_compra`) y egresos operativos manuales (`gasto_manual`), determinando el balance neto diario y la conciliación de liquidez.
+5. **Índices de aceleración analítica recomendados:**
    - `CREATE INDEX idx_comanda_analitica ON comanda (sede_id, estado, created_at) WHERE estado = 'cobrada';`
    - `CREATE INDEX idx_detalle_comanda_plato_analitica ON detalle_comanda (plato_id, comanda_id);`
+   - `CREATE INDEX idx_gasto_manual_analitica ON gasto_manual (local_id, fecha, origen_fondos);`
 
 ---
 
