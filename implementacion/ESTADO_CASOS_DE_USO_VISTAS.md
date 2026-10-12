@@ -223,6 +223,27 @@
 
 ---
 
+### 2.11 `CU-MOZO-05`: Gestionar Reservas y Recepción en Salón
+- **Ruta Activa:** `/mozo/reservas` ([`TerminalLayout.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/TerminalLayout.tsx)) e integración bidireccional en `/mozo/mesas`.
+- **Componentes Creados:**
+  - [`MozoReservasPage.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/pages/MozoReservasPage.tsx): Orquestador reactivo de la bandeja de reservas con gestión de turnos, navegación de fechas y actualización en vivo vía SSE.
+  - [`ReservasHeader.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/reservas/ReservasHeader.tsx): Barra de contexto con selector de fecha diario (`[ < Hoy, 09 Octubre 2026 > ]`), conmutador de turno (`[● Almuerzo]` / `[ Cena ]`), indicador SSE `(•) SSE Conectado`, enlace a salón y botón `[ + Nueva Reserva ]` (touch target 48px).
+  - [`ReservasKPICards.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/reservas/ReservasKPICards.tsx): 4 Tarjetas de resumen de turno con métricas claras en español: *Reservas de Hoy*, *Próximas en 1 Hora*, *Comensales Atendidos* e *Inasistencias del Día*.
+  - [`ReservasFiltrosPills.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/reservas/ReservasFiltrosPills.tsx): Píldoras táctiles con contadores dinámicos (*Todas*, *Confirmadas / En Espera*, *Atendidas*, *Inasistencias / Canceladas*).
+  - [`ReservasTable.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/reservas/ReservasTable.tsx): Tabla cronológica de citas con badges de anticipación en vivo (`⏱️ En 20 min`), enlace a llamada y WhatsApp directo (`wa.me`), PAX, mesa asignada (individual o unida `Mesa [ 02 ; 03 ]`), estado operativo y acciones rápidas (`[✓ Sentar]`, `[ Ficha ]`, `[ 💬 WA ]`).
+  - [`ModalNuevaReserva.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/reservas/ModalNuevaReserva.tsx): Modal táctil de 760px en 3 pasos: Parámetros del turno (fecha, chips de hora y stepper PAX), **Mini-Mapa Espacial de Salón 5x2** (topología fiel, bloqueo reactivo de solapamientos horarios y soporte de selección unida), y ficha de contacto del comensal.
+  - [`ModalFichaReserva.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/reservas/ModalFichaReserva.tsx): Modal táctil de 560px con **reloj dinámico de tolerancia y cortesía (15 min)**, conmutador de simulación de cortesía, acción primaria `[ ✓ Sentar Comensales y Abrir Pedido ]` (transita a atendida, ocupa mesa y abre comanda en `CU-MOZO-02`), y botón `[ ⚠️ Cliente No Se Presentó / Liberar Mesa ]` que registra inasistencia y libera la mesa a verde `LIBRE` inmediatamente en < 25ms.
+  - [`ModalSobreasignacionAlerta.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/reservas/ModalSobreasignacionAlerta.tsx): Modal de 540px ante conflicto de ocupación casual preventiva (< 30 min) con 3 opciones asistidas (*Reasignar reserva a Mesa 05*, *Consumo rápido express* o *Cancelar y elegir otra mesa*).
+  - [`ModalPaywallReservas.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/reservas/ModalPaywallReservas.tsx): Modal didáctico de 520px para cuentas en plan Starter explicando beneficios Pro/Enterprise sin dead-ends.
+  - [`DemoReservasWidget.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/reservas/DemoReservasWidget.tsx): Widget flotante para simular eventos SSE (`reserva_creada`, `mesa_bloqueada_reserva`), alternar entre Plan Pro y Starter, y probar estados frontera.
+- **Servicios y DTOs:**
+  - [`mockMozoService.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/services/mockMozoService.ts): `obtenerPoliticasReserva`, `obtenerReservas`, `obtenerMesasDisponiblesReserva`, `crearReserva`, `sentarReserva`, `registrarNoShow`, `cancelarReserva`, `reasignarMesaReserva`.
+  - [`src/types/mozo.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/mozo.ts): `EstadoReserva`, `PoliticasReservaDTO`, `ReservaCardDTO`, `MesaDisponibleReservaDTO`, `MesasDisponiblesResponseDTO`, `CrearReservaRequestDTO`, `SentarReservaResponseDTO`, `RegistrarNoShowRequestDTO`, `CancelarReservaRequestDTO`, `ReasignarMesaReservaRequestDTO`.
+- **Integración en Salón:** Botón `[ 📅 Reservas (8) ]` en `SalonHeaderMozo.tsx`, clic en mesa bloqueada `Mesa 08` abre `ModalFichaReserva`, y botón directo en `DemoMozoWidget.tsx`.
+- **Estado de Build:** ✅ Compilado y probado en producción con 0 errores (`npm run build`).
+
+---
+
 ## 3. Infraestructura y Arquitectura Base Completada
 
 - **Enrutador React Router DOM v6:** [`src/router/index.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/router/index.tsx) con rutas centralizadas en [`src/router/routes.constants.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/router/routes.constants.ts).
@@ -237,15 +258,12 @@
 
 ## 4. Backlog Priorizado de Próximos Casos de Uso (Roadmap)
 
-Con **`CU-MOZO-01`** (Salón y Despacho), **`CU-MOZO-02`** (Comanda Móvil), **`CU-MOZO-08`** (Precuenta Digital), **`CU-MOZO-04`** (Unir o Dividir Mesas), **`CU-MOZO-09`** (Dividir Cuenta) y **`CU-MOZO-06`** (Anular Pedido o Ítem con Merma) completados:
+Con **7 de 8 casos de uso de Mozo concluidos (87.5% de avance del módulo)** (`CU-MOZO-01`, `CU-MOZO-02`, `CU-MOZO-04`, `CU-MOZO-05`, `CU-MOZO-06`, `CU-MOZO-08`, `CU-MOZO-09`):
 
-### 🟡 Opción A: Concluir Casos de Uso Restantes de Salón (Mozo)
-1. **`CU-MOZO-05`: Gestionar Reservas y Recepción en Salón**
-   - **Wireframe Canónico:** `wireframe/mozo/CU-MOZO-05-gestionar-reservas/wireframe.md`
-   - **Propósito:** Bandeja central de reservas, mini-mapa espacial de asignación física, bloqueo preventivo automático a 30 min y tolerancia no-show.
-2. **`CU-MOZO-07`: Atender Incidencia de Plato No Disponible (Quiebre de Cocina)**
+### 🟡 Opción A: Concluir el Último Caso de Uso Restante de Salón (Mozo)
+1. **`CU-MOZO-07`: Atender Incidencia de Plato No Disponible (Quiebre de Cocina)**
    - **Wireframe Canónico:** `wireframe/mozo/CU-MOZO-07-atender-plato-no-disponible/wireframe.md`
-   - **Propósito:** Alerta reactiva SSE en tablet, catálogo asistido de sustitución con 6 recomendaciones por cercanía matemática de precio y cálculo de diferencial.
+   - **Propósito:** Alerta reactiva SSE en tablet, catálogo asistido de sustitución con 6 recomendaciones por cercanía matemática de precio y cálculo de diferencial de saldo.
 
 ---
 
