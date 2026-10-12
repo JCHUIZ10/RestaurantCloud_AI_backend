@@ -18,7 +18,7 @@
 | **Salón & Mozo** | 8 | 8 | 0 | **100% (Completo)** |
 | **Cocina (KDS)** | 4 | 1 | 3 | **25%** |
 | **Caja & Cobranza** | 5 | 0 | 5 | 0% |
-| **Administración Local** | 10 | 0 | 10 | 0% |
+| **Administración Local** | 16 | 1 | 15 | **6.25%** |
 | **Propietario / Tenant** | 6 | 0 | 6 | 0% |
 | **SuperAdmin SaaS** | 3 | 0 | 3 | 0% |
 
@@ -277,6 +277,31 @@
   - [`mockCocinaService.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/cocina/services/mockCocinaService.ts): Simulación de endpoints canónicos (`GET /comandas`, `PATCH /items/:id/estado`, `POST /comandas/:id/despachar-todo`, `GET /consolidado-all-day`) con contratos `ApiResponse<T>`.
   - [`src/types/cocina.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/cocina.ts): DTOs auditados 1:1 contra `02_schema_ddl.sql` (`KDSComandaDTO`, `KDSItemDTO`, `ConsolidadoAllDayDTO`, `ConfiguracionKDSDTO`, `ItemAnuladoSSEEvent`).
 - **Responsive:** Touch targets $\ge 44$px a $48$px, layout adaptado a monitores industriales de cocina `1440x900`, tablets y smartphones.
+- **Estado de Build:** ✅ Compilado y probado en producción con 0 errores (`npm run build`).
+
+---
+
+### 2.14 `CU-ADMIN-01`: Gestionar Plano de Mesas y Ambientes
+- **Ruta Activa:** `/admin/plano-mesas` ([`DashboardLayout.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/DashboardLayout.tsx))
+- **Componentes Creados:**
+  - [`AdminPlanoMesasPage.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/pages/AdminPlanoMesasPage.tsx): Orquestador reactivo del salón administrativo con gestión de los 5 estados UX (Skeleton, Loaded, Empty State, Error y Conflicto 409).
+  - [`PlanoHeader.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/plano/PlanoHeader.tsx): Cabecera con título *DM Serif Display*, subtítulo de sede y 3 tarjetas KPI: Mesas Activas en Local (17), Capacidad Total Sentados (68 pax aforo) y Cupo del Plan Pro (`17 / 30 mesas en uso`, `13 disponibles`) con barra de progreso. Botones de acción `[ + Mesa Individual ]` y `[ + Nuevo Ambiente ]` (el generador en lote se ubica exclusivamente en el salón vacío).
+  - [`PisosTabs.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/plano/PisosTabs.tsx): Pestañas horizontales de ambientes (*Salón Principal (10)*, *Terraza Exterior (4)*, *Barra Bar (3)*) con botón de configuración de ambiente `(⚙️)` en la pestaña activa y controles de cuadrícula en vivo (`[ + / - Columna ]` y `[ + / - Fila ]`).
+  - [`PlanoCuadriculaGrid.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/plano/PlanoCuadriculaGrid.tsx): Matriz visual interactiva que posiciona cada mesa en su celda `(x, y)` según su forma geométrica (`cuadrada`, `redonda`, `rectangular`), con slots vacíos accionables en 1 clic para agregar mesas directamente en esa posición sin teclear coordenadas.
+  - [`MesaAdminCard.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/plano/MesaAdminCard.tsx): Tarjeta de mesa con diferenciación visual de forma, badge de capacidad (`👤 4 pers.`), distintivo de unión grupal `🔗`, indicador de estado `Libre` (verde) u `Ocupada` (con código de comanda activa) y botón de edición.
+  - [`ModalGeneradorLote.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/plano/ModalGeneradorLote.tsx): Asistente Wizard en lote (Vista 2) con sliders interactivos de columnas (1..8) y filas (1..6), cálculo en vivo (`X col × Y filas = Z Mesas`), selector de correlativo y comprobación preventiva de cuota contra `plan.max_mesas`, con contexto automático del salón activo sin dropdown redundante.
+  - [`DrawerEditarMesa.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/plano/DrawerEditarMesa.tsx): Quick-Drawer lateral deslizable de 440px (Vista 3) para modificar número, capacidad con steppers táctiles `[-]` y `[+]`, forma visual, unión grupal y acción de baja no destructiva con control de bloqueo.
+  - [`ModalMesaIndividual.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/plano/ModalMesaIndividual.tsx): Modal de alta de mesa (Vista 4) con contexto fijo de salón, sugerencia de correlativo y **Mini-Mapa Espacial Interactivo** con controles de cuadrícula duales (`Col: -/+`, `Fil: -/+`) para elegir la casilla exacta visualmente.
+  - [`ModalEditarPiso.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/plano/ModalEditarPiso.tsx): Diálogo para renombrar ambiente (validando unicidad) y Zona de Peligro para baja protegida (bloqueo 409 `ERR_PISO_CON_MESAS_ACTIVAS` y protección de piso mínimo en sede).
+  - [`ModalNuevoPiso.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/plano/ModalNuevoPiso.tsx): Diálogo para registrar nuevos ambientes físicos con verificación de cuota (`plan.max_pisos`).
+  - [`ModalBloqueoDesactivacion.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/plano/ModalBloqueoDesactivacion.tsx): Diálogo de Bloqueo Duro ante error `409 Conflict` (`ERR_MESA_CON_PEDIDOS_ACTIVOS`) cuando una mesa tiene comanda abierta (`COM-0104`), informando consumo acumulado y enlace directo al salón.
+  - [`OnboardingPisoVacio.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/plano/OnboardingPisoVacio.tsx): Vista ilustrativa de bienvenida (Vista 5) con doble camino asistido (*Asistente Rápido* vs *Creación Individual*).
+  - [`DemoAdminPlanoWidget.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/plano/DemoAdminPlanoWidget.tsx): Widget flotante para alternar entre escenarios de prueba en 1 clic (*Semillas Normales*, *Cuota Llena 30/30*, *Salón Vacío*, *Bloqueo 409 Mesa 04*, *Error de Red*).
+- **Servicios y DTOs:**
+  - [`mockAdminService.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/services/mockAdminService.ts): Servicio con contratos `ApiResponse<T>` precargado con el escenario canónico local (`07_seed_local_aurea_completo.sql`), incluyendo `actualizarNombrePiso` y `desactivarPiso`.
+  - [`src/types/admin.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/admin.ts): DTOs rigurosamente auditados contra `piso`, `mesa` y `plan` de PostgreSQL 16. Cero datos inventados.
+
+- **Responsive:** Layout fluido en Desktop `>= 1024px`, Tablet `768px - 1023px` y Smartphone `< 768px` con touch targets $\ge 44\text{px}$.
 - **Estado de Build:** ✅ Compilado y probado en producción con 0 errores (`npm run build`).
 
 ---

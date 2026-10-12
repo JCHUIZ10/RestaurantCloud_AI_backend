@@ -15,6 +15,7 @@ import { MozoComandaPage } from '@/modules/mozo/pages/MozoComandaPage';
 import { MozoPrecuentaPage } from '@/modules/mozo/pages/MozoPrecuentaPage';
 import { MozoReservasPage } from '@/modules/mozo/pages/MozoReservasPage';
 import { CocinaKdsPage } from '@/modules/cocina/pages/CocinaKdsPage';
+import { AdminPlanoMesasPage } from '@/modules/admin/pages/AdminPlanoMesasPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
@@ -214,15 +215,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'plano-mesas',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-ADMIN-01"
-            nombrePantalla="Diseño y Plano de Mesas por Piso"
-            rol="administrador"
-            layoutNombre="DashboardLayout"
-            descripcion="Configuración visual del salón: pisos, ubicación espacial de mesas, capacidad de comensales y estados operativos."
-          />
-        ),
+        element: <AdminPlanoMesasPage />,
       },
       {
         path: 'carta',

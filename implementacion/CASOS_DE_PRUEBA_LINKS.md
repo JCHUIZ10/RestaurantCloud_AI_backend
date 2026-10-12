@@ -51,6 +51,9 @@
 (CU-COCINA-01: Ver Cola de Pedidos Entrantes KDS):
 - que es : Monitor KDS industrial de cocina (TerminalLayout) con rejilla 4 columnas FIFO, semáforo dinámico según configuracion_kds (🟢 <=15m, 🟡 16-25m, 🔴 >25m), badges de mesa/mozo/ronda, botones táctiles para avanzar platos ([🔥 En Fuego], [✓ Marcar Listo], [↩ Deshacer 30s]), chip de bebidas atendidas por mozo, Ficha Técnica de Comanda 680px (Vista 2) con receta culinaria e insumos descontados en almacén, Modal de Alerta Reactiva Parada de Fogones 620px (Vista 3) por anulación SSE en salón, Consolidado All-Day Summary (Vista 4) agrupado por categorías reales de la carta gastronómica, y widget flotante de pruebas para simular eventos en 1 clic: http://localhost:5173/cocina/kds
 
+(CU-ADMIN-01: Gestionar Plano de Mesas y Ambientes):
+- que es : Gestión visual y distribución física del salón de la sede en DashboardLayout: KPIs de aforo y consumo de cuota del Plan Pro (17/30 mesas activas, 13 disponibles), selector de ambientes (Salón Principal, Terraza Exterior, Barra Bar) con controles para expandir o recortar cuadrícula, Asistente Rápido en Lote (Vista 2) con sliders interactivos de columnas/filas y cálculo automático, Modal de Creación Individual con Mini-Mapa interactivo selector de casillas (Vista 4), Quick-Drawer lateral de edición de 440px (Vista 3) con steppers táctiles y control de forma/unión, Modal de Bloqueo Duro 409 ante comanda activa en salón/cocina (Mesa 04), Onboarding de bienvenida para salones vacíos (Vista 5) y widget flotante interactivo para simular todos los estados UX en 1 clic: http://localhost:5173/admin/plano-mesas
+
 ---
 
 ### Próximos Casos de Uso (En Desarrollo / Roadmap)
