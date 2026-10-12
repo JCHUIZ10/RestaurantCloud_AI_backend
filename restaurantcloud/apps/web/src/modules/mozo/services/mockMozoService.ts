@@ -6,6 +6,14 @@ import {
   MesaCardDTO,
   PisoAmbienteDTO,
   AlertaCocinaModalDTO,
+  CatalogoProductosMozoDTO,
+  ProductoCatalogoMozoDTO,
+  CrearPedidoRequest,
+  PedidoConfirmadoDTO,
+  HistorialMesaComandaDTO,
+  PrecuentaMozoResponseDTO,
+  PromocionSedeDTO,
+  SolicitarCuentaRequest,
 } from '@/types/mozo';
 
 // ID canónico del mozo activo de prueba
@@ -746,4 +754,563 @@ export const mockMozoService = {
       mozo_actual: MOZO_ACTUAL,
     };
   },
+
+  /**
+   * =========================================================================
+   * MÉTODOS PARA CU-MOZO-02: TOMA DE PEDIDO Y COMANDA MÓVIL
+   * =========================================================================
+   */
+
+  /**
+   * Obtiene el catálogo completo de la carta con categorías y disponibilidad en vivo
+   */
+  async obtenerCatalogoCarta(_mesaId: string): Promise<ApiResponse<CatalogoProductosMozoDTO>> {
+    await new Promise((res) => setTimeout(res, 150));
+
+    const categoriasMap = new Map<string, { id: string; nombre: string; total: number }>();
+    PRODUCTOS_CARTA_MOCK.forEach((p) => {
+      if (!categoriasMap.has(p.categoria_id)) {
+        categoriasMap.set(p.categoria_id, {
+          id: p.categoria_id,
+          nombre: p.categoria_nombre,
+          total: 0,
+        });
+      }
+      categoriasMap.get(p.categoria_id)!.total++;
+    });
+
+    return {
+      exito: true,
+      datos: {
+        categorias: Array.from(categoriasMap.values()),
+        productos: [...PRODUCTOS_CARTA_MOCK],
+      },
+    };
+  },
+
+  /**
+   * Obtiene el historial de consumos y comanda activa de la mesa (soporta Ronda #02 adicional)
+   */
+  async obtenerHistorialMesa(mesaId: string): Promise<ApiResponse<HistorialMesaComandaDTO>> {
+    await new Promise((res) => setTimeout(res, 120));
+
+    const mesa = MESAS_SALON_MOCK.find((m) => m.id === mesaId);
+    const mesaNumero = mesa?.numero || '04';
+    const esOcupada = mesa?.estado === 'ocupada' || mesa?.estado === 'cuenta_pedida';
+
+    // Si la mesa ya está ocupada, simula que tiene la Ronda #01 enviada
+    const itemsRondaPrevia = esOcupada
+      ? [
+          {
+            id: 'item-previo-01',
+            producto_id: 'prod-criollo-01',
+            producto_nombre: 'Lomo Saltado Criollo',
+            cantidad: 2,
+            precio_unitario: 38.0,
+            subtotal: 76.0,
+            nota_cocina: 'Término 3/4, sin cebolla',
+            requiere_preparacion: true,
+            tipo_despacho: 'cocina' as const,
+            estado: 'entregado' as const,
+            minutos_en_estado: 15,
+            numero_ronda: 1,
+          },
+          {
+            id: 'item-previo-02',
+            producto_id: 'prod-ent-01',
+            producto_nombre: 'Causa Limeña de Pollo',
+            cantidad: 1,
+            precio_unitario: 24.0,
+            subtotal: 24.0,
+            nota_cocina: null,
+            requiere_preparacion: true,
+            tipo_despacho: 'cocina' as const,
+            estado: 'entregado' as const,
+            minutos_en_estado: 15,
+            numero_ronda: 1,
+          },
+          {
+            id: 'item-previo-03',
+            producto_id: 'prod-beb-03',
+            producto_nombre: 'Jarra de Chicha Morada Casera 1L',
+            cantidad: 1,
+            precio_unitario: 18.0,
+            subtotal: 18.0,
+            nota_cocina: 'Helada',
+            requiere_preparacion: false,
+            tipo_despacho: 'directo_salon' as const,
+            estado: 'entregado' as const,
+            minutos_en_estado: 20,
+            numero_ronda: 1,
+          },
+        ]
+      : [];
+
+    const totalPrevio = itemsRondaPrevia.reduce((acc, it) => acc + it.subtotal, 0);
+
+    return {
+      exito: true,
+      datos: {
+        mesa_id: mesaId,
+        mesa_numero: mesaNumero,
+        ambiente: 'Salón Principal',
+        comensales: mesa?.comensales_sentados || 4,
+        minutos_en_mesa: mesa?.minutos_ocupada || 35,
+        mozo_nombre: mesa?.mozo_nombre || MOZO_ACTUAL.nombre,
+        ronda_actual: esOcupada ? 2 : 1,
+        ronda_previa_items: itemsRondaPrevia,
+        total_previo: totalPrevio,
+      },
+    };
+  },
+
+  /**
+   * Despacha la comanda a cocina y salón con split atómico
+   */
+  async enviarPedidoCocina(
+    request: CrearPedidoRequest,
+    forzarConflictoStock = false
+  ): Promise<ApiResponse<PedidoConfirmadoDTO>> {
+    await new Promise((res) => setTimeout(res, 350));
+
+    // Si se activa simulación de conflicto de stock (Vista 4: 409 Conflict)
+    if (forzarConflictoStock) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_PRODUCTO_AGOTADO',
+            mensaje:
+              "El insumo crítico 'Pescado Blanco (Corvina)' se agotó en cocina hace 30 segundos. La preparación de Ceviche Clásico no es posible.",
+            campo: 'items[0].producto_id',
+          },
+        ],
+      };
+    }
+
+    // Calcular montos y enriquecer ítems
+    let totalComanda = 0;
+    const itemsEnviados = request.items.map((it, idx) => {
+      const prod = PRODUCTOS_CARTA_MOCK.find((p) => p.id === it.producto_id);
+      const precio = prod?.precio || 20.0;
+      const subtotal = precio * it.cantidad;
+      totalComanda += subtotal;
+
+      return {
+        id: `item-env-${Date.now()}-${idx}`,
+        producto_id: it.producto_id,
+        producto_nombre: prod?.nombre || 'Producto Gastronómico',
+        cantidad: it.cantidad,
+        precio_unitario: precio,
+        subtotal: subtotal,
+        nota_cocina: it.nota_cocina || null,
+        estado: prod?.requiere_preparacion ? 'en_cola' : 'listo',
+        numero_ronda: request.numero_ronda,
+        created_at: new Date().toISOString(),
+      };
+    });
+
+    // Actualizar estado de la mesa en el mock
+    const mesaIndex = MESAS_SALON_MOCK.findIndex((m) => m.id === request.mesa_id);
+    if (mesaIndex >= 0) {
+      const mesaAnt = MESAS_SALON_MOCK[mesaIndex];
+      MESAS_SALON_MOCK[mesaIndex] = {
+        ...mesaAnt,
+        estado: 'ocupada',
+        comensales_sentados: request.comensales,
+        total_consumo: (mesaAnt.total_consumo || 0) + totalComanda,
+        es_mi_mesa: true,
+        mozo_nombre: MOZO_ACTUAL.nombre,
+      };
+    }
+
+    return {
+      exito: true,
+      datos: {
+        pedido_id: `ped-${Date.now()}`,
+        mesa_id: request.mesa_id,
+        mesa_numero: '04',
+        numero_ronda: request.numero_ronda,
+        estado: 'enviado',
+        total_comanda: totalComanda,
+        items_enviados: itemsEnviados,
+        mensaje: 'Comanda despachada a cocina y salón con éxito',
+      },
+    };
+  },
+
+  /**
+   * Conmuta la disponibilidad de un producto en la carta para probar reactividad
+   */
+  alternarDisponibilidadProducto(productoId: string): boolean {
+    const prod = PRODUCTOS_CARTA_MOCK.find((p) => p.id === productoId);
+    if (prod) {
+      prod.disponibilidad = prod.disponibilidad === 'disponible' ? 'agotado' : 'disponible';
+      return prod.disponibilidad === 'disponible';
+    }
+    return false;
+  },
+
+  /**
+   * =========================================================================
+   * MÉTODOS PARA CU-MOZO-08: PRECUENTA DIGITAL EN MESA
+   * =========================================================================
+   */
+
+  /**
+   * Consulta on-demand de la precuenta digital de la mesa sin esperar a caja
+   */
+  async obtenerPrecuentaMesa(mesaId: string): Promise<ApiResponse<PrecuentaMozoResponseDTO>> {
+    await new Promise((res) => setTimeout(res, 180));
+
+    const mesa = MESAS_SALON_MOCK.find((m) => m.id === mesaId);
+    const mesaNumero = mesa?.numero || '04';
+
+    // Consolidado de consumos (4 ítems de prueba para un total bruto de S/ 100.00)
+    const itemsPrecuenta = [
+      {
+        producto_id: 'prod-criollo-01',
+        nombre: 'Lomo Saltado Criollo',
+        nota_cocina: 'Término 3/4, con papas amarillas',
+        cantidad: 1,
+        precio_unitario: 38.0,
+        subtotal: 38.0,
+        estado_cocina: 'en_preparacion' as const, // Simula advertencia de cocina
+      },
+      {
+        producto_id: 'prod-mar-03',
+        nombre: 'Arroz con Mariscos Especial',
+        nota_cocina: null,
+        cantidad: 1,
+        precio_unitario: 34.0,
+        subtotal: 34.0,
+        estado_cocina: 'listo' as const,
+      },
+      {
+        producto_id: 'prod-beb-03',
+        nombre: 'Jarra de Chicha Morada Casera 1L',
+        nota_cocina: 'Helada con vaso',
+        cantidad: 1,
+        precio_unitario: 16.0,
+        subtotal: 16.0,
+        estado_cocina: 'entregado' as const,
+      },
+      {
+        producto_id: 'prod-ent-01',
+        nombre: 'Causa Limeña Clásica de Pollo',
+        nota_cocina: null,
+        cantidad: 1,
+        precio_unitario: 12.0,
+        subtotal: 12.0,
+        estado_cocina: 'entregado' as const,
+      },
+    ];
+
+    const consumoBruto = itemsPrecuenta.reduce((acc, it) => acc + it.subtotal, 0); // 100.00
+    const promocionActiva = PROMOCIONES_SEDE_MOCK[0]; // 15% Almuerzo Ejecutivo
+    const descuentoComercial =
+      Math.round(consumoBruto * (promocionActiva.porcentaje_descuento / 100) * 100) / 100; // 15.00
+    const totalNeto = consumoBruto - descuentoComercial; // 85.00
+    const baseImponible = Math.round((totalNeto / 1.18) * 100) / 100; // 72.03
+    const igv = Math.round((totalNeto - baseImponible) * 100) / 100; // 12.97
+
+    // Opciones de pago proyectadas
+    const comisionTarjeta = Math.round(totalNeto * 0.035 * 100) / 100; // 3.5% = 2.98
+    const totalTarjeta = Math.round((totalNeto + comisionTarjeta) * 100) / 100; // 87.98
+
+    const opcionesPago = [
+      {
+        codigo: 'efectivo' as const,
+        nombre: 'Efectivo',
+        comision_porcentaje: 0.0,
+        monto_comision: 0.0,
+        total_estimado: totalNeto,
+      },
+      {
+        codigo: 'billetera_digital' as const,
+        nombre: 'Billetera Digital (Yape / Plin)',
+        comision_porcentaje: 0.0,
+        monto_comision: 0.0,
+        total_estimado: totalNeto,
+        detalle_billetera: {
+          telefono: '987 654 321',
+          titular: 'Restaurant S.A.C.',
+          ruc: '20601234567',
+          qr_imagen_url: '',
+          monto_exacto: totalNeto,
+        },
+      },
+      {
+        codigo: 'tarjeta' as const,
+        nombre: 'Tarjeta Débito / Crédito',
+        comision_porcentaje: 3.5,
+        monto_comision: comisionTarjeta,
+        total_estimado: totalTarjeta,
+      },
+    ];
+
+    return {
+      exito: true,
+      datos: {
+        mesa_id: mesaId,
+        mesa_numero: mesaNumero,
+        es_mesa_unida: mesa?.permite_union || false,
+        mozo_nombre: mesa?.mozo_nombre || MOZO_ACTUAL.nombre,
+        comensales: mesa?.comensales_sentados || 4,
+        minutos_en_mesa: mesa?.minutos_ocupada || 32,
+        items: itemsPrecuenta,
+        tiene_cocina_pendiente: true,
+        alerta_cocina: "1 plato 'Lomo Saltado' en 'preparación'",
+        promociones_disponibles: PROMOCIONES_SEDE_MOCK,
+        promocion_activa: promocionActiva,
+        tributacion_sunat: {
+          consumo_bruto: consumoBruto,
+          descuento_comercial: descuentoComercial,
+          total_neto: totalNeto,
+          base_imponible: baseImponible,
+          igv: igv,
+          tasa_igv: 0.18,
+        },
+        opciones_pago: opcionesPago,
+        calculada_at: new Date().toISOString(),
+      },
+    };
+  },
+
+  /**
+   * Conmuta a cuenta_pedida, guarda el método acordado y notifica a Caja vía SSE
+   */
+  async solicitarCuentaMesaConDetalle(
+    request: SolicitarCuentaRequest
+  ): Promise<ApiResponse<{ success: boolean; mesa_id: string; mensaje: string }>> {
+    await new Promise((res) => setTimeout(res, 200));
+
+    const mesaIndex = MESAS_SALON_MOCK.findIndex((m) => m.id === request.mesa_id);
+    if (mesaIndex >= 0) {
+      MESAS_SALON_MOCK[mesaIndex] = {
+        ...MESAS_SALON_MOCK[mesaIndex],
+        estado: 'cuenta_pedida',
+        total_consumo: request.monto_declarado,
+      };
+    }
+
+    return {
+      exito: true,
+      datos: {
+        success: true,
+        mesa_id: request.mesa_id,
+        mensaje: `Precuenta de Mesa ${request.mesa_id} enviada a Caja vía SSE exitosamente.`,
+      },
+    };
+  },
 };
+
+const PROMOCIONES_SEDE_MOCK: PromocionSedeDTO[] = [
+  {
+    id: 'promo-almuerzo-15',
+    nombre: 'Descuento Almuerzo Ejecutivo (15%)',
+    porcentaje_descuento: 15,
+    descripcion: 'Válido de 12:00 a 16:00 en platos a la carta seleccionados.',
+  },
+  {
+    id: 'promo-happy-hour-10',
+    nombre: 'Promoción Familiar (10%)',
+    porcentaje_descuento: 10,
+    descripcion: '10% de descuento en mesas de 4 a más comensales.',
+  },
+];
+
+/**
+ * Catálogo Gastronómico Mock para CU-MOZO-02
+ */
+let PRODUCTOS_CARTA_MOCK: ProductoCatalogoMozoDTO[] = [
+  {
+    id: 'prod-criollo-01',
+    categoria_id: 'cat-criollos',
+    categoria_nombre: 'Criollos & Brasas',
+    nombre: 'Lomo Saltado Criollo',
+    descripcion: 'Trozos finos de lomo salteados al wok con cebolla, tomate, ají amarillo, servido con papas fritas y arroz.',
+    precio: 38.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: true,
+  },
+  {
+    id: 'prod-criollo-02',
+    categoria_id: 'cat-criollos',
+    categoria_nombre: 'Criollos & Brasas',
+    nombre: '1/4 Pollo a la Brasa Tradicional',
+    descripcion: 'Marinado con hierbas andinas, papas crujientes y ensalada fresca de la casa.',
+    precio: 26.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: true,
+  },
+  {
+    id: 'prod-criollo-03',
+    categoria_id: 'cat-criollos',
+    categoria_nombre: 'Criollos & Brasas',
+    nombre: 'Ají de Gallina Cremoso',
+    descripcion: 'Pechuga deshilachada en crema de ají amarillo, nueces, huevo de corral y arroz con choclo.',
+    precio: 32.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: true,
+  },
+  {
+    id: 'prod-criollo-04',
+    categoria_id: 'cat-criollos',
+    categoria_nombre: 'Criollos & Brasas',
+    nombre: 'Anticuchos de Corazón al Carbón',
+    descripcion: 'Dos palos de corazón de res tierno marinados en ají panca, acompañados de papas doradas y choclo.',
+    precio: 28.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: true,
+  },
+  {
+    id: 'prod-mar-01',
+    categoria_id: 'cat-mariscos',
+    categoria_nombre: 'Pescados & Mariscos',
+    nombre: 'Ceviche Clásico de Corvina',
+    descripcion: 'Cubos de pesca fresca del día en leche de tigre al momento, canchita chulpi, camote glaseado y choclo.',
+    precio: 36.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: true,
+  },
+  {
+    id: 'prod-mar-02',
+    categoria_id: 'cat-mariscos',
+    categoria_nombre: 'Pescados & Mariscos',
+    nombre: 'Tiradito en Crema de Ají Amarillo',
+    descripcion: 'Finas láminas de pescado blanco bañadas en salsa tibia de ají amarillo, choclo desgranado y camote.',
+    precio: 38.0,
+    disponibilidad: 'agotado',
+    activo: true,
+    requiere_preparacion: true,
+  },
+  {
+    id: 'prod-mar-03',
+    categoria_id: 'cat-mariscos',
+    categoria_nombre: 'Pescados & Mariscos',
+    nombre: 'Arroz con Mariscos al Wok',
+    descripcion: 'Arroz a la criolla flambeado al pisco con mixtura de calamares, langostinos, conchas y salsa madre.',
+    precio: 42.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: true,
+  },
+  {
+    id: 'prod-ent-01',
+    categoria_id: 'cat-entradas',
+    categoria_nombre: 'Entradas Criollas',
+    nombre: 'Causa Limeña de Pollo',
+    descripcion: 'Masa de papa amarilla prensada con pasta de ají y limón, relleno cremoso de pollo, palta fuerte y mayonesa.',
+    precio: 24.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: true,
+  },
+  {
+    id: 'prod-ent-02',
+    categoria_id: 'cat-entradas',
+    categoria_nombre: 'Entradas Criollas',
+    nombre: 'Papa a la Huancaína Tradicional',
+    descripcion: 'Rodajas de papa huayro bañadas en cremosa salsa huancaína con queso fresco, huevo duro y aceituna.',
+    precio: 20.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: true,
+  },
+  {
+    id: 'prod-ent-03',
+    categoria_id: 'cat-entradas',
+    categoria_nombre: 'Entradas Criollas',
+    nombre: 'Tequeños Criollos con Queso Andino',
+    descripcion: 'Seis unidades crocantes rellenas de queso andino fundido, acompañadas de guacamole casero.',
+    precio: 22.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: true,
+  },
+  {
+    id: 'prod-beb-01',
+    categoria_id: 'cat-bebidas',
+    categoria_nombre: 'Bebidas & Refrescos',
+    nombre: 'Inca Kola 500ml Helada en Botella',
+    descripcion: 'Gaseosa nacional clásica servida con o sin hielo y rodaja de limón opcional.',
+    precio: 7.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: false,
+  },
+  {
+    id: 'prod-beb-02',
+    categoria_id: 'cat-bebidas',
+    categoria_nombre: 'Bebidas & Refrescos',
+    nombre: 'Coca Cola 500ml Helada en Botella',
+    descripcion: 'Gaseosa servida inmediatamente desde la vitrina refrigerada.',
+    precio: 7.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: false,
+  },
+  {
+    id: 'prod-beb-03',
+    categoria_id: 'cat-bebidas',
+    categoria_nombre: 'Bebidas & Refrescos',
+    nombre: 'Jarra de Chicha Morada Casera 1L',
+    descripcion: 'Elaborada artesanalmente con maíz morado, piña golden, manzana, canela y clavo de olor.',
+    precio: 18.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: false,
+  },
+  {
+    id: 'prod-beb-04',
+    categoria_id: 'cat-bebidas',
+    categoria_nombre: 'Bebidas & Refrescos',
+    nombre: 'Cusqueña Dorada 330ml Botella Helada',
+    descripcion: 'Cerveza premium lager helada servida con copa fría.',
+    precio: 11.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: false,
+  },
+  {
+    id: 'prod-pos-01',
+    categoria_id: 'cat-postres',
+    categoria_nombre: 'Postres de Vitrina',
+    nombre: 'Gelatina de Fresa de Vitrina',
+    descripcion: 'Postre frío clásico de exhibición inmediata, servido en copa con toque de leche condensada.',
+    precio: 6.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: false,
+  },
+  {
+    id: 'prod-pos-02',
+    categoria_id: 'cat-postres',
+    categoria_nombre: 'Postres de Vitrina',
+    nombre: 'Porción Crema Volteada de Vitrina',
+    descripcion: 'Flan tradicional acaramelado con textura sedosa, listo en vitrina refrigerada.',
+    precio: 12.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: false,
+  },
+  {
+    id: 'prod-pos-03',
+    categoria_id: 'cat-postres',
+    categoria_nombre: 'Postres de Vitrina',
+    nombre: 'Suspiro a la Limeña Clásico',
+    descripcion: 'Manjar blanco de yemas perfumado al oporto con merengue italiano espolvoreado con canela.',
+    precio: 14.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: false,
+  },
+];
+

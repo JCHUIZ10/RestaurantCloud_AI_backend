@@ -188,3 +188,177 @@ export interface AlertaCocinaModalDTO {
   insumo_agotado?: string;
   platos_afectados?: string[];
 }
+
+/**
+ * =========================================================================
+ * DTOs PARA CU-MOZO-02: TOMA DE PEDIDO Y COMANDA MÓVIL
+ * =========================================================================
+ */
+
+export type DisponibilidadProducto = 'disponible' | 'agotado';
+
+export interface ProductoCatalogoMozoDTO {
+  id: string;
+  categoria_id: string;
+  categoria_nombre: string;
+  nombre: string;
+  descripcion?: string | null;
+  precio: number;
+  disponibilidad: DisponibilidadProducto;
+  activo: boolean;
+  requiere_preparacion: boolean;
+}
+
+export interface CategoriaCatalogoDTO {
+  id: string;
+  nombre: string;
+  total: number;
+}
+
+export interface CatalogoProductosMozoDTO {
+  categorias: CategoriaCatalogoDTO[];
+  productos: ProductoCatalogoMozoDTO[];
+}
+
+export interface ItemPedidoBorrador {
+  id: string;
+  producto_id: string;
+  nombre: string;
+  precio_unitario: number;
+  cantidad: number;
+  nota_cocina: string | null;
+  requiere_preparacion: boolean;
+}
+
+export interface ItemPedidoInputDTO {
+  producto_id: string;
+  cantidad: number;
+  nota_cocina?: string | null;
+}
+
+export interface CrearPedidoRequest {
+  mesa_id: string;
+  comensales: number;
+  numero_ronda: number;
+  items: ItemPedidoInputDTO[];
+}
+
+export interface ItemPedidoConfirmadoDTO {
+  id: string;
+  producto_id: string;
+  producto_nombre: string;
+  cantidad: number;
+  precio_unitario: number;
+  subtotal: number;
+  nota_cocina?: string | null;
+  estado: string;
+  numero_ronda: number;
+  created_at: string;
+}
+
+export interface PedidoConfirmadoDTO {
+  pedido_id: string;
+  mesa_id: string;
+  mesa_numero: string;
+  numero_ronda: number;
+  estado: string;
+  total_comanda: number;
+  items_enviados: ItemPedidoConfirmadoDTO[];
+  mensaje: string;
+}
+
+export interface ConflictoStockDTO {
+  producto_id: string;
+  producto_nombre: string;
+  insumo_critico: string;
+  mensaje: string;
+}
+
+export interface HistorialMesaComandaDTO {
+  mesa_id: string;
+  mesa_numero: string;
+  ambiente: string;
+  comensales: number;
+  minutos_en_mesa: number;
+  mozo_nombre: string;
+  ronda_actual: number;
+  ronda_previa_items: ItemDetalleComandaDTO[];
+  total_previo: number;
+}
+
+/**
+ * =========================================================================
+ * DTOs PARA CU-MOZO-08: PRECUENTA DIGITAL EN MESA
+ * =========================================================================
+ */
+
+export type CodigoMetodoPago = 'efectivo' | 'billetera_digital' | 'tarjeta';
+
+export interface PrecuentaItemDTO {
+  producto_id: string;
+  nombre: string;
+  nota_cocina?: string | null;
+  cantidad: number;
+  precio_unitario: number;
+  subtotal: number;
+  estado_cocina: EstadoItemCocina;
+}
+
+export interface DesgloseSUNATMozoDTO {
+  consumo_bruto: number;
+  descuento_comercial: number;
+  total_neto: number;
+  base_imponible: number;
+  igv: number;
+  tasa_igv: number;
+}
+
+export interface DetalleBilleteraDigitalDTO {
+  telefono: string;
+  titular: string;
+  ruc: string;
+  qr_imagen_url?: string;
+  monto_exacto: number;
+}
+
+export interface OpcionPagoMozoDTO {
+  codigo: CodigoMetodoPago;
+  nombre: string;
+  comision_porcentaje: number;
+  monto_comision: number;
+  total_estimado: number;
+  detalle_billetera?: DetalleBilleteraDigitalDTO;
+}
+
+export interface PromocionSedeDTO {
+  id: string;
+  nombre: string;
+  porcentaje_descuento: number;
+  descripcion: string;
+}
+
+export interface PrecuentaMozoResponseDTO {
+  mesa_id: string;
+  mesa_numero: string;
+  es_mesa_unida: boolean;
+  mozo_nombre: string;
+  comensales: number;
+  minutos_en_mesa: number;
+  items: PrecuentaItemDTO[];
+  tiene_cocina_pendiente: boolean;
+  alerta_cocina?: string | null;
+  promociones_disponibles: PromocionSedeDTO[];
+  promocion_activa?: PromocionSedeDTO | null;
+  tributacion_sunat: DesgloseSUNATMozoDTO;
+  opciones_pago: OpcionPagoMozoDTO[];
+  calculada_at: string;
+}
+
+export interface SolicitarCuentaRequest {
+  mesa_id: string;
+  metodo_pago: CodigoMetodoPago;
+  numero_operacion?: string | null;
+  monto_declarado: number;
+  promocion_id?: string | null;
+}
+

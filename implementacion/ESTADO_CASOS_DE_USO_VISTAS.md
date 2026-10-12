@@ -15,7 +15,7 @@
 | **Plataforma Pública & SaaS B2B** | 1 (Landing) | 1 | 0 | 100% |
 | **Cliente / Comensal QR** | 2 | 2 | 0 | 100% |
 | **Autenticación & Usuarios** | 3 | 1 | 2 | 33% |
-| **Salón & Mozo** | 8 | 1 | 7 | 13% |
+| **Salón & Mozo** | 8 | 3 | 5 | 38% |
 | **Cocina (KDS)** | 4 | 0 | 4 | 0% |
 | **Caja & Cobranza** | 5 | 0 | 5 | 0% |
 | **Administración Local** | 10 | 0 | 10 | 0% |
@@ -116,6 +116,46 @@
 - **Responsive:**
   - Desktop: Layout persistente 70/30 (Plano + Sidebar de Despacho).
   - Tablet/Móvil: Barra lateral colapsable accesible vía botón superior `[ N Listos ]` y Quick-Drawer adaptativo touch-first.
+---
+
+### 2.6 `CU-MOZO-02`: Tomar Pedido y Comanda Móvil en Salón
+*(Unifica funcionalmente `CU-MOZO-02: Tomar pedido`, `CU-MOZO-03: Modificar pedido antes de enviarlo` y `CU-MOZO-07: Consultar disponibilidad de productos`)*
+- **Ruta Activa:** `/mozo/mesas/:mesaId/comanda` ([`TerminalLayout.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/TerminalLayout.tsx))
+- **Componentes Creados:**
+  - [`MozoComandaPage.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/pages/MozoComandaPage.tsx): Orquestador principal de la comanda táctil con split transaccional, cálculo de impuestos en tiempo real y gestión de rondas.
+  - [`ComandaHeader.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/comanda/ComandaHeader.tsx): Cabecera con botón de retorno al salón (`‹ Salón`), badges de mesa, ambiente, comensales, tiempo transcurrido, conectividad KDS y nombre del mozo titular.
+  - [`CatalogoCartaGrid.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/comanda/CatalogoCartaGrid.tsx): Catálogo táctil (65% del ancho) con buscador en tiempo real, pestañas de categorías con badges de conteo, tarjetas de platos con badges de preparación (`Cocina KDS` vs `Entrega directa`), disponibilidad (`[ DISPONIBLE ]` vs `[ 🔒 AGOTADO ]`) y botón táctil `[ ＋ Añadir ]`.
+  - [`TicketComandaPanel.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/comanda/TicketComandaPanel.tsx): Ticket interactivo (35% ~460px) con split automático en dos secciones: **`🍳 Cocina KDS (Preparación)`** y **`⚡ Productos de Despacho Directo (Entrega directa)`**, steppers táctiles, notas, resumen de Subtotal/IGV/Total y botón de despacho principal `[ 🚀 Confirmar y Enviar ]`.
+  - [`ModalNotaCocina.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/comanda/ModalNotaCocina.tsx): Modal táctil de 480px con semántica `NULL` nativa (checkbox activable y textarea de especificación libre).
+  - [`ModalConflictoStock.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/comanda/ModalConflictoStock.tsx): Modal asistido de 540px ante error `409 Conflict`, permitiendo retirar el producto agotado y enviar los demás o volver al catálogo para ofrecer sustitución.
+  - [`DemoComandaWidget.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/comanda/DemoComandaWidget.tsx): Widget flotante para simular en 1 toque: *Cargar pedido demo*, *Alternar a Ronda Adicional #02 (Vista 3)*, *Simular Conflicto 409 (Vista 4)* y *Alternar disponibilidad de plato*.
+- **Servicios y DTOs:**
+  - [`mockMozoService.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/services/mockMozoService.ts): `obtenerCatalogoCarta`, `obtenerHistorialMesa` y `enviarPedidoCocina`.
+  - [`src/types/mozo.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/mozo.ts): `ProductoCatalogoMozoDTO`, `CatalogoProductosMozoDTO`, `ItemPedidoBorrador`, `CrearPedidoRequest`, `PedidoConfirmadoDTO`, `ConflictoStockDTO`, `HistorialMesaComandaDTO`.
+- **Responsive:**
+  - Desktop y Tablet (`>= 1024px`): Layout dividido 65% Catálogo + 35% Ticket persistente.
+  - Smartphone (`< 1024px`): Catálogo a pantalla completa con barra inferior flotante táctil y Drawer deslizable para el ticket.
+- **Estado de Build:** ✅ Compilado y probado en vivo (`npm run build`).
+
+---
+
+### 2.7 `CU-MOZO-08`: Emisión de Precuenta Digital en Mesa
+- **Ruta Activa:** `/mozo/mesas/:mesaId/precuenta` ([`TerminalLayout.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/TerminalLayout.tsx))
+- **Componentes Creados:**
+  - [`MozoPrecuentaPage.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/pages/MozoPrecuentaPage.tsx): Orquestador principal de la precuenta digital con recálculo determinista (<15ms), cálculo de comisiones transparentes y transición de estado de mesa a cuenta pedida.
+  - [`PrecuentaHeader.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/precuenta/PrecuentaHeader.tsx): Cabecera de salón con identificación de mesa/mesa unida, metadatos de mozo, minutos en mesa y banner informativo no bloqueante ante platos pendientes en cocina.
+  - [`PrecuentaConsolidadoCard.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/precuenta/PrecuentaConsolidadoCard.tsx): Consolidado de consumos de la mesa con cantidades, precios unitarios, subtotales, notas de cocina y badges de estado de despacho.
+  - [`PromocionComercialSelector.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/precuenta/PromocionComercialSelector.tsx): Selector en 1-click de promociones de sede (`CU-ADMIN-17`) con recálculo instantáneo del ahorro comercial.
+  - [`DesgloseSUNATCard.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/precuenta/DesgloseSUNATCard.tsx): Desglose fiscal oficial SUNAT Perú (Consumo Bruto, Descuento Comercial, Total Neto, Base Imponible 18% e IGV 18% con cuadre exacto al céntimo).
+  - [`MetodosPagoSelector.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/precuenta/MetodosPagoSelector.tsx): Selector de modalidades de pago con cálculo transparente de recargo bancario POS (Efectivo 0%, Yape/Plin 0%, Tarjeta +3.5%) y botón de transmisión a Caja vía SSE.
+  - [`ModalQRBilletera.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/precuenta/ModalQRBilletera.tsx): Modal de alta nitidez vectorizado para presentación del código QR Yape/Plin al comensal en mesa, con número de operación de voucher y validación del mozo.
+  - [`DemoPrecuentaWidget.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/precuenta/DemoPrecuentaWidget.tsx): Widget flotante para alternar rápidamente entre escenarios (con/sin promo, con/sin alerta de cocina, conmutar a estado ámbar en salón).
+- **Servicios y DTOs:**
+  - [`mockMozoService.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/services/mockMozoService.ts): `obtenerPrecuentaMesa`, `solicitarCuentaMesaConDetalle`.
+  - [`src/types/mozo.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/mozo.ts): `CodigoMetodoPago`, `PrecuentaItemDTO`, `DesgloseSUNATMozoDTO`, `DetalleBilleteraDigitalDTO`, `OpcionPagoMozoDTO`, `PromocionSedeDTO`, `PrecuentaMozoResponseDTO`, `SolicitarCuentaRequest`.
+- **Responsive:**
+  - Desktop y Tablet: Grilla dividida 7/5 (Consolidado + Promos a la izquierda, Desglose SUNAT + Métodos de Pago a la derecha).
+  - Smartphone: Flujo táctil vertical continuo con feedback de confirmación visual.
 - **Estado de Build:** ✅ Compilado y probado en vivo (`npm run build`).
 
 ---
@@ -134,14 +174,14 @@
 
 ## 4. Backlog Priorizado de Próximos Casos de Uso (Roadmap)
 
-Con **`CU-MOZO-01`** completado como centro de mando, las siguientes opciones de implementación son:
+Con **`CU-MOZO-01`** (Salón y Despacho), **`CU-MOZO-02`** (Comanda Móvil) y **`CU-MOZO-08`** (Precuenta Digital en Mesa) completados, las siguientes opciones de implementación son:
 
 ### 🟡 Opción A: Continuar el Circuito Operativo de Salón (Mozo)
-1. **`CU-MOZO-02`: Tomar Pedido y Comanda Móvil en Salón**
-   - **Ruta:** `/mozo/mesas/:mesaId/comanda` (en `TerminalLayout`)
-   - **Wireframe Canónico:** `wireframe/mozo/CU-MOZO-02-tomar-pedido/wireframe.md`
-   - **Vistas Clave:** Catálogo táctil de la carta (65%) + Ticket interactivo de comanda (35%), selector de rondas, modificadores de cocina (notas), y resolución de conflicto de stock agotado (409).
-   - **Tablas BD Asociadas:** `pedido`, `pedido_item`, `producto`, `categoria_producto`.
+1. **`CU-MOZO-04`: Unir Mesas y Cuentas en Salón** / **`CU-MOZO-09`: Dividir Cuenta en Mesa (Split de Comprobantes)**
+   - **Rutas:** `/mozo/mesas` (Modal de Unión) / `/mozo/mesas/:mesaId/split`
+   - **Wireframe Canónico:** `wireframe/mozo/CU-MOZO-04-unir-mesas/wireframe.md` y `wireframe/mozo/CU-MOZO-09-dividir-cuenta/wireframe.md`
+   - **Vistas Clave:** Asignación visual de ítems a múltiples comensales, generación determinista de boletas/facturas separadas.
+
 
 ---
 

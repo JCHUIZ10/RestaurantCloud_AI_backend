@@ -11,6 +11,8 @@ import { LoginPage } from '@/modules/auth/pages/LoginPage';
 import { CartaDigitalPage } from '@/modules/cliente/pages/CartaDigitalPage';
 import { ComprobanteDigitalPage } from '@/modules/cliente/pages/ComprobanteDigitalPage';
 import { MozoMesasPage } from '@/modules/mozo/pages/MozoMesasPage';
+import { MozoComandaPage } from '@/modules/mozo/pages/MozoComandaPage';
+import { MozoPrecuentaPage } from '@/modules/mozo/pages/MozoPrecuentaPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
@@ -296,29 +298,11 @@ export const router = createBrowserRouter([
       },
       {
         path: 'mesas/:mesaId/comanda',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-MOZO-02"
-            nombrePantalla="Toma de Comanda Digital POS"
-            rol="mozo"
-            layoutNombre="TerminalLayout"
-            descripcion="Ingreso rápido de platos y bebidas para la mesa seleccionada con modificadores de cocina (sin cebolla, término medio, etc.) y despacho instantáneo a cocina."
-            viewportSugerido="mobile"
-          />
-        ),
+        element: <MozoComandaPage />,
       },
       {
         path: 'mesas/:mesaId/precuenta',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-MOZO-08"
-            nombrePantalla="Emisión de Precuenta Digital"
-            rol="mozo"
-            layoutNombre="TerminalLayout"
-            descripcion="Generación e impresión de la precuenta para la mesa antes de su cobro en caja."
-            viewportSugerido="mobile"
-          />
-        ),
+        element: <MozoPrecuentaPage />,
       },
       {
         path: 'reservas',

@@ -27,15 +27,18 @@
 (CU-MOZO-01: Ver Estado de Mesas y Centro de Comandas en Vivo):
 - Pantalla integrada de salón (layout 70/30) con plano táctil, despacho dual en acordeones colapsables (productos de despacho directo como gelatinas/bebidas y pase de cocina), disponibilidad en vivo de mesas libres y ocupadas por piso, Quick-Drawer de 440px y simulador de eventos: http://localhost:5173/mozo/mesas
 
+(CU-MOZO-02: Tomar Pedido y Comanda Móvil en Salón):
+- Terminal táctil de toma de comanda (layout 65/35) con catálogo en vivo, split transaccional (cocina KDS vs entrega directa), modal de notas a cocina, segunda ronda de adicionales y resolución de conflictos 409: http://localhost:5173/mozo/mesas/mesa-04/comanda
+
+(CU-MOZO-08: Emisión de Precuenta Digital en Mesa):
+- que es : Precuenta digital en mesa con desglose SUNAT Perú, promociones comerciales en 1 clic, código QR de Yape/Plin para pago asistido y notificación a caja vía SSE: http://localhost:5173/mozo/mesas/mesa-04/precuenta
+
 ---
 
 ### Próximos Casos de Uso (En Desarrollo / Roadmap)
 
 (CU-COCINA-01: Ver Cola de Pedidos Entrantes KDS):
 - Monitor industrial de cocina con 4 columnas FIFO, semáforo de tiempos y avance táctil de preparación: http://localhost:5173/cocina/kds
-
-(CU-MOZO-02: Tomar Pedido y Comanda Móvil en Salón):
-- Terminal táctil móvil para tomar pedidos por mesa con control de disponibilidad y notas: http://localhost:5173/mozo/mesas/mesa-101/comanda
 
 (CU-CAJA-01: Apertura de Turno y Control de Efectivo):
 - Pantalla de apertura de turno de caja y arqueo de efectivo con bloqueo operativo inicial: http://localhost:5173/caja/apertura
