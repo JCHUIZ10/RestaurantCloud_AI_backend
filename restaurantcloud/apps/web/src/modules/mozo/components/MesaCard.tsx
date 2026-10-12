@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, User, Bell, Link2, CheckCircle2 } from 'lucide-react';
+import { Clock, User, Bell, Link2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { MesaCardDTO } from '@/types/mozo';
 
 interface MesaCardProps {
@@ -172,7 +172,9 @@ export const MesaCard: React.FC<MesaCardProps> = ({
     <div
       onClick={() => onSeleccionar(mesa)}
       className={`group relative flex flex-col justify-between p-4 rounded-xl border-2 transition-all cursor-pointer select-none min-h-[156px] text-white ${
-        esSeleccionada
+        mesa.tiene_quiebre_cocina
+          ? 'bg-[#1a140d] border-amber-500 ring-2 ring-amber-500/50 shadow-lg shadow-amber-950/60'
+          : esSeleccionada
           ? 'bg-aurea-navy border-aurea-copper ring-2 ring-aurea-copper/40 shadow-lg'
           : 'bg-[#0B2340] hover:bg-[#0f2c52] border-slate-700/60 hover:border-aurea-copper/60 shadow-md'
       }`}
@@ -202,9 +204,16 @@ export const MesaCard: React.FC<MesaCardProps> = ({
         </div>
 
         <div className="flex flex-col items-end gap-1">
-          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800/80 text-slate-300 border border-slate-700">
-            OCUPADA
-          </span>
+          {mesa.tiene_quiebre_cocina ? (
+            <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-500 text-slate-950 flex items-center gap-1 shadow-sm border border-amber-400 animate-pulse">
+              <AlertTriangle className="w-3 h-3" />
+              QUIEBRE COCINA
+            </span>
+          ) : (
+            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800/80 text-slate-300 border border-slate-700">
+              OCUPADA
+            </span>
+          )}
           {es_mi_mesa && (
             <span className="text-[9px] font-bold text-aurea-copper bg-aurea-copper/10 px-1.5 py-0.2 rounded border border-aurea-copper/30">
               ● Mi Mesa

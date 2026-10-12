@@ -55,6 +55,11 @@ export interface MesaCardDTO {
   // Atributos de división de cuenta (CU-MOZO-09)
   es_cuenta_dividida?: boolean;
   partes_subcuentas?: number;
+
+  // Atributos de incidencia de quiebre de cocina (CU-MOZO-07)
+  tiene_quiebre_cocina?: boolean;
+  quiebre_producto_nombre?: string;
+  quiebre_item_id?: string;
 }
 
 /**
@@ -671,5 +676,72 @@ export interface CancelarReservaRequestDTO {
 export interface ReasignarMesaReservaRequestDTO {
   nueva_mesa_id: string;
   motivo?: string;
+}
+
+/**
+ * ============================================================================
+ * CU-MOZO-07: ATENDER INCIDENCIA DE PLATO NO DISPONIBLE Y RESOLVER EN MESA
+ * ============================================================================
+ */
+
+export interface PlatoSustitutoSugeridoDTO {
+  producto_id: string;
+  nombre: string;
+  categoria_id: string;
+  categoria_nombre: string;
+  precio: number;
+  diferencia: number; // Respecto al plato original (+S/, -S/, S/ 0)
+  es_misma_categoria: boolean;
+  disponible: boolean;
+}
+
+export interface CategoriaChipDTO {
+  categoria_id: string;
+  nombre: string;
+  total_platos: number;
+}
+
+export interface CatalogoSustitucionResponseDTO {
+  plato_original_id: string;
+  plato_original_item_id: string;
+  plato_original: string;
+  precio_original: number;
+  categoria_nombre: string;
+  sugerencias_top: PlatoSustitutoSugeridoDTO[]; // Top 6 por afinidad y precio
+  categorias: CategoriaChipDTO[];              // Píldoras de familias de carta
+  productos: PlatoSustitutoSugeridoDTO[];       // Productos para búsqueda o filtrado
+}
+
+export interface SustituirPlatoRequestDTO {
+  item_anulado_id: string;
+  nuevo_producto_id: string;
+  cantidad: number;
+  notas_cocina?: string;
+}
+
+export interface SustituirPlatoResponseDTO {
+  pedido_id: string;
+  mesa_id: string;
+  mesa_numero: string;
+  nuevo_item_id: string;
+  nuevo_producto: string;
+  diferencia_monto: number;
+  nuevo_subtotal: number;
+  mensaje: string;
+  created_at: string;
+}
+
+export interface AnularPorQuiebreRequestDTO {
+  motivo_detalle: string;
+}
+
+export interface AnularPorQuiebreResponseDTO {
+  pedido_id: string;
+  mesa_id: string;
+  mesa_numero: string;
+  monto_anulado: number;
+  nuevo_subtotal: number;
+  mensaje: string;
+  anulado_at: string;
 }
 

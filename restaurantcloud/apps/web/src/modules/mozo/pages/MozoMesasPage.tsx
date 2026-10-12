@@ -10,6 +10,7 @@ import {
   AnularItemRequestDTO,
   AnularPedidoCompletoRequestDTO,
   ReservaCardDTO,
+  AnularPorQuiebreRequestDTO,
 } from '@/types/mozo';
 import { mockMozoService } from '../services/mockMozoService';
 import { SalonHeaderMozo, FiltroMesaTipo } from '../components/SalonHeaderMozo';
@@ -26,7 +27,11 @@ import { ModalDividirCuenta } from '../components/split/ModalDividirCuenta';
 import { ModalAnularItem } from '../components/anulacion/ModalAnularItem';
 import { ModalAnularComandaTotal } from '../components/anulacion/ModalAnularComandaTotal';
 import { ModalFichaReserva } from '../components/reservas/ModalFichaReserva';
-import { Bell, ChevronRight } from 'lucide-react';
+import { BannerIncidenciaCocina } from '../components/quiebre/BannerIncidenciaCocina';
+import { ModalResolucionIncidencia } from '../components/quiebre/ModalResolucionIncidencia';
+import { ModalSustitucionCarta } from '../components/quiebre/ModalSustitucionCarta';
+import { ModalAnulacionQuiebre } from '../components/quiebre/ModalAnulacionQuiebre';
+import { Bell, ChevronRight, Check } from 'lucide-react';
 
 export const MozoMesasPage: React.FC = () => {
   const [cargando, setCargando] = useState(true);
@@ -74,6 +79,18 @@ export const MozoMesasPage: React.FC = () => {
 
   // Estado para Drawer de Despacho en Móvil (< 1024px)
   const [sidebarMovilAbierto, setSidebarMovilAbierto] = useState(false);
+
+  // Estados para Incidencia de Plato No Disponible en Cocina (CU-MOZO-07)
+  const [bannerQuiebreOculto, setBannerQuiebreOculto] = useState(false);
+  const [modalResolucionQuiebreAbierto, setModalResolucionQuiebreAbierto] = useState(false);
+  const [modalSustitucionCartaAbierto, setModalSustitucionCartaAbierto] = useState(false);
+  const [modalAnulacionQuiebreAbierto, setModalAnulacionQuiebreAbierto] = useState(false);
+  const [toastNotificacion, setToastNotificacion] = useState<string | null>(null);
+
+  const mostrarToast = (mensaje: string) => {
+    setToastNotificacion(mensaje);
+    setTimeout(() => setToastNotificacion(null), 3500);
+  };
 
   // Carga inicial
   useEffect(() => {
@@ -464,6 +481,119 @@ export const MozoMesasPage: React.FC = () => {
     }
   };
 
+  // Detección reactiva de Mesa con Quiebre en Cocina (CU-MOZO-07)
+  const mesaConQuiebre = useMemo(() => {
+    return planoData?.mesas.find((m) => m.tiene_quiebre_cocina) || null;
+  }, [planoData]);
+
+  // Handlers para CU-MOZO-07: Quiebre de Plato en Cocina
+  const handleAtenderQuiebre = () => {
+    setModalResolucionQuiebreAbierto(true);
+  };
+
+  const handleElegirSustitucionQuiebre = () => {
+    setModalResolucionQuiebreAbierto(false);
+    setModalSustitucionCartaAbierto(true);
+  };
+
+  const handleElegirAnulacionQuiebre = () => {
+    setModalResolucionQuiebreAbierto(false);
+    setModalAnulacionQuiebreAbierto(true);
+  };
+
+  const handleConfirmarSustitucionPlato = async (nuevoProductoId: string, notasCocina: string) => {
+    const mesaId = mesaConQuiebre?.id || detalleMesa?.mesa_id || 'mesa-04';
+    const itemId = mesaConQuiebre?.quiebre_item_id || 'it-01';
+
+    const res = await mockMozoService.sustituirPlato(mesaId, itemId, {
+      item_anulado_id: itemId,
+      nuevo_producto_id: nuevoProductoId,
+      cantidad: 1,
+      notas_cocina: notasCocina,
+    });
+
+    if (res.exito) {
+      setModalSustitucionCartaAbierto(false);
+      setPlanoData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          mesas: prev.mesas.map((m) =>
+            m.id === mesaId
+              ? {
+                  ...m,
+                  tiene_quiebre_cocina: false,
+                  quiebre_producto_nombre: undefined,
+                  quiebre_item_id: undefined,
+                  total_consumo: res.datos.nuevo_subtotal,
+                }
+              : m
+          ),
+        };
+      });
+
+      if (drawerAbierto && detalleMesa?.mesa_id === mesaId) {
+        const detRes = await mockMozoService.obtenerDetalleMesa(mesaId);
+        if (detRes.exito) setDetalleMesa(detRes.datos);
+      }
+
+      mostrarToast(`✓ Sustituido por "${res.datos.nuevo_producto}". Enviado a Cocina con prioridad.`);
+    }
+  };
+
+  const handleConfirmarAnulacionQuiebre = async (payload: AnularPorQuiebreRequestDTO) => {
+    const mesaId = mesaConQuiebre?.id || detalleMesa?.mesa_id || 'mesa-04';
+    const itemId = mesaConQuiebre?.quiebre_item_id || 'it-01';
+
+    const res = await mockMozoService.anularPorQuiebreCocina(mesaId, itemId, payload);
+    if (res.exito) {
+      setModalAnulacionQuiebreAbierto(false);
+      setPlanoData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          mesas: prev.mesas.map((m) =>
+            m.id === mesaId
+              ? {
+                  ...m,
+                  tiene_quiebre_cocina: false,
+                  quiebre_producto_nombre: undefined,
+                  quiebre_item_id: undefined,
+                  total_consumo: res.datos.nuevo_subtotal,
+                }
+              : m
+          ),
+        };
+      });
+
+      if (drawerAbierto && detalleMesa?.mesa_id === mesaId) {
+        const detRes = await mockMozoService.obtenerDetalleMesa(mesaId);
+        if (detRes.exito) setDetalleMesa(detRes.datos);
+      }
+
+      mostrarToast(`✓ Plato anulado (S/ ${res.datos.monto_anulado.toFixed(2)} descontados). Sin merma imputada.`);
+    }
+  };
+
+  const handleSimularQuiebreCocina = async () => {
+    const nuevoEstado = !mesaConQuiebre;
+    const res = await mockMozoService.simularQuiebreCocinaMesa04(nuevoEstado);
+    if (res.exito) {
+      setBannerQuiebreOculto(false);
+      setPlanoData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          mesas: prev.mesas.map((m) => (m.id === 'mesa-04' ? { ...res.datos.mesa } : m)),
+        };
+      });
+      if (drawerAbierto && (detalleMesa?.mesa_id === 'mesa-04' || mesaSeleccionada?.id === 'mesa-04')) {
+        const detRes = await mockMozoService.obtenerDetalleMesa('mesa-04');
+        if (detRes.exito) setDetalleMesa(detRes.datos);
+      }
+    }
+  };
+
   // Handlers para el widget de simulación
   const simularPlatoListo = () => {
     const nuevo = mockMozoService.simularPlatoListoCocina();
@@ -521,6 +651,27 @@ export const MozoMesasPage: React.FC = () => {
         ocupadasCount={conteos.ocupadas}
         mozoNombre={planoData?.mozo_actual.nombre || 'Carlos Mendoza'}
       />
+
+      {/* Toast reactivo flotante de confirmación */}
+      {toastNotificacion && (
+        <div className="fixed top-16 right-6 z-50 rounded-xl bg-slate-900 border border-emerald-500/50 p-3 shadow-xl text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-top-3 duration-300">
+          <Check className="h-4 w-4 text-emerald-400 shrink-0" />
+          <span>{toastNotificacion}</span>
+        </div>
+      )}
+
+      {/* Banner Superior de Incidencia en Cocina (CU-MOZO-07 Vista 1) */}
+      {mesaConQuiebre && !bannerQuiebreOculto && (
+        <div className="pt-3">
+          <BannerIncidenciaCocina
+            mesaNumero={mesaConQuiebre.numero}
+            productoNombre={mesaConQuiebre.quiebre_producto_nombre || 'Lomo Saltado Criollo'}
+            minutosDesdeAlerta={2}
+            onAtender={handleAtenderQuiebre}
+            onCerrar={() => setBannerQuiebreOculto(true)}
+          />
+        </div>
+      )}
 
       {/* Botón flotante móvil para acceder al despacho (< 1024px) */}
       <div className="lg:hidden p-2 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 text-xs">
@@ -613,6 +764,15 @@ export const MozoMesasPage: React.FC = () => {
         onAbrirModalDividir={handleAbrirModalDividir}
         onAbrirModalAnular={handleAbrirModalAnularItem}
         onAbrirModalAnularComanda={handleAbrirModalAnularComanda}
+        onAtenderQuiebre={handleAtenderQuiebre}
+        onSustituirPlato={() => {
+          setDrawerAbierto(false);
+          setModalSustitucionCartaAbierto(true);
+        }}
+        onAnularPorQuiebre={() => {
+          setDrawerAbierto(false);
+          setModalAnulacionQuiebreAbierto(true);
+        }}
       />
 
       {/* 4. Modal Completo de Precuenta Digital en Salón (CU-MOZO-08) */}
@@ -744,6 +904,8 @@ export const MozoMesasPage: React.FC = () => {
           };
           handleAbrirFichaReserva(m08);
         }}
+        onSimularQuiebreCocina={handleSimularQuiebreCocina}
+        quiebreActivo={Boolean(mesaConQuiebre)}
       />
 
       {/* 13. Modal Ficha de Reserva y Recepción en Salón (CU-MOZO-05 Vista 3) */}
@@ -766,6 +928,52 @@ export const MozoMesasPage: React.FC = () => {
             '_blank'
           );
         }}
+      />
+
+      {/* 14. Modal de Decisión Asistida en Mesa (CU-MOZO-07 Vista 2 - 620px) */}
+      <ModalResolucionIncidencia
+        abierto={modalResolucionQuiebreAbierto}
+        mesaNumero={mesaConQuiebre?.numero || detalleMesa?.numero || '04'}
+        comandaNumero={detalleMesa?.numero_comanda || 149}
+        productoNombre={mesaConQuiebre?.quiebre_producto_nombre || 'Lomo Saltado Criollo'}
+        precioUnitario={38.0}
+        onCerrar={() => setModalResolucionQuiebreAbierto(false)}
+        onElegirSustitucion={handleElegirSustitucionQuiebre}
+        onElegirAnulacion={handleElegirAnulacionQuiebre}
+      />
+
+      {/* 15. Modal de Sustitución Universal en Carta (CU-MOZO-07 Vista 3 - 760px) */}
+      <ModalSustitucionCarta
+        abierto={modalSustitucionCartaAbierto}
+        mesaId={mesaConQuiebre?.id || detalleMesa?.mesa_id || 'mesa-04'}
+        mesaNumero={mesaConQuiebre?.numero || detalleMesa?.numero || '04'}
+        itemId={mesaConQuiebre?.quiebre_item_id || 'it-01'}
+        onVolverAOpciones={() => {
+          setModalSustitucionCartaAbierto(false);
+          setModalResolucionQuiebreAbierto(true);
+        }}
+        onCerrar={() => setModalSustitucionCartaAbierto(false)}
+        onConfirmarSustitucion={handleConfirmarSustitucionPlato}
+        onIrAnulacion={() => {
+          setModalSustitucionCartaAbierto(false);
+          setModalAnulacionQuiebreAbierto(true);
+        }}
+      />
+
+      {/* 16. Modal de Confirmación de Anulación por Quiebre (CU-MOZO-07 Vista 4 - 580px) */}
+      <ModalAnulacionQuiebre
+        abierto={modalAnulacionQuiebreAbierto}
+        mesaNumero={mesaConQuiebre?.numero || detalleMesa?.numero || '04'}
+        comandaNumero={detalleMesa?.numero_comanda || 149}
+        productoNombre={mesaConQuiebre?.quiebre_producto_nombre || 'Lomo Saltado Criollo'}
+        precioUnitario={38.0}
+        subtotalActual={detalleMesa?.total_subtotal || 158.0}
+        onVolver={() => {
+          setModalAnulacionQuiebreAbierto(false);
+          setModalResolucionQuiebreAbierto(true);
+        }}
+        onCerrar={() => setModalAnulacionQuiebreAbierto(false)}
+        onConfirmarAnulacion={handleConfirmarAnulacionQuiebre}
       />
     </div>
   );

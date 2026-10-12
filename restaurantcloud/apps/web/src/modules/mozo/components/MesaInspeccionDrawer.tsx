@@ -13,6 +13,7 @@ import {
   Trash2,
   Scissors,
   AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MesaDetalleMozoDTO, ItemDetalleComandaDTO } from '@/types/mozo';
@@ -30,6 +31,9 @@ interface MesaInspeccionDrawerProps {
   onAbrirModalDividir?: (mesaId: string) => void;
   onAbrirModalAnular?: (item: ItemDetalleComandaDTO) => void;
   onAbrirModalAnularComanda?: (mesaId: string) => void;
+  onAtenderQuiebre?: (item: ItemDetalleComandaDTO) => void;
+  onSustituirPlato?: (item: ItemDetalleComandaDTO) => void;
+  onAnularPorQuiebre?: (item: ItemDetalleComandaDTO) => void;
 }
 
 export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
@@ -44,6 +48,9 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
   onAbrirModalDividir,
   onAbrirModalAnular,
   onAbrirModalAnularComanda,
+  onAtenderQuiebre,
+  onSustituirPlato,
+  onAnularPorQuiebre,
 }) => {
   const navigate = useNavigate();
 
@@ -151,7 +158,11 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
                   {platosCocina.map((item) => (
                     <div
                       key={item.id}
-                      className="p-2.5 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-colors shadow-2xs"
+                      className={`p-2.5 rounded-xl border transition-colors shadow-2xs ${
+                        item.estado === 'no_disponible'
+                          ? 'border-amber-400 bg-amber-50/40'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
                     >
                       <div className="flex items-start justify-between">
                         <div>
@@ -174,7 +185,11 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
                           </span>
 
                           {/* Badge de estado del ítem */}
-                          {item.estado === 'listo' ? (
+                          {item.estado === 'no_disponible' ? (
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-amber-500 text-slate-950 flex items-center gap-0.5 animate-pulse border border-amber-600">
+                              ⚠️ QUIEBRE
+                            </span>
+                          ) : item.estado === 'listo' ? (
                             <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500 text-slate-950 flex items-center gap-0.5 animate-pulse">
                               🔔 LISTO
                             </span>
@@ -194,20 +209,48 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
                         </div>
                       </div>
 
-                      {/* Botón de anulación táctica (CU-MOZO-06) */}
-                      {onAbrirModalAnular && (
-                        <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between">
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {item.estado === 'entregado' ? '⚠️ Califica como merma' : '🛑 Cancela en KDS'}
-                          </span>
-                          <button
-                            onClick={() => onAbrirModalAnular(item)}
-                            className="text-[10px] text-rose-600 hover:text-rose-800 flex items-center gap-1 font-medium hover:underline"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                            <span>Anular plato</span>
-                          </button>
+                      {/* Bloque especial de resolución para platos con quiebre (CU-MOZO-07) */}
+                      {item.estado === 'no_disponible' ? (
+                        <div className="mt-2 pt-2 border-t border-amber-200 bg-amber-50/90 -mx-2.5 -mb-2.5 p-2.5 rounded-b-xl space-y-2">
+                          <p className="text-[11px] font-bold text-amber-900 flex items-center gap-1">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            <span>Stock agotado en Cocina. Resolver en mesa:</span>
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => (onSustituirPlato ? onSustituirPlato(item) : onAtenderQuiebre && onAtenderQuiebre(item))}
+                              className="flex-1 py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center justify-center gap-1 shadow-xs transition-colors"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                              <span>🔄 Sustituir</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => (onAnularPorQuiebre ? onAnularPorQuiebre(item) : onAtenderQuiebre && onAtenderQuiebre(item))}
+                              className="flex-1 py-1.5 px-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-[11px] flex items-center justify-center gap-1 shadow-xs transition-colors"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>✕ Anular</span>
+                            </button>
+                          </div>
                         </div>
+                      ) : (
+                        /* Botón de anulación táctica ordinaria (CU-MOZO-06) */
+                        onAbrirModalAnular && (
+                          <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between">
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              {item.estado === 'entregado' ? '⚠️ Califica como merma' : '🛑 Cancela en KDS'}
+                            </span>
+                            <button
+                              onClick={() => onAbrirModalAnular(item)}
+                              className="text-[10px] text-rose-600 hover:text-rose-800 flex items-center gap-1 font-medium hover:underline"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Anular plato</span>
+                            </button>
+                          </div>
+                        )
                       )}
                     </div>
                   ))}

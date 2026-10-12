@@ -45,6 +45,9 @@
 (CU-MOZO-05: Gestionar Reservas y Recepción en Salón):
 - que es : Centro de mando y bandeja de reservas táctil con selector de turno (Almuerzo/Cena), 4 KPIs de turno, modal interactivo de nueva reserva con mini-mapa espacial 5x2 (760px), ficha de recepción y reloj de cortesía en vivo (15 min) con registro de no-show y liberación a LIBRE en <25ms, advertencia de sobreasignación preventiva (<30m) y paywall didáctico para Plan Starter: http://localhost:5173/mozo/reservas
 
+(CU-MOZO-07: Atender Incidencia de Plato No Disponible y Resolver en Mesa):
+- que es : Gestión y resolución asistida en mesa ante quiebres de stock en cocina KDS: Banner superior táctil y badge [ ⚠️ QUIEBRE COCINA ] en Mesa 04, Modal de Decisión Asistida en Mesa (620px) con Opción A (Sustituir) y Opción B (Anular), Modal de Sustitución Universal en Carta (760px) con 6 sugerencias inteligentes calculadas por cercanía de precio (+S/, -S/, S/ 0) y búsqueda libre, y Modal de Anulación por Quiebre (580px) con recálculo contable y auditoría inmutable (es_merma = false): http://localhost:5173/mozo/mesas
+
 ---
 
 ### Próximos Casos de Uso (En Desarrollo / Roadmap)

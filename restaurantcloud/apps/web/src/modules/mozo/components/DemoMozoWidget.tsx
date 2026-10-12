@@ -14,6 +14,8 @@ interface DemoMozoWidgetProps {
   onAbrirDividirCuentaDemo?: () => void;
   onAbrirAnularComandaDemo?: () => void;
   onAbrirFichaReservaDemo?: () => void;
+  onSimularQuiebreCocina?: () => void;
+  quiebreActivo?: boolean;
 }
 
 export const DemoMozoWidget: React.FC<DemoMozoWidgetProps> = ({
@@ -29,6 +31,8 @@ export const DemoMozoWidget: React.FC<DemoMozoWidgetProps> = ({
   onAbrirDividirCuentaDemo,
   onAbrirAnularComandaDemo,
   onAbrirFichaReservaDemo,
+  onSimularQuiebreCocina,
+  quiebreActivo = false,
 }) => {
   const [colapsado, setColapsado] = useState(false);
   const [mensajeToast, setMensajeToast] = useState<string | null>(null);
@@ -182,6 +186,22 @@ export const DemoMozoWidget: React.FC<DemoMozoWidgetProps> = ({
                 className="w-full py-1.5 px-2 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-300 font-semibold text-[10px] flex items-center justify-center gap-1"
               >
                 <span>📅 Ficha Reserva M-08 (CU-MOZO-05)</span>
+              </button>
+
+              {/* Botón Simular Quiebre de Stock en Cocina (CU-MOZO-07) */}
+              <button
+                onClick={() =>
+                  dispararConToast(
+                    () => onSimularQuiebreCocina && onSimularQuiebreCocina(),
+                    quiebreActivo
+                      ? 'Stock de Lomo Criollo restaurado en Cocina'
+                      : '⚠️ Quiebre Cocina KDS activado para Mesa 04'
+                  )
+                }
+                className="w-full py-1.5 px-2 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-950 border border-amber-500/40 font-bold text-[10px] flex items-center justify-center gap-1 shadow-2xs"
+              >
+                <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                <span>{quiebreActivo ? '✓ Restaurar Stock Cocina' : '⚠️ Simular Quiebre Cocina (CU-MOZO-07)'}</span>
               </button>
             </div>
 

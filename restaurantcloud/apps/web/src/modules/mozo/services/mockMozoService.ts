@@ -40,6 +40,13 @@ import {
   RegistrarNoShowRequestDTO,
   CancelarReservaRequestDTO,
   ReasignarMesaReservaRequestDTO,
+  PlatoSustitutoSugeridoDTO,
+  CategoriaChipDTO,
+  CatalogoSustitucionResponseDTO,
+  SustituirPlatoRequestDTO,
+  SustituirPlatoResponseDTO,
+  AnularPorQuiebreRequestDTO,
+  AnularPorQuiebreResponseDTO,
 } from '@/types/mozo';
 
 // ID canónico del mozo activo de prueba
@@ -2060,6 +2067,289 @@ export const mockMozoService = {
       datos: reserva,
     };
   },
+
+  /**
+   * ============================================================================
+   * CU-MOZO-07: ATENDER INCIDENCIA DE PLATO NO DISPONIBLE Y RESOLVER EN MESA
+   * ============================================================================
+   */
+
+  /**
+   * Obtener catálogo de sustitución universal con 6 sugerencias calculadas
+   */
+  async obtenerCatalogoSustitucion(
+    _mesaId: string,
+    itemId: string,
+    categoriaId?: string,
+    query?: string
+  ): Promise<ApiResponse<CatalogoSustitucionResponseDTO>> {
+    await new Promise((res) => setTimeout(res, 180));
+
+    // Identificar el ítem observado en la mesa
+    let itemObservado = DETALLE_MESA_04.items.find((it) => it.id === itemId);
+    if (!itemObservado) {
+      itemObservado = DETALLE_MESA_04.items.find((it) => it.estado === 'no_disponible') || DETALLE_MESA_04.items[0];
+    }
+
+    const platoOriginalNombre = itemObservado?.producto_nombre || 'Lomo Saltado Criollo';
+    const precioOriginal = itemObservado?.precio_unitario || 38.0;
+    const categoriaNombre = 'Criollos & Brasas';
+
+    // Lista de productos disponibles para sustitución
+    const productosDisponibles = PRODUCTOS_CARTA_MOCK.filter(
+      (p) => p.disponibilidad === 'disponible' && p.nombre !== platoOriginalNombre
+    );
+
+    // Mapear a DTO con diferencia de precio calculada
+    const mappedProductos: PlatoSustitutoSugeridoDTO[] = productosDisponibles.map((p) => {
+      const dif = Math.round((p.precio - precioOriginal) * 100) / 100;
+      const esMisma =
+        p.categoria_id === 'cat-criollos' ||
+        p.categoria_id === 'cat-carnes' ||
+        p.categoria_nombre.toLowerCase().includes('criollo');
+      return {
+        producto_id: p.id,
+        nombre: p.nombre,
+        categoria_id: p.categoria_id,
+        categoria_nombre: p.categoria_nombre,
+        precio: p.precio,
+        diferencia: dif,
+        es_misma_categoria: esMisma,
+        disponible: true,
+      };
+    });
+
+    // Calcular las 6 sugerencias TOP por cercanía matemática de precio ABS(precio - precioOriginal)
+    // priorizando misma categoría o afinidad criollo/carnes
+    const sugerenciasTop: PlatoSustitutoSugeridoDTO[] = [...mappedProductos]
+      .sort((a, b) => {
+        const absA = Math.abs(a.precio - precioOriginal);
+        const absB = Math.abs(b.precio - precioOriginal);
+        if (absA !== absB) return absA - absB;
+        if (a.es_misma_categoria && !b.es_misma_categoria) return -1;
+        if (!a.es_misma_categoria && b.es_misma_categoria) return 1;
+        return a.nombre.localeCompare(b.nombre);
+      })
+      .slice(0, 6);
+
+    // Extraer chips de categorías disponibles
+    const categoriasMap = new Map<string, { id: string; nombre: string; count: number }>();
+    PRODUCTOS_CARTA_MOCK.forEach((p) => {
+      if (p.disponibilidad === 'disponible') {
+        const existing = categoriasMap.get(p.categoria_id);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          categoriasMap.set(p.categoria_id, {
+            id: p.categoria_id,
+            nombre: p.categoria_nombre,
+            count: 1,
+          });
+        }
+      }
+    });
+
+    const categoriasChips: CategoriaChipDTO[] = Array.from(categoriasMap.values()).map((c) => ({
+      categoria_id: c.id,
+      nombre: c.nombre,
+      total_platos: c.count,
+    }));
+
+    // Filtrado por categoría o búsqueda
+    let productosFiltrados = [...mappedProductos];
+    if (categoriaId && categoriaId !== 'todas') {
+      productosFiltrados = productosFiltrados.filter((p) => p.categoria_id === categoriaId);
+    }
+    if (query && query.trim().length > 0) {
+      const q = query.toLowerCase().trim();
+      productosFiltrados = productosFiltrados.filter(
+        (p) => p.nombre.toLowerCase().includes(q) || p.categoria_nombre.toLowerCase().includes(q)
+      );
+    }
+
+    return {
+      exito: true,
+      datos: {
+        plato_original_id: itemObservado?.producto_id || 'prod-criollo-01',
+        plato_original_item_id: itemObservado?.id || itemId,
+        plato_original: platoOriginalNombre,
+        precio_original: precioOriginal,
+        categoria_nombre: categoriaNombre,
+        sugerencias_top: sugerenciasTop,
+        categorias: categoriasChips,
+        productos: productosFiltrados,
+      },
+    };
+  },
+
+  /**
+   * Ejecutar sustitución de plato en comanda y notificar a cocina
+   */
+  async sustituirPlato(
+    mesaId: string,
+    itemId: string,
+    payload: SustituirPlatoRequestDTO
+  ): Promise<ApiResponse<SustituirPlatoResponseDTO>> {
+    await new Promise((res) => setTimeout(res, 220));
+
+    const nuevoProducto = PRODUCTOS_CARTA_MOCK.find((p) => p.id === payload.nuevo_producto_id);
+    if (!nuevoProducto) {
+      throw new Error('El plato seleccionado para sustitución no fue encontrado en la carta.');
+    }
+
+    const itemIdx = DETALLE_MESA_04.items.findIndex(
+      (it) => it.id === itemId || it.id === payload.item_anulado_id
+    );
+
+    let precioOriginal = 38.0;
+    let nuevoItemId = `it-sust-${Date.now().toString().slice(-4)}`;
+
+    if (itemIdx >= 0) {
+      const original = DETALLE_MESA_04.items[itemIdx];
+      precioOriginal = original.precio_unitario;
+
+      // Reemplazar ítem observado con el nuevo plato
+      DETALLE_MESA_04.items[itemIdx] = {
+        ...original,
+        producto_id: nuevoProducto.id,
+        producto_nombre: nuevoProducto.nombre,
+        precio_unitario: nuevoProducto.precio,
+        subtotal: nuevoProducto.precio * (payload.cantidad || 1),
+        estado: 'en_preparacion',
+        nota_cocina: payload.notas_cocina
+          ? `${payload.notas_cocina} (Sustitución por quiebre de stock)`
+          : 'Sustitución por quiebre de stock',
+      };
+      nuevoItemId = DETALLE_MESA_04.items[itemIdx].id;
+    }
+
+    // Recalcular subtotal de la mesa
+    const nuevoSubtotal = DETALLE_MESA_04.items.reduce((acc, curr) => acc + curr.subtotal, 0);
+    DETALLE_MESA_04.total_subtotal = Math.round(nuevoSubtotal * 100) / 100;
+
+    // Actualizar MesaCardDTO en salón y limpiar quiebre
+    const mesaIdx = MESAS_SALON_MOCK.findIndex((m) => m.id === mesaId);
+    if (mesaIdx >= 0) {
+      MESAS_SALON_MOCK[mesaIdx] = {
+        ...MESAS_SALON_MOCK[mesaIdx],
+        tiene_quiebre_cocina: false,
+        quiebre_producto_nombre: undefined,
+        quiebre_item_id: undefined,
+        total_consumo: DETALLE_MESA_04.total_subtotal,
+      };
+    }
+
+    const diferenciaMonto = Math.round((nuevoProducto.precio - precioOriginal) * 100) / 100;
+
+    return {
+      exito: true,
+      datos: {
+        pedido_id: DETALLE_MESA_04.comanda_id || 'ped-149',
+        mesa_id: mesaId,
+        mesa_numero: '04',
+        nuevo_item_id: nuevoItemId,
+        nuevo_producto: nuevoProducto.nombre,
+        diferencia_monto: diferenciaMonto,
+        nuevo_subtotal: DETALLE_MESA_04.total_subtotal,
+        mensaje: `Sustitución completada exitosamente por "${nuevoProducto.nombre}". Comanda actualizada y enviada con prioridad a Cocina.`,
+        created_at: new Date().toISOString(),
+      },
+    };
+  },
+
+  /**
+   * Anular plato observado por quiebre de stock en cocina (sin merma ni costo)
+   */
+  async anularPorQuiebreCocina(
+    mesaId: string,
+    itemId: string,
+    payload: AnularPorQuiebreRequestDTO
+  ): Promise<ApiResponse<AnularPorQuiebreResponseDTO>> {
+    await new Promise((res) => setTimeout(res, 200));
+
+    const itemIdx = DETALLE_MESA_04.items.findIndex((it) => it.id === itemId);
+    let montoAnulado = 38.0;
+
+    if (itemIdx >= 0) {
+      const item = DETALLE_MESA_04.items[itemIdx];
+      if (item.cantidad > 1) {
+        // Reducir en 1 unidad
+        item.cantidad -= 1;
+        item.subtotal = item.cantidad * item.precio_unitario;
+        montoAnulado = item.precio_unitario;
+        item.estado = 'en_preparacion';
+      } else {
+        // Remover el ítem observado
+        montoAnulado = item.subtotal;
+        DETALLE_MESA_04.items.splice(itemIdx, 1);
+      }
+    }
+
+    // Recalcular subtotal de la mesa
+    const nuevoSubtotal = DETALLE_MESA_04.items.reduce((acc, curr) => acc + curr.subtotal, 0);
+    DETALLE_MESA_04.total_subtotal = Math.round(nuevoSubtotal * 100) / 100;
+
+    // Actualizar MesaCardDTO y limpiar quiebre
+    const mesaIdx = MESAS_SALON_MOCK.findIndex((m) => m.id === mesaId);
+    if (mesaIdx >= 0) {
+      MESAS_SALON_MOCK[mesaIdx] = {
+        ...MESAS_SALON_MOCK[mesaIdx],
+        tiene_quiebre_cocina: false,
+        quiebre_producto_nombre: undefined,
+        quiebre_item_id: undefined,
+        total_consumo: DETALLE_MESA_04.total_subtotal,
+      };
+    }
+
+    return {
+      exito: true,
+      datos: {
+        pedido_id: DETALLE_MESA_04.comanda_id || 'ped-149',
+        mesa_id: mesaId,
+        mesa_numero: '04',
+        monto_anulado: montoAnulado,
+        nuevo_subtotal: DETALLE_MESA_04.total_subtotal,
+        mensaje: `Plato anulado sin costo para el cliente (S/ ${montoAnulado.toFixed(2)} descontados). Auditoría registrada: motivo '${payload.motivo_detalle}', es_merma = false. Notificación enviada a Administración.`,
+        anulado_at: new Date().toISOString(),
+      },
+    };
+  },
+
+  /**
+   * Simular evento reactivo SSE de quiebre de stock en Cocina KDS para Mesa 04
+   */
+  async simularQuiebreCocinaMesa04(
+    activo: boolean
+  ): Promise<ApiResponse<{ activo: boolean; mesa: MesaCardDTO }>> {
+    await new Promise((res) => setTimeout(res, 120));
+
+    const mesaIdx = MESAS_SALON_MOCK.findIndex((m) => m.id === 'mesa-04');
+    if (mesaIdx >= 0) {
+      MESAS_SALON_MOCK[mesaIdx] = {
+        ...MESAS_SALON_MOCK[mesaIdx],
+        tiene_quiebre_cocina: activo,
+        quiebre_producto_nombre: activo ? 'Lomo Saltado Criollo' : undefined,
+        quiebre_item_id: activo ? 'it-01' : undefined,
+      };
+    }
+
+    // Actualizar estado en DETALLE_MESA_04
+    const itemIdx = DETALLE_MESA_04.items.findIndex((it) => it.id === 'it-01');
+    if (itemIdx >= 0) {
+      DETALLE_MESA_04.items[itemIdx] = {
+        ...DETALLE_MESA_04.items[itemIdx],
+        estado: activo ? 'no_disponible' : 'listo',
+      };
+    }
+
+    return {
+      exito: true,
+      datos: {
+        activo,
+        mesa: MESAS_SALON_MOCK[mesaIdx],
+      },
+    };
+  },
 };
 
 const POLITICAS_RESERVA_MOCK: PoliticasReservaDTO = {
@@ -2269,6 +2559,50 @@ let PRODUCTOS_CARTA_MOCK: ProductoCatalogoMozoDTO[] = [
     requiere_preparacion: true,
   },
   {
+    id: 'prod-carne-01',
+    categoria_id: 'cat-carnes',
+    categoria_nombre: 'Carnes & Parrillas',
+    nombre: 'Asado de Tira con Puré',
+    descripcion: 'Tira de asado braseada lentamente en reducción de vino tinto sobre suave puré de papa amarilla.',
+    precio: 38.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: true,
+  },
+  {
+    id: 'prod-carne-02',
+    categoria_id: 'cat-carnes',
+    categoria_nombre: 'Carnes & Parrillas',
+    nombre: 'Seco de Res c/ Frejoles',
+    descripcion: 'Guiso tradicional de asado de tira macerado en chicha de jora y culantro, con frejoles batidos y arroz.',
+    precio: 38.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: true,
+  },
+  {
+    id: 'prod-carne-03',
+    categoria_id: 'cat-carnes',
+    categoria_nombre: 'Carnes & Parrillas',
+    nombre: 'Bife Angosto Criollo',
+    descripcion: 'Corte magro a la parrilla servido con papas rústicas doradas, ensalada parrillera y chimichurri.',
+    precio: 42.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: true,
+  },
+  {
+    id: 'prod-pasta-01',
+    categoria_id: 'cat-pastas',
+    categoria_nombre: 'Pastas & Salsas',
+    nombre: 'Fettuccine a la Huancaína',
+    descripcion: 'Pasta al dente envuelta en cremosa salsa huancaína artesanal servida con lomo al jugo.',
+    precio: 36.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: true,
+  },
+  {
     id: 'prod-mar-01',
     categoria_id: 'cat-mariscos',
     categoria_nombre: 'Pescados & Mariscos',
@@ -2296,6 +2630,17 @@ let PRODUCTOS_CARTA_MOCK: ProductoCatalogoMozoDTO[] = [
     categoria_nombre: 'Pescados & Mariscos',
     nombre: 'Arroz con Mariscos al Wok',
     descripcion: 'Arroz a la criolla flambeado al pisco con mixtura de calamares, langostinos, conchas y salsa madre.',
+    precio: 42.0,
+    disponibilidad: 'disponible',
+    activo: true,
+    requiere_preparacion: true,
+  },
+  {
+    id: 'prod-mar-04',
+    categoria_id: 'cat-mariscos',
+    categoria_nombre: 'Pescados & Mariscos',
+    nombre: 'Ceviche Mixto Tradicional',
+    descripcion: 'Trozos de pescado fresco, calamares crocantes y langostinos en leche de tigre al rocoto.',
     precio: 42.0,
     disponibilidad: 'disponible',
     activo: true,

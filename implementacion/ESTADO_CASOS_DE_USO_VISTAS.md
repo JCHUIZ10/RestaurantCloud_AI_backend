@@ -15,7 +15,7 @@
 | **Plataforma Pública & SaaS B2B** | 1 (Landing) | 1 | 0 | 100% |
 | **Cliente / Comensal QR** | 2 | 2 | 0 | 100% |
 | **Autenticación & Usuarios** | 3 | 1 | 2 | 33% |
-| **Salón & Mozo** | 8 | 6 | 2 | 75% |
+| **Salón & Mozo** | 8 | 8 | 0 | **100% (Completo)** |
 | **Cocina (KDS)** | 4 | 0 | 4 | 0% |
 | **Caja & Cobranza** | 5 | 0 | 5 | 0% |
 | **Administración Local** | 10 | 0 | 10 | 0% |
@@ -244,6 +244,25 @@
 
 ---
 
+### 2.12 `CU-MOZO-07`: Atender Incidencia de Plato No Disponible y Resolver en Mesa
+- **Ruta Activa:** `/mozo/mesas` ([`TerminalLayout.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/TerminalLayout.tsx)).
+- **Componentes Creados:**
+  - [`BannerIncidenciaCocina.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/quiebre/BannerIncidenciaCocina.tsx): Banner superior táctil con fondo ámbar (`border-amber-500/40`), aviso claro de quiebre de stock en estación caliente para Mesa 04 ("Lomo Saltado Criollo"), tiempo transcurrido, botón de acción rápida `[ Resolver en Mesa 04 ]` y cierre manual.
+  - [`ModalResolucionIncidencia.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/quiebre/ModalResolucionIncidencia.tsx): Modal de decisión asistida en mesa (620px) con dos opciones directas:
+    - **Opción A (Recomendada):** Sustituir plato en la carta con cálculo diferencial de precio (+S/, -S/, S/ 0) y envío con máxima prioridad a KDS.
+    - **Opción B:** Anular plato sin costo para el cliente (descuento de S/ 38.00, sin merma imputable y aviso a administración).
+  - [`ModalSustitucionCarta.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/quiebre/ModalSustitucionCarta.tsx): Modal de sustitución universal (760px) con botón de retorno `[ ← Volver a Opciones ]`, buscador en tiempo real por ingrediente, chips de familias de carta, **6 Sugerencias Inteligentes calculadas por afinidad y cercanía matemática de precio (`ABS(precio - S/ 38.00)`)**, badges de diferencial, selector de notas para cocina y **Sticky Box inferior de impacto** con confirmación a cocina.
+  - [`ModalAnulacionQuiebre.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/quiebre/ModalAnulacionQuiebre.tsx): Modal de anulación por quiebre (580px) con recálculo contable (de S/ 158.00 a S/ 120.00), garantía de auditoría inmutable (`es_merma = false`, no imputable al mozo) y notificación a Administrador de Sede (`CU-ADMIN-12`).
+  - [`MesaCard.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/MesaCard.tsx): Borde ámbar parpadeante y badge prominente `[ ⚠️ QUIEBRE COCINA ]` en la tarjeta de Mesa 04 en salón.
+  - [`MesaInspeccionDrawer.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/MesaInspeccionDrawer.tsx): Card del plato observado con badge `[ ⚠️ QUIEBRE ]` y bloque táctico de botones directos `[ 🔄 Sustituir ]` y `[ ✕ Anular ]`.
+  - [`DemoMozoWidget.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/DemoMozoWidget.tsx): Botón `[ ⚠️ Simular Quiebre Cocina (CU-MOZO-07) ]` para conmutar el evento reactivo SSE y restaurar stock.
+- **Servicios y DTOs:**
+  - [`mockMozoService.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/services/mockMozoService.ts): `obtenerCatalogoSustitucion`, `sustituirPlato`, `anularPorQuiebreCocina`, `simularQuiebreCocinaMesa04`.
+  - [`src/types/mozo.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/mozo.ts): `PlatoSustitutoSugeridoDTO`, `CategoriaChipDTO`, `CatalogoSustitucionResponseDTO`, `SustituirPlatoRequestDTO`, `SustituirPlatoResponseDTO`, `AnularPorQuiebreRequestDTO`, `AnularPorQuiebreResponseDTO`.
+- **Estado de Build:** ✅ Compilado y probado en producción con 0 errores (`npm run build`).
+
+---
+
 ## 3. Infraestructura y Arquitectura Base Completada
 
 - **Enrutador React Router DOM v6:** [`src/router/index.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/router/index.tsx) con rutas centralizadas en [`src/router/routes.constants.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/router/routes.constants.ts).
@@ -258,17 +277,13 @@
 
 ## 4. Backlog Priorizado de Próximos Casos de Uso (Roadmap)
 
-Con **7 de 8 casos de uso de Mozo concluidos (87.5% de avance del módulo)** (`CU-MOZO-01`, `CU-MOZO-02`, `CU-MOZO-04`, `CU-MOZO-05`, `CU-MOZO-06`, `CU-MOZO-08`, `CU-MOZO-09`):
+Con el **100% del Módulo de Salón & Mozo completado (8 de 8 Casos de Uso concluidos)**:
+`CU-MOZO-01`, `CU-MOZO-02`, `CU-MOZO-04`, `CU-MOZO-05`, `CU-MOZO-06`, `CU-MOZO-07`, `CU-MOZO-08`, `CU-MOZO-09`.
 
-### 🟡 Opción A: Concluir el Último Caso de Uso Restante de Salón (Mozo)
-1. **`CU-MOZO-07`: Atender Incidencia de Plato No Disponible (Quiebre de Cocina)**
-   - **Wireframe Canónico:** `wireframe/mozo/CU-MOZO-07-atender-plato-no-disponible/wireframe.md`
-   - **Propósito:** Alerta reactiva SSE en tablet, catálogo asistido de sustitución con 6 recomendaciones por cercanía matemática de precio y cálculo de diferencial de saldo.
+El siguiente paso natural en la cadena de valor operativa del restaurante es:
 
----
-
-### 🔴 Opción B: Cocina y Producción (KDS - Kitchen Display System)
-3. **`CU-COCINA-01`: Ver Cola de Pedidos Entrantes (Kitchen Display System - KDS)**
+### 🔴 Opción A: Cocina y Producción (KDS - Kitchen Display System)
+1. **`CU-COCINA-01`: Ver Cola de Pedidos Entrantes (Kitchen Display System - KDS)**
    - **Ruta:** `/cocina/kds` (en `TerminalLayout`)
    - **Wireframe Canónico:** `wireframe/cocina/CU-COCINA-01-cola-pedidos-kds/wireframe.md`
    - **Vistas Clave:** Tablero KDS oscuro industrial de 4 columnas FIFO con semáforo cromático dinámico según `configuracion_kds`, botones táctiles para avanzar platos a "En Fuego" o "Listo", y vista de consolidado "All-Day Summary".
