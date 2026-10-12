@@ -7,6 +7,8 @@ import { HomePage } from '@/modules/cliente/pages/HomePage';
 import { PlaceholderView } from '@/components/ui/PlaceholderView';
 import { ROUTES } from './routes.constants';
 
+import { CartaDigitalPage } from '@/modules/cliente/pages/CartaDigitalPage';
+
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -84,20 +86,7 @@ export const router = createBrowserRouter([
     children: [
       {
         path: 'carta',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-CLIENTE-01"
-            nombrePantalla="Carta Digital Interactiva QR"
-            rol="cliente (Comensal en salón)"
-            layoutNombre="SedeCustomerLayout"
-            descripcion="Catálogo gastronómico accesible vía QR sin login ni descargas. Pestañas táctiles de categorías, buscador reactivo, botón directo a WhatsApp y visualización de platos agotados."
-            viewportSugerido="mobile"
-            enlacesRelacionados={[
-              { label: 'Ver Carta Demo Áurea Miraflores', to: '/sede/aurea-miraflores/carta' },
-              { label: 'Ver Carta El Carbón Surco', to: '/sede/el-carbon-surco/carta' },
-            ]}
-          />
-        ),
+        element: <CartaDigitalPage />,
       },
       {
         path: 'comprobante/:numero',

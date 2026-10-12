@@ -7,9 +7,9 @@ export const SedeCustomerLayout: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FFF9F0] text-aurea-navy selection:bg-aurea-champagne">
-      {/* Cabecera Móvil de la Carta del Restaurante por Slug */}
-      <header className="sticky top-0 z-40 bg-[#FFF9F0]/95 backdrop-blur-md border-b border-aurea-copper/25 px-4 py-3 shadow-sm">
-        <div className="max-w-xl mx-auto flex items-center justify-between">
+      {/* Cabecera Móvil/Desktop de la Carta del Restaurante por Slug */}
+      <header className="sticky top-0 z-40 bg-[#FFF9F0]/95 backdrop-blur-md border-b border-aurea-copper/25 px-4 sm:px-6 lg:px-8 py-3 shadow-sm">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-aurea-navy flex items-center justify-center text-aurea-champagne shadow-sm">
               <Utensils className="w-4 h-4 text-aurea-copper" />
@@ -30,23 +30,25 @@ export const SedeCustomerLayout: React.FC = () => {
               target="_blank"
               rel="noreferrer"
               aria-label="Contactar al restaurante"
-              className="p-2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+              className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 flex items-center gap-1.5 text-xs font-semibold"
             >
               <MessageCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">WhatsApp</span>
             </a>
             <a
               href="tel:+51987654321"
               aria-label="Llamar"
-              className="p-2 rounded-full bg-aurea-champagne/40 text-aurea-navy border border-aurea-copper/30"
+              className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-aurea-champagne/40 text-aurea-navy border border-aurea-copper/30 flex items-center gap-1.5 text-xs font-semibold"
             >
               <Phone className="w-4 h-4" />
+              <span className="hidden sm:inline">Llamar</span>
             </a>
           </div>
         </div>
       </header>
 
-      {/* Contenido de la Carta */}
-      <main className="flex-1 max-w-xl w-full mx-auto p-4">
+      {/* Contenido de la Carta con ancho max-w-7xl responsivo */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
         <Outlet />
       </main>
 
