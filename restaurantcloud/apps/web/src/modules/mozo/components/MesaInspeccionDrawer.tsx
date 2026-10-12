@@ -21,7 +21,7 @@ interface MesaInspeccionDrawerProps {
   onCerrar: () => void;
   detalle: MesaDetalleMozoDTO | null;
   cargando: boolean;
-  onSolicitarCuenta: (mesaId: string) => void;
+  onSolicitarOVerCuenta: (mesaId: string) => void;
   onMarcarItemServido: (itemId: string) => void;
   onAbrirModalUnir?: (mesaId: string) => void;
   onAbrirModalAnular?: (item: ItemDetalleComandaDTO) => void;
@@ -32,7 +32,7 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
   onCerrar,
   detalle,
   cargando,
-  onSolicitarCuenta,
+  onSolicitarOVerCuenta,
   onMarcarItemServido,
   onAbrirModalUnir,
   onAbrirModalAnular,
@@ -289,43 +289,30 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
             <span>＋ Tomar Más Pedidos / Adicionales (CU-MOZO-02)</span>
           </button>
 
-          {/* Fila 2: Solicitar Cuenta a Caja + Unir Mesas */}
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => detalle?.mesa_id && onSolicitarCuenta(detalle.mesa_id)}
-              disabled={detalle?.estado === 'cuenta_pedida'}
-              className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
-                detalle?.estado === 'cuenta_pedida'
-                  ? 'bg-amber-100 text-amber-900 border border-amber-300 opacity-80 cursor-not-allowed'
-                  : 'bg-aurea-navy hover:bg-slate-800 text-white shadow-xs'
-              }`}
-            >
-              <Receipt className="w-3.5 h-3.5 text-aurea-copper" />
-              <span>
-                {detalle?.estado === 'cuenta_pedida' ? 'Cuenta en Caja' : '🧾 Solicitar Cuenta'}
-              </span>
-            </button>
+          {/* Fila 2: Acción Unificada de Cuenta (Solicitar Cuenta / Ver Cuenta) */}
+          <button
+            onClick={() => detalle?.mesa_id && onSolicitarOVerCuenta(detalle.mesa_id)}
+            className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm active:scale-98 ${
+              detalle?.estado === 'cuenta_pedida'
+                ? 'bg-amber-500 hover:bg-amber-600 text-slate-900 border border-amber-400 font-bold'
+                : 'bg-aurea-navy hover:bg-[#123156] text-[#F4D7B0] border border-[#D5A06F]/50'
+            }`}
+          >
+            <Receipt className="w-4 h-4 text-[#D5A06F]" />
+            <span>
+              {detalle?.estado === 'cuenta_pedida' ? '🧾 Ver Cuenta' : '🧾 Solicitar Cuenta'}
+            </span>
+          </button>
 
+
+          {/* Fila 3: Operaciones Especiales de Salón (Unir Mesas & Dividir Cuenta) */}
+          <div className="grid grid-cols-2 gap-2 pt-0.5">
             <button
               onClick={() => detalle?.mesa_id && onAbrirModalUnir && onAbrirModalUnir(detalle.mesa_id)}
               className="py-2 px-3 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition-all flex items-center justify-center gap-1.5"
             >
               <Link2 className="w-3.5 h-3.5 text-slate-600" />
               <span>🔗 Unir Mesas</span>
-            </button>
-          </div>
-
-          {/* Fila 3: Precuenta Digital en Mesa (CU-MOZO-08) & Dividir Cuenta (CU-MOZO-09) */}
-          <div className="grid grid-cols-2 gap-2 pt-0.5">
-            <button
-              onClick={() => {
-                if (detalle?.mesa_id) {
-                  navigate(ROUTES.MOZO_PRECUENTA(detalle.mesa_id));
-                }
-              }}
-              className="py-1.5 px-3 rounded-lg text-[11px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 transition-all flex items-center justify-center gap-1"
-            >
-              <span>📱 Precuenta QR Mesa</span>
             </button>
 
             <button

@@ -13,6 +13,7 @@ import { SidebarDespachoVivo } from '../components/SidebarDespachoVivo';
 import { MesaInspeccionDrawer } from '../components/MesaInspeccionDrawer';
 import { AlertaCocinaModal } from '../components/AlertaCocinaModal';
 import { DemoMozoWidget } from '../components/DemoMozoWidget';
+import { ModalPrecuentaCompleta } from '../components/precuenta/ModalPrecuentaCompleta';
 import { Bell, ChevronRight } from 'lucide-react';
 
 export const MozoMesasPage: React.FC = () => {
@@ -27,6 +28,10 @@ export const MozoMesasPage: React.FC = () => {
   const [mesaSeleccionada, setMesaSeleccionada] = useState<MesaCardDTO | null>(null);
   const [detalleMesa, setDetalleMesa] = useState<MesaDetalleMozoDTO | null>(null);
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
+
+  // Estado para el Modal Completo de Precuenta Digital en Salón (CU-MOZO-08)
+  const [modalPrecuentaAbierto, setModalPrecuentaAbierto] = useState(false);
+  const [mesaPrecuentaId, setMesaPrecuentaId] = useState<string | null>(null);
 
   // Estado para el Modal de Alerta de Cocina
   const [alertaModalAbierta, setAlertaModalAbierta] = useState(false);
@@ -165,24 +170,30 @@ export const MozoMesasPage: React.FC = () => {
     }
   };
 
-  // Solicitar cuenta a caja
-  const handleSolicitarCuenta = async (mesaId: string) => {
-    await mockMozoService.solicitarCuentaMesa(mesaId);
+  // Solicitar o Ver Cuenta (Abre el modal de precuenta completa para revisión)
+  const handleSolicitarOVerCuenta = (mesaId: string) => {
+    setMesaPrecuentaId(mesaId);
+    setModalPrecuentaAbierto(true);
+  };
 
-    // Actualizamos mesa en el plano
+  // Se ejecuta ÚNICAMENTE cuando el mozo pulsa "Confirmar y Notificar a Caja" dentro del modal
+  const handleCuentaNotificadaDesdeModal = (mesaId: string, totalNeto: number) => {
     setPlanoData((prev) => {
       if (!prev) return prev;
       return {
         ...prev,
         mesas: prev.mesas.map((m) =>
-          m.id === mesaId ? { ...m, estado: 'cuenta_pedida' as const } : m
+          m.id === mesaId
+            ? { ...m, estado: 'cuenta_pedida' as const, total_consumo: totalNeto }
+            : m
         ),
       };
     });
 
-    // Actualizamos el drawer
     if (detalleMesa && detalleMesa.mesa_id === mesaId) {
-      setDetalleMesa({ ...detalleMesa, estado: 'cuenta_pedida' });
+      setDetalleMesa((prev) =>
+        prev ? { ...prev, estado: 'cuenta_pedida', total_subtotal: totalNeto } : null
+      );
     }
   };
 
@@ -328,7 +339,7 @@ export const MozoMesasPage: React.FC = () => {
         onCerrar={() => setDrawerAbierto(false)}
         detalle={detalleMesa}
         cargando={cargandoDetalle}
-        onSolicitarCuenta={handleSolicitarCuenta}
+        onSolicitarOVerCuenta={handleSolicitarOVerCuenta}
         onMarcarItemServido={handleMarcarServido}
         onAbrirModalUnir={(mesaId) => {
           alert(`Unión de mesas CU-MOZO-04 para Mesa ${mesaId}: Abre modal con candidatas del piso.`);
@@ -340,7 +351,20 @@ export const MozoMesasPage: React.FC = () => {
         }}
       />
 
-      {/* 4. Modal de Alerta Prioritaria de Cocina (560px) */}
+      {/* 4. Modal Completo de Precuenta Digital en Salón (CU-MOZO-08) */}
+      {modalPrecuentaAbierto && mesaPrecuentaId && (
+        <ModalPrecuentaCompleta
+          isOpen={modalPrecuentaAbierto}
+          onClose={() => setModalPrecuentaAbierto(false)}
+          mesaId={mesaPrecuentaId}
+          mesaEstadoActual={
+            planoData?.mesas.find((m) => m.id === mesaPrecuentaId)?.estado || detalleMesa?.estado
+          }
+          onCuentaNotificada={handleCuentaNotificadaDesdeModal}
+        />
+      )}
+
+      {/* 5. Modal de Alerta Prioritaria de Cocina (560px) */}
       <AlertaCocinaModal
         abierto={alertaModalAbierta}
         onCerrar={() => setAlertaModalAbierta(false)}
