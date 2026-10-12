@@ -36,6 +36,15 @@
 (CU-MOZO-04: Unir o Dividir Mesas en Salón):
 - que es : Gestión espacial y física de mesas agrupadas en salón con mini-mapa interactivo 5x2, proyección de Mesa [ 02 ; 03 ] (8 pax), bloqueo asistido 409 por comanda activa y desvinculación a libres individuales: http://localhost:5173/mozo/mesas
 
+(CU-MOZO-09: Dividir Cuenta en Mesa - Split de Comprobantes):
+- que es : Wizard de división táctil en 2 pasos: distribución de platos determinista 100% Cero Azar (con desglose de unidades [ ✂ Desglosar Unidades ]), asignación de comprobantes individuales (Factura con RUC SUNAT, Boleta con DNI RENIEC / Consumidor Final, Nota de Venta), promociones independientes y pasarela de pago hacia Caja POS: http://localhost:5173/mozo/mesas
+
+(CU-MOZO-06: Anular Pedido o Ítem con Motivo y Control de Merma):
+- que es : Anulación táctica sin clave gerencial con motivo obligatorio (≥ 10 carac): parada inmediata en fogones KDS para platos en cocina vs calificación contable de merma (es_merma = true) sin revertir stock para platos servidos, y anulación completa con liberación automática de mesa a LIBRE: http://localhost:5173/mozo/mesas
+
+(CU-MOZO-05: Gestionar Reservas y Recepción en Salón):
+- que es : Centro de mando y bandeja de reservas táctil con selector de turno (Almuerzo/Cena), 4 KPIs de turno, modal interactivo de nueva reserva con mini-mapa espacial 5x2 (760px), ficha de recepción y reloj de cortesía en vivo (15 min) con registro de no-show y liberación a LIBRE en <25ms, advertencia de sobreasignación preventiva (<30m) y paywall didáctico para Plan Starter: http://localhost:5173/mozo/reservas
+
 ---
 
 ### Próximos Casos de Uso (En Desarrollo / Roadmap)

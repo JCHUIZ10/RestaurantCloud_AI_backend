@@ -11,6 +11,9 @@ interface DemoMozoWidgetProps {
   filtroActivo: string;
   onAbrirUnionMesaDemo?: () => void;
   onAbrirSepararMesaDemo?: () => void;
+  onAbrirDividirCuentaDemo?: () => void;
+  onAbrirAnularComandaDemo?: () => void;
+  onAbrirFichaReservaDemo?: () => void;
 }
 
 export const DemoMozoWidget: React.FC<DemoMozoWidgetProps> = ({
@@ -23,6 +26,9 @@ export const DemoMozoWidget: React.FC<DemoMozoWidgetProps> = ({
   filtroActivo,
   onAbrirUnionMesaDemo,
   onAbrirSepararMesaDemo,
+  onAbrirDividirCuentaDemo,
+  onAbrirAnularComandaDemo,
+  onAbrirFichaReservaDemo,
 }) => {
   const [colapsado, setColapsado] = useState(false);
   const [mensajeToast, setMensajeToast] = useState<string | null>(null);
@@ -138,6 +144,45 @@ export const DemoMozoWidget: React.FC<DemoMozoWidgetProps> = ({
                   ✂️ Separar M-02
                 </button>
               </div>
+
+              {/* Acciones Rápidas CU-MOZO-09: Dividir Cuenta */}
+              <button
+                onClick={() =>
+                  dispararConToast(
+                    () => onAbrirDividirCuentaDemo && onAbrirDividirCuentaDemo(),
+                    'Abriendo Wizard de División de Cuenta (CU-MOZO-09)'
+                  )
+                }
+                className="w-full py-1.5 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 font-semibold text-[10px] flex items-center justify-center gap-1"
+              >
+                <span>➗ Split de Comprobantes (M-04)</span>
+              </button>
+
+              {/* Acciones Rápidas CU-MOZO-06: Anular Comanda Completa */}
+              <button
+                onClick={() =>
+                  dispararConToast(
+                    () => onAbrirAnularComandaDemo && onAbrirAnularComandaDemo(),
+                    'Abriendo Modal de Anulación de Comanda (CU-MOZO-06)'
+                  )
+                }
+                className="w-full py-1.5 px-2 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-900 border border-rose-300 font-semibold text-[10px] flex items-center justify-center gap-1"
+              >
+                <span>🛑 Anular Comanda M-04 (Liberar Mesa)</span>
+              </button>
+
+              {/* Acceso Rápido CU-MOZO-05: Ficha de Reserva Mesa 08 */}
+              <button
+                onClick={() =>
+                  dispararConToast(
+                    () => onAbrirFichaReservaDemo && onAbrirFichaReservaDemo(),
+                    'Abriendo Ficha de Reserva y Reloj de Cortesía (Mesa 08)'
+                  )
+                }
+                className="w-full py-1.5 px-2 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-300 font-semibold text-[10px] flex items-center justify-center gap-1"
+              >
+                <span>📅 Ficha Reserva M-08 (CU-MOZO-05)</span>
+              </button>
             </div>
 
             <div className="pt-1 border-t border-slate-200 grid grid-cols-2 gap-1.5">

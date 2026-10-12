@@ -6,6 +6,10 @@ import {
   AlertaCocinaModalDTO,
   ItemDetalleComandaDTO,
   ValidacionSeparacionMesaDTO,
+  DividirCuentaResponseDTO,
+  AnularItemRequestDTO,
+  AnularPedidoCompletoRequestDTO,
+  ReservaCardDTO,
 } from '@/types/mozo';
 import { mockMozoService } from '../services/mockMozoService';
 import { SalonHeaderMozo, FiltroMesaTipo } from '../components/SalonHeaderMozo';
@@ -18,6 +22,10 @@ import { ModalPrecuentaCompleta } from '../components/precuenta/ModalPrecuentaCo
 import { ModalUnirMesas } from '../components/salon/ModalUnirMesas';
 import { ModalSepararMesas } from '../components/salon/ModalSepararMesas';
 import { ModalBloqueoSeparacion } from '../components/salon/ModalBloqueoSeparacion';
+import { ModalDividirCuenta } from '../components/split/ModalDividirCuenta';
+import { ModalAnularItem } from '../components/anulacion/ModalAnularItem';
+import { ModalAnularComandaTotal } from '../components/anulacion/ModalAnularComandaTotal';
+import { ModalFichaReserva } from '../components/reservas/ModalFichaReserva';
 import { Bell, ChevronRight } from 'lucide-react';
 
 export const MozoMesasPage: React.FC = () => {
@@ -45,6 +53,20 @@ export const MozoMesasPage: React.FC = () => {
   const [modalBloqueoAbierto, setModalBloqueoAbierto] = useState(false);
   const [mesaParaSepararId, setMesaParaSepararId] = useState<string | null>(null);
   const [validacionSeparacion, setValidacionSeparacion] = useState<ValidacionSeparacionMesaDTO | null>(null);
+
+  // Estados para División de Cuenta (CU-MOZO-09)
+  const [modalDividirAbierto, setModalDividirAbierto] = useState(false);
+  const [mesaParaDividirId, setMesaParaDividirId] = useState<string | null>(null);
+
+  // Estados para Anulación de Ítems y Comanda (CU-MOZO-06)
+  const [modalAnularItemAbierto, setModalAnularItemAbierto] = useState(false);
+  const [itemParaAnular, setItemParaAnular] = useState<ItemDetalleComandaDTO | null>(null);
+  const [modalAnularComandaAbierto, setModalAnularComandaAbierto] = useState(false);
+  const [mesaParaAnularComandaId, setMesaParaAnularComandaId] = useState<string | null>(null);
+
+  // Estados para Ficha de Reserva (CU-MOZO-05)
+  const [modalFichaReservaAbierto, setModalFichaReservaAbierto] = useState(false);
+  const [reservaFichaSeleccionada, setReservaFichaSeleccionada] = useState<ReservaCardDTO | null>(null);
 
   // Estado para el Modal de Alerta de Cocina
   const [alertaModalAbierta, setAlertaModalAbierta] = useState(false);
@@ -109,6 +131,12 @@ export const MozoMesasPage: React.FC = () => {
       return;
     }
 
+    if (mesa.estado === 'bloqueada') {
+      // Abrir Ficha de Reserva (CU-MOZO-05)
+      handleAbrirFichaReserva(mesa);
+      return;
+    }
+
     // Abrir Quick-Drawer de inspección
     setDrawerAbierto(true);
     setCargandoDetalle(true);
@@ -120,6 +148,116 @@ export const MozoMesasPage: React.FC = () => {
     } finally {
       setCargandoDetalle(false);
     }
+  };
+
+  // Abrir Ficha de Reserva para mesa bloqueada (CU-MOZO-05)
+  const handleAbrirFichaReserva = async (mesa: MesaCardDTO) => {
+    const res = await mockMozoService.obtenerReservas();
+    let encontrada: ReservaCardDTO | undefined;
+    if (res.exito) {
+      encontrada = res.datos.find((r) => r.mesa_ids.includes(mesa.id));
+    }
+
+    if (!encontrada) {
+      encontrada = {
+        id: 'res-005',
+        cliente_nombre: mesa.reserva_cliente || 'Familia Gómez',
+        cliente_telefono: '+51 987 654 321',
+        fecha_hora: '2026-10-09T14:00:00Z',
+        hora_texto: mesa.reserva_hora || '14:00',
+        minutos_restantes: mesa.minutos_para_reserva || 20,
+        num_personas: mesa.capacidad || 4,
+        mesas_etiqueta: `Mesa ${mesa.numero}`,
+        mesa_ids: [mesa.id],
+        estado: 'bloqueada',
+        notas: 'Viene con niño pequeño, requiere silla alta',
+        en_tolerancia: true,
+        tolerancia_expiro: false,
+        created_at: new Date().toISOString(),
+      };
+    }
+
+    setReservaFichaSeleccionada(encontrada);
+    setModalFichaReservaAbierto(true);
+  };
+
+  const handleSentarDesdeFicha = async (reserva: ReservaCardDTO) => {
+    const res = await mockMozoService.sentarReserva(reserva.id);
+    if (res.exito) {
+      setPlanoData((prev) => {
+        if (!prev) return prev;
+        const actualizadas = prev.mesas.map((m) =>
+          reserva.mesa_ids.includes(m.id)
+            ? {
+                ...m,
+                estado: 'ocupada' as const,
+                pedido_id: res.datos.pedido_id,
+                comensales_sentados: reserva.num_personas,
+                minutos_ocupada: 1,
+                total_consumo: 0,
+                reserva_cliente: null,
+                reserva_hora: null,
+                minutos_para_reserva: null,
+                mozo_nombre: prev.mozo_actual.nombre,
+                es_mi_mesa: true,
+              }
+            : m
+        );
+        return {
+          ...prev,
+          mesas: actualizadas,
+          mesas_ocupadas: prev.mesas_ocupadas + 1,
+        };
+      });
+    }
+  };
+
+  const handleNoShowDesdeFicha = async (reservaId: string, motivo: string) => {
+    const res = await mockMozoService.registrarNoShow(reservaId, motivo);
+    if (res.exito) {
+      setPlanoData((prev) => {
+        if (!prev) return prev;
+        const actualizadas = prev.mesas.map((m) =>
+          m.id === 'mesa-08'
+            ? {
+                ...m,
+                estado: 'libre' as const,
+                reserva_cliente: null,
+                reserva_hora: null,
+                minutos_para_reserva: null,
+              }
+            : m
+        );
+        return {
+          ...prev,
+          mesas: actualizadas,
+          mesas_libres: prev.mesas_libres + 1,
+        };
+      });
+    }
+  };
+
+  const handleCancelarReservaDesdeFicha = async (reservaId: string, motivo: string) => {
+    await mockMozoService.cancelarReserva(reservaId, motivo);
+    setPlanoData((prev) => {
+      if (!prev) return prev;
+      const actualizadas = prev.mesas.map((m) =>
+        m.id === 'mesa-08'
+          ? {
+              ...m,
+              estado: 'libre' as const,
+              reserva_cliente: null,
+              reserva_hora: null,
+              minutos_para_reserva: null,
+            }
+          : m
+      );
+      return {
+        ...prev,
+        mesas: actualizadas,
+        mesas_libres: prev.mesas_libres + 1,
+      };
+    });
   };
 
   // Sentar comensales y abrir comanda
@@ -261,6 +399,69 @@ export const MozoMesasPage: React.FC = () => {
   const handleSolicitarCuentaDesdeBloqueo = (mesaId: string) => {
     setModalBloqueoAbierto(false);
     handleSolicitarOVerCuenta(mesaId);
+  };
+
+  // Handlers para CU-MOZO-09: Dividir Cuenta en Mesa (Split de Comprobantes)
+  const handleAbrirModalDividir = (mesaId: string) => {
+    setMesaParaDividirId(mesaId);
+    setModalDividirAbierto(true);
+  };
+
+  const handleDivisionConfirmada = async (resultado: DividirCuentaResponseDTO) => {
+    // 1. Recargar datos del plano para reflejar estado cuenta_pedida dividida
+    await cargarPlano(pisoActivoId);
+
+    // 2. Si el drawer está abierto para esta mesa, refrescar su detalle
+    if (detalleMesa && detalleMesa.mesa_id === resultado.mesa_id) {
+      const resDetalle = await mockMozoService.obtenerDetalleMesa(resultado.mesa_id);
+      if (resDetalle.exito) {
+        setDetalleMesa(resDetalle.datos);
+      }
+    }
+  };
+
+  // Handlers para CU-MOZO-06: Anular ítem o comanda completa con motivo y merma
+  const handleAbrirModalAnularItem = (item: ItemDetalleComandaDTO) => {
+    setItemParaAnular(item);
+    setModalAnularItemAbierto(true);
+  };
+
+  const handleConfirmarAnulacionItem = async (request: AnularItemRequestDTO) => {
+    if (!itemParaAnular || !detalleMesa) return;
+
+    const res = await mockMozoService.anularItemComanda(
+      detalleMesa.mesa_id,
+      itemParaAnular.id,
+      request
+    );
+
+    if (res.exito) {
+      await cargarPlano(pisoActivoId);
+      const detRes = await mockMozoService.obtenerDetalleMesa(detalleMesa.mesa_id);
+      if (detRes.exito) {
+        setDetalleMesa(detRes.datos);
+      }
+    }
+  };
+
+  const handleAbrirModalAnularComanda = (mesaId: string) => {
+    setMesaParaAnularComandaId(mesaId);
+    setModalAnularComandaAbierto(true);
+  };
+
+  const handleConfirmarAnulacionComanda = async (request: AnularPedidoCompletoRequestDTO) => {
+    if (!mesaParaAnularComandaId) return;
+
+    const res = await mockMozoService.anularComandaCompleta(
+      mesaParaAnularComandaId,
+      request
+    );
+
+    if (res.exito) {
+      await cargarPlano(pisoActivoId);
+      setDrawerAbierto(false);
+      setDetalleMesa(null);
+    }
   };
 
   // Handlers para el widget de simulación
@@ -409,11 +610,9 @@ export const MozoMesasPage: React.FC = () => {
         onMarcarItemServido={handleMarcarServido}
         onAbrirModalUnir={handleAbrirModalUnir}
         onAbrirModalSeparar={handleAbrirModalSeparar}
-        onAbrirModalAnular={(item: ItemDetalleComandaDTO) => {
-          alert(
-            `Anulación de ítem CU-MOZO-06: Anular "${item.producto_nombre}" con calificación de merma y motivo.`
-          );
-        }}
+        onAbrirModalDividir={handleAbrirModalDividir}
+        onAbrirModalAnular={handleAbrirModalAnularItem}
+        onAbrirModalAnularComanda={handleAbrirModalAnularComanda}
       />
 
       {/* 4. Modal Completo de Precuenta Digital en Salón (CU-MOZO-08) */}
@@ -461,7 +660,47 @@ export const MozoMesasPage: React.FC = () => {
         />
       )}
 
-      {/* 5. Modal de Alerta Prioritaria de Cocina (560px) */}
+      {/* 8. Modal Wizard de División de Cuenta CU-MOZO-09 (Split Comprobantes) */}
+      {modalDividirAbierto && mesaParaDividirId && (
+        <ModalDividirCuenta
+          isOpen={modalDividirAbierto}
+          onClose={() => setModalDividirAbierto(false)}
+          mesaId={mesaParaDividirId}
+          onDivisionConfirmada={handleDivisionConfirmada}
+        />
+      )}
+
+      {/* 9. Modal Anular Ítem con Control de Merma (CU-MOZO-06 Vistas 2 y 4) */}
+      {modalAnularItemAbierto && itemParaAnular && (
+        <ModalAnularItem
+          isOpen={modalAnularItemAbierto}
+          onClose={() => {
+            setModalAnularItemAbierto(false);
+            setItemParaAnular(null);
+          }}
+          item={itemParaAnular}
+          mesaNumero={detalleMesa?.numero || '04'}
+          onConfirmarAnulacion={handleConfirmarAnulacionItem}
+        />
+      )}
+
+      {/* 10. Modal Anular Comanda Completa y Liberar Mesa (CU-MOZO-06 Vista 3) */}
+      {modalAnularComandaAbierto && (
+        <ModalAnularComandaTotal
+          isOpen={modalAnularComandaAbierto}
+          onClose={() => {
+            setModalAnularComandaAbierto(false);
+            setMesaParaAnularComandaId(null);
+          }}
+          mesaId={mesaParaAnularComandaId || detalleMesa?.mesa_id || 'mesa-04'}
+          mesaNumero={detalleMesa?.numero || '04'}
+          totalConsumo={detalleMesa?.total_subtotal || 140.0}
+          totalItems={detalleMesa?.items.length || 4}
+          onConfirmarAnulacionTotal={handleConfirmarAnulacionComanda}
+        />
+      )}
+
+      {/* 11. Modal de Alerta Prioritaria de Cocina (560px) */}
       <AlertaCocinaModal
         abierto={alertaModalAbierta}
         onCerrar={() => setAlertaModalAbierta(false)}
@@ -469,7 +708,7 @@ export const MozoMesasPage: React.FC = () => {
         onAceptar={() => setAlertaModalAbierta(false)}
       />
 
-      {/* 5. Widget Flotante de Simulación / Demostración */}
+      {/* 12. Widget Flotante de Simulación / Demostración */}
       <DemoMozoWidget
         onSimularPlatoListo={simularPlatoListo}
         onSimularBebida={simularBebida}
@@ -482,6 +721,51 @@ export const MozoMesasPage: React.FC = () => {
         filtroActivo={filtroActivo}
         onAbrirUnionMesaDemo={() => handleAbrirModalUnir('mesa-02')}
         onAbrirSepararMesaDemo={() => handleAbrirModalSeparar('mesa-02')}
+        onAbrirDividirCuentaDemo={() => handleAbrirModalDividir('mesa-04')}
+        onAbrirAnularComandaDemo={() => handleAbrirModalAnularComanda('mesa-04')}
+        onAbrirFichaReservaDemo={() => {
+          const m08 = planoData?.mesas.find((m) => m.id === 'mesa-08') || {
+            id: 'mesa-08',
+            piso_id: 'piso-01-salon',
+            numero: '08',
+            capacidad: 4,
+            forma: 'cuadrada' as const,
+            posicion_x: 3,
+            posicion_y: 1,
+            permite_union: true,
+            estado: 'bloqueada' as const,
+            reserva_cliente: 'Familia Gómez',
+            reserva_hora: '14:00',
+            minutos_para_reserva: 20,
+            es_mi_mesa: false,
+            platos_listos: 0,
+            platos_en_cocina: 0,
+            despacho_directo_pendiente: 0,
+          };
+          handleAbrirFichaReserva(m08);
+        }}
+      />
+
+      {/* 13. Modal Ficha de Reserva y Recepción en Salón (CU-MOZO-05 Vista 3) */}
+      <ModalFichaReserva
+        abierto={modalFichaReservaAbierto}
+        reserva={reservaFichaSeleccionada}
+        onCerrar={() => {
+          setModalFichaReservaAbierto(false);
+          setReservaFichaSeleccionada(null);
+        }}
+        onSentarComensales={handleSentarDesdeFicha}
+        onRegistrarNoShow={handleNoShowDesdeFicha}
+        onCancelarReserva={handleCancelarReservaDesdeFicha}
+        onEnviarWhatsApp={(res) => {
+          const tel = res.cliente_telefono.replace(/\D/g, '');
+          window.open(
+            `https://wa.me/${tel}?text=${encodeURIComponent(
+              `Hola ${res.cliente_nombre}, le saludamos de RestaurantCloud AI para confirmar su reserva de hoy a las ${res.hora_texto}.`
+            )}`,
+            '_blank'
+          );
+        }}
       />
     </div>
   );

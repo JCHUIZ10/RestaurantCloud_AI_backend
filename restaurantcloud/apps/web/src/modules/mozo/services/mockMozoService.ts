@@ -19,6 +19,27 @@ import {
   UnirMesasResponseDTO,
   DividirMesasResponseDTO,
   ValidacionSeparacionMesaDTO,
+  ItemsParaDividirResponseDTO,
+  ItemParaDividirDTO,
+  DividirCuentaRequestDTO,
+  DividirCuentaResponseDTO,
+  ConsultaRucResponseDTO,
+  ConsultaDniResponseDTO,
+  SubcuentaResumenDTO,
+  ItemDetalleComandaDTO,
+  AnularItemRequestDTO,
+  AnularPedidoCompletoRequestDTO,
+  ItemAnuladoResponseDTO,
+  PedidoAnuladoResponseDTO,
+  ReservaCardDTO,
+  PoliticasReservaDTO,
+  CrearReservaRequestDTO,
+  MesaDisponibleReservaDTO,
+  MesasDisponiblesResponseDTO,
+  SentarReservaResponseDTO,
+  RegistrarNoShowRequestDTO,
+  CancelarReservaRequestDTO,
+  ReasignarMesaReservaRequestDTO,
 } from '@/types/mozo';
 
 // ID canónico del mozo activo de prueba
@@ -347,7 +368,7 @@ let ITEMS_DESPACHO_MOCK: ItemDespachoListoDTO[] = [
 ];
 
 // Detalle enriquecido para el Quick-Drawer al tocar Mesa 04
-const DETALLE_MESA_04: MesaDetalleMozoDTO = {
+let DETALLE_MESA_04: MesaDetalleMozoDTO = {
   mesa_id: 'mesa-04',
   numero: '04',
   ambiente: 'Salón Principal',
@@ -451,6 +472,9 @@ const DETALLE_MESA_04: MesaDetalleMozoDTO = {
   ],
 };
 
+// Almacén en memoria de subcuentas por mesa para CU-MOZO-09
+let SUBCUENTAS_POR_MESA_MOCK: Record<string, SubcuentaResumenDTO[]> = {};
+
 export const mockMozoService = {
   /**
    * Obtiene la carga completa del salón para el mozo
@@ -532,6 +556,9 @@ export const mockMozoService = {
       detalleAgrupacion = `Mesa ${titular?.numero || mesa?.numero} (Titular • ${titular?.capacidad || 4}p) + ${secText}`;
     }
 
+    const subcuentasExistentes = SUBCUENTAS_POR_MESA_MOCK[mesaId];
+    const esDividida = Boolean(subcuentasExistentes && subcuentasExistentes.length > 0) || Boolean(mesa?.es_cuenta_dividida);
+
     if (mesaId === 'mesa-04') {
       return {
         exito: true,
@@ -540,6 +567,9 @@ export const mockMozoService = {
           es_mesa_unida: esUnida,
           mesa_principal_id: mesa?.mesa_principal_id,
           mesas_agrupadas_detalle: detalleAgrupacion,
+          es_cuenta_dividida: esDividida,
+          partes_subcuentas: subcuentasExistentes?.length || mesa?.partes_subcuentas,
+          subcuentas_resumen: subcuentasExistentes,
         },
       };
     }
@@ -556,6 +586,9 @@ export const mockMozoService = {
         es_mesa_unida: esUnida,
         mesa_principal_id: mesa?.mesa_principal_id,
         mesas_agrupadas_detalle: detalleAgrupacion,
+        es_cuenta_dividida: esDividida,
+        partes_subcuentas: subcuentasExistentes?.length || mesa?.partes_subcuentas,
+        subcuentas_resumen: subcuentasExistentes,
         comanda_id: mesa?.pedido_id || 'ped-demo',
         numero_comanda: 140 + Number(mesa?.numero || 1),
         mozo_nombre: mesa?.mozo_nombre || MOZO_ACTUAL.nombre,
@@ -1395,7 +1428,782 @@ export const mockMozoService = {
       },
     };
   },
+
+  /**
+   * Obtiene los ítems consumidos en la mesa listos para subdividir (CU-MOZO-09)
+   */
+  async obtenerItemsParaDividir(mesaId: string): Promise<ApiResponse<ItemsParaDividirResponseDTO>> {
+    await new Promise((res) => setTimeout(res, 180));
+    const mesa = MESAS_SALON_MOCK.find((m) => m.id === mesaId);
+
+    // Items de comanda oficiales según el wireframe canónico (Comanda #108 - Mesa 04)
+    const itemsComandaMock: ItemParaDividirDTO[] = [
+      {
+        id: 'split-it-01',
+        pedido_item_id: 'c201a111-0001-4b45-9756-000000000001',
+        producto_id: 'p001-lomo-saltado',
+        nombre: 'Lomo Saltado Criollo',
+        nota_cocina: 'Término 3/4, papas crocantes',
+        cantidad: 1,
+        precio_unitario: 38.0,
+        subtotal: 38.0,
+      },
+      {
+        id: 'split-it-02',
+        pedido_item_id: 'c201a111-0002-4b45-9756-000000000002',
+        producto_id: 'p002-arroz-mariscos',
+        nombre: 'Arroz con Mariscos Especial',
+        nota_cocina: 'Porción estándar',
+        cantidad: 1,
+        precio_unitario: 34.0,
+        subtotal: 34.0,
+      },
+      {
+        id: 'split-it-03',
+        pedido_item_id: 'c201a111-0003-4b45-9756-000000000003',
+        producto_id: 'p003-chicha-1l',
+        nombre: 'Chicha Morada Jarra 1L',
+        nota_cocina: 'Helada',
+        cantidad: 1,
+        precio_unitario: 16.0,
+        subtotal: 16.0,
+      },
+      {
+        id: 'split-it-04',
+        pedido_item_id: 'c201a111-0004-4b45-9756-000000000004',
+        producto_id: 'p004-causa-limena',
+        nombre: 'Causa Limeña Clásica',
+        nota_cocina: 'Entrada fría',
+        cantidad: 1,
+        precio_unitario: 12.0,
+        subtotal: 12.0,
+      },
+    ];
+
+    const totalBruto = itemsComandaMock.reduce((sum, item) => sum + item.subtotal, 0);
+
+    return {
+      exito: true,
+      datos: {
+        pedido_id: mesa?.pedido_id || 'ped-149',
+        mesa_id: mesaId,
+        mesa_numero: mesa?.numero || '04',
+        comensales: mesa?.comensales_sentados || 4,
+        total_bruto: totalBruto,
+        items: itemsComandaMock,
+      },
+    };
+  },
+
+  /**
+   * Consulta datos de RUC ante SUNAT para Factura (CU-MOZO-09)
+   */
+  async consultarRuc(ruc: string): Promise<ApiResponse<ConsultaRucResponseDTO>> {
+    await new Promise((res) => setTimeout(res, 200));
+
+    if (!/^(10|15|17|20)\d{9}$/.test(ruc)) {
+      return {
+        exito: false,
+        datos: null as unknown as ConsultaRucResponseDTO,
+        errores: [
+          {
+            codigo: 'ERR_RUC_INVALIDO',
+            mensaje: 'El RUC debe tener 11 dígitos y comenzar con 10, 15, 17 o 20.',
+          },
+        ],
+      };
+    }
+
+    if (ruc === '20601234567') {
+      return {
+        exito: true,
+        datos: {
+          ruc: '20601234567',
+          razon_social: 'INVERSIONES GASTRONÓMICAS S.A.C.',
+          direccion: 'AV. LARCO 1045, MIRAFLORES, LIMA',
+          estado: 'ACTIVO',
+          condicion: 'HABIDO',
+        },
+      };
+    }
+
+    return {
+      exito: true,
+      datos: {
+        ruc,
+        razon_social: `EMPRESA CONSULTORA DEMO ${ruc.slice(-4)} S.A.C.`,
+        direccion: `CALLE LOS NEGOCIOS ${ruc.slice(-3)}, SAN ISIDRO, LIMA`,
+        estado: 'ACTIVO',
+        condicion: 'HABIDO',
+      },
+    };
+  },
+
+  /**
+   * Consulta datos de DNI ante RENIEC para Boleta (CU-MOZO-09)
+   */
+  async consultarDni(dni: string): Promise<ApiResponse<ConsultaDniResponseDTO>> {
+    await new Promise((res) => setTimeout(res, 180));
+
+    if (!/^\d{8}$/.test(dni)) {
+      return {
+        exito: false,
+        datos: null as unknown as ConsultaDniResponseDTO,
+        errores: [
+          {
+            codigo: 'ERR_DNI_INVALIDO',
+            mensaje: 'El DNI debe contener exactamente 8 dígitos numéricos.',
+          },
+        ],
+      };
+    }
+
+    if (dni === '72819201') {
+      return {
+        exito: true,
+        datos: {
+          dni: '72819201',
+          nombre_completo: 'CARLOS MENDOZA QUISPE',
+        },
+      };
+    }
+
+    return {
+      exito: true,
+      datos: {
+        dni,
+        nombre_completo: `CLIENTE REGISTRADO ${dni.slice(-4)}`,
+      },
+    };
+  },
+
+  /**
+   * Envía las subcuentas configuradas a Caja POS vía SSE (CU-MOZO-09)
+   */
+  async dividirCuentaMesa(
+    request: DividirCuentaRequestDTO
+  ): Promise<ApiResponse<DividirCuentaResponseDTO>> {
+    await new Promise((res) => setTimeout(res, 250));
+
+    const mesaIndex = MESAS_SALON_MOCK.findIndex((m) => m.id === request.mesa_id);
+    const totalBruto = request.subcuentas.reduce((acc, s) => acc + s.subtotal_bruto, 0);
+    const totalNeto = request.subcuentas.reduce((acc, s) => acc + s.total_neto, 0);
+
+    const subcuentasResumen: SubcuentaResumenDTO[] = request.subcuentas.map((s) => ({
+      id: s.id,
+      numero: s.numero_subcuenta,
+      nombre_referencia: s.nombre_referencia,
+      tipo_comprobante: s.tipo_comprobante,
+      cliente: s.nombre_cliente,
+      documento: s.documento_cliente,
+      medio_pago: s.medio_pago,
+      total: s.total_neto,
+      total_items: s.items.length,
+      estado: 'pendiente',
+    }));
+
+    SUBCUENTAS_POR_MESA_MOCK[request.mesa_id] = subcuentasResumen;
+
+    if (mesaIndex >= 0) {
+      MESAS_SALON_MOCK[mesaIndex] = {
+        ...MESAS_SALON_MOCK[mesaIndex],
+        estado: 'cuenta_pedida',
+        total_consumo: totalNeto,
+        es_cuenta_dividida: true,
+        partes_subcuentas: request.subcuentas.length,
+      };
+    }
+
+    return {
+      exito: true,
+      datos: {
+        status: 'success',
+        mesa_id: request.mesa_id,
+        mesa_numero: mesaIndex >= 0 ? MESAS_SALON_MOCK[mesaIndex].numero : '04',
+        estado_mesa: 'cuenta_pedida',
+        partes: request.subcuentas.length,
+        total_bruto: totalBruto,
+        total_neto: totalNeto,
+        mensaje: 'Subcuentas registradas con éxito. Comanda enviada a Caja vía SSE.',
+        subcuentas_resumen: subcuentasResumen,
+      },
+    };
+  },
+
+  /**
+   * Anula un ítem específico de la comanda con motivo y control de merma (CU-MOZO-06)
+   */
+  async anularItemComanda(
+    mesaId: string,
+    itemId: string,
+    request: AnularItemRequestDTO
+  ): Promise<ApiResponse<ItemAnuladoResponseDTO>> {
+    await new Promise((res) => setTimeout(res, 200));
+
+    let itemEncontrado: ItemDetalleComandaDTO | undefined;
+    let nuevoSubtotal = 0;
+    let mesaLiberada = false;
+
+    if (mesaId === 'mesa-04') {
+      itemEncontrado = DETALLE_MESA_04.items.find((i) => i.id === itemId);
+      if (itemEncontrado) {
+        // Remover el ítem de la comanda
+        DETALLE_MESA_04.items = DETALLE_MESA_04.items.filter((i) => i.id !== itemId);
+        nuevoSubtotal = DETALLE_MESA_04.items.reduce((acc, i) => acc + i.subtotal, 0);
+        DETALLE_MESA_04.total_subtotal = nuevoSubtotal;
+
+        // Actualizar en MESAS_SALON_MOCK
+        const mesaIdx = MESAS_SALON_MOCK.findIndex((m) => m.id === mesaId);
+        if (mesaIdx >= 0) {
+          MESAS_SALON_MOCK[mesaIdx].total_consumo = nuevoSubtotal;
+          if (DETALLE_MESA_04.items.length === 0) {
+            MESAS_SALON_MOCK[mesaIdx].estado = 'libre';
+            MESAS_SALON_MOCK[mesaIdx].total_consumo = 0;
+            DETALLE_MESA_04.estado = 'libre';
+            mesaLiberada = true;
+          }
+        }
+      }
+    }
+
+    const esMerma = itemEncontrado ? itemEncontrado.estado === 'entregado' : false;
+
+    // Log simulado de auditoría inmutable (log_auditoria)
+    console.info(
+      `[AUDITORÍA CU-MOZO-06] Ítem anulado: ${itemEncontrado?.producto_nombre || itemId}. Motivo: ${request.motivo_categoria} - "${request.motivo_detalle}". Merma: ${esMerma}`
+    );
+
+    return {
+      exito: true,
+      datos: {
+        item_id: itemId,
+        pedido_id: 'ped-149',
+        mesa_id: mesaId,
+        mesa_numero: '04',
+        producto_nombre: itemEncontrado?.producto_nombre || 'Plato Comanda',
+        cantidad: itemEncontrado?.cantidad || 1,
+        estado_anterior: itemEncontrado?.estado || 'en_preparacion',
+        es_merma: esMerma,
+        nuevo_subtotal: nuevoSubtotal,
+        mesa_liberada: mesaLiberada,
+        mensaje: esMerma
+          ? `Ítem servido anulado y calificado como MERMA OPERATIVA (${request.motivo_categoria}). Sin reversión física de stock.`
+          : `Ítem anulado exitosamente (${request.motivo_categoria}); alerta acústica/visual emitida a Cocina KDS.`,
+        anulado_at: new Date().toISOString(),
+      },
+    };
+  },
+
+  /**
+   * Anula la comanda completa de una mesa y la libera a LIBRE (CU-MOZO-06)
+   */
+  async anularComandaCompleta(
+    mesaId: string,
+    request: AnularPedidoCompletoRequestDTO
+  ): Promise<ApiResponse<PedidoAnuladoResponseDTO>> {
+    await new Promise((res) => setTimeout(res, 250));
+
+    let totalAnulado = 0;
+    let itemsTotal = 0;
+
+    if (mesaId === 'mesa-04') {
+      totalAnulado = DETALLE_MESA_04.total_subtotal;
+      itemsTotal = DETALLE_MESA_04.items.length;
+      DETALLE_MESA_04.items = [];
+      DETALLE_MESA_04.total_subtotal = 0;
+      DETALLE_MESA_04.estado = 'libre';
+    }
+
+    const mesaIdx = MESAS_SALON_MOCK.findIndex((m) => m.id === mesaId);
+    if (mesaIdx >= 0) {
+      if (mesaId !== 'mesa-04') {
+        totalAnulado = MESAS_SALON_MOCK[mesaIdx].total_consumo || 85.0;
+        itemsTotal = 3;
+      }
+      MESAS_SALON_MOCK[mesaIdx] = {
+        ...MESAS_SALON_MOCK[mesaIdx],
+        estado: 'libre',
+        total_consumo: 0,
+        platos_en_cocina: 0,
+        platos_listos: 0,
+        despacho_directo_pendiente: 0,
+      };
+    }
+
+    // Limpiar subcuentas de la mesa
+    delete SUBCUENTAS_POR_MESA_MOCK[mesaId];
+
+    // Log simulado de auditoría inmutable
+    console.info(
+      `[AUDITORÍA CU-MOZO-06] Comanda cancelada en mesa ${mesaId}. Motivo: ${request.motivo_categoria} - "${request.motivo_detalle}". Confirmado desocupado: ${request.confirmar_vacio}`
+    );
+
+    return {
+      exito: true,
+      datos: {
+        pedido_id: 'ped-149',
+        mesa_id: mesaId,
+        mesa_numero: mesaIdx >= 0 ? MESAS_SALON_MOCK[mesaIdx].numero : '04',
+        mesa_estado: 'libre',
+        total_anulado: totalAnulado,
+        items_total: itemsTotal,
+        mensaje: `Comanda de Mesa ${mesaIdx >= 0 ? MESAS_SALON_MOCK[mesaIdx].numero : '04'} anulada por completo (${request.motivo_categoria}). Mesa liberada y pedidos cancelados en KDS.`,
+        anulado_at: new Date().toISOString(),
+      },
+    };
+  },
+
+  /**
+   * ==========================================================================
+   * MÉTODOS CU-MOZO-05: GESTIÓN DE RESERVAS Y RECEPCIÓN EN SALÓN
+   * ==========================================================================
+   */
+
+  /**
+   * Políticas de reserva configuradas en sede
+   */
+  async obtenerPoliticasReserva(): Promise<ApiResponse<PoliticasReservaDTO>> {
+    return {
+      exito: true,
+      datos: POLITICAS_RESERVA_MOCK,
+    };
+  },
+
+  /**
+   * Obtiene la bandeja de reservas del turno/fecha activa
+   */
+  async obtenerReservas(
+    fecha?: string,
+    turno: 'almuerzo' | 'cena' = 'almuerzo'
+  ): Promise<ApiResponse<ReservaCardDTO[]>> {
+    await new Promise((res) => setTimeout(res, 180));
+    let lista = [...RESERVAS_MOCK];
+    if (fecha) {
+      lista = lista.filter((r) => !fecha || r.fecha_hora.startsWith(fecha) || true);
+    }
+    if (turno === 'cena') {
+      return {
+        exito: true,
+        datos: lista.filter((r) => parseInt(r.hora_texto.split(':')[0]) >= 19),
+      };
+    }
+    return {
+      exito: true,
+      datos: lista.filter((r) => parseInt(r.hora_texto.split(':')[0]) < 19),
+    };
+  },
+
+  /**
+   * Consulta disponibilidad espacial de mesas para el Mini-Mapa 5x2
+   */
+  async obtenerMesasDisponiblesReserva(
+    fecha: string,
+    hora: string,
+    comensales: number
+  ): Promise<ApiResponse<MesasDisponiblesResponseDTO>> {
+    await new Promise((res) => setTimeout(res, 120));
+
+    // Mapea las 10 mesas del Salón Principal con disponibilidad en esa franja
+    const mesasMapa: MesaDisponibleReservaDTO[] = MESAS_SALON_MOCK.map((m) => {
+      let disponible = true;
+      let motivoBloqueo: string | null = null;
+
+      // Mesas 02, 03, 04, 06 tienen ocupación o reserva en horarios próximos
+      if (['mesa-02', 'mesa-03', 'mesa-04', 'mesa-06'].includes(m.id)) {
+        disponible = false;
+        motivoBloqueo = 'Ocupada 13:30-15:00';
+      } else if (m.capacidad < comensales && !m.permite_union) {
+        disponible = false;
+        motivoBloqueo = `Capacidad insuficiente (${m.capacidad}p)`;
+      }
+
+      return {
+        mesa_id: m.id,
+        numero: m.numero,
+        capacidad: m.capacidad,
+        disponible,
+        permite_union: m.permite_union,
+        motivo_bloqueo: motivoBloqueo,
+      };
+    });
+
+    return {
+      exito: true,
+      datos: {
+        fecha_hora_solicitada: `${fecha}T${hora}:00Z`,
+        num_personas: comensales,
+        mesas: mesasMapa,
+      },
+    };
+  },
+
+  /**
+   * Registra nueva reserva con mesa(s) asignada(s)
+   */
+  async crearReserva(
+    payload: CrearReservaRequestDTO
+  ): Promise<ApiResponse<ReservaCardDTO>> {
+    await new Promise((res) => setTimeout(res, 250));
+
+    const numeros = payload.mesa_ids.map((id) => {
+      const encontrada = MESAS_SALON_MOCK.find((m) => m.id === id);
+      return encontrada ? encontrada.numero : id;
+    });
+
+    const mesasEtiqueta =
+      numeros.length > 1
+        ? `Mesa [ ${numeros.join(' ; ')} ]`
+        : `Mesa ${numeros[0] || '08'}`;
+
+    const horaTexto = payload.fecha_hora.includes('T')
+      ? payload.fecha_hora.split('T')[1].substring(0, 5)
+      : '14:00';
+
+    const nuevaReserva: ReservaCardDTO = {
+      id: `res-${Date.now()}`,
+      cliente_nombre: payload.cliente_nombre,
+      cliente_telefono: payload.cliente_telefono,
+      fecha_hora: payload.fecha_hora,
+      hora_texto: horaTexto,
+      minutos_restantes: 45,
+      num_personas: payload.num_personas,
+      mesas_etiqueta: mesasEtiqueta,
+      mesa_ids: payload.mesa_ids,
+      estado: 'confirmada',
+      notas: payload.notas || null,
+      en_tolerancia: false,
+      tolerancia_expiro: false,
+      created_at: new Date().toISOString(),
+    };
+
+    RESERVAS_MOCK.unshift(nuevaReserva);
+
+    return {
+      exito: true,
+      datos: nuevaReserva,
+    };
+  },
+
+  /**
+   * Sentar comensales, pasar reserva a atendida y abrir comanda
+   */
+  async sentarReserva(
+    reservaId: string
+  ): Promise<ApiResponse<SentarReservaResponseDTO>> {
+    await new Promise((res) => setTimeout(res, 200));
+
+    const reserva = RESERVAS_MOCK.find((r) => r.id === reservaId);
+    if (reserva) {
+      reserva.estado = 'atendida';
+      reserva.pedido_id = `ped-${Date.now().toString().slice(-3)}`;
+    }
+
+    const mesaPrincipalId = reserva?.mesa_ids[0] || 'mesa-08';
+    const mesaIdx = MESAS_SALON_MOCK.findIndex((m) => m.id === mesaPrincipalId);
+    if (mesaIdx >= 0) {
+      MESAS_SALON_MOCK[mesaIdx] = {
+        ...MESAS_SALON_MOCK[mesaIdx],
+        estado: 'ocupada',
+        pedido_id: reserva?.pedido_id || 'ped-155',
+        comensales_sentados: reserva?.num_personas || 4,
+        minutos_ocupada: 1,
+        total_consumo: 0,
+        mozo_id: MOZO_ACTUAL.id,
+        mozo_nombre: MOZO_ACTUAL.nombre,
+        es_mi_mesa: true,
+      };
+    }
+
+    return {
+      exito: true,
+      datos: {
+        reserva_id: reservaId,
+        mesa_id: mesaPrincipalId,
+        pedido_id: reserva?.pedido_id || 'ped-155',
+        mensaje: `Comensales de ${reserva?.cliente_nombre || 'la reserva'} recibidos exitosamente. Mesa ${mesaIdx >= 0 ? MESAS_SALON_MOCK[mesaIdx].numero : '08'} ocupada y comanda abierta.`,
+      },
+    };
+  },
+
+  /**
+   * Registrar inasistencia (No-Show) y liberar mesa(s) inmediatamente
+   */
+  async registrarNoShow(
+    reservaId: string,
+    request?: RegistrarNoShowRequestDTO | string
+  ): Promise<ApiResponse<{ reservaId: string; mesaLiberada: boolean; mensaje: string }>> {
+    await new Promise((res) => setTimeout(res, 200));
+
+    const motivo = typeof request === 'string' ? request : request?.motivo_inasistencia;
+    const reserva = RESERVAS_MOCK.find((r) => r.id === reservaId);
+    if (reserva) {
+      reserva.estado = 'no_show';
+      reserva.notas = `${reserva.notas ? reserva.notas + ' | ' : ''}Inasistencia registrada: ${motivo || 'Cliente no se presentó tras ventana de cortesía'}`;
+
+      reserva.mesa_ids.forEach((id) => {
+        const mesaIdx = MESAS_SALON_MOCK.findIndex((m) => m.id === id);
+        if (mesaIdx >= 0) {
+          MESAS_SALON_MOCK[mesaIdx] = {
+            ...MESAS_SALON_MOCK[mesaIdx],
+            estado: 'libre',
+            reserva_cliente: null,
+            reserva_hora: null,
+            minutos_para_reserva: null,
+          };
+        }
+      });
+    }
+
+    return {
+      exito: true,
+      datos: {
+        reservaId,
+        mesaLiberada: true,
+        mensaje: `Inasistencia registrada para ${reserva?.cliente_nombre || 'la reserva'}. Mesa ${reserva?.mesas_etiqueta || '08'} liberada a verde LIBRE.`,
+      },
+    };
+  },
+
+  /**
+   * Cancelar reserva anticipada con motivo obligatorio
+   */
+  async cancelarReserva(
+    reservaId: string,
+    request: CancelarReservaRequestDTO | string
+  ): Promise<ApiResponse<{ reservaId: string; mensaje: string }>> {
+    await new Promise((res) => setTimeout(res, 180));
+
+    const motivo = typeof request === 'string' ? request : request.motivo_cancelacion;
+    const reserva = RESERVAS_MOCK.find((r) => r.id === reservaId);
+    if (reserva) {
+      reserva.estado = 'cancelada';
+      reserva.notas = `${reserva.notas ? reserva.notas + ' | ' : ''}Cancelada: ${motivo}`;
+
+      reserva.mesa_ids.forEach((id) => {
+        const mesaIdx = MESAS_SALON_MOCK.findIndex((m) => m.id === id);
+        if (mesaIdx >= 0 && MESAS_SALON_MOCK[mesaIdx].estado === 'bloqueada') {
+          MESAS_SALON_MOCK[mesaIdx] = {
+            ...MESAS_SALON_MOCK[mesaIdx],
+            estado: 'libre',
+            reserva_cliente: null,
+            reserva_hora: null,
+            minutos_para_reserva: null,
+          };
+        }
+      });
+    }
+
+    return {
+      exito: true,
+      datos: {
+        reservaId,
+        mensaje: `Reserva de ${reserva?.cliente_nombre || 'comensal'} cancelada correctamente.`,
+      },
+    };
+  },
+
+  /**
+   * Reasignar mesa de una reserva (evitar sobreasignación)
+   */
+  async reasignarMesaReserva(
+    reservaId: string,
+    request: ReasignarMesaReservaRequestDTO | string,
+    motivoOpcional?: string
+  ): Promise<ApiResponse<ReservaCardDTO>> {
+    await new Promise((res) => setTimeout(res, 200));
+
+    const nuevaMesaId = typeof request === 'string' ? request : request.nueva_mesa_id;
+    const motivo = typeof request === 'string' ? motivoOpcional : request.motivo || motivoOpcional;
+
+    const reserva = RESERVAS_MOCK.find((r) => r.id === reservaId);
+    if (!reserva) {
+      throw new Error('Reserva no encontrada');
+    }
+
+    const nuevaMesa = MESAS_SALON_MOCK.find((m) => m.id === nuevaMesaId);
+    const etiqueta = nuevaMesa ? `Mesa ${nuevaMesa.numero}` : 'Mesa 05';
+
+    // Desvincular mesa anterior
+    reserva.mesa_ids.forEach((id) => {
+      const oldIdx = MESAS_SALON_MOCK.findIndex((m) => m.id === id);
+      if (oldIdx >= 0 && MESAS_SALON_MOCK[oldIdx].estado === 'bloqueada') {
+        MESAS_SALON_MOCK[oldIdx] = {
+          ...MESAS_SALON_MOCK[oldIdx],
+          estado: 'libre',
+          reserva_cliente: null,
+          reserva_hora: null,
+          minutos_para_reserva: null,
+        };
+      }
+    });
+
+    // Asignar nueva mesa
+    reserva.mesa_ids = [nuevaMesaId];
+    reserva.mesas_etiqueta = etiqueta;
+    if (motivo) {
+      reserva.notas = `${reserva.notas ? reserva.notas + ' | ' : ''}Reasignación: ${motivo}`;
+    }
+
+    const newIdx = MESAS_SALON_MOCK.findIndex((m) => m.id === nuevaMesaId);
+    if (newIdx >= 0) {
+      MESAS_SALON_MOCK[newIdx] = {
+        ...MESAS_SALON_MOCK[newIdx],
+        estado: 'bloqueada',
+        reserva_cliente: reserva.cliente_nombre,
+        reserva_hora: reserva.hora_texto,
+        minutos_para_reserva: 20,
+      };
+    }
+
+    return {
+      exito: true,
+      datos: reserva,
+    };
+  },
 };
+
+const POLITICAS_RESERVA_MOCK: PoliticasReservaDTO = {
+  duracion_reserva_min: 90,
+  buffer_reserva_min: 15,
+  minutos_bloqueo_previo: 30,
+  tolerancia_no_show_min: 15,
+  permite_reservas_online: false,
+  max_dias_anticipacion: 30,
+};
+
+let RESERVAS_MOCK: ReservaCardDTO[] = [
+  {
+    id: 'res-001',
+    cliente_nombre: 'Dr. Alva',
+    cliente_telefono: '+51 912 345 678',
+    fecha_hora: '2026-10-09T13:00:00Z',
+    hora_texto: '13:00',
+    minutos_restantes: -60,
+    num_personas: 2,
+    mesas_etiqueta: 'Mesa 04',
+    mesa_ids: ['mesa-04'],
+    estado: 'atendida',
+    notas: 'Cliente habitual, prefiere mesa junto a ventana.',
+    en_tolerancia: false,
+    tolerancia_expiro: true,
+    pedido_id: 'ped-149',
+    created_at: '2026-10-08T18:00:00Z',
+  },
+  {
+    id: 'res-002',
+    cliente_nombre: 'Sra. Mendoza',
+    cliente_telefono: '+51 945 678 123',
+    fecha_hora: '2026-10-09T13:15:00Z',
+    hora_texto: '13:15',
+    minutos_restantes: -45,
+    num_personas: 4,
+    mesas_etiqueta: 'Mesa 06',
+    mesa_ids: ['mesa-06'],
+    estado: 'atendida',
+    notas: 'Almuerzo familiar.',
+    en_tolerancia: false,
+    tolerancia_expiro: true,
+    pedido_id: 'ped-150',
+    created_at: '2026-10-08T19:20:00Z',
+  },
+  {
+    id: 'res-003',
+    cliente_nombre: 'Carlos R. (Grupo)',
+    cliente_telefono: '+51 988 112 233',
+    fecha_hora: '2026-10-09T13:30:00Z',
+    hora_texto: '13:30',
+    minutos_restantes: -30,
+    num_personas: 8,
+    mesas_etiqueta: 'Mesa [ 02 ; 03 ]',
+    mesa_ids: ['mesa-02', 'mesa-03'],
+    estado: 'atendida',
+    notas: 'Reserva grupal ejecutiva.',
+    en_tolerancia: false,
+    tolerancia_expiro: true,
+    pedido_id: 'ped-148',
+    created_at: '2026-10-09T09:10:00Z',
+  },
+  {
+    id: 'res-004',
+    cliente_nombre: 'Ing. Paredes',
+    cliente_telefono: '+51 977 443 322',
+    fecha_hora: '2026-10-09T13:45:00Z',
+    hora_texto: '13:45',
+    minutos_restantes: -15,
+    num_personas: 2,
+    mesas_etiqueta: 'Mesa 01',
+    mesa_ids: ['mesa-01'],
+    estado: 'no_show',
+    notas: 'Cliente no se presentó tras 15 minutos de cortesía. Mesa liberada.',
+    en_tolerancia: false,
+    tolerancia_expiro: true,
+    created_at: '2026-10-09T10:00:00Z',
+  },
+  {
+    id: 'res-005',
+    cliente_nombre: 'Fam. Gómez',
+    cliente_telefono: '+51 987 654 321',
+    fecha_hora: '2026-10-09T14:00:00Z',
+    hora_texto: '14:00',
+    minutos_restantes: 20,
+    num_personas: 4,
+    mesas_etiqueta: 'Mesa 08',
+    mesa_ids: ['mesa-08'],
+    estado: 'bloqueada',
+    notas: 'Viene con niño pequeño, requiere silla alta.',
+    en_tolerancia: true,
+    tolerancia_expiro: false,
+    created_at: '2026-10-09T11:15:00Z',
+  },
+  {
+    id: 'res-006',
+    cliente_nombre: 'Lucía Benítez',
+    cliente_telefono: '+51 933 221 144',
+    fecha_hora: '2026-10-09T14:15:00Z',
+    hora_texto: '14:15',
+    minutos_restantes: 35,
+    num_personas: 3,
+    mesas_etiqueta: 'Mesa 05',
+    mesa_ids: ['mesa-05'],
+    estado: 'confirmada',
+    notas: 'Mesa tranquila para reunión de trabajo.',
+    en_tolerancia: false,
+    tolerancia_expiro: false,
+    created_at: '2026-10-09T11:45:00Z',
+  },
+  {
+    id: 'res-007',
+    cliente_nombre: 'Roberto Chang',
+    cliente_telefono: '+51 966 554 433',
+    fecha_hora: '2026-10-09T14:30:00Z',
+    hora_texto: '14:30',
+    minutos_restantes: 50,
+    num_personas: 6,
+    mesas_etiqueta: 'Mesa [ 09 ; 10 ]',
+    mesa_ids: ['mesa-09', 'mesa-10'],
+    estado: 'confirmada',
+    notas: 'Celebración de cumpleaños corporativo.',
+    en_tolerancia: false,
+    tolerancia_expiro: false,
+    created_at: '2026-10-09T12:00:00Z',
+  },
+  {
+    id: 'res-008',
+    cliente_nombre: 'Patricia Vega',
+    cliente_telefono: '+51 955 778 899',
+    fecha_hora: '2026-10-09T15:00:00Z',
+    hora_texto: '15:00',
+    minutos_restantes: 80,
+    num_personas: 2,
+    mesas_etiqueta: 'Mesa 07',
+    mesa_ids: ['mesa-07'],
+    estado: 'confirmada',
+    notas: 'Aniversario de bodas, mesa discreta.',
+    en_tolerancia: false,
+    tolerancia_expiro: false,
+    created_at: '2026-10-09T12:30:00Z',
+  },
+];
 
 const PROMOCIONES_SEDE_MOCK: PromocionSedeDTO[] = [
   {

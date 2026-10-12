@@ -13,6 +13,7 @@ import { ComprobanteDigitalPage } from '@/modules/cliente/pages/ComprobanteDigit
 import { MozoMesasPage } from '@/modules/mozo/pages/MozoMesasPage';
 import { MozoComandaPage } from '@/modules/mozo/pages/MozoComandaPage';
 import { MozoPrecuentaPage } from '@/modules/mozo/pages/MozoPrecuentaPage';
+import { MozoReservasPage } from '@/modules/mozo/pages/MozoReservasPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
@@ -306,16 +307,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'reservas',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-MOZO-05"
-            nombrePantalla="Gestión de Reservas del Turno"
-            rol="mozo"
-            layoutNombre="TerminalLayout"
-            descripcion="Consulta de clientes con reserva para el turno actual y asignación directa a mesas disponibles."
-            viewportSugerido="mobile"
-          />
-        ),
+        element: <MozoReservasPage />,
       },
     ],
   },

@@ -141,15 +141,22 @@ export const MesaCard: React.FC<MesaCardProps> = ({
           </div>
           <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-500 text-slate-900 shadow-sm flex items-center gap-1">
             <Clock className="w-3 h-3" />
-            CUENTA PEDIDA
+            {mesa.es_cuenta_dividida ? `DIVIDIDA (${mesa.partes_subcuentas || 2})` : 'CUENTA PEDIDA'}
           </span>
         </div>
 
         <div className="my-1 text-center bg-white/90 p-2 rounded-lg border border-amber-300/80">
-          <div className="text-[11px] text-slate-500">Espera en Caja POS:</div>
+          <div className="text-[11px] text-slate-500">
+            {mesa.es_cuenta_dividida ? 'Espera en Caja (Dividida):' : 'Espera en Caja POS:'}
+          </div>
           <div className="font-serif text-lg font-bold text-slate-900">
             S/ {total_consumo?.toFixed(2) || '0.00'}
           </div>
+          {mesa.es_cuenta_dividida && (
+            <div className="mt-1 text-[10px] font-bold text-amber-800 bg-amber-100 rounded px-1.5 py-0.5">
+              ➗ {mesa.partes_subcuentas || 2} comprobantes
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between text-[11px] text-amber-900 font-medium pt-1">

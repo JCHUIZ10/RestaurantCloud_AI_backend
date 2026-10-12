@@ -1,5 +1,7 @@
 import React from 'react';
-import { LayoutGrid, Wifi, Filter, UtensilsCrossed } from 'lucide-react';
+import { LayoutGrid, Wifi, Filter, UtensilsCrossed, Calendar } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ROUTES } from '@/router/routes.constants';
 import { PisoAmbienteDTO } from '@/types/mozo';
 
 export type FiltroMesaTipo = 'todas' | 'mis_mesas' | 'libres' | 'ocupadas';
@@ -88,6 +90,15 @@ export const SalonHeaderMozo: React.FC<SalonHeaderMozoProps> = ({
             <Wifi className="w-3 h-3" />
             <span>SSE Activo</span>
           </div>
+
+          <Link
+            to={ROUTES.MOZO_RESERVAS}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-300 font-bold text-xs transition-colors shadow-2xs"
+            title="Ver bandeja de reservas del turno (CU-MOZO-05)"
+          >
+            <Calendar className="w-3.5 h-3.5 text-sky-600" />
+            <span>📅 Reservas (8)</span>
+          </Link>
         </div>
       </div>
 

@@ -51,6 +51,10 @@ export interface MesaCardDTO {
   reserva_cliente?: string | null;
   reserva_hora?: string | null;
   minutos_para_reserva?: number | null;
+
+  // Atributos de división de cuenta (CU-MOZO-09)
+  es_cuenta_dividida?: boolean;
+  partes_subcuentas?: number;
 }
 
 /**
@@ -171,6 +175,9 @@ export interface MesaDetalleMozoDTO {
   es_mesa_unida?: boolean;
   mesa_principal_id?: string | null;
   mesas_agrupadas_detalle?: string | null;
+  es_cuenta_dividida?: boolean;
+  partes_subcuentas?: number;
+  subcuentas_resumen?: SubcuentaResumenDTO[];
 }
 
 /**
@@ -433,5 +440,236 @@ export interface ValidacionSeparacionMesaDTO {
     capacidad: number;
     rol: 'titular' | 'secundaria';
   }[];
+}
+
+/**
+ * ============================================================================
+ * DTOs para CU-MOZO-09: Subdividir Comanda en Mesa (Split de Comprobantes)
+ * ============================================================================
+ */
+
+export type TipoComprobanteSplit = 'boleta' | 'factura' | 'nota_venta';
+
+export interface ItemParaDividirDTO {
+  id: string;
+  pedido_item_id: string;
+  producto_id: string;
+  nombre: string;
+  nota_cocina?: string | null;
+  cantidad: number;
+  precio_unitario: number;
+  subtotal: number;
+  subcuenta_asignada_id?: string | null;
+}
+
+export interface SubcuentaConfigDTO {
+  id: string;
+  numero_subcuenta: number;
+  nombre_referencia: string;
+  items: ItemParaDividirDTO[];
+  tipo_comprobante: TipoComprobanteSplit;
+  documento_cliente?: string | null; // RUC o DNI
+  nombre_cliente: string; // Razón social o Nombre comensal
+  direccion_cliente?: string | null;
+  consumidor_final_sin_doc?: boolean;
+  promocion_id?: string | null;
+  medio_pago: CodigoMetodoPago;
+  subtotal_bruto: number;
+  descuento: number;
+  monto_recargo: number;
+  total_neto: number;
+  base_imponible: number;
+  igv: number;
+}
+
+export interface ItemsParaDividirResponseDTO {
+  pedido_id: string;
+  mesa_id: string;
+  mesa_numero: string;
+  comensales: number;
+  total_bruto: number;
+  items: ItemParaDividirDTO[];
+}
+
+export interface SubcuentaResumenDTO {
+  id: string;
+  numero: number;
+  nombre_referencia: string;
+  tipo_comprobante: TipoComprobanteSplit;
+  cliente: string;
+  documento?: string | null;
+  medio_pago: CodigoMetodoPago;
+  total: number;
+  total_items: number;
+  estado: 'pendiente' | 'cobrado';
+}
+
+export interface DividirCuentaRequestDTO {
+  mesa_id: string;
+  pedido_id: string;
+  subcuentas: SubcuentaConfigDTO[];
+}
+
+export interface DividirCuentaResponseDTO {
+  status: 'success' | 'error';
+  mesa_id: string;
+  mesa_numero: string;
+  estado_mesa: 'cuenta_pedida';
+  partes: number;
+  total_bruto: number;
+  total_neto: number;
+  mensaje: string;
+  subcuentas_resumen: SubcuentaResumenDTO[];
+}
+
+export interface ConsultaRucResponseDTO {
+  ruc: string;
+  razon_social: string;
+  direccion: string;
+  estado: string;
+  condicion: string;
+}
+
+export interface ConsultaDniResponseDTO {
+  dni: string;
+  nombre_completo: string;
+}
+
+/**
+ * ============================================================================
+ * CU-MOZO-06: ANULAR PEDIDO (O ÍTEM DE PEDIDO) CON MOTIVO Y CONTROL DE MERMA
+ * ============================================================================
+ */
+
+export type MotivoCategoriaItem =
+  | 'error_toma'
+  | 'demora_cliente'
+  | 'queja_calidad'
+  | 'cambio_plato'
+  | 'plato_caido'
+  | 'contaminacion'
+  | 'otro';
+
+export type MotivoCategoriaComanda =
+  | 'retiro_sin_consumo'
+  | 'error_apertura'
+  | 'reclamo_general'
+  | 'emergencia'
+  | 'otro';
+
+export interface AnularItemRequestDTO {
+  motivo_categoria: MotivoCategoriaItem;
+  motivo_detalle: string;
+}
+
+export interface AnularPedidoCompletoRequestDTO {
+  motivo_categoria: MotivoCategoriaComanda;
+  motivo_detalle: string;
+  confirmar_vacio: boolean;
+}
+
+export interface ItemAnuladoResponseDTO {
+  item_id: string;
+  pedido_id: string;
+  mesa_id: string;
+  mesa_numero: string;
+  producto_nombre: string;
+  cantidad: number;
+  estado_anterior: EstadoItemCocina;
+  es_merma: boolean;
+  nuevo_subtotal: number;
+  mesa_liberada: boolean;
+  mensaje: string;
+  anulado_at: string;
+}
+
+export interface PedidoAnuladoResponseDTO {
+  pedido_id: string;
+  mesa_id: string;
+  mesa_numero: string;
+  mesa_estado: 'libre';
+  total_anulado: number;
+  items_total: number;
+  mensaje: string;
+  anulado_at: string;
+}
+
+/**
+ * ============================================================================
+ * CU-MOZO-05: GESTIONAR RESERVAS Y RECEPCIÓN EN SALÓN
+ * ============================================================================
+ */
+
+export type EstadoReserva = 'confirmada' | 'bloqueada' | 'atendida' | 'cancelada' | 'no_show';
+
+export interface PoliticasReservaDTO {
+  duracion_reserva_min: number;
+  buffer_reserva_min: number;
+  minutos_bloqueo_previo: number;
+  tolerancia_no_show_min: number;
+  permite_reservas_online: boolean;
+  max_dias_anticipacion: number;
+}
+
+export interface ReservaCardDTO {
+  id: string;
+  cliente_nombre: string;
+  cliente_telefono: string;
+  fecha_hora: string; // ISO 8601
+  hora_texto: string; // "14:00"
+  minutos_restantes: number; // Negativo si hay retraso
+  num_personas: number;
+  mesas_etiqueta: string; // "Mesa 08" o "Mesa [ 02 ; 03 ]"
+  mesa_ids: string[];
+  estado: EstadoReserva;
+  notas?: string | null;
+  en_tolerancia: boolean;
+  tolerancia_expiro: boolean;
+  pedido_id?: string | null;
+  created_at: string;
+}
+
+export interface MesaDisponibleReservaDTO {
+  mesa_id: string;
+  numero: string;
+  capacidad: number;
+  disponible: boolean;
+  permite_union: boolean;
+  motivo_bloqueo?: string | null; // "Ocupada 13:30-15:00", "Capacidad insuficiente"
+}
+
+export interface MesasDisponiblesResponseDTO {
+  fecha_hora_solicitada: string;
+  num_personas: number;
+  mesas: MesaDisponibleReservaDTO[];
+}
+
+export interface CrearReservaRequestDTO {
+  cliente_nombre: string;
+  cliente_telefono: string;
+  fecha_hora: string;
+  num_personas: number;
+  mesa_ids: string[];
+  notas?: string | null;
+}
+
+export interface SentarReservaResponseDTO {
+  reserva_id: string;
+  mesa_id: string;
+  pedido_id: string;
+  mensaje: string;
+}
+
+export interface RegistrarNoShowRequestDTO {
+  motivo_inasistencia?: string;
+}
+
+export interface CancelarReservaRequestDTO {
+  motivo_cancelacion: string;
+}
+
+export interface ReasignarMesaReservaRequestDTO {
+  nueva_mesa_id: string;
+  motivo?: string;
 }
 

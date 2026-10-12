@@ -15,7 +15,7 @@
 | **Plataforma Pública & SaaS B2B** | 1 (Landing) | 1 | 0 | 100% |
 | **Cliente / Comensal QR** | 2 | 2 | 0 | 100% |
 | **Autenticación & Usuarios** | 3 | 1 | 2 | 33% |
-| **Salón & Mozo** | 8 | 4 | 4 | 50% |
+| **Salón & Mozo** | 8 | 6 | 2 | 75% |
 | **Cocina (KDS)** | 4 | 0 | 4 | 0% |
 | **Caja & Cobranza** | 5 | 0 | 5 | 0% |
 | **Administración Local** | 10 | 0 | 10 | 0% |
@@ -178,6 +178,51 @@
 
 ---
 
+### 2.9 `CU-MOZO-09`: Dividir Cuenta en Mesa (Split de Comprobantes: Factura, Boleta, Nota de Venta)
+- **Ruta Activa:** `/mozo/mesas` (Lanzable desde el Quick-Drawer `[ ➗ Dividir Cuenta ]` y widget flotante)
+- **Componentes Creados:**
+  - [`ModalDividirCuenta.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/split/ModalDividirCuenta.tsx): Modal orquestador wizard táctil de 1100px con control de flujo por pasos (Paso 1: Asignación Determinista Cero Azar, Paso 2: Configuración Tributaria y Promociones) y botón de envío seguro a Caja POS.
+  - [`Paso1AsignacionItems.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/split/Paso1AsignacionItems.tsx): Bandeja de ítems no asignados, barra de progreso "Cero Azar" (exige 100% de asignación sin huérfanos), desglose táctil de unidades (`[ ✂ Desglosar Unidades ]` para dividir 2 platos de S/ 38 en 2 filas individuales de 1 unidad), tarjetas de subcuentas interactivas y dock de transferencia rápida.
+  - [`Paso2ConfiguracionComprobantes.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/split/Paso2ConfiguracionComprobantes.tsx): Configuración tributaria autónoma por comensal:
+    - **Factura:** Validación de RUC (11 dígitos) y botón de consulta en línea SUNAT (`[ 🔍 SUNAT ]`), autocompletando Razón Social y Domicilio Fiscal.
+    - **Boleta:** Validación de DNI (8 dígitos) con consulta RENIEC (`[ 🔍 RENIEC ]`), autocompletando Nombre Completo, y checkbox para "Consumidor Final sin documento" (< S/ 700.00).
+    - **Nota de Venta:** Control interno no fiscal que solicita únicamente Nombre del Cliente sin reportes tributarios.
+    - **Promociones Comerciales (`CU-ADMIN-17`):** Descuentos aplicados de manera independiente por subcuenta.
+    - **Pasarela de Pago:** Efectivo (0%), Tarjeta POS (+3.5%), Billetera Digital Yape/Plin (0%).
+  - [`MesaInspeccionDrawer.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/MesaInspeccionDrawer.tsx): Integración completa para abrir el wizard con `onAbrirModalDividir` y visualización del desglose de subcuentas enviadas a caja (`⏳ Esperando cobro en POS de Caja`).
+  - [`MesaCard.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/MesaCard.tsx): Badge específico `[DIVIDIDA (2)]` en estado `cuenta_pedida` con contador de comprobantes.
+- **Servicios y DTOs:**
+  - [`mockMozoService.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/services/mockMozoService.ts): `obtenerItemsParaDividir`, `consultarRuc`, `consultarDni`, `dividirCuentaMesa`, persistencia de subcuentas y enriquecimiento en `obtenerDetalleMesa`.
+  - [`src/types/mozo.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/mozo.ts): `TipoComprobanteSplit`, `ItemParaDividirDTO`, `SubcuentaConfigDTO`, `ItemsParaDividirResponseDTO`, `SubcuentaResumenDTO`, `DividirCuentaRequestDTO`, `DividirCuentaResponseDTO`, `ConsultaRucResponseDTO`, `ConsultaDniResponseDTO`.
+- **Responsive:**
+  - Pantallas $\ge 1024\text{px}$: Layout dual de alta densidad para tablets y terminales táctiles de salón.
+  - Móvil: Layout apilado vertical con zonas de pulsación $\ge 44\text{px}$ sin dead-ends.
+- **Estado de Build:** ✅ Compilado y probado en producción con 0 errores (`npm run build`).
+
+---
+
+### 2.10 `CU-MOZO-06`: Anular Pedido (o Ítem de Pedido) con Motivo y Control de Merma
+- **Ruta Activa:** `/mozo/mesas` (Acciones en Quick-Drawer `[ ✕ Anular plato ]`, `[ ⚠️ Anular Comanda Completa ]` y widget flotante)
+- **Componentes Creados:**
+  - [`ModalAnularItem.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/anulacion/ModalAnularItem.tsx): Modal táctil de 530px adaptativo que unifica las Vistas 2 y 4:
+    - **Modo KDS (Platos en preparación/cola/listo):** Alerta sonora y visual instantánea para frenar la cocción en fogones KDS, chips táctiles de motivos frecuentes (`[ Error al registrar ]`, `[ Cliente desistió por demora ]`, `[ Queja de calidad ]`, `[ Cambio de plato ]`) y marca `es_merma = false`.
+    - **Modo Merma (Platos entregados/servidos en mesa):** Tratamiento contable de inventario con badge `[es_merma = true]`, explicación didáctica de que **no se revertirá el stock físico** para no distorsionar recetas (`CU-ADMIN-05`), y chips de causas de merma (`[ Queja de cliente / Devolución ]`, `[ Plato caído / sala ]`, etc.).
+    - Validación obligatoria de justificación descriptiva ($\ge 10\text{ caracteres}$) con contador en vivo.
+    - Anulación inmediata sin clave gerencial para prevenir cuellos de botella operativos en salón.
+  - [`ModalAnularComandaTotal.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/anulacion/ModalAnularComandaTotal.tsx): Modal de alta advertencia de 550px (Vista 3) para situaciones extraordinarias (abandono del local, error de apertura o emergencia):
+    - Explica la repercusión directa: cancelación de todos los pedidos en KDS/Caja y **liberación automática de la mesa a LIBRE**.
+    - Chips de motivos de salón (`[ Grupo se retiró sin consumir ]`, `[ Error de apertura ]`, `[ Emergencia salón ]`).
+    - Casilla de verificación obligatoria `[✓] Confirmo que la Mesa queda desocupada y los pedidos cancelados en KDS`.
+    - Justificación obligatoria ($\ge 10\text{ caracteres}$) y botón destructivo `[ 🛑 Anular y Liberar Mesa ]`.
+  - [`MesaInspeccionDrawer.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/MesaInspeccionDrawer.tsx): Botón `[ ✕ Anular plato ]` / `[ ✕ Anular producto ]` en cada ítem con indicador de merma contable, y botón destructivo `[ ⚠️ Anular Comanda Completa de Mesa XX ]` en la barra inferior.
+- **Servicios y DTOs:**
+  - [`mockMozoService.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/services/mockMozoService.ts): `anularItemComanda` (evaluación de `es_merma`, recálculo dinámico de subtotal y liberación automática si la mesa queda sin platos), `anularComandaCompleta` (cancelación de todos los pedidos y conmutación a libre), y registro simulado en `log_auditoria`.
+  - [`src/types/mozo.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/mozo.ts): `MotivoCategoriaItem`, `MotivoCategoriaComanda`, `AnularItemRequestDTO`, `AnularPedidoCompletoRequestDTO`, `ItemAnuladoResponseDTO`, `PedidoAnuladoResponseDTO`.
+- **Responsive:** Modales centrados con áreas táctiles $\ge 44\text{px}$, contraste accesible WCAG 2.1 AA y scroll ergonómico en smartphones.
+- **Estado de Build:** ✅ Compilado y probado en producción con 0 errores (`npm run build`).
+
+---
+
 ## 3. Infraestructura y Arquitectura Base Completada
 
 - **Enrutador React Router DOM v6:** [`src/router/index.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/router/index.tsx) con rutas centralizadas en [`src/router/routes.constants.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/router/routes.constants.ts).
@@ -192,13 +237,41 @@
 
 ## 4. Backlog Priorizado de Próximos Casos de Uso (Roadmap)
 
-Con **`CU-MOZO-01`** (Salón y Despacho), **`CU-MOZO-02`** (Comanda Móvil), **`CU-MOZO-08`** (Precuenta Digital en Mesa) y **`CU-MOZO-04`** (Unir o Dividir Mesas en Salón) completados, las siguientes opciones de implementación son:
+Con **`CU-MOZO-01`** (Salón y Despacho), **`CU-MOZO-02`** (Comanda Móvil), **`CU-MOZO-08`** (Precuenta Digital), **`CU-MOZO-04`** (Unir o Dividir Mesas), **`CU-MOZO-09`** (Dividir Cuenta) y **`CU-MOZO-06`** (Anular Pedido o Ítem con Merma) completados:
 
-### 🟡 Opción A: Continuar el Circuito Operativo de Salón (Mozo)
-1. **`CU-MOZO-09`: Dividir Cuenta en Mesa (Split de Comprobantes: Factura, Boleta, Nota de Venta)**
-   - **Rutas:** `/mozo/mesas/:mesaId/split` o modal accesible desde el Quick-Drawer (`[ ➗ Dividir Cuenta ]`) y Precuenta Digital (`CU-MOZO-08`).
-   - **Wireframe Canónico:** `wireframe/mozo/CU-MOZO-09-subdividir-comanda/wireframe.md`
-   - **Vistas Clave:** Wizard de 2 pasos: (1) Asignador determinista de ítems 100% distribuido sin azar, (2) Configuración de subcuentas con promociones individuales `CU-ADMIN-17`, consulta SUNAT RUC para Factura, RENIEC DNI para Boleta y medios de pago hacia Caja POS.
+### 🟡 Opción A: Concluir Casos de Uso Restantes de Salón (Mozo)
+1. **`CU-MOZO-05`: Gestionar Reservas y Recepción en Salón**
+   - **Wireframe Canónico:** `wireframe/mozo/CU-MOZO-05-gestionar-reservas/wireframe.md`
+   - **Propósito:** Bandeja central de reservas, mini-mapa espacial de asignación física, bloqueo preventivo automático a 30 min y tolerancia no-show.
+2. **`CU-MOZO-07`: Atender Incidencia de Plato No Disponible (Quiebre de Cocina)**
+   - **Wireframe Canónico:** `wireframe/mozo/CU-MOZO-07-atender-plato-no-disponible/wireframe.md`
+   - **Propósito:** Alerta reactiva SSE en tablet, catálogo asistido de sustitución con 6 recomendaciones por cercanía matemática de precio y cálculo de diferencial.
+
+---
+
+### 🔴 Opción B: Cocina y Producción (KDS - Kitchen Display System)
+3. **`CU-COCINA-01`: Ver Cola de Pedidos Entrantes (Kitchen Display System - KDS)**
+   - **Ruta:** `/cocina/kds` (en `TerminalLayout`)
+   - **Wireframe Canónico:** `wireframe/cocina/CU-COCINA-01-cola-pedidos-kds/wireframe.md`
+   - **Vistas Clave:** Tablero KDS oscuro industrial de 4 columnas FIFO con semáforo cromático dinámico según `configuracion_kds`, botones táctiles para avanzar platos a "En Fuego" o "Listo", y vista de consolidado "All-Day Summary".
+   - **Tablas BD Asociadas:** `pedido`, `pedido_item`, `configuracion_kds`.
+
+---
+
+### 💳 Opción C: Caja y Facturación POS
+4. **`CU-CAJA-01`: Apertura de Turno y Control de Efectivo**
+   - **Ruta:** `/caja/apertura`
+   - **Wireframe Canónico:** `wireframe/cajero/CU-CAJA-01-apertura-turno/wireframe.md`
+   - **Vistas Clave:** Arqueo inicial, conteo desglosado de billetes/monedas y bloqueo de operaciones hasta apertura oficial.
+   - **Tablas BD Asociadas:** `turno_caja`, `movimiento_caja`.
+
+---
+
+### 🔵 Opción D: Flujos Complementarios de Autenticación
+5. **`CU-AUTH-02`: Recuperar Contraseña con OTP**
+   - **Ruta:** `/recuperar-password`
+   - **Wireframe Canónico:** `wireframe/usuario/CU-AUTH-02-recuperar-password/wireframe.md`
+   - **Vistas Clave:** Solicitud de correo, ingreso de código OTP de 6 dígitos con temporizador de expiración y cambio de clave.
 
 
 ---
