@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --aurea-navy: #0B2340;
+  --aurea-copper: #D5A06F;
+  --aurea-champagne: #F4D7B0;
+  --aurea-ivory: #FFF9F0;
+
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  margin: 0;
+  background-color: var(--aurea-ivory);
+  color: var(--aurea-navy);
+  font-family: var(--font-body);
+}
