@@ -119,7 +119,7 @@ return new class extends Migration
                     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
                     EXECUTE format('DROP POLICY IF EXISTS %I ON %I;', 'p_' || t || '_tenant', t);
                     IF t = 'local' THEN
-                        EXECUTE format('CREATE POLICY %I ON %I FOR ALL USING (fn_es_admin_saas() OR empresa_id = NULLIF(current_setting(''app.current_empresa_id'', true), '''引)::UUID OR (current_setting(''app.public_access'', true) = ''true'' AND estado = ''activo''));', 'p_' || t || '_tenant', t);
+                        EXECUTE format('CREATE POLICY %I ON %I FOR ALL USING (fn_es_admin_saas() OR empresa_id = NULLIF(current_setting(''app.current_empresa_id'', true), '''')::UUID OR (current_setting(''app.public_access'', true) = ''true'' AND estado = ''activo''));', 'p_' || t || '_tenant', t);
                     ELSE
                         EXECUTE format('CREATE POLICY %I ON %I FOR ALL USING (fn_pertenece_tenant(local_id));', 'p_' || t || '_tenant', t);
                     END IF;
