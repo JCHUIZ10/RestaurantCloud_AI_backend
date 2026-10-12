@@ -168,6 +168,9 @@ export interface MesaDetalleMozoDTO {
   items: ItemDetalleComandaDTO[];
   total_subtotal: number;
   nota_general?: string | null;
+  es_mesa_unida?: boolean;
+  mesa_principal_id?: string | null;
+  mesas_agrupadas_detalle?: string | null;
 }
 
 /**
@@ -360,5 +363,75 @@ export interface SolicitarCuentaRequest {
   numero_operacion?: string | null;
   monto_declarado: number;
   promocion_id?: string | null;
+}
+
+/**
+ * ============================================================================
+ * DTOs para CU-MOZO-04: Unir o Dividir Mesas en Salón
+ * ============================================================================
+ */
+
+export interface CandidataUnionMesaDTO {
+  id: string;
+  numero: string;
+  capacidad: number;
+  posicion_x: number;
+  posicion_y: number;
+  estado: EstadoMesaOperativo;
+  permite_union: boolean;
+  elegible: boolean;
+  motivo_bloqueo?: string; // "Ocupada", "Mesa fija (No permite unión)", "Bloqueada por reserva"
+}
+
+export interface CandidatasUnionResponseDTO {
+  mesa_origen_id: string;
+  numero_origen: string;
+  capacidad_origen: number;
+  candidatas: CandidataUnionMesaDTO[];
+}
+
+export interface MesaGrupoItemDTO {
+  id: string;
+  numero: string;
+  es_principal: boolean;
+  capacidad: number;
+}
+
+export interface UnirMesasRequestDTO {
+  mesa_titular_id: string;
+  mesas_secundarias_ids: string[];
+}
+
+export interface UnirMesasResponseDTO {
+  mesa_principal_id: string;
+  label_unificado: string; // Ej: "Mesa [ 02 ; 03 ]"
+  capacidad_total: number;
+  mesas: MesaGrupoItemDTO[];
+  created_at: string;
+}
+
+export interface DividirMesasRequestDTO {
+  mesa_id: string;
+  mesa_secundaria_id?: string | null; // null = separar todas
+}
+
+export interface DividirMesasResponseDTO {
+  mesa_principal_id: string;
+  mesas_separadas: string[];
+  mensaje: string;
+}
+
+export interface ValidacionSeparacionMesaDTO {
+  puede_separar: boolean;
+  motivo_bloqueo?: string;
+  total_consumo?: number;
+  items_activos?: number;
+  mesa_label: string;
+  mesas_a_restaurar: {
+    id: string;
+    numero: string;
+    capacidad: number;
+    rol: 'titular' | 'secundaria';
+  }[];
 }
 

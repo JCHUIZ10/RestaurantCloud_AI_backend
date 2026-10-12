@@ -177,15 +177,20 @@ export const MesaCard: React.FC<MesaCardProps> = ({
             <span className="text-[10px] font-bold uppercase tracking-wider text-aurea-champagne/80">
               Mesa
             </span>
-            {etiqueta_union && (
+            {mesa.mesa_principal_id ? (
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-0.5">
+                <Link2 className="w-2.5 h-2.5" />
+                Anexa
+              </span>
+            ) : etiqueta_union ? (
               <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-aurea-copper/30 text-aurea-champagne border border-aurea-copper/40 flex items-center gap-0.5">
                 <Link2 className="w-2.5 h-2.5" />
-                Unida
+                Unida ({capacidad}p)
               </span>
-            )}
+            ) : null}
           </div>
-          <h3 className="font-serif text-2xl font-bold text-white tracking-wide">
-            {etiqueta_union || numero}
+          <h3 className="font-serif text-xl sm:text-2xl font-bold text-white tracking-wide">
+            {mesa.mesa_principal_id ? `M-${numero} ↳ Vinculada` : (etiqueta_union || numero)}
           </h3>
         </div>
 

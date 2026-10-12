@@ -15,7 +15,7 @@
 | **Plataforma Pública & SaaS B2B** | 1 (Landing) | 1 | 0 | 100% |
 | **Cliente / Comensal QR** | 2 | 2 | 0 | 100% |
 | **Autenticación & Usuarios** | 3 | 1 | 2 | 33% |
-| **Salón & Mozo** | 8 | 3 | 5 | 38% |
+| **Salón & Mozo** | 8 | 4 | 4 | 50% |
 | **Cocina (KDS)** | 4 | 0 | 4 | 0% |
 | **Caja & Cobranza** | 5 | 0 | 5 | 0% |
 | **Administración Local** | 10 | 0 | 10 | 0% |
@@ -160,6 +160,24 @@
 
 ---
 
+### 2.8 `CU-MOZO-04`: Unir o Dividir Mesas en Salón
+- **Ruta Activa:** `/mozo/mesas` ([`TerminalLayout.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/TerminalLayout.tsx))
+- **Componentes Creados:**
+  - [`ModalUnirMesas.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/salon/ModalUnirMesas.tsx): Modal táctil de 720px con **Mini-Mapa interactivo de Salón (cuadrícula 5x2)** que reproduce la distribución física de mesas, destacando la mesa titular (`Mesa 02 ★`), seleccionando mesas contiguas elegibles libres con feedback táctil (min 48px), bloqueando mesas no elegibles (`OCUP`, `FIJA`, `RSV`) y proyectando en vivo la etiqueta unificada oficial (`Mesa [ 02 ; 03 ]`) y la capacidad sumada (`👤 x 8 comensales`).
+  - [`ModalSepararMesas.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/salon/ModalSepararMesas.tsx): Modal de confirmación de 540px que valida la cuenta liquidada y restaura las mesas individuales independientes a su estado `LIBRE` original con su capacidad individual (4 personas c/u).
+  - [`ModalBloqueoSeparacion.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/salon/ModalBloqueoSeparacion.tsx): Diálogo de bloqueo asistido de 560px ante `HTTP 409 Conflict` cuando existen consumos activos sin liquidar (ej. S/ 216.00), proveyendo dos vías de resolución en 1 toque: *Opción A: Solicitar Cuenta a Caja* (`CU-MOZO-08` / `CU-CAJA-02`) u *Opción B: Anular Comanda si los clientes se retiraron* (`CU-MOZO-06`).
+  - [`MesaInspeccionDrawer.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/MesaInspeccionDrawer.tsx): Integración completa con conmutación dinámica de botones (`[ 🔗 Unir Mesas ]` si es individual vs `[ ✂️ Separar Mesas ]` si ya está unida) y banner perimetral informativo de agrupación grupal.
+  - [`MesaCard.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/MesaCard.tsx): Renderizado en el plano de salón con badges distintivos (`🔗 Unida` con capacidad total en la titular o `↳ Vinculada / Anexa` en la secundaria).
+- **Servicios y DTOs:**
+  - [`mockMozoService.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/services/mockMozoService.ts): `obtenerCandidatasUnion`, `unirMesas`, `validarSeparacionMesa`, `dividirMesas`.
+  - [`src/types/mozo.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/mozo.ts): `CandidataUnionMesaDTO`, `CandidatasUnionResponseDTO`, `MesaGrupoItemDTO`, `UnirMesasRequestDTO`, `UnirMesasResponseDTO`, `DividirMesasRequestDTO`, `DividirMesasResponseDTO`, `ValidacionSeparacionMesaDTO`.
+- **Responsive:**
+  - Desktop y Tablet: Cuadrícula interactiva 5x2 táctil touch-first con botones de target $\ge 48\text{px}$.
+  - Smartphone: Diálogos y modales con scroll vertical optimizado y diseño accesible WCAG 2.1 AA.
+- **Estado de Build:** ✅ Compilado y probado en vivo con 0 errores TypeScript (`npm run build`).
+
+---
+
 ## 3. Infraestructura y Arquitectura Base Completada
 
 - **Enrutador React Router DOM v6:** [`src/router/index.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/router/index.tsx) con rutas centralizadas en [`src/router/routes.constants.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/router/routes.constants.ts).
@@ -174,13 +192,13 @@
 
 ## 4. Backlog Priorizado de Próximos Casos de Uso (Roadmap)
 
-Con **`CU-MOZO-01`** (Salón y Despacho), **`CU-MOZO-02`** (Comanda Móvil) y **`CU-MOZO-08`** (Precuenta Digital en Mesa) completados, las siguientes opciones de implementación son:
+Con **`CU-MOZO-01`** (Salón y Despacho), **`CU-MOZO-02`** (Comanda Móvil), **`CU-MOZO-08`** (Precuenta Digital en Mesa) y **`CU-MOZO-04`** (Unir o Dividir Mesas en Salón) completados, las siguientes opciones de implementación son:
 
 ### 🟡 Opción A: Continuar el Circuito Operativo de Salón (Mozo)
-1. **`CU-MOZO-04`: Unir Mesas y Cuentas en Salón** / **`CU-MOZO-09`: Dividir Cuenta en Mesa (Split de Comprobantes)**
-   - **Rutas:** `/mozo/mesas` (Modal de Unión) / `/mozo/mesas/:mesaId/split`
-   - **Wireframe Canónico:** `wireframe/mozo/CU-MOZO-04-unir-mesas/wireframe.md` y `wireframe/mozo/CU-MOZO-09-dividir-cuenta/wireframe.md`
-   - **Vistas Clave:** Asignación visual de ítems a múltiples comensales, generación determinista de boletas/facturas separadas.
+1. **`CU-MOZO-09`: Dividir Cuenta en Mesa (Split de Comprobantes: Factura, Boleta, Nota de Venta)**
+   - **Rutas:** `/mozo/mesas/:mesaId/split` o modal accesible desde el Quick-Drawer (`[ ➗ Dividir Cuenta ]`) y Precuenta Digital (`CU-MOZO-08`).
+   - **Wireframe Canónico:** `wireframe/mozo/CU-MOZO-09-subdividir-comanda/wireframe.md`
+   - **Vistas Clave:** Wizard de 2 pasos: (1) Asignador determinista de ítems 100% distribuido sin azar, (2) Configuración de subcuentas con promociones individuales `CU-ADMIN-17`, consulta SUNAT RUC para Factura, RENIEC DNI para Boleta y medios de pago hacia Caja POS.
 
 
 ---

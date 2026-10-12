@@ -5,6 +5,7 @@ import {
   MesaDetalleMozoDTO,
   AlertaCocinaModalDTO,
   ItemDetalleComandaDTO,
+  ValidacionSeparacionMesaDTO,
 } from '@/types/mozo';
 import { mockMozoService } from '../services/mockMozoService';
 import { SalonHeaderMozo, FiltroMesaTipo } from '../components/SalonHeaderMozo';
@@ -14,6 +15,9 @@ import { MesaInspeccionDrawer } from '../components/MesaInspeccionDrawer';
 import { AlertaCocinaModal } from '../components/AlertaCocinaModal';
 import { DemoMozoWidget } from '../components/DemoMozoWidget';
 import { ModalPrecuentaCompleta } from '../components/precuenta/ModalPrecuentaCompleta';
+import { ModalUnirMesas } from '../components/salon/ModalUnirMesas';
+import { ModalSepararMesas } from '../components/salon/ModalSepararMesas';
+import { ModalBloqueoSeparacion } from '../components/salon/ModalBloqueoSeparacion';
 import { Bell, ChevronRight } from 'lucide-react';
 
 export const MozoMesasPage: React.FC = () => {
@@ -32,6 +36,15 @@ export const MozoMesasPage: React.FC = () => {
   // Estado para el Modal Completo de Precuenta Digital en Salón (CU-MOZO-08)
   const [modalPrecuentaAbierto, setModalPrecuentaAbierto] = useState(false);
   const [mesaPrecuentaId, setMesaPrecuentaId] = useState<string | null>(null);
+
+  // Estados para Unión y Desvinculación de Mesas (CU-MOZO-04)
+  const [modalUnirAbierto, setModalUnirAbierto] = useState(false);
+  const [mesaParaUnirId, setMesaParaUnirId] = useState<string | null>(null);
+
+  const [modalSepararAbierto, setModalSepararAbierto] = useState(false);
+  const [modalBloqueoAbierto, setModalBloqueoAbierto] = useState(false);
+  const [mesaParaSepararId, setMesaParaSepararId] = useState<string | null>(null);
+  const [validacionSeparacion, setValidacionSeparacion] = useState<ValidacionSeparacionMesaDTO | null>(null);
 
   // Estado para el Modal de Alerta de Cocina
   const [alertaModalAbierta, setAlertaModalAbierta] = useState(false);
@@ -197,6 +210,59 @@ export const MozoMesasPage: React.FC = () => {
     }
   };
 
+  // Handlers para CU-MOZO-04: Unir o Dividir Mesas en Salón
+  const handleAbrirModalUnir = (mesaId: string) => {
+    setMesaParaUnirId(mesaId);
+    setModalUnirAbierto(true);
+  };
+
+  const handleConfirmarUnion = async (titularId: string, secundariasIds: string[]) => {
+    const res = await mockMozoService.unirMesas({
+      mesa_titular_id: titularId,
+      mesas_secundarias_ids: secundariasIds,
+    });
+
+    if (res.exito) {
+      await cargarPlano(pisoActivoId);
+      if (
+        detalleMesa &&
+        (detalleMesa.mesa_id === titularId || secundariasIds.includes(detalleMesa.mesa_id))
+      ) {
+        const detRes = await mockMozoService.obtenerDetalleMesa(titularId);
+        if (detRes.exito) {
+          setDetalleMesa(detRes.datos);
+        }
+      }
+    }
+  };
+
+  const handleAbrirModalSeparar = async (mesaId: string) => {
+    setMesaParaSepararId(mesaId);
+    const res = await mockMozoService.validarSeparacionMesa(mesaId);
+    if (res.exito && res.datos) {
+      setValidacionSeparacion(res.datos);
+      if (res.datos.puede_separar) {
+        setModalSepararAbierto(true);
+      } else {
+        setModalBloqueoAbierto(true);
+      }
+    }
+  };
+
+  const handleConfirmarSeparacion = async (mesaId: string) => {
+    const res = await mockMozoService.dividirMesas(mesaId, true);
+    if (res.exito) {
+      await cargarPlano(pisoActivoId);
+      setDrawerAbierto(false);
+      setDetalleMesa(null);
+    }
+  };
+
+  const handleSolicitarCuentaDesdeBloqueo = (mesaId: string) => {
+    setModalBloqueoAbierto(false);
+    handleSolicitarOVerCuenta(mesaId);
+  };
+
   // Handlers para el widget de simulación
   const simularPlatoListo = () => {
     const nuevo = mockMozoService.simularPlatoListoCocina();
@@ -341,9 +407,8 @@ export const MozoMesasPage: React.FC = () => {
         cargando={cargandoDetalle}
         onSolicitarOVerCuenta={handleSolicitarOVerCuenta}
         onMarcarItemServido={handleMarcarServido}
-        onAbrirModalUnir={(mesaId) => {
-          alert(`Unión de mesas CU-MOZO-04 para Mesa ${mesaId}: Abre modal con candidatas del piso.`);
-        }}
+        onAbrirModalUnir={handleAbrirModalUnir}
+        onAbrirModalSeparar={handleAbrirModalSeparar}
         onAbrirModalAnular={(item: ItemDetalleComandaDTO) => {
           alert(
             `Anulación de ítem CU-MOZO-06: Anular "${item.producto_nombre}" con calificación de merma y motivo.`
@@ -361,6 +426,38 @@ export const MozoMesasPage: React.FC = () => {
             planoData?.mesas.find((m) => m.id === mesaPrecuentaId)?.estado || detalleMesa?.estado
           }
           onCuentaNotificada={handleCuentaNotificadaDesdeModal}
+        />
+      )}
+
+      {/* 5. Modal de Unión de Mesas con Mini-Mapa Espacial 5x2 (CU-MOZO-04) */}
+      {modalUnirAbierto && mesaParaUnirId && (
+        <ModalUnirMesas
+          isOpen={modalUnirAbierto}
+          onClose={() => setModalUnirAbierto(false)}
+          mesaTitularId={mesaParaUnirId}
+          onConfirmarUnion={handleConfirmarUnion}
+        />
+      )}
+
+      {/* 6. Modal de Separación / Desvinculación de Mesas (CU-MOZO-04) */}
+      {modalSepararAbierto && mesaParaSepararId && (
+        <ModalSepararMesas
+          isOpen={modalSepararAbierto}
+          onClose={() => setModalSepararAbierto(false)}
+          mesaId={mesaParaSepararId}
+          validacion={validacionSeparacion}
+          onConfirmarSeparacion={handleConfirmarSeparacion}
+        />
+      )}
+
+      {/* 7. Modal de Bloqueo Asistido 409 Conflict por Consumo Activo (CU-MOZO-04) */}
+      {modalBloqueoAbierto && mesaParaSepararId && (
+        <ModalBloqueoSeparacion
+          isOpen={modalBloqueoAbierto}
+          onClose={() => setModalBloqueoAbierto(false)}
+          mesaId={mesaParaSepararId}
+          validacion={validacionSeparacion}
+          onSolicitarCuenta={handleSolicitarCuentaDesdeBloqueo}
         />
       )}
 
@@ -383,6 +480,8 @@ export const MozoMesasPage: React.FC = () => {
           setFiltroActivo(filtroActivo === 'mis_mesas' ? 'todas' : 'mis_mesas')
         }
         filtroActivo={filtroActivo}
+        onAbrirUnionMesaDemo={() => handleAbrirModalUnir('mesa-02')}
+        onAbrirSepararMesaDemo={() => handleAbrirModalSeparar('mesa-02')}
       />
     </div>
   );

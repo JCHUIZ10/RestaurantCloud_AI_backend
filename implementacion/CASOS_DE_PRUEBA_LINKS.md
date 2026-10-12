@@ -33,6 +33,9 @@
 (CU-MOZO-08: Emisión de Precuenta Digital en Mesa):
 - que es : Precuenta digital en mesa con desglose SUNAT Perú, promociones comerciales en 1 clic, código QR de Yape/Plin para pago asistido y notificación a caja vía SSE: http://localhost:5173/mozo/mesas/mesa-04/precuenta
 
+(CU-MOZO-04: Unir o Dividir Mesas en Salón):
+- que es : Gestión espacial y física de mesas agrupadas en salón con mini-mapa interactivo 5x2, proyección de Mesa [ 02 ; 03 ] (8 pax), bloqueo asistido 409 por comanda activa y desvinculación a libres individuales: http://localhost:5173/mozo/mesas
+
 ---
 
 ### Próximos Casos de Uso (En Desarrollo / Roadmap)

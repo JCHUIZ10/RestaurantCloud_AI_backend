@@ -14,6 +14,11 @@ import {
   PrecuentaMozoResponseDTO,
   PromocionSedeDTO,
   SolicitarCuentaRequest,
+  CandidatasUnionResponseDTO,
+  UnirMesasRequestDTO,
+  UnirMesasResponseDTO,
+  DividirMesasResponseDTO,
+  ValidacionSeparacionMesaDTO,
 } from '@/types/mozo';
 
 // ID canónico del mozo activo de prueba
@@ -513,8 +518,30 @@ export const mockMozoService = {
 
     const mesa = MESAS_SALON_MOCK.find((m) => m.id === mesaId);
 
+    const esUnida = Boolean(mesa?.etiqueta_union || mesa?.mesa_principal_id);
+    let detalleAgrupacion: string | undefined = undefined;
+    if (esUnida) {
+      const titularId = mesa?.mesa_principal_id || mesa?.id;
+      const titular = MESAS_SALON_MOCK.find((m) => m.id === titularId);
+      const secundarias = MESAS_SALON_MOCK.filter(
+        (m) => (m.mesa_principal_id === titularId || m.id === titularId) && m.id !== titularId
+      );
+      const secText = secundarias.length > 0
+        ? secundarias.map((s) => `Mesa ${s.numero} (Secundaria • ${s.capacidad}p)`).join(' + ')
+        : 'Mesa 03 (Secundaria • 4p)';
+      detalleAgrupacion = `Mesa ${titular?.numero || mesa?.numero} (Titular • ${titular?.capacidad || 4}p) + ${secText}`;
+    }
+
     if (mesaId === 'mesa-04') {
-      return { exito: true, datos: DETALLE_MESA_04 };
+      return {
+        exito: true,
+        datos: {
+          ...DETALLE_MESA_04,
+          es_mesa_unida: esUnida,
+          mesa_principal_id: mesa?.mesa_principal_id,
+          mesas_agrupadas_detalle: detalleAgrupacion,
+        },
+      };
     }
 
     // Respuesta genérica para otras mesas ocupadas
@@ -526,6 +553,9 @@ export const mockMozoService = {
         ambiente: 'Salón Principal',
         estado: mesa?.estado || 'ocupada',
         etiqueta_union: mesa?.etiqueta_union,
+        es_mesa_unida: esUnida,
+        mesa_principal_id: mesa?.mesa_principal_id,
+        mesas_agrupadas_detalle: detalleAgrupacion,
         comanda_id: mesa?.pedido_id || 'ped-demo',
         numero_comanda: 140 + Number(mesa?.numero || 1),
         mozo_nombre: mesa?.mozo_nombre || MOZO_ACTUAL.nombre,
@@ -1101,6 +1131,267 @@ export const mockMozoService = {
         success: true,
         mesa_id: request.mesa_id,
         mensaje: `Precuenta de Mesa ${request.mesa_id} enviada a Caja vía SSE exitosamente.`,
+      },
+    };
+  },
+
+  /**
+   * Obtiene la lista de mesas candidatas para unión en el salón (CU-MOZO-04)
+   */
+  async obtenerCandidatasUnion(mesaId: string): Promise<ApiResponse<CandidatasUnionResponseDTO>> {
+    await new Promise((res) => setTimeout(res, 150));
+    const mesaOrigen = MESAS_SALON_MOCK.find((m) => m.id === mesaId);
+    if (!mesaOrigen) {
+      return {
+        exito: false,
+        datos: null as unknown as CandidatasUnionResponseDTO,
+        errores: [{ codigo: 'ERR_MESA_NO_ENCONTRADA', mensaje: 'Mesa de origen no encontrada' }],
+      };
+    }
+
+    const candidatas = MESAS_SALON_MOCK
+      .filter((m) => m.piso_id === mesaOrigen.piso_id && m.id !== mesaId)
+      .map((m) => {
+        const elegible = m.estado === 'libre' && m.permite_union && !m.mesa_principal_id;
+        let motivo_bloqueo: string | undefined = undefined;
+
+        if (!m.permite_union) {
+          motivo_bloqueo = 'Mesa fija (No permite unión)';
+        } else if (m.estado === 'ocupada') {
+          motivo_bloqueo = 'Ocupada con comanda activa';
+        } else if (m.estado === 'cuenta_pedida') {
+          motivo_bloqueo = 'Cuenta pedida en espera de caja';
+        } else if (m.estado === 'bloqueada') {
+          motivo_bloqueo = 'Bloqueada por reserva inminente';
+        } else if (m.mesa_principal_id) {
+          motivo_bloqueo = 'Ya vinculada a otro grupo';
+        }
+
+        return {
+          id: m.id,
+          numero: m.numero,
+          capacidad: m.capacidad,
+          posicion_x: m.posicion_x,
+          posicion_y: m.posicion_y,
+          estado: m.estado,
+          permite_union: m.permite_union,
+          elegible,
+          motivo_bloqueo,
+        };
+      });
+
+    return {
+      exito: true,
+      datos: {
+        mesa_origen_id: mesaId,
+        numero_origen: mesaOrigen.numero,
+        capacidad_origen: mesaOrigen.capacidad,
+        candidatas,
+      },
+    };
+  },
+
+  /**
+   * Une dos o más mesas físicas en salón bajo una mesa titular (CU-MOZO-04)
+   */
+  async unirMesas(request: UnirMesasRequestDTO): Promise<ApiResponse<UnirMesasResponseDTO>> {
+    await new Promise((res) => setTimeout(res, 200));
+    const titularIndex = MESAS_SALON_MOCK.findIndex((m) => m.id === request.mesa_titular_id);
+    if (titularIndex < 0) {
+      return {
+        exito: false,
+        datos: null as unknown as UnirMesasResponseDTO,
+        errores: [{ codigo: 'ERR_MESA_NO_ENCONTRADA', mensaje: 'Mesa titular no encontrada' }],
+      };
+    }
+
+    const titular = MESAS_SALON_MOCK[titularIndex];
+    const secundarias = MESAS_SALON_MOCK.filter((m) => request.mesas_secundarias_ids.includes(m.id));
+
+    const todosNumeros = [titular.numero, ...secundarias.map((s) => s.numero)].sort();
+    const labelUnificado = `Mesa [ ${todosNumeros.join(' ; ')} ]`;
+    const capacidadTotal = titular.capacidad + secundarias.reduce((acc, s) => acc + s.capacidad, 0);
+
+    // Actualizar mesa titular en mock
+    MESAS_SALON_MOCK[titularIndex] = {
+      ...titular,
+      etiqueta_union: labelUnificado,
+      capacidad: capacidadTotal,
+      comensales_sentados: (titular.comensales_sentados || 2) + secundarias.reduce((acc, s) => acc + (s.comensales_sentados || 0), 0),
+    };
+
+    // Actualizar mesas secundarias en mock
+    secundarias.forEach((sec) => {
+      const idx = MESAS_SALON_MOCK.findIndex((m) => m.id === sec.id);
+      if (idx >= 0) {
+        MESAS_SALON_MOCK[idx] = {
+          ...MESAS_SALON_MOCK[idx],
+          mesa_principal_id: titular.id,
+          etiqueta_union: labelUnificado,
+          estado: 'ocupada',
+        };
+      }
+    });
+
+    const grupoItems = [
+      { id: titular.id, numero: titular.numero, es_principal: true, capacidad: titular.capacidad },
+      ...secundarias.map((s) => ({ id: s.id, numero: s.numero, es_principal: false, capacidad: s.capacidad })),
+    ];
+
+    return {
+      exito: true,
+      datos: {
+        mesa_principal_id: titular.id,
+        label_unificado: labelUnificado,
+        capacidad_total: capacidadTotal,
+        mesas: grupoItems,
+        created_at: new Date().toISOString(),
+      },
+    };
+  },
+
+  /**
+   * Valida si una mesa unida puede separarse o si requiere bloqueo asistido (CU-MOZO-04)
+   */
+  async validarSeparacionMesa(mesaId: string): Promise<ApiResponse<ValidacionSeparacionMesaDTO>> {
+    await new Promise((res) => setTimeout(res, 120));
+    const mesa = MESAS_SALON_MOCK.find((m) => m.id === mesaId);
+    if (!mesa) {
+      return {
+        exito: false,
+        datos: null as unknown as ValidacionSeparacionMesaDTO,
+        errores: [{ codigo: 'ERR_MESA_NO_ENCONTRADA', mensaje: 'Mesa no encontrada' }],
+      };
+    }
+
+    const titularId = mesa.mesa_principal_id || mesa.id;
+    const titular = MESAS_SALON_MOCK.find((m) => m.id === titularId);
+    const secundarias = MESAS_SALON_MOCK.filter(
+      (m) => m.mesa_principal_id === titularId && m.id !== titularId
+    );
+
+    // Si tiene comanda activa pendiente de cobro
+    const tieneConsumoActivo = Boolean(
+      (mesa.total_consumo && mesa.total_consumo > 0 && mesa.estado !== 'libre') ||
+      (titular?.total_consumo && titular.total_consumo > 0 && titular.estado !== 'libre')
+    );
+
+    const label = mesa.etiqueta_union || titular?.etiqueta_union || `Mesa [ ${mesa.numero} ]`;
+
+    const mesasRestaurar = [
+      {
+        id: titular?.id || mesa.id,
+        numero: titular?.numero || mesa.numero,
+        capacidad: 4,
+        rol: 'titular' as const,
+      },
+      ...secundarias.map((s) => ({
+        id: s.id,
+        numero: s.numero,
+        capacidad: 4,
+        rol: 'secundaria' as const,
+      })),
+    ];
+
+    if (tieneConsumoActivo) {
+      return {
+        exito: true,
+        datos: {
+          puede_separar: false,
+          motivo_bloqueo: 'Comanda Activa con Consumos Pendientes de Cobro',
+          total_consumo: mesa.total_consumo || titular?.total_consumo || 216.0,
+          items_activos: 5,
+          mesa_label: label,
+          mesas_a_restaurar: mesasRestaurar,
+        },
+      };
+    }
+
+    return {
+      exito: true,
+      datos: {
+        puede_separar: true,
+        mesa_label: label,
+        mesas_a_restaurar: mesasRestaurar,
+      },
+    };
+  },
+
+  /**
+   * Divide y restaura las mesas físicas a individuales libres (CU-MOZO-04)
+   */
+  async dividirMesas(mesaId: string, forzar = false): Promise<ApiResponse<DividirMesasResponseDTO>> {
+    await new Promise((res) => setTimeout(res, 200));
+    const mesa = MESAS_SALON_MOCK.find((m) => m.id === mesaId);
+    if (!mesa) {
+      return {
+        exito: false,
+        datos: null as unknown as DividirMesasResponseDTO,
+        errores: [{ codigo: 'ERR_MESA_NO_ENCONTRADA', mensaje: 'Mesa no encontrada' }],
+      };
+    }
+
+    const titularId = mesa.mesa_principal_id || mesa.id;
+    const titularIdx = MESAS_SALON_MOCK.findIndex((m) => m.id === titularId);
+
+    if (!forzar && mesa.total_consumo && mesa.total_consumo > 0 && mesa.estado !== 'libre') {
+      return {
+        exito: false,
+        datos: null as unknown as DividirMesasResponseDTO,
+        errores: [
+          {
+            codigo: 'ERR_MESAS_CON_CONSUMO_ACTIVO',
+            mensaje: 'No se puede separar mesas con pedidos activos sin liquidar.',
+          },
+        ],
+      };
+    }
+
+    const separadas: string[] = [];
+    if (titularIdx >= 0) {
+      MESAS_SALON_MOCK[titularIdx] = {
+        ...MESAS_SALON_MOCK[titularIdx],
+        etiqueta_union: undefined,
+        mesa_principal_id: null,
+        capacidad: 4,
+        comensales_sentados: undefined,
+        total_consumo: 0,
+        estado: 'libre',
+        pedido_id: undefined,
+        platos_listos: 0,
+        platos_en_cocina: 0,
+        despacho_directo_pendiente: 0,
+      };
+      separadas.push(titularId);
+    }
+
+    // Restaurar secundarias
+    MESAS_SALON_MOCK = MESAS_SALON_MOCK.map((m) => {
+      if (m.mesa_principal_id === titularId || (m.id === mesaId && m.mesa_principal_id)) {
+        separadas.push(m.id);
+        return {
+          ...m,
+          mesa_principal_id: null,
+          etiqueta_union: undefined,
+          capacidad: 4,
+          comensales_sentados: undefined,
+          total_consumo: 0,
+          estado: 'libre' as const,
+          pedido_id: undefined,
+          platos_listos: 0,
+          platos_en_cocina: 0,
+          despacho_directo_pendiente: 0,
+        };
+      }
+      return m;
+    });
+
+    return {
+      exito: true,
+      datos: {
+        mesa_principal_id: titularId,
+        mesas_separadas: Array.from(new Set(separadas)),
+        mensaje: 'Mesas desvinculadas exitosamente. Retornaron al estado individual LIBRE.',
       },
     };
   },

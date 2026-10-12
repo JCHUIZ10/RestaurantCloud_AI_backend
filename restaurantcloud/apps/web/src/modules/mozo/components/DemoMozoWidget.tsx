@@ -9,6 +9,8 @@ interface DemoMozoWidgetProps {
   esTurnoVacio: boolean;
   onAlternarMisMesas: () => void;
   filtroActivo: string;
+  onAbrirUnionMesaDemo?: () => void;
+  onAbrirSepararMesaDemo?: () => void;
 }
 
 export const DemoMozoWidget: React.FC<DemoMozoWidgetProps> = ({
@@ -19,6 +21,8 @@ export const DemoMozoWidget: React.FC<DemoMozoWidgetProps> = ({
   esTurnoVacio,
   onAlternarMisMesas,
   filtroActivo,
+  onAbrirUnionMesaDemo,
+  onAbrirSepararMesaDemo,
 }) => {
   const [colapsado, setColapsado] = useState(false);
   const [mensajeToast, setMensajeToast] = useState<string | null>(null);
@@ -103,6 +107,38 @@ export const DemoMozoWidget: React.FC<DemoMozoWidgetProps> = ({
               <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
               <span>⚠️ Simular Alerta de Cocina (Vista 3)</span>
             </button>
+
+            {/* Acciones Rápidas CU-MOZO-04: Unir / Separar */}
+            <div className="pt-1 border-t border-slate-200 space-y-1.5">
+              <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block">
+                Mesas Grupales (CU-MOZO-04):
+              </span>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  onClick={() =>
+                    dispararConToast(
+                      () => onAbrirUnionMesaDemo && onAbrirUnionMesaDemo(),
+                      'Abriendo modal interactivo de unión para Mesa 02'
+                    )
+                  }
+                  className="py-1 px-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-semibold text-[10px] text-center"
+                >
+                  🔗 Unir M-02 + M-03
+                </button>
+
+                <button
+                  onClick={() =>
+                    dispararConToast(
+                      () => onAbrirSepararMesaDemo && onAbrirSepararMesaDemo(),
+                      'Evaluando desvinculación para Mesa 02'
+                    )
+                  }
+                  className="py-1 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 font-semibold text-[10px] text-center"
+                >
+                  ✂️ Separar M-02
+                </button>
+              </div>
+            </div>
 
             <div className="pt-1 border-t border-slate-200 grid grid-cols-2 gap-1.5">
               <button
