@@ -183,7 +183,7 @@ ON CONFLICT (id) DO UPDATE SET valor = EXCLUDED.valor, usos_actuales = EXCLUDED.
 INSERT INTO metodo_pago_local (id, local_id, codigo, nombre, activo, comision_porcentaje, datos_adicionales, icono, orden) VALUES
 ('00000000-0000-4000-8000-000000000451','00000000-0000-4000-8000-000000000010','efectivo','Efectivo',true,0.00,'{}','banknote',1),
 ('00000000-0000-4000-8000-000000000452','00000000-0000-4000-8000-000000000010','tarjeta','Tarjeta POS',true,3.50,'{"operador":"Niubiz"}','credit-card',2),
-('00000000-0000-4000-8000-000000000453','00000000-0000-4000-8000-000000000010','yape','Yape / Plin',true,0.00,'{"telefono":"987654321","titular":"ÁUREA S.A.C."}','smartphone',3)
+('00000000-0000-4000-8000-000000000453','00000000-0000-4000-8000-000000000010','billetera_digital','Yape / Plin',true,0.00,'{"telefono":"987654321","titular":"ÁUREA S.A.C."}','smartphone',3)
 ON CONFLICT (id) DO UPDATE SET activo = EXCLUDED.activo, comision_porcentaje = EXCLUDED.comision_porcentaje, updated_at = NOW();
 
 -- Reservas y tres estados de pedido: en cocina, cuenta solicitada y cobrado.
