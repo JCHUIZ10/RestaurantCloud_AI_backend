@@ -278,17 +278,17 @@ type KDSComandaDTO struct {
 
 // KDSItemDTO representa una ración o plato culinario en cocina
 type KDSItemDTO struct {
-	ItemID             uuid.UUID `json:"item_id"`
-	ProductoID         uuid.UUID `json:"producto_id"`
-	NombreProducto     string    `json:"nombre_producto"`
-	Cantidad           int       `json:"cantidad"`
-	Estado             string    `json:"estado"` // "en_cola", "en_preparacion", "listo", "cancelado"
-	PartidaCulinaria   string    `json:"partida_culinaria"` // "fogones", "frios", "brasas"
-	NotasCocina        *string   `json:"notas_cocina,omitempty"`
-	PaseDestino        string    `json:"pase_destino"` // Ej: "Pase Caliente #01"
+	ItemID             uuid.UUID  `json:"item_id"`
+	ProductoID         uuid.UUID  `json:"producto_id"`
+	NombreProducto     string     `json:"nombre_producto"`
+	Cantidad           int        `json:"cantidad"`
+	Estado             string     `json:"estado"` // "en_cola", "en_preparacion", "listo", "anulado"
+	CategoriaID        uuid.UUID  `json:"categoria_id"`
+	CategoriaNombre    string     `json:"categoria_nombre"` // De categoria_producto.nombre
+	NotasCocina        *string    `json:"notas_cocina,omitempty"`
 	FechaInicioCoccion *time.Time `json:"fecha_inicio_coccion,omitempty"`
 	FechaListo         *time.Time `json:"fecha_listo,omitempty"`
-	RecetaResumen      string    `json:"receta_resumen"`
+	RecetaResumen      string     `json:"receta_resumen"` // Concatenación producto_insumo + insumo
 }
 ```
 
@@ -298,10 +298,10 @@ package dto
 
 import "github.com/google/uuid"
 
-// ConsolidadoAllDayDTO agrupa platos por partida y nombre para cocción masiva
+// ConsolidadoAllDayDTO agrupa platos por categoría de carta para cocción masiva
 type ConsolidadoAllDayDTO struct {
-	PartidaCulinaria string               `json:"partida_culinaria"`
-	TotalRaciones    int                  `json:"total_raciones"`
+	CategoriaNombre  string                `json:"categoria_nombre"`
+	TotalRaciones    int                   `json:"total_raciones"`
 	Platos           []ConsolidadoPlatoDTO `json:"platos"`
 }
 
@@ -385,9 +385,15 @@ SELECT
             'nombre_producto', pr.nombre,
             'cantidad', pi.cantidad,
             'estado', pi.estado,
-            'partida_culinaria', pr.categoria_plato,
-            'notas_cocina', pi.notas,
-            'pase_destino', pr.estacion_cocina
+            'categoria_id', cp.id,
+            'categoria_nombre', cp.nombre,
+            'nota_cocina', pi.nota_cocina,
+            'receta_resumen', (
+                SELECT STRING_AGG(CONCAT(ROUND(pins.cantidad_descuenta, 3)::TEXT, ' ', ins.unidad_medida, ' ', ins.nombre), ' • ')
+                FROM producto_insumo pins
+                JOIN insumo ins ON ins.id = pins.insumo_id
+                WHERE pins.producto_id = pr.id
+            )
         ) ORDER BY pi.created_at ASC
     ) FILTER (WHERE pr.requiere_preparacion = true) AS items_cocina
 FROM pedido p
@@ -397,44 +403,46 @@ JOIN piso pis ON pis.id = m.piso_id
 JOIN usuario u ON u.id = p.mozo_id
 JOIN pedido_item pi ON pi.pedido_id = p.id
 JOIN producto pr ON pr.id = pi.producto_id
+JOIN categoria_producto cp ON cp.id = pr.categoria_id
 WHERE p.local_id = $1
-  AND p.estado IN ('abierto', 'en_espera_pago')
+  AND p.estado IN ('enviado', 'cuenta_pedida')
   AND pi.estado IN ('en_cola', 'en_preparacion', 'listo')
-GROUP BY p.id, p.numero_comanda, m.codigo, p.es_mesa_agrupada, u.nombre_completo, pis.nombre, p.ronda_numero, p.fecha_apertura, cfg.tiempo_optimo_verde_min, cfg.tiempo_alerta_ambar_min
+GROUP BY p.id, p.numero_comanda, m.numero, p.es_mesa_agrupada, u.nombre_completo, pis.nombre, p.ronda_numero, p.created_at, cfg.tiempo_optimo_verde_min, cfg.tiempo_alerta_ambar_min
 HAVING COUNT(pi.id) FILTER (WHERE pr.requiere_preparacion = true AND pi.estado IN ('en_cola', 'en_preparacion')) > 0
-ORDER BY p.fecha_apertura ASC;
+ORDER BY p.created_at ASC;
 ```
 
 ### 8.2 Consulta para el Consolidado All-Day de Producción
 ```sql
--- Suma de raciones acumuladas por plato y partida culinaria
+-- Suma de raciones acumuladas por plato y categoría de carta gastronómica
 SELECT 
-    pr.categoria_plato AS partida_culinaria,
+    cp.nombre AS categoria_nombre,
     pr.id AS producto_id,
     pr.nombre AS nombre_producto,
     SUM(pi.cantidad)::INT AS cantidad_total,
     SUM(CASE WHEN pi.estado = 'en_preparacion' THEN pi.cantidad ELSE 0 END)::INT AS cantidad_en_fuego,
-    SUM(CASE WHEN EXTRACT(EPOCH FROM (NOW() - p.fecha_apertura)) / 60 > cfg.tiempo_alerta_ambar_min THEN pi.cantidad ELSE 0 END)::INT AS cantidad_critica,
+    SUM(CASE WHEN EXTRACT(EPOCH FROM (NOW() - p.created_at)) / 60 > cfg.tiempo_alerta_ambar_min THEN pi.cantidad ELSE 0 END)::INT AS cantidad_critica,
     JSONB_AGG(
         JSONB_BUILD_OBJECT(
-            'mesa_codigo', m.codigo,
+            'mesa_codigo', m.numero,
             'cantidad', pi.cantidad,
-            'notas', pi.notas,
-            'minutos_espera', ROUND(EXTRACT(EPOCH FROM (NOW() - p.fecha_apertura)) / 60)::INT
-        ) ORDER BY p.fecha_apertura ASC
+            'nota_cocina', pi.nota_cocina,
+            'minutos_espera', ROUND(EXTRACT(EPOCH FROM (NOW() - p.created_at)) / 60)::INT
+        ) ORDER BY p.created_at ASC
     ) AS detalle_mesas
 FROM pedido_item pi
 JOIN pedido p ON p.id = pi.pedido_id
 JOIN mesa m ON m.id = p.mesa_id
 JOIN producto pr ON pr.id = pi.producto_id
+JOIN categoria_producto cp ON cp.id = pr.categoria_id
 CROSS JOIN (
     SELECT tiempo_alerta_ambar_min FROM configuracion_kds WHERE local_id = $1
 ) cfg
 WHERE p.local_id = $1
   AND pr.requiere_preparacion = true
   AND pi.estado IN ('en_cola', 'en_preparacion')
-GROUP BY pr.categoria_plato, pr.id, pr.nombre, cfg.tiempo_alerta_ambar_min
-ORDER BY pr.categoria_plato ASC, cantidad_total DESC;
+GROUP BY cp.nombre, pr.id, pr.nombre, cfg.tiempo_alerta_ambar_min
+ORDER BY cp.nombre ASC, cantidad_total DESC;
 ```
 
 ---

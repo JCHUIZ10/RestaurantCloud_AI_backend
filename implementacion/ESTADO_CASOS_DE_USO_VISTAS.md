@@ -16,7 +16,7 @@
 | **Cliente / Comensal QR** | 2 | 2 | 0 | 100% |
 | **Autenticación & Usuarios** | 3 | 1 | 2 | 33% |
 | **Salón & Mozo** | 8 | 8 | 0 | **100% (Completo)** |
-| **Cocina (KDS)** | 4 | 0 | 4 | 0% |
+| **Cocina (KDS)** | 4 | 1 | 3 | **25%** |
 | **Caja & Cobranza** | 5 | 0 | 5 | 0% |
 | **Administración Local** | 10 | 0 | 10 | 0% |
 | **Propietario / Tenant** | 6 | 0 | 6 | 0% |
@@ -259,6 +259,24 @@
 - **Servicios y DTOs:**
   - [`mockMozoService.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/services/mockMozoService.ts): `obtenerCatalogoSustitucion`, `sustituirPlato`, `anularPorQuiebreCocina`, `simularQuiebreCocinaMesa04`.
   - [`src/types/mozo.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/mozo.ts): `PlatoSustitutoSugeridoDTO`, `CategoriaChipDTO`, `CatalogoSustitucionResponseDTO`, `SustituirPlatoRequestDTO`, `SustituirPlatoResponseDTO`, `AnularPorQuiebreRequestDTO`, `AnularPorQuiebreResponseDTO`.
+- **Estado de Build:** ✅ Compilado y probado en producción con 0 errores (`npm run build`).
+
+---
+
+### 2.13 `CU-COCINA-01`: Ver Cola de Pedidos Entrantes (Kitchen Display System - KDS)
+- **Ruta Activa:** `/cocina/kds` ([`TerminalLayout.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/TerminalLayout.tsx))
+- **Componentes Creados:**
+  - [`CocinaKdsPage.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/cocina/pages/CocinaKdsPage.tsx): Orquestador central del monitor KDS con sincronización SSE reactiva, temporizador segundo a segundo de avance de semáforo, conmutador de vistas y sintetizador acústico Web Audio API.
+  - [`KdsHeader.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/cocina/components/kds/KdsHeader.tsx): Cabecera industrial KDS (`#0B1120`) con reloj digital de alta precisión, estado SSE en vivo, conmutador de sonido (Chime ON/Mute), alternador de vista (`⊞ Comandas FIFO` vs `☰ Consolidado All-Day`), selector dinámico por categorías reales de carta (`categoria_producto.nombre`) y barra de métricas operativas con umbrales configurados por sede (`configuracion_kds`).
+  - [`KdsTicketCard.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/cocina/components/kds/KdsTicketCard.tsx): Tarjeta de comanda FIFO con semáforo dinámico adaptativo (🟢 Verde $\le 15$m, 🟡 Ámbar $16$-$25$m, 🔴 Rojo crítico $>25$m con banner pulsante `🚨 REQUERIDO FOGÓN INMEDIATO`), soporte para mesas individuales y unidas (`🔗 Mesa [ 02 ; 03 ]`), rondas de salón (`Ronda 1` vs `Ronda 2 Adic`), botones táctiles de cambio de estado (`[ 🔥 Iniciar / En Fuego ]` $\rightarrow$ `[ ✓ Marcar Listo ]`), ventana de reversión de 30s (`[ ↩ Deshacer ]`), chip de bebidas atendidas por salón y botón de despacho masivo `[ ✓ Despachar Todo al Pase ]`.
+  - [`ModalDetalleComanda.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/cocina/components/kds/ModalDetalleComanda.tsx): Ficha técnica ampliada de comanda (680px, Vista 2) con trazabilidad de receta culinaria e insumos descontados en almacén (`receta_resumen` de `producto_insumo` + `insumo`), resaltado de notas de alérgenos y botón de despacho masivo directo hacia el pase caliente.
+  - [`ModalAlertaParadaFogones.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/cocina/components/kds/ModalAlertaParadaFogones.tsx): Modal de alta prioridad (620px, Vista 3) disparado por evento SSE `item_pedido_anulado` originado en salón (`CU-MOZO-06`/`CU-MOZO-07`), con borde rojo parpadeante `#EF4444`, audio de detención, plato tachado con badge `ANULADO`, justificación obligatoria y acuse táctil para evitar merma (`es_merma = false`).
+  - [`ConsolidadoAllDayView.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/cocina/components/kds/ConsolidadoAllDayView.tsx): Vista consolidada de producción en vivo ("All-Day Summary", Vista 4) agrupada en columnas por las categorías reales de la carta gastronómica (`categoria_producto.nombre`), acumulando raciones idénticas de múltiples mesas para cocción por tandas masivas en wok/horno.
+  - [`DemoKdsWidget.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/cocina/components/kds/DemoKdsWidget.tsx): Widget flotante interactivo en esquina inferior para simular en 1 clic: *Inyectar comanda de mozo (Mesa 05 con chime)*, *Simular Parada de Fogones SSE*, *Acelerar tiempos (+10m ámbar, +20m rojo)*, *Alternar a estado vacío ("¡Fogones al día!")* y *Simular desconexión/reconexión SSE*.
+- **Servicios y DTOs:**
+  - [`mockCocinaService.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/cocina/services/mockCocinaService.ts): Simulación de endpoints canónicos (`GET /comandas`, `PATCH /items/:id/estado`, `POST /comandas/:id/despachar-todo`, `GET /consolidado-all-day`) con contratos `ApiResponse<T>`.
+  - [`src/types/cocina.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/cocina.ts): DTOs auditados 1:1 contra `02_schema_ddl.sql` (`KDSComandaDTO`, `KDSItemDTO`, `ConsolidadoAllDayDTO`, `ConfiguracionKDSDTO`, `ItemAnuladoSSEEvent`).
+- **Responsive:** Touch targets $\ge 44$px a $48$px, layout adaptado a monitores industriales de cocina `1440x900`, tablets y smartphones.
 - **Estado de Build:** ✅ Compilado y probado en producción con 0 errores (`npm run build`).
 
 ---

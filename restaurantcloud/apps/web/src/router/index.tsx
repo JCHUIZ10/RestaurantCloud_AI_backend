@@ -14,6 +14,7 @@ import { MozoMesasPage } from '@/modules/mozo/pages/MozoMesasPage';
 import { MozoComandaPage } from '@/modules/mozo/pages/MozoComandaPage';
 import { MozoPrecuentaPage } from '@/modules/mozo/pages/MozoPrecuentaPage';
 import { MozoReservasPage } from '@/modules/mozo/pages/MozoReservasPage';
+import { CocinaKdsPage } from '@/modules/cocina/pages/CocinaKdsPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
@@ -318,19 +319,7 @@ export const router = createBrowserRouter([
     children: [
       {
         path: 'kds',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-COCINA-01"
-            nombrePantalla="Kitchen Display System (KDS) en Tiempo Real"
-            rol="cocina"
-            layoutNombre="TerminalLayout"
-            descripcion="Monitor KDS a pantalla completa sincronizado por Server-Sent Events (SSE). Cola visual de pedidos, alertas de tiempo transcurrido y cambio de estados (en preparación, listo para despacho)."
-            viewportSugerido="fullscreen"
-            enlacesRelacionados={[
-              { label: 'Marcar Producto Agotado', to: ROUTES.COCINA_STOCK_RAPIDO },
-            ]}
-          />
-        ),
+        element: <CocinaKdsPage />,
       },
       {
         path: 'stock-rapido',

@@ -48,15 +48,18 @@
 (CU-MOZO-07: Atender Incidencia de Plato No Disponible y Resolver en Mesa):
 - que es : Gestión y resolución asistida en mesa ante quiebres de stock en cocina KDS: Banner superior táctil y badge [ ⚠️ QUIEBRE COCINA ] en Mesa 04, Modal de Decisión Asistida en Mesa (620px) con Opción A (Sustituir) y Opción B (Anular), Modal de Sustitución Universal en Carta (760px) con 6 sugerencias inteligentes calculadas por cercanía de precio (+S/, -S/, S/ 0) y búsqueda libre, y Modal de Anulación por Quiebre (580px) con recálculo contable y auditoría inmutable (es_merma = false): http://localhost:5173/mozo/mesas
 
+(CU-COCINA-01: Ver Cola de Pedidos Entrantes KDS):
+- que es : Monitor KDS industrial de cocina (TerminalLayout) con rejilla 4 columnas FIFO, semáforo dinámico según configuracion_kds (🟢 <=15m, 🟡 16-25m, 🔴 >25m), badges de mesa/mozo/ronda, botones táctiles para avanzar platos ([🔥 En Fuego], [✓ Marcar Listo], [↩ Deshacer 30s]), chip de bebidas atendidas por mozo, Ficha Técnica de Comanda 680px (Vista 2) con receta culinaria e insumos descontados en almacén, Modal de Alerta Reactiva Parada de Fogones 620px (Vista 3) por anulación SSE en salón, Consolidado All-Day Summary (Vista 4) agrupado por categorías reales de la carta gastronómica, y widget flotante de pruebas para simular eventos en 1 clic: http://localhost:5173/cocina/kds
+
 ---
 
 ### Próximos Casos de Uso (En Desarrollo / Roadmap)
 
-(CU-COCINA-01: Ver Cola de Pedidos Entrantes KDS):
-- Monitor industrial de cocina con 4 columnas FIFO, semáforo de tiempos y avance táctil de preparación: http://localhost:5173/cocina/kds
-
 (CU-CAJA-01: Apertura de Turno y Control de Efectivo):
 - Pantalla de apertura de turno de caja y arqueo de efectivo con bloqueo operativo inicial: http://localhost:5173/caja/apertura
+
+(CU-COCINA-04: Marcar Producto Agotado en Cocina):
+- Control de quiebre de stock en 1 toque desde cocina con apagado en carta QR y tablets de salón: http://localhost:5173/cocina/stock-rapido
 
 (CU-AUTH-02: Recuperar Contraseña con OTP):
 - Flujo de recuperación de acceso mediante correo y validación de código OTP: http://localhost:5173/recuperar-password
