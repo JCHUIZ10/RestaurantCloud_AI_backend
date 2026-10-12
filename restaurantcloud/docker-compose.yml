@@ -39,7 +39,7 @@ services:
       - saas_network
 
   minio:
-    image: quay.io/minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest
     container_name: saas_minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -52,7 +52,7 @@ services:
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/9000' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -60,7 +60,7 @@ services:
       - saas_network
 
   minio-init:
-    image: quay.io/minio/mc:latest
+    image: cgr.dev/chainguard/minio:latest
     container_name: saas_minio_init
     depends_on:
       minio:
@@ -69,8 +69,8 @@ services:
       - /bin/sh
       - -c
       - |
-        /usr/bin/mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}
-        /usr/bin/mc mb local/${MINIO_DEFAULT_BUCKET:-restaurantcloud} --ignore-existing
+        mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}
+        mc mb local/${MINIO_DEFAULT_BUCKET:-restaurantcloud} --ignore-existing
         exit 0
     networks:
       - saas_network
