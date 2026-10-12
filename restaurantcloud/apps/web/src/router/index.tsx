@@ -9,6 +9,7 @@ import { ROUTES } from './routes.constants';
 
 import { LoginPage } from '@/modules/auth/pages/LoginPage';
 import { CartaDigitalPage } from '@/modules/cliente/pages/CartaDigitalPage';
+import { ComprobanteDigitalPage } from '@/modules/cliente/pages/ComprobanteDigitalPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
@@ -62,6 +63,11 @@ export const router = createBrowserRouter([
           />
         ),
       },
+      // Búsqueda manual de comprobante Zero Dead-Ends
+      {
+        path: 'comprobante',
+        element: <ComprobanteDigitalPage />,
+      },
     ],
   },
 
@@ -78,16 +84,19 @@ export const router = createBrowserRouter([
       },
       {
         path: 'comprobante/:numero',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-CLIENTE-02"
-            nombrePantalla="Consulta de Comprobante Público"
-            rol="cliente"
-            layoutNombre="SedeCustomerLayout"
-            descripcion="Búsqueda y visualización digital de boleta o factura electrónica emitida por la sede."
-            viewportSugerido="mobile"
-          />
-        ),
+        element: <ComprobanteDigitalPage />,
+      },
+    ],
+  },
+
+  // Acceso directo a comprobante electrónico por token único QR (/c/:token)
+  {
+    path: '/c/:token',
+    element: <SedeCustomerLayout />,
+    children: [
+      {
+        index: true,
+        element: <ComprobanteDigitalPage />,
       },
     ],
   },

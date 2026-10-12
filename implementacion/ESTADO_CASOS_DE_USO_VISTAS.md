@@ -2,7 +2,9 @@
 ## RestaurantCloud AI — Estado Canónico del Frontend Web
 
 > **Documento de Trazabilidad y Continuidad del Proyecto.**  
-> Este documento registra el avance oficial de las pantallas implementadas en `restaurantcloud/apps/web`, los componentes involucrados, sus rutas activas, estado de verificación responsive y el backlog ordenado de los siguientes Casos de Uso (CUs) para garantizar continuidad sin fricciones entre sesiones.
+> Este documento registra el avance oficial de las pantallas implementadas en `restaurantcloud/apps/web`, los componentes involucrados, sus rutas activas, estado de verificación responsive y el backlog ordenado de los siguientes Casos de Uso (CUs) para garantizar continuidad sin fricciones entre sesiones.  
+>  
+> 🔗 **Acceso Rápido a Enlaces de Demostración:** Consulta [`CASOS_DE_PRUEBA_LINKS.md`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/implementacion/CASOS_DE_PRUEBA_LINKS.md) para probar cada escenario en vivo con el formato estándar `(nombre del CU): - qué es : link`.
 
 ---
 
@@ -11,7 +13,7 @@
 | Módulo / Dominio | Total CUs | CUs Concluidos | CUs En Proceso / Pendientes | % Avance Frontend |
 |---|:---:|:---:|:---:|:---:|
 | **Plataforma Pública & SaaS B2B** | 1 (Landing) | 1 | 0 | 100% |
-| **Cliente / Comensal QR** | 2 | 1 | 1 | 50% |
+| **Cliente / Comensal QR** | 2 | 2 | 0 | 100% |
 | **Autenticación & Usuarios** | 3 | 1 | 2 | 33% |
 | **Salón & Mozo** | 8 | 0 | 8 | 0% |
 | **Cocina (KDS)** | 4 | 0 | 4 | 0% |
@@ -60,7 +62,28 @@
 
 ---
 
-### 2.3 `CU-AUTH-01`: Iniciar Sesión y Resolución Multi-Cuenta
+### 2.3 `CU-CLIENTE-02`: Buscar Comprobante de Pago Digital (Boletas y Facturas Electrónicas)
+- **Rutas Activas:**
+  - `/c/:token` (Acceso directo por escaneo de QR impreso o WhatsApp)
+  - `/sede/:slug/comprobante/:numero` (Acceso estructurado por sede)
+  - `/comprobante` (Búsqueda manual Zero Dead-Ends)
+- **Layout:** [`SedeCustomerLayout.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/SedeCustomerLayout.tsx) y [`PublicLayout.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/PublicLayout.tsx)
+- **Componentes Creados:**
+  - [`ComprobanteDigitalPage.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/cliente/pages/ComprobanteDigitalPage.tsx): Orquestador reactivo de comprobante electrónico.
+  - [`ComprobanteTicketMobile.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/cliente/components/ComprobanteTicketMobile.tsx): Representación de ticket térmico digital en smartphone (`< 768px`) con acciones al alcance del pulgar.
+  - [`ComprobanteFacturaA4.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/cliente/components/ComprobanteFacturaA4.tsx): Hoja tributaria formal estilo Factura Fiscal A4 para PC y tablets (`>= 768px`) con código QR SUNAT y hash de seguridad digital.
+  - [`ComprobanteSidebarDesktop.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/cliente/components/ComprobanteSidebarDesktop.tsx): Sidebar sticky para PC con botones para descargar PDF oficial y XML electrónico (UBL 2.1), enlace permanente y ficha del restaurante.
+  - [`ComprobanteAnuladoBanner.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/cliente/components/ComprobanteAnuladoBanner.tsx): Sello de agua indeleble "ANULADO" y tarjeta de auditoría de la Nota de Crédito rectificatoria.
+  - [`ComprobanteZeroDeadEnd.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/cliente/components/ComprobanteZeroDeadEnd.tsx): Pantalla de búsqueda manual por código con política de privacidad y anti-scraping (sin búsquedas masivas por DNI/RUC).
+  - [`DemoComprobantesWidget.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/cliente/components/DemoComprobantesWidget.tsx): Widget flotante para alternar entre los escenarios de prueba en 1 clic (*Boleta Emitida*, *Factura Corporativa*, *Comprobante Anulado*, *Token Inválido*).
+- **Servicios y DTOs:**
+  - [`mockComprobanteService.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/cliente/services/mockComprobanteService.ts): Servicio de comprobantes con envoltura `ApiResponse<ComprobantePublicoDTO>`.
+  - [`src/types/comprobante.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/comprobante.ts): DTOs verificados contra las tablas `comprobante`, `pedido_item`, `producto`, `local` y `empresa` de PostgreSQL.
+- **Estado de Build:** ✅ Compilado y probado en vivo (`npm run build`).
+
+---
+
+### 2.4 `CU-AUTH-01`: Iniciar Sesión y Resolución Multi-Cuenta
 - **Ruta Activa:** `/login` ([`PublicLayout.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/PublicLayout.tsx))
 - **Componentes Creados:**
   - [`LoginPage.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/auth/pages/LoginPage.tsx): Orquestador del flujo de login y redirección por rol.
@@ -90,44 +113,46 @@
 
 ## 4. Backlog Priorizado de Próximos Casos de Uso (Roadmap)
 
-Para continuar el desarrollo de las pantallas del sistema, se recomienda el siguiente orden lógico:
+Con los módulos públicos de **Cliente** (Carta QR y Comprobante Digital) y el acceso principal de **Autenticación** concluidos al 100%, las siguientes opciones de implementación son:
 
-### 🟢 Opción 1: Cerrar el Dominio Público de Clientes (Recomendada para completar el módulo)
-1. **`CU-CLIENTE-02`: Buscar Comprobante de Pago Digital (Visor de Boletas y Facturas Electrónicas)**
-   - **Ruta:** `/sede/:slug/comprobante/:token` o `/c/:token`
-   - **Wireframe Canónico:** `wireframe/cliente/CU-CLIENTE-02-buscar-comprobante/wireframe.md`
-   - **Vistas Clave:** Visor digital de ticket en smartphone, visor formal tributario A4 en pantalla de PC/Tablet, auditoría de comprobante anulado con nota de crédito y pantalla de búsqueda por código único (Zero Dead-Ends).
-   - **Tabla BD Asociada:** `comprobante`, `comprobante_serie`, `cliente`, `local`, `empresa`.
-
----
-
-### 🟡 Opción 2: Iniciar el Centro Neurálgico Operativo del Restaurante (Salón y Cocina)
-2. **`CU-MOZO-01`: Ver Estado de Mesas y Centro de Comandas en Vivo**
+### 🟡 Opción A: Centro Operativo de Salón (Recomendada para la experiencia del Mozo)
+1. **`CU-MOZO-01`: Ver Estado de Mesas y Centro de Comandas en Vivo**
    - **Ruta:** `/mozo/mesas` (en `TerminalLayout`)
    - **Wireframe Canónico:** `wireframe/mozo/CU-MOZO-01-estado-mesas/wireframe.md`
-   - **Vistas Clave:** Plano interactivo de mesas (70%) + Barra lateral de pedidos y bebidas de despacho directo (30%), Quick-drawer de inspección de mesa y alertas de platos listos en cocina.
+   - **Vistas Clave:** Plano interactivo de mesas con filtros por piso y estado (70%) + Barra lateral de pedidos y bebidas de despacho directo (30%), Quick-drawer de inspección de mesa y alertas de platos listos en cocina.
    - **Tablas BD Asociadas:** `mesa`, `piso`, `pedido`, `pedido_item`, `reserva`.
 
-3. **`CU-MOZO-02`: Tomar Pedido y Comanda Móvil en Salón**
+2. **`CU-MOZO-02`: Tomar Pedido y Comanda Móvil en Salón**
    - **Ruta:** `/mozo/mesas/:mesaId/comanda`
    - **Wireframe Canónico:** `wireframe/mozo/CU-MOZO-02-tomar-pedido/wireframe.md`
    - **Vistas Clave:** Catálogo táctil de la carta (65%) + Ticket de comanda interactivo (35%), modal rápido de notas de preparación y resolución asistida de conflictos de stock (409).
    - **Tablas BD Asociadas:** `pedido`, `pedido_item`, `producto`, `categoria_producto`.
 
-4. **`CU-COCINA-01`: Ver Cola de Pedidos Entrantes (Kitchen Display System - KDS)**
+---
+
+### 🔴 Opción B: Cocina y Producción (KDS - Kitchen Display System)
+3. **`CU-COCINA-01`: Ver Cola de Pedidos Entrantes (Kitchen Display System - KDS)**
    - **Ruta:** `/cocina/kds` (en `TerminalLayout`)
    - **Wireframe Canónico:** `wireframe/cocina/CU-COCINA-01-cola-pedidos-kds/wireframe.md`
-   - **Vistas Clave:** Tablero KDS oscuro de 4 columnas FIFO con semáforo cromático dinámico según `configuracion_kds`, botones táctiles para avanzar platos a "En Fuego" o "Listo", y vista de consolidado "All-Day Summary".
+   - **Vistas Clave:** Tablero KDS oscuro industrial de 4 columnas FIFO con semáforo cromático dinámico según `configuracion_kds`, botones táctiles para avanzar platos a "En Fuego" o "Listo", y vista de consolidado "All-Day Summary".
    - **Tablas BD Asociadas:** `pedido`, `pedido_item`, `configuracion_kds`.
 
 ---
 
-### 🔵 Opción 3: Módulo de Autenticación y Acceso
-5. **`CU-AUTH-01`: Iniciar Sesión en el Sistema (Web y Terminal con PIN Rápido)**
-   - **Ruta:** `/login`
-   - **Wireframe Canónico:** `wireframe/usuario/CU-AUTH-01-iniciar-sesion/wireframe.md`
-   - **Vistas Clave:** Formulario de correo y contraseña para administradores, teclado numérico de PIN de 4 dígitos para mozos/cocineros/cajeros en terminal compartida.
-   - **Tabla BD Asociada:** `usuario`.
+### 💳 Opción C: Caja y Facturación POS
+4. **`CU-CAJA-01`: Apertura de Turno y Control de Efectivo**
+   - **Ruta:** `/caja/apertura`
+   - **Wireframe Canónico:** `wireframe/cajero/CU-CAJA-01-apertura-turno/wireframe.md`
+   - **Vistas Clave:** Arqueo inicial, conteo desglosado de billetes/monedas y bloqueo de operaciones hasta apertura oficial.
+   - **Tablas BD Asociadas:** `turno_caja`, `movimiento_caja`.
+
+---
+
+### 🔵 Opción D: Flujos Complementarios de Autenticación
+5. **`CU-AUTH-02`: Recuperar Contraseña con OTP**
+   - **Ruta:** `/recuperar-password`
+   - **Wireframe Canónico:** `wireframe/usuario/CU-AUTH-02-recuperar-password/wireframe.md`
+   - **Vistas Clave:** Solicitud de correo, ingreso de código OTP de 6 dígitos con temporizador de expiración y cambio de clave.
 
 ---
 

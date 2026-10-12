@@ -9,10 +9,12 @@ export const ROUTES = {
   REGISTRO: '/registro',
   RECUPERAR_PASSWORD: '/recuperar-password',
 
-  // Experiencia Cliente QR por Slug
+  // Experiencia Cliente QR por Slug y Comprobantes
   SEDE_CARTA: (slug: string = ':slug') => `/sede/${slug}/carta`,
   SEDE_ALIAS: (slug: string = ':slug') => `/m/${slug}`,
   SEDE_COMPROBANTE: (slug: string = ':slug', id: string = ':numero') => `/sede/${slug}/comprobante/${id}`,
+  COMPROBANTE_DIRECTO: (token: string = ':token') => `/c/${token}`,
+  COMPROBANTE_BUSQUEDA: '/comprobante',
 
   // Portal Propietario (Multi-Local & Corporativo)
   PROPIETARIO_DASHBOARD: '/propietario/dashboard',
