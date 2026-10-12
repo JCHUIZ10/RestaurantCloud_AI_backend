@@ -104,7 +104,7 @@ Pantalla principal táctil en formato horizontal (`1440x900` / Tablet `1024x768`
 | ÁREA PRINCIPAL: PLANO VISUAL DE MESAS (70% ancho)                | BARRA LATERAL: PEDIDOS EN VIVO  |
 |                                                                  | (30% ancho ~390px)              |
 | [ Salón Principal (10) ] [ Terraza (4) ] [ Barra (3) ]           | 🥤 SALÓN & COCINA EN VIVO       |
-| Aforo actual: 24 / 42 comensales (57%)                           | [ 3 LISTOS PARA SERVIR ]        |
+| Mesas en piso: 4 Libres · 6 Ocupadas (de 10)                     | [ 3 LISTOS PARA SERVIR ]        |
 |                                                                  |---------------------------------|
 | Filtrar: [● Mis Mesas (4)] [ Todo Salón ] [ Libres ] [ Ocupadas] | 🥤 BEBIDAS & DESPACHO DIRECTO   |
 |                                                                  | +-----------------------------+ |
@@ -138,7 +138,7 @@ Pantalla principal táctil en formato horizontal (`1440x900` / Tablet `1024x768`
 ```
 
 #### Elementos Visuales y Funcionalidades
-- **Selector de Ambientes y Medidor de Aforo:** Conmuta entre pisos físicos del restaurante (`Salón Principal`, `Terraza`, `Barra`) mostrando el aforo en vivo.
+- **Selector de Ambientes y Disponibilidad de Mesas:** Conmuta entre pisos físicos del restaurante (`Salón Principal`, `Terraza`, `Barra`) mostrando en tiempo real mesas libres y ocupadas del piso seleccionado.
 - **Filtro de Foco Operativo:** Píldora destacada `[● Mis Mesas Asignadas (4)]` para que el mozo supervise exclusivamente sus comandas, con opción de un toque para ver `[Todo el Salón (10)]`.
 - **Tarjetas de Mesa Touch-First:** Muestran número, tiempo de ocupación, comensales, monto consumido, nombre del mozo y badge de platos listos o en preparación.
 - **Barra Lateral de Despacho Dual en Vivo:** 
@@ -229,7 +229,7 @@ Vista del salón al 100% disponible al iniciar el servicio (ej. 12:00 hrs para a
 | RESTAURANTCLOUD AI   | Salón & Mesas > Centro de Mando   (•) SSE En Vivo   [ Sede: Miraflores v ]  |
 +------------------------------------------------------------------+---------------------------------+
 | ÁREA PRINCIPAL: PLANO VISUAL DE MESAS (70%)                      | BARRA LATERAL: PEDIDOS (30%)    |
-| Aforo actual: 0 / 42 comensales (0%) • Salón 100% Disponible     |                                 |
+| Mesas en piso: 10 Libres · 0 Ocupadas • Salón 100% Disponible    |                                 |
 |                                                                  | [🍽️]                            |
 | +------------+ +------------+ +------------+ +------------+      | Salón listo para el servicio    |
 | | MESA 01    | | MESA 02    | | MESA 03    | | MESA 04    |      | No hay comandas activas en      |
@@ -314,15 +314,15 @@ type MesaCardDTO struct {
 	MozoNombre         *string             `json:"mozo_nombre,omitempty"`
 	EsMiMesa           bool                `json:"es_mi_mesa"`
 	PlatosListos       int                 `json:"platos_listos"`
-	PlatosEnCocina     int                 `json:"platos_en_cocina"`
-	BebidasPendientes  int                 `json:"bebidas_pendientes"`
+	PlatosEnCocina           int                 `json:"platos_en_cocina"`
+	DespachoDirectoPendiente int                 `json:"despacho_directo_pendiente"` // Productos sin cocina (bebidas, gelatinas, postres de vitrina)
 	
 	// Datos si está bloqueada por reserva
 	ReservaCliente     *string             `json:"reserva_cliente,omitempty"`
 	ReservaHora        *string             `json:"reserva_hora,omitempty"`
 }
 
-// ItemDespachoListoDTO tarjeta para la barra lateral (cocina KDS o bebidas de salón)
+// ItemDespachoListoDTO tarjeta para la barra lateral (cocina KDS o productos de despacho directo en salón)
 type ItemDespachoListoDTO struct {
 	ItemID              uuid.UUID `json:"item_id"`
 	PedidoID            uuid.UUID `json:"pedido_id"`
@@ -343,8 +343,9 @@ type PlanoCompletoMozoDTO struct {
 	PisoNombre          string                 `json:"piso_nombre"`
 	Mesas               []MesaCardDTO          `json:"mesas"`
 	ItemsListos         []ItemDespachoListoDTO `json:"items_listos"`
-	AforoOcupado        int                    `json:"aforo_ocupado"`
-	AforoTotal          int                    `json:"aforo_total"`
+	MesasLibres         int                    `json:"mesas_libres"`   // Mesas desocupadas listas para comensales en el piso
+	MesasOcupadas       int                    `json:"mesas_ocupadas"` // Mesas con pedido activo o cuenta pedida
+	TotalMesas          int                    `json:"total_mesas"`    // Total de mesas configuradas en el piso
 	MisMesasActivas     int                    `json:"mis_mesas_activas"`
 	TotalVentaTurno     float64                `json:"total_venta_turno"`
 }

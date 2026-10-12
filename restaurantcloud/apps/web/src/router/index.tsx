@@ -10,6 +10,7 @@ import { ROUTES } from './routes.constants';
 import { LoginPage } from '@/modules/auth/pages/LoginPage';
 import { CartaDigitalPage } from '@/modules/cliente/pages/CartaDigitalPage';
 import { ComprobanteDigitalPage } from '@/modules/cliente/pages/ComprobanteDigitalPage';
+import { MozoMesasPage } from '@/modules/mozo/pages/MozoMesasPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
@@ -291,20 +292,7 @@ export const router = createBrowserRouter([
     children: [
       {
         path: 'mesas',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-MOZO-01"
-            nombrePantalla="Plano Táctil de Mesas en Salón"
-            rol="mozo"
-            layoutNombre="TerminalLayout"
-            descripcion="Monitoreo táctil de mesas en tiempo real: libre, ocupada, precuenta solicitada y reservada. Acceso rápido para tomar comanda."
-            viewportSugerido="mobile"
-            enlacesRelacionados={[
-              { label: 'Tomar Pedido Mesa 4', to: ROUTES.MOZO_COMANDA('4') },
-              { label: 'Gestionar Reservas', to: ROUTES.MOZO_RESERVAS },
-            ]}
-          />
-        ),
+        element: <MozoMesasPage />,
       },
       {
         path: 'mesas/:mesaId/comanda',

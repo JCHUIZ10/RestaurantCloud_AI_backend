@@ -24,12 +24,12 @@
 (CU-AUTH-01: Iniciar Sesión y Resolución Multi-Cuenta):
 - Formulario de login con widget flotante en esquina inferior para copiar y probar 7 perfiles en 1 clic: http://localhost:5173/login
 
+(CU-MOZO-01: Ver Estado de Mesas y Centro de Comandas en Vivo):
+- Pantalla integrada de salón (layout 70/30) con plano táctil, despacho dual en acordeones colapsables (productos de despacho directo como gelatinas/bebidas y pase de cocina), disponibilidad en vivo de mesas libres y ocupadas por piso, Quick-Drawer de 440px y simulador de eventos: http://localhost:5173/mozo/mesas
+
 ---
 
 ### Próximos Casos de Uso (En Desarrollo / Roadmap)
-
-(CU-MOZO-01: Ver Estado de Mesas y Centro de Comandas en Vivo):
-- Plano interactivo del salón con estados de mesa, barra de pedidos directos y drawer de atención: http://localhost:5173/mozo/mesas
 
 (CU-COCINA-01: Ver Cola de Pedidos Entrantes KDS):
 - Monitor industrial de cocina con 4 columnas FIFO, semáforo de tiempos y avance táctil de preparación: http://localhost:5173/cocina/kds

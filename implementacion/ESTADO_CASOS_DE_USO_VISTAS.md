@@ -15,7 +15,7 @@
 | **Plataforma Pública & SaaS B2B** | 1 (Landing) | 1 | 0 | 100% |
 | **Cliente / Comensal QR** | 2 | 2 | 0 | 100% |
 | **Autenticación & Usuarios** | 3 | 1 | 2 | 33% |
-| **Salón & Mozo** | 8 | 0 | 8 | 0% |
+| **Salón & Mozo** | 8 | 1 | 7 | 13% |
 | **Cocina (KDS)** | 4 | 0 | 4 | 0% |
 | **Caja & Cobranza** | 5 | 0 | 5 | 0% |
 | **Administración Local** | 10 | 0 | 10 | 0% |
@@ -99,6 +99,27 @@
 
 ---
 
+### 2.5 `CU-MOZO-01`: Ver Estado de Mesas y Centro de Comandas en Vivo (Hub de Salón)
+- **Ruta Activa:** `/mozo/mesas` ([`TerminalLayout.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/TerminalLayout.tsx))
+- **Componentes Creados:**
+  - [`MozoMesasPage.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/pages/MozoMesasPage.tsx): Orquestador principal de la pantalla integrada del salón con gestión de eventos SSE y estado reactivo.
+  - [`SalonHeaderMozo.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/SalonHeaderMozo.tsx): Selector de ambientes (*Salón Principal*, *Terraza*, *Barra*), disponibilidad de mesas del piso en vivo (`4 Libres · 6 Ocupadas de 10`), indicador SSE y píldoras de filtro táctil (*Mis Mesas*, *Todo el Salón*, *Libres*, *Ocupadas*).
+  - [`PlanoMesasGrid.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/PlanoMesasGrid.tsx): Grilla visual interactiva (70% del ancho) con tarjetas adaptadas según la forma de mesa (`cuadrada`, `redonda`, `rectangular`) y simbología cromática.
+  - [`MesaCard.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/MesaCard.tsx): Tarjeta de mesa con paleta ÁUREA (#0B2340 Navy para ocupadas, Esmeralda para libres, Ámbar pulsante para cuenta pedida, Borde punteado para reservas y badge `🔗` para mesas unidas).
+  - [`SidebarDespachoVivo.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/SidebarDespachoVivo.tsx): Barra lateral derecha persistente de 390px (30%) con **acordeones interactivos colapsables** táctiles (`>= 44px`): **Productos de Despacho Directo** (`requiere_preparacion = false`, subtítulo *"Entrega directa"*: bebidas, gelatinas y postres de vitrina) y **Pase de Cocina KDS**, con badges numéricos visibles en todo momento y botón `[✓ Marcar Producto Servido]`.
+  - [`MesaInspeccionDrawer.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/MesaInspeccionDrawer.tsx): Quick-Drawer de 440px que se abre al tocar una mesa ocupada, desglosando platos de cocina y bloque de **Productos de Despacho Directo** con descripción *"Entrega directa"*, total acumulado y botones de enlace a los otros CUs (`CU-MOZO-02`, `CU-MOZO-04`, `CU-MOZO-06`, `CU-MOZO-08`, `CU-MOZO-09`).
+  - [`AlertaCocinaModal.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/AlertaCocinaModal.tsx): Modal emergente prioritario (560px) para avisos inmediatos del pase caliente o quiebres de insumos.
+  - [`DemoMozoWidget.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/components/DemoMozoWidget.tsx): Widget flotante para simular en 1 toque: *Plato listo en cocina*, *Entrega directa (Gelatina / Bebida)*, *Alerta de quiebre*, *Alternar a Turno Vacío (Vista 4)* y *Filtrar Mis Mesas*.
+- **Servicios y DTOs:**
+  - [`mockMozoService.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/services/mockMozoService.ts): Simulación completa con `ApiResponse<PlanoCompletoMozoDTO>` y `ApiResponse<MesaDetalleMozoDTO>`.
+  - [`src/types/mozo.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/mozo.ts): DTOs auditados contra `piso`, `mesa`, `pedido`, `pedido_item`, `producto` y `reserva` con `despacho_directo_pendiente`.
+- **Responsive:**
+  - Desktop: Layout persistente 70/30 (Plano + Sidebar de Despacho).
+  - Tablet/Móvil: Barra lateral colapsable accesible vía botón superior `[ N Listos ]` y Quick-Drawer adaptativo touch-first.
+- **Estado de Build:** ✅ Compilado y probado en vivo (`npm run build`).
+
+---
+
 ## 3. Infraestructura y Arquitectura Base Completada
 
 - **Enrutador React Router DOM v6:** [`src/router/index.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/router/index.tsx) con rutas centralizadas en [`src/router/routes.constants.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/router/routes.constants.ts).
@@ -113,19 +134,13 @@
 
 ## 4. Backlog Priorizado de Próximos Casos de Uso (Roadmap)
 
-Con los módulos públicos de **Cliente** (Carta QR y Comprobante Digital) y el acceso principal de **Autenticación** concluidos al 100%, las siguientes opciones de implementación son:
+Con **`CU-MOZO-01`** completado como centro de mando, las siguientes opciones de implementación son:
 
-### 🟡 Opción A: Centro Operativo de Salón (Recomendada para la experiencia del Mozo)
-1. **`CU-MOZO-01`: Ver Estado de Mesas y Centro de Comandas en Vivo**
-   - **Ruta:** `/mozo/mesas` (en `TerminalLayout`)
-   - **Wireframe Canónico:** `wireframe/mozo/CU-MOZO-01-estado-mesas/wireframe.md`
-   - **Vistas Clave:** Plano interactivo de mesas con filtros por piso y estado (70%) + Barra lateral de pedidos y bebidas de despacho directo (30%), Quick-drawer de inspección de mesa y alertas de platos listos en cocina.
-   - **Tablas BD Asociadas:** `mesa`, `piso`, `pedido`, `pedido_item`, `reserva`.
-
-2. **`CU-MOZO-02`: Tomar Pedido y Comanda Móvil en Salón**
-   - **Ruta:** `/mozo/mesas/:mesaId/comanda`
+### 🟡 Opción A: Continuar el Circuito Operativo de Salón (Mozo)
+1. **`CU-MOZO-02`: Tomar Pedido y Comanda Móvil en Salón**
+   - **Ruta:** `/mozo/mesas/:mesaId/comanda` (en `TerminalLayout`)
    - **Wireframe Canónico:** `wireframe/mozo/CU-MOZO-02-tomar-pedido/wireframe.md`
-   - **Vistas Clave:** Catálogo táctil de la carta (65%) + Ticket de comanda interactivo (35%), modal rápido de notas de preparación y resolución asistida de conflictos de stock (409).
+   - **Vistas Clave:** Catálogo táctil de la carta (65%) + Ticket interactivo de comanda (35%), selector de rondas, modificadores de cocina (notas), y resolución de conflicto de stock agotado (409).
    - **Tablas BD Asociadas:** `pedido`, `pedido_item`, `producto`, `categoria_producto`.
 
 ---
