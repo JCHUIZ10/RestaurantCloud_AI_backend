@@ -1,0 +1,48 @@
+/**
+ * Constantes centralizadas de rutas del Frontend de RestaurantCloud AI.
+ * Permite tipado estricto y evita rutas 'quemadas' (hardcoded) en los componentes.
+ */
+export const ROUTES = {
+  // Dominio Público SaaS
+  HOME: '/',
+  LOGIN: '/login',
+  REGISTRO: '/registro',
+  RECUPERAR_PASSWORD: '/recuperar-password',
+
+  // Experiencia Cliente QR por Slug
+  SEDE_CARTA: (slug: string = ':slug') => `/sede/${slug}/carta`,
+  SEDE_ALIAS: (slug: string = ':slug') => `/m/${slug}`,
+  SEDE_COMPROBANTE: (slug: string = ':slug', id: string = ':numero') => `/sede/${slug}/comprobante/${id}`,
+
+  // Portal Propietario (Multi-Local & Corporativo)
+  PROPIETARIO_DASHBOARD: '/propietario/dashboard',
+  PROPIETARIO_SEDES: '/propietario/sedes',
+  PROPIETARIO_ADMINISTRADORES: '/propietario/administradores',
+  PROPIETARIO_SUSCRIPCION: '/propietario/suscripcion',
+  PROPIETARIO_INCIDENTES: '/propietario/incidentes',
+
+  // Portal Administrador de Local
+  ADMIN_DASHBOARD: '/admin/dashboard',
+  ADMIN_PLANO_MESAS: '/admin/plano-mesas',
+  ADMIN_CARTA: '/admin/carta',
+  ADMIN_INVENTARIO: '/admin/inventario',
+  ADMIN_PERSONAL: '/admin/personal',
+  ADMIN_REPORTES_VENTAS: '/admin/reportes/ventas',
+  ADMIN_REPORTES_CIERRES_Z: '/admin/reportes/cierres-z',
+
+  // Terminales Operativas Salón, Cocina y Caja
+  MOZO_MESAS: '/mozo/mesas',
+  MOZO_COMANDA: (mesaId: string = ':mesaId') => `/mozo/mesas/${mesaId}/comanda`,
+  MOZO_PRECUENTA: (mesaId: string = ':mesaId') => `/mozo/mesas/${mesaId}/precuenta`,
+  MOZO_RESERVAS: '/mozo/reservas',
+
+  COCINA_KDS: '/cocina/kds',
+  COCINA_STOCK_RAPIDO: '/cocina/stock-rapido',
+
+  CAJERO_POS: '/cajero/pos',
+  CAJERO_TURNO: '/cajero/turno',
+
+  // Consola Global Admin SaaS
+  SAAS_TENANTS: '/saas/tenants',
+  SAAS_PLANES: '/saas/planes',
+} as const;

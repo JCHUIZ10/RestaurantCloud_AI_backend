@@ -1,16 +1,479 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate, useParams } from 'react-router-dom';
 import { PublicLayout } from '@/components/layout/PublicLayout';
-import { WelcomePage } from '@/modules/cliente/pages/WelcomePage';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { TerminalLayout } from '@/components/layout/TerminalLayout';
+import { SedeCustomerLayout } from '@/components/layout/SedeCustomerLayout';
+import { HomePage } from '@/modules/cliente/pages/HomePage';
+import { PlaceholderView } from '@/components/ui/PlaceholderView';
+import { ROUTES } from './routes.constants';
+
+// Redirección para el alias corto /m/:slug -> /sede/:slug/carta
+const ShortMenuRedirect = () => {
+  const { slug } = useParams<{ slug: string }>();
+  return <Navigate to={`/sede/${slug}/carta`} replace />;
+};
 
 export const router = createBrowserRouter([
+  // =========================================================================
+  // 1. DOMINIO PÚBLICO SAAS (Landing, Login, Registro Onboarding)
+  // =========================================================================
   {
     path: '/',
     element: <PublicLayout />,
     children: [
       {
         index: true,
-        element: <WelcomePage />,
+        element: <HomePage />,
+      },
+      {
+        path: 'login',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-AUTH-01"
+            nombrePantalla="Iniciar Sesión & Selección Multi-Cuenta"
+            rol="usuario (Cualquier rol)"
+            layoutNombre="PublicLayout"
+            descripcion="Autenticación con correo y contraseña. Si el usuario pertenece a más de una empresa, presenta la pantalla interactiva de selección de cuenta antes de emitir el token de sesión."
+            viewportSugerido="desktop"
+            enlacesRelacionados={[
+              { label: 'Ir a Registro Onboarding', to: ROUTES.REGISTRO },
+              { label: 'Ir a Recuperar Contraseña', to: ROUTES.RECUPERAR_PASSWORD },
+            ]}
+          />
+        ),
+      },
+      {
+        path: 'registro',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-PROP-01"
+            nombrePantalla="Registro de Empresa & Onboarding RUC + OTP"
+            rol="propietario"
+            layoutNombre="PublicLayout"
+            descripcion="Asistente de registro público en 3 pasos: Validación de RUC 10/20, Verificación obligatoria de correo con código OTP de 6 dígitos, y SetupIntent seguro de Stripe."
+            viewportSugerido="desktop"
+            enlacesRelacionados={[
+              { label: 'Ir al Login', to: ROUTES.LOGIN },
+              { label: 'Ver Planes en el Home', to: '/#planes' },
+            ]}
+          />
+        ),
+      },
+      {
+        path: 'recuperar-password',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-AUTH-02"
+            nombrePantalla="Recuperación de Contraseña con OTP"
+            rol="usuario"
+            layoutNombre="PublicLayout"
+            descripcion="Flujo seguro de restablecimiento de contraseña mediante envío de código OTP temporal a la casilla de correo del colaborador."
+            viewportSugerido="desktop"
+          />
+        ),
       },
     ],
+  },
+
+  // =========================================================================
+  // 2. EXPERIENCIA CLIENTE QR POR SLUG (Carta Digital & Comprobantes)
+  // =========================================================================
+  {
+    path: '/sede/:slug',
+    element: <SedeCustomerLayout />,
+    children: [
+      {
+        path: 'carta',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-CLIENTE-01"
+            nombrePantalla="Carta Digital Interactiva QR"
+            rol="cliente (Comensal en salón)"
+            layoutNombre="SedeCustomerLayout"
+            descripcion="Catálogo gastronómico accesible vía QR sin login ni descargas. Pestañas táctiles de categorías, buscador reactivo, botón directo a WhatsApp y visualización de platos agotados."
+            viewportSugerido="mobile"
+            enlacesRelacionados={[
+              { label: 'Ver Carta Demo Áurea Miraflores', to: '/sede/aurea-miraflores/carta' },
+              { label: 'Ver Carta El Carbón Surco', to: '/sede/el-carbon-surco/carta' },
+            ]}
+          />
+        ),
+      },
+      {
+        path: 'comprobante/:numero',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-CLIENTE-02"
+            nombrePantalla="Consulta de Comprobante Público"
+            rol="cliente"
+            layoutNombre="SedeCustomerLayout"
+            descripcion="Búsqueda y visualización digital de boleta o factura electrónica emitida por la sede."
+            viewportSugerido="mobile"
+          />
+        ),
+      },
+    ],
+  },
+
+  // Alias corto para QRs impresos (/m/:slug -> /sede/:slug/carta)
+  {
+    path: '/m/:slug',
+    element: <ShortMenuRedirect />,
+  },
+
+  // =========================================================================
+  // 3. CONSOLA PROPIETARIO CORPORATIVO (Multi-Local & Facturación Stripe)
+  // =========================================================================
+  {
+    path: '/propietario',
+    element: <DashboardLayout />,
+    children: [
+      {
+        path: 'dashboard',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-PROP-01/04"
+            nombrePantalla="Dashboard Consolidado del Propietario"
+            rol="propietario"
+            layoutNombre="DashboardLayout"
+            descripcion="Resumen ejecutivo multi-sede: ventas consolidadas en Soles, uso de recursos respecto al plan contratado y estado de suscripción Stripe."
+            enlacesRelacionados={[
+              { label: 'Gestión de Sedes', to: ROUTES.PROPIETARIO_SEDES },
+              { label: 'Suscripción & Stripe', to: ROUTES.PROPIETARIO_SUSCRIPCION },
+            ]}
+          />
+        ),
+      },
+      {
+        path: 'sedes',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-PROP-04"
+            nombrePantalla="Administración de Sedes & Slugs Web"
+            rol="propietario"
+            layoutNombre="DashboardLayout"
+            descripcion="Alta y mantenimiento de locales físicos. Configuración del slug de la carta digital con comprobación reactiva de disponibilidad en tiempo real."
+            enlacesRelacionados={[
+              { label: 'Probar Carta de una Sede', to: '/sede/mi-restaurante/carta' },
+            ]}
+          />
+        ),
+      },
+      {
+        path: 'administradores',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-PROP-05"
+            nombrePantalla="Asignación de Administradores de Local"
+            rol="propietario"
+            layoutNombre="DashboardLayout"
+            descripcion="Gestión de accesos y asignación de encargados de administración por local operativo."
+          />
+        ),
+      },
+      {
+        path: 'suscripcion',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-PROP-02/03"
+            nombrePantalla="Gestión de Suscripción & Cambio de Plan"
+            rol="propietario"
+            layoutNombre="DashboardLayout"
+            descripcion="Integración con Stripe Billing: actualización de tarjetas de crédito/débito, historial de facturas, simulación de upgrades inmediatos y downgrades programados con asistente de conciliación de recursos."
+          />
+        ),
+      },
+      {
+        path: 'incidentes',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-PROP-06"
+            nombrePantalla="Bitácora Corporativa de Incidentes"
+            rol="propietario"
+            layoutNombre="DashboardLayout"
+            descripcion="Registro y auditoría de incidencias operativas ocurridas en los distintos locales de la empresa."
+          />
+        ),
+      },
+    ],
+  },
+
+  // =========================================================================
+  // 4. PORTAL ADMINISTRADOR DE LOCAL
+  // =========================================================================
+  {
+    path: '/admin',
+    element: <DashboardLayout />,
+    children: [
+      {
+        path: 'dashboard',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-ADMIN-*"
+            nombrePantalla="Panel de Control del Local"
+            rol="administrador"
+            layoutNombre="DashboardLayout"
+            descripcion="Métricas operativas del día en la sede activa: mesas ocupadas, tiempo promedio de preparación en KDS, ventas del turno y estado del inventario."
+            enlacesRelacionados={[
+              { label: 'Plano de Mesas', to: ROUTES.ADMIN_PLANO_MESAS },
+              { label: 'Gestión de Carta', to: ROUTES.ADMIN_CARTA },
+            ]}
+          />
+        ),
+      },
+      {
+        path: 'plano-mesas',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-ADMIN-01"
+            nombrePantalla="Diseño y Plano de Mesas por Piso"
+            rol="administrador"
+            layoutNombre="DashboardLayout"
+            descripcion="Configuración visual del salón: pisos, ubicación espacial de mesas, capacidad de comensales y estados operativos."
+          />
+        ),
+      },
+      {
+        path: 'carta',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-ADMIN-02/04"
+            nombrePantalla="Gestión de Categorías, Productos & Recetas"
+            rol="administrador"
+            layoutNombre="DashboardLayout"
+            descripcion="Mantenimiento del catálogo gastronómico: categorías de la carta, platos, recetas con costeo de insumos e impuestos."
+          />
+        ),
+      },
+      {
+        path: 'inventario',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-ADMIN-03/05/06"
+            nombrePantalla="Insumos, Proveedores & Fichas de Compra"
+            rol="administrador"
+            layoutNombre="DashboardLayout"
+            descripcion="Control de stock de ingredientes, directorio de proveedores y registro de compras para costeo de platos."
+          />
+        ),
+      },
+      {
+        path: 'personal',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-ADMIN-08"
+            nombrePantalla="Personal de Sede (Mozos, Cocina, Caja)"
+            rol="administrador"
+            layoutNombre="DashboardLayout"
+            descripcion="Invitación y administración de colaboradores del local con asignación de roles operativos."
+          />
+        ),
+      },
+      {
+        path: 'reportes/ventas',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-ADMIN-13"
+            nombrePantalla="Reportes de Ventas & Productos Más Vendidos"
+            rol="administrador"
+            layoutNombre="DashboardLayout"
+            descripcion="Análisis analítico de ventas por rango de fechas, platos de mayor rotación y ticket promedio."
+          />
+        ),
+      },
+      {
+        path: 'reportes/cierres-z',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-ADMIN-14"
+            nombrePantalla="Flujo de Caja & Cierres Z"
+            rol="administrador"
+            layoutNombre="DashboardLayout"
+            descripcion="Auditoría de arqueos y cierres de turno Z de cada caja del local."
+          />
+        ),
+      },
+    ],
+  },
+
+  // =========================================================================
+  // 5. TERMINALES OPERATIVAS TÁCTILES (Mozo, Cocina KDS y Caja)
+  // =========================================================================
+  {
+    path: '/mozo',
+    element: <TerminalLayout />,
+    children: [
+      {
+        path: 'mesas',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-MOZO-01"
+            nombrePantalla="Plano Táctil de Mesas en Salón"
+            rol="mozo"
+            layoutNombre="TerminalLayout"
+            descripcion="Monitoreo táctil de mesas en tiempo real: libre, ocupada, precuenta solicitada y reservada. Acceso rápido para tomar comanda."
+            viewportSugerido="mobile"
+            enlacesRelacionados={[
+              { label: 'Tomar Pedido Mesa 4', to: ROUTES.MOZO_COMANDA('4') },
+              { label: 'Gestionar Reservas', to: ROUTES.MOZO_RESERVAS },
+            ]}
+          />
+        ),
+      },
+      {
+        path: 'mesas/:mesaId/comanda',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-MOZO-02"
+            nombrePantalla="Toma de Comanda Digital POS"
+            rol="mozo"
+            layoutNombre="TerminalLayout"
+            descripcion="Ingreso rápido de platos y bebidas para la mesa seleccionada con modificadores de cocina (sin cebolla, término medio, etc.) y despacho instantáneo a cocina."
+            viewportSugerido="mobile"
+          />
+        ),
+      },
+      {
+        path: 'mesas/:mesaId/precuenta',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-MOZO-08"
+            nombrePantalla="Emisión de Precuenta Digital"
+            rol="mozo"
+            layoutNombre="TerminalLayout"
+            descripcion="Generación e impresión de la precuenta para la mesa antes de su cobro en caja."
+            viewportSugerido="mobile"
+          />
+        ),
+      },
+      {
+        path: 'reservas',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-MOZO-05"
+            nombrePantalla="Gestión de Reservas del Turno"
+            rol="mozo"
+            layoutNombre="TerminalLayout"
+            descripcion="Consulta de clientes con reserva para el turno actual y asignación directa a mesas disponibles."
+            viewportSugerido="mobile"
+          />
+        ),
+      },
+    ],
+  },
+
+  {
+    path: '/cocina',
+    element: <TerminalLayout />,
+    children: [
+      {
+        path: 'kds',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-COCINA-01"
+            nombrePantalla="Kitchen Display System (KDS) en Tiempo Real"
+            rol="cocina"
+            layoutNombre="TerminalLayout"
+            descripcion="Monitor KDS a pantalla completa sincronizado por Server-Sent Events (SSE). Cola visual de pedidos, alertas de tiempo transcurrido y cambio de estados (en preparación, listo para despacho)."
+            viewportSugerido="fullscreen"
+            enlacesRelacionados={[
+              { label: 'Marcar Producto Agotado', to: ROUTES.COCINA_STOCK_RAPIDO },
+            ]}
+          />
+        ),
+      },
+      {
+        path: 'stock-rapido',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-COCINA-04"
+            nombrePantalla="Marcar Producto Agotado en Cocina"
+            rol="cocina"
+            layoutNombre="TerminalLayout"
+            descripcion="Control de quiebre de stock en 1 toque. Al marcar un plato como 'Agotado por hoy', se atenúa inmediatamente en la carta digital QR y en el POS de los mozos."
+            viewportSugerido="fullscreen"
+          />
+        ),
+      },
+    ],
+  },
+
+  {
+    path: '/cajero',
+    element: <TerminalLayout />,
+    children: [
+      {
+        path: 'pos',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-CAJA-03"
+            nombrePantalla="Cobro de Comandas & Facturación"
+            rol="cajero"
+            layoutNombre="TerminalLayout"
+            descripcion="Módulo de cobro rápido de comandas por mesa: división de cuenta, pagos mixtos (efectivo, tarjeta, Yape/Plin) y emisión de boleta o factura electrónica."
+            viewportSugerido="desktop"
+            enlacesRelacionados={[
+              { label: 'Turno & Arqueo Z', to: ROUTES.CAJERO_TURNO },
+            ]}
+          />
+        ),
+      },
+      {
+        path: 'turno',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-CAJA-01/05"
+            nombrePantalla="Apertura y Cierre de Caja Z"
+            rol="cajero"
+            layoutNombre="TerminalLayout"
+            descripcion="Control del turno de caja: monto de apertura en efectivo, registro de entradas/salidas de efectivo, arqueo ciego y generación del comprobante de Cierre Z."
+            viewportSugerido="desktop"
+          />
+        ),
+      },
+    ],
+  },
+
+  // =========================================================================
+  // 6. CONSOLA ADMINISTRADOR GLOBAL SAAS
+  // =========================================================================
+  {
+    path: '/saas',
+    element: <DashboardLayout />,
+    children: [
+      {
+        path: 'tenants',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-SAAS-01"
+            nombrePantalla="Supervisión Global de Tenants & Empresas"
+            rol="saas_admin"
+            layoutNombre="DashboardLayout"
+            descripcion="Consola central de supervisión: base instalada de restaurantes, estado de períodos de gracia (dunning) de Stripe y alta manual corporativa B2B."
+            enlacesRelacionados={[
+              { label: 'Catálogo de Planes Globales', to: ROUTES.SAAS_PLANES },
+            ]}
+          />
+        ),
+      },
+      {
+        path: 'planes',
+        element: (
+          <PlaceholderView
+            codigoCu="CU-SAAS-03"
+            nombrePantalla="Catálogo de Planes SaaS"
+            rol="saas_admin"
+            layoutNombre="DashboardLayout"
+            descripcion="Mantenimiento de planes comerciales (Starter, Pro, Enterprise), precios en PEN/USD y límites de recursos de plataforma."
+          />
+        ),
+      },
+    ],
+  },
+
+  // Redirección por defecto ante rutas desconocidas
+  {
+    path: '*',
+    element: <Navigate to="/" replace />,
   },
 ]);
