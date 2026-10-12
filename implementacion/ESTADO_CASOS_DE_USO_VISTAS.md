@@ -12,13 +12,13 @@
 |---|:---:|:---:|:---:|:---:|
 | **Plataforma Pública & SaaS B2B** | 1 (Landing) | 1 | 0 | 100% |
 | **Cliente / Comensal QR** | 2 | 1 | 1 | 50% |
+| **Autenticación & Usuarios** | 3 | 1 | 2 | 33% |
 | **Salón & Mozo** | 8 | 0 | 8 | 0% |
 | **Cocina (KDS)** | 4 | 0 | 4 | 0% |
 | **Caja & Cobranza** | 5 | 0 | 5 | 0% |
 | **Administración Local** | 10 | 0 | 10 | 0% |
 | **Propietario / Tenant** | 6 | 0 | 6 | 0% |
 | **SuperAdmin SaaS** | 3 | 0 | 3 | 0% |
-| **Autenticación & Usuarios** | 3 | 0 | 3 | 0% |
 
 ---
 
@@ -57,6 +57,22 @@
   - Desktop: Contenedor `max-w-7xl`, arquitectura 2 columnas (Sidebar izquierdo sticky 4 columnas + Grilla de platos derecha de 3 columnas).
   - Móvil: Contenedor ergonómico de 1 columna con navegación táctil fluida.
 - **Estado de Build:** ✅ Compilado y probado en vivo.
+
+---
+
+### 2.3 `CU-AUTH-01`: Iniciar Sesión y Resolución Multi-Cuenta
+- **Ruta Activa:** `/login` ([`PublicLayout.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/PublicLayout.tsx))
+- **Componentes Creados:**
+  - [`LoginPage.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/auth/pages/LoginPage.tsx): Orquestador del flujo de login y redirección por rol.
+  - [`LoginForm.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/auth/components/LoginForm.tsx): Formulario con validación inline, alternancia de visibilidad de contraseña y estados de carga.
+  - [`SelectorCuentaModal.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/auth/components/SelectorCuentaModal.tsx): Selector de empresa para usuarios multi-tenant con cronómetro regresivo de 5 minutos, tarjetas interactivas de sedes y bloqueo de empresas suspendidas.
+  - [`BetaCredentialsWidget.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/auth/components/BetaCredentialsWidget.tsx): **Widget flotante interactivo** en la esquina inferior (`fixed bottom-5 right-5`) con catálogo de 7 perfiles (Propietario, Admin, Mozo, Cocina, Cajero, SuperAdmin, Multi-cuenta) que permite **copiar credenciales** o **auto-llenar en 1 clic**.
+- **Servicios y DTOs:**
+  - [`mockAuthService.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/auth/services/mockAuthService.ts): Simulación de autenticación con `ApiResponse<LoginResponseDTO>`, bifurcación multi-tenant y validación de tokens temporales.
+  - [`authStore.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/stores/authStore.ts): Almacenamiento en Zustand sincronizado con `localStorage`.
+- **Responsive:**
+  - Totalmente adaptado a Desktop, Tablet y Móvil con paleta ÁUREA (#0B2340 Navy, #D5A06F Cobre, #F4D7B0 Champán, #FFF9F0 Marfil) y fuentes *DM Serif Display* y *DM Sans*.
+- **Estado de Build:** ✅ Compilado y probado en vivo (`npm run build`).
 
 ---
 

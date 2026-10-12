@@ -7,6 +7,7 @@ import { HomePage } from '@/modules/cliente/pages/HomePage';
 import { PlaceholderView } from '@/components/ui/PlaceholderView';
 import { ROUTES } from './routes.constants';
 
+import { LoginPage } from '@/modules/auth/pages/LoginPage';
 import { CartaDigitalPage } from '@/modules/cliente/pages/CartaDigitalPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
@@ -29,20 +30,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'login',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-AUTH-01"
-            nombrePantalla="Iniciar Sesión & Selección Multi-Cuenta"
-            rol="usuario (Cualquier rol)"
-            layoutNombre="PublicLayout"
-            descripcion="Autenticación con correo y contraseña. Si el usuario pertenece a más de una empresa, presenta la pantalla interactiva de selección de cuenta antes de emitir el token de sesión."
-            viewportSugerido="desktop"
-            enlacesRelacionados={[
-              { label: 'Ir a Registro Onboarding', to: ROUTES.REGISTRO },
-              { label: 'Ir a Recuperar Contraseña', to: ROUTES.RECUPERAR_PASSWORD },
-            ]}
-          />
-        ),
+        element: <LoginPage />,
       },
       {
         path: 'registro',
