@@ -297,4 +297,178 @@ export interface ConflictoCategoriaConProductosDTO {
   }>;
 }
 
+// =============================================================================
+// TIPOS Y DTOS PARA CU-ADMIN-03: GESTIONAR CATÁLOGO DE INSUMOS DE INVENTARIO
+// =============================================================================
+
+/**
+ * Catálogo cerrado de 10 unidades de almacén universales.
+ * Mapea directamente al CHECK constraint de la columna `insumo.unidad_medida` en 02_schema_ddl.sql.
+ * 3 Unidades Base + 7 Empaques Comerciales.
+ */
+export type UnidadInsumo =
+  | 'kg'       // Kilo (Unidad base)
+  | 'L'        // Litro (Unidad base)
+  | 'und'      // Unidad (Unidad base)
+  | 'saco'     // Saco (Empaque comercial)
+  | 'botella'  // Botella (Empaque comercial)
+  | 'lata'     // Lata (Empaque comercial)
+  | 'caja'     // Caja (Empaque comercial)
+  | 'paquete'  // Paquete (Empaque comercial)
+  | 'bidon'    // Bidón (Empaque comercial)
+  | 'jaba';    // Jaba (Empaque comercial)
+
+/**
+ * Tres estados operativos de insumo.
+ * Mapea al CHECK constraint de la columna `insumo.estado` en 02_schema_ddl.sql.
+ */
+export type EstadoInsumo = 'activo' | 'agotado' | 'inactivo';
+
+/**
+ * Semáforo cromático de 4 niveles para control visual de existencias.
+ */
+export type NivelSemaforoStock = 'optimo' | 'reposicion' | 'critico' | 'agotado';
+
+/**
+ * Motivos auditables para ajustes físicos de stock.
+ * Mapea al CHECK constraint de la columna `auditoria_stock_ajuste.motivo` en 02_schema_ddl.sql.
+ */
+export type MotivoAjusteStock =
+  | 'conteo_fisico_inventario'
+  | 'merma_desperdicio'
+  | 'ingreso_manual'
+  | 'vencimiento_caducidad'
+  | 'rotura_accidente'
+  | 'inconsistencia_cocina';
+
+/**
+ * DTO para la fila del catálogo de insumos en el listado administrativo.
+ */
+export interface InsumoAdminDTO {
+  id: string;
+  local_id: string;
+  nombre: string;
+  unidad_medida: UnidadInsumo;
+  stock_actual: number;
+  stock_minimo: number;
+  nivel_semaforo: NivelSemaforoStock;
+  costo_unitario: number;
+  moneda: string; // 'PEN'
+  ultimo_proveedor_id?: string | null;
+  ultimo_proveedor_nombre?: string | null;
+  fecha_ultima_compra?: string | null;
+  estado: EstadoInsumo;
+  platos_afectados_si_quiebra: number;
+  platos_detalle: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * KPIs de resumen del inventario para la cabecera.
+ */
+export interface ResumenInventarioDTO {
+  total_activos: number;
+  total_agotados: number;
+  total_inactivos: number;
+  valorizacion_total: number;
+}
+
+/**
+ * Registro de auditoría para recuentos físicos, mermas e ingresos.
+ * Mapea a la tabla `auditoria_stock_ajuste` en 02_schema_ddl.sql.
+ */
+export interface AuditoriaStockAjusteDTO {
+  id: string;
+  local_id: string;
+  insumo_id: string;
+  insumo_nombre: string;
+  usuario_id: string;
+  usuario_nombre: string;
+  stock_anterior: number;
+  stock_nuevo: number;
+  diferencia: number;
+  motivo: MotivoAjusteStock;
+  notas?: string | null;
+  created_at: string;
+}
+
+/**
+ * Payload completo del endpoint GET /api/v1/admin/insumos
+ */
+export interface InsumosAdminResponseDTO {
+  local_id: string;
+  local_nombre: string;
+  kpis: ResumenInventarioDTO;
+  filtro_actual: 'activo' | 'agotado' | 'inactivo' | 'todos';
+  insumos: InsumoAdminDTO[];
+  paginacion: {
+    total: number;
+    pagina: number;
+    limite: number;
+    total_paginas: number;
+  };
+}
+
+/**
+ * Request para alta ágil de insumo (< 8s) (POST /api/v1/admin/insumos)
+ */
+export interface CrearInsumoRequest {
+  nombre: string;
+  unidad_medida: UnidadInsumo;
+  stock_actual: number;
+  stock_minimo: number;
+  costo_unitario: number;
+  estado?: EstadoInsumo;
+}
+
+/**
+ * Request para edición de insumo (PUT /api/v1/admin/insumos/{id})
+ */
+export interface ActualizarInsumoRequest {
+  nombre: string;
+  unidad_medida: UnidadInsumo;
+  stock_minimo: number;
+  costo_unitario: number;
+}
+
+/**
+ * Request para ajuste físico de stock con auditoría obligatoria (PATCH /api/v1/admin/insumos/{id}/ajuste-stock)
+ */
+export interface AjustarStockInsumoRequest {
+  stock_fisico: number;
+  motivo: MotivoAjusteStock;
+  notas?: string;
+}
+
+/**
+ * Request para conmutación rápida de estado (PATCH /api/v1/admin/insumos/{id}/estado)
+ */
+export interface ConmutarEstadoInsumoRequest {
+  estado: EstadoInsumo;
+}
+
+/**
+ * Resultado de un ajuste físico atómico con sincronización con cocina y salón
+ */
+export interface AjusteStockResultDTO {
+  insumo_id: string;
+  nombre: string;
+  stock_anterior: number;
+  stock_nuevo: number;
+  diferencia: number;
+  estado_resultante: EstadoInsumo;
+  auditoria_id: string;
+  platos_bloqueados_en_carta: Array<{ id: string; nombre: string }>;
+  pedidos_en_cola_observados: Array<{
+    pedido_id: string;
+    mesa: string;
+    producto: string;
+    mozo_id: string;
+    alerta_emitida: boolean;
+  }>;
+  mensaje: string;
+}
+
+
 

@@ -98,7 +98,7 @@ sequenceDiagram
 | | Filtrado por defecto    | | 2 platos 'Agotado' carta| | Calculado según costo unitario         | |
 | +-------------------------+ +-------------------------+ +----------------------------------------+ |
 |                                                                                                    |
-| [ Buscar insumo por nombre... ] [● Activos (38)] [Agotados (3)] [Inactivos (5)] [Todos (46)]     [+ Nuevo]
+| [ Buscar insumo por nombre... ] [ Buscar ]   [● Activos (38)] [Agotados (3)] [Inactivos (5)] [Todos (46)]     [+ Nuevo]
 | +------------------------------------------------------------------------------------------------+ |
 | | INSUMO          | UNIDAD ALMACÉN | EXISTENCIAS Y UMBRAL      | ESTADO   | RECETAS / IMPACTO|ACCIONES | |
 | |-----------------+----------------+---------------------------+----------+------------------+---------| |
@@ -109,8 +109,7 @@ sequenceDiagram
 | | Inka Kola 500ml | [ botella ]    | 48.000 bot. [====  ] Opt  | [●Activo]| 1 prod. en barra | [Ajuste]| |
 | | Sal Marina Yod. | [ paquete ]    | 15.000 paq. [===== ] Opt  | [●Activo]| Insumo general   | [Ajuste]| |
 | |------------------------------------------------------------------------------------------------| |
-| | [i] Vista filtrada por 'Activos' por defecto. El stock 0 marca automáticamente platos agotados.| |
-| |     Auditoría activa: Ajustes manuales requieren motivo obligatorio.                           | |
+| | Mostrando 1 a 10 de 38 insumos  [10 / pág v]                   [< Anterior] [1] [2] [Siguiente >] | |
 | +------------------------------------------------------------------------------------------------+ |
 +----------------------------------------------------------------------------------------------------+
 ```
@@ -119,14 +118,16 @@ sequenceDiagram
 1. **Filtro Inteligente por Defecto en `Activos`:**
    - La pantalla siempre carga con la píldora `[ ● Activos ]` seleccionada por defecto. Los insumos agotados o inactivos no entorpecen la supervisión diaria de bodega.
    - El administrador puede conmutar en un clic a `[ Agotados ]`, `[ Inactivos ]` o `[ Todos ]`.
-2. **Barra de Búsqueda Omnicanal con Debounce (300ms):**
-   - Entrada de texto reactiva que filtra por nombre del insumo sin requerir pulsar Enter ni recargar la página.
-3. **Semáforo Cromático de Stock en 4 Niveles:**
+2. **Barra de Búsqueda con Botón Explícito y Tecla `Enter` (Cero Sobreconsultas):**
+   - Entrada de texto reactiva que no satura el backend mientras se tipea; ejecuta la consulta únicamente cuando el usuario presiona la tecla `Enter` o pulsa el botón `[ Buscar ]`. Incluye botón `✕` para limpiar y restaurar la lista completa.
+3. **Paginación Interactiva de Almacén:**
+   - Controles inferiores con resumen de rango visible (`Mostrando X a Y de Z`), selector de límite (`10`, `20`, `50` por página) y navegación de páginas (`< Anterior`, números, `Siguiente >`).
+4. **Semáforo Cromático de Stock en 4 Niveles:**
    - 🟢 **Óptimo:** `stock_actual > stock_minimo * 1.5`
    - 🟡 **Reposición:** `stock_minimo < stock_actual <= stock_minimo * 1.5`
    - 🔴 **Crítico:** `0 < stock_actual <= stock_minimo`
    - ⚫ **Sin Stock / Agotado:** `stock_actual == 0` (dispara bloqueo de carta).
-4. **Acción Rápida de Ajuste Físico:**
+5. **Acción Rápida de Ajuste Físico:**
    - El botón `[ Ajustar Stock ]` en cada fila abre el modal de recuento físico y merma sin abandonar la tabla.
 
 ---

@@ -17,6 +17,18 @@ import {
   ResultadoReasignacionCategoriaDTO,
   CargarPlantillaCategoriasRequest,
   ConflictoCategoriaConProductosDTO,
+  UnidadInsumo,
+  EstadoInsumo,
+  NivelSemaforoStock,
+  MotivoAjusteStock,
+  InsumoAdminDTO,
+  AuditoriaStockAjusteDTO,
+  InsumosAdminResponseDTO,
+  CrearInsumoRequest,
+  ActualizarInsumoRequest,
+  AjustarStockInsumoRequest,
+  ConmutarEstadoInsumoRequest,
+  AjusteStockResultDTO,
 } from '@/types/admin';
 
 // Identificadores Canónicos del Seed de Desarrollo Local (07_seed_local_aurea_completo.sql)
@@ -527,6 +539,288 @@ export const PLANTILLAS_GASTRONOMICAS: Record<
   },
 };
 
+// =============================================================================
+// SEMILLAS Y DEFINICIONES PARA CU-ADMIN-03: CATÁLOGO DE INSUMOS DE INVENTARIO
+// =============================================================================
+
+export interface MockInsumoRaw {
+  id: string;
+  local_id: string;
+  nombre: string;
+  unidad_medida: UnidadInsumo;
+  stock_actual: number;
+  stock_minimo: number;
+  costo_unitario: number;
+  moneda: string;
+  ultimo_proveedor_id?: string | null;
+  ultimo_proveedor_nombre?: string | null;
+  fecha_ultima_compra?: string | null;
+  estado: EstadoInsumo;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MockRecetaRelacional {
+  insumo_id: string;
+  producto_nombre: string;
+}
+
+/**
+ * Cálculo del semáforo de existencias en 4 niveles según especificación técnica.
+ */
+export function calcularSemaforoStock(stockActual: number, stockMinimo: number): NivelSemaforoStock {
+  if (stockActual <= 0) return 'agotado';
+  if (stockActual <= stockMinimo) return 'critico';
+  if (stockActual <= stockMinimo * 1.5) return 'reposicion';
+  return 'optimo';
+}
+
+// Identificadores Canónicos de Insumos (07_seed_local_aurea_completo.sql)
+export const INSUMO_PESCADO_ID = '00000000-0000-4000-8000-000000000421';
+export const INSUMO_LOMO_ID = '00000000-0000-4000-8000-000000000422';
+export const INSUMO_PAPA_AMARILLA_ID = '00000000-0000-4000-8000-000000000423';
+export const INSUMO_ARROZ_ID = '00000000-0000-4000-8000-000000000424';
+export const INSUMO_INCA_KOLA_ID = '00000000-0000-4000-8000-000000000425';
+export const INSUMO_LIMON_ID = '00000000-0000-4000-8000-000000000426';
+
+export const INSUMO_PAPA_YUNGAY_ID = '00000000-0000-4000-8000-000000000427';
+export const INSUMO_ACEITE_ID = '00000000-0000-4000-8000-000000000428';
+export const INSUMO_HUEVOS_ID = '00000000-0000-4000-8000-000000000429';
+export const INSUMO_LECHE_ID = '00000000-0000-4000-8000-000000000430';
+export const INSUMO_CERVEZA_ID = '00000000-0000-4000-8000-000000000431';
+export const INSUMO_SAL_ID = '00000000-0000-4000-8000-000000000432';
+
+export const SEMILLA_RECETAS_INSUMOS: MockRecetaRelacional[] = [
+  { insumo_id: INSUMO_PESCADO_ID, producto_nombre: 'Ceviche Clásico' },
+  { insumo_id: INSUMO_LOMO_ID, producto_nombre: 'Lomo Saltado Criollo' },
+  { insumo_id: INSUMO_PAPA_AMARILLA_ID, producto_nombre: 'Causa Limeña de Pollo' },
+  { insumo_id: INSUMO_ARROZ_ID, producto_nombre: 'Lomo Saltado Criollo' },
+  { insumo_id: INSUMO_INCA_KOLA_ID, producto_nombre: 'Inca Kola 500ml' },
+  { insumo_id: INSUMO_LIMON_ID, producto_nombre: 'Ceviche Clásico' },
+  { insumo_id: INSUMO_PAPA_YUNGAY_ID, producto_nombre: 'Lomo Saltado Criollo' },
+  { insumo_id: INSUMO_PAPA_YUNGAY_ID, producto_nombre: 'Salchipapa Clásica' },
+  { insumo_id: INSUMO_ACEITE_ID, producto_nombre: 'Lomo Saltado Criollo' },
+  { insumo_id: INSUMO_ACEITE_ID, producto_nombre: 'Causa Limeña de Pollo' },
+  { insumo_id: INSUMO_HUEVOS_ID, producto_nombre: 'Causa Limeña de Pollo' },
+  { insumo_id: INSUMO_HUEVOS_ID, producto_nombre: 'Suspiro Limeño' },
+  { insumo_id: INSUMO_LECHE_ID, producto_nombre: 'Suspiro Limeño' },
+  { insumo_id: INSUMO_CERVEZA_ID, producto_nombre: 'Cerveza Cusqueña Trigo' },
+  { insumo_id: INSUMO_SAL_ID, producto_nombre: 'Ceviche Clásico' },
+  { insumo_id: INSUMO_SAL_ID, producto_nombre: 'Lomo Saltado Criollo' },
+];
+
+export const SEMILLAS_INSUMOS_AUREA: MockInsumoRaw[] = [
+  {
+    id: INSUMO_PESCADO_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Pescado fresco',
+    unidad_medida: 'kg',
+    stock_actual: 8.5,
+    stock_minimo: 5.0,
+    costo_unitario: 28.0,
+    moneda: 'PEN',
+    ultimo_proveedor_id: '00000000-0000-4000-8000-000000000411',
+    ultimo_proveedor_nombre: 'Mercado Mayorista San Pedro',
+    fecha_ultima_compra: '2026-10-11T09:00:00Z',
+    estado: 'activo',
+    created_at: '2026-10-01T08:00:00Z',
+    updated_at: '2026-10-11T09:00:00Z',
+  },
+  {
+    id: INSUMO_LOMO_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Lomo fino',
+    unidad_medida: 'kg',
+    stock_actual: 6.0,
+    stock_minimo: 3.0,
+    costo_unitario: 42.0,
+    moneda: 'PEN',
+    ultimo_proveedor_id: '00000000-0000-4000-8000-000000000411',
+    ultimo_proveedor_nombre: 'Mercado Mayorista San Pedro',
+    fecha_ultima_compra: '2026-10-11T09:00:00Z',
+    estado: 'activo',
+    created_at: '2026-10-01T08:00:00Z',
+    updated_at: '2026-10-11T09:00:00Z',
+  },
+  {
+    id: INSUMO_PAPA_AMARILLA_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Papa amarilla',
+    unidad_medida: 'kg',
+    stock_actual: 1.0,
+    stock_minimo: 3.0,
+    costo_unitario: 4.5,
+    moneda: 'PEN',
+    ultimo_proveedor_id: '00000000-0000-4000-8000-000000000411',
+    ultimo_proveedor_nombre: 'Mercado Mayorista San Pedro',
+    fecha_ultima_compra: '2026-10-11T09:00:00Z',
+    estado: 'activo',
+    created_at: '2026-10-01T08:00:00Z',
+    updated_at: '2026-10-11T09:00:00Z',
+  },
+  {
+    id: INSUMO_ARROZ_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Arroz',
+    unidad_medida: 'kg',
+    stock_actual: 12.0,
+    stock_minimo: 4.0,
+    costo_unitario: 5.8,
+    moneda: 'PEN',
+    ultimo_proveedor_id: '00000000-0000-4000-8000-000000000411',
+    ultimo_proveedor_nombre: 'Mercado Mayorista San Pedro',
+    fecha_ultima_compra: '2026-10-10T11:00:00Z',
+    estado: 'activo',
+    created_at: '2026-10-01T08:00:00Z',
+    updated_at: '2026-10-10T11:00:00Z',
+  },
+  {
+    id: INSUMO_INCA_KOLA_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Inca Kola 500ml',
+    unidad_medida: 'botella',
+    stock_actual: 24.0,
+    stock_minimo: 8.0,
+    costo_unitario: 3.2,
+    moneda: 'PEN',
+    ultimo_proveedor_id: '00000000-0000-4000-8000-000000000412',
+    ultimo_proveedor_nombre: 'Bebidas del Pacífico S.A.C.',
+    fecha_ultima_compra: '2026-10-10T10:00:00Z',
+    estado: 'activo',
+    created_at: '2026-10-01T08:00:00Z',
+    updated_at: '2026-10-10T10:00:00Z',
+  },
+  {
+    id: INSUMO_LIMON_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Limón',
+    unidad_medida: 'kg',
+    stock_actual: 0.0,
+    stock_minimo: 2.5,
+    costo_unitario: 6.0,
+    moneda: 'PEN',
+    ultimo_proveedor_id: '00000000-0000-4000-8000-000000000411',
+    ultimo_proveedor_nombre: 'Mercado Mayorista San Pedro',
+    fecha_ultima_compra: '2026-10-11T09:00:00Z',
+    estado: 'agotado',
+    created_at: '2026-10-01T08:00:00Z',
+    updated_at: '2026-10-12T07:00:00Z',
+  },
+  {
+    id: INSUMO_PAPA_YUNGAY_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Papa Yungay',
+    unidad_medida: 'saco',
+    stock_actual: 8.0,
+    stock_minimo: 2.0,
+    costo_unitario: 85.0,
+    moneda: 'PEN',
+    ultimo_proveedor_id: '00000000-0000-4000-8000-000000000411',
+    ultimo_proveedor_nombre: 'Mercado Mayorista San Pedro',
+    fecha_ultima_compra: '2026-10-08T14:30:00Z',
+    estado: 'activo',
+    created_at: '2026-10-01T08:00:00Z',
+    updated_at: '2026-10-08T14:30:00Z',
+  },
+  {
+    id: INSUMO_ACEITE_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Aceite Vegetal 20L',
+    unidad_medida: 'bidon',
+    stock_actual: 1.5,
+    stock_minimo: 2.0,
+    costo_unitario: 140.0,
+    moneda: 'PEN',
+    ultimo_proveedor_id: '00000000-0000-4000-8000-000000000411',
+    ultimo_proveedor_nombre: 'Mercado Mayorista San Pedro',
+    fecha_ultima_compra: '2026-10-08T14:25:00Z',
+    estado: 'activo',
+    created_at: '2026-10-01T08:00:00Z',
+    updated_at: '2026-10-08T14:25:00Z',
+  },
+  {
+    id: INSUMO_HUEVOS_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Huevos de Granja',
+    unidad_medida: 'jaba',
+    stock_actual: 4.0,
+    stock_minimo: 2.0,
+    costo_unitario: 65.0,
+    moneda: 'PEN',
+    ultimo_proveedor_id: '00000000-0000-4000-8000-000000000411',
+    ultimo_proveedor_nombre: 'Mercado Mayorista San Pedro',
+    fecha_ultima_compra: '2026-10-09T08:00:00Z',
+    estado: 'activo',
+    created_at: '2026-10-01T08:00:00Z',
+    updated_at: '2026-10-09T08:00:00Z',
+  },
+  {
+    id: INSUMO_LECHE_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Leche Evaporada',
+    unidad_medida: 'lata',
+    stock_actual: 36.0,
+    stock_minimo: 12.0,
+    costo_unitario: 4.2,
+    moneda: 'PEN',
+    ultimo_proveedor_id: '00000000-0000-4000-8000-000000000412',
+    ultimo_proveedor_nombre: 'Bebidas del Pacífico S.A.C.',
+    fecha_ultima_compra: '2026-10-07T15:00:00Z',
+    estado: 'activo',
+    created_at: '2026-10-01T08:00:00Z',
+    updated_at: '2026-10-07T15:00:00Z',
+  },
+  {
+    id: INSUMO_CERVEZA_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Cerveza Cusqueña Trigo',
+    unidad_medida: 'caja',
+    stock_actual: 6.0,
+    stock_minimo: 2.0,
+    costo_unitario: 72.0,
+    moneda: 'PEN',
+    ultimo_proveedor_id: '00000000-0000-4000-8000-000000000412',
+    ultimo_proveedor_nombre: 'Bebidas del Pacífico S.A.C.',
+    fecha_ultima_compra: '2026-10-05T12:00:00Z',
+    estado: 'activo',
+    created_at: '2026-10-01T08:00:00Z',
+    updated_at: '2026-10-05T12:00:00Z',
+  },
+  {
+    id: INSUMO_SAL_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Sal Marina Yodada',
+    unidad_medida: 'paquete',
+    stock_actual: 15.0,
+    stock_minimo: 5.0,
+    costo_unitario: 1.8,
+    moneda: 'PEN',
+    ultimo_proveedor_id: '00000000-0000-4000-8000-000000000411',
+    ultimo_proveedor_nombre: 'Mercado Mayorista San Pedro',
+    fecha_ultima_compra: '2026-10-02T10:00:00Z',
+    estado: 'activo',
+    created_at: '2026-10-01T08:00:00Z',
+    updated_at: '2026-10-02T10:00:00Z',
+  },
+];
+
+export const SEMILLAS_AUDITORIA_INICIAL: AuditoriaStockAjusteDTO[] = [
+  {
+    id: 'f4b2c1d0-9e8a-7b6c-5d4e-3f2a1b0c9d8e',
+    local_id: CANONICAL_LOCAL_ID,
+    insumo_id: INSUMO_LIMON_ID,
+    insumo_nombre: 'Limón',
+    usuario_id: '00000000-0000-4000-8000-000000000102',
+    usuario_nombre: 'Administrador Local',
+    stock_anterior: 2.0,
+    stock_nuevo: 0.0,
+    diferencia: -2.0,
+    motivo: 'merma_desperdicio',
+    notas: 'Limón en sobremaduración descartado en turno previo.',
+    created_at: '2026-10-12T07:00:00Z',
+  },
+];
+
 // Estado en memoria simulado
 class MockAdminService {
   private pisos: PisoAdminDTO[] = JSON.parse(JSON.stringify(SEMILLAS_PISOS));
@@ -534,6 +828,9 @@ class MockAdminService {
   private maxPisosPlan = 5;
   private categorias: MockCategoriaRaw[] = JSON.parse(JSON.stringify(SEMILLAS_CATEGORIAS_AUREA));
   private productos: MockProductoRelacional[] = JSON.parse(JSON.stringify(SEMILLA_PRODUCTOS_AUREA));
+  private insumos: MockInsumoRaw[] = JSON.parse(JSON.stringify(SEMILLAS_INSUMOS_AUREA));
+  private recetas: MockRecetaRelacional[] = JSON.parse(JSON.stringify(SEMILLA_RECETAS_INSUMOS));
+  private auditoriaAjustes: AuditoriaStockAjusteDTO[] = JSON.parse(JSON.stringify(SEMILLAS_AUDITORIA_INICIAL));
 
   private calcularMetricasPiso(piso: PisoAdminDTO) {
     const activas = piso.mesas.filter((m) => m.estado === 'activa');
@@ -1628,6 +1925,506 @@ class MockAdminService {
     this.categorias = JSON.parse(JSON.stringify(SEMILLAS_CATEGORIAS_AUREA));
     this.productos = JSON.parse(JSON.stringify(SEMILLA_PRODUCTOS_AUREA));
   }
+
+  // ===========================================================================
+  // MÉTODOS DE CATÁLOGO DE INSUMOS DE INVENTARIO (CU-ADMIN-03)
+  // ===========================================================================
+
+  private enriquecerInsumo(ins: MockInsumoRaw): InsumoAdminDTO {
+    const recetas = this.recetas.filter((r) => r.insumo_id === ins.id);
+    const platos = recetas.map((r) => r.producto_nombre);
+    return {
+      id: ins.id,
+      local_id: ins.local_id,
+      nombre: ins.nombre,
+      unidad_medida: ins.unidad_medida,
+      stock_actual: ins.stock_actual,
+      stock_minimo: ins.stock_minimo,
+      nivel_semaforo: calcularSemaforoStock(ins.stock_actual, ins.stock_minimo),
+      costo_unitario: ins.costo_unitario,
+      moneda: ins.moneda,
+      ultimo_proveedor_id: ins.ultimo_proveedor_id,
+      ultimo_proveedor_nombre: ins.ultimo_proveedor_nombre,
+      fecha_ultima_compra: ins.fecha_ultima_compra,
+      estado: ins.estado,
+      platos_afectados_si_quiebra: platos.length,
+      platos_detalle: platos,
+      created_at: ins.created_at,
+      updated_at: ins.updated_at,
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/insumos
+   * Retorna lista de insumos del local con filtros por estado y búsqueda por texto.
+   * Filtro por defecto en 'activo'.
+   */
+  async obtenerInsumos(
+    localId: string = CANONICAL_LOCAL_ID,
+    filtroEstado: 'activo' | 'agotado' | 'inactivo' | 'todos' = 'activo',
+    busqueda: string = '',
+    pagina: number = 1,
+    limite: number = 10
+  ): Promise<ApiResponse<InsumosAdminResponseDTO>> {
+    await new Promise((r) => setTimeout(r, 120));
+
+    const insumosLocal = this.insumos.filter((i) => i.local_id === localId);
+
+    // Métricas globales de KPIs para la cabecera
+    const totalActivos = insumosLocal.filter((i) => i.estado === 'activo').length;
+    const totalAgotados = insumosLocal.filter((i) => i.estado === 'agotado').length;
+    const totalInactivos = insumosLocal.filter((i) => i.estado === 'inactivo').length;
+    const valorizacionTotal = insumosLocal
+      .filter((i) => i.estado === 'activo')
+      .reduce((acc, i) => acc + i.stock_actual * i.costo_unitario, 0);
+
+    // Filtrado por estado
+    let filtrados = insumosLocal;
+    if (filtroEstado !== 'todos') {
+      filtrados = filtrados.filter((i) => i.estado === filtroEstado);
+    }
+
+    // Filtrado por búsqueda de texto
+    const qLimpio = busqueda.trim().toLowerCase();
+    if (qLimpio.length > 0) {
+      filtrados = filtrados.filter((i) => i.nombre.toLowerCase().includes(qLimpio));
+    }
+
+    // Ordenar alfabéticamente por nombre
+    filtrados.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    // Paginación
+    const totalItems = filtrados.length;
+    const totalPaginas = Math.max(1, Math.ceil(totalItems / limite));
+    const offset = (pagina - 1) * limite;
+    const paginados = filtrados.slice(offset, offset + limite);
+
+    const insumosEnriquecidos = paginados.map((i) => this.enriquecerInsumo(i));
+
+    const payload: InsumosAdminResponseDTO = {
+      local_id: localId,
+      local_nombre: CANONICAL_LOCAL_NOMBRE,
+      kpis: {
+        total_activos: totalActivos,
+        total_agotados: totalAgotados,
+        total_inactivos: totalInactivos,
+        valorizacion_total: Math.round(valorizacionTotal * 100) / 100,
+      },
+      filtro_actual: filtroEstado,
+      insumos: insumosEnriquecidos,
+      paginacion: {
+        total: totalItems,
+        pagina,
+        limite,
+        total_paginas: totalPaginas,
+      },
+    };
+
+    return {
+      exito: true,
+      datos: payload,
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/insumos
+   * Alta rápida de insumo (< 8 segundos).
+   * Valida catálogo cerrado de 10 unidades y unicidad de nombre en la sede (409 Conflict).
+   */
+  async crearInsumo(
+    localId: string = CANONICAL_LOCAL_ID,
+    req: CrearInsumoRequest
+  ): Promise<ApiResponse<InsumoAdminDTO>> {
+    await new Promise((r) => setTimeout(r, 120));
+
+    const nombreLimpio = req.nombre.trim();
+    if (!nombreLimpio) {
+      return {
+        exito: false,
+        datos: null as unknown as InsumoAdminDTO,
+        errores: [
+          {
+            codigo: 'ERR_VALIDACION',
+            mensaje: 'El nombre comercial del insumo es obligatorio.',
+            campo: 'nombre',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    // Validación de catálogo cerrado de 10 unidades universales
+    const unidadesValidas: UnidadInsumo[] = [
+      'kg', 'L', 'und', 'saco', 'botella', 'lata', 'caja', 'paquete', 'bidon', 'jaba',
+    ];
+    if (!unidadesValidas.includes(req.unidad_medida)) {
+      return {
+        exito: false,
+        datos: null as unknown as InsumoAdminDTO,
+        errores: [
+          {
+            codigo: 'ERR_UNIDAD_NO_PERMITIDA',
+            mensaje: `La unidad "${req.unidad_medida}" no es válida. Debe pertenecer al catálogo cerrado de 10 unidades de almacén.`,
+            campo: 'unidad_medida',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    // Validación de unicidad de nombre en la sede (UNIQUE uq_insumo_local_nombre)
+    const duplicado = this.insumos.some(
+      (i) => i.local_id === localId && i.nombre.trim().toLowerCase() === nombreLimpio.toLowerCase()
+    );
+    if (duplicado) {
+      return {
+        exito: false,
+        datos: null as unknown as InsumoAdminDTO,
+        errores: [
+          {
+            codigo: 'ERR_INSUMO_DUPLICADO',
+            mensaje: `Ya existe un insumo registrado con el nombre "${nombreLimpio}" en esta sede.`,
+            campo: 'nombre',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    const estadoInicial: EstadoInsumo = req.stock_actual === 0 ? 'agotado' : (req.estado || 'activo');
+
+    const nuevoInsumo: MockInsumoRaw = {
+      id: `ins-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      local_id: localId,
+      nombre: nombreLimpio,
+      unidad_medida: req.unidad_medida,
+      stock_actual: Math.max(0, req.stock_actual),
+      stock_minimo: Math.max(0, req.stock_minimo),
+      costo_unitario: Math.max(0, req.costo_unitario),
+      moneda: 'PEN',
+      ultimo_proveedor_id: null,
+      ultimo_proveedor_nombre: 'Sin compra registrada',
+      fecha_ultima_compra: null,
+      estado: estadoInicial,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    this.insumos.push(nuevoInsumo);
+
+    return {
+      exito: true,
+      datos: this.enriquecerInsumo(nuevoInsumo),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * PUT /api/v1/admin/insumos/{id}
+   * Actualiza datos maestros de insumo (nombre, unidad, stock mínimo, costo).
+   */
+  async actualizarInsumo(
+    id: string,
+    req: ActualizarInsumoRequest
+  ): Promise<ApiResponse<InsumoAdminDTO>> {
+    await new Promise((r) => setTimeout(r, 120));
+
+    const insumo = this.insumos.find((i) => i.id === id);
+    if (!insumo) {
+      return {
+        exito: false,
+        datos: null as unknown as InsumoAdminDTO,
+        errores: [
+          {
+            codigo: 'ERR_INSUMO_NO_ENCONTRADO',
+            mensaje: 'El insumo especificado no existe o fue retirado.',
+            campo: 'id',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    const nombreLimpio = req.nombre.trim();
+    if (!nombreLimpio) {
+      return {
+        exito: false,
+        datos: null as unknown as InsumoAdminDTO,
+        errores: [
+          {
+            codigo: 'ERR_VALIDACION',
+            mensaje: 'El nombre comercial no puede estar vacío.',
+            campo: 'nombre',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    // Verificar nombre duplicado con otro insumo
+    const duplicado = this.insumos.some(
+      (i) => i.id !== id && i.local_id === insumo.local_id && i.nombre.trim().toLowerCase() === nombreLimpio.toLowerCase()
+    );
+    if (duplicado) {
+      return {
+        exito: false,
+        datos: null as unknown as InsumoAdminDTO,
+        errores: [
+          {
+            codigo: 'ERR_INSUMO_DUPLICADO',
+            mensaje: `Ya existe otro insumo con el nombre "${nombreLimpio}" en esta sede.`,
+            campo: 'nombre',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    insumo.nombre = nombreLimpio;
+    insumo.unidad_medida = req.unidad_medida;
+    insumo.stock_minimo = Math.max(0, req.stock_minimo);
+    insumo.costo_unitario = Math.max(0, req.costo_unitario);
+    insumo.updated_at = new Date().toISOString();
+
+    return {
+      exito: true,
+      datos: this.enriquecerInsumo(insumo),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * PATCH /api/v1/admin/insumos/{id}/ajuste-stock
+   * Ajuste físico de stock con auditoría obligatoria en auditoria_stock_ajuste y sincronización
+   * atómica con cocina y salón (CU-COCINA-04 <-> CU-MOZO-01).
+   */
+  async ajustarStockInsumo(
+    id: string,
+    req: AjustarStockInsumoRequest,
+    usuarioId: string = '00000000-0000-4000-8000-000000000102',
+    usuarioNombre: string = 'Administrador Local'
+  ): Promise<ApiResponse<AjusteStockResultDTO>> {
+    await new Promise((r) => setTimeout(r, 150));
+
+    const insumo = this.insumos.find((i) => i.id === id);
+    if (!insumo) {
+      return {
+        exito: false,
+        datos: null as unknown as AjusteStockResultDTO,
+        errores: [
+          {
+            codigo: 'ERR_INSUMO_NO_ENCONTRADO',
+            mensaje: 'El insumo especificado no fue encontrado.',
+            campo: 'id',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    // Motivo auditable obligatorio
+    const motivosPermitidos: MotivoAjusteStock[] = [
+      'conteo_fisico_inventario',
+      'merma_desperdicio',
+      'ingreso_manual',
+      'vencimiento_caducidad',
+      'rotura_accidente',
+      'inconsistencia_cocina',
+    ];
+    if (!req.motivo || !motivosPermitidos.includes(req.motivo)) {
+      return {
+        exito: false,
+        datos: null as unknown as AjusteStockResultDTO,
+        errores: [
+          {
+            codigo: 'ERR_VALIDACION',
+            mensaje: 'El motivo del ajuste debe pertenecer a la lista de motivos auditables válidos.',
+            campo: 'motivo',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    const stockAnterior = insumo.stock_actual;
+    const stockNuevo = Math.max(0, req.stock_fisico);
+    const diferencia = Math.round((stockNuevo - stockAnterior) * 1000) / 1000;
+
+    // Actualizar existencias del insumo
+    insumo.stock_actual = stockNuevo;
+    insumo.updated_at = new Date().toISOString();
+
+    // Estado resultante
+    let estadoResultante: EstadoInsumo = insumo.estado;
+    const platosBloqueados: Array<{ id: string; nombre: string }> = [];
+    const pedidosEnColaObservados: Array<{
+      pedido_id: string;
+      mesa: string;
+      producto: string;
+      mozo_id: string;
+      alerta_emitida: boolean;
+    }> = [];
+
+    if (stockNuevo === 0) {
+      // Quiebre operativo: Se marca como agotado
+      insumo.estado = 'agotado';
+      estadoResultante = 'agotado';
+
+      // Identificar platos de la carta dependientes de este insumo
+      const recetas = this.recetas.filter((r) => r.insumo_id === insumo.id);
+      for (const rec of recetas) {
+        platosBloqueados.push({
+          id: `prod-rec-${rec.producto_nombre.toLowerCase().replace(/\s+/g, '-')}`,
+          nombre: rec.producto_nombre,
+        });
+
+        // Simular comanda en cola en cocina si corresponde
+        if (rec.producto_nombre === 'Lomo Saltado Criollo' || rec.producto_nombre === 'Ceviche Clásico') {
+          pedidosEnColaObservados.push({
+            pedido_id: 'ped-881',
+            mesa: 'Mesa 04',
+            producto: rec.producto_nombre,
+            mozo_id: 'usr-12',
+            alerta_emitida: true,
+          });
+        }
+      }
+    } else if (insumo.estado === 'agotado' && stockNuevo > 0) {
+      // Reposición operativa: Vuelve a estado activo
+      insumo.estado = 'activo';
+      estadoResultante = 'activo';
+    }
+
+    // Registrar en tabla de auditoría
+    const auditoriaId = `aud-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const nuevoRegistroAuditoria: AuditoriaStockAjusteDTO = {
+      id: auditoriaId,
+      local_id: insumo.local_id,
+      insumo_id: insumo.id,
+      insumo_nombre: insumo.nombre,
+      usuario_id: usuarioId,
+      usuario_nombre: usuarioNombre,
+      stock_anterior: stockAnterior,
+      stock_nuevo: stockNuevo,
+      diferencia,
+      motivo: req.motivo,
+      notas: req.notas?.trim() || null,
+      created_at: new Date().toISOString(),
+    };
+    this.auditoriaAjustes.unshift(nuevoRegistroAuditoria);
+
+    let mensaje = `Ajuste de stock registrado para "${insumo.nombre}". Nuevo stock: ${stockNuevo} ${insumo.unidad_medida}.`;
+    if (stockNuevo === 0) {
+      mensaje = `Ajuste aplicado. Insumo "${insumo.nombre}" en estado AGOTADO. ${platosBloqueados.length} platos bloqueados en carta y alertas emitidas a mozos y KDS.`;
+    } else if (stockAnterior === 0 && stockNuevo > 0) {
+      mensaje = `Insumo "${insumo.nombre}" reabastecido (${stockNuevo} ${insumo.unidad_medida}) y reactivado en inventario.`;
+    }
+
+    return {
+      exito: true,
+      datos: {
+        insumo_id: insumo.id,
+        nombre: insumo.nombre,
+        stock_anterior: stockAnterior,
+        stock_nuevo: stockNuevo,
+        diferencia,
+        estado_resultante: estadoResultante,
+        auditoria_id: auditoriaId,
+        platos_bloqueados_en_carta: platosBloqueados,
+        pedidos_en_cola_observados: pedidosEnColaObservados,
+        mensaje,
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * PATCH /api/v1/admin/insumos/{id}/estado
+   * Conmuta el estado operativo del insumo (activo <-> inactivo).
+   */
+  async conmutarEstadoInsumo(
+    id: string,
+    req: ConmutarEstadoInsumoRequest
+  ): Promise<ApiResponse<InsumoAdminDTO>> {
+    await new Promise((r) => setTimeout(r, 120));
+
+    const insumo = this.insumos.find((i) => i.id === id);
+    if (!insumo) {
+      return {
+        exito: false,
+        datos: null as unknown as InsumoAdminDTO,
+        errores: [
+          {
+            codigo: 'ERR_INSUMO_NO_ENCONTRADO',
+            mensaje: 'El insumo no existe.',
+            campo: 'id',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    insumo.estado = req.estado;
+    insumo.updated_at = new Date().toISOString();
+
+    return {
+      exito: true,
+      datos: this.enriquecerInsumo(insumo),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/insumos/auditoria
+   * Retorna el histórico de ajustes y mermas registradas.
+   */
+  async obtenerAuditoriaAjustes(
+    insumoId?: string
+  ): Promise<ApiResponse<AuditoriaStockAjusteDTO[]>> {
+    await new Promise((r) => setTimeout(r, 100));
+
+    let auditorias = this.auditoriaAjustes;
+    if (insumoId) {
+      auditorias = auditorias.filter((a) => a.insumo_id === insumoId);
+    }
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(auditorias)),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  // Métodos de simulación interactiva para DemoAdminInsumosWidget
+  simularQuiebreInsumo(id: string = INSUMO_LIMON_ID) {
+    const insumo = this.insumos.find((i) => i.id === id);
+    if (insumo) {
+      insumo.stock_actual = 0;
+      insumo.estado = 'agotado';
+      insumo.updated_at = new Date().toISOString();
+    }
+  }
+
+  simularReposicionInsumo(id: string = INSUMO_LIMON_ID, nuevoStock: number = 8.0) {
+    const insumo = this.insumos.find((i) => i.id === id);
+    if (insumo) {
+      insumo.stock_actual = nuevoStock;
+      insumo.estado = 'activo';
+      insumo.updated_at = new Date().toISOString();
+    }
+  }
+
+  simularInsumosVacios(localId: string = CANONICAL_LOCAL_ID) {
+    this.insumos = this.insumos.filter((i) => i.local_id !== localId);
+  }
+
+  restablecerInsumosAurea() {
+    this.insumos = JSON.parse(JSON.stringify(SEMILLAS_INSUMOS_AUREA));
+    this.recetas = JSON.parse(JSON.stringify(SEMILLA_RECETAS_INSUMOS));
+    this.auditoriaAjustes = JSON.parse(JSON.stringify(SEMILLAS_AUDITORIA_INICIAL));
+  }
 }
 
 export const mockAdminService = new MockAdminService();
+

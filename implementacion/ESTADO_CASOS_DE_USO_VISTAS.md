@@ -329,6 +329,27 @@
 
 ---
 
+### 2.16 `CU-ADMIN-03`: Gestionar Catálogo de Insumos de Inventario
+- **Ruta Activa:** `/admin/inventario` ([`DashboardLayout.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/DashboardLayout.tsx))
+- **Componentes Creados:**
+  - [`AdminInsumosPage.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/pages/AdminInsumosPage.tsx): Orquestador reactivo de inventario con filtro inicial por defecto en `activo`, notificaciones toast contextuales, gestión de existencias y modales.
+  - [`InsumosHeader.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/inventario/InsumosHeader.tsx): Cabecera corporativa Áurea con migas de pan, badge de sede Miraflores, métricas KPI en tiempo real (*Total Insumos Activos*, *En Quiebre / Agotados* y *Valorización Estimada en Soles S/*) y botón de acción directa `[ + Nuevo Insumo ]`.
+  - [`InsumosToolbar.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/inventario/InsumosToolbar.tsx): Selector de píldoras de estado (*Activos*, *Agotados*, *Inactivos*, *Todos*) con badge de recuento numérico y buscador omnicanal con debounce de 300ms y botón de borrado inmediato.
+  - [`InsumosTable.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/inventario/InsumosTable.tsx): Presentación dual (Tabla desktop y tarjetas táctiles mobile) con semáforo cromático de stock en 4 niveles (🟢 Óptimo, 🟡 Reposición, 🔴 Crítico, ⚫ Sin Stock), barra porcentual de umbral mínimo, badges de unidad de almacén (Base vs Empaque), popovers interactivos de recetas dependientes con alerta de bloqueo de carta y botón de auditoría `[ Ajustar Stock ]`.
+  - [`ModalCrearEditarInsumo.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/inventario/ModalCrearEditarInsumo.tsx): Modal de alta rápida (&lt; 8 segundos) con selector táctil del catálogo universal de 10 unidades (`kg`, `L`, `und`, `saco`, `botella`, `lata`, `caja`, `paquete`, `bidon`, `jaba`), inputs de existencias iniciales, umbral mínimo y costo unitario referencial, y banner formativo de rendimiento en recetas (`CU-ADMIN-04`).
+  - [`ModalAjustarStock.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/inventario/ModalAjustarStock.tsx): Modal de recuento físico y merma con cálculo de discrepancia en tiempo real (`diferencia = nuevo - anterior`), selector obligatorio de motivos auditables (`conteo_fisico_inventario`, `merma_desperdicio`, `ingreso_manual`, `vencimiento_caducidad`, `rotura_accidente`, `inconsistencia_cocina`), notas y alerta de quiebre operativo atómico (`stock = 0`) sincronizado con KDS y Mozo (`CU-COCINA-04` $\leftrightarrow$ `CU-MOZO-01`).
+  - [`OnboardingInsumosVacio.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/inventario/OnboardingInsumosVacio.tsx): Estado vacío guiado para sedes nuevas con despensa en blanco, ilustrando los 3 pilares de valor (*Alta ágil &lt; 8s*, *10 unidades universales* y *Protección total de cocina y salón*).
+  - [`DemoAdminInsumosWidget.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/inventario/DemoAdminInsumosWidget.tsx): Widget flotante para QA con botones para simular quiebres de limón o lomo fino (stock 0), reposición de inventario, vaciado de despensa y restablecimiento de semillas canónicas de Miraflores.
+- **Servicios y DTOs:**
+  - [`mockAdminService.ts`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/services/mockAdminService.ts): Métodos `obtenerInsumos`, `crearInsumo`, `actualizarInsumo`, `ajustarStockInsumo` (con inserción en `auditoria_stock_ajuste`), `conmutarEstadoInsumo`, `obtenerAuditoriaAjustes` y semillas canónicas de Miraflores (`07_seed_local_aurea_completo.sql`).
+  - [`src/types/admin.ts`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/admin.ts): DTOs verificados contra `insumo`, `auditoria_stock_ajuste` y `producto_insumo` de PostgreSQL 16 (`InsumoAdminDTO`, `AuditoriaStockAjusteDTO`, `ResumenInventarioDTO`, `InsumosAdminResponseDTO`, `CrearInsumoRequest`, `ActualizarInsumoRequest`, `AjustarStockInsumoRequest`, `ConmutarEstadoInsumoRequest`, `AjusteStockResultDTO`).
+- **Responsive:** Soporte completo para Desktop (`1440x900`), Tablet (`768x1024`) y Smartphone (`375x812`), con objetivos táctiles $\ge 44\text{px}$.
+- **Estado de Build:** ✅ Compilado y probado en producción con 0 errores (`npm run build`).
+
+---
+
+---
+
 ## 3. Infraestructura y Arquitectura Base Completada
 
 - **Enrutador React Router DOM v6:** [`src/router/index.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/router/index.tsx) con rutas centralizadas en [`src/router/routes.constants.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/router/routes.constants.ts).

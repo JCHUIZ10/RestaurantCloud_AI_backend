@@ -17,6 +17,7 @@ import { MozoReservasPage } from '@/modules/mozo/pages/MozoReservasPage';
 import { CocinaKdsPage } from '@/modules/cocina/pages/CocinaKdsPage';
 import { AdminPlanoMesasPage } from '@/modules/admin/pages/AdminPlanoMesasPage';
 import { AdminCategoriasPage } from '@/modules/admin/pages/AdminCategoriasPage';
+import { AdminInsumosPage } from '@/modules/admin/pages/AdminInsumosPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
@@ -228,15 +229,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'inventario',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-ADMIN-03/05/06"
-            nombrePantalla="Insumos, Proveedores & Fichas de Compra"
-            rol="administrador"
-            layoutNombre="DashboardLayout"
-            descripcion="Control de stock de ingredientes, directorio de proveedores y registro de compras para costeo de platos."
-          />
-        ),
+        element: <AdminInsumosPage />,
       },
       {
         path: 'personal',
