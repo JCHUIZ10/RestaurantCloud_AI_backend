@@ -76,6 +76,10 @@ import {
   ReservaConflictoDTO,
   PrecheckExcepcionResponse,
   CrearExcepcionRequest,
+  PoliticasReservaDTO,
+  ActualizarPoliticasReservaRequest,
+  ReservaResumenDTO,
+  PrecheckDesactivacionReservasResponse,
 } from '@/types/admin';
 
 // Identificadores Canónicos del Seed de Desarrollo Local (07_seed_local_aurea_completo.sql)
@@ -2746,6 +2750,49 @@ export const FERIADOS_PERU_2026_DEFAULT = [
   { fecha: '2026-12-25', motivo: 'Navidad' },
 ];
 
+// =============================================================================
+// SEMILLAS CANÓNICAS CU-ADMIN-10: POLÍTICAS Y PARÁMETROS DE RESERVAS
+// =============================================================================
+export const SEMILLA_POLITICAS_RESERVA_AUREA: PoliticasReservaDTO = {
+  local_id: CANONICAL_LOCAL_ID,
+  acepta_reservas: true,
+  duracion_reserva_min: 90,
+  buffer_reserva_min: 15,
+  tolerancia_no_show_min: 15,
+  minutos_bloqueo_previo: 30,
+  margen_recordatorio_min: 120,
+  anticipacion_minima_horas: 2,
+  anticipacion_maxima_dias: 30,
+  updated_at: '2026-10-08T18:20:00Z',
+};
+
+export const SEMILLAS_RESERVAS_FUTURAS_AUREA: ReservaResumenDTO[] = [
+  {
+    id: 'c1a2b3d4-0001-4000-8000-000000000001',
+    cliente: 'Carlos Mendoza',
+    telefono: '+51 987 654 321',
+    fecha_hora: '2026-10-14T14:00:00Z',
+    pax: 4,
+    mesas: ['Mesa 04'],
+  },
+  {
+    id: 'c1a2b3d4-0002-4000-8000-000000000002',
+    cliente: 'Lucía Benítez',
+    telefono: '+51 912 345 678',
+    fecha_hora: '2026-10-15T20:30:00Z',
+    pax: 2,
+    mesas: ['Mesa 02'],
+  },
+  {
+    id: 'c1a2b3d4-0003-4000-8000-000000000003',
+    cliente: 'Empresa Graña',
+    telefono: '+51 998 877 665',
+    fecha_hora: '2026-10-17T13:00:00Z',
+    pax: 8,
+    mesas: ['Mesa 07', 'Mesa 08'],
+  },
+];
+
 // Estado en memoria simulado
 class MockAdminService {
   private pisos: PisoAdminDTO[] = JSON.parse(JSON.stringify(SEMILLAS_PISOS));
@@ -2766,6 +2813,10 @@ class MockAdminService {
   private horarioSemana: DiaHorarioDTO[] = JSON.parse(JSON.stringify(SEMILLAS_HORARIO_AUREA));
   private excepcionesHorario: ExcepcionHorarioDTO[] = JSON.parse(JSON.stringify(SEMILLAS_EXCEPCIONES_AUREA));
   private reservasConflicto: ReservaConflictoDTO[] = JSON.parse(JSON.stringify(SEMILLAS_RESERVAS_CONFLICTO_AUREA));
+  private politicasReserva: PoliticasReservaDTO = JSON.parse(JSON.stringify(SEMILLA_POLITICAS_RESERVA_AUREA));
+  private reservasFuturasActivas: ReservaResumenDTO[] = JSON.parse(JSON.stringify(SEMILLAS_RESERVAS_FUTURAS_AUREA));
+  private planSaaSActual: 'starter' | 'pro' | 'enterprise' = 'pro';
+
 
   private calcularMetricasPiso(piso: PisoAdminDTO) {
     const activas = piso.mesas.filter((m) => m.estado === 'activa');
@@ -6841,6 +6892,199 @@ class MockAdminService {
     this.horarioSemana = JSON.parse(JSON.stringify(SEMILLAS_HORARIO_AUREA));
     this.excepcionesHorario = JSON.parse(JSON.stringify(SEMILLAS_EXCEPCIONES_AUREA));
     this.reservasConflicto = JSON.parse(JSON.stringify(SEMILLAS_RESERVAS_CONFLICTO_AUREA));
+  }
+
+  // ============================================================================
+  // CU-ADMIN-10: Configurar Políticas y Parámetros de Reservas de Mesas
+  // ============================================================================
+
+  /**
+   * GET /api/v1/admin/reservas/politicas
+   */
+  async getPoliticasReserva(_localId: string = CANONICAL_LOCAL_ID): Promise<ApiResponse<PoliticasReservaDTO>> {
+    await new Promise((r) => setTimeout(r, 60));
+
+    // Si el plan no incluye reservas (Plan Starter)
+    if (this.planSaaSActual === 'starter') {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_MODULO_RESERVAS_NO_CONTRATADO',
+            mensaje: 'El módulo de reservas requiere Plan Pro o Enterprise. Tu empresa cuenta actualmente con el Plan Starter.',
+          },
+        ],
+      };
+    }
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(this.politicasReserva)),
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/reservas/politicas/precheck-desactivacion
+   */
+  async precheckDesactivacionReservas(_localId: string = CANONICAL_LOCAL_ID): Promise<ApiResponse<PrecheckDesactivacionReservasResponse>> {
+    await new Promise((r) => setTimeout(r, 50));
+
+    const totalPendientes = this.reservasFuturasActivas.length;
+    return {
+      exito: true,
+      datos: {
+        permite_desactivar: totalPendientes === 0,
+        total_pendientes: totalPendientes,
+        reservas: totalPendientes > 0 ? JSON.parse(JSON.stringify(this.reservasFuturasActivas)) : [],
+      },
+    };
+  }
+
+  /**
+   * PUT /api/v1/admin/reservas/politicas
+   */
+  async actualizarPoliticasReserva(req: ActualizarPoliticasReservaRequest): Promise<ApiResponse<PoliticasReservaDTO>> {
+    await new Promise((r) => setTimeout(r, 120));
+
+    // Validar plan
+    if (this.planSaaSActual === 'starter') {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_MODULO_RESERVAS_NO_CONTRATADO',
+            mensaje: 'El módulo de reservas requiere Plan Pro o Enterprise.',
+          },
+        ],
+      };
+    }
+
+    // Validaciones de rangos y coherencia matemática
+    if (req.duracion_reserva_min < 30 || req.duracion_reserva_min > 240) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_RANGO_INVALIDO', mensaje: 'La duración estándar debe estar entre 30 y 240 minutos.' }],
+      };
+    }
+    if (req.buffer_reserva_min < 0 || req.buffer_reserva_min > 60) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_RANGO_INVALIDO', mensaje: 'El buffer de limpieza debe estar entre 0 y 60 minutos.' }],
+      };
+    }
+    if (req.tolerancia_no_show_min < 5 || req.tolerancia_no_show_min > 60) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_RANGO_INVALIDO', mensaje: 'La tolerancia de no-show debe estar entre 5 y 60 minutos.' }],
+      };
+    }
+    if (req.minutos_bloqueo_previo < 0 || req.minutos_bloqueo_previo > 120) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_RANGO_INVALIDO', mensaje: 'El bloqueo previo debe estar entre 0 y 120 minutos.' }],
+      };
+    }
+    if (req.anticipacion_minima_horas < 0 || req.anticipacion_minima_horas > 48) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_RANGO_INVALIDO', mensaje: 'La anticipación mínima debe estar entre 0 y 48 horas.' }],
+      };
+    }
+    if (req.anticipacion_maxima_dias < 1 || req.anticipacion_maxima_dias > 90) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_RANGO_INVALIDO', mensaje: 'La anticipación máxima debe estar entre 1 y 90 días.' }],
+      };
+    }
+
+    // SALVAGUARDA: Si se intenta desactivar el interruptor maestro con reservas futuras activas
+    if (this.politicasReserva.acepta_reservas && !req.acepta_reservas && this.reservasFuturasActivas.length > 0) {
+      return {
+        exito: false,
+        datos: {
+          permite_desactivar: false,
+          total_pendientes: this.reservasFuturasActivas.length,
+          reservas: JSON.parse(JSON.stringify(this.reservasFuturasActivas)),
+        } as any,
+        errores: [
+          {
+            codigo: 'ERR_RESERVAS_FUTURAS_PENDIENTES',
+            mensaje: `No es posible deshabilitar reservas de salón porque existen ${this.reservasFuturasActivas.length} reservas futuras confirmadas pendientes. Atienda o cancele las reservas antes de desactivar el módulo.`,
+          },
+        ],
+      };
+    }
+
+    // Actualizar registro
+    this.politicasReserva = {
+      ...this.politicasReserva,
+      acepta_reservas: req.acepta_reservas,
+      duracion_reserva_min: req.duracion_reserva_min,
+      buffer_reserva_min: req.buffer_reserva_min,
+      tolerancia_no_show_min: req.tolerancia_no_show_min,
+      minutos_bloqueo_previo: req.minutos_bloqueo_previo,
+      margen_recordatorio_min: req.margen_recordatorio_min,
+      anticipacion_minima_horas: req.anticipacion_minima_horas,
+      anticipacion_maxima_dias: req.anticipacion_maxima_dias,
+      updated_at: new Date().toISOString(),
+    };
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(this.politicasReserva)),
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/reservas/politicas/restaurar-default
+   */
+  async restaurarPoliticasDefault(): Promise<ApiResponse<PoliticasReservaDTO>> {
+    await new Promise((r) => setTimeout(r, 80));
+
+    this.politicasReserva = {
+      ...SEMILLA_POLITICAS_RESERVA_AUREA,
+      updated_at: new Date().toISOString(),
+    };
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(this.politicasReserva)),
+    };
+  }
+
+  // Métodos de simulación para QA Test Bench (CU-ADMIN-10)
+  simularPlanStarter(activar: boolean) {
+    this.planSaaSActual = activar ? 'starter' : 'pro';
+  }
+
+  simularExistenciaReservasFuturas(activar: boolean) {
+    if (activar) {
+      this.reservasFuturasActivas = JSON.parse(JSON.stringify(SEMILLAS_RESERVAS_FUTURAS_AUREA));
+    } else {
+      this.reservasFuturasActivas = [];
+    }
+  }
+
+  restablecerSemillasPoliticas() {
+    this.politicasReserva = JSON.parse(JSON.stringify(SEMILLA_POLITICAS_RESERVA_AUREA));
+    this.reservasFuturasActivas = JSON.parse(JSON.stringify(SEMILLAS_RESERVAS_FUTURAS_AUREA));
+    this.planSaaSActual = 'pro';
+  }
+
+  getPlanSaaSActual() {
+    return this.planSaaSActual;
+  }
+
+  getReservasFuturasActivasCount() {
+    return this.reservasFuturasActivas.length;
   }
 }
 

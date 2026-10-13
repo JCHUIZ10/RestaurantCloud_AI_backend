@@ -1042,8 +1042,45 @@ export interface CrearExcepcionRequest {
   reservas_notificadas?: NotificacionContactoDTO[];
 }
 
+// ============================================================================
+// CU-ADMIN-10: Configurar Políticas y Parámetros de Reservas de Mesas
+// ============================================================================
 
+export interface PoliticasReservaDTO {
+  local_id: string;
+  acepta_reservas: boolean;
+  duracion_reserva_min: number; // Default 90, min 30, max 240
+  buffer_reserva_min: number; // Default 15, min 0, max 60
+  tolerancia_no_show_min: number; // Default 15, min 5, max 60
+  minutos_bloqueo_previo: number; // Default 30, min 0, max 120
+  margen_recordatorio_min: number; // Default 120, min 0
+  anticipacion_minima_horas: number; // Default 2, min 0, max 48
+  anticipacion_maxima_dias: number; // Default 30, min 1, max 90
+  updated_at: string;
+}
 
+export interface ActualizarPoliticasReservaRequest {
+  acepta_reservas: boolean;
+  duracion_reserva_min: number;
+  buffer_reserva_min: number;
+  tolerancia_no_show_min: number;
+  minutos_bloqueo_previo: number;
+  margen_recordatorio_min: number;
+  anticipacion_minima_horas: number;
+  anticipacion_maxima_dias: number;
+}
 
+export interface ReservaResumenDTO {
+  id: string;
+  cliente: string;
+  telefono: string;
+  fecha_hora: string;
+  pax: number;
+  mesas: string[];
+}
 
-
+export interface PrecheckDesactivacionReservasResponse {
+  permite_desactivar: boolean;
+  total_pendientes: number;
+  reservas?: ReservaResumenDTO[];
+}

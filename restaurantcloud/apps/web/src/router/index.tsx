@@ -23,6 +23,7 @@ import { AdminProveedoresPage } from '@/modules/admin/pages/AdminProveedoresPage
 import { AdminComprasPage } from '@/modules/admin/pages/AdminComprasPage';
 import { AdminPersonalPage } from '@/modules/admin/pages/AdminPersonalPage';
 import { AdminHorarioPage } from '@/modules/admin/pages/AdminHorarioPage';
+import { AdminPoliticasReservaPage } from '@/modules/admin/pages/AdminPoliticasReservaPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
@@ -251,6 +252,10 @@ export const router = createBrowserRouter([
       {
         path: 'horario',
         element: <AdminHorarioPage />,
+      },
+      {
+        path: 'politicas-reserva',
+        element: <AdminPoliticasReservaPage />,
       },
       {
         path: 'reportes/ventas',
