@@ -855,6 +855,107 @@ export interface AnularFichaCompraRequestDTO {
   motivo: string;
 }
 
+// ============================================================================
+// CU-ADMIN-08: Gestión de Personal del Local
+// ============================================================================
+
+export type RolEmpleadoOperativo = 'mozo' | 'cocina' | 'cajero';
+export type EstadoEmpleado = 'activo' | 'inactivo' | 'pendiente_activacion';
+
+export interface MesaActivaEmpleadoDTO {
+  mesa_id: string;
+  mesa_codigo: string;
+  piso_nombre: string;
+  comanda_codigo: string;
+  monto_actual: number;
+  minutos_activa: number;
+}
+
+export interface EmpleadoResumenDTO {
+  id: string;
+  local_id: string;
+  nombre: string;
+  correo: string;
+  telefono: string;
+  rol: RolEmpleadoOperativo;
+  estado: EstadoEmpleado;
+  ultimo_login?: string | null;
+  created_at: string;
+  mesas_activas_count?: number;
+  tiene_caja_abierta?: boolean;
+}
+
+export interface EmpleadoDetalleDTO extends EmpleadoResumenDTO {
+  password_temporal?: string;
+  enlace_whatsapp_link?: string;
+  mesas_activas_detalle?: MesaActivaEmpleadoDTO[];
+}
+
+export interface MetricasPersonalDTO {
+  total_empleados: number;
+  max_usuarios_plan: number;
+  cupos_disponibles: number;
+  mozos_activos: number;
+  cocina_activos: number;
+  cajeros_activos: number;
+  plan_nombre: string;
+  porcentaje_ocupacion: number;
+}
+
+export interface RegistrarEmpleadoRequestDTO {
+  nombre: string;
+  correo: string;
+  telefono: string;
+  rol: RolEmpleadoOperativo;
+  enviar_bienvenida?: boolean;
+}
+
+export interface ActualizarEmpleadoRequestDTO {
+  nombre: string;
+  telefono: string;
+  rol: RolEmpleadoOperativo;
+}
+
+export interface PrecheckDesactivacionDTO {
+  usuario_id: string;
+  nombre: string;
+  rol: RolEmpleadoOperativo;
+  mesas_activas_pendientes: MesaActivaEmpleadoDTO[];
+  caja_abierta_pendiente?: {
+    caja_id: string;
+    nombre_caja: string;
+    apertura_fecha: string;
+    monto_apertura: number;
+  } | null;
+  puede_desactivar_directo: boolean;
+  requiere_reasignacion: boolean;
+  mensaje_advertencia?: string;
+}
+
+export interface DesactivarEmpleadoRequestDTO {
+  mozo_sustituto_id?: string;
+  motivo: string;
+}
+
+export interface ResetPasswordResponseDTO {
+  usuario_id: string;
+  nombre: string;
+  correo: string;
+  password_temporal: string;
+  enlace_whatsapp_link: string;
+}
+
+export interface ListarPersonalResponseDTO {
+  empleados: EmpleadoResumenDTO[];
+  metricas: MetricasPersonalDTO;
+  paginacion: {
+    total: number;
+    pagina: number;
+    limite: number;
+    total_paginas: number;
+  };
+}
+
 
 
 

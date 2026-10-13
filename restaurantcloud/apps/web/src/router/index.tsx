@@ -21,6 +21,7 @@ import { AdminInsumosPage } from '@/modules/admin/pages/AdminInsumosPage';
 import { AdminProductosPage } from '@/modules/admin/pages/AdminProductosPage';
 import { AdminProveedoresPage } from '@/modules/admin/pages/AdminProveedoresPage';
 import { AdminComprasPage } from '@/modules/admin/pages/AdminComprasPage';
+import { AdminPersonalPage } from '@/modules/admin/pages/AdminPersonalPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
@@ -244,15 +245,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'personal',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-ADMIN-08"
-            nombrePantalla="Personal de Sede (Mozos, Cocina, Caja)"
-            rol="administrador"
-            layoutNombre="DashboardLayout"
-            descripcion="Invitación y administración de colaboradores del local con asignación de roles operativos."
-          />
-        ),
+        element: <AdminPersonalPage />,
       },
       {
         path: 'reportes/ventas',

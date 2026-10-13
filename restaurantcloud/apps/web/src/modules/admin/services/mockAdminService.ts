@@ -59,6 +59,14 @@ import {
   PedidoCocinaImpactadoDTO,
   ImpactoAnulacionDTO,
   AnularFichaCompraRequestDTO,
+  EmpleadoDetalleDTO,
+  MetricasPersonalDTO,
+  RegistrarEmpleadoRequestDTO,
+  ActualizarEmpleadoRequestDTO,
+  PrecheckDesactivacionDTO,
+  DesactivarEmpleadoRequestDTO,
+  ResetPasswordResponseDTO,
+  ListarPersonalResponseDTO,
 } from '@/types/admin';
 
 // Identificadores Canónicos del Seed de Desarrollo Local (07_seed_local_aurea_completo.sql)
@@ -2306,6 +2314,235 @@ const SEMILLAS_FICHAS_COMPRA_AUREA: FichaCompraDetalleCompletoDTO[] = [
   },
 ];
 
+export const SEMILLAS_PERSONAL_AUREA: EmpleadoDetalleDTO[] = [
+  {
+    id: 'u-mozo-01',
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Carlos Huamán',
+    correo: 'chuaman@aurea.pe',
+    telefono: '+51 987 654 321',
+    rol: 'mozo',
+    estado: 'activo',
+    ultimo_login: '2026-10-13T12:45:00Z',
+    created_at: '2026-08-01T09:00:00Z',
+    mesas_activas_count: 3,
+    mesas_activas_detalle: [
+      {
+        mesa_id: 'm1a2b3c4-0004-4000-8000-000000000004',
+        mesa_codigo: 'Mesa 04',
+        piso_nombre: 'Salón Principal',
+        comanda_codigo: 'COM-202610-001',
+        monto_actual: 142.5,
+        minutos_activa: 35,
+      },
+      {
+        mesa_id: 'm1a2b3c4-0007-4000-8000-000000000007',
+        mesa_codigo: 'Mesa 07',
+        piso_nombre: 'Terraza Jardín',
+        comanda_codigo: 'COM-202610-004',
+        monto_actual: 89.0,
+        minutos_activa: 18,
+      },
+      {
+        mesa_id: 'm1a2b3c4-0012-4000-8000-000000000012',
+        mesa_codigo: 'Mesa 12',
+        piso_nombre: 'Barra Cócteles',
+        comanda_codigo: 'COM-202610-009',
+        monto_actual: 54.0,
+        minutos_activa: 10,
+      },
+    ],
+    enlace_whatsapp_link: 'https://wa.me/51987654321?text=Hola%20Carlos%20Huam%C3%A1n%2C%20bienvenido%20al%20equipo%20de%20%C3%81urea%20Miraflores.',
+  },
+  {
+    id: 'u-mozo-02',
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Carlos Mendoza',
+    correo: 'cmendoza@aurea.pe',
+    telefono: '+51 984 555 111',
+    rol: 'mozo',
+    estado: 'activo',
+    ultimo_login: '2026-10-13T11:20:00Z',
+    created_at: '2026-08-10T10:00:00Z',
+    mesas_activas_count: 0,
+    mesas_activas_detalle: [],
+    enlace_whatsapp_link: 'https://wa.me/51984555111?text=Hola%20Carlos%20Mendoza%2C%20bienvenido%20al%20equipo%20de%20%C3%81urea%20Miraflores.',
+  },
+  {
+    id: 'u-mozo-03',
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Pedro Quispe',
+    correo: 'pquispe@aurea.pe',
+    telefono: '+51 977 123 456',
+    rol: 'mozo',
+    estado: 'activo',
+    ultimo_login: '2026-10-13T13:00:00Z',
+    created_at: '2026-08-15T09:30:00Z',
+    mesas_activas_count: 1,
+    mesas_activas_detalle: [
+      {
+        mesa_id: 'm1a2b3c4-0002-4000-8000-000000000002',
+        mesa_codigo: 'Mesa 02',
+        piso_nombre: 'Salón Principal',
+        comanda_codigo: 'COM-202610-008',
+        monto_actual: 68.0,
+        minutos_activa: 12,
+      },
+    ],
+    enlace_whatsapp_link: 'https://wa.me/51977123456?text=Hola%20Pedro%20Quispe%2C%20bienvenido%20al%20equipo%20de%20%C3%81urea%20Miraflores.',
+  },
+  {
+    id: 'u-mozo-04',
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Lucía Ramos',
+    correo: 'lramos@aurea.pe',
+    telefono: '+51 993 456 789',
+    rol: 'mozo',
+    estado: 'activo',
+    ultimo_login: '2026-10-13T10:15:00Z',
+    created_at: '2026-09-01T08:00:00Z',
+    mesas_activas_count: 0,
+    mesas_activas_detalle: [],
+    enlace_whatsapp_link: 'https://wa.me/51993456789?text=Hola%20Luc%C3%ADa%20Ramos%2C%20bienvenida%20al%20equipo%20de%20%C3%81urea%20Miraflores.',
+  },
+  {
+    id: 'u-mozo-05',
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Mateo Rivas',
+    correo: 'mrivas@aurea.pe',
+    telefono: '+51 965 222 333',
+    rol: 'mozo',
+    estado: 'activo',
+    ultimo_login: '2026-10-12T20:40:00Z',
+    created_at: '2026-09-10T11:00:00Z',
+    mesas_activas_count: 0,
+    mesas_activas_detalle: [],
+    enlace_whatsapp_link: 'https://wa.me/51965222333?text=Hola%20Mateo%20Rivas%2C%20bienvenido%20al%20equipo%20de%20%C3%81urea%20Miraflores.',
+  },
+  {
+    id: 'u-mozo-06',
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Sofía Delgado',
+    correo: 'sdelgado@aurea.pe',
+    telefono: '+51 981 999 111',
+    rol: 'mozo',
+    estado: 'activo',
+    ultimo_login: '2026-10-13T12:00:00Z',
+    created_at: '2026-09-15T09:00:00Z',
+    mesas_activas_count: 0,
+    mesas_activas_detalle: [],
+    enlace_whatsapp_link: 'https://wa.me/51981999111?text=Hola%20Sof%C3%ADa%20Delgado%2C%20bienvenida%20al%20equipo%20de%20%C3%81urea%20Miraflores.',
+  },
+  {
+    id: 'u-cocina-01',
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Roberto Vargas',
+    correo: 'rvargas@aurea.pe',
+    telefono: '+51 954 111 888',
+    rol: 'cocina',
+    estado: 'activo',
+    ultimo_login: '2026-10-13T13:10:00Z',
+    created_at: '2026-06-15T07:00:00Z',
+    mesas_activas_count: 0,
+    enlace_whatsapp_link: 'https://wa.me/51954111888?text=Hola%20Roberto%20Vargas%2C%20bienvenido%20al%20equipo%20de%20%C3%81urea%20Miraflores.',
+  },
+  {
+    id: 'u-cocina-02',
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Andrés Paredes',
+    correo: 'aparedes@aurea.pe',
+    telefono: '+51 941 777 999',
+    rol: 'cocina',
+    estado: 'activo',
+    ultimo_login: '2026-10-13T12:00:00Z',
+    created_at: '2026-07-01T07:30:00Z',
+    mesas_activas_count: 0,
+    enlace_whatsapp_link: 'https://wa.me/51941777999?text=Hola%20Andr%C3%A9s%20Paredes%2C%20bienvenido%20al%20equipo%20de%20%C3%81urea%20Miraflores.',
+  },
+  {
+    id: 'u-cocina-03',
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Elena Castro',
+    correo: 'ecastro@aurea.pe',
+    telefono: '+51 962 888 444',
+    rol: 'cocina',
+    estado: 'activo',
+    ultimo_login: '2026-10-13T09:30:00Z',
+    created_at: '2026-08-01T07:00:00Z',
+    mesas_activas_count: 0,
+    enlace_whatsapp_link: 'https://wa.me/51962888444?text=Hola%20Elena%20Castro%2C%20bienvenida%20al%20equipo%20de%20%C3%81urea%20Miraflores.',
+  },
+  {
+    id: 'u-cocina-04',
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Miguel Rojas',
+    correo: 'mrojas@aurea.pe',
+    telefono: '+51 951 333 666',
+    rol: 'cocina',
+    estado: 'activo',
+    ultimo_login: '2026-10-12T22:15:00Z',
+    created_at: '2026-08-20T08:00:00Z',
+    mesas_activas_count: 0,
+    enlace_whatsapp_link: 'https://wa.me/51951333666?text=Hola%20Miguel%20Rojas%2C%20bienvenido%20al%20equipo%20de%20%C3%81urea%20Miraflores.',
+  },
+  {
+    id: 'u-cajero-01',
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Lucía Quispe',
+    correo: 'lquispe@aurea.pe',
+    telefono: '+51 971 000 222',
+    rol: 'cajero',
+    estado: 'activo',
+    ultimo_login: '2026-10-13T13:20:00Z',
+    created_at: '2026-06-01T08:00:00Z',
+    mesas_activas_count: 0,
+    tiene_caja_abierta: true,
+    enlace_whatsapp_link: 'https://wa.me/51971000222?text=Hola%20Luc%C3%ADa%20Quispe%2C%20bienvenida%20al%20equipo%20de%20%C3%81urea%20Miraflores.',
+  },
+  {
+    id: 'u-cajero-02',
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Fernando Gil',
+    correo: 'fgil@aurea.pe',
+    telefono: '+51 998 333 555',
+    rol: 'cajero',
+    estado: 'activo',
+    ultimo_login: '2026-10-11T16:00:00Z',
+    created_at: '2026-07-15T08:30:00Z',
+    mesas_activas_count: 0,
+    tiene_caja_abierta: false,
+    enlace_whatsapp_link: 'https://wa.me/51998333555?text=Hola%20Fernando%20Gil%2C%20bienvenido%20al%20equipo%20de%20%C3%81urea%20Miraflores.',
+  },
+  {
+    id: 'u-mozo-07',
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Jorge Campos',
+    correo: 'jcampos@aurea.pe',
+    telefono: '+51 988 444 777',
+    rol: 'mozo',
+    estado: 'inactivo',
+    ultimo_login: '2026-10-05T18:00:00Z',
+    created_at: '2026-07-20T08:30:00Z',
+    mesas_activas_count: 0,
+    mesas_activas_detalle: [],
+    enlace_whatsapp_link: 'https://wa.me/51988444777?text=Hola%20Jorge%20Campos%2C%20bienvenido%20al%20equipo%20de%20%C3%81urea%20Miraflores.',
+  },
+  {
+    id: 'u-mozo-08',
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Patricia Solís',
+    correo: 'psolis@aurea.pe',
+    telefono: '+51 975 666 888',
+    rol: 'mozo',
+    estado: 'inactivo',
+    ultimo_login: '2026-09-28T14:00:00Z',
+    created_at: '2026-05-10T09:00:00Z',
+    mesas_activas_count: 0,
+    mesas_activas_detalle: [],
+    enlace_whatsapp_link: 'https://wa.me/51975666888?text=Hola%20Patricia%20Sol%C3%ADs%2C%20bienvenida%20al%20equipo%20de%20%C3%81urea%20Miraflores.',
+  },
+];
+
 // Estado en memoria simulado
 class MockAdminService {
   private pisos: PisoAdminDTO[] = JSON.parse(JSON.stringify(SEMILLAS_PISOS));
@@ -2320,6 +2557,9 @@ class MockAdminService {
   private proveedores: ProveedorResumenDTO[] = JSON.parse(JSON.stringify(SEMILLAS_PROVEEDORES_AUREA));
   private historialCompras: Record<string, FichaCompraHistorialDTO[]> = JSON.parse(JSON.stringify(SEMILLAS_FICHAS_COMPRA_HISTORIAL));
   private fichasCompra: FichaCompraDetalleCompletoDTO[] = JSON.parse(JSON.stringify(SEMILLAS_FICHAS_COMPRA_AUREA));
+  private personal: EmpleadoDetalleDTO[] = JSON.parse(JSON.stringify(SEMILLAS_PERSONAL_AUREA));
+  private maxUsuariosPlan = 15;
+  private planNombrePersonal = 'Plan Pro (15 cupos)';
 
   private calcularMetricasPiso(piso: PisoAdminDTO) {
     const activas = piso.mesas.filter((m) => m.estado === 'activa');
@@ -5453,6 +5693,554 @@ class MockAdminService {
 
   restablecerSemillasCompras() {
     this.fichasCompra = JSON.parse(JSON.stringify(SEMILLAS_FICHAS_COMPRA_AUREA));
+  }
+
+  // ============================================================================
+  // CU-ADMIN-08: Gestión de Personal del Local
+  // ============================================================================
+
+  /**
+   * GET /api/v1/admin/personal
+   */
+  async getPersonal(filtros?: {
+    busqueda?: string;
+    rol?: string;
+    estado?: string;
+    pagina?: number;
+    limite?: number;
+  }): Promise<ApiResponse<ListarPersonalResponseDTO>> {
+    await new Promise((r) => setTimeout(r, 60));
+
+    let lista = [...this.personal];
+
+    // Filtro por búsqueda
+    if (filtros?.busqueda?.trim()) {
+      const q = filtros.busqueda.trim().toLowerCase();
+      lista = lista.filter(
+        (e) =>
+          e.nombre.toLowerCase().includes(q) ||
+          e.correo.toLowerCase().includes(q) ||
+          e.telefono.includes(q)
+      );
+    }
+
+    // Filtro por rol
+    if (filtros?.rol && filtros.rol !== 'todos') {
+      lista = lista.filter((e) => e.rol === filtros.rol);
+    }
+
+    // Filtro por estado
+    if (filtros?.estado && filtros.estado !== 'todos') {
+      lista = lista.filter((e) => e.estado === filtros.estado);
+    }
+
+    const total = lista.length;
+    const pagina = filtros?.pagina || 1;
+    const limite = filtros?.limite || 10;
+    const offset = (pagina - 1) * limite;
+    const paginados = lista.slice(offset, offset + limite);
+
+    const totalPaginas = Math.ceil(total / limite) || 1;
+
+    // Métricas globales
+    const metricas = this.calcularMetricasPersonalInternas();
+
+    return {
+      exito: true,
+      datos: {
+        empleados: paginados,
+        metricas,
+        paginacion: {
+          total,
+          pagina,
+          limite,
+          total_paginas: totalPaginas,
+        },
+      },
+    };
+  }
+
+  private calcularMetricasPersonalInternas(): MetricasPersonalDTO {
+    const totalActivos = this.personal.filter((p) => p.estado === 'activo').length;
+    const mozosActivos = this.personal.filter((p) => p.rol === 'mozo' && p.estado === 'activo').length;
+    const cocinaActivos = this.personal.filter((p) => p.rol === 'cocina' && p.estado === 'activo').length;
+    const cajerosActivos = this.personal.filter((p) => p.rol === 'cajero' && p.estado === 'activo').length;
+    const cuposDisponibles = Math.max(0, this.maxUsuariosPlan - totalActivos);
+    const porcentajeOcupacion = Math.round((totalActivos / this.maxUsuariosPlan) * 100);
+
+    return {
+      total_empleados: totalActivos,
+      max_usuarios_plan: this.maxUsuariosPlan,
+      cupos_disponibles: cuposDisponibles,
+      mozos_activos: mozosActivos,
+      cocina_activos: cocinaActivos,
+      cajeros_activos: cajerosActivos,
+      plan_nombre: this.planNombrePersonal,
+      porcentaje_ocupacion: porcentajeOcupacion,
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/personal/metricas
+   */
+  async getMetricasPersonal(): Promise<ApiResponse<MetricasPersonalDTO>> {
+    await new Promise((r) => setTimeout(r, 40));
+    return {
+      exito: true,
+      datos: this.calcularMetricasPersonalInternas(),
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/personal/{id}
+   */
+  async getEmpleado(id: string): Promise<ApiResponse<EmpleadoDetalleDTO>> {
+    await new Promise((r) => setTimeout(r, 40));
+    const emp = this.personal.find((p) => p.id === id);
+    if (!emp) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_EMPLEADO_NO_ENCONTRADO',
+            mensaje: 'Colaborador no encontrado en los registros de la sede.',
+          },
+        ],
+      };
+    }
+    return {
+      exito: true,
+      datos: emp,
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/personal
+   */
+  async registrarEmpleado(req: RegistrarEmpleadoRequestDTO): Promise<ApiResponse<EmpleadoDetalleDTO>> {
+    await new Promise((r) => setTimeout(r, 100));
+
+    // 1. Validar cuota SaaS
+    const totalActivos = this.personal.filter((p) => p.estado === 'activo').length;
+    if (totalActivos >= this.maxUsuariosPlan) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_CUOTA_EXCEDIDA',
+            mensaje: `Se ha alcanzado el límite de ${this.maxUsuariosPlan} usuarios activos del Plan Pro. Libera cupos desactivando colaboradores inactivos o solicita una ampliación de plan al propietario.`,
+          },
+        ],
+      };
+    }
+
+    // 2. Validar unicidad de correo
+    const emailNormalizado = req.correo.trim().toLowerCase();
+    const existeCorreo = this.personal.some((p) => p.correo.toLowerCase() === emailNormalizado);
+    if (existeCorreo) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_CORREO_DUPLICADO',
+            mensaje: `El correo "${req.correo}" ya se encuentra registrado por otro usuario en la plataforma.`,
+          },
+        ],
+      };
+    }
+
+    // 3. Validar rol permitido para administrador local (mozo, cocina, cajero)
+    if (!['mozo', 'cocina', 'cajero'].includes(req.rol)) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_ROL_NO_AUTORIZADO',
+            mensaje: 'El administrador local solo puede asignar roles operativos de local (Mozo, Cocina, Cajero). La creación de administradores corresponde al Propietario.',
+          },
+        ],
+      };
+    }
+
+    // 4. Generar contraseña provisional y link de WhatsApp
+    const codigoAleatorio = Math.floor(1000 + Math.random() * 9000);
+    const passwordTemporal = `Rest@${codigoAleatorio}`;
+    const cleanTel = req.telefono.replace(/\D/g, '');
+    const telefonoWhatsApp = cleanTel.startsWith('51') ? cleanTel : `51${cleanTel}`;
+
+    const mensajeWhatsApp = `¡Hola ${req.nombre}! Bienvenido al equipo de Áurea Miraflores. Tus credenciales de acceso son:
+📧 Usuario: ${emailNormalizado}
+🔑 Clave provisional: ${passwordTemporal}
+🌐 Acceso: https://app.restaurantcloud.pe/login`;
+
+    const nuevo: EmpleadoDetalleDTO = {
+      id: `u-${req.rol}-${Date.now().toString(36)}`,
+      local_id: CANONICAL_LOCAL_ID,
+      nombre: req.nombre.trim(),
+      correo: emailNormalizado,
+      telefono: req.telefono.trim(),
+      rol: req.rol,
+      estado: 'activo',
+      ultimo_login: null,
+      created_at: new Date().toISOString(),
+      mesas_activas_count: 0,
+      mesas_activas_detalle: [],
+      tiene_caja_abierta: false,
+      password_temporal: passwordTemporal,
+      enlace_whatsapp_link: `https://wa.me/${telefonoWhatsApp}?text=${encodeURIComponent(mensajeWhatsApp)}`,
+    };
+
+    this.personal.unshift(nuevo);
+
+    return {
+      exito: true,
+      datos: nuevo,
+    };
+  }
+
+  /**
+   * PUT /api/v1/admin/personal/{id}
+   */
+  async actualizarEmpleado(
+    id: string,
+    req: ActualizarEmpleadoRequestDTO
+  ): Promise<ApiResponse<EmpleadoDetalleDTO>> {
+    await new Promise((r) => setTimeout(r, 80));
+
+    const emp = this.personal.find((p) => p.id === id);
+    if (!emp) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_EMPLEADO_NO_ENCONTRADO',
+            mensaje: 'Colaborador no encontrado.',
+          },
+        ],
+      };
+    }
+
+    // Validar rol operativo
+    if (!['mozo', 'cocina', 'cajero'].includes(req.rol)) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_ROL_NO_AUTORIZADO',
+            mensaje: 'Rol no autorizado para asignación por administrador de local.',
+          },
+        ],
+      };
+    }
+
+    emp.nombre = req.nombre.trim();
+    emp.telefono = req.telefono.trim();
+    emp.rol = req.rol;
+
+    const cleanTel = emp.telefono.replace(/\D/g, '');
+    const telefonoWhatsApp = cleanTel.startsWith('51') ? cleanTel : `51${cleanTel}`;
+    emp.enlace_whatsapp_link = `https://wa.me/${telefonoWhatsApp}?text=${encodeURIComponent(
+      `Hola ${emp.nombre}, te contactamos desde la administración de Áurea Miraflores.`
+    )}`;
+
+    return {
+      exito: true,
+      datos: emp,
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/personal/{id}/precheck-desactivacion
+   */
+  async precheckDesactivarEmpleado(id: string): Promise<ApiResponse<PrecheckDesactivacionDTO>> {
+    await new Promise((r) => setTimeout(r, 60));
+
+    const emp = this.personal.find((p) => p.id === id);
+    if (!emp) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_EMPLEADO_NO_ENCONTRADO',
+            mensaje: 'Colaborador no encontrado.',
+          },
+        ],
+      };
+    }
+
+    // Caso 1: Cajero con caja abierta
+    if (emp.rol === 'cajero' && emp.tiene_caja_abierta) {
+      return {
+        exito: true,
+        datos: {
+          usuario_id: emp.id,
+          nombre: emp.nombre,
+          rol: emp.rol,
+          mesas_activas_pendientes: [],
+          caja_abierta_pendiente: {
+            caja_id: 'caja-aurea-01',
+            nombre_caja: 'Caja Principal Salón',
+            apertura_fecha: 'Hoy 08:30 AM',
+            monto_apertura: 350.0,
+          },
+          puede_desactivar_directo: false,
+          requiere_reasignacion: false,
+          mensaje_advertencia:
+            'El colaborador mantiene un turno de caja abierto con dinero en custodia. Debe realizarse el arqueo y supervisión de cierre en Control de Caja antes de desactivarlo.',
+        },
+      };
+    }
+
+    // Caso 2: Mozo con comandas/mesas activas
+    if (emp.rol === 'mozo' && (emp.mesas_activas_count || 0) > 0) {
+      return {
+        exito: true,
+        datos: {
+          usuario_id: emp.id,
+          nombre: emp.nombre,
+          rol: emp.rol,
+          mesas_activas_pendientes: emp.mesas_activas_detalle || [],
+          caja_abierta_pendiente: null,
+          puede_desactivar_directo: false,
+          requiere_reasignacion: true,
+          mensaje_advertencia: `El mozo tiene ${emp.mesas_activas_count} comanda(s) activas en salón. Para evitar pedidos huérfanos, es obligatorio reasignarlas a un mozo en turno.`,
+        },
+      };
+    }
+
+    // Caso 3: Desactivación directa sin riesgo
+    return {
+      exito: true,
+      datos: {
+        usuario_id: emp.id,
+        nombre: emp.nombre,
+        rol: emp.rol,
+        mesas_activas_pendientes: [],
+        caja_abierta_pendiente: null,
+        puede_desactivar_directo: true,
+        requiere_reasignacion: false,
+      },
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/personal/{id}/desactivar
+   */
+  async desactivarEmpleado(
+    id: string,
+    req: DesactivarEmpleadoRequestDTO
+  ): Promise<ApiResponse<{ exito: boolean; mensaje: string; mesas_reasignadas?: number }>> {
+    await new Promise((r) => setTimeout(r, 100));
+
+    const emp = this.personal.find((p) => p.id === id);
+    if (!emp) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_EMPLEADO_NO_ENCONTRADO',
+            mensaje: 'Colaborador no encontrado.',
+          },
+        ],
+      };
+    }
+
+    // Bloqueo si cajero con caja abierta
+    if (emp.rol === 'cajero' && emp.tiene_caja_abierta) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_CAJA_ABIERTA_BLOQUEO',
+            mensaje: 'Acción bloqueada: Debe cerrar la caja abierta antes de desactivar al colaborador.',
+          },
+        ],
+      };
+    }
+
+    let mesasReasignadas = 0;
+
+    // Si es mozo con mesas, ejecutar reasignación atómica
+    if (emp.rol === 'mozo' && (emp.mesas_activas_count || 0) > 0) {
+      if (!req.mozo_sustituto_id) {
+        return {
+          exito: false,
+          datos: null as any,
+          errores: [
+            {
+              codigo: 'ERR_MOZO_SUSTITUTO_REQUERIDO',
+              mensaje: 'Es obligatorio seleccionar un mozo sustituto para reasignar las comandas activas.',
+            },
+          ],
+        };
+      }
+
+      const sustituto = this.personal.find(
+        (p) => p.id === req.mozo_sustituto_id && p.rol === 'mozo' && p.estado === 'activo'
+      );
+      if (!sustituto) {
+        return {
+          exito: false,
+          datos: null as any,
+          errores: [
+            {
+              codigo: 'ERR_SUSTITUTO_INVALIDO',
+              mensaje: 'El mozo sustituto seleccionado no está activo o no tiene rol de Mozo.',
+            },
+          ],
+        };
+      }
+
+      mesasReasignadas = emp.mesas_activas_count || 0;
+      sustituto.mesas_activas_count = (sustituto.mesas_activas_count || 0) + mesasReasignadas;
+      sustituto.mesas_activas_detalle = [
+        ...(sustituto.mesas_activas_detalle || []),
+        ...(emp.mesas_activas_detalle || []),
+      ];
+
+      emp.mesas_activas_count = 0;
+      emp.mesas_activas_detalle = [];
+    }
+
+    emp.estado = 'inactivo';
+
+    return {
+      exito: true,
+      datos: {
+        exito: true,
+        mensaje: `Colaborador ${emp.nombre} desactivado correctamente.${
+          mesasReasignadas > 0 ? ` Se reasignaron ${mesasReasignadas} mesa(s) con éxito.` : ''
+        } Se ha liberado 1 cupo en el Plan Pro.`,
+        mesas_reasignadas: mesasReasignadas,
+      },
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/personal/{id}/reactivar
+   */
+  async reactivarEmpleado(id: string): Promise<ApiResponse<EmpleadoDetalleDTO>> {
+    await new Promise((r) => setTimeout(r, 80));
+
+    const emp = this.personal.find((p) => p.id === id);
+    if (!emp) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_EMPLEADO_NO_ENCONTRADO',
+            mensaje: 'Colaborador no encontrado.',
+          },
+        ],
+      };
+    }
+
+    // Validar cuota SaaS antes de reactivar
+    const totalActivos = this.personal.filter((p) => p.estado === 'activo').length;
+    if (totalActivos >= this.maxUsuariosPlan) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_CUOTA_EXCEDIDA',
+            mensaje: `No se puede reactivar: se alcanzó el límite de ${this.maxUsuariosPlan} usuarios activos en el Plan Pro. Libera cupos antes de reactivar.`,
+          },
+        ],
+      };
+    }
+
+    emp.estado = 'activo';
+
+    return {
+      exito: true,
+      datos: emp,
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/personal/{id}/reset-password
+   */
+  async resetPasswordEmpleado(id: string): Promise<ApiResponse<ResetPasswordResponseDTO>> {
+    await new Promise((r) => setTimeout(r, 80));
+
+    const emp = this.personal.find((p) => p.id === id);
+    if (!emp) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_EMPLEADO_NO_ENCONTRADO',
+            mensaje: 'Colaborador no encontrado.',
+          },
+        ],
+      };
+    }
+
+    const codigoAleatorio = Math.floor(1000 + Math.random() * 9000);
+    const nuevaPassword = `Rest@${codigoAleatorio}`;
+    emp.password_temporal = nuevaPassword;
+
+    const cleanTel = emp.telefono.replace(/\D/g, '');
+    const telefonoWhatsApp = cleanTel.startsWith('51') ? cleanTel : `51${cleanTel}`;
+
+    const mensajeWhatsApp = `Hola ${emp.nombre}, tu contraseña provisional de acceso en RestaurantCloud AI ha sido restablecida:
+🔑 Nueva clave: ${nuevaPassword}
+🌐 Ingresa aquí: https://app.restaurantcloud.pe/login`;
+
+    const link = `https://wa.me/${telefonoWhatsApp}?text=${encodeURIComponent(mensajeWhatsApp)}`;
+    emp.enlace_whatsapp_link = link;
+
+    return {
+      exito: true,
+      datos: {
+        usuario_id: emp.id,
+        nombre: emp.nombre,
+        correo: emp.correo,
+        password_temporal: nuevaPassword,
+        enlace_whatsapp_link: link,
+      },
+    };
+  }
+
+  // Métodos de simulación para QA Test Bench
+  simularLimiteCuotaPersonal() {
+    const activos = this.personal.filter((p) => p.estado === 'activo').length;
+    const faltantes = this.maxUsuariosPlan - activos;
+    for (let i = 1; i <= faltantes; i++) {
+      this.personal.push({
+        id: `u-dummy-${Date.now()}-${i}`,
+        local_id: CANONICAL_LOCAL_ID,
+        nombre: `Colaborador Prueba Cuota ${i}`,
+        correo: `prueba_cuota${i}@aurea.pe`,
+        telefono: `+51 999 000 ${String(i).padStart(3, '0')}`,
+        rol: 'mozo',
+        estado: 'activo',
+        ultimo_login: null,
+        created_at: new Date().toISOString(),
+        mesas_activas_count: 0,
+        mesas_activas_detalle: [],
+      });
+    }
+  }
+
+  simularDirectorioPersonalVacio() {
+    this.personal = [];
+  }
+
+  restablecerSemillasPersonal() {
+    this.personal = JSON.parse(JSON.stringify(SEMILLAS_PERSONAL_AUREA));
   }
 }
 
