@@ -47,6 +47,18 @@ import {
   ActualizarProveedorRequestDTO,
   FichaCompraHistorialDTO,
   ProveedorHistorialComprasDTO,
+  RegistrarFichaCompraRequestDTO,
+  ItemCompraDetalleDTO,
+  PlatoReactivableDTO,
+  FichaCompraResumenDTO,
+  FichaCompraDetalleCompletoDTO,
+  FichasCompraKPIsDTO,
+  ListarFichasCompraResponseDTO,
+  InsumoImpactadoDTO,
+  PlatoImpactadoDTO,
+  PedidoCocinaImpactadoDTO,
+  ImpactoAnulacionDTO,
+  AnularFichaCompraRequestDTO,
 } from '@/types/admin';
 
 // Identificadores Canónicos del Seed de Desarrollo Local (07_seed_local_aurea_completo.sql)
@@ -1429,6 +1441,871 @@ const SEMILLAS_FICHAS_COMPRA_HISTORIAL: Record<string, FichaCompraHistorialDTO[]
   ],
 };
 
+// ============================================================================
+// Semillas Canónicas de Fichas de Compra del Mes y Auditoría (CU-ADMIN-06)
+// ============================================================================
+const SEMILLAS_FICHAS_COMPRA_AUREA: FichaCompraDetalleCompletoDTO[] = [
+  {
+    id: 'fc-aurea-0024',
+    codigo_correlativo: 'FC-202610-0024',
+    tipo_comprobante: 'FACTURA',
+    numero_comprobante: 'F001-004921',
+    proveedor_id: PROV_SAN_FERNANDO_ID,
+    proveedor_nombre: 'Distribuidora San Fernando',
+    proveedor_telefono: '+51 987 654 321',
+    fecha_emision: '2026-10-12',
+    fecha_registro: '2026-10-12T10:30:00Z',
+    metodo_pago: 'TRANSFERENCIA',
+    total: 2450.0,
+    subtotal_neto: 2076.27,
+    igv_monto: 373.73,
+    cantidad_items: 2,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    observaciones: 'Lote semanal de cortes premium y huevos.',
+    items: [
+      {
+        id: 'fcd-0024-1',
+        ficha_id: 'fc-aurea-0024',
+        insumo_id: INSUMO_LOMO_ID,
+        insumo_nombre: 'Lomo fino',
+        unidad_medida: 'kg',
+        cantidad: 50.0,
+        precio_unitario: 42.0,
+        subtotal: 2100.0,
+        costo_anterior: 42.0,
+        variacion_porcentaje: 0.0,
+      },
+      {
+        id: 'fcd-0024-2',
+        ficha_id: 'fc-aurea-0024',
+        insumo_id: INSUMO_HUEVOS_ID,
+        insumo_nombre: 'Huevos de gallina',
+        unidad_medida: 'jaba',
+        cantidad: 5.0,
+        precio_unitario: 70.0,
+        subtotal: 350.0,
+        costo_anterior: 70.0,
+        variacion_porcentaje: 0.0,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0023',
+    codigo_correlativo: 'FC-202610-0023',
+    tipo_comprobante: 'NOTA_VENTA',
+    numero_comprobante: 'NV-20261011-0001',
+    proveedor_id: PROV_VERDURAS_SAN_MARTIN_ID,
+    proveedor_nombre: 'Verduras San Martín',
+    proveedor_telefono: '+51 976 543 210',
+    fecha_emision: '2026-10-11',
+    fecha_registro: '2026-10-11T08:15:00Z',
+    metodo_pago: 'EFECTIVO',
+    total: 455.0,
+    subtotal_neto: 455.0,
+    igv_monto: 0.0,
+    cantidad_items: 2,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    observaciones: 'Abastecimiento de verduras frescas para cocina fría.',
+    items: [
+      {
+        id: 'fcd-0023-1',
+        ficha_id: 'fc-aurea-0023',
+        insumo_id: INSUMO_PAPA_AMARILLA_ID,
+        insumo_nombre: 'Papa amarilla',
+        unidad_medida: 'kg',
+        cantidad: 80.0,
+        precio_unitario: 3.5,
+        subtotal: 280.0,
+        costo_anterior: 3.5,
+        variacion_porcentaje: 0.0,
+      },
+      {
+        id: 'fcd-0023-2',
+        ficha_id: 'fc-aurea-0023',
+        insumo_id: INSUMO_LIMON_ID,
+        insumo_nombre: 'Limón sutil',
+        unidad_medida: 'kg',
+        cantidad: 25.0,
+        precio_unitario: 7.0,
+        subtotal: 175.0,
+        costo_anterior: 6.5,
+        variacion_porcentaje: 7.69,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0022',
+    codigo_correlativo: 'FC-202610-0022',
+    tipo_comprobante: 'FACTURA',
+    numero_comprobante: 'F001-009821',
+    proveedor_id: PROV_SAN_PEDRO_ID,
+    proveedor_nombre: 'Mercado Mayorista San Pedro',
+    proveedor_telefono: '+51 900 100 411',
+    fecha_emision: '2026-10-10',
+    fecha_registro: '2026-10-10T07:45:00Z',
+    metodo_pago: 'TRANSFERENCIA',
+    total: 1120.0,
+    subtotal_neto: 949.15,
+    igv_monto: 170.85,
+    cantidad_items: 2,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    items: [
+      {
+        id: 'fcd-0022-1',
+        ficha_id: 'fc-aurea-0022',
+        insumo_id: INSUMO_PESCADO_ID,
+        insumo_nombre: 'Pescado fresco',
+        unidad_medida: 'kg',
+        cantidad: 35.0,
+        precio_unitario: 28.0,
+        subtotal: 980.0,
+        costo_anterior: 28.0,
+        variacion_porcentaje: 0.0,
+      },
+      {
+        id: 'fcd-0022-2',
+        ficha_id: 'fc-aurea-0022',
+        insumo_id: INSUMO_LIMON_ID,
+        insumo_nombre: 'Limón sutil',
+        unidad_medida: 'kg',
+        cantidad: 20.0,
+        precio_unitario: 7.0,
+        subtotal: 140.0,
+        costo_anterior: 7.0,
+        variacion_porcentaje: 0.0,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0021',
+    codigo_correlativo: 'FC-202610-0021',
+    tipo_comprobante: 'BOLETA',
+    numero_comprobante: 'B005-001243',
+    proveedor_id: PROV_LACTEOS_DON_PEPE_ID,
+    proveedor_nombre: 'Lácteos Don Pepe',
+    proveedor_telefono: '+51 965 432 109',
+    fecha_emision: '2026-10-10',
+    fecha_registro: '2026-10-10T09:10:00Z',
+    metodo_pago: 'YAPE_PLIN',
+    total: 460.0,
+    subtotal_neto: 460.0,
+    igv_monto: 0.0,
+    cantidad_items: 2,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    items: [
+      {
+        id: 'fcd-0021-1',
+        ficha_id: 'fc-aurea-0021',
+        insumo_id: INSUMO_LECHE_ID,
+        insumo_nombre: 'Leche fresca',
+        unidad_medida: 'L',
+        cantidad: 40.0,
+        precio_unitario: 4.5,
+        subtotal: 180.0,
+        costo_anterior: 4.5,
+        variacion_porcentaje: 0.0,
+      },
+      {
+        id: 'fcd-0021-2',
+        ficha_id: 'fc-aurea-0021',
+        insumo_id: INSUMO_HUEVOS_ID,
+        insumo_nombre: 'Huevos de gallina',
+        unidad_medida: 'jaba',
+        cantidad: 4.0,
+        precio_unitario: 70.0,
+        subtotal: 280.0,
+        costo_anterior: 70.0,
+        variacion_porcentaje: 0.0,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0020',
+    codigo_correlativo: 'FC-202610-0020',
+    tipo_comprobante: 'FACTURA',
+    numero_comprobante: 'F003-004412',
+    proveedor_id: PROV_MOLINOS_CENTRO_ID,
+    proveedor_nombre: 'Molinos del Centro S.A.C.',
+    proveedor_telefono: '+51 954 321 098',
+    fecha_emision: '2026-10-09',
+    fecha_registro: '2026-10-09T14:00:00Z',
+    metodo_pago: 'CREDITO_30D',
+    total: 1280.0,
+    subtotal_neto: 1084.75,
+    igv_monto: 195.25,
+    cantidad_items: 3,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    observaciones: 'Pago a 30 días según acuerdo comercial.',
+    items: [
+      {
+        id: 'fcd-0020-1',
+        ficha_id: 'fc-aurea-0020',
+        insumo_id: INSUMO_ARROZ_ID,
+        insumo_nombre: 'Arroz extra',
+        unidad_medida: 'kg',
+        cantidad: 150.0,
+        precio_unitario: 3.8,
+        subtotal: 570.0,
+        costo_anterior: 3.8,
+        variacion_porcentaje: 0.0,
+      },
+      {
+        id: 'fcd-0020-2',
+        ficha_id: 'fc-aurea-0020',
+        insumo_id: INSUMO_ACEITE_ID,
+        insumo_nombre: 'Aceite vegetal',
+        unidad_medida: 'bidon',
+        cantidad: 5.0,
+        precio_unitario: 130.0,
+        subtotal: 650.0,
+        costo_anterior: 130.0,
+        variacion_porcentaje: 0.0,
+      },
+      {
+        id: 'fcd-0020-3',
+        ficha_id: 'fc-aurea-0020',
+        insumo_id: INSUMO_SAL_ID,
+        insumo_nombre: 'Sal de mesa',
+        unidad_medida: 'kg',
+        cantidad: 50.0,
+        precio_unitario: 1.2,
+        subtotal: 60.0,
+        costo_anterior: 1.2,
+        variacion_porcentaje: 0.0,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0019',
+    codigo_correlativo: 'FC-202610-0019',
+    tipo_comprobante: 'FACTURA',
+    numero_comprobante: 'F010-008120',
+    proveedor_id: PROV_PACIFICO_ID,
+    proveedor_nombre: 'Bebidas del Pacífico S.A.C.',
+    proveedor_telefono: '+51 900 100 412',
+    fecha_emision: '2026-10-08',
+    fecha_registro: '2026-10-08T11:20:00Z',
+    metodo_pago: 'TRANSFERENCIA',
+    total: 1524.0,
+    subtotal_neto: 1291.53,
+    igv_monto: 232.47,
+    cantidad_items: 1,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    items: [
+      {
+        id: 'fcd-0019-1',
+        ficha_id: 'fc-aurea-0019',
+        insumo_id: INSUMO_INCA_KOLA_ID,
+        insumo_nombre: 'Inca Kola 500ml',
+        unidad_medida: 'botella',
+        cantidad: 692.7,
+        precio_unitario: 2.2,
+        subtotal: 1524.0,
+        costo_anterior: 2.2,
+        variacion_porcentaje: 0.0,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0018',
+    codigo_correlativo: 'FC-202610-0018',
+    tipo_comprobante: 'FACTURA',
+    numero_comprobante: 'F001-002190',
+    proveedor_id: PROV_GAS_DEL_SUR_ID,
+    proveedor_nombre: 'Gas del Sur',
+    proveedor_telefono: '(01) 420-9988',
+    fecha_emision: '2026-10-07',
+    fecha_registro: '2026-10-07T12:00:00Z',
+    metodo_pago: 'TRANSFERENCIA',
+    total: 660.0,
+    subtotal_neto: 559.32,
+    igv_monto: 100.68,
+    cantidad_items: 1,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    items: [
+      {
+        id: 'fcd-0018-1',
+        ficha_id: 'fc-aurea-0018',
+        insumo_id: INSUMO_ACEITE_ID,
+        insumo_nombre: 'Gas GLP Cocina Principal',
+        unidad_medida: 'bidon',
+        cantidad: 4.0,
+        precio_unitario: 165.0,
+        subtotal: 660.0,
+        costo_anterior: 160.0,
+        variacion_porcentaje: 3.12,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0017',
+    codigo_correlativo: 'FC-202610-0017',
+    tipo_comprobante: 'NOTA_VENTA',
+    numero_comprobante: 'NV-20261007-0002',
+    proveedor_id: PROV_FRUTAS_JUANA_ID,
+    proveedor_nombre: 'Frutas Frescas Doña Juana',
+    proveedor_telefono: '+51 912 345 678',
+    fecha_emision: '2026-10-07',
+    fecha_registro: '2026-10-07T15:30:00Z',
+    metodo_pago: 'EFECTIVO',
+    total: 240.0,
+    subtotal_neto: 240.0,
+    igv_monto: 0.0,
+    cantidad_items: 1,
+    estado: 'ANULADA',
+    registrado_por_nombre: 'Administrador Local',
+    motivo_anulacion: 'Lote de limón recibido con magulladuras y sobremaduración. Se devolvió íntegramente.',
+    fecha_anulacion: '2026-10-07T16:15:00Z',
+    items: [
+      {
+        id: 'fcd-0017-1',
+        ficha_id: 'fc-aurea-0017',
+        insumo_id: INSUMO_LIMON_ID,
+        insumo_nombre: 'Limón sutil',
+        unidad_medida: 'kg',
+        cantidad: 30.0,
+        precio_unitario: 8.0,
+        subtotal: 240.0,
+        costo_anterior: 7.0,
+        variacion_porcentaje: 14.29,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0016',
+    codigo_correlativo: 'FC-202610-0016',
+    tipo_comprobante: 'FACTURA',
+    numero_comprobante: 'F004-001150',
+    proveedor_id: PROV_ENVASES_SAN_JUAN_ID,
+    proveedor_nombre: 'Envases San Juan',
+    proveedor_telefono: '+51 943 210 987',
+    fecha_emision: '2026-10-06',
+    fecha_registro: '2026-10-06T14:40:00Z',
+    metodo_pago: 'YAPE_PLIN',
+    total: 350.0,
+    subtotal_neto: 296.61,
+    igv_monto: 53.39,
+    cantidad_items: 1,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    items: [
+      {
+        id: 'fcd-0016-1',
+        ficha_id: 'fc-aurea-0016',
+        insumo_id: INSUMO_SAL_ID,
+        insumo_nombre: 'Envases biodegradables para delivery',
+        unidad_medida: 'kg',
+        cantidad: 500.0,
+        precio_unitario: 0.7,
+        subtotal: 350.0,
+        costo_anterior: 0.7,
+        variacion_porcentaje: 0.0,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0015',
+    codigo_correlativo: 'FC-202610-0015',
+    tipo_comprobante: 'FACTURA',
+    numero_comprobante: 'F001-004810',
+    proveedor_id: PROV_SAN_FERNANDO_ID,
+    proveedor_nombre: 'Distribuidora San Fernando',
+    proveedor_telefono: '+51 987 654 321',
+    fecha_emision: '2026-10-05',
+    fecha_registro: '2026-10-05T09:10:00Z',
+    metodo_pago: 'TRANSFERENCIA',
+    total: 1680.0,
+    subtotal_neto: 1423.73,
+    igv_monto: 256.27,
+    cantidad_items: 1,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    items: [
+      {
+        id: 'fcd-0015-1',
+        ficha_id: 'fc-aurea-0015',
+        insumo_id: INSUMO_LOMO_ID,
+        insumo_nombre: 'Lomo fino',
+        unidad_medida: 'kg',
+        cantidad: 40.0,
+        precio_unitario: 42.0,
+        subtotal: 1680.0,
+        costo_anterior: 42.0,
+        variacion_porcentaje: 0.0,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0014',
+    codigo_correlativo: 'FC-202610-0014',
+    tipo_comprobante: 'NOTA_VENTA',
+    numero_comprobante: 'NV-20261005-0001',
+    proveedor_id: PROV_VERDURAS_SAN_MARTIN_ID,
+    proveedor_nombre: 'Verduras San Martín',
+    proveedor_telefono: '+51 976 543 210',
+    fecha_emision: '2026-10-05',
+    fecha_registro: '2026-10-05T07:20:00Z',
+    metodo_pago: 'EFECTIVO',
+    total: 350.0,
+    subtotal_neto: 350.0,
+    igv_monto: 0.0,
+    cantidad_items: 1,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    items: [
+      {
+        id: 'fcd-0014-1',
+        ficha_id: 'fc-aurea-0014',
+        insumo_id: INSUMO_PAPA_YUNGAY_ID,
+        insumo_nombre: 'Papa Yungay',
+        unidad_medida: 'saco',
+        cantidad: 5.0,
+        precio_unitario: 70.0,
+        subtotal: 350.0,
+        costo_anterior: 70.0,
+        variacion_porcentaje: 0.0,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0013',
+    codigo_correlativo: 'FC-202610-0013',
+    tipo_comprobante: 'BOLETA',
+    numero_comprobante: 'B001-003310',
+    proveedor_id: PROV_SAN_PEDRO_ID,
+    proveedor_nombre: 'Mercado Mayorista San Pedro',
+    proveedor_telefono: '+51 900 100 411',
+    fecha_emision: '2026-10-04',
+    fecha_registro: '2026-10-04T08:00:00Z',
+    metodo_pago: 'YAPE_PLIN',
+    total: 700.0,
+    subtotal_neto: 700.0,
+    igv_monto: 0.0,
+    cantidad_items: 1,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    items: [
+      {
+        id: 'fcd-0013-1',
+        ficha_id: 'fc-aurea-0013',
+        insumo_id: INSUMO_PESCADO_ID,
+        insumo_nombre: 'Pescado fresco',
+        unidad_medida: 'kg',
+        cantidad: 25.0,
+        precio_unitario: 28.0,
+        subtotal: 700.0,
+        costo_anterior: 28.0,
+        variacion_porcentaje: 0.0,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0012',
+    codigo_correlativo: 'FC-202610-0012',
+    tipo_comprobante: 'FACTURA',
+    numero_comprobante: 'F003-004380',
+    proveedor_id: PROV_MOLINOS_CENTRO_ID,
+    proveedor_nombre: 'Molinos del Centro S.A.C.',
+    proveedor_telefono: '+51 954 321 098',
+    fecha_emision: '2026-10-03',
+    fecha_registro: '2026-10-03T16:00:00Z',
+    metodo_pago: 'CREDITO_30D',
+    total: 1040.0,
+    subtotal_neto: 881.36,
+    igv_monto: 158.64,
+    cantidad_items: 1,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    items: [
+      {
+        id: 'fcd-0012-1',
+        ficha_id: 'fc-aurea-0012',
+        insumo_id: INSUMO_ACEITE_ID,
+        insumo_nombre: 'Aceite vegetal',
+        unidad_medida: 'bidon',
+        cantidad: 8.0,
+        precio_unitario: 130.0,
+        subtotal: 1040.0,
+        costo_anterior: 130.0,
+        variacion_porcentaje: 0.0,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0011',
+    codigo_correlativo: 'FC-202610-0011',
+    tipo_comprobante: 'FACTURA',
+    numero_comprobante: 'F002-007990',
+    proveedor_id: PROV_VERDURAS_SAN_MARTIN_ID,
+    proveedor_nombre: 'Verduras San Martín',
+    proveedor_telefono: '+51 976 543 210',
+    fecha_emision: '2026-10-02',
+    fecha_registro: '2026-10-02T08:30:00Z',
+    metodo_pago: 'TRANSFERENCIA',
+    total: 630.0,
+    subtotal_neto: 533.9,
+    igv_monto: 96.1,
+    cantidad_items: 2,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    items: [
+      {
+        id: 'fcd-0011-1',
+        ficha_id: 'fc-aurea-0011',
+        insumo_id: INSUMO_PAPA_AMARILLA_ID,
+        insumo_nombre: 'Papa amarilla',
+        unidad_medida: 'kg',
+        cantidad: 100.0,
+        precio_unitario: 3.5,
+        subtotal: 350.0,
+        costo_anterior: 3.5,
+        variacion_porcentaje: 0.0,
+      },
+      {
+        id: 'fcd-0011-2',
+        ficha_id: 'fc-aurea-0011',
+        insumo_id: INSUMO_LIMON_ID,
+        insumo_nombre: 'Limón sutil',
+        unidad_medida: 'kg',
+        cantidad: 40.0,
+        precio_unitario: 7.0,
+        subtotal: 280.0,
+        costo_anterior: 7.0,
+        variacion_porcentaje: 0.0,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0010',
+    codigo_correlativo: 'FC-202610-0010',
+    tipo_comprobante: 'FACTURA',
+    numero_comprobante: 'F010-007950',
+    proveedor_id: PROV_PACIFICO_ID,
+    proveedor_nombre: 'Bebidas del Pacífico S.A.C.',
+    proveedor_telefono: '+51 900 100 412',
+    fecha_emision: '2026-10-01',
+    fecha_registro: '2026-10-01T10:00:00Z',
+    metodo_pago: 'TRANSFERENCIA',
+    total: 920.0,
+    subtotal_neto: 779.66,
+    igv_monto: 140.34,
+    cantidad_items: 1,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    items: [
+      {
+        id: 'fcd-0010-1',
+        ficha_id: 'fc-aurea-0010',
+        insumo_id: INSUMO_INCA_KOLA_ID,
+        insumo_nombre: 'Inca Kola 500ml',
+        unidad_medida: 'botella',
+        cantidad: 418.18,
+        precio_unitario: 2.2,
+        subtotal: 920.0,
+        costo_anterior: 2.2,
+        variacion_porcentaje: 0.0,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0009',
+    codigo_correlativo: 'FC-202609-0009',
+    tipo_comprobante: 'RECIBO',
+    numero_comprobante: 'REC-20260930-0001',
+    proveedor_id: PROV_AVICOLA_CHALAN_ID,
+    proveedor_nombre: 'Avícola El Chalán',
+    proveedor_telefono: '+51 984 112 233',
+    fecha_emision: '2026-09-30',
+    fecha_registro: '2026-09-30T11:00:00Z',
+    metodo_pago: 'EFECTIVO',
+    total: 360.0,
+    subtotal_neto: 360.0,
+    igv_monto: 0.0,
+    cantidad_items: 1,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    items: [
+      {
+        id: 'fcd-0009-1',
+        ficha_id: 'fc-aurea-0009',
+        insumo_id: INSUMO_HUEVOS_ID,
+        insumo_nombre: 'Huevos de gallina',
+        unidad_medida: 'jaba',
+        cantidad: 5.0,
+        precio_unitario: 72.0,
+        subtotal: 360.0,
+        costo_anterior: 70.0,
+        variacion_porcentaje: 2.86,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0008',
+    codigo_correlativo: 'FC-202609-0008',
+    tipo_comprobante: 'FACTURA',
+    numero_comprobante: 'F001-004720',
+    proveedor_id: PROV_SAN_FERNANDO_ID,
+    proveedor_nombre: 'Distribuidora San Fernando',
+    proveedor_telefono: '+51 987 654 321',
+    fecha_emision: '2026-09-28',
+    fecha_registro: '2026-09-28T10:15:00Z',
+    metodo_pago: 'TRANSFERENCIA',
+    total: 1845.0,
+    subtotal_neto: 1563.56,
+    igv_monto: 281.44,
+    cantidad_items: 1,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    items: [
+      {
+        id: 'fcd-0008-1',
+        ficha_id: 'fc-aurea-0008',
+        insumo_id: INSUMO_LOMO_ID,
+        insumo_nombre: 'Lomo fino',
+        unidad_medida: 'kg',
+        cantidad: 45.0,
+        precio_unitario: 41.0,
+        subtotal: 1845.0,
+        costo_anterior: 42.0,
+        variacion_porcentaje: -2.38,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0007',
+    codigo_correlativo: 'FC-202609-0007',
+    tipo_comprobante: 'GUIA_REMISION',
+    numero_comprobante: 'GR01-000542',
+    proveedor_id: PROV_GAS_DEL_SUR_ID,
+    proveedor_nombre: 'Gas del Sur',
+    proveedor_telefono: '(01) 420-9988',
+    fecha_emision: '2026-09-26',
+    fecha_registro: '2026-09-26T12:00:00Z',
+    metodo_pago: 'TRANSFERENCIA',
+    total: 495.0,
+    subtotal_neto: 495.0,
+    igv_monto: 0.0,
+    cantidad_items: 1,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    items: [
+      {
+        id: 'fcd-0007-1',
+        ficha_id: 'fc-aurea-0007',
+        insumo_id: INSUMO_ACEITE_ID,
+        insumo_nombre: 'Recarga Gas 45kg',
+        unidad_medida: 'bidon',
+        cantidad: 3.0,
+        precio_unitario: 165.0,
+        subtotal: 495.0,
+        costo_anterior: 165.0,
+        variacion_porcentaje: 0.0,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0006',
+    codigo_correlativo: 'FC-202609-0006',
+    tipo_comprobante: 'FACTURA',
+    numero_comprobante: 'F001-009710',
+    proveedor_id: PROV_SAN_PEDRO_ID,
+    proveedor_nombre: 'Mercado Mayorista San Pedro',
+    proveedor_telefono: '+51 900 100 411',
+    fecha_emision: '2026-09-25',
+    fecha_registro: '2026-09-25T07:30:00Z',
+    metodo_pago: 'TRANSFERENCIA',
+    total: 1080.0,
+    subtotal_neto: 915.25,
+    igv_monto: 164.75,
+    cantidad_items: 1,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    items: [
+      {
+        id: 'fcd-0006-1',
+        ficha_id: 'fc-aurea-0006',
+        insumo_id: INSUMO_PESCADO_ID,
+        insumo_nombre: 'Pescado fresco',
+        unidad_medida: 'kg',
+        cantidad: 40.0,
+        precio_unitario: 27.0,
+        subtotal: 1080.0,
+        costo_anterior: 28.0,
+        variacion_porcentaje: -3.57,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0005',
+    codigo_correlativo: 'FC-202609-0005',
+    tipo_comprobante: 'NOTA_VENTA',
+    numero_comprobante: 'NV-20260922-0001',
+    proveedor_id: PROV_VERDURAS_SAN_MARTIN_ID,
+    proveedor_nombre: 'Verduras San Martín',
+    proveedor_telefono: '+51 976 543 210',
+    fecha_emision: '2026-09-22',
+    fecha_registro: '2026-09-22T08:15:00Z',
+    metodo_pago: 'EFECTIVO',
+    total: 238.0,
+    subtotal_neto: 238.0,
+    igv_monto: 0.0,
+    cantidad_items: 1,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    items: [
+      {
+        id: 'fcd-0005-1',
+        ficha_id: 'fc-aurea-0005',
+        insumo_id: INSUMO_PAPA_AMARILLA_ID,
+        insumo_nombre: 'Papa amarilla',
+        unidad_medida: 'kg',
+        cantidad: 70.0,
+        precio_unitario: 3.4,
+        subtotal: 238.0,
+        costo_anterior: 3.5,
+        variacion_porcentaje: -2.86,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0004',
+    codigo_correlativo: 'FC-202609-0004',
+    tipo_comprobante: 'BOLETA',
+    numero_comprobante: 'B005-001180',
+    proveedor_id: PROV_LACTEOS_DON_PEPE_ID,
+    proveedor_nombre: 'Lácteos Don Pepe',
+    proveedor_telefono: '+51 965 432 109',
+    fecha_emision: '2026-09-20',
+    fecha_registro: '2026-09-20T09:30:00Z',
+    metodo_pago: 'YAPE_PLIN',
+    total: 157.5,
+    subtotal_neto: 157.5,
+    igv_monto: 0.0,
+    cantidad_items: 1,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    items: [
+      {
+        id: 'fcd-0004-1',
+        ficha_id: 'fc-aurea-0004',
+        insumo_id: INSUMO_LECHE_ID,
+        insumo_nombre: 'Leche fresca',
+        unidad_medida: 'L',
+        cantidad: 35.0,
+        precio_unitario: 4.5,
+        subtotal: 157.5,
+        costo_anterior: 4.5,
+        variacion_porcentaje: 0.0,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0003',
+    codigo_correlativo: 'FC-202609-0003',
+    tipo_comprobante: 'FACTURA',
+    numero_comprobante: 'F003-004210',
+    proveedor_id: PROV_MOLINOS_CENTRO_ID,
+    proveedor_nombre: 'Molinos del Centro S.A.C.',
+    proveedor_telefono: '+51 954 321 098',
+    fecha_emision: '2026-09-18',
+    fecha_registro: '2026-09-18T14:10:00Z',
+    metodo_pago: 'CREDITO_30D',
+    total: 740.0,
+    subtotal_neto: 627.12,
+    igv_monto: 112.88,
+    cantidad_items: 1,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    items: [
+      {
+        id: 'fcd-0003-1',
+        ficha_id: 'fc-aurea-0003',
+        insumo_id: INSUMO_ARROZ_ID,
+        insumo_nombre: 'Arroz extra',
+        unidad_medida: 'kg',
+        cantidad: 200.0,
+        precio_unitario: 3.7,
+        subtotal: 740.0,
+        costo_anterior: 3.8,
+        variacion_porcentaje: -2.63,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0002',
+    codigo_correlativo: 'FC-202609-0002',
+    tipo_comprobante: 'FACTURA',
+    numero_comprobante: 'F001-004650',
+    proveedor_id: PROV_SAN_FERNANDO_ID,
+    proveedor_nombre: 'Distribuidora San Fernando',
+    proveedor_telefono: '+51 987 654 321',
+    fecha_emision: '2026-09-15',
+    fecha_registro: '2026-09-15T09:40:00Z',
+    metodo_pago: 'EFECTIVO',
+    total: 700.0,
+    subtotal_neto: 593.22,
+    igv_monto: 106.78,
+    cantidad_items: 1,
+    estado: 'REGISTRADA',
+    registrado_por_nombre: 'Administrador Local',
+    items: [
+      {
+        id: 'fcd-0002-1',
+        ficha_id: 'fc-aurea-0002',
+        insumo_id: INSUMO_HUEVOS_ID,
+        insumo_nombre: 'Huevos de gallina',
+        unidad_medida: 'jaba',
+        cantidad: 10.0,
+        precio_unitario: 70.0,
+        subtotal: 700.0,
+        costo_anterior: 70.0,
+        variacion_porcentaje: 0.0,
+      },
+    ],
+  },
+  {
+    id: 'fc-aurea-0001',
+    codigo_correlativo: 'FC-202609-0001',
+    tipo_comprobante: 'FACTURA',
+    numero_comprobante: 'F010-007780',
+    proveedor_id: PROV_PACIFICO_ID,
+    proveedor_nombre: 'Bebidas del Pacífico S.A.C.',
+    proveedor_telefono: '+51 900 100 412',
+    fecha_emision: '2026-09-12',
+    fecha_registro: '2026-09-12T11:00:00Z',
+    metodo_pago: 'TRANSFERENCIA',
+    total: 890.0,
+    subtotal_neto: 754.24,
+    igv_monto: 135.76,
+    cantidad_items: 1,
+    estado: 'ANULADA',
+    registrado_por_nombre: 'Administrador Local',
+    motivo_anulacion: 'Error en numeración de factura del proveedor. Se anuló y emitió nuevo comprobante.',
+    fecha_anulacion: '2026-09-12T11:45:00Z',
+    items: [
+      {
+        id: 'fcd-0001-1',
+        ficha_id: 'fc-aurea-0001',
+        insumo_id: INSUMO_INCA_KOLA_ID,
+        insumo_nombre: 'Inca Kola 500ml',
+        unidad_medida: 'botella',
+        cantidad: 404.54,
+        precio_unitario: 2.2,
+        subtotal: 890.0,
+        costo_anterior: 2.2,
+        variacion_porcentaje: 0.0,
+      },
+    ],
+  },
+];
+
 // Estado en memoria simulado
 class MockAdminService {
   private pisos: PisoAdminDTO[] = JSON.parse(JSON.stringify(SEMILLAS_PISOS));
@@ -1442,6 +2319,7 @@ class MockAdminService {
   private auditoriaAjustes: AuditoriaStockAjusteDTO[] = JSON.parse(JSON.stringify(SEMILLAS_AUDITORIA_INICIAL));
   private proveedores: ProveedorResumenDTO[] = JSON.parse(JSON.stringify(SEMILLAS_PROVEEDORES_AUREA));
   private historialCompras: Record<string, FichaCompraHistorialDTO[]> = JSON.parse(JSON.stringify(SEMILLAS_FICHAS_COMPRA_HISTORIAL));
+  private fichasCompra: FichaCompraDetalleCompletoDTO[] = JSON.parse(JSON.stringify(SEMILLAS_FICHAS_COMPRA_AUREA));
 
   private calcularMetricasPiso(piso: PisoAdminDTO) {
     const activas = piso.mesas.filter((m) => m.estado === 'activa');
@@ -3976,6 +4854,605 @@ class MockAdminService {
   restablecerSemillasProveedores() {
     this.proveedores = JSON.parse(JSON.stringify(SEMILLAS_PROVEEDORES_AUREA));
     this.historialCompras = JSON.parse(JSON.stringify(SEMILLAS_FICHAS_COMPRA_HISTORIAL));
+  }
+
+  // ===========================================================================
+  // MÉTODOS PARA CU-ADMIN-06: REGISTRAR FICHA DE COMPRA DE INSUMOS
+  // ===========================================================================
+
+  private generarCorrelativoNotaVenta(): string {
+    const hoy = new Date();
+    const yyyy = hoy.getFullYear();
+    const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+    const dd = String(hoy.getDate()).padStart(2, '0');
+    const fechaPrefix = `${yyyy}${mm}${dd}`;
+    const prefix = `NV-${fechaPrefix}-`;
+    const countHoy = this.fichasCompra.filter((f) => f.numero_comprobante.startsWith(prefix)).length + 1;
+    return `${prefix}${String(countHoy).padStart(4, '0')}`;
+  }
+
+  private generarCodigoFicha(): string {
+    const hoy = new Date();
+    const yyyy = hoy.getFullYear();
+    const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+    const totalMes = this.fichasCompra.length + 1;
+    return `FC-${yyyy}${mm}-${String(totalMes).padStart(4, '0')}`;
+  }
+
+  /**
+   * GET /api/v1/admin/compras
+   */
+  async getFichasCompra(filtros?: {
+    busqueda?: string;
+    tipoComprobante?: string;
+    estado?: string;
+    fechaDesde?: string;
+    fechaHasta?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<ApiResponse<ListarFichasCompraResponseDTO>> {
+    await new Promise((r) => setTimeout(r, 120));
+
+    let lista = [...this.fichasCompra];
+
+    // Filtro por búsqueda
+    if (filtros?.busqueda && filtros.busqueda.trim()) {
+      const q = filtros.busqueda.toLowerCase().trim();
+      lista = lista.filter(
+        (f) =>
+          f.numero_comprobante.toLowerCase().includes(q) ||
+          f.proveedor_nombre.toLowerCase().includes(q) ||
+          f.codigo_correlativo.toLowerCase().includes(q) ||
+          (f.observaciones && f.observaciones.toLowerCase().includes(q))
+      );
+    }
+
+    // Filtro por tipo comprobante
+    if (filtros?.tipoComprobante && filtros.tipoComprobante !== 'TODOS') {
+      lista = lista.filter((f) => f.tipo_comprobante === filtros.tipoComprobante);
+    }
+
+    // Filtro por estado
+    if (filtros?.estado && filtros.estado !== 'TODOS') {
+      lista = lista.filter((f) => f.estado === filtros.estado);
+    }
+
+    // Filtro por fecha desde / hasta
+    if (filtros?.fechaDesde) {
+      lista = lista.filter((f) => f.fecha_emision >= filtros.fechaDesde!);
+    }
+    if (filtros?.fechaHasta) {
+      lista = lista.filter((f) => f.fecha_emision <= filtros.fechaHasta!);
+    }
+
+    // Calcular KPIs del mes sobre todas las fichas (no solo las paginadas)
+    const validasMes = this.fichasCompra.filter(
+      (f) => f.estado === 'REGISTRADA' && f.fecha_emision.startsWith('2026-10')
+    );
+    const gastoMesTotal = validasMes.reduce((acc, f) => acc + f.total, 0);
+    const facturasIgv = validasMes
+      .filter((f) => f.tipo_comprobante === 'FACTURA')
+      .reduce((acc, f) => acc + f.igv_monto, 0);
+    const creditosPendientes = validasMes
+      .filter((f) => f.metodo_pago === 'CREDITO_30D')
+      .reduce((acc, f) => acc + f.total, 0);
+
+    const kpis: FichasCompraKPIsDTO = {
+      gasto_mes_total: Number(gastoMesTotal.toFixed(2)),
+      variacion_gasto_mes_pct: 12.4, // +12.4% vs mes anterior
+      total_compras_mes: validasMes.length,
+      facturas_con_igv_monto: Number(facturasIgv.toFixed(2)),
+      creditos_pendientes_monto: Number(creditosPendientes.toFixed(2)),
+    };
+
+    // Paginación
+    const page = filtros?.page || 1;
+    const pageSize = filtros?.pageSize || 10;
+    const total = lista.length;
+    const totalPaginas = Math.ceil(total / pageSize) || 1;
+    const offset = (page - 1) * pageSize;
+    const paginadas = lista.slice(offset, offset + pageSize);
+
+    // Mapeo a resumen
+    const fichasResumen: FichaCompraResumenDTO[] = paginadas.map((f) => ({
+      id: f.id,
+      codigo_correlativo: f.codigo_correlativo,
+      tipo_comprobante: f.tipo_comprobante,
+      numero_comprobante: f.numero_comprobante,
+      proveedor_id: f.proveedor_id,
+      proveedor_nombre: f.proveedor_nombre,
+      proveedor_telefono: f.proveedor_telefono,
+      fecha_emision: f.fecha_emision,
+      fecha_registro: f.fecha_registro,
+      metodo_pago: f.metodo_pago,
+      total: f.total,
+      subtotal_neto: f.subtotal_neto,
+      igv_monto: f.igv_monto,
+      cantidad_items: f.items.length,
+      estado: f.estado,
+      registrado_por_nombre: f.registrado_por_nombre,
+      motivo_anulacion: f.motivo_anulacion,
+      fecha_anulacion: f.fecha_anulacion,
+    }));
+
+    return {
+      exito: true,
+      datos: {
+        fichas: fichasResumen,
+        kpis,
+        paginacion: {
+          total,
+          pagina: page,
+          limite: pageSize,
+          total_paginas: totalPaginas,
+        },
+      },
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/compras/{id}
+   */
+  async getFichaCompraDetalle(id: string): Promise<ApiResponse<FichaCompraDetalleCompletoDTO>> {
+    await new Promise((r) => setTimeout(r, 80));
+
+    const ficha = this.fichasCompra.find((f) => f.id === id);
+    if (!ficha) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_NOT_FOUND', mensaje: 'Ficha de compra no encontrada.' }],
+      };
+    }
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(ficha)),
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/compras
+   */
+  async registrarFichaCompra(
+    request: RegistrarFichaCompraRequestDTO
+  ): Promise<ApiResponse<{ ficha: FichaCompraResumenDTO; platosReactivables: PlatoReactivableDTO[] }>> {
+    await new Promise((r) => setTimeout(r, 200));
+
+    if (!request.proveedor_id) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_VALIDACION', mensaje: 'Debe seleccionar un proveedor para la compra.' }],
+      };
+    }
+
+    if (!request.items || request.items.length === 0) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_VALIDACION', mensaje: 'Debe ingresar al menos un insumo en la ficha de compra.' }],
+      };
+    }
+
+    // Resolver proveedor
+    const prov = this.proveedores.find((p) => p.id === request.proveedor_id);
+    const proveedorNombre = prov ? prov.nombre : request.proveedor_nombre || 'Proveedor';
+    const proveedorTelefono = prov ? prov.telefono : undefined;
+
+    // Actualizar datos de contacto de proveedor si se proporcionaron
+    if (prov && request.actualizar_contacto_proveedor) {
+      if (request.actualizar_contacto_proveedor.telefono) prov.telefono = request.actualizar_contacto_proveedor.telefono;
+      if (request.actualizar_contacto_proveedor.email) prov.email = request.actualizar_contacto_proveedor.email;
+      if (request.actualizar_contacto_proveedor.direccion) prov.direccion = request.actualizar_contacto_proveedor.direccion;
+    }
+
+    // Autogenerar número de comprobante si es NOTA_VENTA o RECIBO y vino vacío
+    let numeroComprobante = request.numero_comprobante?.trim() || '';
+    if (!numeroComprobante) {
+      if (request.tipo_comprobante === 'NOTA_VENTA' || request.tipo_comprobante === 'RECIBO') {
+        numeroComprobante = this.generarCorrelativoNotaVenta();
+      } else {
+        return {
+          exito: false,
+          datos: null as any,
+          errores: [{ codigo: 'ERR_NUMERO_COMPROBANTE', mensaje: 'Las facturas, boletas y guías requieren indicar la serie y número de comprobante físico.' }],
+        };
+      }
+    }
+
+    // Cálculo estricto de total y líneas
+    let totalAcumulado = 0;
+    const itemsDetalle: ItemCompraDetalleDTO[] = [];
+    const fichaId = `fc-aurea-${Date.now()}`;
+
+    for (const itemReq of request.items) {
+      const subtotalLinea = Number((itemReq.cantidad * itemReq.precio_unitario).toFixed(2));
+      totalAcumulado += subtotalLinea;
+
+      // Buscar insumo actual
+      const insumoRaw = this.insumos.find((i) => i.id === itemReq.insumo_id);
+      const costoAnterior = insumoRaw ? insumoRaw.costo_unitario : itemReq.precio_unitario;
+      const variacionPct = costoAnterior > 0
+        ? Number((((itemReq.precio_unitario - costoAnterior) / costoAnterior) * 100).toFixed(2))
+        : 0;
+
+      itemsDetalle.push({
+        id: `fcd-${Date.now()}-${itemsDetalle.length + 1}`,
+        ficha_id: fichaId,
+        insumo_id: itemReq.insumo_id,
+        insumo_nombre: itemReq.insumo_nombre,
+        unidad_medida: itemReq.unidad_medida,
+        cantidad: itemReq.cantidad,
+        precio_unitario: itemReq.precio_unitario,
+        subtotal: subtotalLinea,
+        costo_anterior: costoAnterior,
+        variacion_porcentaje: variacionPct,
+      });
+
+      // Actualizar stock y costo del insumo
+      if (insumoRaw) {
+        insumoRaw.stock_actual = Number((insumoRaw.stock_actual + itemReq.cantidad).toFixed(2));
+        insumoRaw.costo_unitario = itemReq.precio_unitario;
+        insumoRaw.ultimo_proveedor_id = request.proveedor_id;
+        insumoRaw.ultimo_proveedor_nombre = proveedorNombre;
+        insumoRaw.fecha_ultima_compra = new Date().toISOString();
+        if (insumoRaw.estado === 'agotado') {
+          insumoRaw.estado = 'activo';
+        }
+      }
+
+      // Actualizar insumos habituales del proveedor
+      if (prov) {
+        const hab = prov.insumos_habituales.find((h) => h.insumo_id === itemReq.insumo_id);
+        if (hab) {
+          hab.ultimo_precio = itemReq.precio_unitario;
+        } else {
+          prov.insumos_habituales.push({
+            insumo_id: itemReq.insumo_id,
+            nombre: itemReq.insumo_nombre,
+            unidad_medida: itemReq.unidad_medida,
+            ultimo_precio: itemReq.precio_unitario,
+          });
+        }
+      }
+    }
+
+    const totalFinal = Number(totalAcumulado.toFixed(2));
+    let subtotalNeto = totalFinal;
+    let igvMonto = 0;
+
+    if (request.tipo_comprobante === 'FACTURA') {
+      subtotalNeto = Number((totalFinal / 1.18).toFixed(2));
+      igvMonto = Number((totalFinal - subtotalNeto).toFixed(2));
+    }
+
+    // Actualizar proveedor acumulados
+    if (prov) {
+      prov.total_compras += 1;
+      prov.total_gastado = Number((prov.total_gastado + totalFinal).toFixed(2));
+      prov.ultima_compra_fecha = new Date().toISOString();
+      prov.ultima_compra_total = totalFinal;
+    }
+
+    // Actualizar historialCompras del proveedor
+    if (!this.historialCompras[request.proveedor_id]) {
+      this.historialCompras[request.proveedor_id] = [];
+    }
+    this.historialCompras[request.proveedor_id].unshift({
+      id: fichaId,
+      numero_comprobante: numeroComprobante,
+      tipo_comprobante: request.tipo_comprobante.toLowerCase() as any,
+      fecha_emision: request.fecha_emision,
+      metodo_pago: request.metodo_pago.toLowerCase() as any,
+      total: totalFinal,
+      items: itemsDetalle.map((it) => ({
+        insumo_id: it.insumo_id,
+        insumo_nombre: it.insumo_nombre,
+        unidad_medida: it.unidad_medida,
+        cantidad: it.cantidad,
+        precio_unitario: it.precio_unitario,
+        subtotal: it.subtotal,
+      })),
+    });
+
+    // Detectar platos reactivables que estaban agotados por quiebre de stock de receta
+    const platosReactivables: PlatoReactivableDTO[] = [];
+    const productosAgotados = this.productos.filter((p) => p.disponibilidad === 'agotado');
+
+    for (const prod of productosAgotados) {
+      const ingredientes = this.recetasDetalladas.filter((r) => r.producto_id === prod.id);
+      if (ingredientes.length > 0) {
+        // Verificar si ahora todos tienen stock suficiente
+        let todosTienenStock = true;
+        const insumosReposicionados: string[] = [];
+        for (const ing of ingredientes) {
+          const ins = this.insumos.find((i) => i.id === ing.insumo_id);
+          if (!ins || ins.stock_actual < (ing.cantidad_descuenta || 0.001)) {
+            todosTienenStock = false;
+            break;
+          }
+          if (request.items.some((it) => it.insumo_id === ing.insumo_id)) {
+            insumosReposicionados.push(ins ? ins.nombre : 'Insumo');
+          }
+        }
+        if (todosTienenStock && insumosReposicionados.length > 0) {
+          const cat = this.categorias.find((c) => c.id === prod.categoria_id);
+          platosReactivables.push({
+            id: prod.id,
+            nombre: prod.nombre,
+            categoria_nombre: cat ? cat.nombre : 'Carta',
+            precio: prod.precio,
+            insumos_reposicionados: insumosReposicionados,
+          });
+        }
+      }
+    }
+
+    const nuevaFichaCompleta: FichaCompraDetalleCompletoDTO = {
+      id: fichaId,
+      codigo_correlativo: this.generarCodigoFicha(),
+      tipo_comprobante: request.tipo_comprobante,
+      numero_comprobante: numeroComprobante,
+      proveedor_id: request.proveedor_id,
+      proveedor_nombre: proveedorNombre,
+      proveedor_telefono: proveedorTelefono ?? undefined,
+      fecha_emision: request.fecha_emision,
+      fecha_registro: new Date().toISOString(),
+      metodo_pago: request.metodo_pago,
+      total: totalFinal,
+      subtotal_neto: subtotalNeto,
+      igv_monto: igvMonto,
+      cantidad_items: itemsDetalle.length,
+      estado: 'REGISTRADA',
+      registrado_por_nombre: 'Administrador Local',
+      observaciones: request.observaciones,
+      items: itemsDetalle,
+      platos_reactivables: platosReactivables,
+    };
+
+    this.fichasCompra.unshift(nuevaFichaCompleta);
+
+    const fichaResumen: FichaCompraResumenDTO = {
+      id: nuevaFichaCompleta.id,
+      codigo_correlativo: nuevaFichaCompleta.codigo_correlativo,
+      tipo_comprobante: nuevaFichaCompleta.tipo_comprobante,
+      numero_comprobante: nuevaFichaCompleta.numero_comprobante,
+      proveedor_id: nuevaFichaCompleta.proveedor_id,
+      proveedor_nombre: nuevaFichaCompleta.proveedor_nombre,
+      proveedor_telefono: nuevaFichaCompleta.proveedor_telefono,
+      fecha_emision: nuevaFichaCompleta.fecha_emision,
+      fecha_registro: nuevaFichaCompleta.fecha_registro,
+      metodo_pago: nuevaFichaCompleta.metodo_pago,
+      total: nuevaFichaCompleta.total,
+      subtotal_neto: nuevaFichaCompleta.subtotal_neto,
+      igv_monto: nuevaFichaCompleta.igv_monto,
+      cantidad_items: itemsDetalle.length,
+      estado: 'REGISTRADA',
+      registrado_por_nombre: 'Administrador Local',
+    };
+
+    return {
+      exito: true,
+      datos: {
+        ficha: fichaResumen,
+        platosReactivables,
+      },
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/compras/{id}/impacto-anulacion
+   */
+  async obtenerImpactoAnulacion(id: string): Promise<ApiResponse<ImpactoAnulacionDTO>> {
+    await new Promise((r) => setTimeout(r, 100));
+
+    const ficha = this.fichasCompra.find((f) => f.id === id);
+    if (!ficha) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_NOT_FOUND', mensaje: 'Ficha de compra no encontrada.' }],
+      };
+    }
+
+    const insumosAfectados: InsumoImpactadoDTO[] = [];
+    const platosQueSeAgotaran: PlatoImpactadoDTO[] = [];
+
+    for (const item of ficha.items) {
+      const ins = this.insumos.find((i) => i.id === item.insumo_id);
+      const stockActual = ins ? ins.stock_actual : 0;
+      const stockProyectado = Math.max(0, Number((stockActual - item.cantidad).toFixed(2)));
+      const stockMinimo = ins ? ins.stock_minimo : 0;
+      const quedaraEnQuiebre = stockProyectado <= stockMinimo;
+
+      insumosAfectados.push({
+        insumo_id: item.insumo_id,
+        insumo_nombre: item.insumo_nombre,
+        unidad_medida: item.unidad_medida,
+        stock_actual: stockActual,
+        cantidad_a_restar: item.cantidad,
+        stock_proyectado: stockProyectado,
+        quedara_en_quiebre: quedaraEnQuiebre,
+      });
+
+      // Evaluar si algún plato activo se quedaría sin insumo
+      if (quedaraEnQuiebre) {
+        const recetasAfectadas = this.recetasDetalladas.filter((r) => r.insumo_id === item.insumo_id);
+        for (const r of recetasAfectadas) {
+          const prod = this.productos.find((p) => p.id === r.producto_id);
+          if (prod && prod.disponibilidad === 'disponible') {
+            const cat = this.categorias.find((c) => c.id === prod.categoria_id);
+            if (!platosQueSeAgotaran.some((p) => p.plato_id === prod.id)) {
+              platosQueSeAgotaran.push({
+                plato_id: prod.id,
+                plato_nombre: prod.nombre,
+                categoria_nombre: cat ? cat.nombre : 'Carta',
+                insumo_critico: item.insumo_nombre,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Si hay platos que se agotarán, simular pedidos en cola de cocina afectados para auditoría
+    const pedidosCocinaEnRiesgo: PedidoCocinaImpactadoDTO[] = [];
+    if (platosQueSeAgotaran.length > 0) {
+      pedidosCocinaEnRiesgo.push({
+        comanda_id: 'COM-20261012-0104',
+        mesa_codigo: 'Mesa 4',
+        plato_nombre: platosQueSeAgotaran[0].plato_nombre,
+        estado_comanda: 'En preparación (Cocina Caliente)',
+      });
+      if (platosQueSeAgotaran.length > 1) {
+        pedidosCocinaEnRiesgo.push({
+          comanda_id: 'COM-20261012-0106',
+          mesa_codigo: 'Mesa 2',
+          plato_nombre: platosQueSeAgotaran[1].plato_nombre,
+          estado_comanda: 'Recibido en Comandera',
+        });
+      }
+    }
+
+    return {
+      exito: true,
+      datos: {
+        ficha_id: ficha.id,
+        numero_comprobante: ficha.numero_comprobante,
+        proveedor_nombre: ficha.proveedor_nombre,
+        fecha_emision: ficha.fecha_emision,
+        total: ficha.total,
+        insumos_afectados: insumosAfectados,
+        platos_que_se_agotaran: platosQueSeAgotaran,
+        pedidos_cocina_en_riesgo: pedidosCocinaEnRiesgo,
+        requiere_confirmacion_estricta: platosQueSeAgotaran.length > 0 || pedidosCocinaEnRiesgo.length > 0,
+      },
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/compras/anular
+   */
+  async anularFichaCompra(
+    request: AnularFichaCompraRequestDTO
+  ): Promise<ApiResponse<FichaCompraResumenDTO>> {
+    await new Promise((r) => setTimeout(r, 150));
+
+    if (!request.motivo || request.motivo.trim().length < 5) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_VALIDACION', mensaje: 'Debe ingresar un motivo de anulación detallado (mínimo 5 caracteres).' }],
+      };
+    }
+
+    const ficha = this.fichasCompra.find((f) => f.id === request.ficha_id);
+    if (!ficha) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_NOT_FOUND', mensaje: 'Ficha de compra no encontrada.' }],
+      };
+    }
+
+    if (ficha.estado === 'ANULADA') {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_FICHA_YA_ANULADA', mensaje: 'La ficha de compra ya se encuentra anulada.' }],
+      };
+    }
+
+    ficha.estado = 'ANULADA';
+    ficha.motivo_anulacion = request.motivo.trim();
+    ficha.fecha_anulacion = new Date().toISOString();
+
+    // Restar existencias en insumos con piso GREATEST(0, stock - cant)
+    for (const item of ficha.items) {
+      const ins = this.insumos.find((i) => i.id === item.insumo_id);
+      if (ins) {
+        ins.stock_actual = Math.max(0, Number((ins.stock_actual - item.cantidad).toFixed(2)));
+        if (ins.stock_actual <= 0) {
+          ins.estado = 'agotado';
+        }
+      }
+    }
+
+    // Actualizar platos en carta si se quedan sin insumos
+    for (const item of ficha.items) {
+      const ins = this.insumos.find((i) => i.id === item.insumo_id);
+      if (ins && ins.stock_actual <= ins.stock_minimo) {
+        const recetasAfectadas = this.recetasDetalladas.filter((r) => r.insumo_id === item.insumo_id);
+        for (const r of recetasAfectadas) {
+          const prod = this.productos.find((p) => p.id === r.producto_id);
+          if (prod && ins.stock_actual < (r.cantidad_descuenta || 0.001)) {
+            prod.disponibilidad = 'agotado';
+            prod.motivo_agotado = 'quiebre_stock_receta';
+          }
+        }
+      }
+    }
+
+    // Actualizar resumen del proveedor
+    const prov = this.proveedores.find((p) => p.id === ficha.proveedor_id);
+    if (prov) {
+      prov.total_gastado = Math.max(0, Number((prov.total_gastado - ficha.total).toFixed(2)));
+    }
+
+    return {
+      exito: true,
+      datos: {
+        id: ficha.id,
+        codigo_correlativo: ficha.codigo_correlativo,
+        tipo_comprobante: ficha.tipo_comprobante,
+        numero_comprobante: ficha.numero_comprobante,
+        proveedor_id: ficha.proveedor_id,
+        proveedor_nombre: ficha.proveedor_nombre,
+        proveedor_telefono: ficha.proveedor_telefono,
+        fecha_emision: ficha.fecha_emision,
+        fecha_registro: ficha.fecha_registro,
+        metodo_pago: ficha.metodo_pago,
+        total: ficha.total,
+        subtotal_neto: ficha.subtotal_neto,
+        igv_monto: ficha.igv_monto,
+        cantidad_items: ficha.items.length,
+        estado: 'ANULADA',
+        registrado_por_nombre: ficha.registrado_por_nombre,
+        motivo_anulacion: ficha.motivo_anulacion,
+        fecha_anulacion: ficha.fecha_anulacion,
+      },
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/carta/reactivar-lote
+   */
+  async reactivarPlatosCompra(platoIds: string[]): Promise<ApiResponse<{ actualizados: number }>> {
+    await new Promise((r) => setTimeout(r, 80));
+
+    let count = 0;
+    for (const pid of platoIds) {
+      const prod = this.productos.find((p) => p.id === pid);
+      if (prod) {
+        prod.disponibilidad = 'disponible';
+        prod.motivo_agotado = null as any;
+        count++;
+      }
+    }
+
+    return {
+      exito: true,
+      datos: { actualizados: count },
+    };
+  }
+
+  simularHistorialComprasVacio() {
+    this.fichasCompra = [];
+  }
+
+  restablecerSemillasCompras() {
+    this.fichasCompra = JSON.parse(JSON.stringify(SEMILLAS_FICHAS_COMPRA_AUREA));
   }
 }
 

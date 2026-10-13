@@ -713,6 +713,149 @@ export interface ProveedorHistorialComprasDTO {
   compras: FichaCompraHistorialDTO[];
 }
 
+// =============================================================================
+// TIPOS Y DTOs PARA CU-ADMIN-06: REGISTRAR FICHA DE COMPRA DE INSUMOS
+// =============================================================================
+
+export type TipoComprobanteCompra = 'FACTURA' | 'BOLETA' | 'NOTA_VENTA' | 'GUIA_REMISION' | 'RECIBO';
+export type MetodoPagoCompra = 'TRANSFERENCIA' | 'YAPE_PLIN' | 'EFECTIVO' | 'CREDITO_30D';
+export type EstadoFichaCompra = 'REGISTRADA' | 'ANULADA';
+
+export interface ItemCompraRequestDTO {
+  insumo_id: string;
+  insumo_nombre: string;
+  unidad_medida: string;
+  cantidad: number;
+  precio_unitario: number;
+  subtotal: number;
+  costo_anterior?: number;
+}
+
+export interface RegistrarFichaCompraRequestDTO {
+  proveedor_id: string;
+  proveedor_nombre?: string;
+  tipo_comprobante: TipoComprobanteCompra;
+  numero_comprobante?: string; // si viene vacío y es NOTA_VENTA o RECIBO, backend auto-genera NV-YYYYMMDD-####
+  fecha_emision: string; // ISO string o YYYY-MM-DD
+  metodo_pago: MetodoPagoCompra;
+  observaciones?: string;
+  actualizar_contacto_proveedor?: {
+    telefono?: string;
+    email?: string;
+    direccion?: string;
+  };
+  items: ItemCompraRequestDTO[];
+}
+
+export interface ItemCompraDetalleDTO {
+  id: string;
+  ficha_id: string;
+  insumo_id: string;
+  insumo_nombre: string;
+  unidad_medida: string;
+  cantidad: number;
+  precio_unitario: number;
+  subtotal: number;
+  costo_anterior: number;
+  variacion_porcentaje: number;
+}
+
+export interface PlatoReactivableDTO {
+  id: string;
+  nombre: string;
+  categoria_nombre: string;
+  precio: number;
+  insumos_reposicionados: string[];
+}
+
+export interface FichaCompraResumenDTO {
+  id: string;
+  codigo_correlativo: string;
+  tipo_comprobante: TipoComprobanteCompra;
+  numero_comprobante: string;
+  proveedor_id: string;
+  proveedor_nombre: string;
+  proveedor_telefono?: string;
+  fecha_emision: string;
+  fecha_registro: string;
+  metodo_pago: MetodoPagoCompra;
+  total: number;
+  subtotal_neto: number; // sin IGV
+  igv_monto: number; // 18% si FACTURA
+  cantidad_items: number;
+  estado: EstadoFichaCompra;
+  registrado_por_nombre: string;
+  motivo_anulacion?: string;
+  fecha_anulacion?: string;
+}
+
+export interface FichaCompraDetalleCompletoDTO extends FichaCompraResumenDTO {
+  observaciones?: string;
+  items: ItemCompraDetalleDTO[];
+  platos_reactivables?: PlatoReactivableDTO[];
+}
+
+export interface FichasCompraKPIsDTO {
+  gasto_mes_total: number;
+  variacion_gasto_mes_pct: number;
+  total_compras_mes: number;
+  facturas_con_igv_monto: number;
+  creditos_pendientes_monto: number;
+}
+
+export interface ListarFichasCompraResponseDTO {
+  fichas: FichaCompraResumenDTO[];
+  kpis: FichasCompraKPIsDTO;
+  paginacion: {
+    total: number;
+    pagina: number;
+    limite: number;
+    total_paginas: number;
+  };
+}
+
+export interface InsumoImpactadoDTO {
+  insumo_id: string;
+  insumo_nombre: string;
+  unidad_medida: string;
+  stock_actual: number;
+  cantidad_a_restar: number;
+  stock_proyectado: number; // GREATEST(0, stock_actual - cantidad)
+  quedara_en_quiebre: boolean;
+}
+
+export interface PlatoImpactadoDTO {
+  plato_id: string;
+  plato_nombre: string;
+  categoria_nombre: string;
+  insumo_critico: string;
+}
+
+export interface PedidoCocinaImpactadoDTO {
+  comanda_id: string;
+  mesa_codigo: string;
+  plato_nombre: string;
+  estado_comanda: string;
+}
+
+export interface ImpactoAnulacionDTO {
+  ficha_id: string;
+  numero_comprobante: string;
+  proveedor_nombre: string;
+  fecha_emision: string;
+  total: number;
+  insumos_afectados: InsumoImpactadoDTO[];
+  platos_que_se_agotaran: PlatoImpactadoDTO[];
+  pedidos_cocina_en_riesgo: PedidoCocinaImpactadoDTO[];
+  requiere_confirmacion_estricta: boolean;
+}
+
+export interface AnularFichaCompraRequestDTO {
+  ficha_id: string;
+  motivo: string;
+}
+
+
 
 
 

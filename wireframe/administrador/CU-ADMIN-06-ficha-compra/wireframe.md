@@ -157,9 +157,11 @@ sequenceDiagram
 1. **Diferenciación Dinámica de Comprobantes:**
    - Si se selecciona `Factura Electrónica`, `Boleta` o `Guía de Remisión`: El campo `N° de Comprobante` exige validación de serie y número físico (ej. `F001-004921`).
    - Si se selecciona `Nota de Venta` o `Recibo`: El campo `N° de Comprobante` es **Opcional**. Si viene en blanco, el backend autogenera el código de control correlativo de sede: `NV-YYYYMMDD-####`.
-2. **Selector de Proveedor y Creación "Al Vuelo":**
+2. **Selector de Proveedor, Actualización Ágil de Contacto y Creación "Al Vuelo":**
    - Selector reactivo con autocompletado de la agenda comercial (`CU-ADMIN-05`).
-   - Botón `[ + Nuevo Proveedor Rápido ]` para emergencias de mercado.
+   - **Actualización Inmediata de Contacto:** Enlace `[ ✏️ Actualizar Contacto ]` junto al proveedor seleccionado para modificar al vuelo teléfono/WhatsApp, email o dirección cuando el transportista entrega una factura con datos renovados.
+   - **Sincronización Opcional en el Registro:** El formulario permite incluir `actualizar_contacto_proveedor` en el payload de compra, guardando los nuevos datos de contacto en la misma transacción atómica.
+   - **Creación Rápida "Al Vuelo":** Botón `[ + Nuevo Proveedor Rápido ]` para proveedores imprevistos del mercado mayorista.
 3. **Detalle Dinámico de Insumos:**
    - Selector de insumo (`CU-ADMIN-03`) que exhibe en tiempo real el stock actual disponible y la unidad universal de compra (ej. `kg`, `saco`, `und`).
    - Inputs numéricos de `Cantidad` y `Precio Unitario (S/)` con cálculo instantáneo de subtotal de línea.
@@ -172,17 +174,21 @@ sequenceDiagram
 
 ---
 
-### Vista 3: Modal de Creación de Proveedor "Al Vuelo" (`wf_admin_06_proveedor_al_vuelo_modal.jpg`)
+### Vista 3: Modal de Creación / Actualización Rápida de Proveedor (`wf_admin_06_proveedor_al_vuelo_modal.jpg`)
 
 ![Modal Proveedor Al Vuelo](assets/wf_admin_06_proveedor_al_vuelo_modal.jpg)
 
 #### Características del Submodal Rápido (480px)
-- **Activación:** Se abre como submodal sin recargar la pantalla cuando el transportista entrega insumos de un nuevo proveedor no agendado.
+- **Activación:** Se abre como submodal contextual sin recargar la pantalla ni perder los insumos agregados en dos escenarios:
+  1. **Alta "Al Vuelo":** Cuando el transportista es nuevo (`POST /api/v1/admin/proveedores`).
+  2. **Actualización de Contacto:** Cuando se editan datos comerciales del proveedor vigente (`PUT /api/v1/admin/proveedores/{id}`).
 - **Campos esenciales (< 5 segundos):**
   - `Nombre Comercial o Razón Social *`: Obligatorio (ej. "Distribuidora San Juan").
   - `Teléfono / WhatsApp *`: Obligatorio con validación móvil.
-  - `Persona de Contacto`: Opcional.
-- **Botón `[ Guardar y Elegir ]`:** Persiste al proveedor en base de datos y lo selecciona automáticamente en el formulario de compra conservando intactos todos los insumos ya tipeados.
+  - `Persona de Contacto`: Opcional (ej. "Carlos Ventas").
+  - `Correo Electrónico`: Opcional (ej. "pedidos@sanjuan.pe").
+  - `Dirección Física / Mercado`: Opcional (ej. "Pab. A Puesto 14").
+- **Botón `[ Guardar y Elegir ]` / `[ Actualizar Datos ]`:** Persiste al proveedor en base de datos (`POST` o `PUT`) y lo asocia automáticamente a la ficha de compra conservando intactos todos los ítems tipeados.
 
 ---
 
@@ -308,16 +314,34 @@ type ItemCompraRequestDTO struct {
 	PrecioUnitario float64   `json:"precio_unitario" validate:"required,gte=0"`
 }
 
+// ActualizarContactoProveedorDTO permite actualizar el contacto del proveedor seleccionado en el mismo flujo de compra
+type ActualizarContactoProveedorDTO struct {
+	Contacto  *string `json:"contacto,omitempty" validate:"omitempty,max=80"`
+	Telefono  *string `json:"telefono,omitempty" validate:"omitempty,max=20"`
+	Email     *string `json:"email,omitempty" validate:"omitempty,email,max=100"`
+	Direccion *string `json:"direccion,omitempty" validate:"omitempty,max=150"`
+}
+
+// CrearProveedorAlVueloRequestDTO alta ágil de proveedor sin salir del modal de compra
+type CrearProveedorAlVueloRequestDTO struct {
+	Nombre    string  `json:"nombre" validate:"required,min=3,max=100"`
+	Contacto  *string `json:"contacto,omitempty" validate:"omitempty,max=80"`
+	Telefono  *string `json:"telefono,omitempty" validate:"omitempty,max=20"`
+	Email     *string `json:"email,omitempty" validate:"omitempty,email,max=100"`
+	Direccion *string `json:"direccion,omitempty" validate:"omitempty,max=150"`
+}
+
 // RegistrarFichaCompraRequestDTO payload para formalizar una compra física
 type RegistrarFichaCompraRequestDTO struct {
-	ProveedorID       uuid.UUID              `json:"proveedor_id" validate:"required"`
-	TipoComprobante   string                 `json:"tipo_comprobante" validate:"required,oneof=factura boleta nota_venta guia_remision recibo"`
-	NumeroComprobante *string                `json:"numero_comprobante,omitempty" validate:"omitempty,max=30"` // Opcional en nota_venta/recibo (autogenerado si vacío)
-	FechaEmision      string                 `json:"fecha_emision" validate:"required"`                       // YYYY-MM-DD
-	MetodoPago        string                 `json:"metodo_pago" validate:"required,oneof=efectivo transferencia tarjeta_debito credito_proveedor"`
-	DesglosaIGV       bool                   `json:"desglosa_igv"` // true para Factura (extrae 18%), false para Neto/Mercado
-	Items             []ItemCompraRequestDTO `json:"items" validate:"required,min=1,dive"`
-	Notas             *string                `json:"notas,omitempty"`
+	ProveedorID                uuid.UUID                        `json:"proveedor_id" validate:"required"`
+	ActualizarContactoProveedor *ActualizarContactoProveedorDTO `json:"actualizar_contacto_proveedor,omitempty"` // Opcional: actualiza teléfono/contacto en el mismo acto
+	TipoComprobante            string                           `json:"tipo_comprobante" validate:"required,oneof=factura boleta nota_venta guia_remision recibo"`
+	NumeroComprobante          *string                          `json:"numero_comprobante,omitempty" validate:"omitempty,max=30"` // Opcional en nota_venta/recibo (autogenerado si vacío)
+	FechaEmision               string                           `json:"fecha_emision" validate:"required"`                       // YYYY-MM-DD
+	MetodoPago                 string                           `json:"metodo_pago" validate:"required,oneof=efectivo transferencia tarjeta_debito credito_proveedor"`
+	DesglosaIGV                bool                             `json:"desglosa_igv"` // true para Factura (extrae 18%), false para Neto/Mercado
+	Items                      []ItemCompraRequestDTO           `json:"items" validate:"required,min=1,dive"`
+	Notas                      *string                          `json:"notas,omitempty"`
 }
 
 // InsumoImpactadoDTO detalle del impacto en un insumo al revertir compra
@@ -412,6 +436,23 @@ type FichaCompraDetalleCompletoDTO struct {
 	Items              []ItemCompraDetalleDTO `json:"items"`
 	PlatosReactivables []PlatoReactivableDTO  `json:"platos_reactivables,omitempty"`
 }
+
+// FichasCompraKPIsDTO consolidación de métricas de abastecimiento del mes
+type FichasCompraKPIsDTO struct {
+	GastoTotalMes        float64 `json:"gasto_total_mes"`
+	FichasRegistradas    int     `json:"fichas_registradas"`
+	InsumosReabastecidos float64 `json:"insumos_reabastecidos"` // Volumen/unidades reabastecidas en el mes
+	PromedioPorCompra    float64 `json:"promedio_por_compra"`
+}
+
+// ListarFichasCompraResponseDTO respuesta paginada de compras con métricas consolidadas
+type ListarFichasCompraResponseDTO struct {
+	KPIs        FichasCompraKPIsDTO     `json:"kpis"`
+	Fichas      []FichaCompraResumenDTO `json:"fichas"`
+	TotalItems  int                     `json:"total_items"`
+	Pagina      int                     `json:"pagina"`
+	ItemsPagina int                     `json:"items_pagina"`
+}
 ```
 
 ---
@@ -421,11 +462,16 @@ type FichaCompraDetalleCompletoDTO struct {
 | Método | Endpoint | Descripción | Códigos HTTP |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/admin/fichas-compra` | Listado histórico con filtros de fecha, tipo comprobante y paginación. | `200 OK`, `401 Unauthorized` |
-| `POST` | `/api/v1/admin/fichas-compra` | Registro transaccional atómico de la compra física (aumenta stock, actualiza costos y egreso). | `201 Created`, `400 Bad Request`, `409 Conflict` |
+| `GET` | `/api/v1/admin/fichas-compra/kpis` | Métricas consolidadas de abastecimiento del mes (gasto, fichas, insumos, promedio). | `200 OK`, `401 Unauthorized` |
+| `POST` | `/api/v1/admin/fichas-compra` | Registro transaccional atómico de la compra física (aumenta stock, actualiza costos, egreso y opcionalmente datos de contacto de proveedor). | `201 Created`, `400 Bad Request`, `409 Conflict` |
 | `GET` | `/api/v1/admin/fichas-compra/{id}` | Detalle exhaustivo de la compra, desglose de insumos y auditoría de egreso. | `200 OK`, `404 Not Found` |
 | `GET` | `/api/v1/admin/fichas-compra/{id}/impacto-anulacion` | Proyecta el impacto en insumos, platos en carta y pedidos en cocina antes de anular. | `200 OK`, `404 Not Found` |
 | `POST` | `/api/v1/admin/fichas-compra/{id}/anular` | Anula una ficha de compra con motivo obligatorio (aplica contingencia, cascada y reversión). | `200 OK`, `400 Bad Request`, `409 Conflict` |
 | `PATCH` | `/api/v1/admin/productos/reactivar-disponibilidad` | Reactiva disponibilidad de platos seleccionados tras reabastecimiento. | `200 OK`, `400 Bad Request` |
+| `GET` | `/api/v1/admin/proveedores` | Directorio de proveedores para el selector reactivo con autocompletado y búsqueda. | `200 OK`, `401 Unauthorized` |
+| `POST` | `/api/v1/admin/proveedores` | Registro rápido de proveedor "al vuelo" desde el modal de compra (`CrearProveedorAlVueloRequestDTO`). | `201 Created`, `400 Bad Request`, `409 Conflict` |
+| `PUT` | `/api/v1/admin/proveedores/{id}` | Actualización de contacto comercial del proveedor (`ActualizarContactoProveedorDTO`). | `200 OK`, `400 Bad Request`, `404 Not Found` |
+| `GET` | `/api/v1/admin/insumos` | Catálogo de insumos activos con existencias para el selector dinámico de compra. | `200 OK`, `401 Unauthorized` |
 
 ---
 
@@ -509,6 +555,135 @@ type FichaCompraDetalleCompletoDTO struct {
       "monto_compra_revertido": 2450.00
     },
     "mensaje": "La ficha de compra ha sido anulada. Se restó el stock del almacén con piso en 0, se bloquearon 2 platos en carta por quiebre de insumo y se alertó a cocina."
+  },
+  "error": null
+}
+```
+
+#### Ejemplo 3: `POST /api/v1/admin/fichas-compra` (Registro de Compra con Actualización Opcional de Contacto)
+```json
+{
+  "proveedor_id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4001",
+  "actualizar_contacto_proveedor": {
+    "contacto": "Carlos Meneses",
+    "telefono": "+51 987 654 321",
+    "email": "ventas@sanfernando.pe",
+    "direccion": "Av. República de Panamá 4200, Surquillo"
+  },
+  "tipo_comprobante": "factura",
+  "numero_comprobante": "F001-004921",
+  "fecha_emision": "2026-10-06",
+  "metodo_pago": "efectivo",
+  "desglosa_igv": true,
+  "items": [
+    {
+      "insumo_id": "c1a2c3d4-0001-4000-8000-000000000001",
+      "cantidad": 250.0,
+      "precio_unitario": 8.4
+    },
+    {
+      "insumo_id": "c1a2c3d4-0002-4000-8000-000000000002",
+      "cantidad": 50.0,
+      "precio_unitario": 7.0
+    }
+  ],
+  "notas": "Despacho matutino conforme"
+}
+```
+*Respuesta (201 Created):*
+```json
+{
+  "success": true,
+  "data": {
+    "id": "7b3a1a9e-4e31-4a92-8ec2-192a5b8214fa",
+    "numero_comprobante": "F001-004921",
+    "tipo_comprobante": "factura",
+    "es_autogenerado": false,
+    "fecha_emision": "2026-10-06",
+    "proveedor_id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4001",
+    "proveedor_nombre": "Distribuidora San Fernando",
+    "total_items": 2,
+    "insumos_resumen": ["Pollo Entero", "Pechuga Filete"],
+    "metodo_pago": "efectivo",
+    "desglosa_igv": true,
+    "subtotal": 2076.27,
+    "impuestos": 373.73,
+    "total": 2450.00,
+    "estado": "registrada",
+    "registrado_por": "Carlos Rojas",
+    "contacto_proveedor_actualizado": true,
+    "platos_reactivables": [
+      {
+        "producto_id": "b1a2c3d4-1111-4000-8000-000000000001",
+        "nombre": "1/4 Pollo a la Brasa",
+        "categoria": "Pollos a la Brasa"
+      },
+      {
+        "producto_id": "b1a2c3d4-2222-4000-8000-000000000002",
+        "nombre": "Pollo a la Brasa Entero",
+        "categoria": "Pollos a la Brasa"
+      }
+    ],
+    "created_at": "2026-10-06T09:30:00Z"
+  },
+  "error": null
+}
+```
+
+#### Ejemplo 4: `PUT /api/v1/admin/proveedores/{id}` (Actualización Ágil de Contacto de Proveedor)
+```json
+{
+  "contacto": "Rosa Huamán - Despachos",
+  "telefono": "+51 976 543 210",
+  "email": "despachos@sanmartin.pe",
+  "direccion": "Mercado Mayorista Santa Anita, Pabellón B Puesto 22"
+}
+```
+*Respuesta (200 OK):*
+```json
+{
+  "success": true,
+  "data": {
+    "id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4002",
+    "local_id": "00000000-0000-0000-0000-000000000001",
+    "nombre": "Verduras San Martín",
+    "contacto": "Rosa Huamán - Despachos",
+    "telefono": "+51 976 543 210",
+    "email": "despachos@sanmartin.pe",
+    "direccion": "Mercado Mayorista Santa Anita, Pabellón B Puesto 22",
+    "activo": true,
+    "updated_at": "2026-10-07T10:15:00Z"
+  },
+  "error": null
+}
+```
+
+#### Ejemplo 5: `POST /api/v1/admin/proveedores` (Alta Ágil "Al Vuelo" desde Compra)
+```json
+{
+  "nombre": "Distribuidora San Juan",
+  "contacto": "Marcos Ventas",
+  "telefono": "+51 987 111 222",
+  "email": "ventas@sanjuan.pe",
+  "direccion": "Mdo. Central Puesto 15"
+}
+```
+*Respuesta (201 Created):*
+```json
+{
+  "success": true,
+  "data": {
+    "id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4099",
+    "local_id": "00000000-0000-0000-0000-000000000001",
+    "nombre": "Distribuidora San Juan",
+    "contacto": "Marcos Ventas",
+    "telefono": "+51 987 111 222",
+    "email": "ventas@sanjuan.pe",
+    "direccion": "Mdo. Central Puesto 15",
+    "activo": true,
+    "total_compras": 0,
+    "total_gastado": 0.0,
+    "created_at": "2026-10-08T08:45:00Z"
   },
   "error": null
 }

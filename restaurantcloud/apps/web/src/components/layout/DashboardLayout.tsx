@@ -17,6 +17,7 @@ import {
   LayoutGrid,
   FolderTree,
   Truck,
+  Receipt,
 } from 'lucide-react';
 import { ROUTES } from '@/router/routes.constants';
 
@@ -42,6 +43,7 @@ export const DashboardLayout: React.FC = () => {
     { label: 'Productos y Recetas', href: ROUTES.ADMIN_CARTA, icon: UtensilsCrossed },
     { label: 'Insumos & Inventario', href: ROUTES.ADMIN_INVENTARIO, icon: Package },
     { label: 'Proveedores', href: ROUTES.ADMIN_PROVEEDORES, icon: Truck },
+    { label: 'Compras', href: ROUTES.ADMIN_COMPRAS, icon: Receipt },
     { label: 'Personal de Sede', href: ROUTES.ADMIN_PERSONAL, icon: Users },
     { label: 'Reportes de Venta', href: ROUTES.ADMIN_REPORTES_VENTAS, icon: Layers },
     { label: 'Cierres de Caja Z', href: ROUTES.ADMIN_REPORTES_CIERRES_Z, icon: CreditCard },

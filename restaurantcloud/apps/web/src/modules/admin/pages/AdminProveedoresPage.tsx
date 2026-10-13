@@ -21,9 +21,12 @@ import { ModalCrearEditarProveedor } from '../components/proveedores/ModalCrearE
 import { DrawerHistorialCompras } from '../components/proveedores/DrawerHistorialCompras';
 import { OnboardingProveedoresVacio } from '../components/proveedores/OnboardingProveedoresVacio';
 import { DemoAdminProveedoresWidget } from '../components/proveedores/DemoAdminProveedoresWidget';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '@/router/routes.constants';
 import { CheckCircle2, AlertCircle, AlertTriangle, X } from 'lucide-react';
 
 export const AdminProveedoresPage: React.FC = () => {
+  const navigate = useNavigate();
   // Estados de datos
   const [proveedores, setProveedores] = useState<ProveedorResumenDTO[]>([]);
   const [kpis, setKpis] = useState<ProveedoresKPIsDTO>({
@@ -246,12 +249,9 @@ export const AdminProveedoresPage: React.FC = () => {
     }
   };
 
-  const handleNuevaCompraDesdeDrawer = (p: ProveedorResumenDTO) => {
+  const handleNuevaCompraDesdeDrawer = (_p: ProveedorResumenDTO) => {
     setDrawerAbierto(false);
-    mostrarToast(
-      `Preparando emisión de Ficha de Compra con ${p.nombre} (CU-ADMIN-06 en siguiente módulo).`,
-      'exito'
-    );
+    navigate(ROUTES.ADMIN_COMPRAS);
   };
 
   // Escenarios del widget QA

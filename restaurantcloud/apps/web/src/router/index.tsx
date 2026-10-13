@@ -20,6 +20,7 @@ import { AdminCategoriasPage } from '@/modules/admin/pages/AdminCategoriasPage';
 import { AdminInsumosPage } from '@/modules/admin/pages/AdminInsumosPage';
 import { AdminProductosPage } from '@/modules/admin/pages/AdminProductosPage';
 import { AdminProveedoresPage } from '@/modules/admin/pages/AdminProveedoresPage';
+import { AdminComprasPage } from '@/modules/admin/pages/AdminComprasPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
@@ -236,6 +237,10 @@ export const router = createBrowserRouter([
       {
         path: 'proveedores',
         element: <AdminProveedoresPage />,
+      },
+      {
+        path: 'compras',
+        element: <AdminComprasPage />,
       },
       {
         path: 'personal',
