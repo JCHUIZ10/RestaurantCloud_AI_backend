@@ -18,7 +18,7 @@
 | **Salón & Mozo** | 8 | 8 | 0 | **100% (Completo)** |
 | **Cocina (KDS)** | 4 | 1 | 3 | **25%** |
 | **Caja & Cobranza** | 5 | 0 | 5 | 0% |
-| **Administración Local** | 16 | 1 | 15 | **6.25%** |
+| **Administración Local** | 16 | 2 | 14 | **12.5%** |
 | **Propietario / Tenant** | 6 | 0 | 6 | 0% |
 | **SuperAdmin SaaS** | 3 | 0 | 3 | 0% |
 
@@ -302,6 +302,29 @@
   - [`src/types/admin.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/admin.ts): DTOs rigurosamente auditados contra `piso`, `mesa` y `plan` de PostgreSQL 16. Cero datos inventados.
 
 - **Responsive:** Layout fluido en Desktop `>= 1024px`, Tablet `768px - 1023px` y Smartphone `< 768px` con touch targets $\ge 44\text{px}$.
+- **Estado de Build:** ✅ Compilado y probado en producción con 0 errores (`npm run build`).
+
+---
+
+### 2.15 `CU-ADMIN-02`: Gestionar Categorías de la Carta
+- **Rutas Activas:**
+  - `/admin/categorias` (Ruta canónica del caso de uso)
+  - `/admin/carta` (Alias directo en navegación del menú lateral)
+- **Layout:** [`DashboardLayout.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/DashboardLayout.tsx)
+- **Componentes Creados:**
+  - [`AdminCategoriasPage.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/pages/AdminCategoriasPage.tsx): Orquestador reactivo de categorías con soporte para los 5 estados UX (Skeleton, Loaded, Empty State, Error con reintento y Bloqueo Relacional 409).
+  - [`CategoriasHeader.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/categorias/CategoriasHeader.tsx): Cabecera con migas de pan, badge de sede activa y 4 tarjetas de métricas en tiempo real (*Total Secciones*, *Visibles en Salón*, *Platos en Carta* y *Mayor Volumen*), con botones de acción `[ + Nueva Categoría ]` y `[ Plantillas Rápidas ]`.
+  - [`CategoriasFiltrosTabs.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/categorias/CategoriasFiltrosTabs.tsx): Pestañas de filtrado (*Todas*, *Visibles en Salón*, *Ocultas*) con badges numéricos, buscador reactivo en tiempo real y nota ergonómica sobre el orden de comandas para mozos (`CU-MOZO-01`).
+  - [`CategoriasTable.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/categorias/CategoriasTable.tsx): Presentación dual (Tabla en Desktop/Tablet y Cards táctiles en Móvil) con controles híbridos de reordenamiento (icono de arrastre `≡` + botones táctiles accesibles `[ ↑ / ↓ ]`), switches directos de visibilidad salón/QR, chips de conteo de platos y acciones rápidas de edición y baja.
+  - [`ModalCrearEditarCategoria.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/categorias/ModalCrearEditarCategoria.tsx): Modal de alta/edición con validación de nombre (2 a 60 chars), contador numérico de caracteres, switch de visibilidad y **Componente WYSIWYG "Vista Previa Pestaña Mozo"** que ilustra en tiempo real cómo verá el personal de sala la pestaña en la comanda móvil (`CU-MOZO-01`).
+  - [`ModalBloqueoReasignacion.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/categorias/ModalBloqueoReasignacion.tsx): Asistente interactivo de resolución de conflicto `409 Conflict` (`ERR_CATEGORIA_CON_PRODUCTOS`) con soporte para selección individual por checkboxes, control maestro *"Seleccionar todos (X de N)"*, spinner de carga animado y reasignación parcial iterativa (donde tras cada transferencia únicamente permanecen en pantalla los platos que aún continúan asociados a la categoría) hasta la eliminación definitiva sin dejar datos huérfanos.
+  - [`ModalCargarPlantilla.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/categorias/ModalCargarPlantilla.tsx): Catálogo de plantillas gastronómicas peruanas preconfiguradas (*Pollería*, *Cevichería*, *Chifa*, *Criollo*, *Cafetería*) con opción de anexado no destructivo o reemplazo con reasignación asistida.
+  - [`OnboardingCategoriasVacia.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/categorias/OnboardingCategoriasVacia.tsx): Estado vacío inicial (0 categorías) con diseño Áurea que orienta al administrador con beneficios clave y doble llamado a la acción (`[ + Crear Primera Categoría ]` vs `[ Usar Plantilla Peruana ]`).
+  - [`DemoAdminCategoriasWidget.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/categorias/DemoAdminCategoriasWidget.tsx): Widget flotante para alternar entre escenarios QA de prueba en 1 clic (*Probar Onboarding vacío*, *Simular Bloqueo 409 con platos*, *Simular Error de Red* y *Restablecer Semillas Miraflores*).
+- **Servicios y DTOs:**
+  - [`mockAdminService.ts`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/services/mockAdminService.ts): Implementación de métodos para categorías (`obtenerCategorias`, `crearCategoria`, `actualizarCategoria`, `conmutarVisibilidadCategoria`, `reordenarCategorias`, `eliminarCategoria` con chequeo estricto 409, `reasignarYEliminarCategoria` y `cargarPlantillaGastronomica`), precargado con el catálogo canónico de Miraflores (`07_seed_local_aurea_completo.sql`).
+  - [`src/types/admin.ts`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/admin.ts): DTOs auditados 1:1 contra `categoria_producto` y `producto` de PostgreSQL 16 (`CategoriaAdminDTO`, `CategoriasAdminResponseDTO`, `ResumenCategoriasDTO`, `CrearCategoriaRequest`, `ActualizarCategoriaRequest`, `ReordenarCategoriasRequest`, `ReasignarYEliminarCategoriaRequest`, `CargarPlantillaCategoriasRequest`, `ConflictoCategoriaConProductosDTO`). Cero campos inventados.
+- **Responsive:** Soporte nativo para Desktop (`1440x900`), Tablet POS (`768x1024`) y Smartphone (`375x812`), con áreas táctiles $\ge 44\text{px}$.
 - **Estado de Build:** ✅ Compilado y probado en producción con 0 errores (`npm run build`).
 
 ---

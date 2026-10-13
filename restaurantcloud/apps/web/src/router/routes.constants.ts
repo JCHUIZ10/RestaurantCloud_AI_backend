@@ -27,6 +27,7 @@ export const ROUTES = {
   ADMIN_DASHBOARD: '/admin/dashboard',
   ADMIN_PLANO_MESAS: '/admin/plano-mesas',
   ADMIN_CARTA: '/admin/carta',
+  ADMIN_CATEGORIAS: '/admin/categorias',
   ADMIN_INVENTARIO: '/admin/inventario',
   ADMIN_PERSONAL: '/admin/personal',
   ADMIN_REPORTES_VENTAS: '/admin/reportes/ventas',

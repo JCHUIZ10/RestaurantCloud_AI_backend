@@ -70,7 +70,9 @@ export const DashboardLayout: React.FC = () => {
         <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
           {currentLinks.map((item) => {
             const Icon = item.icon;
-            const active = location.pathname === item.href;
+            const active =
+              location.pathname === item.href ||
+              (item.href === ROUTES.ADMIN_CARTA && location.pathname === ROUTES.ADMIN_CATEGORIAS);
             return (
               <Link
                 key={item.href}
@@ -181,17 +183,31 @@ export const DashboardLayout: React.FC = () => {
               </div>
 
               <nav className="flex-1 space-y-1">
-                {currentLinks.map((item) => (
-                  <Link
-                    key={item.href}
-                    to={item.href}
-                    onClick={() => setSidebarOpen(false)}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/80 hover:bg-white/10"
-                  >
-                    <item.icon className="w-4 h-4 text-aurea-copper" />
-                    <span>{item.label}</span>
-                  </Link>
-                ))}
+                {currentLinks.map((item) => {
+                  const active =
+                    location.pathname === item.href ||
+                    (item.href === ROUTES.ADMIN_CARTA &&
+                      location.pathname === ROUTES.ADMIN_CATEGORIAS);
+                  return (
+                    <Link
+                      key={item.href}
+                      to={item.href}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                        active
+                          ? 'bg-aurea-copper text-aurea-navy font-semibold'
+                          : 'text-white/80 hover:bg-white/10'
+                      }`}
+                    >
+                      <item.icon
+                        className={`w-4 h-4 ${
+                          active ? 'text-aurea-navy' : 'text-aurea-copper'
+                        }`}
+                      />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
               </nav>
 
               <div className="pt-4 border-t border-white/10">

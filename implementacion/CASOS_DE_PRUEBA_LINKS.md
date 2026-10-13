@@ -54,6 +54,10 @@
 (CU-ADMIN-01: Gestionar Plano de Mesas y Ambientes):
 - que es : Gestión visual y distribución física del salón de la sede en DashboardLayout: KPIs de aforo y consumo de cuota del Plan Pro (17/30 mesas activas, 13 disponibles), selector de ambientes (Salón Principal, Terraza Exterior, Barra Bar) con controles para expandir o recortar cuadrícula, Asistente Rápido en Lote (Vista 2) con sliders interactivos de columnas/filas y cálculo automático, Modal de Creación Individual con Mini-Mapa interactivo selector de casillas (Vista 4), Quick-Drawer lateral de edición de 440px (Vista 3) con steppers táctiles y control de forma/unión, Modal de Bloqueo Duro 409 ante comanda activa en salón/cocina (Mesa 04), Onboarding de bienvenida para salones vacíos (Vista 5) y widget flotante interactivo para simular todos los estados UX en 1 clic: http://localhost:5173/admin/plano-mesas
 
+(CU-ADMIN-02: Gestionar Categorías de la Carta):
+- que es : Organización y estructuración de secciones del menú en DashboardLayout: KPIs en vivo (total secciones, visibles en salón, platos vinculados y sección líder), tabla responsive y cards móviles con reordenamiento híbrido (arrastre ≡ y botones táctiles [ ↑ / ↓ ]) para definir las pestañas de comanda de mozos (CU-MOZO-01), switches de visibilidad inmediata salón/QR, modal de creación/edición con vista previa WYSIWYG de pestaña de mozo, modal de bloqueo 409 relacional ante platos asociados con asistente de reasignación atómica sin fugas de datos, catálogo de plantillas gastronómicas peruanas preconfiguradas (Pollería, Chifa, etc.), onboarding asistido para cartas vacías y widget flotante de pruebas QA: http://localhost:5173/admin/categorias
+- Acceso directo mediante el enlace de navegación lateral "Categorías & Carta": http://localhost:5173/admin/carta
+
 ---
 
 ### Próximos Casos de Uso (En Desarrollo / Roadmap)

@@ -169,3 +169,132 @@ export interface ConflictoRecortePisoDTO {
   mesas_en_conflicto: string[];
 }
 
+// =============================================================================
+// GESTIÓN DE CATEGORÍAS DE LA CARTA (CU-ADMIN-02)
+// Mapea directamente a categoria_producto y producto en 02_schema_ddl.sql (líneas 252-329)
+// =============================================================================
+
+/**
+ * Representa una categoría de la carta en el panel administrativo.
+ * Mapea directamente a `categoria_producto` en 02_schema_ddl.sql.
+ */
+export interface CategoriaAdminDTO {
+  id: string;
+  local_id: string;
+  nombre: string;
+  orden: number;
+  activa: boolean;
+  created_at: string;
+  updated_at: string;
+
+  // Atributos agregados calculados por JOIN/COUNT sobre la tabla `producto`
+  total_productos: number;
+  productos_disponibles: number;
+  productos_agotados: number;
+}
+
+/**
+ * Resumen global de métricas de categorías de la carta.
+ */
+export interface ResumenCategoriasDTO {
+  total_categorias: number;
+  categorias_activas: number;
+  categorias_ocultas: number;
+  total_productos_asociados: number;
+  categoria_con_mas_platos?: {
+    id: string;
+    nombre: string;
+    cantidad: number;
+  } | null;
+}
+
+/**
+ * Payload completo del endpoint GET /api/v1/admin/categorias
+ */
+export interface CategoriasAdminResponseDTO {
+  local_id: string;
+  local_nombre: string;
+  resumen: ResumenCategoriasDTO;
+  categorias: CategoriaAdminDTO[];
+}
+
+/**
+ * Request para crear categoría (POST /api/v1/admin/categorias)
+ */
+export interface CrearCategoriaRequest {
+  nombre: string;
+  activa?: boolean;
+}
+
+/**
+ * Request para actualizar categoría (PUT /api/v1/admin/categorias/{id})
+ */
+export interface ActualizarCategoriaRequest {
+  nombre: string;
+  activa?: boolean;
+}
+
+/**
+ * Item individual para reordenamiento secuencial
+ */
+export interface ItemReordenarCategoria {
+  id: string;
+  orden: number;
+}
+
+/**
+ * Request para reordenar categorías en lote (PATCH /api/v1/admin/categorias/reordenar)
+ */
+export interface ReordenarCategoriasRequest {
+  categorias: ItemReordenarCategoria[];
+}
+
+/**
+ * Request para reasignación de platos y eliminación de categoría (POST /api/v1/admin/categorias/{id}/reasignar-y-eliminar)
+ */
+export interface ReasignarYEliminarCategoriaRequest {
+  nueva_categoria_id: string;
+  producto_ids?: string[]; // IDs específicos a reasignar. Si se omite o incluye todos los pendientes, reasigna todos
+}
+
+/**
+ * Resultado de la reasignación parcial o total de platos
+ */
+export interface ResultadoReasignacionCategoriaDTO {
+  mensaje: string;
+  categoria_id: string;
+  platos_reasignados: number;
+  platos_restantes: number;
+  categoria_eliminada: boolean;
+}
+
+/**
+ * Tipo de plantilla gastronómica peruana soportada
+ */
+export type TipoPlantillaGastronomica = 'polleria' | 'cevicheria' | 'chifa' | 'criollo' | 'cafeteria';
+
+/**
+ * Request para cargar plantilla preconfigurada (POST /api/v1/admin/categorias/plantilla)
+ */
+export interface CargarPlantillaCategoriasRequest {
+  tipo_plantilla: TipoPlantillaGastronomica;
+  reemplazar_existentes: boolean;
+}
+
+/**
+ * Estructura de error asistido para conflicto 409 cuando se intenta eliminar una categoría con platos asociados
+ * Mapea a la restricción ON DELETE RESTRICT en PostgreSQL 16
+ */
+export interface ConflictoCategoriaConProductosDTO {
+  categoria_id: string;
+  categoria_nombre: string;
+  total_productos: number;
+  productos_muestras: Array<{
+    id: string;
+    nombre: string;
+    precio: number;
+    disponibilidad: string;
+  }>;
+}
+
+

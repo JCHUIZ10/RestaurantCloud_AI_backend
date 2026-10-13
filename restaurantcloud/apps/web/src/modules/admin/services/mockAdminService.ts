@@ -8,6 +8,15 @@ import {
   ActualizarMesaRequest,
   CrearPisoRequest,
   ActualizarDimensionesPisoRequest,
+  CategoriaAdminDTO,
+  CategoriasAdminResponseDTO,
+  CrearCategoriaRequest,
+  ActualizarCategoriaRequest,
+  ReordenarCategoriasRequest,
+  ReasignarYEliminarCategoriaRequest,
+  ResultadoReasignacionCategoriaDTO,
+  CargarPlantillaCategoriasRequest,
+  ConflictoCategoriaConProductosDTO,
 } from '@/types/admin';
 
 // Identificadores Canónicos del Seed de Desarrollo Local (07_seed_local_aurea_completo.sql)
@@ -340,11 +349,191 @@ const SEMILLAS_PISOS: PisoAdminDTO[] = [
   },
 ];
 
+// =============================================================================
+// SEMILLAS CANÓNICAS CU-ADMIN-02: CATEGORÍAS & PRODUCTOS (07_seed_local_aurea_completo.sql)
+// =============================================================================
+export const CATEGORIA_ENTRADAS_ID = '00000000-0000-4000-8000-000000000060';
+export const CATEGORIA_FONDOS_ID = '00000000-0000-4000-8000-000000000061';
+export const CATEGORIA_BEBIDAS_ID = '00000000-0000-4000-8000-000000000062';
+export const CATEGORIA_POSTRES_ID = '00000000-0000-4000-8000-000000000063';
+
+export interface MockProductoRelacional {
+  id: string;
+  local_id: string;
+  categoria_id: string;
+  nombre: string;
+  precio: number;
+  disponibilidad: 'disponible' | 'agotado' | 'oculto';
+  es_combo: boolean;
+}
+
+const SEMILLA_PRODUCTOS_AUREA: MockProductoRelacional[] = [
+  {
+    id: '00000000-0000-4000-8000-000000000080',
+    local_id: CANONICAL_LOCAL_ID,
+    categoria_id: CATEGORIA_ENTRADAS_ID,
+    nombre: 'Ceviche Clásico',
+    precio: 48.0,
+    disponibilidad: 'disponible',
+    es_combo: false,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000084',
+    local_id: CANONICAL_LOCAL_ID,
+    categoria_id: CATEGORIA_ENTRADAS_ID,
+    nombre: 'Causa Limeña de Pollo',
+    precio: 32.0,
+    disponibilidad: 'disponible',
+    es_combo: false,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000081',
+    local_id: CANONICAL_LOCAL_ID,
+    categoria_id: CATEGORIA_FONDOS_ID,
+    nombre: 'Lomo Saltado Criollo',
+    precio: 65.0,
+    disponibilidad: 'disponible',
+    es_combo: false,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000082',
+    local_id: CANONICAL_LOCAL_ID,
+    categoria_id: CATEGORIA_BEBIDAS_ID,
+    nombre: 'Inca Kola 500ml',
+    precio: 9.0,
+    disponibilidad: 'disponible',
+    es_combo: false,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000083',
+    local_id: CANONICAL_LOCAL_ID,
+    categoria_id: CATEGORIA_POSTRES_ID,
+    nombre: 'Suspiro Limeño',
+    precio: 24.0,
+    disponibilidad: 'disponible',
+    es_combo: false,
+  },
+];
+
+interface MockCategoriaRaw {
+  id: string;
+  local_id: string;
+  nombre: string;
+  orden: number;
+  activa: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+const SEMILLAS_CATEGORIAS_AUREA: MockCategoriaRaw[] = [
+  {
+    id: CATEGORIA_ENTRADAS_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Entradas',
+    orden: 1,
+    activa: true,
+    created_at: '2026-10-01T10:00:00Z',
+    updated_at: '2026-10-01T10:00:00Z',
+  },
+  {
+    id: CATEGORIA_FONDOS_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Fondos',
+    orden: 2,
+    activa: true,
+    created_at: '2026-10-01T10:00:00Z',
+    updated_at: '2026-10-01T10:00:00Z',
+  },
+  {
+    id: CATEGORIA_BEBIDAS_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Bebidas',
+    orden: 3,
+    activa: true,
+    created_at: '2026-10-01T10:00:00Z',
+    updated_at: '2026-10-01T10:00:00Z',
+  },
+  {
+    id: CATEGORIA_POSTRES_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Postres',
+    orden: 4,
+    activa: true,
+    created_at: '2026-10-01T10:00:00Z',
+    updated_at: '2026-10-01T10:00:00Z',
+  },
+];
+
+export const PLANTILLAS_GASTRONOMICAS: Record<
+  'polleria' | 'cevicheria' | 'chifa' | 'criollo' | 'cafeteria',
+  { titulo: string; descripcion: string; categorias: string[] }
+> = {
+  polleria: {
+    titulo: 'Pollería Tradicional',
+    descripcion: 'Estructura clásica para pollerías y brasas peruanas',
+    categorias: [
+      'Pollos a la Brasa',
+      'Guarniciones & Papas',
+      'Ensaladas Frescas',
+      'Bebidas & Gaseosas',
+      'Cervezas & Tragos',
+      'Postres',
+    ],
+  },
+  cevicheria: {
+    titulo: 'Cevichería & Pescados',
+    descripcion: 'Especializada en mariscos, ceviches y comida marina',
+    categorias: [
+      'Ceviches & Tiraditos',
+      'Causas & Entradas Frías',
+      'Chicharrones & Jaleas',
+      'Arroces & Sudados',
+      'Chilcanos & Bebidas',
+      'Postres Criollos',
+    ],
+  },
+  chifa: {
+    titulo: 'Chifa & Fusión Wok',
+    descripcion: 'Gastronomía chino-peruana con platos al wok',
+    categorias: [
+      'Sopas & Wantanes',
+      'Arroz Chaufa',
+      'Tallarines & Wantán Frito',
+      'Especialidades al Wok',
+      'Bebidas & Té Jazmín',
+    ],
+  },
+  criollo: {
+    titulo: 'Restaurante Criollo',
+    descripcion: 'Guisos tradicionales peruanos y comida de autor',
+    categorias: [
+      'Entradas Criollas',
+      'Segundos Tradicionales',
+      'Guisos de la Casa',
+      'Bebidas & Refrescos',
+      'Postres Tradicionales',
+    ],
+  },
+  cafeteria: {
+    titulo: 'Cafetería & Brunch',
+    descripcion: 'Cafés de especialidad, sándwiches y pastelería fina',
+    categorias: [
+      'Cafés de Especialidad',
+      'Bebidas Frías & Frappés',
+      'Sándwiches & Tostones',
+      'Pastelería Fina',
+      'Desayunos & Combos',
+    ],
+  },
+};
+
 // Estado en memoria simulado
 class MockAdminService {
   private pisos: PisoAdminDTO[] = JSON.parse(JSON.stringify(SEMILLAS_PISOS));
   private maxMesasPlan = 30; // Plan Pro
   private maxPisosPlan = 5;
+  private categorias: MockCategoriaRaw[] = JSON.parse(JSON.stringify(SEMILLAS_CATEGORIAS_AUREA));
+  private productos: MockProductoRelacional[] = JSON.parse(JSON.stringify(SEMILLA_PRODUCTOS_AUREA));
 
   private calcularMetricasPiso(piso: PisoAdminDTO) {
     const activas = piso.mesas.filter((m) => m.estado === 'activa');
@@ -888,6 +1077,556 @@ class MockAdminService {
     this.pisos = JSON.parse(JSON.stringify(SEMILLAS_PISOS));
     this.maxMesasPlan = 30;
     this.maxPisosPlan = 5;
+  }
+
+  // ===========================================================================
+  // MÉTODOS DE CATEGORÍAS DE LA CARTA (CU-ADMIN-02)
+  // ===========================================================================
+
+  private enriquecerCategoria(cat: MockCategoriaRaw): CategoriaAdminDTO {
+    const prods = this.productos.filter((p) => p.categoria_id === cat.id);
+    return {
+      id: cat.id,
+      local_id: cat.local_id,
+      nombre: cat.nombre,
+      orden: cat.orden,
+      activa: cat.activa,
+      created_at: cat.created_at,
+      updated_at: cat.updated_at,
+      total_productos: prods.length,
+      productos_disponibles: prods.filter((p) => p.disponibilidad === 'disponible').length,
+      productos_agotados: prods.filter((p) => p.disponibilidad === 'agotado').length,
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/categorias
+   * Retorna el listado completo de categorías ordenadas secuencialmente junto con métricas agregadas.
+   */
+  async obtenerCategorias(
+    localId: string = CANONICAL_LOCAL_ID
+  ): Promise<ApiResponse<CategoriasAdminResponseDTO>> {
+    await new Promise((r) => setTimeout(r, 120));
+
+    const categoriasLocales = this.categorias
+      .filter((c) => c.local_id === localId)
+      .sort((a, b) => a.orden - b.orden);
+
+    const categoriasEnriquecidas = categoriasLocales.map((c) => this.enriquecerCategoria(c));
+
+    const totalActivas = categoriasEnriquecidas.filter((c) => c.activa).length;
+    const totalOcultas = categoriasEnriquecidas.filter((c) => !c.activa).length;
+    const totalProductos = categoriasEnriquecidas.reduce((acc, c) => acc + c.total_productos, 0);
+
+    let catConMasPlatos: { id: string; nombre: string; cantidad: number } | null = null;
+    if (categoriasEnriquecidas.length > 0) {
+      const topCat = [...categoriasEnriquecidas].sort((a, b) => b.total_productos - a.total_productos)[0];
+      if (topCat && topCat.total_productos > 0) {
+        catConMasPlatos = {
+          id: topCat.id,
+          nombre: topCat.nombre,
+          cantidad: topCat.total_productos,
+        };
+      }
+    }
+
+    const response: CategoriasAdminResponseDTO = {
+      local_id: localId,
+      local_nombre: CANONICAL_LOCAL_NOMBRE,
+      resumen: {
+        total_categorias: categoriasEnriquecidas.length,
+        categorias_activas: totalActivas,
+        categorias_ocultas: totalOcultas,
+        total_productos_asociados: totalProductos,
+        categoria_con_mas_platos: catConMasPlatos,
+      },
+      categorias: categoriasEnriquecidas,
+    };
+
+    return {
+      exito: true,
+      datos: response,
+      meta: {
+        timestamp: new Date().toISOString(),
+        total: categoriasEnriquecidas.length,
+      },
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/categorias
+   * Valida nombre único no sensible a mayúsculas por local y asigna orden correlativo.
+   */
+  async crearCategoria(
+    payload: CrearCategoriaRequest,
+    localId: string = CANONICAL_LOCAL_ID
+  ): Promise<ApiResponse<CategoriaAdminDTO>> {
+    await new Promise((r) => setTimeout(r, 150));
+
+    const nombreLimpio = payload.nombre.trim();
+    if (!nombreLimpio) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_NOMBRE_CATEGORIA_REQUERIDO',
+            mensaje: 'El nombre de la categoría es obligatorio y debe tener entre 2 y 60 caracteres.',
+            campo: 'nombre',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    // Unicidad por local_id + LOWER(nombre)
+    const duplicada = this.categorias.some(
+      (c) => c.local_id === localId && c.nombre.trim().toLowerCase() === nombreLimpio.toLowerCase()
+    );
+
+    if (duplicada) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_CATEGORIA_DUPLICADA',
+            mensaje: `Ya existe una categoría con el nombre "${nombreLimpio}" en esta sede.`,
+            campo: 'nombre',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    const categoriasLocales = this.categorias.filter((c) => c.local_id === localId);
+    const siguienteOrden =
+      categoriasLocales.length > 0 ? Math.max(...categoriasLocales.map((c) => c.orden)) + 1 : 1;
+
+    const nueva: MockCategoriaRaw = {
+      id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `cat-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      local_id: localId,
+      nombre: nombreLimpio,
+      orden: siguienteOrden,
+      activa: payload.activa ?? true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    this.categorias.push(nueva);
+
+    return {
+      exito: true,
+      datos: this.enriquecerCategoria(nueva),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * PUT /api/v1/admin/categorias/{id}
+   * Modifica nombre y/o visibilidad de la categoría.
+   */
+  async actualizarCategoria(
+    id: string,
+    payload: ActualizarCategoriaRequest
+  ): Promise<ApiResponse<CategoriaAdminDTO>> {
+    await new Promise((r) => setTimeout(r, 150));
+
+    const categoria = this.categorias.find((c) => c.id === id);
+    if (!categoria) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_CATEGORIA_NO_ENCONTRADA',
+            mensaje: 'La categoría solicitada no existe o fue eliminada previamente.',
+            campo: 'id',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    const nombreLimpio = payload.nombre.trim();
+    if (!nombreLimpio) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_NOMBRE_CATEGORIA_REQUERIDO',
+            mensaje: 'El nombre de la categoría no puede estar vacío.',
+            campo: 'nombre',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    // Unicidad excluyéndose a sí misma
+    const duplicada = this.categorias.some(
+      (c) =>
+        c.id !== id &&
+        c.local_id === categoria.local_id &&
+        c.nombre.trim().toLowerCase() === nombreLimpio.toLowerCase()
+    );
+
+    if (duplicada) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_CATEGORIA_DUPLICADA',
+            mensaje: `Ya existe otra categoría registrada con el nombre "${nombreLimpio}".`,
+            campo: 'nombre',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    categoria.nombre = nombreLimpio;
+    if (payload.activa !== undefined) {
+      categoria.activa = payload.activa;
+    }
+    categoria.updated_at = new Date().toISOString();
+
+    return {
+      exito: true,
+      datos: this.enriquecerCategoria(categoria),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * PATCH /api/v1/admin/categorias/{id}/visibilidad
+   * Conmuta rápidamente la visibilidad en salón y carta QR sin necesidad de editar el nombre.
+   */
+  async conmutarVisibilidadCategoria(
+    id: string,
+    activa: boolean
+  ): Promise<ApiResponse<CategoriaAdminDTO>> {
+    await new Promise((r) => setTimeout(r, 100));
+
+    const categoria = this.categorias.find((c) => c.id === id);
+    if (!categoria) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_CATEGORIA_NO_ENCONTRADA',
+            mensaje: 'Categoría no encontrada.',
+            campo: 'id',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    categoria.activa = activa;
+    categoria.updated_at = new Date().toISOString();
+
+    return {
+      exito: true,
+      datos: this.enriquecerCategoria(categoria),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * PATCH /api/v1/admin/categorias/reordenar
+   * Actualiza el orden secuencial de comanda en una sola operación atómica.
+   */
+  async reordenarCategorias(
+    payload: ReordenarCategoriasRequest
+  ): Promise<ApiResponse<CategoriaAdminDTO[]>> {
+    await new Promise((r) => setTimeout(r, 120));
+
+    for (const item of payload.categorias) {
+      const cat = this.categorias.find((c) => c.id === item.id);
+      if (cat) {
+        cat.orden = item.orden;
+        cat.updated_at = new Date().toISOString();
+      }
+    }
+
+    this.categorias.sort((a, b) => a.orden - b.orden);
+
+    const enriquecidas = this.categorias.map((c) => this.enriquecerCategoria(c));
+
+    return {
+      exito: true,
+      datos: enriquecidas,
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * DELETE /api/v1/admin/categorias/{id}
+   * Bloqueo 409 estricto si existen platos vinculados (ON DELETE RESTRICT en PostgreSQL).
+   */
+  async eliminarCategoria(
+    id: string
+  ): Promise<ApiResponse<{ mensaje: string; categoria_id: string }>> {
+    await new Promise((r) => setTimeout(r, 150));
+
+    const categoria = this.categorias.find((c) => c.id === id);
+    if (!categoria) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_CATEGORIA_NO_ENCONTRADA',
+            mensaje: 'La categoría no existe o ya fue eliminada.',
+            campo: 'id',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    // Consulta relacional sobre la tabla producto
+    const productosAsociados = this.productos.filter((p) => p.categoria_id === id);
+
+    if (productosAsociados.length > 0) {
+      // Conflicto relacional 409
+      const conflictoDetalle: ConflictoCategoriaConProductosDTO = {
+        categoria_id: id,
+        categoria_nombre: categoria.nombre,
+        total_productos: productosAsociados.length,
+        productos_muestras: productosAsociados.map((p) => ({
+          id: p.id,
+          nombre: p.nombre,
+          precio: p.precio,
+          disponibilidad: p.disponibilidad,
+        })),
+      };
+
+      return {
+        exito: false,
+        datos: conflictoDetalle as any,
+        errores: [
+          {
+            codigo: 'ERR_CATEGORIA_CON_PRODUCTOS',
+            mensaje: `No se puede eliminar la categoría "${categoria.nombre}" porque contiene ${productosAsociados.length} plato(s) asociado(s). Reasigna los platos a otra categoría o vacía su contenido antes de continuar.`,
+            campo: 'categoria_id',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    // Si tiene 0 productos, eliminación exitosa
+    this.categorias = this.categorias.filter((c) => c.id !== id);
+
+    // Reindexar orden correlativo
+    this.categorias
+      .filter((c) => c.local_id === categoria.local_id)
+      .sort((a, b) => a.orden - b.orden)
+      .forEach((c, idx) => {
+        c.orden = idx + 1;
+      });
+
+    return {
+      exito: true,
+      datos: {
+        mensaje: `La categoría "${categoria.nombre}" fue eliminada exitosamente.`,
+        categoria_id: id,
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/categorias/{id}/reasignar-y-eliminar
+   * Permite reasignación parcial o total de platos.
+   * Si quedan 0 platos en la categoría de origen, la elimina automáticamente.
+   */
+  async reasignarYEliminarCategoria(
+    id: string,
+    payload: ReasignarYEliminarCategoriaRequest
+  ): Promise<ApiResponse<ResultadoReasignacionCategoriaDTO>> {
+    await new Promise((r) => setTimeout(r, 200));
+
+    const catOrigen = this.categorias.find((c) => c.id === id);
+    if (!catOrigen) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_CATEGORIA_NO_ENCONTRADA',
+            mensaje: 'Categoría de origen no encontrada.',
+            campo: 'id',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    if (id === payload.nueva_categoria_id) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_CATEGORIA_DESTINO_INVALIDA',
+            mensaje: 'La categoría de destino debe ser diferente a la categoría que se desea eliminar.',
+            campo: 'nueva_categoria_id',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    const catDestino = this.categorias.find((c) => c.id === payload.nueva_categoria_id);
+    if (!catDestino) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_CATEGORIA_DESTINO_NO_ENCONTRADA',
+            mensaje: 'La categoría de destino seleccionada no existe.',
+            campo: 'nueva_categoria_id',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    // Filtrar los platos que se van a reasignar (parcial o total)
+    const productosMover = this.productos.filter((p) => {
+      if (p.categoria_id !== id) return false;
+      if (!payload.producto_ids || payload.producto_ids.length === 0) return true;
+      return payload.producto_ids.includes(p.id);
+    });
+
+    const countMovidos = productosMover.length;
+    productosMover.forEach((p) => {
+      p.categoria_id = payload.nueva_categoria_id;
+    });
+
+    // Calcular cuántos platos aún quedan asociados a la categoría de origen
+    const platosRestantes = this.productos.filter((p) => p.categoria_id === id).length;
+    const categoriaEliminada = platosRestantes === 0;
+
+    if (categoriaEliminada) {
+      // Eliminación definitiva de la categoría de origen
+      this.categorias = this.categorias.filter((c) => c.id !== id);
+
+      // Reindexar orden correlativo
+      this.categorias
+        .filter((c) => c.local_id === catOrigen.local_id)
+        .sort((a, b) => a.orden - b.orden)
+        .forEach((c, idx) => {
+          c.orden = idx + 1;
+        });
+    }
+
+    return {
+      exito: true,
+      datos: {
+        mensaje: categoriaEliminada
+          ? `Se reasignaron ${countMovidos} plato(s) a "${catDestino.nombre}" y la categoría "${catOrigen.nombre}" fue eliminada exitosamente.`
+          : `Se transfirieron ${countMovidos} plato(s) a "${catDestino.nombre}". Quedan ${platosRestantes} plato(s) pendientes de reasignar.`,
+        categoria_id: id,
+        platos_reasignados: countMovidos,
+        platos_restantes: platosRestantes,
+        categoria_eliminada: categoriaEliminada,
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/categorias/plantilla
+   * Carga una estructura gastronómica sugerida (pollería, cevichería, chifa, etc.).
+   */
+  async cargarPlantillaGastronomica(
+    payload: CargarPlantillaCategoriasRequest,
+    localId: string = CANONICAL_LOCAL_ID
+  ): Promise<ApiResponse<CategoriasAdminResponseDTO>> {
+    await new Promise((r) => setTimeout(r, 200));
+
+    const configPlantilla = PLANTILLAS_GASTRONOMICAS[payload.tipo_plantilla];
+    if (!configPlantilla) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_TIPO_PLANTILLA_INVALIDO',
+            mensaje: `El tipo de plantilla "${payload.tipo_plantilla}" no es reconocido.`,
+            campo: 'tipo_plantilla',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    if (payload.reemplazar_existentes) {
+      const nuevasCategorias: MockCategoriaRaw[] = configPlantilla.categorias.map((nombre, idx) => ({
+        id: `tpl-${payload.tipo_plantilla}-${idx + 1}`,
+        local_id: localId,
+        nombre,
+        orden: idx + 1,
+        activa: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }));
+
+      // Si había productos existentes, reasignarlos a la primera categoría nueva para preservar integridad
+      if (nuevasCategorias.length > 0 && this.productos.length > 0) {
+        const primeraCatId = nuevasCategorias[0].id;
+        this.productos.forEach((p) => {
+          if (p.local_id === localId) {
+            p.categoria_id = primeraCatId;
+          }
+        });
+      }
+
+      this.categorias = nuevasCategorias;
+    } else {
+      // Anexar sin duplicar nombres
+      const categoriasActuales = this.categorias.filter((c) => c.local_id === localId);
+      let maxOrden =
+        categoriasActuales.length > 0 ? Math.max(...categoriasActuales.map((c) => c.orden)) : 0;
+
+      for (const nombre of configPlantilla.categorias) {
+        const existe = this.categorias.some(
+          (c) => c.local_id === localId && c.nombre.trim().toLowerCase() === nombre.trim().toLowerCase()
+        );
+        if (!existe) {
+          maxOrden += 1;
+          this.categorias.push({
+            id: `cat-extra-${Date.now()}-${maxOrden}`,
+            local_id: localId,
+            nombre,
+            orden: maxOrden,
+            activa: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+        }
+      }
+    }
+
+    return this.obtenerCategorias(localId);
+  }
+
+  // Métodos de simulación interactiva para DemoAdminCategoriasWidget
+  simularCategoriasVacias(localId: string = CANONICAL_LOCAL_ID) {
+    this.categorias = this.categorias.filter((c) => c.local_id !== localId);
+  }
+
+  restablecerCategoriasAurea() {
+    this.categorias = JSON.parse(JSON.stringify(SEMILLAS_CATEGORIAS_AUREA));
+    this.productos = JSON.parse(JSON.stringify(SEMILLA_PRODUCTOS_AUREA));
   }
 }
 

@@ -16,6 +16,7 @@ import { MozoPrecuentaPage } from '@/modules/mozo/pages/MozoPrecuentaPage';
 import { MozoReservasPage } from '@/modules/mozo/pages/MozoReservasPage';
 import { CocinaKdsPage } from '@/modules/cocina/pages/CocinaKdsPage';
 import { AdminPlanoMesasPage } from '@/modules/admin/pages/AdminPlanoMesasPage';
+import { AdminCategoriasPage } from '@/modules/admin/pages/AdminCategoriasPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
@@ -219,15 +220,11 @@ export const router = createBrowserRouter([
       },
       {
         path: 'carta',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-ADMIN-02/04"
-            nombrePantalla="Gestión de Categorías, Productos & Recetas"
-            rol="administrador"
-            layoutNombre="DashboardLayout"
-            descripcion="Mantenimiento del catálogo gastronómico: categorías de la carta, platos, recetas con costeo de insumos e impuestos."
-          />
-        ),
+        element: <AdminCategoriasPage />,
+      },
+      {
+        path: 'categorias',
+        element: <AdminCategoriasPage />,
       },
       {
         path: 'inventario',
