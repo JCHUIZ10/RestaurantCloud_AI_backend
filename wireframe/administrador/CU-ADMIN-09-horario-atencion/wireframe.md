@@ -32,12 +32,8 @@ sequenceDiagram
     A->>FE: 1. Ingresa a "Horario de Atención"
     alt Sede nueva sin horario configurado
         FE->>A: Despliega Vista 4: Onboarding vacío con plantilla recomendada
-        A->>FE: Pulsa "[ Aplicar Plantilla Estándar ]" (12:00-16:00 / 19:00-23:30)
-        FE->>BE: POST /api/v1/admin/horario/plantilla {plantilla: "restaurante_estandar"}
-        BE->>DB: INSERT INTO horario_atencion (7 días, 2 turnos por día)
-        DB-->>BE: Horarios registrados
-        BE-->>FE: 201 Created (HorarioSemanaDTO)
-        FE->>A: Renderiza Vista 1 con la semana configurada
+        A->>FE: Pulsa "[ Aplicar Plantilla Estándar en 1 Clic ]" (12:00-16:00 / 19:00-23:30)
+        FE->>FE: Carga turnos estándar en la grilla y habilita botón "[ Guardar ]"
     else Sede con horario existente
         FE->>BE: GET /api/v1/admin/horario/semana
         BE->>DB: SELECT * FROM horario_atencion WHERE local_id = :local_id ORDER BY dia_semana, hora_inicio
@@ -46,31 +42,43 @@ sequenceDiagram
         FE->>A: Renderiza Vista 1: Grilla Lunes a Domingo con turnos configurables
     end
 
-    %% 2. Edición de Turnos
-    A->>FE: Modifica hora de cierre o pulsa "[ + Añadir Turno ]" (ej. Cena Viernes)
+    %% 2. Productividad, Validación de Lunes y Edición en Borrador
+    alt Aplica Plantilla Rápida
+        A->>FE: Clic en plantilla (ej. Solo Almuerzos / Corrido)
+        FE->>FE: Carga esquema en borrador local (hay_cambios = true) y habilita botón "[ Guardar Horario Semanal ]" (sin autoguardado a backend)
+    else Copiar horario de Lunes a toda la semana
+        A->>FE: Clic en "[ Copiar horario de Lunes a toda la semana ]"
+        alt Lunes está deshabilitado o sin turnos
+            FE->>A: Alerta preventiva: "Para esta funcionalidad se debe tener el lunes habilitado como referencia con al menos un turno configurado."
+        else Lunes tiene turnos válidos
+            FE->>FE: Replica turnos de Lunes a Martes..Domingo y habilita botón "[ Guardar Horario Semanal ]"
+        end
+    end
+
     A->>FE: Pulsa "[ Guardar Horario Semanal ]"
     FE->>BE: PUT /api/v1/admin/horario/semana {dias: [...]}
-    BE->>BE: Valida coherencia temporal (hora_inicio < hora_fin, sin traslapes)
+    BE->>BE: Valida coherencia temporal (hora_inicio < hora_fin o trasnochador, sin traslapes)
     BE->>DB: UPDATE / INSERT INTO horario_atencion ...
     DB-->>BE: Transacción confirmada
     BE-->>FE: 200 OK
     FE->>A: Toast: "Horario semanal actualizado correctamente"
 
     %% 3. Registro de Excepción / Feriado y Manejo de Conflictos
-    Note over A,FE: Vista 2: Gestión de Excepciones y Cierres
+    Note over A,FE: Vista 2: Gestión de Excepciones y Cierres (Con filtro Vigentes/Pasados y Paginación)
     A->>FE: Selecciona pestaña "Excepciones y Feriados" -> "[ + Nuevo Cierre / Feriado ]"
     A->>FE: Ingresa Fecha: 2026-12-25, Motivo: "Navidad - Cierre Total"
     FE->>BE: POST /api/v1/admin/horario/excepciones/precheck {fecha: "2026-12-25", cerrado: true}
     BE->>DB: SELECT * FROM reserva WHERE local_id = :local_id AND DATE(fecha_hora) = '2026-12-25' AND estado = 'confirmada'
-    DB-->>BE: 4 reservas confirmadas detectadas en esa fecha
-    BE-->>FE: 200 OK {hay_conflictos: true, total_afectadas: 4, reservas: [...]}
+    DB-->>BE: 3 reservas confirmadas detectadas en esa fecha
+    BE-->>FE: 200 OK {hay_conflictos: true, total_afectadas: 3, reservas: [...]}
 
     alt Existen reservas en la fecha del cierre
         FE->>A: Despliega Vista 3: Modal de Conflicto de Reservas (680px)
-        Note over A,FE: El modal muestra la lista de clientes, teléfonos y botón wa.me
-        A->>FE: Clic en "[ Contactar WhatsApp ]" de cliente María Flores
-        FE->>C: Abre enlace wa.me/?text="Estimada María, le saludamos de..."
-        A->>FE: Marca checkbox "[x] Cliente notificado por WhatsApp/Llamada"
+        Note over A,FE: El modal muestra la lista de comensales, teléfonos, botones wa.me y checkboxes
+        Note over A,FE: El botón [ Confirmar Cierre ] permanece BLOQUEADO en gris hasta marcar el 100% de comensales
+        A->>FE: Clic en "[ Abrir WhatsApp ]" y contacta a cada comensal
+        A->>FE: Marca checkboxes "[x] Notificado" de todos los comensales (o pulsa "[ Marcar todos como notificados ]")
+        FE->>A: Todos notificados (3/3) -> Se HABILITA botón en rojo "[ Confirmar Cierre y Cancelar Reservas Afectadas ]"
         A->>FE: Pulsa "[ Confirmar Cierre y Cancelar Reservas Afectadas ]"
         FE->>BE: POST /api/v1/admin/horario/excepciones {fecha: "2026-12-25", cerrado: true, motivo: "Navidad", cancelar_reservas: true, reservas_notificadas: [...]}
         rect rgb(240, 248, 255)
@@ -108,30 +116,36 @@ Grilla semanal de operación continua de Lunes a Domingo. Cada día permite conm
 | RESTAURANTCLOUD AI   | Portal Administrador > Horario de Atención y Feriados      [ Sede: Miraflores ]
 +----------------------------------------------------------------------------------------------------+
 |                                                                                                    |
-| Horario de Atención del Local                                                                      |
-| Configura los días y turnos de atención al público. Para configurar reservas visita CU-ADMIN-10.    |
+| Horario de Atención y Feriados                     [ 🕒 68.5 hrs / semana ]                         |
+| Configura los días y turnos de atención al público, feriados oficiales y cierres con reservas.     |
 |                                                                                                    |
-| [ SEMANA REGULAR (Activo) ]    [ EXCEPCIONES Y FERIADOS (3) ]                                      |
+| [ 🕒 SEMANA REGULAR (Activo) ]    [ 📅 EXCEPCIONES Y FERIADOS (5) ]                                |
 |----------------------------------------------------------------------------------------------------|
+|                                                                                                    |
+| +------------------------------------------------------------------------------------------------+ |
+| | ✨ Plantillas Operativas Rápidas:  [ 🍽️ Estándar ] [ ☀️ Solo Almuerzos ] [ ⚡ Corrido Continuo ]| |
+| | (Aplica esquemas en borrador local; pulsa 'Guardar Horario Semanal' para confirmar)            | |
+| +------------------------------------------------------------------------------------------------+ |
 |                                                                                                    |
 | +------------------------------------------------------------------------------------------------+ |
 | | DIA DE LA SEMANA | ESTADO      | TURNOS CONFIGURADOS                          | ACCIONES       | |
 | |------------------+-------------+----------------------------------------------+----------------| |
-| | Lunes            | (o) Abierto | Turno 1 (Almuerzo): 12:00 - 16:00            | [+ Turno]      | |
+| | Lunes            | (o) Abierto | Turno 1 (Almuerzo): 12:00 - 16:00            | [+ Turno] [x]  | |
 | |                  |             | Turno 2 (Cena):     19:00 - 23:30            |                | |
-| | Martes           | (o) Abierto | Turno 1 (Almuerzo): 12:00 - 16:00            | [+ Turno]      | |
+| | Martes           | (o) Abierto | Turno 1 (Almuerzo): 12:00 - 16:00            | [+ Turno] [x]  | |
 | |                  |             | Turno 2 (Cena):     19:00 - 23:30            |                | |
-| | Miércoles        | (o) Abierto | Turno 1 (Almuerzo): 12:00 - 16:00            | [+ Turno]      | |
+| | Miércoles        | (o) Abierto | Turno 1 (Almuerzo): 12:00 - 16:00            | [+ Turno] [x]  | |
 | |                  |             | Turno 2 (Cena):     19:00 - 23:30            |                | |
-| | Jueves           | (o) Abierto | Turno 1 (Almuerzo): 12:00 - 16:00            | [+ Turno]      | |
+| | Jueves           | (o) Abierto | Turno 1 (Almuerzo): 12:00 - 16:00            | [+ Turno] [x]  | |
 | |                  |             | Turno 2 (Cena):     19:00 - 23:30            |                | |
-| | Viernes          | (o) Abierto | Turno 1 (Almuerzo): 12:00 - 16:00            | [+ Turno]      | |
-| |                  |             | Turno 2 (Cena):     19:00 - 00:30 (Siguiente)|                | |
-| | Sábado           | (o) Abierto | Turno 1 (Continuo): 12:00 - 00:30 (Siguiente)| [+ Turno]      | |
-| | Domingo          | (o) Abierto | Turno 1 (Almuerzo): 12:00 - 18:00            | [+ Turno]      | |
+| | Viernes          | (o) Abierto | Turno 1 (Almuerzo): 12:00 - 16:00            | [+ Turno] [x]  | |
+| |                  |             | Turno 2 (Cena):     19:00 - 00:30 [🌙+1 día] |                | |
+| | Sábado           | (o) Abierto | Turno 1 (Continuo): 12:00 - 00:30 [🌙+1 día] | [+ Turno] [x]  | |
+| | Domingo          | (o) Abierto | Turno 1 (Almuerzo): 12:00 - 18:00            | [+ Turno] [x]  | |
 | +------------------------------------------------------------------------------------------------+ |
 |                                                                                                    |
-| [ Copiar horario de Lunes a toda la semana ]        [ Descartar ]  [ Guardar Horario Semanal ]     |
+| [ Copiar horario de Lunes a toda la semana ]*       [ Descartar ]  [ Guardar Horario Semanal ]     |
+| * Requiere Lunes habilitado con turnos; si está cerrado emite alerta preventiva y no copia.        |
 |                                                                                                    |
 +----------------------------------------------------------------------------------------------------+
 ```
@@ -140,7 +154,7 @@ Grilla semanal de operación continua de Lunes a Domingo. Cada día permite conm
 
 ### Vista 2: Calendario y Directorio de Excepciones y Feriados (`wf_admin_09_excepciones_calendario.jpg`)
 
-Gestor anual de fechas especiales, feriados oficiales peruanos y cierres extraordinarios (mantenimiento, inventario o eventos privados) con desglose de impacto operativo.
+Gestor anual de fechas especiales, feriados oficiales peruanos y cierres extraordinarios (mantenimiento, inventario o eventos privados) con desglose de impacto operativo, filtro de vigencia temporal y paginación responsive.
 
 ![Directorio de Excepciones y Feriados](assets/wf_admin_09_excepciones_calendario.jpg)
 
@@ -150,28 +164,26 @@ Gestor anual de fechas especiales, feriados oficiales peruanos y cierres extraor
 | RESTAURANTCLOUD AI   | Portal Administrador > Excepciones y Feriados              [ Sede: Miraflores ]
 +----------------------------------------------------------------------------------------------------+
 |                                                                                                    |
-| Excepciones y Feriados del Local                                                                   |
+| Horario de Atención y Feriados del Local                                                           |
 | Define fechas específicas donde el local permanecerá cerrado o atenderá en horario especial.      |
 |                                                                                                    |
-| [ SEMANA REGULAR ]    [ EXCEPCIONES Y FERIADOS (Activo) ]                   [ + Nuevo Cierre/Feriado ] |
+| [ 🕒 SEMANA REGULAR ]    [ 📅 EXCEPCIONES Y FERIADOS (Activo) (5) ]                                |
 |----------------------------------------------------------------------------------------------------|
 |                                                                                                    |
+| [ Todos (5) ] [ 🟢 Vigentes / Próximos (4) ] [ ⏳ Pasados / Históricos (1) ]                        |
+|                                                     [ 🔍 Buscar fecha/motivo... ] [+ Nuevo Cierre] |
+|                                                                                                    |
 | +------------------------------------------------------------------------------------------------+ |
-| | FECHA       | TIPO DE EXCEPCIÓN | MOTIVO / DESCRIPCIÓN         | HORARIO        | ACCIONES     | |
-| |-------------+-------------------+------------------------------+----------------+--------------| |
-| | 28/07/2026  | [ Cierre Total ]  | Fiestas Patrias - Feriado    | Cerrado todo el| [Editar]     | |
-| |             |                   | Nacional                     | día            | [Eliminar]   | |
-| | 29/07/2026  | [ Horario Especial| Fiestas Patrias - Día 2      | 12:00 - 17:00  | [Editar]     | |
-| |             |                   |                              | (Solo Almuerzo)| [Eliminar]   | |
-| | 01/11/2026  | [ Cierre Total ]  | Día de Todos los Santos      | Cerrado todo el| [Editar]     | |
-| |             |                   |                              | día            | [Eliminar]   | |
-| | 25/12/2026  | [ Cierre Total ]  | Navidad                      | Cerrado todo el| [Editar]     | |
-| |             |                   |                              | día            | [Eliminar]   | |
-| | 01/01/2027  | [ Cierre Total ]  | Año Nuevo                    | Cerrado todo el| [Editar]     | |
-| |             |                   |                              | día            | [Eliminar]   | |
+| | FECHA       | ESTADO    | TIPO DE EXCEPCIÓN | MOTIVO / DESCRIPCIÓN  | HORARIO     | ACCIONES   | |
+| |-------------+-----------+-------------------+-----------------------+-------------+------------| |
+| | 28/07/2026  | [Vigente] | [ Cierre Total ]  | Fiestas Patrias       | Cerrado     | [Eliminar] | |
+| | 29/07/2026  | [Vigente] | [ Horario Especial| Fiestas Patrias D2    | 12:00-17:00 | [Eliminar] | |
+| | 01/11/2026  | [Vigente] | [ Cierre Total ]  | Día de Todos Santos   | Cerrado     | [Eliminar] | |
+| | 25/12/2026  | [Vigente] | [ Cierre Total ]  | Navidad               | Cerrado (3r)| [Eliminar] | |
+| | 01/01/2027  | [Vigente] | [ Cierre Total ]  | Año Nuevo             | Cerrado     | [Eliminar] | |
 | +------------------------------------------------------------------------------------------------+ |
 |                                                                                                    |
-| [ Cargar Feriados Nacionales de Perú 2026 ]                     Total Excepciones Programadas: 5   |
+| Mostrando 1 a 5 de 5 excepciones                    [ < Anterior ]  [ 1 ]  [ Siguiente > ]         |
 |                                                                                                    |
 +----------------------------------------------------------------------------------------------------+
 ```
@@ -180,41 +192,42 @@ Gestor anual de fechas especiales, feriados oficiales peruanos y cierres extraor
 
 ### Vista 3: Modal de Resolución de Conflicto con Reservas (`wf_admin_09_conflicto_reservas_modal.jpg`)
 
-Modal asistido de 680px que se dispara automáticamente cuando un cierre coincide con reservas de salón previamente confirmadas. Ofrece enlaces directos `wa.me`, teléfono visible para llamadas y registro de auditoría.
+Modal asistido de 680px que se dispara automáticamente cuando un cierre coincide con reservas de salón previamente confirmadas (`CU-MOZO-05`). Requiere confirmación estricta al 100% de comensales contactados antes de habilitar el botón de confirmación definitiva.
 
 ![Modal de Conflicto de Reservas](assets/wf_admin_09_conflicto_reservas_modal.jpg)
 
 #### Layout Estructural ASCII (Modal 680px)
 ```text
 +------------------------------------------------------------------------+
-|  ADVERTENCIA DE IMPACTO: RESERVAS EXISTENTES                           |
-|  Se han detectado 3 reservas confirmadas para el día 25/12/2026        |
+|  ADVERTENCIA DE IMPACTO: 3 RESERVAS AFECTADAS                          |
+|  Cierre programado para el 25/12/2026 (Navidad)                        |
 +------------------------------------------------------------------------+
 |                                                                        |
-|  El local permanecerá cerrado por "Navidad". Para evitar reclamos,     |
+|  Se detectaron 3 reservas confirmadas (12 PAX). Para evitar reclamos,  |
 |  contacta a los comensales directamente vía WhatsApp o llamada:        |
 |                                                                        |
+|  Comensales Programados (2/3 contactados)   [ Marcar todos notificados]|
 |  +------------------------------------------------------------------+  |
 |  | CLIENTE       | HORA     | PAX | CONTACTO / ACCIONES             |  |
 |  |---------------+----------+-----+---------------------------------|  |
-|  | María Flores  | 13:30    |  4  | Tel: 987 654 321                |  |
+|  | María Flores  | 13:30    |  4  | Tel: 987 654 321 | Mesa 04      |  |
 |  |               |          |     | [ Abrir WhatsApp (wa.me) ]      |  |
-|  |               |          |     | [x] Notificado por WhatsApp     |  |
+|  |               |          |     | [x] Notificado                  |  |
 |  |---------------+----------+-----+---------------------------------|  |
-|  | Jorge Ramos   | 14:00    |  6  | Tel: 912 345 678                |  |
+|  | Jorge Ramos   | 14:00    |  6  | Tel: 912 345 678 | Mesa 08      |  |
 |  |               |          |     | [ Abrir WhatsApp (wa.me) ]      |  |
-|  |               |          |     | [x] Notificado por WhatsApp     |  |
+|  |               |          |     | [x] Notificado                  |  |
 |  |---------------+----------+-----+---------------------------------|  |
-|  | Ana Castillo  | 20:00    |  2  | Tel: 998 877 665                |  |
+|  | Ana Castillo  | 20:30    |  2  | Tel: 998 877 665 | Mesa 02      |  |
 |  |               |          |     | [ Abrir WhatsApp (wa.me) ]      |  |
-|  |               |          |     | [ ] Pendiente de contacto       |  |
+|  |               |          |     | [ ] Marcar notificado           |  |
 |  +------------------------------------------------------------------+  |
 |                                                                        |
-|  Mensaje de cortesía pre-redactado para wa.me:                         |
-|  "Estimado/a comensal, le saludamos de [Local]. Lamentamos informarle  |
-|  que por motivos de Navidad el local permanecerá cerrado..."           |
+|  Al confirmar, las reservas pasarán automáticamente a estado cancelada.|
 |                                                                        |
-|  [ Cancelar Operación ]    [ Confirmar Cierre y Cancelar Reservas ]    |
+|  [!] Debes contactar y marcar a todos los comensales (2/3) para cerrar.|
+|                                                                        |
+|  [ Cancelar Operación ]        [ Confirmar Cierre y Cancelar (Bloqueado)]
 +------------------------------------------------------------------------+
 ```
 
@@ -359,6 +372,17 @@ type NotificacionContactoDTO struct {
 	MetodoNotificacion string    `json:"metodo_notificacion" binding:"oneof=whatsapp llamada presencial ninguno"`
 }
 
+// ExcepcionesPaginadasResponse respuesta paginada con métricas de vigencia
+type ExcepcionesPaginadasResponse struct {
+	Total         int                   `json:"total"`
+	Pagina        int                   `json:"pagina"`
+	Limite        int                   `json:"limite"`
+	TotalPaginas  int                   `json:"total_paginas"`
+	VigentesCount int                   `json:"vigentes_count"`
+	PasadosCount  int                   `json:"pasados_count"`
+	Excepciones   []ExcepcionHorarioDTO `json:"excepciones"`
+}
+
 // CrearExcepcionRequest registra el cierre y procesa las cancelaciones correspondientes
 type CrearExcepcionRequest struct {
 	Fecha                string                    `json:"fecha" binding:"required"`
@@ -380,10 +404,11 @@ type CrearExcepcionRequest struct {
 | `GET` | `/api/v1/admin/horario/semana` | Obtiene el horario semanal completo por días y turnos | `apiresponse.Response{Data: HorarioSemanaResponse}` |
 | `PUT` | `/api/v1/admin/horario/semana` | Guarda o actualiza los días y turnos de la semana | `apiresponse.Response{Data: HorarioSemanaResponse}` |
 | `POST` | `/api/v1/admin/horario/plantilla` | Aplica una plantilla de horario estándar en 1 clic | `apiresponse.Response{Data: HorarioSemanaResponse}` |
-| `GET` | `/api/v1/admin/horario/excepciones` | Lista feriados y cierres especiales programados | `apiresponse.Response{Data: []ExcepcionHorarioDTO}` |
+| `GET` | `/api/v1/admin/horario/excepciones` | Lista feriados y cierres con filtro de vigencia (`filtro=todos\|vigentes\|pasados`), paginación (`pagina`, `limite`) y búsqueda | `apiresponse.Response{Data: ExcepcionesPaginadasResponse}` |
 | `POST` | `/api/v1/admin/horario/excepciones/precheck` | Analiza reservas en conflicto antes de guardar | `apiresponse.Response{Data: PrecheckExcepcionResponse}` |
-| `POST` | `/api/v1/admin/horario/excepciones` | Crea excepción y cancela reservas afectadas | `apiresponse.Response{Data: ExcepcionHorarioDTO}` |
+| `POST` | `/api/v1/admin/horario/excepciones` | Crea excepción y cancela reservas afectadas (requiere 100% comensales marcados si hay conflicto) | `apiresponse.Response{Data: ExcepcionHorarioDTO}` |
 | `DELETE` | `/api/v1/admin/horario/excepciones/{id}` | Elimina una excepción o feriado programado | `apiresponse.Response{Data: nil}` |
+| `POST` | `/api/v1/admin/horario/feriados-peru/cargar` | Importa automáticamente feriados oficiales del calendario peruano 2026 evitando duplicados | `apiresponse.Response{Data: map[string]int}` |
 
 ---
 

@@ -956,6 +956,93 @@ export interface ListarPersonalResponseDTO {
   };
 }
 
+// ============================================================================
+// CU-ADMIN-09: Horario de Atención y Feriados del Local
+// ============================================================================
+
+export interface TurnoHorarioDTO {
+  id?: string;
+  nombre_turno: string; // ej. "Almuerzo", "Cena", "Continuo"
+  hora_inicio: string; // "HH:MM"
+  hora_fin: string; // "HH:MM"
+}
+
+export interface DiaHorarioDTO {
+  dia_semana: number; // 1: Lunes .. 7: Domingo
+  nombre_dia: string; // "Lunes", "Martes", etc.
+  atiende: boolean;
+  turnos: TurnoHorarioDTO[];
+}
+
+export interface ConfigSemanaHorariaRequest {
+  dias: DiaHorarioDTO[];
+}
+
+export interface HorarioSemanaResponse {
+  local_id: string;
+  dias: DiaHorarioDTO[];
+  total_horas_semanales?: number;
+}
+
+export interface AplicarPlantillaRequest {
+  plantilla: 'restaurante_estandar' | 'solo_almuerzo' | 'corrido_continuo';
+}
+
+export interface ExcepcionHorarioDTO {
+  id: string;
+  local_id: string;
+  fecha: string; // "YYYY-MM-DD"
+  cerrado: boolean;
+  hora_inicio?: string | null;
+  hora_fin?: string | null;
+  motivo: string;
+  created_at: string;
+  created_by?: string;
+  reservas_canceladas_count?: number;
+}
+
+export interface PrecheckExcepcionRequest {
+  fecha: string;
+  cerrado: boolean;
+  hora_inicio?: string;
+  hora_fin?: string;
+}
+
+export interface ReservaConflictoDTO {
+  id: string;
+  cliente_nombre: string;
+  cliente_telefono: string;
+  fecha_hora: string;
+  num_personas: number;
+  mesas_asignadas: string[];
+  link_whatsapp: string;
+  notificado?: boolean;
+  metodo_notificacion?: 'whatsapp' | 'llamada' | 'presencial' | 'ninguno';
+}
+
+export interface PrecheckExcepcionResponse {
+  hay_conflictos: boolean;
+  total_afectadas: number;
+  reservas: ReservaConflictoDTO[];
+}
+
+export interface NotificacionContactoDTO {
+  reserva_id: string;
+  notificado: boolean;
+  metodo_notificacion: 'whatsapp' | 'llamada' | 'presencial' | 'ninguno';
+}
+
+export interface CrearExcepcionRequest {
+  fecha: string;
+  cerrado: boolean;
+  hora_inicio?: string;
+  hora_fin?: string;
+  motivo: string;
+  cancelar_reservas?: boolean;
+  reservas_notificadas?: NotificacionContactoDTO[];
+}
+
+
 
 
 

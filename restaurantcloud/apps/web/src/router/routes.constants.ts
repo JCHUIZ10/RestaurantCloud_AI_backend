@@ -32,6 +32,7 @@ export const ROUTES = {
   ADMIN_PROVEEDORES: '/admin/proveedores',
   ADMIN_COMPRAS: '/admin/compras',
   ADMIN_PERSONAL: '/admin/personal',
+  ADMIN_HORARIO: '/admin/horario',
   ADMIN_REPORTES_VENTAS: '/admin/reportes/ventas',
   ADMIN_REPORTES_CIERRES_Z: '/admin/reportes/cierres-z',
 

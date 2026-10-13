@@ -67,6 +67,15 @@ import {
   DesactivarEmpleadoRequestDTO,
   ResetPasswordResponseDTO,
   ListarPersonalResponseDTO,
+  DiaHorarioDTO,
+  ConfigSemanaHorariaRequest,
+  HorarioSemanaResponse,
+  AplicarPlantillaRequest,
+  ExcepcionHorarioDTO,
+  PrecheckExcepcionRequest,
+  ReservaConflictoDTO,
+  PrecheckExcepcionResponse,
+  CrearExcepcionRequest,
 } from '@/types/admin';
 
 // Identificadores Canónicos del Seed de Desarrollo Local (07_seed_local_aurea_completo.sql)
@@ -2543,6 +2552,200 @@ export const SEMILLAS_PERSONAL_AUREA: EmpleadoDetalleDTO[] = [
   },
 ];
 
+// =============================================================================
+// SEMILLAS CANÓNICAS CU-ADMIN-09: HORARIO DE ATENCIÓN Y FERIADOS DEL LOCAL
+// =============================================================================
+
+export const SEMILLAS_HORARIO_AUREA: DiaHorarioDTO[] = [
+  {
+    dia_semana: 1,
+    nombre_dia: 'Lunes',
+    atiende: true,
+    turnos: [
+      { id: 't-lun-1', nombre_turno: 'Almuerzo', hora_inicio: '12:00', hora_fin: '16:00' },
+      { id: 't-lun-2', nombre_turno: 'Cena', hora_inicio: '19:00', hora_fin: '23:30' },
+    ],
+  },
+  {
+    dia_semana: 2,
+    nombre_dia: 'Martes',
+    atiende: true,
+    turnos: [
+      { id: 't-mar-1', nombre_turno: 'Almuerzo', hora_inicio: '12:00', hora_fin: '16:00' },
+      { id: 't-mar-2', nombre_turno: 'Cena', hora_inicio: '19:00', hora_fin: '23:30' },
+    ],
+  },
+  {
+    dia_semana: 3,
+    nombre_dia: 'Miércoles',
+    atiende: true,
+    turnos: [
+      { id: 't-mie-1', nombre_turno: 'Almuerzo', hora_inicio: '12:00', hora_fin: '16:00' },
+      { id: 't-mie-2', nombre_turno: 'Cena', hora_inicio: '19:00', hora_fin: '23:30' },
+    ],
+  },
+  {
+    dia_semana: 4,
+    nombre_dia: 'Jueves',
+    atiende: true,
+    turnos: [
+      { id: 't-jue-1', nombre_turno: 'Almuerzo', hora_inicio: '12:00', hora_fin: '16:00' },
+      { id: 't-jue-2', nombre_turno: 'Cena', hora_inicio: '19:00', hora_fin: '23:30' },
+    ],
+  },
+  {
+    dia_semana: 5,
+    nombre_dia: 'Viernes',
+    atiende: true,
+    turnos: [
+      { id: 't-vie-1', nombre_turno: 'Almuerzo', hora_inicio: '12:00', hora_fin: '16:00' },
+      { id: 't-vie-2', nombre_turno: 'Cena', hora_inicio: '19:00', hora_fin: '00:30' },
+    ],
+  },
+  {
+    dia_semana: 6,
+    nombre_dia: 'Sábado',
+    atiende: true,
+    turnos: [
+      { id: 't-sab-1', nombre_turno: 'Horario Continuo', hora_inicio: '12:00', hora_fin: '00:30' },
+    ],
+  },
+  {
+    dia_semana: 7,
+    nombre_dia: 'Domingo',
+    atiende: true,
+    turnos: [
+      { id: 't-dom-1', nombre_turno: 'Almuerzo Familiar', hora_inicio: '12:00', hora_fin: '18:00' },
+    ],
+  },
+];
+
+export const SEMILLAS_EXCEPCIONES_AUREA: ExcepcionHorarioDTO[] = [
+  {
+    id: 'exc-2026-07-28',
+    local_id: CANONICAL_LOCAL_ID,
+    fecha: '2026-07-28',
+    cerrado: true,
+    hora_inicio: null,
+    hora_fin: null,
+    motivo: 'Fiestas Patrias (Independencia del Perú)',
+    created_at: '2026-01-15T10:00:00.000Z',
+    created_by: 'Administrador Áurea',
+  },
+  {
+    id: 'exc-2026-07-29',
+    local_id: CANONICAL_LOCAL_ID,
+    fecha: '2026-07-29',
+    cerrado: false,
+    hora_inicio: '12:00',
+    hora_fin: '17:00',
+    motivo: 'Fiestas Patrias (Horario Especial Feriado)',
+    created_at: '2026-01-15T10:05:00.000Z',
+    created_by: 'Administrador Áurea',
+  },
+  {
+    id: 'exc-2026-11-01',
+    local_id: CANONICAL_LOCAL_ID,
+    fecha: '2026-11-01',
+    cerrado: true,
+    hora_inicio: null,
+    hora_fin: null,
+    motivo: 'Día de Todos los Santos (Cierre por Descanso del Personal)',
+    created_at: '2026-01-15T10:10:00.000Z',
+    created_by: 'Administrador Áurea',
+  },
+  {
+    id: 'exc-2026-12-25',
+    local_id: CANONICAL_LOCAL_ID,
+    fecha: '2026-12-25',
+    cerrado: true,
+    hora_inicio: null,
+    hora_fin: null,
+    motivo: 'Navidad (Cierre Anual Obligatorio)',
+    created_at: '2026-01-15T10:15:00.000Z',
+    created_by: 'Administrador Áurea',
+    reservas_canceladas_count: 0,
+  },
+  {
+    id: 'exc-2027-01-01',
+    local_id: CANONICAL_LOCAL_ID,
+    fecha: '2027-01-01',
+    cerrado: true,
+    hora_inicio: null,
+    hora_fin: null,
+    motivo: 'Año Nuevo (Feriado Oficial)',
+    created_at: '2026-01-15T10:20:00.000Z',
+    created_by: 'Administrador Áurea',
+  },
+];
+
+export const SEMILLAS_RESERVAS_CONFLICTO_AUREA: ReservaConflictoDTO[] = [
+  {
+    id: 'res-nav-001',
+    cliente_nombre: 'María Flores Valdivia',
+    cliente_telefono: '+51 987 654 321',
+    fecha_hora: '2026-12-25T13:30:00',
+    num_personas: 4,
+    mesas_asignadas: ['Mesa 04 (Salón Principal)'],
+    link_whatsapp:
+      'https://wa.me/51987654321?text=' +
+      encodeURIComponent(
+        'Estimada María Flores Valdivia, le saludamos del Restaurante Áurea Miraflores. Nos comunicamos para informarle que debido al feriado de Navidad (25 de Diciembre) nuestro local permanecerá cerrado. Quisiéramos asistirla para reprogramar su reserva de 4 personas o coordinar una atención prioritaria en otra fecha. Quedamos atentos a su gentil respuesta.'
+      ),
+    notificado: false,
+    metodo_notificacion: 'ninguno',
+  },
+  {
+    id: 'res-nav-002',
+    cliente_nombre: 'Jorge Ramos Quispe',
+    cliente_telefono: '+51 991 223 344',
+    fecha_hora: '2026-12-25T14:00:00',
+    num_personas: 6,
+    mesas_asignadas: ['Mesa 08 (Terraza Exterior)'],
+    link_whatsapp:
+      'https://wa.me/51991223344?text=' +
+      encodeURIComponent(
+        'Estimado Jorge Ramos Quispe, le saludamos del Restaurante Áurea Miraflores. Nos comunicamos para informarle que debido al feriado de Navidad (25 de Diciembre) nuestro local permanecerá cerrado. Quisiéramos asistirlo para reprogramar su reserva de 6 personas o coordinar una atención prioritaria en otra fecha. Quedamos atentos a su gentil respuesta.'
+      ),
+    notificado: false,
+    metodo_notificacion: 'ninguno',
+  },
+  {
+    id: 'res-nav-003',
+    cliente_nombre: 'Ana Castillo Benavides',
+    cliente_telefono: '+51 976 543 210',
+    fecha_hora: '2026-12-25T20:30:00',
+    num_personas: 2,
+    mesas_asignadas: ['Mesa 02 (Salón Principal)'],
+    link_whatsapp:
+      'https://wa.me/51976543210?text=' +
+      encodeURIComponent(
+        'Estimada Ana Castillo Benavides, le saludamos del Restaurante Áurea Miraflores. Nos comunicamos para informarle que debido al feriado de Navidad (25 de Diciembre) nuestro local permanecerá cerrado. Quisiéramos asistirla para reprogramar su reserva de 2 personas o coordinar una atención prioritaria en otra fecha. Quedamos atentos a su gentil respuesta.'
+      ),
+    notificado: false,
+    metodo_notificacion: 'ninguno',
+  },
+];
+
+export const FERIADOS_PERU_2026_DEFAULT = [
+  { fecha: '2026-01-01', motivo: 'Año Nuevo' },
+  { fecha: '2026-04-02', motivo: 'Jueves Santo' },
+  { fecha: '2026-04-03', motivo: 'Viernes Santo' },
+  { fecha: '2026-05-01', motivo: 'Día del Trabajo' },
+  { fecha: '2026-06-07', motivo: 'Batalla de Arica y Día de la Bandera' },
+  { fecha: '2026-06-29', motivo: 'San Pedro y San Pablo' },
+  { fecha: '2026-07-23', motivo: 'Día de la Fuerza Aérea del Perú' },
+  { fecha: '2026-07-28', motivo: 'Fiestas Patrias (Independencia del Perú)' },
+  { fecha: '2026-07-29', motivo: 'Fiestas Patrias (Gloriosas FF.AA. y PNP)' },
+  { fecha: '2026-08-06', motivo: 'Batalla de Junín' },
+  { fecha: '2026-08-30', motivo: 'Santa Rosa de Lima' },
+  { fecha: '2026-10-08', motivo: 'Combate de Angamos' },
+  { fecha: '2026-11-01', motivo: 'Día de Todos los Santos' },
+  { fecha: '2026-12-08', motivo: 'Inmaculada Concepción' },
+  { fecha: '2026-12-09', motivo: 'Batalla de Ayacucho' },
+  { fecha: '2026-12-25', motivo: 'Navidad' },
+];
+
 // Estado en memoria simulado
 class MockAdminService {
   private pisos: PisoAdminDTO[] = JSON.parse(JSON.stringify(SEMILLAS_PISOS));
@@ -2560,6 +2763,9 @@ class MockAdminService {
   private personal: EmpleadoDetalleDTO[] = JSON.parse(JSON.stringify(SEMILLAS_PERSONAL_AUREA));
   private maxUsuariosPlan = 15;
   private planNombrePersonal = 'Plan Pro (15 cupos)';
+  private horarioSemana: DiaHorarioDTO[] = JSON.parse(JSON.stringify(SEMILLAS_HORARIO_AUREA));
+  private excepcionesHorario: ExcepcionHorarioDTO[] = JSON.parse(JSON.stringify(SEMILLAS_EXCEPCIONES_AUREA));
+  private reservasConflicto: ReservaConflictoDTO[] = JSON.parse(JSON.stringify(SEMILLAS_RESERVAS_CONFLICTO_AUREA));
 
   private calcularMetricasPiso(piso: PisoAdminDTO) {
     const activas = piso.mesas.filter((m) => m.estado === 'activa');
@@ -6241,6 +6447,400 @@ class MockAdminService {
 
   restablecerSemillasPersonal() {
     this.personal = JSON.parse(JSON.stringify(SEMILLAS_PERSONAL_AUREA));
+  }
+
+  // ============================================================================
+  // CU-ADMIN-09: Horario de Atención y Feriados del Local
+  // ============================================================================
+
+  private calcularHorasTurno(inicio: string, fin: string): number {
+    const [hIni, mIni] = inicio.split(':').map(Number);
+    const [hFin, mFin] = fin.split(':').map(Number);
+    const minIni = hIni * 60 + mIni;
+    const minFin = hFin * 60 + mFin;
+    let diff = minFin - minIni;
+    if (diff < 0) {
+      // Turno trasnochador (cruza medianoche)
+      diff += 24 * 60;
+    }
+    return Math.round((diff / 60) * 10) / 10;
+  }
+
+  private calcularTotalHorasSemanales(dias: DiaHorarioDTO[]): number {
+    let total = 0;
+    for (const d of dias) {
+      if (d.atiende && d.turnos) {
+        for (const t of d.turnos) {
+          if (t.hora_inicio && t.hora_fin) {
+            total += this.calcularHorasTurno(t.hora_inicio, t.hora_fin);
+          }
+        }
+      }
+    }
+    return Math.round(total * 10) / 10;
+  }
+
+  /**
+   * GET /api/v1/admin/horario
+   */
+  async getHorarioSemana(localId: string = CANONICAL_LOCAL_ID): Promise<ApiResponse<HorarioSemanaResponse>> {
+    await new Promise((r) => setTimeout(r, 60));
+    const totalHoras = this.calcularTotalHorasSemanales(this.horarioSemana);
+    return {
+      exito: true,
+      datos: {
+        local_id: localId,
+        dias: JSON.parse(JSON.stringify(this.horarioSemana)),
+        total_horas_semanales: totalHoras,
+      },
+    };
+  }
+
+  /**
+   * PUT /api/v1/admin/horario
+   */
+  async guardarHorarioSemana(req: ConfigSemanaHorariaRequest): Promise<ApiResponse<HorarioSemanaResponse>> {
+    await new Promise((r) => setTimeout(r, 120));
+
+    // Validar estructura
+    if (!req.dias || req.dias.length === 0) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_HORARIO_INVALIDO', mensaje: 'Debes proporcionar la configuración de los días de la semana.' }],
+      };
+    }
+
+    // Validar cada día activo
+    for (const d of req.dias) {
+      if (d.atiende) {
+        if (!d.turnos || d.turnos.length === 0) {
+          return {
+            exito: false,
+            datos: null as any,
+            errores: [{ codigo: 'ERR_TURNO_REQUERIDO', mensaje: `El día ${d.nombre_dia} está marcado como abierto pero no tiene turnos configurados.` }],
+          };
+        }
+        for (const t of d.turnos) {
+          if (!t.hora_inicio || !t.hora_fin) {
+            return {
+              exito: false,
+              datos: null as any,
+              errores: [{ codigo: 'ERR_HORAS_INCOMPLETAS', mensaje: `Turno incompleto en ${d.nombre_dia}. Ingresa hora de inicio y fin.` }],
+            };
+          }
+          if (t.hora_inicio === t.hora_fin) {
+            return {
+              exito: false,
+              datos: null as any,
+              errores: [{ codigo: 'ERR_HORAS_IDENTICAS', mensaje: `La hora de inicio y fin no pueden ser idénticas en el turno "${t.nombre_turno}" de ${d.nombre_dia}.` }],
+            };
+          }
+        }
+      }
+    }
+
+    this.horarioSemana = JSON.parse(JSON.stringify(req.dias));
+    const totalHoras = this.calcularTotalHorasSemanales(this.horarioSemana);
+
+    return {
+      exito: true,
+      datos: {
+        local_id: CANONICAL_LOCAL_ID,
+        dias: JSON.parse(JSON.stringify(this.horarioSemana)),
+        total_horas_semanales: totalHoras,
+      },
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/horario/plantilla
+   */
+  async aplicarPlantillaHorario(req: AplicarPlantillaRequest): Promise<ApiResponse<HorarioSemanaResponse>> {
+    await new Promise((r) => setTimeout(r, 100));
+
+    const nombresDias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+    if (req.plantilla === 'restaurante_estandar') {
+      this.horarioSemana = nombresDias.map((nombre, idx) => {
+        const diaSemana = idx + 1;
+        if (diaSemana <= 4) {
+          // Lunes a Jueves
+          return {
+            dia_semana: diaSemana,
+            nombre_dia: nombre,
+            atiende: true,
+            turnos: [
+              { id: `t-${diaSemana}-1`, nombre_turno: 'Almuerzo', hora_inicio: '12:00', hora_fin: '16:00' },
+              { id: `t-${diaSemana}-2`, nombre_turno: 'Cena', hora_inicio: '19:00', hora_fin: '23:30' },
+            ],
+          };
+        } else if (diaSemana === 5) {
+          // Viernes
+          return {
+            dia_semana: diaSemana,
+            nombre_dia: nombre,
+            atiende: true,
+            turnos: [
+              { id: `t-${diaSemana}-1`, nombre_turno: 'Almuerzo', hora_inicio: '12:00', hora_fin: '16:00' },
+              { id: `t-${diaSemana}-2`, nombre_turno: 'Cena', hora_inicio: '19:00', hora_fin: '00:30' },
+            ],
+          };
+        } else if (diaSemana === 6) {
+          // Sábado
+          return {
+            dia_semana: diaSemana,
+            nombre_dia: nombre,
+            atiende: true,
+            turnos: [
+              { id: `t-${diaSemana}-1`, nombre_turno: 'Horario Continuo', hora_inicio: '12:00', hora_fin: '00:30' },
+            ],
+          };
+        } else {
+          // Domingo
+          return {
+            dia_semana: diaSemana,
+            nombre_dia: nombre,
+            atiende: true,
+            turnos: [
+              { id: `t-${diaSemana}-1`, nombre_turno: 'Almuerzo Familiar', hora_inicio: '12:00', hora_fin: '18:00' },
+            ],
+          };
+        }
+      });
+    } else if (req.plantilla === 'solo_almuerzo') {
+      this.horarioSemana = nombresDias.map((nombre, idx) => ({
+        dia_semana: idx + 1,
+        nombre_dia: nombre,
+        atiende: true,
+        turnos: [
+          { id: `t-${idx + 1}-1`, nombre_turno: 'Almuerzo Ejecutivo', hora_inicio: '12:00', hora_fin: '16:30' },
+        ],
+      }));
+    } else {
+      // corrido_continuo
+      this.horarioSemana = nombresDias.map((nombre, idx) => ({
+        dia_semana: idx + 1,
+        nombre_dia: nombre,
+        atiende: true,
+        turnos: [
+          { id: `t-${idx + 1}-1`, nombre_turno: 'Turno Continuo', hora_inicio: '12:00', hora_fin: '23:00' },
+        ],
+      }));
+    }
+
+    const totalHoras = this.calcularTotalHorasSemanales(this.horarioSemana);
+    return {
+      exito: true,
+      datos: {
+        local_id: CANONICAL_LOCAL_ID,
+        dias: JSON.parse(JSON.stringify(this.horarioSemana)),
+        total_horas_semanales: totalHoras,
+      },
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/horario/excepciones
+   */
+  async getExcepcionesHorario(): Promise<ApiResponse<ExcepcionHorarioDTO[]>> {
+    await new Promise((r) => setTimeout(r, 60));
+    const ordenadas = [...this.excepcionesHorario].sort((a, b) => a.fecha.localeCompare(b.fecha));
+    return {
+      exito: true,
+      datos: ordenadas,
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/horario/excepciones/precheck
+   */
+  async precheckExcepcion(req: PrecheckExcepcionRequest): Promise<ApiResponse<PrecheckExcepcionResponse>> {
+    await new Promise((r) => setTimeout(r, 80));
+
+    // Filtrar reservas que coincidan con la fecha
+    const reservasEnFecha = this.reservasConflicto.filter((res) => res.fecha_hora.startsWith(req.fecha));
+
+    if (reservasEnFecha.length === 0) {
+      return {
+        exito: true,
+        datos: {
+          hay_conflictos: false,
+          total_afectadas: 0,
+          reservas: [],
+        },
+      };
+    }
+
+    // Si es cierre total, todas están en conflicto
+    if (req.cerrado) {
+      return {
+        exito: true,
+        datos: {
+          hay_conflictos: true,
+          total_afectadas: reservasEnFecha.length,
+          reservas: reservasEnFecha,
+        },
+      };
+    }
+
+    // Si es horario especial, evaluar si la hora de reserva cae fuera de [req.hora_inicio, req.hora_fin]
+    if (req.hora_inicio && req.hora_fin) {
+      const afectadas = reservasEnFecha.filter((res) => {
+        const horaRes = res.fecha_hora.split('T')[1]?.slice(0, 5) || '12:00';
+        return horaRes < req.hora_inicio! || horaRes > req.hora_fin!;
+      });
+
+      return {
+        exito: true,
+        datos: {
+          hay_conflictos: afectadas.length > 0,
+          total_afectadas: afectadas.length,
+          reservas: afectadas,
+        },
+      };
+    }
+
+    return {
+      exito: true,
+      datos: {
+        hay_conflictos: false,
+        total_afectadas: 0,
+        reservas: [],
+      },
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/horario/excepciones
+   */
+  async crearExcepcion(req: CrearExcepcionRequest): Promise<ApiResponse<ExcepcionHorarioDTO>> {
+    await new Promise((r) => setTimeout(r, 120));
+
+    if (!req.fecha) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_FECHA_REQUERIDA', mensaje: 'Debes seleccionar una fecha para la excepción.' }],
+      };
+    }
+
+    if (!req.motivo || req.motivo.trim().length < 3) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_MOTIVO_REQUERIDO', mensaje: 'Debes especificar el motivo o descripción del cierre o feriado.' }],
+      };
+    }
+
+    // Gestionar reservas canceladas si hubo conflicto
+    let canceladasCount = 0;
+    if (req.cancelar_reservas) {
+      const reservasEnFecha = this.reservasConflicto.filter((res) => res.fecha_hora.startsWith(req.fecha));
+      canceladasCount = reservasEnFecha.length;
+      if (req.reservas_notificadas) {
+        for (const notif of req.reservas_notificadas) {
+          const resObj = this.reservasConflicto.find((r) => r.id === notif.reserva_id);
+          if (resObj) {
+            resObj.notificado = notif.notificado;
+            resObj.metodo_notificacion = notif.metodo_notificacion;
+          }
+        }
+      }
+    }
+
+    const indiceExistente = this.excepcionesHorario.findIndex((e) => e.fecha === req.fecha);
+    const nuevaExcepcion: ExcepcionHorarioDTO = {
+      id: indiceExistente >= 0 ? this.excepcionesHorario[indiceExistente].id : `exc-${req.fecha}-${Date.now()}`,
+      local_id: CANONICAL_LOCAL_ID,
+      fecha: req.fecha,
+      cerrado: req.cerrado,
+      hora_inicio: req.cerrado ? null : req.hora_inicio || null,
+      hora_fin: req.cerrado ? null : req.hora_fin || null,
+      motivo: req.motivo.trim(),
+      created_at: new Date().toISOString(),
+      created_by: 'Administrador Áurea',
+      reservas_canceladas_count: canceladasCount,
+    };
+
+    if (indiceExistente >= 0) {
+      this.excepcionesHorario[indiceExistente] = nuevaExcepcion;
+    } else {
+      this.excepcionesHorario.push(nuevaExcepcion);
+    }
+
+    return {
+      exito: true,
+      datos: nuevaExcepcion,
+    };
+  }
+
+  /**
+   * DELETE /api/v1/admin/horario/excepciones/{id}
+   */
+  async eliminarExcepcion(id: string): Promise<ApiResponse<{ id: string; eliminado: boolean }>> {
+    await new Promise((r) => setTimeout(r, 60));
+    const idx = this.excepcionesHorario.findIndex((e) => e.id === id);
+    if (idx === -1) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_NO_ENCONTRADO', mensaje: 'La excepción no fue encontrada o ya fue eliminada.' }],
+      };
+    }
+    this.excepcionesHorario.splice(idx, 1);
+    return {
+      exito: true,
+      datos: { id, eliminado: true },
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/horario/feriados-peru/cargar
+   */
+  async cargarFeriadosNacionalesPeru(): Promise<ApiResponse<{ agregados: number; total: number }>> {
+    await new Promise((r) => setTimeout(r, 100));
+    let agregados = 0;
+    for (const f of FERIADOS_PERU_2026_DEFAULT) {
+      const existe = this.excepcionesHorario.some((e) => e.fecha === f.fecha);
+      if (!existe) {
+        this.excepcionesHorario.push({
+          id: `exc-peru-${f.fecha}`,
+          local_id: CANONICAL_LOCAL_ID,
+          fecha: f.fecha,
+          cerrado: true,
+          hora_inicio: null,
+          hora_fin: null,
+          motivo: `${f.motivo} (Feriado Nacional)`,
+          created_at: new Date().toISOString(),
+          created_by: 'Calendario Oficial Perú 2026',
+        });
+        agregados++;
+      }
+    }
+    return {
+      exito: true,
+      datos: {
+        agregados,
+        total: this.excepcionesHorario.length,
+      },
+    };
+  }
+
+  // Métodos de simulación para QA Test Bench (CU-ADMIN-09)
+  simularSedeSinHorario() {
+    this.horarioSemana = [];
+  }
+
+  simularConflictoNavidad() {
+    this.excepcionesHorario = this.excepcionesHorario.filter((e) => e.fecha !== '2026-12-25');
+    this.reservasConflicto = JSON.parse(JSON.stringify(SEMILLAS_RESERVAS_CONFLICTO_AUREA));
+  }
+
+  restablecerSemillasHorario() {
+    this.horarioSemana = JSON.parse(JSON.stringify(SEMILLAS_HORARIO_AUREA));
+    this.excepcionesHorario = JSON.parse(JSON.stringify(SEMILLAS_EXCEPCIONES_AUREA));
+    this.reservasConflicto = JSON.parse(JSON.stringify(SEMILLAS_RESERVAS_CONFLICTO_AUREA));
   }
 }
 

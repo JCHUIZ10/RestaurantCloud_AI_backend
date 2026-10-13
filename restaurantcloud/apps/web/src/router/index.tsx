@@ -22,6 +22,7 @@ import { AdminProductosPage } from '@/modules/admin/pages/AdminProductosPage';
 import { AdminProveedoresPage } from '@/modules/admin/pages/AdminProveedoresPage';
 import { AdminComprasPage } from '@/modules/admin/pages/AdminComprasPage';
 import { AdminPersonalPage } from '@/modules/admin/pages/AdminPersonalPage';
+import { AdminHorarioPage } from '@/modules/admin/pages/AdminHorarioPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
@@ -246,6 +247,10 @@ export const router = createBrowserRouter([
       {
         path: 'personal',
         element: <AdminPersonalPage />,
+      },
+      {
+        path: 'horario',
+        element: <AdminHorarioPage />,
       },
       {
         path: 'reportes/ventas',
