@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import {
   Layers,
   Eye,
@@ -9,6 +10,7 @@ import {
   MapPin,
   ChevronRight,
 } from 'lucide-react';
+import { ROUTES } from '@/router/routes.constants';
 import { ResumenCategoriasDTO } from '@/types/admin';
 
 interface CategoriasHeaderProps {
@@ -52,6 +54,14 @@ export const CategoriasHeader: React.FC<CategoriasHeaderProps> = ({
 
         {/* Acciones Superiores */}
         <div className="flex items-center gap-2.5 shrink-0">
+          <Link
+            to={ROUTES.ADMIN_CARTA}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-aurea-champagne/80 bg-white hover:bg-aurea-champagne/20 text-aurea-navy text-sm font-semibold transition-all shadow-sm min-h-[44px]"
+            title="Ir a gestionar los productos y recetas de la carta"
+          >
+            <UtensilsCrossed className="w-4 h-4 text-aurea-copper" />
+            <span className="hidden sm:inline">Productos y Carta</span>
+          </Link>
           <button
             type="button"
             onClick={onAbrirPlantillas}

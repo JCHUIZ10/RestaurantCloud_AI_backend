@@ -470,5 +470,129 @@ export interface AjusteStockResultDTO {
   mensaje: string;
 }
 
+// =============================================================================
+// TIPOS Y DTOs PARA CU-ADMIN-04: PRODUCTOS DE LA CARTA Y RECETAS DUALES
+// =============================================================================
+
+export type ModoCalculoReceta = 'rendimiento' | 'exacto';
+export type DisponibilidadProducto = 'disponible' | 'agotado';
+export type MotivoAgotado = 'quiebre_stock_receta' | 'apagado_manual_cocina' | 'decision_admin';
+
+/**
+ * Detalle de insumo dosificado en la receta culinaria de un producto
+ */
+export interface ItemRecetaDTO {
+  insumo_id: string;
+  insumo_nombre: string;
+  unidad_medida: string;
+  modo_calculo: ModoCalculoReceta;
+  rendimiento_platos?: number | null; // Usado en modo 'rendimiento' (platos por empaque/lote)
+  cantidad_descuenta: number;         // En 'rendimiento': 1 / rendimiento_platos. En 'exacto': cantidad directa
+  costo_unitario_insumo: number;
+  costo_plato_insumo: number;         // cantidad_descuenta * costo_unitario_insumo
+  stock_actual_insumo: number;
+  raciones_disponibles_insumo: number; // Math.floor(stock_actual_insumo / cantidad_descuenta)
+}
+
+/**
+ * Ficha comercial y técnica de un producto en carta con métricas de rentabilidad
+ */
+export interface ProductoAdminDTO {
+  id: string;
+  local_id: string;
+  categoria_id: string;
+  categoria_nombre: string;
+  nombre: string;
+  descripcion?: string | null;
+  precio: number;
+  costo_estandar: number;
+  costo_teorico: number;             // Suma de costos de insumos en la receta
+  margen_bruto_pct: number;          // ((precio - costo_teorico) / precio) * 100
+  moneda: string;                    // 'PEN'
+  foto_url?: string | null;
+  disponibilidad: DisponibilidadProducto;
+  motivo_agotado?: MotivoAgotado | null;
+  requiere_preparacion: boolean;     // true: Cocina KDS; false: Despacho directo mozo/barra
+  activo: boolean;                   // true: activo en carta; false: archivado lógico
+  total_ingredientes: number;
+  insumos_en_quiebre: number;
+  receta: ItemRecetaDTO[];
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Métricas KPI del catálogo de carta
+ */
+export interface KpisCartaDTO {
+  total_productos: number;
+  disponibles: number;
+  agotados: number;
+  margen_promedio: number;
+}
+
+/**
+ * Respuesta paginada del catálogo de productos y carta (GET /api/v1/admin/productos)
+ */
+export interface ListarProductosResponseDTO {
+  kpis: KpisCartaDTO;
+  productos: ProductoAdminDTO[];
+  paginacion: {
+    total: number;
+    pagina: number;
+    limite: number;
+    total_paginas: number;
+  };
+}
+
+/**
+ * Elemento de receta en payload de creación o edición
+ */
+export interface CrearItemRecetaRequest {
+  insumo_id: string;
+  modo_calculo: ModoCalculoReceta;
+  rendimiento_platos?: number;
+  cantidad_descuenta?: number;
+}
+
+/**
+ * Request para alta o edición de producto comercial con receta atómica (POST /api/v1/admin/productos)
+ */
+export interface CrearProductoRequest {
+  categoria_id: string;
+  nombre: string;
+  descripcion?: string;
+  precio: number;
+  foto_url?: string;
+  requiere_preparacion: boolean;
+  receta: CrearItemRecetaRequest[];
+}
+
+/**
+ * Request para edición rápida de receta desde el Quick-Drawer (PUT /api/v1/admin/productos/{id}/receta)
+ */
+export interface ActualizarRecetaRequest {
+  receta: CrearItemRecetaRequest[];
+}
+
+/**
+ * Simulación de capacidad y detección de insumo cuello de botella en bodega
+ */
+export interface DetalleCapacidadInsumo {
+  insumo_id: string;
+  insumo_nombre: string;
+  stock_actual: number;
+  unidad_medida: string;
+  raciones_posibles: number;
+  es_limitante: boolean;
+}
+
+export interface SimulacionCapacidadDTO {
+  capacidad_maxima_platos: number;
+  insumo_cuello_botella_id: string;
+  insumo_cuello_botella_nombre: string;
+  detalles: DetalleCapacidadInsumo[];
+}
+
 
 

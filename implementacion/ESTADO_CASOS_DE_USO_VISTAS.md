@@ -18,7 +18,7 @@
 | **Salón & Mozo** | 8 | 8 | 0 | **100% (Completo)** |
 | **Cocina (KDS)** | 4 | 1 | 3 | **25%** |
 | **Caja & Cobranza** | 5 | 0 | 5 | 0% |
-| **Administración Local** | 16 | 2 | 14 | **12.5%** |
+| **Administración Local** | 16 | 4 | 12 | **25%** |
 | **Propietario / Tenant** | 6 | 0 | 6 | 0% |
 | **SuperAdmin SaaS** | 3 | 0 | 3 | 0% |
 
@@ -344,6 +344,26 @@
   - [`mockAdminService.ts`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/services/mockAdminService.ts): Métodos `obtenerInsumos`, `crearInsumo`, `actualizarInsumo`, `ajustarStockInsumo` (con inserción en `auditoria_stock_ajuste`), `conmutarEstadoInsumo`, `obtenerAuditoriaAjustes` y semillas canónicas de Miraflores (`07_seed_local_aurea_completo.sql`).
   - [`src/types/admin.ts`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/admin.ts): DTOs verificados contra `insumo`, `auditoria_stock_ajuste` y `producto_insumo` de PostgreSQL 16 (`InsumoAdminDTO`, `AuditoriaStockAjusteDTO`, `ResumenInventarioDTO`, `InsumosAdminResponseDTO`, `CrearInsumoRequest`, `ActualizarInsumoRequest`, `AjustarStockInsumoRequest`, `ConmutarEstadoInsumoRequest`, `AjusteStockResultDTO`).
 - **Responsive:** Soporte completo para Desktop (`1440x900`), Tablet (`768x1024`) y Smartphone (`375x812`), con objetivos táctiles $\ge 44\text{px}$.
+- **Estado de Build:** ✅ Compilado y probado en producción con 0 errores (`npm run build`).
+
+---
+
+### 2.17 `CU-ADMIN-04`: Gestionar Productos de la Carta y Recetas
+- **Ruta Activa:** `/admin/carta` ([`DashboardLayout.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/DashboardLayout.tsx))
+- **Componentes Creados:**
+  - [`AdminProductosPage.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/pages/AdminProductosPage.tsx): Orquestador reactivo del catálogo comercial de carta con soporte para filtros por categoría, disponibilidad, búsqueda por texto, paginación, modales y drawers.
+  - [`ProductosHeader.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/carta/ProductosHeader.tsx): Cabecera con migas de pan corporativas, badge de sede activa Miraflores y botón directo `[ + Nuevo Producto ]`.
+  - [`ProductosKpis.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/carta/ProductosKpis.tsx): 4 tarjetas KPI en tiempo real: *Total Platos Carta*, *Disponibles Salón*, *Agotados por Quiebre* y *Margen Bruto Promedio %*.
+  - [`ProductosToolbar.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/carta/ProductosToolbar.tsx): Buscador explícito con botón `[ Buscar ]`, tecla `Enter` y botón de limpieza `✕` (cero over-fetching), filtro segmentado de disponibilidad (*Todos*, *Disponibles*, *Agotados*) y pestañas horizontales de categorías con conteo numérico de platos.
+  - [`ProductosTable.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/carta/ProductosTable.tsx): Grilla comercial completa con precio de venta, costo teórico de ingredientes, cálculo semafórico de margen bruto (verde >65%, ámbar 50-65%, rojo <50%) con mini-barra de progreso, badges de destino operativo (*Cocina KDS* vs *Directo Salón*), conmutador interactivo de disponibilidad, botón `[ Ver Receta ]` hacia Quick-Drawer, `[ Editar ]`, `[ Archivar ]` no destructivo, banner inferior de protección de auditoría y paginador interactivo (10, 20, 50 por página con selector de rango).
+  - [`ModalCrearEditarProducto.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/carta/ModalCrearEditarProducto.tsx): Modal en 2 pasos: *Paso 1: Datos Comerciales* (Categoría obligatoria con enlace bloqueante a `CU-ADMIN-02`, nombre único, precio > 0, destino operativo) y *Paso 2: Receta e Insumos (Motor Dual)* con selector de modo (*[ Rinde por Lote ]* vs *[ Cantidad Directa ]*), y barra inferior en tiempo real `LiveProfitabilityBar` con precio, costo, utilidad y margen bruto %.
+  - [`DrawerCalibrarReceta.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/carta/DrawerCalibrarReceta.tsx): Quick-Drawer lateral deslizable con tarjeta *Pantry Bottleneck Card* (Simulador de Capacidad en Bodega que proyecta raciones máximas antes de quiebre y destaca el insumo cuello de botella limitante) y editor ágil de dosificación y rendimientos sin recargar.
+  - [`OnboardingCartaVacia.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/carta/OnboardingCartaVacia.tsx): Estado vacío guiado para locales en blanco orientando la secuencia: Categoría (`CU-ADMIN-02`) $\rightarrow$ Insumos (`CU-ADMIN-03`) $\rightarrow$ Platos y Recetas Duales (`CU-ADMIN-04`).
+  - [`DemoAdminProductosWidget.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/components/carta/DemoAdminProductosWidget.tsx): Widget flotante para QA con botones para simular quiebre de limón (stock 0 con pase automático de Ceviche y Causa a Agotado), reposición con 10 kg, simular carta vacía y restablecer semillas canónicas de Áurea.
+- **Servicios y DTOs:**
+  - [`mockAdminService.ts`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/admin/services/mockAdminService.ts): Métodos `obtenerProductos`, `obtenerProductoPorId`, `crearProducto`, `actualizarProducto`, `actualizarReceta`, `conmutarDisponibilidadProducto`, `archivarProducto` (`activo = false`) y `simularCapacidadBodega`.
+  - [`src/types/admin.ts`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/admin.ts): DTOs auditados 1:1 contra `producto` y `producto_insumo` de PostgreSQL 16 (`ProductoAdminDTO`, `ItemRecetaDTO`, `KpisCartaDTO`, `ListarProductosResponseDTO`, `CrearProductoRequest`, `ActualizarRecetaRequest`, `SimulacionCapacidadDTO`).
+- **Responsive:** Touch targets $\ge 44\text{px}$, adaptado a Desktop (`1440x900`), Tablet (`768x1024`) y Mobile (`375x812`).
 - **Estado de Build:** ✅ Compilado y probado en producción con 0 errores (`npm run build`).
 
 ---

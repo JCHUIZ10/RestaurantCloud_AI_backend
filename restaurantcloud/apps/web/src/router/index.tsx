@@ -18,6 +18,7 @@ import { CocinaKdsPage } from '@/modules/cocina/pages/CocinaKdsPage';
 import { AdminPlanoMesasPage } from '@/modules/admin/pages/AdminPlanoMesasPage';
 import { AdminCategoriasPage } from '@/modules/admin/pages/AdminCategoriasPage';
 import { AdminInsumosPage } from '@/modules/admin/pages/AdminInsumosPage';
+import { AdminProductosPage } from '@/modules/admin/pages/AdminProductosPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
@@ -221,7 +222,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'carta',
-        element: <AdminCategoriasPage />,
+        element: <AdminProductosPage />,
       },
       {
         path: 'categorias',

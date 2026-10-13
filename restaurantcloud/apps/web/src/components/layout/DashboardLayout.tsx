@@ -15,6 +15,7 @@ import {
   Package,
   TrendingUp,
   LayoutGrid,
+  FolderTree,
 } from 'lucide-react';
 import { ROUTES } from '@/router/routes.constants';
 
@@ -36,7 +37,8 @@ export const DashboardLayout: React.FC = () => {
   const linksAdmin = [
     { label: 'Panel del Local', href: ROUTES.ADMIN_DASHBOARD, icon: TrendingUp },
     { label: 'Plano de Mesas', href: ROUTES.ADMIN_PLANO_MESAS, icon: LayoutGrid },
-    { label: 'Categorías & Carta', href: ROUTES.ADMIN_CARTA, icon: UtensilsCrossed },
+    { label: 'Categorías del Menú', href: ROUTES.ADMIN_CATEGORIAS, icon: FolderTree },
+    { label: 'Productos y Recetas', href: ROUTES.ADMIN_CARTA, icon: UtensilsCrossed },
     { label: 'Insumos & Inventario', href: ROUTES.ADMIN_INVENTARIO, icon: Package },
     { label: 'Personal de Sede', href: ROUTES.ADMIN_PERSONAL, icon: Users },
     { label: 'Reportes de Venta', href: ROUTES.ADMIN_REPORTES_VENTAS, icon: Layers },
@@ -70,9 +72,7 @@ export const DashboardLayout: React.FC = () => {
         <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
           {currentLinks.map((item) => {
             const Icon = item.icon;
-            const active =
-              location.pathname === item.href ||
-              (item.href === ROUTES.ADMIN_CARTA && location.pathname === ROUTES.ADMIN_CATEGORIAS);
+            const active = location.pathname === item.href;
             return (
               <Link
                 key={item.href}
@@ -184,10 +184,7 @@ export const DashboardLayout: React.FC = () => {
 
               <nav className="flex-1 space-y-1">
                 {currentLinks.map((item) => {
-                  const active =
-                    location.pathname === item.href ||
-                    (item.href === ROUTES.ADMIN_CARTA &&
-                      location.pathname === ROUTES.ADMIN_CATEGORIAS);
+                  const active = location.pathname === item.href;
                   return (
                     <Link
                       key={item.href}

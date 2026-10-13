@@ -29,6 +29,16 @@ import {
   AjustarStockInsumoRequest,
   ConmutarEstadoInsumoRequest,
   AjusteStockResultDTO,
+  ModoCalculoReceta,
+  DisponibilidadProducto,
+  MotivoAgotado,
+  ItemRecetaDTO,
+  ProductoAdminDTO,
+  ListarProductosResponseDTO,
+  CrearProductoRequest,
+  ActualizarRecetaRequest,
+  DetalleCapacidadInsumo,
+  SimulacionCapacidadDTO,
 } from '@/types/admin';
 
 // Identificadores Canónicos del Seed de Desarrollo Local (07_seed_local_aurea_completo.sql)
@@ -369,61 +379,178 @@ export const CATEGORIA_FONDOS_ID = '00000000-0000-4000-8000-000000000061';
 export const CATEGORIA_BEBIDAS_ID = '00000000-0000-4000-8000-000000000062';
 export const CATEGORIA_POSTRES_ID = '00000000-0000-4000-8000-000000000063';
 
+export const PROD_CEVICHE_ID = '00000000-0000-4000-8000-000000000080';
+export const PROD_LOMO_ID = '00000000-0000-4000-8000-000000000081';
+export const PROD_INCA_KOLA_ID = '00000000-0000-4000-8000-000000000082';
+export const PROD_SUSPIRO_ID = '00000000-0000-4000-8000-000000000083';
+export const PROD_CAUSA_ID = '00000000-0000-4000-8000-000000000084';
+export const PROD_SALCHIPAPA_ID = '00000000-0000-4000-8000-000000000085';
+export const PROD_POLLO_BRASA_ID = '00000000-0000-4000-8000-000000000086';
+export const PROD_CHICHA_ID = '00000000-0000-4000-8000-000000000087';
+
 export interface MockProductoRelacional {
   id: string;
   local_id: string;
   categoria_id: string;
   nombre: string;
+  descripcion?: string;
   precio: number;
-  disponibilidad: 'disponible' | 'agotado' | 'oculto';
+  costo_estandar: number;
+  moneda: string;
+  foto_url?: string | null;
+  disponibilidad: 'disponible' | 'agotado';
+  motivo_agotado?: MotivoAgotado | null;
+  requiere_preparacion: boolean;
+  activo: boolean;
   es_combo: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 const SEMILLA_PRODUCTOS_AUREA: MockProductoRelacional[] = [
   {
-    id: '00000000-0000-4000-8000-000000000080',
+    id: PROD_CEVICHE_ID,
     local_id: CANONICAL_LOCAL_ID,
     categoria_id: CATEGORIA_ENTRADAS_ID,
     nombre: 'Ceviche Clásico',
-    precio: 48.0,
+    descripcion: 'Pescado fresco del día en leche de tigre de rocoto, choclo cusqueño y camote glaseado.',
+    precio: 38.0,
+    costo_estandar: 15.2,
+    moneda: 'PEN',
+    foto_url: 'catalogo/aurea/ceviche-clasico.jpg',
     disponibilidad: 'disponible',
+    motivo_agotado: null,
+    requiere_preparacion: true,
+    activo: true,
     es_combo: false,
+    created_at: '2026-10-01T10:00:00Z',
+    updated_at: '2026-10-10T12:00:00Z',
   },
   {
-    id: '00000000-0000-4000-8000-000000000084',
-    local_id: CANONICAL_LOCAL_ID,
-    categoria_id: CATEGORIA_ENTRADAS_ID,
-    nombre: 'Causa Limeña de Pollo',
-    precio: 32.0,
-    disponibilidad: 'disponible',
-    es_combo: false,
-  },
-  {
-    id: '00000000-0000-4000-8000-000000000081',
+    id: PROD_LOMO_ID,
     local_id: CANONICAL_LOCAL_ID,
     categoria_id: CATEGORIA_FONDOS_ID,
     nombre: 'Lomo Saltado Criollo',
-    precio: 65.0,
+    descripcion: 'Lomo fino vacuno salteado al wok con cebolla roja, tomate, arroz con choclo y papas crocantes.',
+    precio: 42.0,
+    costo_estandar: 18.3,
+    moneda: 'PEN',
+    foto_url: 'catalogo/aurea/lomo-saltado.jpg',
     disponibilidad: 'disponible',
+    motivo_agotado: null,
+    requiere_preparacion: true,
+    activo: true,
     es_combo: false,
+    created_at: '2026-10-01T10:00:00Z',
+    updated_at: '2026-10-10T12:00:00Z',
   },
   {
-    id: '00000000-0000-4000-8000-000000000082',
+    id: PROD_INCA_KOLA_ID,
     local_id: CANONICAL_LOCAL_ID,
     categoria_id: CATEGORIA_BEBIDAS_ID,
     nombre: 'Inca Kola 500ml',
+    descripcion: 'Gaseosa peruana bien helada servida en mesa con hielo y rodaja de limón opcional.',
     precio: 9.0,
+    costo_estandar: 3.2,
+    moneda: 'PEN',
+    foto_url: 'catalogo/aurea/inca-kola-500.jpg',
     disponibilidad: 'disponible',
+    motivo_agotado: null,
+    requiere_preparacion: false, // Despacho directo mozo / salón
+    activo: true,
     es_combo: false,
+    created_at: '2026-10-01T10:00:00Z',
+    updated_at: '2026-10-10T12:00:00Z',
   },
   {
-    id: '00000000-0000-4000-8000-000000000083',
+    id: PROD_SUSPIRO_ID,
     local_id: CANONICAL_LOCAL_ID,
     categoria_id: CATEGORIA_POSTRES_ID,
     nombre: 'Suspiro Limeño',
-    precio: 24.0,
+    descripcion: 'Dulce tradicional de manjarblanco casero coronado con merengue al oporto y canela molida.',
+    precio: 18.0,
+    costo_estandar: 5.5,
+    moneda: 'PEN',
+    foto_url: 'catalogo/aurea/suspiro.jpg',
     disponibilidad: 'disponible',
+    motivo_agotado: null,
+    requiere_preparacion: false, // Vitrina fría directa
+    activo: true,
     es_combo: false,
+    created_at: '2026-10-01T10:00:00Z',
+    updated_at: '2026-10-10T12:00:00Z',
+  },
+  {
+    id: PROD_CAUSA_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    categoria_id: CATEGORIA_ENTRADAS_ID,
+    nombre: 'Causa Limeña de Pollo',
+    descripcion: 'Masa de papa amarilla prensada con ají amarillo y limón, rellena de pechuga deshilachada y palta fuerte.',
+    precio: 24.0,
+    costo_estandar: 9.8,
+    moneda: 'PEN',
+    foto_url: 'catalogo/aurea/causa-limena.jpg',
+    disponibilidad: 'agotado', // Semilla en quiebre por limón
+    motivo_agotado: 'quiebre_stock_receta',
+    requiere_preparacion: true,
+    activo: true,
+    es_combo: false,
+    created_at: '2026-10-01T10:00:00Z',
+    updated_at: '2026-10-11T14:00:00Z',
+  },
+  {
+    id: PROD_SALCHIPAPA_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    categoria_id: CATEGORIA_ENTRADAS_ID,
+    nombre: 'Salchipapa Clásica',
+    descripcion: 'Papas fritas crocantes con salchicha Frankfurt premium y variedad de cremas de la casa.',
+    precio: 18.0,
+    costo_estandar: 5.2,
+    moneda: 'PEN',
+    foto_url: null,
+    disponibilidad: 'disponible',
+    motivo_agotado: null,
+    requiere_preparacion: true,
+    activo: true,
+    es_combo: false,
+    created_at: '2026-10-02T10:00:00Z',
+    updated_at: '2026-10-10T12:00:00Z',
+  },
+  {
+    id: PROD_POLLO_BRASA_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    categoria_id: CATEGORIA_FONDOS_ID,
+    nombre: '1/4 Pollo a la Brasa',
+    descripcion: 'Tradicional cuarto de pollo marinado con especias peruanas, papas fritas y ensalada clásica.',
+    precio: 26.0,
+    costo_estandar: 6.8,
+    moneda: 'PEN',
+    foto_url: null,
+    disponibilidad: 'disponible',
+    motivo_agotado: null,
+    requiere_preparacion: true,
+    activo: true,
+    es_combo: false,
+    created_at: '2026-10-02T10:00:00Z',
+    updated_at: '2026-10-10T12:00:00Z',
+  },
+  {
+    id: PROD_CHICHA_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    categoria_id: CATEGORIA_BEBIDAS_ID,
+    nombre: 'Jarra de Chicha Morada 1L',
+    descripcion: 'Bebida artesanal hervida con maíz morado, piña, manzana, canela y clavo de olor.',
+    precio: 14.0,
+    costo_estandar: 3.5,
+    moneda: 'PEN',
+    foto_url: null,
+    disponibilidad: 'disponible',
+    motivo_agotado: null,
+    requiere_preparacion: false, // Jarra directa de barra
+    activo: true,
+    es_combo: false,
+    created_at: '2026-10-02T10:00:00Z',
+    updated_at: '2026-10-10T12:00:00Z',
   },
 ];
 
@@ -607,6 +734,182 @@ export const SEMILLA_RECETAS_INSUMOS: MockRecetaRelacional[] = [
   { insumo_id: INSUMO_CERVEZA_ID, producto_nombre: 'Cerveza Cusqueña Trigo' },
   { insumo_id: INSUMO_SAL_ID, producto_nombre: 'Ceviche Clásico' },
   { insumo_id: INSUMO_SAL_ID, producto_nombre: 'Lomo Saltado Criollo' },
+];
+
+/**
+ * Ficha técnica relacional del motor dual de recetas (02_schema_ddl.sql: producto_insumo)
+ */
+export interface MockProductoInsumoDetalle {
+  producto_id: string;
+  insumo_id: string;
+  modo_calculo: ModoCalculoReceta;
+  rendimiento_platos?: number | null;
+  cantidad_descuenta: number;
+}
+
+export const SEMILLAS_RECETAS_DETALLADAS: MockProductoInsumoDetalle[] = [
+  // 1. Ceviche Clásico (S/ 38.00)
+  {
+    producto_id: PROD_CEVICHE_ID,
+    insumo_id: INSUMO_PESCADO_ID,
+    modo_calculo: 'exacto',
+    rendimiento_platos: null,
+    cantidad_descuenta: 0.25, // 0.25 kg * S/ 28 = S/ 7.00
+  },
+  {
+    producto_id: PROD_CEVICHE_ID,
+    insumo_id: INSUMO_LIMON_ID,
+    modo_calculo: 'exacto',
+    rendimiento_platos: null,
+    cantidad_descuenta: 0.10, // 0.10 kg * S/ 6 = S/ 0.60
+  },
+  {
+    producto_id: PROD_CEVICHE_ID,
+    insumo_id: INSUMO_SAL_ID,
+    modo_calculo: 'rendimiento',
+    rendimiento_platos: 500, // 1 kg / 500 = 0.002 kg * S/ 2.50 = S/ 0.005
+    cantidad_descuenta: 0.002,
+  },
+
+  // 2. Lomo Saltado Criollo (S/ 42.00)
+  {
+    producto_id: PROD_LOMO_ID,
+    insumo_id: INSUMO_LOMO_ID,
+    modo_calculo: 'exacto',
+    rendimiento_platos: null,
+    cantidad_descuenta: 0.25, // 0.25 kg * S/ 42 = S/ 10.50
+  },
+  {
+    producto_id: PROD_LOMO_ID,
+    insumo_id: INSUMO_PAPA_YUNGAY_ID,
+    modo_calculo: 'rendimiento',
+    rendimiento_platos: 140, // 1 saco rinde 140 pl -> 0.00714 saco * S/ 85 = S/ 0.61
+    cantidad_descuenta: 0.00714,
+  },
+  {
+    producto_id: PROD_LOMO_ID,
+    insumo_id: INSUMO_ARROZ_ID,
+    modo_calculo: 'exacto',
+    rendimiento_platos: null,
+    cantidad_descuenta: 0.15, // 0.15 kg * S/ 5.80 = S/ 0.87
+  },
+  {
+    producto_id: PROD_LOMO_ID,
+    insumo_id: INSUMO_ACEITE_ID,
+    modo_calculo: 'rendimiento',
+    rendimiento_platos: 500, // 1 bidon rinde 500 pl -> 0.002 bidon * S/ 140 = S/ 0.28
+    cantidad_descuenta: 0.002,
+  },
+  {
+    producto_id: PROD_LOMO_ID,
+    insumo_id: INSUMO_SAL_ID,
+    modo_calculo: 'rendimiento',
+    rendimiento_platos: 500,
+    cantidad_descuenta: 0.002,
+  },
+
+  // 3. Inca Kola 500ml (S/ 9.00) - Despacho directo
+  {
+    producto_id: PROD_INCA_KOLA_ID,
+    insumo_id: INSUMO_INCA_KOLA_ID,
+    modo_calculo: 'exacto',
+    rendimiento_platos: null,
+    cantidad_descuenta: 1.0, // 1 botella * S/ 3.20 = S/ 3.20
+  },
+
+  // 4. Suspiro Limeño (S/ 18.00) - Vitrina directa
+  {
+    producto_id: PROD_SUSPIRO_ID,
+    insumo_id: INSUMO_LECHE_ID,
+    modo_calculo: 'exacto',
+    rendimiento_platos: null,
+    cantidad_descuenta: 0.5, // 0.5 tarro * S/ 4.50 = S/ 2.25
+  },
+  {
+    producto_id: PROD_SUSPIRO_ID,
+    insumo_id: INSUMO_HUEVOS_ID,
+    modo_calculo: 'exacto',
+    rendimiento_platos: null,
+    cantidad_descuenta: 2.0, // 2 huevos * S/ 0.80 = S/ 1.60
+  },
+
+  // 5. Causa Limeña de Pollo (S/ 24.00) - Quiebre por Limón
+  {
+    producto_id: PROD_CAUSA_ID,
+    insumo_id: INSUMO_PAPA_AMARILLA_ID,
+    modo_calculo: 'exacto',
+    rendimiento_platos: null,
+    cantidad_descuenta: 0.30, // 0.30 kg * S/ 4.50 = S/ 1.35
+  },
+  {
+    producto_id: PROD_CAUSA_ID,
+    insumo_id: INSUMO_LIMON_ID,
+    modo_calculo: 'exacto',
+    rendimiento_platos: null,
+    cantidad_descuenta: 0.05, // 0.05 kg * S/ 6 = S/ 0.30
+  },
+  {
+    producto_id: PROD_CAUSA_ID,
+    insumo_id: INSUMO_ACEITE_ID,
+    modo_calculo: 'rendimiento',
+    rendimiento_platos: 500,
+    cantidad_descuenta: 0.002,
+  },
+  {
+    producto_id: PROD_CAUSA_ID,
+    insumo_id: INSUMO_HUEVOS_ID,
+    modo_calculo: 'exacto',
+    rendimiento_platos: null,
+    cantidad_descuenta: 1.0,
+  },
+
+  // 6. Salchipapa Clásica (S/ 18.00)
+  {
+    producto_id: PROD_SALCHIPAPA_ID,
+    insumo_id: INSUMO_PAPA_YUNGAY_ID,
+    modo_calculo: 'rendimiento',
+    rendimiento_platos: 120,
+    cantidad_descuenta: 0.00833,
+  },
+  {
+    producto_id: PROD_SALCHIPAPA_ID,
+    insumo_id: INSUMO_ACEITE_ID,
+    modo_calculo: 'rendimiento',
+    rendimiento_platos: 400,
+    cantidad_descuenta: 0.0025,
+  },
+
+  // 7. 1/4 Pollo a la Brasa (S/ 26.00)
+  {
+    producto_id: PROD_POLLO_BRASA_ID,
+    insumo_id: INSUMO_PAPA_YUNGAY_ID,
+    modo_calculo: 'rendimiento',
+    rendimiento_platos: 100,
+    cantidad_descuenta: 0.01,
+  },
+  {
+    producto_id: PROD_POLLO_BRASA_ID,
+    insumo_id: INSUMO_ACEITE_ID,
+    modo_calculo: 'rendimiento',
+    rendimiento_platos: 300,
+    cantidad_descuenta: 0.00333,
+  },
+  {
+    producto_id: PROD_POLLO_BRASA_ID,
+    insumo_id: INSUMO_SAL_ID,
+    modo_calculo: 'rendimiento',
+    rendimiento_platos: 300,
+    cantidad_descuenta: 0.00333,
+  },
+
+  // 8. Jarra Chicha Morada 1L (S/ 14.00)
+  {
+    producto_id: PROD_CHICHA_ID,
+    insumo_id: INSUMO_LIMON_ID,
+    modo_calculo: 'exacto',
+    rendimiento_platos: null,
+    cantidad_descuenta: 0.15,
+  },
 ];
 
 export const SEMILLAS_INSUMOS_AUREA: MockInsumoRaw[] = [
@@ -830,6 +1133,7 @@ class MockAdminService {
   private productos: MockProductoRelacional[] = JSON.parse(JSON.stringify(SEMILLA_PRODUCTOS_AUREA));
   private insumos: MockInsumoRaw[] = JSON.parse(JSON.stringify(SEMILLAS_INSUMOS_AUREA));
   private recetas: MockRecetaRelacional[] = JSON.parse(JSON.stringify(SEMILLA_RECETAS_INSUMOS));
+  private recetasDetalladas: MockProductoInsumoDetalle[] = JSON.parse(JSON.stringify(SEMILLAS_RECETAS_DETALLADAS));
   private auditoriaAjustes: AuditoriaStockAjusteDTO[] = JSON.parse(JSON.stringify(SEMILLAS_AUDITORIA_INICIAL));
 
   private calcularMetricasPiso(piso: PisoAdminDTO) {
@@ -2423,6 +2727,610 @@ class MockAdminService {
     this.insumos = JSON.parse(JSON.stringify(SEMILLAS_INSUMOS_AUREA));
     this.recetas = JSON.parse(JSON.stringify(SEMILLA_RECETAS_INSUMOS));
     this.auditoriaAjustes = JSON.parse(JSON.stringify(SEMILLAS_AUDITORIA_INICIAL));
+  }
+
+  // ===========================================================================
+  // MÉTODOS DE PRODUCTOS DE LA CARTA Y RECETAS (CU-ADMIN-04)
+  // ===========================================================================
+
+  private enriquecerProducto(p: MockProductoRelacional): ProductoAdminDTO {
+    const categoria = this.categorias.find((c) => c.id === p.categoria_id);
+    const recetaRaws = this.recetasDetalladas.filter((r) => r.producto_id === p.id);
+
+    let insumosEnQuiebre = 0;
+    const recetaItems: ItemRecetaDTO[] = recetaRaws.map((r) => {
+      const ins = this.insumos.find((i) => i.id === r.insumo_id);
+      const stock = ins ? ins.stock_actual : 0;
+      const costoUnitario = ins ? ins.costo_unitario : 0;
+      const unidadMedida = ins ? ins.unidad_medida : 'und';
+      const insNombre = ins ? ins.nombre : 'Insumo desconocido';
+
+      let dosis = r.cantidad_descuenta;
+      if (r.modo_calculo === 'rendimiento' && r.rendimiento_platos && r.rendimiento_platos > 0) {
+        dosis = Number((1 / r.rendimiento_platos).toFixed(5));
+      }
+
+      const costoPlato = Number((dosis * costoUnitario).toFixed(2));
+      const racionesDisponibles = dosis > 0 ? Math.floor(stock / dosis) : 0;
+
+      if (stock <= 0 || (ins && ins.estado === 'agotado')) {
+        insumosEnQuiebre++;
+      }
+
+      return {
+        insumo_id: r.insumo_id,
+        insumo_nombre: insNombre,
+        unidad_medida: unidadMedida,
+        modo_calculo: r.modo_calculo,
+        rendimiento_platos: r.rendimiento_platos,
+        cantidad_descuenta: dosis,
+        costo_unitario_insumo: costoUnitario,
+        costo_plato_insumo: costoPlato,
+        stock_actual_insumo: stock,
+        raciones_disponibles_insumo: racionesDisponibles,
+      };
+    });
+
+    const costoTeorico = Number(
+      recetaItems.reduce((acc, it) => acc + (it.cantidad_descuenta * it.costo_unitario_insumo), 0).toFixed(2)
+    );
+
+    const margenBrutoPct =
+      p.precio > 0
+        ? Number((((p.precio - costoTeorico) / p.precio) * 100).toFixed(1))
+        : 0;
+
+    let disp = p.disponibilidad;
+    let motivo = p.motivo_agotado;
+    if (insumosEnQuiebre > 0 && disp === 'agotado' && !motivo) {
+      motivo = 'quiebre_stock_receta';
+    }
+
+    return {
+      id: p.id,
+      local_id: p.local_id,
+      categoria_id: p.categoria_id,
+      categoria_nombre: categoria ? categoria.nombre : 'Sin Categoría',
+      nombre: p.nombre,
+      descripcion: p.descripcion || null,
+      precio: p.precio,
+      costo_estandar: p.costo_estandar || costoTeorico,
+      costo_teorico: costoTeorico,
+      margen_bruto_pct: margenBrutoPct,
+      moneda: p.moneda || 'PEN',
+      foto_url: p.foto_url || null,
+      disponibilidad: disp,
+      motivo_agotado: motivo || null,
+      requiere_preparacion: p.requiere_preparacion,
+      activo: p.activo,
+      total_ingredientes: recetaItems.length,
+      insumos_en_quiebre: insumosEnQuiebre,
+      receta: recetaItems,
+      created_at: p.created_at,
+      updated_at: p.updated_at,
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/productos
+   * Retorna el catálogo con KPIs, filtros por categoría y disponibilidad, búsqueda y paginación.
+   */
+  async obtenerProductos(
+    localId: string = CANONICAL_LOCAL_ID,
+    categoriaId?: string,
+    disponibilidad: 'todos' | 'disponible' | 'agotado' = 'todos',
+    busqueda: string = '',
+    pagina: number = 1,
+    limite: number = 10
+  ): Promise<ApiResponse<ListarProductosResponseDTO>> {
+    await new Promise((r) => setTimeout(r, 120));
+
+    // Todos los productos activos del local
+    const productosLocal = this.productos.filter(
+      (p) => p.local_id === localId && p.activo === true
+    );
+
+    // Enriquecer todos para KPIs globales
+    const enriquecidos = productosLocal.map((p) => this.enriquecerProducto(p));
+
+    const totalProductos = enriquecidos.length;
+    const disponibles = enriquecidos.filter((p) => p.disponibilidad === 'disponible').length;
+    const agotados = enriquecidos.filter((p) => p.disponibilidad === 'agotado').length;
+    const margenPromedio =
+      enriquecidos.length > 0
+        ? Number(
+            (
+              enriquecidos.reduce((acc, p) => acc + p.margen_bruto_pct, 0) /
+              enriquecidos.length
+            ).toFixed(1)
+          )
+        : 0;
+
+    // Aplicar filtros a la lista paginada
+    let filtrados = enriquecidos;
+
+    if (categoriaId && categoriaId !== 'todas') {
+      filtrados = filtrados.filter((p) => p.categoria_id === categoriaId);
+    }
+
+    if (disponibilidad !== 'todos') {
+      filtrados = filtrados.filter((p) => p.disponibilidad === disponibilidad);
+    }
+
+    if (busqueda.trim()) {
+      const q = busqueda.toLowerCase().trim();
+      filtrados = filtrados.filter(
+        (p) =>
+          p.nombre.toLowerCase().includes(q) ||
+          (p.descripcion && p.descripcion.toLowerCase().includes(q)) ||
+          p.categoria_nombre.toLowerCase().includes(q)
+      );
+    }
+
+    const total = filtrados.length;
+    const totalPaginas = Math.ceil(total / limite) || 1;
+    const paginaValida = Math.max(1, Math.min(pagina, totalPaginas));
+    const inicio = (paginaValida - 1) * limite;
+    const paginados = filtrados.slice(inicio, inicio + limite);
+
+    return {
+      exito: true,
+      datos: {
+        kpis: {
+          total_productos: totalProductos,
+          disponibles,
+          agotados,
+          margen_promedio: margenPromedio,
+        },
+        productos: paginados,
+        paginacion: {
+          total,
+          pagina: paginaValida,
+          limite,
+          total_paginas: totalPaginas,
+        },
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/productos/{id}
+   */
+  async obtenerProductoPorId(id: string): Promise<ApiResponse<ProductoAdminDTO>> {
+    await new Promise((r) => setTimeout(r, 60));
+    const prod = this.productos.find((p) => p.id === id);
+    if (!prod) {
+      return {
+        exito: false,
+        datos: null as unknown as ProductoAdminDTO,
+        errores: [
+          {
+            codigo: 'ERR_PRODUCTO_NO_ENCONTRADO',
+            mensaje: 'El producto solicitado no existe en la sede.',
+          },
+        ],
+      };
+    }
+    return {
+      exito: true,
+      datos: this.enriquecerProducto(prod),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/productos
+   * Alta atómica de plato y receta vinculada con validación de categoría obligatoria y receta no vacía.
+   */
+  async crearProducto(
+    localId: string = CANONICAL_LOCAL_ID,
+    req: CrearProductoRequest
+  ): Promise<ApiResponse<ProductoAdminDTO>> {
+    await new Promise((r) => setTimeout(r, 150));
+
+    // 1. Validar categoría obligatoria
+    const catExiste = this.categorias.find((c) => c.id === req.categoria_id && c.local_id === localId);
+    if (!catExiste) {
+      return {
+        exito: false,
+        datos: null as unknown as ProductoAdminDTO,
+        errores: [
+          {
+            codigo: 'ERR_CATEGORIA_INVALIDA',
+            mensaje: 'La categoría seleccionada no existe o no pertenece a este local.',
+          },
+        ],
+      };
+    }
+
+    // 2. Validar nombre único
+    const nombreNormalizado = req.nombre.trim().toLowerCase();
+    const duplicado = this.productos.find(
+      (p) => p.local_id === localId && p.nombre.toLowerCase().trim() === nombreNormalizado && p.activo
+    );
+    if (duplicado) {
+      return {
+        exito: false,
+        datos: null as unknown as ProductoAdminDTO,
+        errores: [
+          {
+            codigo: 'ERR_PRODUCTO_DUPLICADO',
+            mensaje: `Ya existe un producto en carta con el nombre "${req.nombre.trim()}".`,
+          },
+        ],
+      };
+    }
+
+    // 3. Validar receta no vacía
+    if (!req.receta || req.receta.length === 0) {
+      return {
+        exito: false,
+        datos: null as unknown as ProductoAdminDTO,
+        errores: [
+          {
+            codigo: 'ERR_RECETA_VACIA',
+            mensaje: 'Todo plato en carta debe tener al menos un insumo en su receta para control de stock.',
+          },
+        ],
+      };
+    }
+
+    // 4. Comprobar stock de insumos para disponibilidad inicial
+    let tieneQuiebre = false;
+    for (const item of req.receta) {
+      const ins = this.insumos.find((i) => i.id === item.insumo_id);
+      if (!ins || ins.stock_actual <= 0 || ins.estado === 'agotado') {
+        tieneQuiebre = true;
+      }
+    }
+
+    const nuevoId = crypto.randomUUID();
+    const nuevoProducto: MockProductoRelacional = {
+      id: nuevoId,
+      local_id: localId,
+      categoria_id: req.categoria_id,
+      nombre: req.nombre.trim(),
+      descripcion: req.descripcion?.trim() || '',
+      precio: req.precio,
+      costo_estandar: 0,
+      moneda: 'PEN',
+      foto_url: req.foto_url || null,
+      disponibilidad: tieneQuiebre ? 'agotado' : 'disponible',
+      motivo_agotado: tieneQuiebre ? 'quiebre_stock_receta' : null,
+      requiere_preparacion: req.requiere_preparacion,
+      activo: true,
+      es_combo: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    // Insertar receta detallada
+    const nuevasRecetasDetalle: MockProductoInsumoDetalle[] = req.receta.map((r) => {
+      let dosis = r.cantidad_descuenta || 1;
+      if (r.modo_calculo === 'rendimiento' && r.rendimiento_platos && r.rendimiento_platos > 0) {
+        dosis = Number((1 / r.rendimiento_platos).toFixed(5));
+      }
+      return {
+        producto_id: nuevoId,
+        insumo_id: r.insumo_id,
+        modo_calculo: r.modo_calculo,
+        rendimiento_platos: r.rendimiento_platos || null,
+        cantidad_descuenta: dosis,
+      };
+    });
+
+    this.productos.unshift(nuevoProducto);
+    this.recetasDetalladas.push(...nuevasRecetasDetalle);
+
+    // Sincronizar this.recetas para CU-ADMIN-03
+    for (const r of req.receta) {
+      if (!this.recetas.some((x) => x.insumo_id === r.insumo_id && x.producto_nombre === nuevoProducto.nombre)) {
+        this.recetas.push({ insumo_id: r.insumo_id, producto_nombre: nuevoProducto.nombre });
+      }
+    }
+
+    return {
+      exito: true,
+      datos: this.enriquecerProducto(nuevoProducto),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * PUT /api/v1/admin/productos/{id}
+   * Actualización comercial completa del plato y su receta.
+   */
+  async actualizarProducto(
+    id: string,
+    req: Partial<CrearProductoRequest>
+  ): Promise<ApiResponse<ProductoAdminDTO>> {
+    await new Promise((r) => setTimeout(r, 120));
+    const prod = this.productos.find((p) => p.id === id);
+    if (!prod) {
+      return {
+        exito: false,
+        datos: null as unknown as ProductoAdminDTO,
+        errores: [
+          {
+            codigo: 'ERR_PRODUCTO_NO_ENCONTRADO',
+            mensaje: 'El producto a actualizar no existe.',
+          },
+        ],
+      };
+    }
+
+    if (req.nombre !== undefined) prod.nombre = req.nombre.trim();
+    if (req.categoria_id !== undefined) prod.categoria_id = req.categoria_id;
+    if (req.descripcion !== undefined) prod.descripcion = req.descripcion.trim();
+    if (req.precio !== undefined) prod.precio = req.precio;
+    if (req.requiere_preparacion !== undefined) prod.requiere_preparacion = req.requiere_preparacion;
+    if (req.foto_url !== undefined) prod.foto_url = req.foto_url;
+    prod.updated_at = new Date().toISOString();
+
+    // Actualizar receta si se proporcionó
+    if (req.receta && req.receta.length > 0) {
+      this.recetasDetalladas = this.recetasDetalladas.filter((r) => r.producto_id !== id);
+      const nuevasRecetas: MockProductoInsumoDetalle[] = req.receta.map((r) => {
+        let dosis = r.cantidad_descuenta || 1;
+        if (r.modo_calculo === 'rendimiento' && r.rendimiento_platos && r.rendimiento_platos > 0) {
+          dosis = Number((1 / r.rendimiento_platos).toFixed(5));
+        }
+        return {
+          producto_id: id,
+          insumo_id: r.insumo_id,
+          modo_calculo: r.modo_calculo,
+          rendimiento_platos: r.rendimiento_platos || null,
+          cantidad_descuenta: dosis,
+        };
+      });
+      this.recetasDetalladas.push(...nuevasRecetas);
+    }
+
+    return {
+      exito: true,
+      datos: this.enriquecerProducto(prod),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * PUT /api/v1/admin/productos/{id}/receta
+   * Calibración rápida de receta desde el Quick-Drawer.
+   */
+  async actualizarReceta(
+    productoId: string,
+    req: ActualizarRecetaRequest
+  ): Promise<ApiResponse<{ producto_id: string; nuevo_costo_teorico: number; nuevo_margen_pct: number; mensaje: string }>> {
+    await new Promise((r) => setTimeout(r, 100));
+
+    const prod = this.productos.find((p) => p.id === productoId);
+    if (!prod) {
+      return {
+        exito: false,
+        datos: null as unknown as { producto_id: string; nuevo_costo_teorico: number; nuevo_margen_pct: number; mensaje: string },
+        errores: [
+          {
+            codigo: 'ERR_PRODUCTO_NO_ENCONTRADO',
+            mensaje: 'El producto a calibrar no existe.',
+          },
+        ],
+      };
+    }
+
+    if (!req.receta || req.receta.length === 0) {
+      return {
+        exito: false,
+        datos: null as unknown as { producto_id: string; nuevo_costo_teorico: number; nuevo_margen_pct: number; mensaje: string },
+        errores: [
+          {
+            codigo: 'ERR_RECETA_VACIA',
+            mensaje: 'La receta debe contener al menos un ingrediente.',
+          },
+        ],
+      };
+    }
+
+    // Reemplazar recetas detalladas del producto
+    this.recetasDetalladas = this.recetasDetalladas.filter((r) => r.producto_id !== productoId);
+    const nuevasRecetas: MockProductoInsumoDetalle[] = req.receta.map((r) => {
+      let dosis = r.cantidad_descuenta || 1;
+      if (r.modo_calculo === 'rendimiento' && r.rendimiento_platos && r.rendimiento_platos > 0) {
+        dosis = Number((1 / r.rendimiento_platos).toFixed(5));
+      }
+      return {
+        producto_id: productoId,
+        insumo_id: r.insumo_id,
+        modo_calculo: r.modo_calculo,
+        rendimiento_platos: r.rendimiento_platos || null,
+        cantidad_descuenta: dosis,
+      };
+    });
+    this.recetasDetalladas.push(...nuevasRecetas);
+
+    prod.updated_at = new Date().toISOString();
+    const enriquecido = this.enriquecerProducto(prod);
+
+    return {
+      exito: true,
+      datos: {
+        producto_id: productoId,
+        nuevo_costo_teorico: enriquecido.costo_teorico,
+        nuevo_margen_pct: enriquecido.margen_bruto_pct,
+        mensaje: 'Receta calibrada correctamente. Costo teórico y márgenes actualizados.',
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * PATCH /api/v1/admin/productos/{id}/disponibilidad
+   * Conmutación rápida disponible <-> agotado
+   */
+  async conmutarDisponibilidadProducto(
+    id: string,
+    disponibilidad: DisponibilidadProducto,
+    motivo?: MotivoAgotado
+  ): Promise<ApiResponse<ProductoAdminDTO>> {
+    await new Promise((r) => setTimeout(r, 80));
+    const prod = this.productos.find((p) => p.id === id);
+    if (!prod) {
+      return {
+        exito: false,
+        datos: null as unknown as ProductoAdminDTO,
+        errores: [
+          {
+            codigo: 'ERR_PRODUCTO_NO_ENCONTRADO',
+            mensaje: 'Producto no encontrado.',
+          },
+        ],
+      };
+    }
+
+    prod.disponibilidad = disponibilidad;
+    prod.motivo_agotado = disponibilidad === 'agotado' ? (motivo || 'decision_admin') : null;
+    prod.updated_at = new Date().toISOString();
+
+    return {
+      exito: true,
+      datos: this.enriquecerProducto(prod),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * PATCH /api/v1/admin/productos/{id}/archivar
+   * Archivado lógico (activo = false) para proteger auditoría de comandas
+   */
+  async archivarProducto(
+    id: string
+  ): Promise<ApiResponse<{ id: string; activo: boolean; mensaje: string }>> {
+    await new Promise((r) => setTimeout(r, 100));
+    const prod = this.productos.find((p) => p.id === id);
+    if (!prod) {
+      return {
+        exito: false,
+        datos: null as unknown as { id: string; activo: boolean; mensaje: string },
+        errores: [
+          {
+            codigo: 'ERR_PRODUCTO_NO_ENCONTRADO',
+            mensaje: 'Producto no encontrado.',
+          },
+        ],
+      };
+    }
+
+    prod.activo = false;
+    prod.updated_at = new Date().toISOString();
+
+    return {
+      exito: true,
+      datos: {
+        id,
+        activo: false,
+        mensaje: `El plato "${prod.nombre}" ha sido archivado de la carta. No aparecerá en comandas de salón ni menús digitales, preservando el histórico de ventas.`,
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/productos/{id}/simulacion-capacidad
+   * Simulador de capacidad de bodega y detección del cuello de botella limitante
+   */
+  async simularCapacidadBodega(
+    productoId: string
+  ): Promise<ApiResponse<SimulacionCapacidadDTO>> {
+    await new Promise((r) => setTimeout(r, 80));
+    const prod = this.productos.find((p) => p.id === productoId);
+    if (!prod) {
+      return {
+        exito: false,
+        datos: null as unknown as SimulacionCapacidadDTO,
+        errores: [
+          {
+            codigo: 'ERR_PRODUCTO_NO_ENCONTRADO',
+            mensaje: 'Producto no encontrado.',
+          },
+        ],
+      };
+    }
+
+    const enriquecido = this.enriquecerProducto(prod);
+    const detalles: DetalleCapacidadInsumo[] = [];
+    let minRaciones = Infinity;
+    let cuelloBotellaId = '';
+    let cuelloBotellaNombre = '';
+
+    for (const item of enriquecido.receta) {
+      const raciones = item.raciones_disponibles_insumo;
+      if (raciones < minRaciones) {
+        minRaciones = raciones;
+        cuelloBotellaId = item.insumo_id;
+        cuelloBotellaNombre = item.insumo_nombre;
+      }
+    }
+
+    if (minRaciones === Infinity) {
+      minRaciones = 0;
+    }
+
+    for (const item of enriquecido.receta) {
+      detalles.push({
+        insumo_id: item.insumo_id,
+        insumo_nombre: item.insumo_nombre,
+        stock_actual: item.stock_actual_insumo,
+        unidad_medida: item.unidad_medida,
+        raciones_posibles: item.raciones_disponibles_insumo,
+        es_limitante: item.insumo_id === cuelloBotellaId,
+      });
+    }
+
+    return {
+      exito: true,
+      datos: {
+        capacidad_maxima_platos: minRaciones,
+        insumo_cuello_botella_id: cuelloBotellaId,
+        insumo_cuello_botella_nombre: cuelloBotellaNombre,
+        detalles,
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  // Métodos de simulación para DemoAdminProductosWidget
+  simularQuiebreInsumoReceta(insumoId: string = INSUMO_LIMON_ID) {
+    this.simularQuiebreInsumo(insumoId);
+    // Marcar platos afectados como agotados
+    const recetasAfectadas = this.recetasDetalladas.filter((r) => r.insumo_id === insumoId);
+    for (const r of recetasAfectadas) {
+      const prod = this.productos.find((p) => p.id === r.producto_id);
+      if (prod) {
+        prod.disponibilidad = 'agotado';
+        prod.motivo_agotado = 'quiebre_stock_receta';
+      }
+    }
+  }
+
+  simularReposicionInsumoReceta(insumoId: string = INSUMO_LIMON_ID) {
+    this.simularReposicionInsumo(insumoId, 10.0);
+    const recetasAfectadas = this.recetasDetalladas.filter((r) => r.insumo_id === insumoId);
+    for (const r of recetasAfectadas) {
+      const prod = this.productos.find((p) => p.id === r.producto_id);
+      if (prod && prod.motivo_agotado === 'quiebre_stock_receta') {
+        prod.disponibilidad = 'disponible';
+        prod.motivo_agotado = null;
+      }
+    }
+  }
+
+  simularCartaVacia(localId: string = CANONICAL_LOCAL_ID) {
+    this.productos = this.productos.filter((p) => p.local_id !== localId);
+  }
+
+  restablecerCartaAurea() {
+    this.productos = JSON.parse(JSON.stringify(SEMILLA_PRODUCTOS_AUREA));
+    this.recetasDetalladas = JSON.parse(JSON.stringify(SEMILLAS_RECETAS_DETALLADAS));
   }
 }
 
