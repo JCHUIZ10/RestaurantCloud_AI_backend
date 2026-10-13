@@ -594,5 +594,125 @@ export interface SimulacionCapacidadDTO {
   detalles: DetalleCapacidadInsumo[];
 }
 
+// ============================================================================
+// CU-ADMIN-05: Directorio y Catálogo de Proveedores de Insumos
+// ============================================================================
+
+/**
+ * Insumo suministrado habitualmente por un proveedor (proveedor_insumo_habitual)
+ */
+export interface InsumoHabitualDTO {
+  insumo_id: string;
+  nombre: string;
+  unidad_medida: string;
+  ultimo_precio: number;
+}
+
+/**
+ * Representa un proveedor en el directorio comercial principal (tabla `proveedor`)
+ */
+export interface ProveedorResumenDTO {
+  id: string;
+  local_id: string;
+  nombre: string;
+  contacto?: string | null;
+  telefono?: string | null;
+  email?: string | null;
+  direccion?: string | null;
+  activo: boolean;
+  insumos_habituales: InsumoHabitualDTO[];
+  total_compras: number;
+  total_gastado: number;
+  ultima_compra_fecha?: string | null;
+  ultima_compra_total?: number | null;
+  created_at: string;
+}
+
+/**
+ * KPIs consolidados del directorio de abastecimiento
+ */
+export interface ProveedoresKPIsDTO {
+  total_activos: number;
+  compras_mes_total: number;
+  fichas_mes_total: number;
+  proveedores_frecuentes: number;
+}
+
+/**
+ * Respuesta paginada del directorio comercial (GET /api/v1/admin/proveedores)
+ */
+export interface ProveedoresListDTO {
+  kpis: ProveedoresKPIsDTO;
+  proveedores: ProveedorResumenDTO[];
+  total_items: number;
+  pagina: number;
+  items_pagina: number;
+  total_paginas: number;
+}
+
+/**
+ * Payload para alta ágil de proveedor sin exigencia de RUC (POST /api/v1/admin/proveedores)
+ */
+export interface CrearProveedorRequestDTO {
+  nombre: string;
+  contacto?: string;
+  telefono: string;
+  email?: string;
+  direccion?: string;
+  insumos_ids?: string[];
+}
+
+/**
+ * Payload para actualizar datos comerciales de un proveedor (PUT /api/v1/admin/proveedores/{id})
+ */
+export interface ActualizarProveedorRequestDTO {
+  nombre: string;
+  contacto?: string;
+  telefono: string;
+  email?: string;
+  direccion?: string;
+  insumos_ids?: string[];
+}
+
+/**
+ * Línea de detalle de insumo en una ficha de compra histórica
+ */
+export interface ItemCompraHistorialDTO {
+  insumo_id: string;
+  insumo_nombre: string;
+  unidad_medida: string;
+  cantidad: number;
+  precio_unitario: number;
+  subtotal: number;
+}
+
+/**
+ * Ficha de compra registrada pasada de un proveedor (tabla `ficha_compra`)
+ */
+export interface FichaCompraHistorialDTO {
+  id: string;
+  numero_comprobante: string;
+  tipo_comprobante: 'factura' | 'boleta' | 'nota_venta' | 'guia_remision' | 'recibo';
+  fecha_emision: string;
+  metodo_pago: 'efectivo' | 'transferencia' | 'tarjeta_debito' | 'credito_proveedor';
+  total: number;
+  items: ItemCompraHistorialDTO[];
+}
+
+/**
+ * Datos agregados para el Quick-Drawer lateral de historial y precios
+ */
+export interface ProveedorHistorialComprasDTO {
+  proveedor_id: string;
+  proveedor_nombre: string;
+  contacto?: string | null;
+  telefono?: string | null;
+  total_facturado: number;
+  total_fichas: number;
+  variacion_precio_texto?: string;
+  compras: FichaCompraHistorialDTO[];
+}
+
+
 
 

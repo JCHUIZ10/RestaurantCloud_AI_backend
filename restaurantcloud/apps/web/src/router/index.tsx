@@ -19,6 +19,7 @@ import { AdminPlanoMesasPage } from '@/modules/admin/pages/AdminPlanoMesasPage';
 import { AdminCategoriasPage } from '@/modules/admin/pages/AdminCategoriasPage';
 import { AdminInsumosPage } from '@/modules/admin/pages/AdminInsumosPage';
 import { AdminProductosPage } from '@/modules/admin/pages/AdminProductosPage';
+import { AdminProveedoresPage } from '@/modules/admin/pages/AdminProveedoresPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
@@ -231,6 +232,10 @@ export const router = createBrowserRouter([
       {
         path: 'inventario',
         element: <AdminInsumosPage />,
+      },
+      {
+        path: 'proveedores',
+        element: <AdminProveedoresPage />,
       },
       {
         path: 'personal',

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import {
   Boxes,
   AlertTriangle,
@@ -8,7 +9,9 @@ import {
   ChevronRight,
   TrendingDown,
   Sparkles,
+  Truck,
 } from 'lucide-react';
+import { ROUTES } from '@/router/routes.constants';
 import { ResumenInventarioDTO } from '@/types/admin';
 
 interface InsumosHeaderProps {
@@ -50,6 +53,14 @@ export const InsumosHeader: React.FC<InsumosHeaderProps> = ({
 
         {/* Acciones Superiores */}
         <div className="flex items-center gap-2.5 shrink-0">
+          <Link
+            to={ROUTES.ADMIN_PROVEEDORES}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-aurea-champagne/80 bg-white hover:bg-aurea-champagne/20 text-aurea-navy text-sm font-semibold transition-all shadow-sm min-h-[44px]"
+            title="Ir a gestionar el directorio de proveedores de insumos"
+          >
+            <Truck className="w-4 h-4 text-aurea-copper" />
+            <span className="hidden sm:inline">Proveedores</span>
+          </Link>
           <button
             type="button"
             onClick={onAbrirNuevoInsumo}

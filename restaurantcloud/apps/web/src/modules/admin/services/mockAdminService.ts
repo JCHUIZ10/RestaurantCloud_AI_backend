@@ -39,6 +39,14 @@ import {
   ActualizarRecetaRequest,
   DetalleCapacidadInsumo,
   SimulacionCapacidadDTO,
+  InsumoHabitualDTO,
+  ProveedorResumenDTO,
+  ProveedoresKPIsDTO,
+  ProveedoresListDTO,
+  CrearProveedorRequestDTO,
+  ActualizarProveedorRequestDTO,
+  FichaCompraHistorialDTO,
+  ProveedorHistorialComprasDTO,
 } from '@/types/admin';
 
 // Identificadores Canónicos del Seed de Desarrollo Local (07_seed_local_aurea_completo.sql)
@@ -1124,6 +1132,303 @@ export const SEMILLAS_AUDITORIA_INICIAL: AuditoriaStockAjusteDTO[] = [
   },
 ];
 
+// ============================================================================
+// Semillas de Proveedores Comerciales (CU-ADMIN-05)
+// ============================================================================
+export const PROV_SAN_FERNANDO_ID = 'e8a93e32-23c4-4d80-87ba-15103faec121';
+export const PROV_VERDURAS_SAN_MARTIN_ID = 'e8a93e32-23c4-4d80-87ba-15103faec122';
+export const PROV_MOLINOS_CENTRO_ID = 'e8a93e32-23c4-4d80-87ba-15103faec123';
+export const PROV_SAN_PEDRO_ID = '00000000-0000-4000-8000-000000000411';
+export const PROV_LACTEOS_DON_PEPE_ID = 'e8a93e32-23c4-4d80-87ba-15103faec125';
+export const PROV_PACIFICO_ID = '00000000-0000-4000-8000-000000000412';
+export const PROV_GAS_DEL_SUR_ID = 'e8a93e32-23c4-4d80-87ba-15103faec127';
+export const PROV_ENVASES_SAN_JUAN_ID = 'e8a93e32-23c4-4d80-87ba-15103faec128';
+export const PROV_AVICOLA_CHALAN_ID = 'e8a93e32-23c4-4d80-87ba-15103faec129';
+export const PROV_FRUTAS_JUANA_ID = 'e8a93e32-23c4-4d80-87ba-15103faec130';
+export const PROV_TRANSPORTES_RAPIDOS_ID = 'e8a93e32-23c4-4d80-87ba-15103faec131';
+
+const SEMILLAS_PROVEEDORES_AUREA: ProveedorResumenDTO[] = [
+  {
+    id: PROV_SAN_FERNANDO_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Distribuidora San Fernando',
+    contacto: 'Carlos Meneses',
+    telefono: '+51 987 654 321',
+    email: 'ventas@sanfernando.pe',
+    direccion: 'Av. República de Panamá 4200, Surquillo',
+    activo: true,
+    insumos_habituales: [
+      { insumo_id: INSUMO_LOMO_ID, nombre: 'Lomo fino', unidad_medida: 'kg', ultimo_precio: 42.0 },
+      { insumo_id: INSUMO_HUEVOS_ID, nombre: 'Huevos de gallina', unidad_medida: 'jaba', ultimo_precio: 70.0 },
+    ],
+    total_compras: 14,
+    total_gastado: 38420.0,
+    ultima_compra_fecha: '2026-10-06T11:30:00Z',
+    ultima_compra_total: 2450.0,
+    created_at: '2026-08-15T09:00:00Z',
+  },
+  {
+    id: PROV_VERDURAS_SAN_MARTIN_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Verduras San Martín',
+    contacto: 'Rosa Huamán',
+    telefono: '+51 976 543 210',
+    email: 'pedidos@verdurasanmar.pe',
+    direccion: 'Mdo. Mayorista Santa Anita Pab. B Puesto 22',
+    activo: true,
+    insumos_habituales: [
+      { insumo_id: INSUMO_PAPA_AMARILLA_ID, nombre: 'Papa amarilla', unidad_medida: 'kg', ultimo_precio: 3.5 },
+      { insumo_id: INSUMO_PAPA_YUNGAY_ID, nombre: 'Papa Yungay', unidad_medida: 'saco', ultimo_precio: 70.0 },
+      { insumo_id: INSUMO_LIMON_ID, nombre: 'Limón sutil', unidad_medida: 'kg', ultimo_precio: 7.0 },
+    ],
+    total_compras: 19,
+    total_gastado: 12680.0,
+    ultima_compra_fecha: '2026-10-07T08:15:00Z',
+    ultima_compra_total: 840.0,
+    created_at: '2026-08-18T10:00:00Z',
+  },
+  {
+    id: PROV_MOLINOS_CENTRO_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Molinos del Centro S.A.C.',
+    contacto: 'Ing. Jorge Soto',
+    telefono: '+51 954 321 098',
+    email: 'ventas@molinoscentro.pe',
+    direccion: 'Carretera Central Km 8.5, Ate',
+    activo: true,
+    insumos_habituales: [
+      { insumo_id: INSUMO_ARROZ_ID, nombre: 'Arroz extra', unidad_medida: 'kg', ultimo_precio: 3.8 },
+      { insumo_id: INSUMO_ACEITE_ID, nombre: 'Aceite vegetal', unidad_medida: 'bidon', ultimo_precio: 130.0 },
+      { insumo_id: INSUMO_SAL_ID, nombre: 'Sal de mesa', unidad_medida: 'kg', ultimo_precio: 1.2 },
+    ],
+    total_compras: 8,
+    total_gastado: 15360.0,
+    ultima_compra_fecha: '2026-10-01T14:00:00Z',
+    ultima_compra_total: 1920.0,
+    created_at: '2026-08-20T11:00:00Z',
+  },
+  {
+    id: PROV_SAN_PEDRO_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Mercado Mayorista San Pedro',
+    contacto: 'Ana Torres',
+    telefono: '+51 900 100 411',
+    email: 'ventas@sanpedro.local',
+    direccion: 'Mercado San Pedro, Puesto 12, Lima',
+    activo: true,
+    insumos_habituales: [
+      { insumo_id: INSUMO_PESCADO_ID, nombre: 'Pescado fresco', unidad_medida: 'kg', ultimo_precio: 28.0 },
+      { insumo_id: INSUMO_LIMON_ID, nombre: 'Limón sutil', unidad_medida: 'kg', ultimo_precio: 7.0 },
+    ],
+    total_compras: 22,
+    total_gastado: 24150.0,
+    ultima_compra_fecha: '2026-10-08T07:45:00Z',
+    ultima_compra_total: 1120.0,
+    created_at: '2026-08-10T08:00:00Z',
+  },
+  {
+    id: PROV_LACTEOS_DON_PEPE_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Lácteos Don Pepe',
+    contacto: 'Jose Luis Meza',
+    telefono: '+51 965 432 109',
+    email: 'lacteosdonpepe@gmail.com',
+    direccion: 'Av. Los Héroes 340, San Juan de Miraflores',
+    activo: true,
+    insumos_habituales: [
+      { insumo_id: INSUMO_LECHE_ID, nombre: 'Leche fresca', unidad_medida: 'L', ultimo_precio: 4.5 },
+      { insumo_id: INSUMO_HUEVOS_ID, nombre: 'Huevos de gallina', unidad_medida: 'jaba', ultimo_precio: 70.0 },
+    ],
+    total_compras: 11,
+    total_gastado: 5280.0,
+    ultima_compra_fecha: '2026-09-28T16:20:00Z',
+    ultima_compra_total: 480.0,
+    created_at: '2026-08-25T12:00:00Z',
+  },
+  {
+    id: PROV_PACIFICO_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Bebidas del Pacífico S.A.C.',
+    contacto: 'Marcos Ríos',
+    telefono: '+51 900 100 412',
+    email: 'pedidos@pacifico.local',
+    direccion: 'Av. Argentina 890, Callao',
+    activo: true,
+    insumos_habituales: [
+      { insumo_id: INSUMO_INCA_KOLA_ID, nombre: 'Inca Kola 500ml', unidad_medida: 'botella', ultimo_precio: 2.2 },
+      { insumo_id: INSUMO_CERVEZA_ID, nombre: 'Cerveza Cusqueña', unidad_medida: 'botella', ultimo_precio: 4.8 },
+    ],
+    total_compras: 16,
+    total_gastado: 18900.0,
+    ultima_compra_fecha: '2026-10-05T10:10:00Z',
+    ultima_compra_total: 1560.0,
+    created_at: '2026-08-12T09:30:00Z',
+  },
+  {
+    id: PROV_GAS_DEL_SUR_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Gas del Sur',
+    contacto: 'Despachos Central',
+    telefono: '(01) 420-9988',
+    email: 'atencion@gasdelsur.pe',
+    direccion: 'Av. Pachacútec 1200, Villa María del Triunfo',
+    activo: true,
+    insumos_habituales: [],
+    total_compras: 6,
+    total_gastado: 3720.0,
+    ultima_compra_fecha: '2026-09-25T11:00:00Z',
+    ultima_compra_total: 620.0,
+    created_at: '2026-08-30T10:00:00Z',
+  },
+  {
+    id: PROV_ENVASES_SAN_JUAN_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Envases San Juan',
+    contacto: 'Marita Ramos',
+    telefono: '+51 943 210 987',
+    email: 'envases_sanjuan@hotmail.com',
+    direccion: 'Jr. Ayacucho 450, Centro de Lima',
+    activo: true,
+    insumos_habituales: [],
+    total_compras: 5,
+    total_gastado: 1950.0,
+    ultima_compra_fecha: '2026-09-15T15:30:00Z',
+    ultima_compra_total: 390.0,
+    created_at: '2026-09-01T14:00:00Z',
+  },
+  {
+    id: PROV_AVICOLA_CHALAN_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Avícola El Chalán',
+    contacto: 'Luis Paredes',
+    telefono: '+51 984 112 233',
+    email: 'chalan_aves@gmail.com',
+    direccion: 'Mdo. Santa Anita Pab. A Puesto 08',
+    activo: false,
+    insumos_habituales: [
+      { insumo_id: INSUMO_HUEVOS_ID, nombre: 'Huevos de gallina', unidad_medida: 'jaba', ultimo_precio: 72.0 },
+    ],
+    total_compras: 3,
+    total_gastado: 2400.0,
+    ultima_compra_fecha: '2026-08-10T09:00:00Z',
+    ultima_compra_total: 800.0,
+    created_at: '2026-07-20T08:00:00Z',
+  },
+  {
+    id: PROV_FRUTAS_JUANA_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Frutas Frescas Doña Juana',
+    contacto: 'Juana Caldas',
+    telefono: '+51 912 345 678',
+    email: 'frutasjuana@gmail.com',
+    direccion: 'Mercado Central Puesto 88',
+    activo: false,
+    insumos_habituales: [
+      { insumo_id: INSUMO_LIMON_ID, nombre: 'Limón sutil', unidad_medida: 'kg', ultimo_precio: 8.0 },
+    ],
+    total_compras: 1,
+    total_gastado: 350.0,
+    ultima_compra_fecha: '2026-07-04T10:00:00Z',
+    ultima_compra_total: 350.0,
+    created_at: '2026-06-15T11:00:00Z',
+  },
+  {
+    id: PROV_TRANSPORTES_RAPIDOS_ID,
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Transportes y Cargas Rápidas',
+    contacto: 'Roberto Vega',
+    telefono: '+51 922 444 888',
+    email: 'roberto@cargasrapidas.pe',
+    direccion: 'Av. Colonial 120, Lima',
+    activo: false,
+    insumos_habituales: [],
+    total_compras: 0,
+    total_gastado: 0.0,
+    ultima_compra_fecha: null,
+    ultima_compra_total: null,
+    created_at: '2026-09-10T16:00:00Z',
+  },
+];
+
+const SEMILLAS_FICHAS_COMPRA_HISTORIAL: Record<string, FichaCompraHistorialDTO[]> = {
+  [PROV_SAN_FERNANDO_ID]: [
+    {
+      id: 'fc-sf-001',
+      numero_comprobante: 'F001-004921',
+      tipo_comprobante: 'factura',
+      fecha_emision: '2026-10-06',
+      metodo_pago: 'transferencia',
+      total: 2450.0,
+      items: [
+        { insumo_id: INSUMO_LOMO_ID, insumo_nombre: 'Lomo fino', unidad_medida: 'kg', cantidad: 50.0, precio_unitario: 42.0, subtotal: 2100.0 },
+        { insumo_id: INSUMO_HUEVOS_ID, insumo_nombre: 'Huevos de gallina', unidad_medida: 'jaba', cantidad: 5.0, precio_unitario: 70.0, subtotal: 350.0 },
+      ],
+    },
+    {
+      id: 'fc-sf-002',
+      numero_comprobante: 'F001-004810',
+      tipo_comprobante: 'factura',
+      fecha_emision: '2026-09-29',
+      metodo_pago: 'transferencia',
+      total: 2100.0,
+      items: [
+        { insumo_id: INSUMO_LOMO_ID, insumo_nombre: 'Lomo fino', unidad_medida: 'kg', cantidad: 50.0, precio_unitario: 42.0, subtotal: 2100.0 },
+      ],
+    },
+    {
+      id: 'fc-sf-003',
+      numero_comprobante: 'B002-001092',
+      tipo_comprobante: 'boleta',
+      fecha_emision: '2026-09-15',
+      metodo_pago: 'efectivo',
+      total: 700.0,
+      items: [
+        { insumo_id: INSUMO_HUEVOS_ID, insumo_nombre: 'Huevos de gallina', unidad_medida: 'jaba', cantidad: 10.0, precio_unitario: 70.0, subtotal: 700.0 },
+      ],
+    },
+  ],
+  [PROV_VERDURAS_SAN_MARTIN_ID]: [
+    {
+      id: 'fc-vsm-001',
+      numero_comprobante: 'F002-008120',
+      tipo_comprobante: 'factura',
+      fecha_emision: '2026-10-07',
+      metodo_pago: 'transferencia',
+      total: 840.0,
+      items: [
+        { insumo_id: INSUMO_PAPA_AMARILLA_ID, insumo_nombre: 'Papa amarilla', unidad_medida: 'kg', cantidad: 100.0, precio_unitario: 3.5, subtotal: 350.0 },
+        { insumo_id: INSUMO_PAPA_YUNGAY_ID, insumo_nombre: 'Papa Yungay', unidad_medida: 'saco', cantidad: 4.0, precio_unitario: 70.0, subtotal: 280.0 },
+        { insumo_id: INSUMO_LIMON_ID, insumo_nombre: 'Limón sutil', unidad_medida: 'kg', cantidad: 30.0, precio_unitario: 7.0, subtotal: 210.0 },
+      ],
+    },
+    {
+      id: 'fc-vsm-002',
+      numero_comprobante: 'F002-007990',
+      tipo_comprobante: 'factura',
+      fecha_emision: '2026-09-30',
+      metodo_pago: 'transferencia',
+      total: 750.0,
+      items: [
+        { insumo_id: INSUMO_PAPA_AMARILLA_ID, insumo_nombre: 'Papa amarilla', unidad_medida: 'kg', cantidad: 100.0, precio_unitario: 3.5, subtotal: 350.0 },
+        { insumo_id: INSUMO_LIMON_ID, insumo_nombre: 'Limón sutil', unidad_medida: 'kg', cantidad: 40.0, precio_unitario: 10.0, subtotal: 400.0 },
+      ],
+    },
+  ],
+  [PROV_SAN_PEDRO_ID]: [
+    {
+      id: 'fc-sp-001',
+      numero_comprobante: 'F001-009821',
+      tipo_comprobante: 'factura',
+      fecha_emision: '2026-10-08',
+      metodo_pago: 'transferencia',
+      total: 1120.0,
+      items: [
+        { insumo_id: INSUMO_PESCADO_ID, insumo_nombre: 'Pescado fresco', unidad_medida: 'kg', cantidad: 40.0, precio_unitario: 28.0, subtotal: 1120.0 },
+      ],
+    },
+  ],
+};
+
 // Estado en memoria simulado
 class MockAdminService {
   private pisos: PisoAdminDTO[] = JSON.parse(JSON.stringify(SEMILLAS_PISOS));
@@ -1135,6 +1440,8 @@ class MockAdminService {
   private recetas: MockRecetaRelacional[] = JSON.parse(JSON.stringify(SEMILLA_RECETAS_INSUMOS));
   private recetasDetalladas: MockProductoInsumoDetalle[] = JSON.parse(JSON.stringify(SEMILLAS_RECETAS_DETALLADAS));
   private auditoriaAjustes: AuditoriaStockAjusteDTO[] = JSON.parse(JSON.stringify(SEMILLAS_AUDITORIA_INICIAL));
+  private proveedores: ProveedorResumenDTO[] = JSON.parse(JSON.stringify(SEMILLAS_PROVEEDORES_AUREA));
+  private historialCompras: Record<string, FichaCompraHistorialDTO[]> = JSON.parse(JSON.stringify(SEMILLAS_FICHAS_COMPRA_HISTORIAL));
 
   private calcularMetricasPiso(piso: PisoAdminDTO) {
     const activas = piso.mesas.filter((m) => m.estado === 'activa');
@@ -3331,6 +3638,344 @@ class MockAdminService {
   restablecerCartaAurea() {
     this.productos = JSON.parse(JSON.stringify(SEMILLA_PRODUCTOS_AUREA));
     this.recetasDetalladas = JSON.parse(JSON.stringify(SEMILLAS_RECETAS_DETALLADAS));
+  }
+
+  // ==========================================================================
+  // Métodos de Gestión de Proveedores (CU-ADMIN-05)
+  // ==========================================================================
+
+  async getProveedores(
+    localId: string = CANONICAL_LOCAL_ID,
+    params?: {
+      estado?: 'activos' | 'inactivos' | 'todos';
+      query?: string;
+      pagina?: number;
+      limite?: number;
+    }
+  ): Promise<ApiResponse<ProveedoresListDTO>> {
+    await new Promise((r) => setTimeout(r, 120));
+
+    const estadoFiltro = params?.estado || 'activos';
+    const query = (params?.query || '').trim().toLowerCase();
+    const pagina = params?.pagina && params.pagina > 0 ? params.pagina : 1;
+    const limite = params?.limite && params.limite > 0 ? params.limite : 10;
+
+    // Proveedores del local
+    const proveedoresLocal = this.proveedores.filter((p) => p.local_id === localId);
+
+    // Filtrar por estado
+    let filtrados = proveedoresLocal.filter((p) => {
+      if (estadoFiltro === 'activos') return p.activo;
+      if (estadoFiltro === 'inactivos') return !p.activo;
+      return true; // 'todos'
+    });
+
+    // Filtrar por query (nombre, contacto, email o insumo que suministra)
+    if (query) {
+      filtrados = filtrados.filter((p) => {
+        const coincideNombre = p.nombre.toLowerCase().includes(query);
+        const coincideContacto = p.contacto?.toLowerCase().includes(query) ?? false;
+        const coincideEmail = p.email?.toLowerCase().includes(query) ?? false;
+        const coincideInsumo = p.insumos_habituales.some((ih) =>
+          ih.nombre.toLowerCase().includes(query)
+        );
+        return coincideNombre || coincideContacto || coincideEmail || coincideInsumo;
+      });
+    }
+
+    // Ordenar por nombre
+    filtrados.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    // KPIs calculados
+    const totalActivos = proveedoresLocal.filter((p) => p.activo).length;
+    const proveedoresFrecuentes = proveedoresLocal.filter((p) => p.total_compras >= 8).length;
+    const totalItems = filtrados.length;
+    const totalPaginas = Math.ceil(totalItems / limite) || 1;
+
+    // Paginación
+    const inicio = (pagina - 1) * limite;
+    const proveedoresPaginados = filtrados.slice(inicio, inicio + limite);
+
+    const kpis: ProveedoresKPIsDTO = {
+      total_activos: totalActivos,
+      compras_mes_total: 14820.0,
+      fichas_mes_total: 24,
+      proveedores_frecuentes: proveedoresFrecuentes,
+    };
+
+    return {
+      exito: true,
+      datos: {
+        kpis,
+        proveedores: proveedoresPaginados,
+        total_items: totalItems,
+        pagina,
+        items_pagina: limite,
+        total_paginas: totalPaginas,
+      },
+    };
+  }
+
+  async crearProveedor(
+    localId: string = CANONICAL_LOCAL_ID,
+    req: CrearProveedorRequestDTO
+  ): Promise<ApiResponse<ProveedorResumenDTO>> {
+    await new Promise((r) => setTimeout(r, 150));
+
+    const nombreLimpio = req.nombre.trim();
+    if (!nombreLimpio) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_VALIDACION',
+            mensaje: 'El nombre comercial del proveedor es obligatorio.',
+          },
+        ],
+      };
+    }
+
+    // Regla de unicidad en la sede (LOWER(nombre))
+    const existe = this.proveedores.some(
+      (p) => p.local_id === localId && p.nombre.trim().toLowerCase() === nombreLimpio.toLowerCase()
+    );
+
+    if (existe) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_PROVEEDOR_DUPLICADO',
+            mensaje: `Ya existe un proveedor registrado con el nombre '${nombreLimpio}' en esta sede.`,
+            campo: 'nombre',
+          },
+        ],
+      };
+    }
+
+    // Mapear insumos habituales
+    const insumosHabituales: InsumoHabitualDTO[] = (req.insumos_ids || []).map((id) => {
+      const ins = this.insumos.find((i) => i.id === id);
+      return {
+        insumo_id: id,
+        nombre: ins ? ins.nombre : 'Insumo',
+        unidad_medida: ins ? ins.unidad_medida : 'und',
+        ultimo_precio: ins ? ins.costo_unitario : 0,
+      };
+    });
+
+    const nuevo: ProveedorResumenDTO = {
+      id: `prov-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      local_id: localId,
+      nombre: nombreLimpio,
+      contacto: req.contacto?.trim() || null,
+      telefono: req.telefono.trim(),
+      email: req.email?.trim() || null,
+      direccion: req.direccion?.trim() || null,
+      activo: true,
+      insumos_habituales: insumosHabituales,
+      total_compras: 0,
+      total_gastado: 0.0,
+      ultima_compra_fecha: null,
+      ultima_compra_total: null,
+      created_at: new Date().toISOString(),
+    };
+
+    this.proveedores.unshift(nuevo);
+
+    return {
+      exito: true,
+      datos: nuevo,
+    };
+  }
+
+  async actualizarProveedor(
+    id: string,
+    req: ActualizarProveedorRequestDTO
+  ): Promise<ApiResponse<ProveedorResumenDTO>> {
+    await new Promise((r) => setTimeout(r, 150));
+
+    const index = this.proveedores.findIndex((p) => p.id === id);
+    if (index === -1) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_NOT_FOUND',
+            mensaje: 'Proveedor no encontrado.',
+          },
+        ],
+      };
+    }
+
+    const proveedor = this.proveedores[index];
+    const nombreLimpio = req.nombre.trim();
+
+    // Comprobar colisión de nombre con otro proveedor
+    const existeOtro = this.proveedores.some(
+      (p) =>
+        p.id !== id &&
+        p.local_id === proveedor.local_id &&
+        p.nombre.trim().toLowerCase() === nombreLimpio.toLowerCase()
+    );
+
+    if (existeOtro) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_PROVEEDOR_DUPLICADO',
+            mensaje: `Ya existe otro proveedor registrado con el nombre '${nombreLimpio}'.`,
+            campo: 'nombre',
+          },
+        ],
+      };
+    }
+
+    const insumosHabituales: InsumoHabitualDTO[] = (req.insumos_ids || []).map((iid) => {
+      const ins = this.insumos.find((i) => i.id === iid);
+      return {
+        insumo_id: iid,
+        nombre: ins ? ins.nombre : 'Insumo',
+        unidad_medida: ins ? ins.unidad_medida : 'und',
+        ultimo_precio: ins ? ins.costo_unitario : 0,
+      };
+    });
+
+    proveedor.nombre = nombreLimpio;
+    proveedor.contacto = req.contacto?.trim() || null;
+    proveedor.telefono = req.telefono.trim();
+    proveedor.email = req.email?.trim() || null;
+    proveedor.direccion = req.direccion?.trim() || null;
+    proveedor.insumos_habituales = insumosHabituales;
+
+    return {
+      exito: true,
+      datos: proveedor,
+    };
+  }
+
+  async conmutarEstadoProveedor(
+    id: string,
+    activo: boolean
+  ): Promise<ApiResponse<ProveedorResumenDTO>> {
+    await new Promise((r) => setTimeout(r, 120));
+
+    const proveedor = this.proveedores.find((p) => p.id === id);
+    if (!proveedor) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_NOT_FOUND',
+            mensaje: 'Proveedor no encontrado.',
+          },
+        ],
+      };
+    }
+
+    proveedor.activo = activo;
+
+    return {
+      exito: true,
+      datos: proveedor,
+    };
+  }
+
+  async getHistorialComprasProveedor(
+    id: string
+  ): Promise<ApiResponse<ProveedorHistorialComprasDTO>> {
+    await new Promise((r) => setTimeout(r, 140));
+
+    const proveedor = this.proveedores.find((p) => p.id === id);
+    if (!proveedor) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_NOT_FOUND',
+            mensaje: 'Proveedor no encontrado.',
+          },
+        ],
+      };
+    }
+
+    const compras = this.historialCompras[id] || [];
+
+    return {
+      exito: true,
+      datos: {
+        proveedor_id: proveedor.id,
+        proveedor_nombre: proveedor.nombre,
+        contacto: proveedor.contacto,
+        telefono: proveedor.telefono,
+        total_facturado: proveedor.total_gastado,
+        total_fichas: proveedor.total_compras,
+        variacion_precio_texto:
+          compras.length > 0
+            ? 'Precios referenciales estables con variación mensual del +2.4%'
+            : 'Sin variación registrada',
+        compras,
+      },
+    };
+  }
+
+  async eliminarProveedor(id: string): Promise<ApiResponse<null>> {
+    await new Promise((r) => setTimeout(r, 150));
+
+    const index = this.proveedores.findIndex((p) => p.id === id);
+    if (index === -1) {
+      return {
+        exito: false,
+        datos: null,
+        errores: [
+          {
+            codigo: 'ERR_NOT_FOUND',
+            mensaje: 'Proveedor no encontrado.',
+          },
+        ],
+      };
+    }
+
+    const prov = this.proveedores[index];
+
+    // Regla de integridad contable (PostgreSQL ON DELETE RESTRICT)
+    if (prov.total_compras > 0) {
+      return {
+        exito: false,
+        datos: null,
+        errores: [
+          {
+            codigo: 'ERR_PROVEEDOR_TIENE_COMPRAS',
+            mensaje: `No es posible eliminar físicamente al proveedor porque cuenta con ${prov.total_compras} ficha(s) de compra registrada(s) (ON DELETE RESTRICT). Puede desactivarlo para excluirlo de futuras compras sin perder el histórico contable.`,
+          },
+        ],
+      };
+    }
+
+    // Si tiene 0 compras, se permite el borrado físico
+    this.proveedores.splice(index, 1);
+    delete this.historialCompras[id];
+
+    return {
+      exito: true,
+      datos: null,
+    };
+  }
+
+  simularDirectorioVacio(localId: string = CANONICAL_LOCAL_ID) {
+    this.proveedores = this.proveedores.filter((p) => p.local_id !== localId);
+  }
+
+  restablecerSemillasProveedores() {
+    this.proveedores = JSON.parse(JSON.stringify(SEMILLAS_PROVEEDORES_AUREA));
+    this.historialCompras = JSON.parse(JSON.stringify(SEMILLAS_FICHAS_COMPRA_HISTORIAL));
   }
 }
 

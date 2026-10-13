@@ -16,6 +16,7 @@ import {
   TrendingUp,
   LayoutGrid,
   FolderTree,
+  Truck,
 } from 'lucide-react';
 import { ROUTES } from '@/router/routes.constants';
 
@@ -40,6 +41,7 @@ export const DashboardLayout: React.FC = () => {
     { label: 'Categorías del Menú', href: ROUTES.ADMIN_CATEGORIAS, icon: FolderTree },
     { label: 'Productos y Recetas', href: ROUTES.ADMIN_CARTA, icon: UtensilsCrossed },
     { label: 'Insumos & Inventario', href: ROUTES.ADMIN_INVENTARIO, icon: Package },
+    { label: 'Proveedores', href: ROUTES.ADMIN_PROVEEDORES, icon: Truck },
     { label: 'Personal de Sede', href: ROUTES.ADMIN_PERSONAL, icon: Users },
     { label: 'Reportes de Venta', href: ROUTES.ADMIN_REPORTES_VENTAS, icon: Layers },
     { label: 'Cierres de Caja Z', href: ROUTES.ADMIN_REPORTES_CIERRES_Z, icon: CreditCard },
