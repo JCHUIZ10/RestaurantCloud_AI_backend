@@ -1084,3 +1084,138 @@ export interface PrecheckDesactivacionReservasResponse {
   total_pendientes: number;
   reservas?: ReservaResumenDTO[];
 }
+
+// ============================================================================
+// CU-ADMIN-11: Registrar y Consultar Historial de Incidentes Internos
+// Derivado estrictamente de la tabla `incidente` en 02_schema_ddl.sql (líneas 678-701)
+// ============================================================================
+
+export type CategoriaIncidente =
+  | 'servicio_cliente'
+  | 'disciplinario'
+  | 'rotura_merma'
+  | 'seguridad_higiene'
+  | 'caja_dinero'
+  | 'otro';
+
+export type GravedadIncidente = 'baja' | 'media' | 'alta';
+export type EstadoIncidente = 'abierto' | 'en_revision' | 'resuelto';
+
+export type TipoEventoBitacora =
+  | 'apertura'
+  | 'directiva_propietario'
+  | 'indagacion'
+  | 'resolucion';
+
+export interface IncidenteBitacoraItemDTO {
+  id: string;
+  incidente_id: string;
+  usuario_id: string;
+  usuario_nombre: string;
+  usuario_rol: string;
+  tipo_evento: TipoEventoBitacora;
+  nota: string;
+  created_at: string;
+}
+
+export interface IncidenteItemDTO {
+  id: string;
+  codigo: string; // ej. "INC-2026-085"
+  titulo: string;
+  categoria: CategoriaIncidente;
+  gravedad: GravedadIncidente;
+  empleado_id?: string | null;
+  empleado_nombre?: string | null;
+  fecha_hora: string;
+  estado: EstadoIncidente;
+  visto_por_propietario: boolean;
+  fecha_visto?: string | null;
+  tiene_nota_propietario: boolean;
+  total_avances: number;
+  dias_en_curso: number;
+  created_at: string;
+}
+
+export interface IncidentesKPIsDTO {
+  abiertos: number;
+  en_revision: number;
+  gravedad_alta: number;
+  resueltos_mes: number;
+  con_nota_propietario: number;
+}
+
+export interface IncidentesHistorialResponse {
+  kpis: IncidentesKPIsDTO;
+  incidentes: IncidenteItemDTO[];
+  total: number;
+  pagina: number;
+  limite: number;
+}
+
+export interface IncidenteDetalleDTO {
+  id: string;
+  local_id: string;
+  codigo: string;
+  titulo: string;
+  categoria: CategoriaIncidente;
+  gravedad: GravedadIncidente;
+  fecha_hora: string;
+  empleado_id?: string | null;
+  empleado_nombre?: string | null;
+  descripcion: string;
+  medidas_inmediatas?: string | null;
+  foto_url?: string | null;
+  registrado_por: string;
+  registrador_nombre: string;
+  estado: EstadoIncidente;
+  visto_por_propietario: boolean;
+  fecha_visto?: string | null;
+  nota_propietario?: string | null;
+  motivo_revision?: string | null;
+  resolucion_nota?: string | null;
+  resuelto_por?: string | null;
+  resuelto_por_nombre?: string | null;
+  fecha_resolucion?: string | null;
+  bitacora: IncidenteBitacoraItemDTO[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RegistrarIncidenteRequest {
+  titulo: string;
+  categoria: CategoriaIncidente;
+  gravedad: GravedadIncidente;
+  fecha_hora: string;
+  involucra_empleado: boolean;
+  empleado_id?: string | null;
+  descripcion: string;
+  medidas_inmediatas?: string | null;
+  foto_url?: string | null;
+  resolucion_inmediata?: boolean;
+  resolucion_nota?: string;
+}
+
+export interface InvestigacionIncidenteRequest {
+  motivo_revision: string;
+}
+
+export interface AgregarAvanceInvestigacionRequest {
+  nota: string;
+}
+
+export interface ResolverIncidenteRequest {
+  resolucion_nota: string;
+}
+
+export interface FiltrosIncidentesRequest {
+  estado?: EstadoIncidente | 'todos';
+  gravedad?: GravedadIncidente | 'todas';
+  categoria?: CategoriaIncidente | 'todas';
+  empleado_id?: string;
+  periodo?: 'mes_actual' | 'mes_anterior' | 'todos';
+  busqueda?: string;
+  pagina?: number;
+  limite?: number;
+}
+
+

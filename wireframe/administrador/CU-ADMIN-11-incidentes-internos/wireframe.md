@@ -373,50 +373,65 @@ type IncidentesHistorialResponse struct {
 	Limite     int                `json:"limite"`
 }
 
+// IncidenteBitacoraItemDTO hito cronológico en la línea de tiempo de auditoría
+type IncidenteBitacoraItemDTO struct {
+	ID            uuid.UUID `json:"id"`
+	IncidenteID   uuid.UUID `json:"incidente_id"`
+	UsuarioID     uuid.UUID `json:"usuario_id"`
+	UsuarioNombre string    `json:"usuario_nombre"`
+	UsuarioRol    string    `json:"usuario_rol"`
+	TipoEvento    string    `json:"tipo_evento"` // 'apertura', 'directiva_propietario', 'indagacion', 'resolucion'
+	Nota          string    `json:"nota"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
 // IncidenteDetalleDTO vista exhaustiva de un expediente para el modal de inspección
 type IncidenteDetalleDTO struct {
-	ID                  uuid.UUID          `json:"id"`
-	LocalID             uuid.UUID          `json:"local_id"`
-	Codigo              string             `json:"codigo"`
-	Titulo              string             `json:"titulo"`
-	Categoria           CategoriaIncidente `json:"categoria"`
-	Gravedad            GravedadIncidente  `json:"gravedad"`
-	FechaHora           time.Time          `json:"fecha_hora"`
-	EmpleadoID          *uuid.UUID         `json:"empleado_id,omitempty"`
-	EmpleadoNombre      *string            `json:"empleado_nombre,omitempty"`
-	Descripcion         string             `json:"descripcion"`
-	MedidasInmediatas   *string            `json:"medidas_inmediatas,omitempty"`
-	FotoURL             *string            `json:"foto_url,omitempty"`
-	RegistradoPor       uuid.UUID          `json:"registrado_por"`
-	RegistradorNombre   string             `json:"registrador_nombre"`
-	Estado              EstadoIncidente    `json:"estado"`
-	VistoPorPropietario bool               `json:"visto_por_propietario"`
-	FechaVisto          *time.Time         `json:"fecha_visto,omitempty"`
-	NotaPropietario     *string            `json:"nota_propietario,omitempty"`
-	MotivoRevision      *string            `json:"motivo_revision,omitempty"`
-	ResolucionNota      *string            `json:"resolucion_nota,omitempty"`
-	ResueltoPor         *uuid.UUID         `json:"resuelto_por,omitempty"`
-	ResueltoPorNombre   *string            `json:"resuelto_por_nombre,omitempty"`
-	FechaResolucion     *time.Time         `json:"fecha_resolucion,omitempty"`
-	CreatedAt           time.Time          `json:"created_at"`
-	UpdatedAt           time.Time          `json:"updated_at"`
+	ID                  uuid.UUID                  `json:"id"`
+	LocalID             uuid.UUID                  `json:"local_id"`
+	Codigo              string                     `json:"codigo"`
+	Titulo              string                     `json:"titulo"`
+	Categoria           CategoriaIncidente         `json:"categoria"`
+	Gravedad            GravedadIncidente          `json:"gravedad"`
+	FechaHora           time.Time                  `json:"fecha_hora"`
+	EmpleadoID          *uuid.UUID                 `json:"empleado_id,omitempty"`
+	EmpleadoNombre      *string                    `json:"empleado_nombre,omitempty"`
+	Descripcion         string                     `json:"descripcion"`
+	MedidasInmediatas   *string                    `json:"medidas_inmediatas,omitempty"`
+	FotoURL             *string                    `json:"foto_url,omitempty"`
+	RegistradoPor       uuid.UUID                  `json:"registrado_por"`
+	RegistradorNombre   string                     `json:"registrador_nombre"`
+	Estado              EstadoIncidente            `json:"estado"`
+	VistoPorPropietario bool                       `json:"visto_por_propietario"`
+	FechaVisto          *time.Time                 `json:"fecha_visto,omitempty"`
+	NotaPropietario     *string                    `json:"nota_propietario,omitempty"`
+	MotivoRevision      *string                    `json:"motivo_revision,omitempty"`
+	ResolucionNota      *string                    `json:"resolucion_nota,omitempty"`
+	ResueltoPor         *uuid.UUID                 `json:"resuelto_por,omitempty"`
+	ResueltoPorNombre   *string                    `json:"resuelto_por_nombre,omitempty"`
+	FechaResolucion     *time.Time                 `json:"fecha_resolucion,omitempty"`
+	Bitacora            []IncidenteBitacoraItemDTO `json:"bitacora"`
+	CreatedAt           time.Time                  `json:"created_at"`
+	UpdatedAt           time.Time                  `json:"updated_at"`
 }
 
 // RegistrarIncidenteRequest payload de creación enviado como multipart/form-data
 type RegistrarIncidenteRequest struct {
-	Titulo            string     `form:"titulo" binding:"required,min=5,max=120"`
-	Categoria         string     `form:"categoria" binding:"required,oneof=servicio_cliente disciplinario rotura_merma seguridad_higiene caja_dinero otro"`
-	Gravedad          string     `form:"gravedad" binding:"required,oneof=baja media alta"`
-	FechaHora         time.Time  `form:"fecha_hora" binding:"required"`
-	InvolucraEmpleado bool       `form:"involucra_empleado"`
-	EmpleadoID        *uuid.UUID `form:"empleado_id,omitempty"`
-	Descripcion       string     `form:"descripcion" binding:"required,min=15"`
-	MedidasInmediatas *string    `form:"medidas_inmediatas,omitempty"`
+	Titulo              string     `form:"titulo" binding:"required,min=5,max=120"`
+	Categoria           string     `form:"categoria" binding:"required,oneof=servicio_cliente disciplinario rotura_merma seguridad_higiene caja_dinero otro"`
+	Gravedad            string     `form:"gravedad" binding:"required,oneof=baja media alta"`
+	FechaHora           time.Time  `form:"fecha_hora" binding:"required"`
+	InvolucraEmpleado   bool       `form:"involucra_empleado"`
+	EmpleadoID          *uuid.UUID `form:"empleado_id,omitempty"`
+	Descripcion         string     `form:"descripcion" binding:"required,min=15"`
+	MedidasInmediatas   *string    `form:"medidas_inmediatas,omitempty"`
+	ResolucionInmediata bool       `form:"resolucion_inmediata"`
+	ResolucionNota      *string    `form:"resolucion_nota,omitempty"`
 }
 
-// InvestigacionIncidenteRequest payload para mover o mantener en investigación
+// InvestigacionIncidenteRequest payload para registrar un nuevo avance a la bitácora
 type InvestigacionIncidenteRequest struct {
-	MotivoRevision string `json:"motivo_revision" binding:"required,min=10,max=500"`
+	Nota string `json:"nota" binding:"required,min=5,max=1000"`
 }
 
 // ResolverIncidenteRequest payload de resolución definitiva inmutable
@@ -434,10 +449,11 @@ Todos los endpoints retornan el formato envoltorio unificado definido en `pkg/ap
 | Método | Endpoint | Descripción | Status Exitoso | Códigos de Error |
 | :--- | :--- | :--- | :---: | :--- |
 | `GET` | `/api/v1/admin/incidentes` | Consulta bandeja filtrada y métricas KPI de la sede | `200 OK` | `401 Unauthorized`, `403 Forbidden` |
-| `POST` | `/api/v1/admin/incidentes` | Registra nuevo incidente con subida opcional de evidencia multipart | `201 Created` | `400 Bad Request`, `422 Unprocessable` |
-| `GET` | `/api/v1/admin/incidentes/{id}` | Retorna el expediente completo y directivas de supervisión | `200 OK` | `404 Not Found`, `403 Forbidden` |
-| `PATCH` | `/api/v1/admin/incidentes/{id}/investigacion` | Conmuta a estado `en_revision` registrando motivo de peritaje | `200 OK` | `400 Bad Request`, `409 Conflict` |
-| `PUT` | `/api/v1/admin/incidentes/{id}/resolver` | Marca como resuelto definitivamente y congela el registro | `200 OK` | `400 Bad Request`, `409 Conflict` |
+| `POST` | `/api/v1/admin/incidentes` | Registra nuevo incidente (admite resolución inmediata si es gravedad baja/media) | `201 Created` | `400 Bad Request`, `422 Unprocessable` |
+| `GET` | `/api/v1/admin/incidentes/{id}` | Retorna el expediente completo, línea de tiempo de bitácora y estado de lectura del dueño | `200 OK` | `404 Not Found`, `403 Forbidden` |
+| `POST` | `/api/v1/admin/incidentes/{id}/bitacora` | Anexa un avance de indagación a la bitácora y conmuta a `en_revision` | `200 OK` | `400 Bad Request`, `409 Conflict` |
+| `PATCH` | `/api/v1/admin/incidentes/{id}/investigacion` | Alias compatible para agregar avance de indagación | `200 OK` | `400 Bad Request`, `409 Conflict` |
+| `PUT` | `/api/v1/admin/incidentes/{id}/resolver` | Marca como resuelto definitivamente y sella el registro en auditoría | `200 OK` | `400 Bad Request`, `409 Conflict` |
 
 ### Catálogo de Errores de Negocio (`AppError`)
 

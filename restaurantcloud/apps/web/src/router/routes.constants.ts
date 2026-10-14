@@ -34,6 +34,7 @@ export const ROUTES = {
   ADMIN_PERSONAL: '/admin/personal',
   ADMIN_HORARIO: '/admin/horario',
   ADMIN_POLITICAS_RESERVA: '/admin/politicas-reserva',
+  ADMIN_INCIDENTES: '/admin/incidentes',
   ADMIN_REPORTES_VENTAS: '/admin/reportes/ventas',
   ADMIN_REPORTES_CIERRES_Z: '/admin/reportes/cierres-z',
 

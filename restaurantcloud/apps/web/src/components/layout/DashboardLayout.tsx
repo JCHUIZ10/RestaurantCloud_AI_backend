@@ -49,6 +49,7 @@ export const DashboardLayout: React.FC = () => {
     { label: 'Personal de Sede', href: ROUTES.ADMIN_PERSONAL, icon: Users },
     { label: 'Horario & Feriados', href: ROUTES.ADMIN_HORARIO, icon: Clock },
     { label: 'Políticas de Reserva', href: ROUTES.ADMIN_POLITICAS_RESERVA, icon: CalendarClock },
+    { label: 'Incidentes Internos', href: ROUTES.ADMIN_INCIDENTES, icon: AlertTriangle },
     { label: 'Reportes de Venta', href: ROUTES.ADMIN_REPORTES_VENTAS, icon: Layers },
     { label: 'Cierres de Caja Z', href: ROUTES.ADMIN_REPORTES_CIERRES_Z, icon: CreditCard },
   ];

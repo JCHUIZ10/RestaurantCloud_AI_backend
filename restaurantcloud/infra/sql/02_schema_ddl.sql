@@ -700,6 +700,23 @@ CREATE TABLE IF NOT EXISTS incidente (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- 7.1.1 Bitácora Cronológica de Incidentes y Trazabilidad de Directivas (CU-ADMIN-11, CU-PROP-06)
+CREATE TABLE IF NOT EXISTS incidente_bitacora (
+    id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
+    incidente_id UUID NOT NULL REFERENCES incidente(id) ON DELETE CASCADE,
+    usuario_id UUID NOT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
+    tipo_evento VARCHAR(30) NOT NULL CHECK (tipo_evento IN (
+        'apertura',
+        'directiva_propietario',
+        'indagacion',
+        'resolucion'
+    )),
+    nota TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_incidente_bitacora_incidente ON incidente_bitacora(incidente_id, created_at ASC);
+
 -- 7.2 Notificaciones Transversales del Sistema (CU-TRANS-01)
 CREATE TABLE IF NOT EXISTS notificacion (
     id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),

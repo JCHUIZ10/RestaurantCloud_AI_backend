@@ -80,6 +80,16 @@ import {
   ActualizarPoliticasReservaRequest,
   ReservaResumenDTO,
   PrecheckDesactivacionReservasResponse,
+  IncidenteItemDTO,
+  IncidentesKPIsDTO,
+  IncidentesHistorialResponse,
+  IncidenteDetalleDTO,
+  IncidenteBitacoraItemDTO,
+  RegistrarIncidenteRequest,
+  InvestigacionIncidenteRequest,
+  AgregarAvanceInvestigacionRequest,
+  ResolverIncidenteRequest,
+  FiltrosIncidentesRequest,
 } from '@/types/admin';
 
 // Identificadores Canónicos del Seed de Desarrollo Local (07_seed_local_aurea_completo.sql)
@@ -2793,6 +2803,257 @@ export const SEMILLAS_RESERVAS_FUTURAS_AUREA: ReservaResumenDTO[] = [
   },
 ];
 
+// =============================================================================
+// SEMILLAS CANÓNICAS CU-ADMIN-11: HISTORIAL DE INCIDENTES (02_schema_ddl.sql)
+// =============================================================================
+export const SEMILLAS_INCIDENTES_AUREA: IncidenteDetalleDTO[] = [
+  {
+    id: '00000000-0000-4000-8000-000000000601',
+    local_id: CANONICAL_LOCAL_ID,
+    codigo: 'INC-2026-001',
+    titulo: 'Retraso de preparación en mesa 02',
+    categoria: 'servicio_cliente',
+    gravedad: 'alta',
+    fecha_hora: '2026-10-12T13:45:00Z',
+    empleado_id: '00000000-0000-4000-8000-000000000104',
+    empleado_nombre: 'Lucía Paredes (Moza)',
+    descripcion: 'La comanda 148 superó el tiempo objetivo de preparación durante el turno de almuerzo.',
+    medidas_inmediatas: 'Se informó al cliente y se priorizó el plato principal en KDS.',
+    foto_url: 'privado/empresas/aurea/incidentes/INC-2026-001/evidencia.jpg',
+    registrado_por: '00000000-0000-4000-8000-000000000102',
+    registrador_nombre: 'Marcos López (Administrador)',
+    estado: 'abierto',
+    visto_por_propietario: true,
+    fecha_visto: '2026-10-12T14:10:00Z',
+    nota_propietario: null,
+    motivo_revision: null,
+    resolucion_nota: null,
+    resuelto_por: null,
+    resuelto_por_nombre: null,
+    fecha_resolucion: null,
+    bitacora: [
+      {
+        id: 'bit-0000-0001',
+        incidente_id: '00000000-0000-4000-8000-000000000601',
+        usuario_id: '00000000-0000-4000-8000-000000000102',
+        usuario_nombre: 'Marcos López (Administrador)',
+        usuario_rol: 'admin_local',
+        tipo_evento: 'apertura',
+        nota: 'Se registró la novedad por demora en comanda 148 de mesa 02.',
+        created_at: '2026-10-12T13:50:00Z',
+      },
+    ],
+    created_at: '2026-10-12T13:50:00Z',
+    updated_at: '2026-10-12T13:50:00Z',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000685',
+    local_id: CANONICAL_LOCAL_ID,
+    codigo: 'INC-2026-085',
+    titulo: 'Diferencia negativa en arqueo de turno tarde',
+    categoria: 'caja_dinero',
+    gravedad: 'alta',
+    fecha_hora: '2026-10-11T14:15:00Z',
+    empleado_id: '00000000-0000-4000-8000-000000000106',
+    empleado_nombre: 'Carlos Mendoza (Cajero)',
+    descripcion: 'Durante el cuadre intermedio de caja de las 14:00 hrs se detectó un faltante de S/ 85.00 con respecto al reporte emitido por el POS.',
+    medidas_inmediatas: 'Se realizó un segundo conteo físico de gaveta y se aisló el reporte.',
+    foto_url: 'privado/empresas/aurea/incidentes/INC-2026-085/arqueo_caja_tarde.jpg',
+    registrado_por: '00000000-0000-4000-8000-000000000102',
+    registrador_nombre: 'Marcos López (Administrador)',
+    estado: 'en_revision',
+    visto_por_propietario: true,
+    fecha_visto: '2026-10-11T16:00:00Z',
+    nota_propietario: 'Cruzar con el reporte de transacciones electrónicas del proveedor POS y tomar declaración formal del cajero. Si el descuadre se debe a falla de sistema, conciliar con el banco; de lo contrario aplicar política.',
+    motivo_revision: 'A la espera de la conciliación de lotes con la pasarela bancaria externa.',
+    resolucion_nota: null,
+    resuelto_por: null,
+    resuelto_por_nombre: null,
+    fecha_resolucion: null,
+    bitacora: [
+      {
+        id: 'bit-0000-0085-1',
+        incidente_id: '00000000-0000-4000-8000-000000000685',
+        usuario_id: '00000000-0000-4000-8000-000000000102',
+        usuario_nombre: 'Marcos López (Administrador)',
+        usuario_rol: 'admin_local',
+        tipo_evento: 'apertura',
+        nota: 'Apertura de caso por faltante de S/ 85.00 en arqueo de caja turno tarde.',
+        created_at: '2026-10-11T14:30:00Z',
+      },
+      {
+        id: 'bit-0000-0085-2',
+        incidente_id: '00000000-0000-4000-8000-000000000685',
+        usuario_id: '00000000-0000-4000-8000-000000000101',
+        usuario_nombre: 'Roberto Silva (Propietario)',
+        usuario_rol: 'propietario',
+        tipo_evento: 'directiva_propietario',
+        nota: 'Cruzar con el reporte de transacciones electrónicas del proveedor POS y tomar declaración formal del cajero. Si el descuadre se debe a falla de sistema, conciliar con el banco; de lo contrario aplicar política.',
+        created_at: '2026-10-11T16:00:00Z',
+      },
+      {
+        id: 'bit-0000-0085-3',
+        incidente_id: '00000000-0000-4000-8000-000000000685',
+        usuario_id: '00000000-0000-4000-8000-000000000102',
+        usuario_nombre: 'Marcos López (Administrador)',
+        usuario_rol: 'admin_local',
+        tipo_evento: 'indagacion',
+        nota: 'Se tomó declaración formal a Carlos Mendoza (Cajero) y se emitió solicitud formal de conciliación al proveedor POS (Niubiz).',
+        created_at: '2026-10-12T10:30:00Z',
+      },
+    ],
+    created_at: '2026-10-11T14:30:00Z',
+    updated_at: '2026-10-11T16:00:00Z',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000684',
+    local_id: CANONICAL_LOCAL_ID,
+    codigo: 'INC-2026-084',
+    titulo: 'Rotura de copas de vino en terraza exterior',
+    categoria: 'rotura_merma',
+    gravedad: 'media',
+    fecha_hora: '2026-10-12T20:30:00Z',
+    empleado_id: null,
+    empleado_nombre: null,
+    descripcion: 'Ráfaga de viento repentina derribó bandeja de cristalería en la estación auxiliar de la terraza. Se perdieron 6 copas de vino tinto importadas.',
+    medidas_inmediatas: 'Se limpiaron esquirlas de vidrio de inmediato para resguardar a los comensales.',
+    foto_url: null,
+    registrado_por: '00000000-0000-4000-8000-000000000102',
+    registrador_nombre: 'Marcos López (Administrador)',
+    estado: 'abierto',
+    visto_por_propietario: false,
+    fecha_visto: null,
+    nota_propietario: null,
+    motivo_revision: null,
+    resolucion_nota: null,
+    resuelto_por: null,
+    resuelto_por_nombre: null,
+    fecha_resolucion: null,
+    bitacora: [
+      {
+        id: 'bit-0000-0084-1',
+        incidente_id: '00000000-0000-4000-8000-000000000684',
+        usuario_id: '00000000-0000-4000-8000-000000000102',
+        usuario_nombre: 'Marcos López (Administrador)',
+        usuario_rol: 'admin_local',
+        tipo_evento: 'apertura',
+        nota: 'Registro de rotura de cristalería por viento en terraza exterior.',
+        created_at: '2026-10-12T20:45:00Z',
+      },
+    ],
+    created_at: '2026-10-12T20:45:00Z',
+    updated_at: '2026-10-12T20:45:00Z',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000683',
+    local_id: CANONICAL_LOCAL_ID,
+    codigo: 'INC-2026-083',
+    titulo: 'Queja de comensal por demora en entrega de postre',
+    categoria: 'servicio_cliente',
+    gravedad: 'baja',
+    fecha_hora: '2026-10-05T13:10:00Z',
+    empleado_id: '00000000-0000-4000-8000-000000000104',
+    empleado_nombre: 'Lucía Paredes (Moza)',
+    descripcion: 'Mesa 04 manifestó incomodidad debido a que el Suspiro a la Limeña tardó más de 18 minutos.',
+    medidas_inmediatas: 'Se extendió una disculpa cordial y se ofreció café de cortesía.',
+    foto_url: null,
+    registrado_por: '00000000-0000-4000-8000-000000000102',
+    registrador_nombre: 'Marcos López (Administrador)',
+    estado: 'resuelto',
+    visto_por_propietario: true,
+    fecha_visto: '2026-10-05T15:00:00Z',
+    nota_propietario: null,
+    motivo_revision: null,
+    resolucion_nota: 'Se calibró el flujo de despacho en el área de repostería y el cliente se retiró satisfecho con la atención brindada.',
+    resuelto_por: '00000000-0000-4000-8000-000000000102',
+    resuelto_por_nombre: 'Marcos López (Administrador)',
+    fecha_resolucion: '2026-10-05T14:30:00Z',
+    bitacora: [
+      {
+        id: 'bit-0000-0083-1',
+        incidente_id: '00000000-0000-4000-8000-000000000683',
+        usuario_id: '00000000-0000-4000-8000-000000000102',
+        usuario_nombre: 'Marcos López (Administrador)',
+        usuario_rol: 'admin_local',
+        tipo_evento: 'apertura',
+        nota: 'Registro de queja por demora en despacho de postre.',
+        created_at: '2026-10-05T13:20:00Z',
+      },
+      {
+        id: 'bit-0000-0083-2',
+        incidente_id: '00000000-0000-4000-8000-000000000683',
+        usuario_id: '00000000-0000-4000-8000-000000000102',
+        usuario_nombre: 'Marcos López (Administrador)',
+        usuario_rol: 'admin_local',
+        tipo_evento: 'resolucion',
+        nota: 'Se calibró el flujo de despacho en el área de repostería y el cliente se retiró satisfecho con la atención brindada.',
+        created_at: '2026-10-05T14:30:00Z',
+      },
+    ],
+    created_at: '2026-10-05T13:20:00Z',
+    updated_at: '2026-10-05T14:30:00Z',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000682',
+    local_id: CANONICAL_LOCAL_ID,
+    codigo: 'INC-2026-082',
+    titulo: 'Falla temporal de termostato en freidora de papas',
+    categoria: 'seguridad_higiene',
+    gravedad: 'media',
+    fecha_hora: '2026-10-03T18:45:00Z',
+    empleado_id: null,
+    empleado_nombre: null,
+    descripcion: 'La freidora N° 2 presentó descalibración térmica alcanzando 210°C, requiriendo apagado preventivo.',
+    medidas_inmediatas: 'Se derivó la producción a la freidora de respaldo en cocina caliente.',
+    foto_url: null,
+    registrado_por: '00000000-0000-4000-8000-000000000102',
+    registrador_nombre: 'Marcos López (Administrador)',
+    estado: 'resuelto',
+    visto_por_propietario: false,
+    fecha_visto: null,
+    nota_propietario: null,
+    motivo_revision: null,
+    resolucion_nota: 'Servicio técnico de Equipamiento Gastronómico SAC reemplazó la sonda térmica y emitió certificado de calibración.',
+    resuelto_por: '00000000-0000-4000-8000-000000000102',
+    resuelto_por_nombre: 'Marcos López (Administrador)',
+    fecha_resolucion: '2026-10-04T11:00:00Z',
+    bitacora: [
+      {
+        id: 'bit-0000-0082-1',
+        incidente_id: '00000000-0000-4000-8000-000000000682',
+        usuario_id: '00000000-0000-4000-8000-000000000102',
+        usuario_nombre: 'Marcos López (Administrador)',
+        usuario_rol: 'admin_local',
+        tipo_evento: 'apertura',
+        nota: 'Registro de falla técnica por sobrecalentamiento en freidora de papas N° 2.',
+        created_at: '2026-10-03T19:00:00Z',
+      },
+      {
+        id: 'bit-0000-0082-2',
+        incidente_id: '00000000-0000-4000-8000-000000000682',
+        usuario_id: '00000000-0000-4000-8000-000000000102',
+        usuario_nombre: 'Marcos López (Administrador)',
+        usuario_rol: 'admin_local',
+        tipo_evento: 'indagacion',
+        nota: 'Se aisló el equipo y se coordinó peritaje con Equipamiento Gastronómico SAC.',
+        created_at: '2026-10-03T21:00:00Z',
+      },
+      {
+        id: 'bit-0000-0082-3',
+        incidente_id: '00000000-0000-4000-8000-000000000682',
+        usuario_id: '00000000-0000-4000-8000-000000000102',
+        usuario_nombre: 'Marcos López (Administrador)',
+        usuario_rol: 'admin_local',
+        tipo_evento: 'resolucion',
+        nota: 'Servicio técnico de Equipamiento Gastronómico SAC reemplazó la sonda térmica y emitió certificado de calibración.',
+        created_at: '2026-10-04T11:00:00Z',
+      },
+    ],
+    created_at: '2026-10-03T19:00:00Z',
+    updated_at: '2026-10-04T11:00:00Z',
+  },
+];
+
 // Estado en memoria simulado
 class MockAdminService {
   private pisos: PisoAdminDTO[] = JSON.parse(JSON.stringify(SEMILLAS_PISOS));
@@ -2816,6 +3077,8 @@ class MockAdminService {
   private politicasReserva: PoliticasReservaDTO = JSON.parse(JSON.stringify(SEMILLA_POLITICAS_RESERVA_AUREA));
   private reservasFuturasActivas: ReservaResumenDTO[] = JSON.parse(JSON.stringify(SEMILLAS_RESERVAS_FUTURAS_AUREA));
   private planSaaSActual: 'starter' | 'pro' | 'enterprise' = 'pro';
+  private incidentes: IncidenteDetalleDTO[] = JSON.parse(JSON.stringify(SEMILLAS_INCIDENTES_AUREA));
+  private seqIncidente: number = 86;
 
 
   private calcularMetricasPiso(piso: PisoAdminDTO) {
@@ -7085,6 +7348,421 @@ class MockAdminService {
 
   getReservasFuturasActivasCount() {
     return this.reservasFuturasActivas.length;
+  }
+
+  // ============================================================================
+  // CU-ADMIN-11: Registrar y Consultar Historial de Incidentes Internos
+  // ============================================================================
+
+  /**
+   * GET /api/v1/admin/incidentes
+   */
+  async getIncidentes(
+    filtros?: FiltrosIncidentesRequest,
+    _localId: string = CANONICAL_LOCAL_ID
+  ): Promise<ApiResponse<IncidentesHistorialResponse>> {
+    await new Promise((r) => setTimeout(r, 60));
+
+    // Cálculo dinámico de KPIs globales de la sede
+    const kpis: IncidentesKPIsDTO = {
+      abiertos: this.incidentes.filter((i) => i.estado === 'abierto').length,
+      en_revision: this.incidentes.filter((i) => i.estado === 'en_revision').length,
+      gravedad_alta: this.incidentes.filter((i) => i.gravedad === 'alta' && i.estado !== 'resuelto').length,
+      resueltos_mes: this.incidentes.filter((i) => i.estado === 'resuelto').length,
+      con_nota_propietario: this.incidentes.filter(
+        (i) => i.nota_propietario != null && i.nota_propietario.trim() !== ''
+      ).length,
+    };
+
+    // Aplicación de filtros
+    let filtrados = [...this.incidentes];
+
+    if (filtros?.estado && filtros.estado !== 'todos') {
+      filtrados = filtrados.filter((i) => i.estado === filtros.estado);
+    }
+
+    if (filtros?.gravedad && filtros.gravedad !== 'todas') {
+      filtrados = filtrados.filter((i) => i.gravedad === filtros.gravedad);
+    }
+
+    if (filtros?.categoria && filtros.categoria !== 'todas') {
+      filtrados = filtrados.filter((i) => i.categoria === filtros.categoria);
+    }
+
+    if (filtros?.empleado_id) {
+      filtrados = filtrados.filter((i) => i.empleado_id === filtros.empleado_id);
+    }
+
+    if (filtros?.busqueda && filtros.busqueda.trim() !== '') {
+      const q = filtros.busqueda.trim().toLowerCase();
+      filtrados = filtrados.filter(
+        (i) =>
+          i.codigo.toLowerCase().includes(q) ||
+          i.titulo.toLowerCase().includes(q) ||
+          i.descripcion.toLowerCase().includes(q) ||
+          (i.empleado_nombre && i.empleado_nombre.toLowerCase().includes(q))
+      );
+    }
+
+    // Ordenamiento descendente por fecha_hora
+    filtrados.sort((a, b) => new Date(b.fecha_hora).getTime() - new Date(a.fecha_hora).getTime());
+
+    // Paginación
+    const pagina = filtros?.pagina || 1;
+    const limite = filtros?.limite || 10;
+    const inicio = (pagina - 1) * limite;
+    const paginados = filtrados.slice(inicio, inicio + limite);
+
+    // Mapeo a IncidenteItemDTO con días en curso
+    const items: IncidenteItemDTO[] = paginados.map((inc) => {
+      const fechaOcurrido = new Date(inc.fecha_hora).getTime();
+      const ahora = Date.now();
+      const diasEnCurso = Math.max(0, Math.floor((ahora - fechaOcurrido) / (1000 * 60 * 60 * 24)));
+
+      return {
+        id: inc.id,
+        codigo: inc.codigo,
+        titulo: inc.titulo,
+        categoria: inc.categoria,
+        gravedad: inc.gravedad,
+        empleado_id: inc.empleado_id,
+        empleado_nombre: inc.empleado_nombre,
+        fecha_hora: inc.fecha_hora,
+        estado: inc.estado,
+        visto_por_propietario: inc.visto_por_propietario,
+        fecha_visto: inc.fecha_visto,
+        tiene_nota_propietario: Boolean(inc.nota_propietario && inc.nota_propietario.trim() !== ''),
+        total_avances: (inc.bitacora || []).filter((b) => b.tipo_evento === 'indagacion').length,
+        dias_en_curso: diasEnCurso,
+        created_at: inc.created_at,
+      };
+    });
+
+    return {
+      exito: true,
+      datos: {
+        kpis,
+        incidentes: items,
+        total: filtrados.length,
+        pagina,
+        limite,
+      },
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/incidentes/{id}
+   */
+  async getIncidenteDetalle(id: string): Promise<ApiResponse<IncidenteDetalleDTO>> {
+    await new Promise((r) => setTimeout(r, 40));
+    const inc = this.incidentes.find((i) => i.id === id);
+    if (!inc) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_INCIDENTE_NO_ENCONTRADO',
+            mensaje: 'El incidente no existe o no pertenece a tu sede',
+          },
+        ],
+      };
+    }
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(inc)),
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/incidentes
+   */
+  async registrarIncidente(req: RegistrarIncidenteRequest): Promise<ApiResponse<IncidenteDetalleDTO>> {
+    await new Promise((r) => setTimeout(r, 120));
+
+    // Validaciones
+    if (!req.titulo || req.titulo.trim().length < 5) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_TITULO_INVALIDO', mensaje: 'El título debe tener al menos 5 caracteres.' }],
+      };
+    }
+
+    if (!req.descripcion || req.descripcion.trim().length < 15) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_DESCRIPCION_INVALIDA', mensaje: 'La descripción pormenorizada debe contener al menos 15 caracteres.' }],
+      };
+    }
+
+    if (req.resolucion_inmediata && (!req.resolucion_nota || req.resolucion_nota.trim().length < 10)) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_RESOLUCION_NOTA_REQUERIDA', mensaje: 'Para resolver de inmediato, la nota de resolución debe contener al menos 10 caracteres.' }],
+      };
+    }
+
+    // Generar código correlativo anual
+    const codigo = `INC-2026-${String(this.seqIncidente++).padStart(3, '0')}`;
+    const incidenteId = `00000000-0000-4000-8000-${String(Date.now()).slice(-12)}`;
+    const now = new Date().toISOString();
+
+    // Resolver nombre de colaborador si aplica
+    let empleadoNombre: string | null = null;
+    let empleadoId: string | null = null;
+    if (req.involucra_empleado && req.empleado_id) {
+      empleadoId = req.empleado_id;
+      const emp = this.personal.find((p) => p.id === req.empleado_id);
+      empleadoNombre = emp ? `${emp.nombre} (${emp.rol.charAt(0).toUpperCase() + emp.rol.slice(1)})` : null;
+    }
+
+    const bitacoraInicial: IncidenteBitacoraItemDTO[] = [
+      {
+        id: `bit-${Date.now()}-1`,
+        incidente_id: incidenteId,
+        usuario_id: '00000000-0000-4000-8000-000000000102',
+        usuario_nombre: 'Marcos López (Administrador)',
+        usuario_rol: 'admin_local',
+        tipo_evento: 'apertura',
+        nota: req.descripcion.trim(),
+        created_at: now,
+      },
+    ];
+
+    const esResolucionInmediata = Boolean(req.resolucion_inmediata && req.resolucion_nota && req.resolucion_nota.trim().length >= 10);
+
+    if (esResolucionInmediata) {
+      bitacoraInicial.push({
+        id: `bit-${Date.now()}-2`,
+        incidente_id: incidenteId,
+        usuario_id: '00000000-0000-4000-8000-000000000102',
+        usuario_nombre: 'Marcos López (Administrador)',
+        usuario_rol: 'admin_local',
+        tipo_evento: 'resolucion',
+        nota: req.resolucion_nota!.trim(),
+        created_at: now,
+      });
+    }
+
+    const nuevoIncidente: IncidenteDetalleDTO = {
+      id: incidenteId,
+      local_id: CANONICAL_LOCAL_ID,
+      codigo,
+      titulo: req.titulo.trim(),
+      categoria: req.categoria,
+      gravedad: req.gravedad,
+      fecha_hora: req.fecha_hora || now,
+      empleado_id: empleadoId,
+      empleado_nombre: empleadoNombre,
+      descripcion: req.descripcion.trim(),
+      medidas_inmediatas: req.medidas_inmediatas ? req.medidas_inmediatas.trim() : null,
+      foto_url: req.foto_url || null,
+      registrado_por: '00000000-0000-4000-8000-000000000102',
+      registrador_nombre: 'Marcos López (Administrador)',
+      estado: esResolucionInmediata ? 'resuelto' : 'abierto',
+      visto_por_propietario: false,
+      fecha_visto: null,
+      nota_propietario: null,
+      motivo_revision: null,
+      resolucion_nota: esResolucionInmediata ? req.resolucion_nota!.trim() : null,
+      resuelto_por: esResolucionInmediata ? '00000000-0000-4000-8000-000000000102' : null,
+      resuelto_por_nombre: esResolucionInmediata ? 'Marcos López (Administrador)' : null,
+      fecha_resolucion: esResolucionInmediata ? now : null,
+      bitacora: bitacoraInicial,
+      created_at: now,
+      updated_at: now,
+    };
+
+    this.incidentes.unshift(nuevoIncidente);
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(nuevoIncidente)),
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/incidentes/{id}/bitacora
+   */
+  async agregarAvanceInvestigacion(
+    id: string,
+    req: AgregarAvanceInvestigacionRequest
+  ): Promise<ApiResponse<IncidenteDetalleDTO>> {
+    await new Promise((r) => setTimeout(r, 80));
+
+    const inc = this.incidentes.find((i) => i.id === id);
+    if (!inc) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_INCIDENTE_NO_ENCONTRADO', mensaje: 'El incidente no existe o no pertenece a tu sede' }],
+      };
+    }
+
+    if (inc.estado === 'resuelto') {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_INCIDENTE_YA_RESUELTO', mensaje: 'El incidente ya ha sido resuelto y no admite modificaciones ulteriores' }],
+      };
+    }
+
+    if (!req.nota || req.nota.trim().length < 5) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_NOTA_REQUERIDA', mensaje: 'El avance de investigación debe contener al menos 5 caracteres' }],
+      };
+    }
+
+    const now = new Date().toISOString();
+    const nuevoAvance: IncidenteBitacoraItemDTO = {
+      id: `bit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      incidente_id: inc.id,
+      usuario_id: '00000000-0000-4000-8000-000000000102',
+      usuario_nombre: 'Marcos López (Administrador)',
+      usuario_rol: 'admin_local',
+      tipo_evento: 'indagacion',
+      nota: req.nota.trim(),
+      created_at: now,
+    };
+
+    if (!inc.bitacora) {
+      inc.bitacora = [];
+    }
+    inc.bitacora.push(nuevoAvance);
+    inc.estado = 'en_revision';
+    inc.motivo_revision = req.nota.trim();
+    inc.updated_at = now;
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(inc)),
+    };
+  }
+
+  /**
+   * PATCH /api/v1/admin/incidentes/{id}/investigacion
+   */
+  async actualizarInvestigacionIncidente(
+    id: string,
+    req: InvestigacionIncidenteRequest
+  ): Promise<ApiResponse<IncidenteDetalleDTO>> {
+    return this.agregarAvanceInvestigacion(id, { nota: req.motivo_revision });
+  }
+
+  /**
+   * PUT /api/v1/admin/incidentes/{id}/resolver
+   */
+  async resolverIncidente(
+    id: string,
+    req: ResolverIncidenteRequest
+  ): Promise<ApiResponse<IncidenteDetalleDTO>> {
+    await new Promise((r) => setTimeout(r, 90));
+
+    const inc = this.incidentes.find((i) => i.id === id);
+    if (!inc) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_INCIDENTE_NO_ENCONTRADO', mensaje: 'El incidente no existe o no pertenece a tu sede' }],
+      };
+    }
+
+    if (inc.estado === 'resuelto') {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_INCIDENTE_YA_RESUELTO', mensaje: 'El incidente ya ha sido resuelto y no admite modificaciones ulteriores' }],
+      };
+    }
+
+    if (!req.resolucion_nota || req.resolucion_nota.trim().length < 10) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_RESOLUCION_NOTA_REQUERIDA', mensaje: 'Las acciones correctivas definitivas son obligatorias (mínimo 10 caracteres)' }],
+      };
+    }
+
+    const now = new Date().toISOString();
+    inc.estado = 'resuelto';
+    inc.resolucion_nota = req.resolucion_nota.trim();
+    inc.resuelto_por = '00000000-0000-4000-8000-000000000102';
+    inc.resuelto_por_nombre = 'Marcos López (Administrador)';
+    inc.fecha_resolucion = now;
+    inc.updated_at = now;
+
+    if (!inc.bitacora) {
+      inc.bitacora = [];
+    }
+    inc.bitacora.push({
+      id: `bit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      incidente_id: inc.id,
+      usuario_id: '00000000-0000-4000-8000-000000000102',
+      usuario_nombre: 'Marcos López (Administrador)',
+      usuario_rol: 'admin_local',
+      tipo_evento: 'resolucion',
+      nota: req.resolucion_nota.trim(),
+      created_at: now,
+    });
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(inc)),
+    };
+  }
+
+  // Métodos de simulación para QA Test Bench (CU-ADMIN-11)
+  simularLecturaPropietario(incidenteId?: string) {
+    const inc = incidenteId ? this.incidentes.find((i) => i.id === incidenteId) : this.incidentes.find((i) => !i.visto_por_propietario) || this.incidentes[0];
+    if (inc) {
+      inc.visto_por_propietario = true;
+      inc.fecha_visto = new Date().toISOString();
+      inc.updated_at = new Date().toISOString();
+    }
+  }
+
+  simularDirectivaPropietario(incidenteId: string, directiva: string) {
+    const inc = this.incidentes.find((i) => i.id === incidenteId) || this.incidentes[0];
+    if (inc) {
+      const now = new Date().toISOString();
+      inc.visto_por_propietario = true;
+      inc.fecha_visto = now;
+      inc.nota_propietario = directiva.trim();
+      inc.estado = 'en_revision';
+      inc.updated_at = now;
+      if (!inc.bitacora) {
+        inc.bitacora = [];
+      }
+      inc.bitacora.push({
+        id: `bit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        incidente_id: inc.id,
+        usuario_id: '00000000-0000-4000-8000-000000000101',
+        usuario_nombre: 'Roberto Silva (Propietario)',
+        usuario_rol: 'propietario',
+        tipo_evento: 'directiva_propietario',
+        nota: directiva.trim(),
+        created_at: now,
+      });
+    }
+  }
+
+  simularIncidenteCriticoDirectiva() {
+    this.incidentes = JSON.parse(JSON.stringify(SEMILLAS_INCIDENTES_AUREA));
+  }
+
+  simularBandejaVacia() {
+    this.incidentes = [];
+  }
+
+  restablecerSemillasIncidentes() {
+    this.incidentes = JSON.parse(JSON.stringify(SEMILLAS_INCIDENTES_AUREA));
+    this.seqIncidente = 86;
   }
 }
 
