@@ -154,9 +154,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// ConfiguracionKdsDTO respuesta de configuración para frontend y KDS
+// ConfiguracionKdsDTO respuesta de configuración para frontend y KDS (1:1 con local_id como PK)
 type ConfiguracionKdsDTO struct {
-	ID                         uuid.UUID `json:"id"`
 	LocalID                    uuid.UUID `json:"local_id"`
 	TiempoOptimoVerdeMin       int       `json:"tiempo_optimo_verde_min"`
 	TiempoAlertaAmbarMin       int       `json:"tiempo_alerta_ambar_min"`
@@ -165,6 +164,7 @@ type ConfiguracionKdsDTO struct {
 	AlertaSonoraComandaRoja    bool      `json:"alerta_sonora_comanda_roja"`
 	IntervaloSonidoRojoSeg     int       `json:"intervalo_sonido_rojo_seg"`
 	VistaPredeterminada        string    `json:"vista_predeterminada"` // "fifo" o "all_day"
+	CreatedAt                  time.Time `json:"created_at"`
 	UpdatedAt                  time.Time `json:"updated_at"`
 }
 
@@ -179,7 +179,7 @@ type ActualizarConfiguracionKdsRequest struct {
 	VistaPredeterminada        string `json:"vista_predeterminada" binding:"required,oneof=fifo all_day"`
 }
 
-// EventoConfiguracionKdsActualizada payload para broadcast SSE
+// EventoConfiguracionKdsActualizada payload para broadcast SSE en tiempo real
 type EventoConfiguracionKdsActualizada struct {
 	LocalID              uuid.UUID `json:"local_id"`
 	TiempoOptimoVerdeMin int       `json:"tiempo_optimo_verde_min"`
@@ -193,44 +193,63 @@ type EventoConfiguracionKdsActualizada struct {
 
 | Método | Ruta | Rol Requerido | Descripción | Códigos HTTP |
 | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/admin/configuracion-kds` | `admin_local` | Obtiene los parámetros vigentes de la sede | `200`, `401`, `403` |
-| `PUT` | `/api/v1/admin/configuracion-kds` | `admin_local` | Actualiza umbrales y emite evento SSE | `200`, `400`, `422` |
-| `POST`| `/api/v1/admin/configuracion-kds/restaurar-defaults` | `admin_local` | Restablece los valores estándar recomendados | `200`, `403` |
+| `GET` | `/api/v1/admin/configuracion-kds` | `admin_local` | Obtiene los parámetros vigentes de la sede activa | `200`, `401`, `403` |
+| `PUT` | `/api/v1/admin/configuracion-kds` | `admin_local` | Actualiza umbrales y emite evento SSE de broadcast | `200`, `400`, `422` |
+| `POST`| `/api/v1/admin/configuracion-kds/restaurar-defaults` | `admin_local` | Restablece los valores estándar recomendados de la industria | `200`, `403` |
 
 ---
 
 ## 7. Esquema Relacional de Base de Datos y Optimización
 
+Alineado de forma **100% estricta** con [`restaurantcloud/infra/sql/02_schema_ddl.sql`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/infra/sql/02_schema_ddl.sql#L186-L199):
+
 ```sql
--- 1. Tabla de configuración operativa de KDS
+-- 2.3 Configuración de Tiempos y Semáforo KDS de Cocina (CU-ADMIN-18)
+-- Relación 1:1 directa con local: local_id es la Clave Primaria (PRIMARY KEY)
 CREATE TABLE IF NOT EXISTS configuracion_kds (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    local_id UUID NOT NULL REFERENCES local(id) ON DELETE CASCADE,
+    local_id UUID PRIMARY KEY REFERENCES local(id) ON DELETE CASCADE,
     
     tiempo_optimo_verde_min INT NOT NULL DEFAULT 15 CHECK (tiempo_optimo_verde_min BETWEEN 3 AND 60),
     tiempo_alerta_ambar_min INT NOT NULL DEFAULT 25 CHECK (tiempo_alerta_ambar_min BETWEEN 5 AND 120),
     tiempo_maximo_pase_min INT NOT NULL DEFAULT 3 CHECK (tiempo_maximo_pase_min BETWEEN 1 AND 30),
     
-    alerta_sonora_nueva_comanda BOOLEAN NOT NULL DEFAULT true,
-    alerta_sonora_comanda_roja BOOLEAN NOT NULL DEFAULT true,
+    alerta_sonora_nueva_comanda BOOL NOT NULL DEFAULT true,
+    alerta_sonora_comanda_roja BOOL NOT NULL DEFAULT true,
     intervalo_sonido_rojo_seg INT NOT NULL DEFAULT 60 CHECK (intervalo_sonido_rojo_seg BETWEEN 15 AND 300),
     vista_predeterminada VARCHAR(20) NOT NULL DEFAULT 'fifo' CHECK (vista_predeterminada IN ('fifo', 'all_day')),
     
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
-    CONSTRAINT uq_configuracion_kds_local UNIQUE (local_id),
     CONSTRAINT chk_kds_umbrales_coherentes CHECK (tiempo_alerta_ambar_min > tiempo_optimo_verde_min)
 );
-
--- 2. Índice para consulta sub-milisegundo al cargar KDS o comanda de mozo
-CREATE INDEX IF NOT EXISTS idx_configuracion_kds_local 
-ON configuracion_kds(local_id);
 ```
+
+> [!NOTE]
+> Al ser `local_id` la `PRIMARY KEY`, el motor PostgreSQL 16 crea automáticamente el índice B-Tree único `configuracion_kds_pkey` sobre `local_id`. Toda consulta por sede (`SELECT * FROM configuracion_kds WHERE local_id = :local_id`) se resuelve mediante un **Index Unique Scan en < 0.2ms**, sin requerir índices secundarios adicionales.
 
 ---
 
-## 8. Accesibilidad y Ergonomía WCAG 2.1 AA
+## 8. Reglas de Negocio Operativas (RN-KDS)
+
+- **RN-KDS-01 (Coherencia Obligatoria de Umbrales):** El umbral de alerta ámbar debe ser estrictamente mayor al umbral verde (`tiempo_alerta_ambar_min > tiempo_optimo_verde_min`). Si el usuario introduce valores incompatibles, la interfaz bloquea el guardado en caliente y el backend retorna `422 Unprocessable Entity` con código `ERR_UMBRALES_KDS_INCOHERENTES`.
+- **RN-KDS-02 (Límites Físicos Poka-Yoke):**
+  - Verde Óptimo: $3 \le \text{minutos} \le 60$.
+  - Ámbar Alerta: $5 \le \text{minutos} \le 120$.
+  - Pase Caliente: $1 \le \text{minutos} \le 30$.
+  - Intervalo Alarma Roja: $15 \le \text{segundos} \le 300$.
+  - Vista Predeterminada: Exclusivamente `'fifo'` o `'all_day'`.
+- **RN-KDS-03 (Umbral Crítico Rojo Automático):** El estado rojo crítico no requiere configuración manual redundante: toda comanda con tiempo transcurrido $> \text{tiempo\_alerta\_ambar\_min}$ se clasifica en rojo con máxima prioridad operativa.
+- **RN-KDS-04 (Sincronización Reactiva SSE < 30ms):** Al guardar los cambios, el servidor emite el evento SSE `configuracion_kds_actualizada`. Los monitores de cocina (`CU-COCINA-01`) y tablets de mozo (`CU-MOZO-01`) recalculan sus semáforos de comandas activas en caliente sin recargar ni interrumpir el servicio.
+- **RN-KDS-05 (Valores Recomendados de la Industria Gastronómica):** El botón de restablecimiento restaura en un solo toque la tríada estándar: 15 min (verde), 25 min (ámbar), 3 min (pase caliente), alertas acústicas activadas, repetición cada 60s y vista FIFO.
+- **RN-KDS-06 (Protección contra Escrituras Innecesarias - Dirty Check):** El botón de guardado permanece deshabilitado si no existen cambios respecto a los parámetros almacenados en base de datos (`!isDirty`).
+- **RN-KDS-07 (Autonomía de Sede y Aislamiento RLS):** Cada sede física posee una única fila de configuración parametrizada (`local_id`). Solo el rol `admin_local` asignado a dicha sede puede alterar los valores; el rol `propietario` tiene acceso de consulta y auditoría multi-sede.
+- **RN-KDS-08 (Pruebas Acústicas Web Audio API):** El panel de administración permite probar de forma interactiva el timbre de comanda entrante (chime sinusoidal armónico 587Hz -> 880Hz) y la alarma de rojo crítico (diente de sierra 320Hz -> 200Hz) directamente en el navegador sin dependencias de red externas.
+- **RN-KDS-09 (Previsualización Instantánea en Simulador):** Toda pulsación en los steppers recalcula el simulador de semáforo en < 16ms (60 FPS), actualizando las tarjetas de prueba en tiempo real para que el administrador valide visualmente los contrastes antes de guardar.
+
+---
+
+## 9. Accesibilidad y Ergonomía WCAG 2.1 AA
 
 1. **Touch Targets Amplios (> 48x48px):** Los botones de incremento y decremento de minutos (`[ - ]` y `[ + ]`) miden `48x48px` reales en dispositivos táctiles.
 2. **Contraste Multimodal:** Los estados del semáforo utilizan triple indicación: color cromático, icono de apoyo (`🟢`, `🟡`, `🔴`) y texto explícito (`Óptimo`, `Atención`, `Crítico`), garantizando accesibilidad total a personas con daltonismo.

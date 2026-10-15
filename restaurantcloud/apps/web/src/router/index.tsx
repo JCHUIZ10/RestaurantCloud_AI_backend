@@ -27,6 +27,7 @@ import { AdminPoliticasReservaPage } from '@/modules/admin/pages/AdminPoliticasR
 import { AdminIncidentesPage } from '@/modules/admin/pages/AdminIncidentesPage';
 import { AdminAnulacionesPage } from '@/modules/admin/pages/AdminAnulacionesPage';
 import { AdminPromocionesPage } from '@/modules/admin/pages/AdminPromocionesPage';
+import { AdminConfiguracionKdsPage } from '@/modules/admin/pages/AdminConfiguracionKdsPage';
 import { PropietarioIncidentesPage } from '@/modules/propietario/pages/PropietarioIncidentesPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
@@ -264,6 +265,10 @@ export const router = createBrowserRouter([
       {
         path: 'promociones',
         element: <AdminPromocionesPage />,
+      },
+      {
+        path: 'configuracion-kds',
+        element: <AdminConfiguracionKdsPage />,
       },
       {
         path: 'reportes/ventas',

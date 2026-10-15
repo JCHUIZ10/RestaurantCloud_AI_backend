@@ -107,7 +107,10 @@ import {
   BuscarPromocionesResponseDTO,
   FiltroEstadoPromocion,
   FiltroTipoPromocion,
+  ConfiguracionKdsDTO,
+  ActualizarConfiguracionKdsRequest,
 } from '@/types/admin';
+import { MOCK_CONFIGURACION_KDS } from '@/modules/cocina/services/mockCocinaService';
 import {
   PropietarioIncidentesFiltrosRequest,
   PropietarioIncidentesBandejaResponse,
@@ -3655,6 +3658,18 @@ class MockAdminService {
   private notificacionesSseListeners: Set<(notif: NotificacionCampanaDTO) => void> = new Set();
   private promociones: PromocionAdminDTO[] = JSON.parse(JSON.stringify(SEMILLAS_PROMOCIONES_AUREA));
   private seqPromo: number = 6;
+  private configuracionKds: ConfiguracionKdsDTO = {
+    local_id: CANONICAL_LOCAL_ID,
+    tiempo_optimo_verde_min: 15,
+    tiempo_alerta_ambar_min: 25,
+    tiempo_maximo_pase_min: 3,
+    alerta_sonora_nueva_comanda: true,
+    alerta_sonora_comanda_roja: true,
+    intervalo_sonido_rojo_seg: 60,
+    vista_predeterminada: 'fifo',
+    created_at: '2026-10-01T08:00:00Z',
+    updated_at: '2026-10-09T14:30:00Z',
+  };
 
 
   private calcularMetricasPiso(piso: PisoAdminDTO) {
@@ -9736,7 +9751,132 @@ class MockAdminService {
     this.promociones = JSON.parse(JSON.stringify(SEMILLAS_PROMOCIONES_AUREA));
     this.seqPromo = 6;
   }
+
+  // ==========================================================================
+  // CU-ADMIN-18: Configurar Parámetros Operativos de Comanda y Tiempos de KDS
+  // ==========================================================================
+
+  async getConfiguracionKds(_localId: string = CANONICAL_LOCAL_ID): Promise<ApiResponse<ConfiguracionKdsDTO>> {
+    await new Promise((r) => setTimeout(r, 60));
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(this.configuracionKds)),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  async actualizarConfiguracionKds(
+    req: ActualizarConfiguracionKdsRequest,
+    _localId: string = CANONICAL_LOCAL_ID
+  ): Promise<ApiResponse<ConfiguracionKdsDTO>> {
+    await new Promise((r) => setTimeout(r, 120));
+
+    // Validar rangos físicos Poka-Yoke (RN-KDS-02 / 02_schema_ddl.sql)
+    if (req.tiempo_optimo_verde_min < 3 || req.tiempo_optimo_verde_min > 60) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_RANGO_INVALIDO', mensaje: 'El tiempo óptimo verde debe estar entre 3 y 60 minutos.' }],
+      };
+    }
+    if (req.tiempo_alerta_ambar_min < 5 || req.tiempo_alerta_ambar_min > 120) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_RANGO_INVALIDO', mensaje: 'El tiempo de alerta ámbar debe estar entre 5 y 120 minutos.' }],
+      };
+    }
+    if (req.tiempo_maximo_pase_min < 1 || req.tiempo_maximo_pase_min > 30) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_RANGO_INVALIDO', mensaje: 'La tolerancia máxima en pase debe estar entre 1 y 30 minutos.' }],
+      };
+    }
+    if (req.intervalo_sonido_rojo_seg < 15 || req.intervalo_sonido_rojo_seg > 300) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_RANGO_INVALIDO', mensaje: 'El intervalo de alarma acústica roja debe estar entre 15 y 300 segundos.' }],
+      };
+    }
+    if (!['fifo', 'all_day'].includes(req.vista_predeterminada)) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_VALOR_INVALIDO', mensaje: 'La vista predeterminada debe ser "fifo" o "all_day".' }],
+      };
+    }
+
+    // Validar coherencia obligatoria de umbrales (RN-KDS-01 / chk_kds_umbrales_coherentes)
+    if (req.tiempo_alerta_ambar_min <= req.tiempo_optimo_verde_min) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_UMBRALES_KDS_INCOHERENTES',
+            mensaje: 'El umbral de alerta (ámbar) debe ser estrictamente mayor al umbral óptimo (verde).',
+          },
+        ],
+      };
+    }
+
+    // Persistencia inmutable en estado
+    this.configuracionKds = {
+      local_id: _localId,
+      ...req,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Sincronización cruzada reactiva con pantalla KDS de Cocina (CU-COCINA-01)
+    MOCK_CONFIGURACION_KDS.tiempo_optimo_verde_min = req.tiempo_optimo_verde_min;
+    MOCK_CONFIGURACION_KDS.tiempo_alerta_ambar_min = req.tiempo_alerta_ambar_min;
+    MOCK_CONFIGURACION_KDS.tiempo_maximo_pase_min = req.tiempo_maximo_pase_min;
+    MOCK_CONFIGURACION_KDS.alerta_sonora_nueva_comanda = req.alerta_sonora_nueva_comanda;
+    MOCK_CONFIGURACION_KDS.alerta_sonora_comanda_roja = req.alerta_sonora_comanda_roja;
+    MOCK_CONFIGURACION_KDS.intervalo_sonido_rojo_seg = req.intervalo_sonido_rojo_seg;
+    MOCK_CONFIGURACION_KDS.vista_predeterminada = req.vista_predeterminada;
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(this.configuracionKds)),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  async restaurarDefaultsConfiguracionKds(_localId: string = CANONICAL_LOCAL_ID): Promise<ApiResponse<ConfiguracionKdsDTO>> {
+    await new Promise((r) => setTimeout(r, 80));
+
+    this.configuracionKds = {
+      local_id: _localId,
+      tiempo_optimo_verde_min: 15,
+      tiempo_alerta_ambar_min: 25,
+      tiempo_maximo_pase_min: 3,
+      alerta_sonora_nueva_comanda: true,
+      alerta_sonora_comanda_roja: true,
+      intervalo_sonido_rojo_seg: 60,
+      vista_predeterminada: 'fifo',
+      updated_at: new Date().toISOString(),
+    };
+
+    // Sincronizar con KDS cocina
+    MOCK_CONFIGURACION_KDS.tiempo_optimo_verde_min = 15;
+    MOCK_CONFIGURACION_KDS.tiempo_alerta_ambar_min = 25;
+    MOCK_CONFIGURACION_KDS.tiempo_maximo_pase_min = 3;
+    MOCK_CONFIGURACION_KDS.alerta_sonora_nueva_comanda = true;
+    MOCK_CONFIGURACION_KDS.alerta_sonora_comanda_roja = true;
+    MOCK_CONFIGURACION_KDS.intervalo_sonido_rojo_seg = 60;
+    MOCK_CONFIGURACION_KDS.vista_predeterminada = 'fifo';
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(this.configuracionKds)),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
 }
 
 export const mockAdminService = new MockAdminService();
+
 

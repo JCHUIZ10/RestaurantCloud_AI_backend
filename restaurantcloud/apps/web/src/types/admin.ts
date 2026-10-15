@@ -1464,3 +1464,40 @@ export interface BuscarPromocionesResponseDTO {
   resultados: PromocionAdminDTO[];
   total: number;
 }
+
+// ============================================================================
+// CU-ADMIN-18: Configurar Parámetros Operativos de Comanda y Tiempos de KDS
+// Tabla: configuracion_kds (02_schema_ddl.sql)
+// ============================================================================
+
+export interface ConfiguracionKdsDTO {
+  local_id: string;
+  tiempo_optimo_verde_min: number;   // 3 a 60 min, default 15
+  tiempo_alerta_ambar_min: number;   // 5 a 120 min, default 25
+  tiempo_maximo_pase_min: number;    // 1 a 30 min, default 3
+  alerta_sonora_nueva_comanda: boolean;
+  alerta_sonora_comanda_roja: boolean;
+  intervalo_sonido_rojo_seg: number; // 15 a 300 seg, default 60
+  vista_predeterminada: 'fifo' | 'all_day';
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ActualizarConfiguracionKdsRequest {
+  tiempo_optimo_verde_min: number;
+  tiempo_alerta_ambar_min: number;
+  tiempo_maximo_pase_min: number;
+  alerta_sonora_nueva_comanda: boolean;
+  alerta_sonora_comanda_roja: boolean;
+  intervalo_sonido_rojo_seg: number;
+  vista_predeterminada: 'fifo' | 'all_day';
+}
+
+export interface EventoConfiguracionKdsActualizada {
+  local_id: string;
+  tiempo_optimo_verde_min: number;
+  tiempo_alerta_ambar_min: number;
+  tiempo_maximo_pase_min: number;
+  timestamp: string;
+}
+
