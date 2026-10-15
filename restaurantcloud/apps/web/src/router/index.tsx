@@ -29,6 +29,7 @@ import { AdminAnulacionesPage } from '@/modules/admin/pages/AdminAnulacionesPage
 import { AdminPromocionesPage } from '@/modules/admin/pages/AdminPromocionesPage';
 import { AdminConfiguracionKdsPage } from '@/modules/admin/pages/AdminConfiguracionKdsPage';
 import { AdminMetodosPagoPage } from '@/modules/admin/pages/AdminMetodosPagoPage';
+import { AdminFlujoCajaPage } from '@/modules/admin/pages/AdminFlujoCajaPage';
 import { PropietarioIncidentesPage } from '@/modules/propietario/pages/PropietarioIncidentesPage';
 import { CajeroPosPage } from '@/modules/caja/pages/CajeroPosPage';
 import { CajeroTurnoCierrePage } from '@/modules/caja/pages/CajeroTurnoCierrePage';
@@ -290,16 +291,12 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: 'finanzas/flujo-caja',
+        element: <AdminFlujoCajaPage />,
+      },
+      {
         path: 'reportes/cierres-z',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-ADMIN-14"
-            nombrePantalla="Flujo de Caja & Cierres Z"
-            rol="administrador"
-            layoutNombre="DashboardLayout"
-            descripcion="Auditoría de arqueos y cierres de turno Z de cada caja del local."
-          />
-        ),
+        element: <AdminFlujoCajaPage />,
       },
     ],
   },

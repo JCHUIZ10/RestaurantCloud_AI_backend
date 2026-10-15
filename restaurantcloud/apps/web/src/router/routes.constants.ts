@@ -40,7 +40,8 @@ export const ROUTES = {
   ADMIN_CONFIGURACION_KDS: '/admin/configuracion-kds',
   ADMIN_METODOS_PAGO: '/admin/metodos-pago',
   ADMIN_REPORTES_VENTAS: '/admin/reportes/ventas',
-  ADMIN_REPORTES_CIERRES_Z: '/admin/reportes/cierres-z',
+  ADMIN_FLUJO_CAJA: '/admin/finanzas/flujo-caja',
+  ADMIN_REPORTES_CIERRES_Z: '/admin/finanzas/flujo-caja',
 
   // Terminales Operativas Salón, Cocina y Caja
   MOZO_MESAS: '/mozo/mesas',

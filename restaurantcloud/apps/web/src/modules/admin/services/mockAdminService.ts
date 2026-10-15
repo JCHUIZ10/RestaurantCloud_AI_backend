@@ -115,7 +115,18 @@ import {
   ActualizarCatalogoMetodosRequest,
   ActualizarMetodoPagoItemRequest,
   MetodosPagoKPIsDTO,
+  PeriodoFlujoCaja,
+  FlujoCajaResumenDTO,
+  FlujoDiarioDTO,
+  GastoOperativoDTO,
+  RegistrarGastoRequestDTO,
+  TurnoCajaResumenDTO,
+  AuditoriaTurnosKPIsDTO,
+  VisarTurnoRequestDTO,
+  CierreForzadoAdminRequestDTO,
 } from '@/types/admin';
+import { ReporteZDTO } from '@/types/caja';
+import { mockCajaService } from '@/modules/caja/services/mockCajaService';
 import { MOCK_CONFIGURACION_KDS } from '@/modules/cocina/services/mockCocinaService';
 import {
   PropietarioIncidentesFiltrosRequest,
@@ -125,10 +136,19 @@ import {
 } from '@/types/propietario';
 
 // Identificadores Canónicos del Seed de Desarrollo Local (07_seed_local_aurea_completo.sql)
-export const CANONICAL_LOCAL_ID = '00000000-0000-4000-8000-000000000010';
-export const CANONICAL_LOCAL_NOMBRE = 'Sede Miraflores (Principal)';
-export const CANONICAL_LOCAL_SAN_ISIDRO_ID = '00000000-0000-4000-8000-000000000020';
-export const CANONICAL_LOCAL_SAN_ISIDRO_NOMBRE = 'Sede San Isidro (Financiero)';
+import {
+  CANONICAL_LOCAL_ID,
+  CANONICAL_LOCAL_NOMBRE,
+  CANONICAL_LOCAL_SAN_ISIDRO_ID,
+  CANONICAL_LOCAL_SAN_ISIDRO_NOMBRE,
+} from '@/shared/constants/canonical';
+
+export {
+  CANONICAL_LOCAL_ID,
+  CANONICAL_LOCAL_NOMBRE,
+  CANONICAL_LOCAL_SAN_ISIDRO_ID,
+  CANONICAL_LOCAL_SAN_ISIDRO_NOMBRE,
+};
 
 export const SEDES_EMPRESA_AUREA = [
   {
@@ -10277,9 +10297,776 @@ class MockAdminService {
     this.esSedeNuevaMetodosPago = false;
     this.metodosPago = JSON.parse(JSON.stringify(SEMILLAS_METODOS_PAGO_AUREA));
   }
+
+  // =========================================================================
+  // CU-ADMIN-14: Gestión de Flujo de Caja, Gastos Operativos y Auditoría de Cierres Z
+  // =========================================================================
+
+  private flujoCajaResumen: FlujoCajaResumenDTO = JSON.parse(JSON.stringify(SEMILLAS_FLUJO_CAJA_AUREA));
+  private gastosOperativos: GastoOperativoDTO[] = JSON.parse(JSON.stringify(SEMILLAS_GASTOS_AUREA));
+  private turnosCaja: TurnoCajaResumenDTO[] = JSON.parse(JSON.stringify(SEMILLAS_TURNOS_CAJA_AUREA));
+  private esPeriodoVacioQA: boolean = false;
+
+  /**
+   * Obtiene el resumen estratégico de Flujo de Caja y Balance Neto
+   */
+  async getFlujoCajaResumen(
+    periodo: PeriodoFlujoCaja = 'este_mes',
+    desde?: string,
+    hasta?: string
+  ): Promise<ApiResponse<FlujoCajaResumenDTO>> {
+    await new Promise((r) => setTimeout(r, 60));
+
+    if (this.esPeriodoVacioQA || (desde && hasta && (desde > '2026-10-31' || hasta < '2026-10-01'))) {
+      const emptyResumen: FlujoCajaResumenDTO = {
+        local_id: CANONICAL_LOCAL_ID,
+        sede_nombre: CANONICAL_LOCAL_NOMBRE,
+        periodo,
+        fecha_inicio: desde || '2026-11-01',
+        fecha_fin: hasta || '2026-11-05',
+        ingresos_totales: 0,
+        delta_ingresos_pct: 0,
+        ingresos_desglose: {
+          efectivo_monto: 0,
+          efectivo_porcentaje: 0,
+          tarjeta_pos_monto: 0,
+          tarjeta_pos_porcentaje: 0,
+          billeteras_monto: 0,
+          billeteras_porcentaje: 0,
+        },
+        egresos_totales: 0,
+        delta_egresos_pct: 0,
+        compras_insumos_total: 0,
+        gastos_manuales_total: 0,
+        balance_neto: 0,
+        margen_neto_porcentaje: 0,
+        ratio_cobertura: 0,
+        conciliacion_liquidez: {
+          total_disponible: 0,
+          en_bancos_monto: 0,
+          en_bancos_porcentaje: 0,
+          en_gavetas_monto: 0,
+          en_gavetas_porcentaje: 0,
+        },
+        curva_diaria: [],
+        top_insumos_comprados: [],
+        gastos_por_categoria: [],
+      };
+      return {
+        exito: true,
+        datos: emptyResumen,
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    if (periodo === 'hoy') {
+      const resumenHoy: FlujoCajaResumenDTO = {
+        ...JSON.parse(JSON.stringify(this.flujoCajaResumen)),
+        periodo: 'hoy',
+        fecha_inicio: '2026-10-15',
+        fecha_fin: '2026-10-15',
+        ingresos_totales: 1240.0,
+        delta_ingresos_pct: 5.2,
+        ingresos_desglose: {
+          efectivo_monto: 400.0,
+          efectivo_porcentaje: 32.3,
+          tarjeta_pos_monto: 620.0,
+          tarjeta_pos_porcentaje: 50.0,
+          billeteras_monto: 220.0,
+          billeteras_porcentaje: 17.7,
+        },
+        egresos_totales: 0.0,
+        delta_egresos_pct: 0.0,
+        compras_insumos_total: 0.0,
+        gastos_manuales_total: 0.0,
+        balance_neto: 1240.0,
+        margen_neto_porcentaje: 100.0,
+        ratio_cobertura: 12.4,
+        conciliacion_liquidez: {
+          total_disponible: 1240.0,
+          en_bancos_monto: 840.0,
+          en_bancos_porcentaje: 67.7,
+          en_gavetas_monto: 400.0,
+          en_gavetas_porcentaje: 32.3,
+        },
+        curva_diaria: [
+          { fecha: '2026-10-15', etiqueta_dia: 'Hoy (15 Oct)', ingresos_dia: 1240.0, egresos_dia: 0.0, saldo_neto_dia: 1240.0 },
+        ],
+        top_insumos_comprados: [],
+        gastos_por_categoria: [],
+      };
+      return {
+        exito: true,
+        datos: resumenHoy,
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    const copia = JSON.parse(JSON.stringify(this.flujoCajaResumen));
+    if (periodo === 'personalizado' && desde && hasta) {
+      copia.fecha_inicio = desde;
+      copia.fecha_fin = hasta;
+      // Filtrar curva diaria dentro del rango
+      copia.curva_diaria = copia.curva_diaria.filter(
+        (p: FlujoDiarioDTO) => p.fecha >= desde && p.fecha <= hasta
+      );
+    }
+
+    return {
+      exito: true,
+      datos: copia,
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * Obtiene el directorio histórico de turnos y KPIs de auditoría de control interno
+   */
+  async getTurnosCajaHistorial(
+    periodo: PeriodoFlujoCaja = 'este_mes',
+    desde?: string,
+    hasta?: string
+  ): Promise<ApiResponse<{ kpis: AuditoriaTurnosKPIsDTO; turnos: TurnoCajaResumenDTO[] }>> {
+    await new Promise((r) => setTimeout(r, 60));
+
+    if (this.esPeriodoVacioQA || (desde && hasta && (desde > '2026-10-31' || hasta < '2026-10-01'))) {
+      const kpisVacio: AuditoriaTurnosKPIsDTO = {
+        total_turnos: 0,
+        turnos_cuadrados: 0,
+        porcentaje_cuadratura: 0,
+        turnos_con_discrepancia: 0,
+        monto_total_discrepancias: 0,
+        turnos_auditados: 0,
+        turnos_pendientes_auditoria: 0,
+        turno_activo: null,
+      };
+      return {
+        exito: true,
+        datos: { kpis: kpisVacio, turnos: [] },
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    let turnosFiltrados = JSON.parse(JSON.stringify(this.turnosCaja)) as TurnoCajaResumenDTO[];
+
+    if (periodo === 'hoy') {
+      turnosFiltrados = turnosFiltrados.filter((t) => t.fecha_apertura.startsWith('2026-10-15'));
+    } else if (periodo === 'personalizado' && desde && hasta) {
+      turnosFiltrados = turnosFiltrados.filter((t) => {
+        const f = t.fecha_apertura.split('T')[0];
+        return f >= desde && f <= hasta;
+      });
+    }
+
+    const totalTurnos = turnosFiltrados.length;
+    const turnosCuadrados = turnosFiltrados.filter(
+      (t) => t.discrepancia !== null && t.discrepancia !== undefined && Math.abs(t.discrepancia) < 0.001
+    ).length;
+    const turnosDiscrepancia = turnosFiltrados.filter(
+      (t) => t.discrepancia !== null && t.discrepancia !== undefined && Math.abs(t.discrepancia) >= 0.001
+    ).length;
+    const montoDiscrepancias = turnosFiltrados.reduce((acc, t) => acc + (t.discrepancia || 0), 0);
+    const auditados = turnosFiltrados.filter((t) => t.revisado).length;
+    const pendientes = turnosFiltrados.filter((t) => !t.revisado && t.estado === 'cerrada').length;
+    const turnoActivo = turnosFiltrados.find((t) => t.estado === 'abierta') || null;
+
+    const kpis: AuditoriaTurnosKPIsDTO = {
+      total_turnos: totalTurnos,
+      turnos_cuadrados: turnosCuadrados,
+      porcentaje_cuadratura: totalTurnos > 0 ? Math.round((turnosCuadrados / totalTurnos) * 1000) / 10 : 0,
+      turnos_con_discrepancia: turnosDiscrepancia,
+      monto_total_discrepancias: Math.round(montoDiscrepancias * 100) / 100,
+      turnos_auditados: auditados,
+      turnos_pendientes_auditoria: pendientes,
+      turno_activo: turnoActivo,
+    };
+
+    return {
+      exito: true,
+      datos: {
+        kpis,
+        turnos: turnosFiltrados,
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * Obtiene la lista de gastos operativos manuales
+   */
+  async getGastosOperativos(
+    periodo: PeriodoFlujoCaja = 'este_mes',
+    desde?: string,
+    hasta?: string
+  ): Promise<ApiResponse<GastoOperativoDTO[]>> {
+    await new Promise((r) => setTimeout(r, 50));
+
+    if (this.esPeriodoVacioQA || (desde && hasta && (desde > '2026-10-31' || hasta < '2026-10-01'))) {
+      return {
+        exito: true,
+        datos: [],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    let gastosFiltrados = JSON.parse(JSON.stringify(this.gastosOperativos)) as GastoOperativoDTO[];
+
+    if (periodo === 'hoy') {
+      gastosFiltrados = gastosFiltrados.filter((g) => g.fecha === '2026-10-15');
+    } else if (periodo === 'personalizado' && desde && hasta) {
+      gastosFiltrados = gastosFiltrados.filter((g) => g.fecha >= desde && g.fecha <= hasta);
+    }
+
+    return {
+      exito: true,
+      datos: gastosFiltrados,
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * Registra un nuevo gasto operativo manual
+   */
+  async registrarGastoOperativo(req: RegistrarGastoRequestDTO): Promise<ApiResponse<GastoOperativoDTO>> {
+    await new Promise((r) => setTimeout(r, 100));
+
+    if (!req.descripcion || req.descripcion.trim().length < 10) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_JUSTIFICACION_INSUFICIENTE',
+            mensaje: 'La justificación o detalle del gasto es obligatoria (mínimo 10 caracteres).',
+          },
+        ],
+      };
+    }
+
+    if (req.monto <= 0) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_MONTO_INVALIDO',
+            mensaje: 'El importe del egreso debe ser mayor a S/ 0.00.',
+          },
+        ],
+      };
+    }
+
+    const nuevoGasto: GastoOperativoDTO = {
+      id: `gasto-${Date.now()}`,
+      local_id: CANONICAL_LOCAL_ID,
+      categoria: req.categoria,
+      monto: Math.round(req.monto * 100) / 100,
+      origen_fondos: req.origen_fondos,
+      caja_id: req.origen_fondos === 'efectivo_caja' ? 'turno-043' : null,
+      caja_correlativo: req.origen_fondos === 'efectivo_caja' ? 43 : null,
+      proveedor_nombre: req.proveedor_nombre.trim(),
+      tipo_comprobante: req.tipo_comprobante || 'Recibo Interno',
+      numero_documento: req.numero_documento?.trim() || undefined,
+      descripcion: req.descripcion.trim(),
+      fecha: req.fecha || new Date().toISOString().split('T')[0],
+      registrado_por: 'usr-admin-01',
+      registrado_por_nombre: 'Mariana Ramos',
+      created_at: new Date().toISOString(),
+    };
+
+    this.gastosOperativos.unshift(nuevoGasto);
+
+    // Recalcular métricas de flujo de caja
+    this.flujoCajaResumen.gastos_manuales_total =
+      Math.round((this.flujoCajaResumen.gastos_manuales_total + nuevoGasto.monto) * 100) / 100;
+    this.flujoCajaResumen.egresos_totales =
+      Math.round((this.flujoCajaResumen.egresos_totales + nuevoGasto.monto) * 100) / 100;
+    this.flujoCajaResumen.balance_neto =
+      Math.round((this.flujoCajaResumen.ingresos_totales - this.flujoCajaResumen.egresos_totales) * 100) / 100;
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(nuevoGasto)),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * Registra el visado y conformidad gerencial de un turno Z
+   */
+  async visarTurnoZ(turnoId: string, req: VisarTurnoRequestDTO): Promise<ApiResponse<TurnoCajaResumenDTO>> {
+    await new Promise((r) => setTimeout(r, 80));
+
+    const idx = this.turnosCaja.findIndex((t) => t.id === turnoId);
+    if (idx === -1) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_TURNO_NO_ENCONTRADO', mensaje: 'Turno de caja no encontrado.' }],
+      };
+    }
+
+    this.turnosCaja[idx].revisado = req.conforme;
+    this.turnosCaja[idx].revisado_por = 'usr-admin-01';
+    this.turnosCaja[idx].revisado_por_nombre = 'Mariana Ramos';
+    this.turnosCaja[idx].revisado_at = new Date().toISOString();
+    this.turnosCaja[idx].notas_auditoria = req.notas_auditoria.trim() || 'Turno auditado conforme.';
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(this.turnosCaja[idx])),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * Ejecuta el cierre forzado administrativo de un turno de caja abandonado (Rescate de Terminal)
+   */
+  async ejecutarCierreForzadoAdmin(
+    turnoId: string,
+    req: CierreForzadoAdminRequestDTO
+  ): Promise<ApiResponse<TurnoCajaResumenDTO>> {
+    await new Promise((r) => setTimeout(r, 120));
+
+    if (!req.justificacion || req.justificacion.trim().length < 15) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_JUSTIFICACION_INSUFICIENTE',
+            mensaje: 'El cierre forzado requiere una justificación administrativa detallada (mínimo 15 caracteres).',
+          },
+        ],
+      };
+    }
+
+    const idx = this.turnosCaja.findIndex((t) => t.id === turnoId || t.estado === 'abierta');
+    if (idx === -1) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_TURNO_NO_ABIERTO', mensaje: 'No hay turno activo para ejecutar cierre forzado.' }],
+      };
+    }
+
+    const turno = this.turnosCaja[idx];
+    const efectivoContado = Math.round(req.efectivo_contado * 100) / 100;
+    const discrepancia = Math.round((efectivoContado - turno.monto_esperado) * 100) / 100;
+
+    turno.estado = 'cerrada';
+    turno.fecha_cierre = new Date().toISOString();
+    turno.duracion_horas = '5h 10m (Cierre Forzado)';
+    turno.monto_real = efectivoContado;
+    turno.discrepancia = discrepancia;
+    turno.notas_cierre = `Cierre administrativo forzado por Administradora Mariana Ramos: ${req.justificacion.trim()}`;
+    turno.revisado = true;
+    turno.revisado_por = 'usr-admin-01';
+    turno.revisado_por_nombre = 'Mariana Ramos';
+    turno.revisado_at = new Date().toISOString();
+    turno.notas_auditoria = `Cierre de rescate ejecutado. Efectivo contado S/ ${efectivoContado.toFixed(2)}. Terminal liberada.`;
+
+    // Sincronizar con mockCajaService para liberar la terminal inmediatamente
+    mockCajaService.simularCierreDesdeCuAdmin14QA();
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(turno)),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * Obtiene el Reporte Z de un turno específico para el visor administrativo
+   */
+  async getReporteZTurno(turnoId: string): Promise<ApiResponse<ReporteZDTO>> {
+    await new Promise((r) => setTimeout(r, 60));
+
+    const turno = this.turnosCaja.find((t) => t.id === turnoId) || this.turnosCaja[1]; // fallback a Turno #042
+
+    const reporteZ: ReporteZDTO = {
+      caja_id: turno.id,
+      turno_correlativo: turno.correlativo,
+      local_nombre: CANONICAL_LOCAL_NOMBRE,
+      empresa_ruc: '20609876543',
+      cajero_nombre: turno.cajero_nombre,
+      fecha_apertura: turno.fecha_apertura,
+      fecha_cierre: turno.fecha_cierre || new Date().toISOString(),
+      duracion_turno: turno.duracion_horas || '5h 02m',
+      monto_apertura: turno.monto_apertura,
+      efectivo_esperado: turno.monto_esperado,
+      efectivo_real_contado: turno.monto_real || turno.monto_esperado,
+      discrepancia: turno.discrepancia || 0.0,
+      comentario_discrepancia: turno.comentario_discrepancia || undefined,
+      total_ventas_efectivo: 885.0,
+      total_tarjetas_pos: 1540.0,
+      total_billeteras_digital: 420.0,
+      otros_medios_total: 0.0,
+      total_neto_facturado: turno.total_facturado || 2845.0,
+      base_imponible_gravada: 2411.02,
+      igv_18: 433.98,
+      boletas_emitidas: 32,
+      facturas_emitidas: 8,
+      notas_venta_emitidas: 3,
+      notas_credito_emitidas: 1,
+      comprobantes_anulados: 1,
+      notas_cierre: turno.notas_cierre || 'Turno entregado con gaveta cuadrada. Fondo S/ 200 en sobre cerrado.',
+      url_descarga_pdf: `/api/v1/caja/turnos/${turno.id}/reporte-z/pdf`,
+    };
+
+    return {
+      exito: true,
+      datos: reporteZ,
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  // =========================================================================
+  // Herramientas Sandbox QA para CU-ADMIN-14
+  // =========================================================================
+
+  /**
+   * QA Helper: Simular déficit operativo temporal por compra de equipamiento / alquiler
+   */
+  simularDeficitOperativoQA(): void {
+    this.flujoCajaResumen.egresos_totales = 31200.0;
+    this.flujoCajaResumen.gastos_manuales_total = 19950.0;
+    this.flujoCajaResumen.balance_neto = -2750.0; // Déficit de -S/ 2,750
+    this.flujoCajaResumen.margen_neto_porcentaje = -9.6;
+    this.flujoCajaResumen.ratio_cobertura = 0.91;
+  }
+
+  /**
+   * QA Helper: Simular turno con discrepancia pendiente de visado (Turno #042 con faltante de S/ 15)
+   */
+  simularTurnoConDiscrepanciaQA(): void {
+    const turno42 = this.turnosCaja.find((t) => t.correlativo === 42);
+    if (turno42) {
+      turno42.monto_real = 985.0;
+      turno42.discrepancia = -15.0;
+      turno42.comentario_discrepancia = 'Diferencia en conteo por monedas extraviadas en rendición.';
+      turno42.revisado = false;
+      turno42.revisado_por = null;
+      turno42.notas_auditoria = null;
+    }
+  }
+
+  /**
+   * QA Helper: Simular terminal bloqueada por cajero saliente sin cerrar turno
+   */
+  simularTerminalBloqueadaQA(): void {
+    // Sincronizar estado en mockCajaService
+    mockCajaService.simularTurnoPrevioAbiertoQA();
+    const turnoActivo = this.turnosCaja.find((t) => t.estado === 'abierta');
+    if (turnoActivo) {
+      turnoActivo.cajero_nombre = 'Juan Pérez';
+      turnoActivo.cajero_rol = 'Cajero Saliente (Turno Mañana)';
+      turnoActivo.duracion_horas = '14h 20m (¡ABANDONO DE TURNO!)';
+      turnoActivo.monto_esperado = 2730.0;
+    }
+  }
+
+  /**
+   * QA Helper: Simular período / días vacíos sin actividad operacional (CU-ADMIN-14)
+   */
+  simularDiasVaciosQA(): void {
+    this.esPeriodoVacioQA = true;
+  }
+
+  /**
+   * QA Helper: Restablecer todas las semillas de tesorería y supervisión a estado canónico
+   */
+  restablecerSemillasFinanzasQA(): void {
+    this.esPeriodoVacioQA = false;
+    this.flujoCajaResumen = JSON.parse(JSON.stringify(SEMILLAS_FLUJO_CAJA_AUREA));
+    this.gastosOperativos = JSON.parse(JSON.stringify(SEMILLAS_GASTOS_AUREA));
+    this.turnosCaja = JSON.parse(JSON.stringify(SEMILLAS_TURNOS_CAJA_AUREA));
+    mockCajaService.restablecerSemillasCajaQA();
+  }
 }
 
+// ============================================================================
+// Semillas para CU-ADMIN-14: Gestión de Flujo de Caja & Cierres Z
+// ============================================================================
+
+const SEMILLAS_FLUJO_CAJA_AUREA: FlujoCajaResumenDTO = {
+  local_id: CANONICAL_LOCAL_ID,
+  sede_nombre: CANONICAL_LOCAL_NOMBRE,
+  periodo: 'este_mes',
+  fecha_inicio: '2026-10-01',
+  fecha_fin: '2026-10-31',
+  ingresos_totales: 28450.0,
+  delta_ingresos_pct: 12.4,
+  ingresos_desglose: {
+    efectivo_monto: 9104.0,
+    efectivo_porcentaje: 32.0,
+    tarjeta_pos_monto: 15363.0,
+    tarjeta_pos_porcentaje: 54.0,
+    billeteras_monto: 3983.0,
+    billeteras_porcentaje: 14.0,
+  },
+  egresos_totales: 16820.0,
+  delta_egresos_pct: -3.1,
+  compras_insumos_total: 11250.0,
+  gastos_manuales_total: 5570.0,
+  balance_neto: 11630.0,
+  margen_neto_porcentaje: 40.8,
+  ratio_cobertura: 1.69,
+  conciliacion_liquidez: {
+    total_disponible: 28450.0,
+    en_bancos_monto: 19346.0,
+    en_bancos_porcentaje: 68.0,
+    en_gavetas_monto: 9104.0,
+    en_gavetas_porcentaje: 32.0,
+  },
+  curva_diaria: [
+    { fecha: '2026-10-05', etiqueta_dia: 'S1 (01-05 Oct)', ingresos_dia: 4320.0, egresos_dia: 2540.0, saldo_neto_dia: 1780.0 },
+    { fecha: '2026-10-10', etiqueta_dia: 'S2 (06-10 Oct)', ingresos_dia: 4980.0, egresos_dia: 2890.0, saldo_neto_dia: 2090.0 },
+    { fecha: '2026-10-15', etiqueta_dia: 'S3 (11-15 Oct)', ingresos_dia: 5120.0, egresos_dia: 2980.0, saldo_neto_dia: 2140.0 },
+    { fecha: '2026-10-20', etiqueta_dia: 'S4 (16-20 Oct)', ingresos_dia: 4680.0, egresos_dia: 2710.0, saldo_neto_dia: 1970.0 },
+    { fecha: '2026-10-25', etiqueta_dia: 'S5 (21-25 Oct)', ingresos_dia: 4550.0, egresos_dia: 2820.0, saldo_neto_dia: 1730.0 },
+    { fecha: '2026-10-31', etiqueta_dia: 'S6 (26-31 Oct)', ingresos_dia: 4800.0, egresos_dia: 2880.0, saldo_neto_dia: 1920.0 },
+  ],
+  top_insumos_comprados: [
+    { insumo_id: 'ins-1', nombre_insumo: 'Pollo Entero Eviscerado (180 kg)', cantidad_comprada: 180, unidad_medida: 'kg', monto_total: 3240.0, porcentaje_de_compras: 28.8 },
+    { insumo_id: 'ins-2', nombre_insumo: 'Lomo Fino de Res (75 kg)', cantidad_comprada: 75, unidad_medida: 'kg', monto_total: 2850.0, porcentaje_de_compras: 25.3 },
+    { insumo_id: 'ins-3', nombre_insumo: 'Papa Nativa y Amarilla (240 kg)', cantidad_comprada: 240, unidad_medida: 'kg', monto_total: 1200.0, porcentaje_de_compras: 10.7 },
+    { insumo_id: 'ins-4', nombre_insumo: 'Carbón Vegetal / Leña (30 sacos)', cantidad_comprada: 30, unidad_medida: 'bolsa', monto_total: 1350.0, porcentaje_de_compras: 12.0 },
+    { insumo_id: 'ins-5', nombre_insumo: 'Abarrotes y Bebidas de Carta', cantidad_comprada: 150, unidad_medida: 'unidad', monto_total: 2610.0, porcentaje_de_compras: 23.2 },
+  ],
+  gastos_por_categoria: [
+    { categoria: 'alquiler', nombre_categoria: 'Alquiler de Local Comercial', monto_total: 2800.0, porcentaje_de_gastos: 50.3 },
+    { categoria: 'servicios_basicos', nombre_categoria: 'Servicios Básicos (Luz/Agua/Gas)', monto_total: 1420.0, porcentaje_de_gastos: 25.5 },
+    { categoria: 'limpieza_aseo', nombre_categoria: 'Limpieza, Aseo y Menaje Interno', monto_total: 580.0, porcentaje_de_gastos: 10.4 },
+    { categoria: 'mantenimiento', nombre_categoria: 'Mantenimiento Equipos & Campana', monto_total: 450.0, porcentaje_de_gastos: 8.1 },
+    { categoria: 'caja_chica', nombre_categoria: 'Caja Chica / Compras Emergencia', monto_total: 320.0, porcentaje_de_gastos: 5.7 },
+  ],
+};
+
+const SEMILLAS_GASTOS_AUREA: GastoOperativoDTO[] = [
+  {
+    id: 'gasto-01',
+    local_id: CANONICAL_LOCAL_ID,
+    categoria: 'servicios_basicos',
+    monto: 1420.0,
+    origen_fondos: 'transferencia_bancaria',
+    proveedor_nombre: 'Enel Distribución Perú S.A.A.',
+    tipo_comprobante: 'Recibo Servicios Públicos',
+    numero_documento: 'S001-0982312',
+    descripcion: 'Pago del suministro eléctrico del salón y cocina correspondiente al ciclo de octubre.',
+    fecha: '2026-10-11',
+    registrado_por: 'admin-01',
+    registrado_por_nombre: 'Mariana Ramos',
+    created_at: '2026-10-11T10:15:00Z',
+  },
+  {
+    id: 'gasto-02',
+    local_id: CANONICAL_LOCAL_ID,
+    categoria: 'alquiler',
+    monto: 2800.0,
+    origen_fondos: 'transferencia_bancaria',
+    proveedor_nombre: 'Inmobiliaria San Jerónimo S.A.C.',
+    tipo_comprobante: 'Factura Electrónica',
+    numero_documento: 'F001-0021489',
+    descripcion: 'Merced conductiva mensual del local comercial sede Miraflores.',
+    fecha: '2026-10-05',
+    registrado_por: 'admin-01',
+    registrado_por_nombre: 'Mariana Ramos',
+    created_at: '2026-10-05T09:00:00Z',
+  },
+  {
+    id: 'gasto-03',
+    local_id: CANONICAL_LOCAL_ID,
+    categoria: 'limpieza_aseo',
+    monto: 580.0,
+    origen_fondos: 'efectivo_caja',
+    caja_id: 'turno-039',
+    caja_correlativo: 39,
+    proveedor_nombre: 'Distribuidora Higiene Pro E.I.R.L.',
+    tipo_comprobante: 'Boleta de Venta',
+    numero_documento: 'B001-008129',
+    descripcion: 'Desengrasante industrial para campana extractora y rollos de papel toalla para salón.',
+    fecha: '2026-10-09',
+    registrado_por: 'admin-01',
+    registrado_por_nombre: 'Mariana Ramos',
+    created_at: '2026-10-09T14:20:00Z',
+  },
+  {
+    id: 'gasto-04',
+    local_id: CANONICAL_LOCAL_ID,
+    categoria: 'mantenimiento',
+    monto: 450.0,
+    origen_fondos: 'transferencia_bancaria',
+    proveedor_nombre: 'TecnoFrío Lima Servicios',
+    tipo_comprobante: 'Factura Electrónica',
+    numero_documento: 'F003-0004512',
+    descripcion: 'Mantenimiento preventivo y recarga de refrigerante de conservadora de bebidas de bar.',
+    fecha: '2026-10-08',
+    registrado_por: 'admin-01',
+    registrado_por_nombre: 'Mariana Ramos',
+    created_at: '2026-10-08T16:45:00Z',
+  },
+  {
+    id: 'gasto-05',
+    local_id: CANONICAL_LOCAL_ID,
+    categoria: 'caja_chica',
+    monto: 70.0,
+    origen_fondos: 'efectivo_caja',
+    caja_id: 'turno-041',
+    caja_correlativo: 41,
+    proveedor_nombre: 'Movilidad Urgente Mercado',
+    tipo_comprobante: 'Recibo Interno',
+    numero_documento: 'RI-2026-0042',
+    descripcion: 'Taxi ida y vuelta para compra urgente de 5 kg de limón cevichero por quiebre en KDS.',
+    fecha: '2026-10-10',
+    registrado_por: 'admin-01',
+    registrado_por_nombre: 'Mariana Ramos',
+    created_at: '2026-10-10T12:30:00Z',
+  },
+];
+
+const SEMILLAS_TURNOS_CAJA_AUREA: TurnoCajaResumenDTO[] = [
+  {
+    id: '00000000-0000-4000-8000-000000000543',
+    correlativo: 43,
+    cajero_id: 'usr-cajero-02',
+    cajero_nombre: 'Marco Valdivia',
+    cajero_rol: 'Cajero Turno Mañana',
+    fecha_apertura: '2026-10-15T11:30:00Z',
+    fecha_cierre: null,
+    duracion_horas: 'En curso (4h 15m)',
+    monto_apertura: 200.0,
+    monto_esperado: 1440.0,
+    monto_real: null,
+    discrepancia: null,
+    estado: 'abierta',
+    revisado: false,
+    total_comprobantes: 18,
+    total_facturado: 1240.0,
+    lote_pos: 'Lote #013',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000542',
+    correlativo: 42,
+    cajero_id: 'usr-cajero-01',
+    cajero_nombre: 'Lucía Flores',
+    cajero_rol: 'Cajera Titular Turno Tarde',
+    fecha_apertura: '2026-10-10T18:30:00Z',
+    fecha_cierre: '2026-10-10T23:32:00Z',
+    duracion_horas: '5h 02m',
+    monto_apertura: 200.0,
+    monto_esperado: 1000.0,
+    monto_real: 1000.0,
+    discrepancia: 0.0,
+    comentario_discrepancia: null,
+    notas_cierre: 'Turno entregado con gaveta cuadrada. Fondo S/ 200 en sobre cerrado.',
+    estado: 'cerrada',
+    revisado: false,
+    revisado_por: null,
+    notas_auditoria: null,
+    total_comprobantes: 44,
+    total_facturado: 2845.0,
+    lote_pos: 'Lote #012',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000541',
+    correlativo: 41,
+    cajero_id: 'usr-cajero-03',
+    cajero_nombre: 'Pedro Castillo',
+    cajero_rol: 'Cajero Turno Almuerzo',
+    fecha_apertura: '2026-10-10T11:30:00Z',
+    fecha_cierre: '2026-10-10T16:30:00Z',
+    duracion_horas: '5h 00m',
+    monto_apertura: 200.0,
+    monto_esperado: 1120.0,
+    monto_real: 1110.0,
+    discrepancia: -10.0,
+    comentario_discrepancia: 'Faltante generado por diferencia de redondeo en mesa 03 y cambio entregado en monedas.',
+    notas_cierre: 'Faltante informado a supervisión.',
+    estado: 'cerrada',
+    revisado: true,
+    revisado_por: 'usr-admin-01',
+    revisado_por_nombre: 'Mariana Ramos',
+    revisado_at: '2026-10-10T17:15:00Z',
+    notas_auditoria: 'Diferencia revisada conforme contra reporte de caja. Se asume por política de tolerancia menor a S/ 15.',
+    total_comprobantes: 36,
+    total_facturado: 2210.0,
+    lote_pos: 'Lote #011',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000540',
+    correlativo: 40,
+    cajero_id: 'usr-cajero-01',
+    cajero_nombre: 'Lucía Flores',
+    cajero_rol: 'Cajera Titular Turno Tarde',
+    fecha_apertura: '2026-10-09T18:30:00Z',
+    fecha_cierre: '2026-10-09T23:30:00Z',
+    duracion_horas: '5h 00m',
+    monto_apertura: 200.0,
+    monto_esperado: 980.0,
+    monto_real: 980.0,
+    discrepancia: 0.0,
+    estado: 'cerrada',
+    revisado: true,
+    revisado_por: 'usr-admin-01',
+    revisado_por_nombre: 'Mariana Ramos',
+    revisado_at: '2026-10-10T08:30:00Z',
+    notas_auditoria: 'Arqueo exacto. Vouchers POS conciliados contra cierre de lote.',
+    total_comprobantes: 39,
+    total_facturado: 2450.0,
+    lote_pos: 'Lote #010',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000539',
+    correlativo: 39,
+    cajero_id: 'usr-cajero-03',
+    cajero_nombre: 'Pedro Castillo',
+    cajero_rol: 'Cajero Turno Almuerzo',
+    fecha_apertura: '2026-10-09T11:30:00Z',
+    fecha_cierre: '2026-10-09T16:30:00Z',
+    duracion_horas: '5h 00m',
+    monto_apertura: 200.0,
+    monto_esperado: 1050.0,
+    monto_real: 1050.0,
+    discrepancia: 0.0,
+    estado: 'cerrada',
+    revisado: true,
+    revisado_por: 'usr-admin-01',
+    revisado_por_nombre: 'Mariana Ramos',
+    revisado_at: '2026-10-09T17:00:00Z',
+    notas_auditoria: 'Arqueo cuadrado sin observaciones.',
+    total_comprobantes: 35,
+    total_facturado: 2190.0,
+    lote_pos: 'Lote #009',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000538',
+    correlativo: 38,
+    cajero_id: 'usr-cajero-02',
+    cajero_nombre: 'Marco Valdivia',
+    cajero_rol: 'Cajero Turno Tarde',
+    fecha_apertura: '2026-10-08T18:30:00Z',
+    fecha_cierre: '2026-10-08T23:30:00Z',
+    duracion_horas: '5h 00m',
+    monto_apertura: 200.0,
+    monto_esperado: 890.0,
+    monto_real: 885.5,
+    discrepancia: -4.5,
+    comentario_discrepancia: 'Desajuste de 4.50 por comensal que pagó con sencillo exacto menos redondeo.',
+    estado: 'cerrada',
+    revisado: true,
+    revisado_por: 'usr-admin-01',
+    revisado_por_nombre: 'Mariana Ramos',
+    revisado_at: '2026-10-09T08:15:00Z',
+    notas_auditoria: 'Conforme. Tolerancia de redondeo aceptada.',
+    total_comprobantes: 32,
+    total_facturado: 1980.0,
+    lote_pos: 'Lote #008',
+  },
+];
+
 export const mockAdminService = new MockAdminService();
+
 
 
 

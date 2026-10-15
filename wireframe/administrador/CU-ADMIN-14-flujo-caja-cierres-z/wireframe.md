@@ -30,6 +30,14 @@
    - Tras inspeccionar el Reporte Z Digital inmutable (Vista 3), el administrador puede registrar una nota de control y pulsar `[ ✓ Marcar Turno Auditado y Conforme ]`, persistiendo `revisado = true`, `revisado_por` y `revisado_at`. Si el turno cerró con faltante o sobrante, la nota justifica formalmente la diferencia (ej. propina en voucher de tarjeta o redondeo).
 5. **Cierre Administrativo Forzado (Rescate de Terminal):**
    - Si un cajero abandonó la sede o se enfermó sin ejecutar su cierre formal de turno en [`CU-CAJA-05`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cajero/CU-CAJA-05-cerrar-caja/wireframe.md), la restricción `uq_caja_abierta_local` bloquea al cajero del siguiente turno. El administrador puede ejecutar desde la Pestaña 2 un "Cierre Forzado Supervisado", declarando el efectivo contado físicamente y liberando la terminal para el siguiente colaborador (`CU-CAJA-01`).
+6. **Paginación en Servidor y Cliente (Auditoría de Turnos y Gastos):**
+   - Las consultas de historial (`turnos-caja` y `gastos`) deben admitir paginación con query params `page` (entero $\ge 1$) y `limit` (por defecto 5 registros).
+   - El payload del backend debe retornar metadatos de paginación (`meta: { total_items, total_pages, current_page, per_page }`).
+   - **Regla de Ocultamiento en Cliente:** Si `total_pages < 2`, la barra de paginación se oculta completamente de la interfaz para evitar sobrecarga visual innecesaria.
+7. **Tratamiento Fáctico de Días Vacíos / Inactividad Operativa:**
+   - Si en el período consultado (`hoy`, `semana`, `este_mes`) la sede no registró ventas ni egresos (días sin operaciones o sede cerrada), el backend debe responder HTTP 200 con totales en `0.00` y arrays vacíos (`curva_diaria: []`, `top_insumos_comprados: []`, `gastos_por_categoria: []`).
+   - El cálculo de ratios en backend o SQL debe blindarse con `NULLIF` / `COALESCE` para prevenir errores de división entre cero (`division by zero`), entregando `ratio_cobertura = 1.0` o `0.0` y `margen_neto_porcentaje = 0.0`.
+   - El frontend desplegará el estado vacío oficial `[ 📅🚫 Sin movimientos en este período ]` con sugerencias de acción operativa.
 
 ---
 
@@ -44,12 +52,18 @@ sequenceDiagram
     participant BD as 🗄️ PostgreSQL 16 (Vistas & Transacciones)
 
     Note over ADM, SPA: Flujo 1: Consulta de Flujo de Caja y Balance Neto
-    ADM->>SPA: Clic en menú lateral [ 💵 Finanzas & Cajas ]
+    ADM->>SPA: Selecciona [ Hoy ] / [ Semana ] / [ Este Mes ]
     SPA->>API: GET /api/v1/admin/finanzas/flujo-caja?periodo=este_mes
     API->>BD: SELECT * FROM v_analitica_flujo_caja_mensual WHERE local_id = :local_id
-    BD-->>API: Totales de ventas salon, compras insumos, gastos manuales y liquidacion
-    API-->>SPA: 200 OK (FlujoCajaResumenDTO: Balance +11,630, Bancos vs Gaveta)
-    SPA-->>ADM: Renderiza Vista 1 (wf_admin_14_dashboard_flujo_caja.jpg)
+    alt Existen movimientos en el período
+        BD-->>API: Agregados de ingresos, insumos y gastos
+        API-->>SPA: 200 OK (FlujoCajaResumenDTO con curva_diaria y composición)
+        SPA-->>ADM: Renderiza Vista 1 (wf_admin_14_dashboard_flujo_caja.jpg)
+    else Período vacío (Días sin operaciones / Sin ventas)
+        BD-->>API: Cero registros coincidentes
+        API-->>SPA: 200 OK (FlujoCajaResumenDTO con valores 0.00 y curva_diaria: [])
+        SPA-->>ADM: Renderiza Vista 1B: Empty State [ 📅🚫 Sin movimientos ]
+    end
 
     opt Flujo 2: Registro de Gasto Operativo Manual
         ADM->>SPA: Clic en botón [ ➕ Registrar Gasto ]
@@ -70,13 +84,17 @@ sequenceDiagram
         SPA-->>ADM: Toast: "✓ Gasto registrado. Flujo de caja actualizado"
     end
 
-    opt Flujo 3: Auditoría de Turnos y Visado de Reporte Z
+    opt Flujo 3: Auditoría de Turnos Paginada y Visado de Reporte Z
         ADM->>SPA: Clic en pestaña [ 📋 Auditoría de Turnos & Cierres Z ]
-        SPA->>API: GET /api/v1/admin/finanzas/turnos-caja?periodo=este_mes
-        API->>BD: SELECT c.*, u.nombre FROM caja c JOIN usuario u ON u.id = c.cajero_id WHERE c.local_id = :local_id
-        BD-->>API: Lista de turnos, efectivo esperado, real, diferencias y estatus de visado
-        API-->>SPA: 200 OK ([]TurnoCajaResumenDTO)
-        SPA-->>ADM: Renderiza Vista 2 (wf_admin_14_auditoria_turnos_z.jpg)
+        SPA->>API: GET /api/v1/admin/finanzas/turnos-caja?periodo=este_mes&page=1&limit=5
+        API->>BD: SELECT c.*, u.nombre FROM caja c JOIN usuario u ON u.id = c.cajero_id WHERE c.local_id = :local_id LIMIT 5 OFFSET 0
+        BD-->>API: 5 registros y conteo total (COUNT(*) = 6)
+        API-->>SPA: 200 OK ({ items: [...], meta: { total_items: 6, total_pages: 2, current_page: 1, per_page: 5 } })
+        alt total_pages >= 2
+            SPA-->>ADM: Renderiza Vista 2 + Barra de Paginación (< Anterior | 1 de 2 | Siguiente >)
+        else total_pages < 2
+            SPA-->>ADM: Renderiza Vista 2 (Barra de paginación oculta automáticamente)
+        end
         
         ADM->>SPA: Clic en [ 👁️ Auditar Reporte Z ] (Turno #042)
         SPA->>API: GET /api/v1/admin/finanzas/turnos-caja/42/reporte-z
@@ -108,7 +126,7 @@ Vista estratégica que consolida la liquidez real del negocio y el balance opera
 | [VISTA 1: CU-ADMIN-14: GESTIÓN DE FLUJO DE CAJA & BALANCE NETO]   [https://app.restaurantcloud.pe/admin/finanzas/flujo-caja]        |
 +-------------------------------------------------------------------------------------------------------------------------------------+
 | [ 💵 Flujo de Caja & Balance (Activo) ]  [ 📋 Auditoría de Turnos & Cierres Z ]  [ 🧾 Egresos & Gastos Sede ]                       |
-|   [Hoy] [Semana] [Este Mes (Octubre)] [📅 Rango: 01/10/2026 — 31/10/2026 (Personalizado)]    [➕ Registrar Gasto] [📥 Exportar Flujo] |
+|   [Hoy] [Semana] [Este Mes (Octubre)]                       [➕ Registrar Gasto] [📥 Exportar Flujo] |
 |-------------------------------------------------------------------------------------------------------------------------------------|
 |  +------------------------+  +------------------------+  +------------------------+  +------------------------+                     |
 |  | INGRESOS SALÓN (COBRADO|  | EGRESOS TOTALES OPERAT |  | BALANCE NETO OPERATIVO |  | CONCILIACIÓN LIQUIDEZ  |                     |
@@ -138,13 +156,51 @@ Vista estratégica que consolida la liquidez real del negocio y el balance opera
 ```
 
 #### Guía de Elementos y Microcopias
-- **Filtro de Período y Rango Personalizado:** Selector directo `[Hoy]`, `[Semana]`, `[Este Mes]`, y badge con selector de rango `[📅 Rango: 01/10/2026 — 31/10/2026 (Personalizado)]`.
+- **Filtro de Período Canónico:** Selector directo de tres botones estables `[Hoy]`, `[Semana]`, `[Este Mes (Octubre)]`. (Se descartó el rango de fechas personalizado libre para blindar la estabilidad del layout y optimizar los queries del backend).
 - **KPI 1: Ingresos Salón (Cobrados):** Exhibe el total facturado `S/ 28,450.00`, con nota explícita `100% Salón` y desglose: POS S/ 15,363.00 (54%), Efectivo S/ 9,104.00 (32%) y Yape/Plin S/ 3,983.00 (14%).
 - **KPI 2: Egresos Totales Operativos:** Exhibe `S/ 16,820.00` con desglose porcentual: Insumos 66.9% y Gastos Sede 33.1%.
 - **KPI 3: Balance Neto Operativo:** Margen en verde `+ S/ 11,630.00` indicando `Margen de liquidez libre: 40.8%`.
 - **KPI 4: Conciliación de Liquidez:** Muestra la disponibilidad real: en Bancos/Pasarelas `S/ 19,346.00` vs Efectivo en Gavetas `S/ 9,104.00`.
 - **Gráfico de Entradas vs Salidas:** Barras pareadas mostrando la solvencia de cada tramo de la semana.
 - **Desglose de Egresos:** División limpia entre Insumos culinarios directos comprados (`ficha_compra`) y Gastos operativos de sede (`gasto_manual`).
+
+---
+
+### 3.1.1 Vista 1B: Estado de Días Vacíos / Sin Movimientos (`wf_admin_14_dashboard_dias_vacios.jpg`)
+
+Comportamiento de la interfaz cuando el período consultado no contiene facturación de comandas ni compras/gastos (ej. feriado, jornada inaugural o día de descanso).
+
+#### Distribución Estructural (Layout ASCII)
+```text
++-------------------------------------------------------------------------------------------------------------------------------------+
+| [VISTA 1B: ESTADO VACÍO (SIN ACTIVIDAD OPERATIVA)]                [https://app.restaurantcloud.pe/admin/finanzas/flujo-caja?p=hoy]  |
++-------------------------------------------------------------------------------------------------------------------------------------+
+| [ 💵 Flujo de Caja & Balance (Activo) ]  [ 📋 Auditoría de Turnos & Cierres Z ]  [ 🧾 Egresos & Gastos Sede ]                       |
+|   [Hoy] [Semana] [Este Mes (Octubre)]                       [➕ Registrar Gasto] [📥 Exportar Flujo] |
+|-------------------------------------------------------------------------------------------------------------------------------------|
+|  +------------------------+  +------------------------+  +------------------------+  +------------------------+                     |
+|  | INGRESOS SALÓN (COBRADO|  | EGRESOS TOTALES OPERAT |  | BALANCE NETO OPERATIVO |  | CONCILIACIÓN LIQUIDEZ  |                     |
+|  | S/ 0.00       [0 vent.]|  | S/ 0.00       [0 mov.] |  | S/ 0.00         [0.0%] |  | S/ 0.00                |                     |
+|  | Efectivo: S/ 0.00 (0%) |  | Insumos: 0% • Gasto: 0%|  | Sin actividad registrada|  | Bancos: S/ 0.00 (0%)   |                     |
+|  +------------------------+  +------------------------+  +------------------------+  +------------------------+                     |
+|                                                                                                                                     |
+|  +-------------------------------------------------------------------------------------------------------------------------------+  |
+|  |                                                                                                                               |  |
+|  |                                                 [ 📅🚫 ]                                                                      |  |
+|  |                                      Sin movimientos en este período                                                          |  |
+|  |          No se registraron ventas en salón, compras de insumos culinarios ni egresos operativos en las fechas seleccionadas.  |  |
+|  |                                                                                                                               |  |
+|  |                 [ ➕ Registrar Primer Gasto Manual ]            [ 🔄 Cambiar Período a 'Este Mes' ]                           |  |
+|  |                                                                                                                               |  |
+|  +-------------------------------------------------------------------------------------------------------------------------------+  |
++-------------------------------------------------------------------------------------------------------------------------------------+
+```
+
+#### Guía de Microcopias y Recuperación en Días Vacíos
+- **Iconografía Empty State:** Símbolo de calendario inactivo `CalendarOff` (`[ 📅🚫 ]`) con mensaje amigable *"Sin movimientos en este período"*.
+- **Texto Secundario de Contexto:** *"No se registraron ventas en salón, compras de insumos culinarios ni egresos operativos en las fechas seleccionadas."*
+- **Botones de Recuperación Rápida:** Acción primaria para registrar un gasto menor o conmutar al período mensual para visualizar históricos acumulados.
+- **Valores Neutros Seguros:** Ratios numéricos muestran `0.0%` sin arrojar errores `NaN%` ni `Infinity` gracias a blindaje con `Math.max(1, total)`.
 
 ---
 
@@ -158,7 +214,7 @@ Vista de supervisión de control interno que fiscaliza la exactitud de gaveta y 
 | [VISTA 2: CU-ADMIN-14: AUDITORÍA DE TURNOS DE CAJA & REPORTES Z]   [https://app.restaurantcloud.pe/admin/finanzas/flujo-caja?tab=z] |
 +-------------------------------------------------------------------------------------------------------------------------------------+
 | [ 💵 Flujo de Caja & Balance ]  [ 📋 Auditoría de Turnos & Cierres Z (Activo) ]  [ 🧾 Egresos & Gastos Sede ]                       |
-|   [Hoy] [Semana] [Este Mes (Octubre)] [📅 01/10/2026 — 31/10/2026]                                        [📥 Exportar Auditoría]   |
+|   [Hoy] [Semana] [Este Mes (Octubre)]                                                     [📥 Exportar Auditoría]   |
 |-------------------------------------------------------------------------------------------------------------------------------------|
 |  [Turnos Mes: 42] | [● Conformes / Cuadrados: 40 (95.2%)] | [● Con Discrepancia Menor: 2 (-S/14.50)] | [✓ Auditados: 41 de 42]       |
 |-------------------------------------------------------------------------------------------------------------------------------------|
@@ -177,7 +233,9 @@ Vista de supervisión de control interno que fiscaliza la exactitud de gaveta y 
 |  | Turno #039  09/10/26 11:30-16:30 A. Pedro C.    S/ 200.00 S/1,050.0 S/1,050.0 S/ 0.00     [✓ Cuad.]  [✓ Conforme]     [📄 Ver Z]  |  |
 |  | Turno #038  08/10/26 18:30-23:30 C. Marco V.    S/ 200.00 S/  890.0 S/  885.5 - S/ 4.50   [⚠️ Falt.] [✓ Redondeo]     [📄 Ver Z]  |  |
 |  +-------------------------------------------------------------------------------------------------------------------------------+  |
-|  💡 Criterio de Visado: El administrador revisa el Reporte Z y confirma conciliación. Ante faltantes, asienta nota aclaratoria.     |
+|  | [Página 1 de 2 • Mostrando 5 de 6 turnos]                         [< Anterior] [1] [2] [Siguiente >]                          |  |
+|  +-------------------------------------------------------------------------------------------------------------------------------+  |
+|  💡 Regla de Paginación: Si total_pages < 2, los botones de paginación se ocultan automáticamente.                                   |
 +-------------------------------------------------------------------------------------------------------------------------------------+
 ```
 
@@ -188,6 +246,7 @@ Vista de supervisión de control interno que fiscaliza la exactitud de gaveta y 
   - `Diferencia`: Destacada en verde `S/ 0.00` o en rojo `- S/ 10.00`.
   - `Visado Gerencial`: Chips informativos `⏳ Pendiente de Auditoría` (ámbar), `✓ Auditado y Conforme` (verde) o `✓ Auditado: Subsanado` (azul).
   - `Acciones`: Botón oscuro prioritario `[ 👁️ Auditar Reporte Z ]` para turnos pendientes y botón secundario `[ 📄 Ver Reporte Z ]` para turnos ya revisados.
+- **Paginación Condicional de Turnos:** Despliega indicador contextual (`Página X de Y • Mostrando N de M turnos`), `< Anterior`, páginas numeradas y `Siguiente >`. Conforme a la regla de diseño, si `total_pages < 2`, los controles se ocultan automáticamente.
 
 ---
 
@@ -302,13 +361,23 @@ Modal de captura ágil (700px de ancho) para egresos corrientes y gastos de oper
 | **Turno con Discrepancia no Justificada** | Cajero cerró con faltante y el turno aún no ha sido visado. | Fila resaltada en ámbar con badge rojo en diferencia `- S/ 10.00 [ ⚠️ Faltante ]` y badge `⏳ Pendiente de Auditoría`. | Botón prioritario `[ 👁️ Auditar Reporte Z ]` para que el administrador investigue y vise. |
 | **Terminal de Caja Abandonada (Bloqueo)** | Cajero del turno anterior se retiró sin cerrar caja (`CU-CAJA-05`). | Banner azul en Pestaña 2: *"Caja en estado ABIERTO por más de 12 horas. Próximo cajero bloqueado."* | Botón activo `[ ⚠️ Cierre Administrativo Forzado ]` para contar efectivo y desbloquear la sede. |
 | **Gasto Manual sin Justificación** | Administrador intenta guardar gasto con descripción vacía. | Borde rojo en textarea: *"La justificación del gasto es obligatoria (mínimo 10 caracteres)."* | Botón guardar deshabilitado hasta ingresar texto. |
+| **Período sin Actividad (Días Vacíos)** | Filtro `hoy`, `semana` o `este_mes` sin ventas ni egresos en el local. | KPIs en `S/ 0.00`. Gráfico reemplazado por contenedor centrado con icono `[ 📅🚫 ]` y texto: *"Sin movimientos en este período"*. | Botones: `[ ➕ Registrar Primer Gasto Manual ]` o selector para alternar a `Este Mes`. Ratios protegidos en 0.0% (sin NaN). |
 
 ---
 
 ## 5. Especificación de Contrato API y DTOs Go
 
 ### 5.1 Endpoint Resumen de Flujo de Caja y Balance
-`GET /api/v1/admin/finanzas/flujo-caja?periodo=este_mes&desde=2026-10-01&hasta=2026-10-31`
+`GET /api/v1/admin/finanzas/flujo-caja?periodo=este_mes`
+
+#### Parámetros de Consulta (Query Params)
+| Parámetro | Tipo | Requerido | Descripción / Valores Permitidos |
+| :--- | :--- | :---: | :--- |
+| `periodo` | `string` | Sí | Período canónico: `hoy`, `semana`, `este_mes`. Por defecto: `este_mes`. |
+
+> [!NOTE]
+> **Contrato ante Días Vacíos / Sin Movimientos:**
+> Si no existen ventas ni egresos en el período, el backend retorna HTTP 200 con totales y deltas en `0.00`, colecciones vacías (`curva_diaria: []`, `top_insumos_comprados: []`, `gastos_por_categoria: []`), `ratio_cobertura: 1.0` y `margen_neto_porcentaje: 0.0`. Nunca retorna arrays nulos ni provoca error 500 por división entre cero.
 
 ```go
 package dto
@@ -318,7 +387,7 @@ import "time"
 // FlujoCajaResumenDTO estructura el payload analítico de Vista 1
 type FlujoCajaResumenDTO struct {
 	LocalID             string                 `json:"local_id"`
-	Periodo             string                 `json:"periodo"` // "hoy", "semana", "este_mes", "personalizado"
+	Periodo             string                 `json:"periodo"` // "hoy", "semana", "este_mes"
 	FechaInicio         time.Time              `json:"fecha_inicio"`
 	FechaFin            time.Time              `json:"fecha_fin"`
 	IngresosTotales     float64                `json:"ingresos_totales"` // S/ 28,450.00 (100% Salon)
@@ -375,9 +444,93 @@ type FlujoDiarioDTO struct {
 	EgresosDia   float64 `json:"egresos_dia"`
 	SaldoNetoDia float64 `json:"saldo_neto_dia"`
 }
+
+// PaginationMetaDTO encapsula la metadata estándar de paginación
+type PaginationMetaDTO struct {
+	TotalItems  int `json:"total_items"`
+	TotalPages  int `json:"total_pages"`
+	CurrentPage int `json:"current_page"`
+	PerPage     int `json:"per_page"`
+}
 ```
 
-### 5.2 Endpoint Registro de Gasto Operativo Manual
+### 5.2 Endpoint Listado Paginado de Turnos de Caja (Auditoría Z)
+`GET /api/v1/admin/finanzas/turnos-caja?periodo=este_mes&page=1&limit=5`
+
+#### Parámetros de Consulta (Query Params)
+| Parámetro | Tipo | Requerido | Descripción |
+| :--- | :--- | :---: | :--- |
+| `periodo` | `string` | Sí | `hoy`, `semana`, `este_mes`. |
+| `page` | `int` | No | Número de página (base 1). Valor por defecto: `1`. |
+| `limit` | `int` | No | Cantidad de elementos por página. Valor por defecto: `5` (máximo `50`). |
+
+```go
+package dto
+
+import "time"
+
+type PaginatedTurnosResponseDTO struct {
+	Items []TurnoCajaResumenDTO `json:"items"`
+	Meta  PaginationMetaDTO     `json:"meta"`
+}
+
+type TurnoCajaResumenDTO struct {
+	ID                string     `json:"id"`
+	NumeroTurno       int        `json:"numero_turno"`
+	CajeroID          string     `json:"cajero_id"`
+	CajeroNombre      string     `json:"cajero_nombre"`
+	FechaApertura     time.Time  `json:"fecha_apertura"`
+	FechaCierre       *time.Time `json:"fecha_cierre"`
+	MontoApertura     float64    `json:"monto_apertura"`
+	EfectivoEsperado  float64    `json:"efectivo_esperado"`
+	EfectivoReal      float64    `json:"efectivo_real"`
+	Diferencia        float64    `json:"diferencia"`
+	EstadoCuadratura  string     `json:"estado_cuadratura"` // "cuadrado", "faltante", "sobrante"
+	Estado            string     `json:"estado"` // "abierto", "cerrado"
+	Revisado          bool       `json:"revisado"`
+	RevisadoPorNombre *string    `json:"revisado_por_nombre"`
+	RevisadoAt        *time.Time `json:"revisado_at"`
+	NotasAuditoria    *string    `json:"notas_auditoria"`
+}
+```
+
+### 5.3 Endpoint Listado Paginado de Gastos Operativos
+`GET /api/v1/admin/finanzas/gastos?periodo=este_mes&page=1&limit=5`
+
+#### Parámetros de Consulta (Query Params)
+| Parámetro | Tipo | Requerido | Descripción |
+| :--- | :--- | :---: | :--- |
+| `periodo` | `string` | Sí | `hoy`, `semana`, `este_mes`. |
+| `page` | `int` | No | Número de página (base 1). Valor por defecto: `1`. |
+| `limit` | `int` | No | Cantidad de gastos por página. Valor por defecto: `5`. |
+
+```go
+package dto
+
+import "time"
+
+type PaginatedGastosResponseDTO struct {
+	Items []GastoOperativoDTO `json:"items"`
+	Meta  PaginationMetaDTO   `json:"meta"`
+}
+
+type GastoOperativoDTO struct {
+	ID                   string    `json:"id"`
+	LocalID              string    `json:"local_id"`
+	Categoria            string    `json:"categoria"`
+	Fecha                string    `json:"fecha"`
+	Monto                float64   `json:"monto"`
+	OrigenFondos         string    `json:"origen_fondos"`
+	ProveedorNombre      string    `json:"proveedor_nombre"`
+	TipoComprobante      string    `json:"tipo_comprobante"`
+	NumeroDocumento      string    `json:"numero_documento"`
+	Descripcion          string    `json:"descripcion"`
+	RegistradoPorNombre  string    `json:"registrado_por_nombre"`
+	CreatedAt            time.Time `json:"created_at"`
+}
+```
+
+### 5.4 Endpoint Registro de Gasto Operativo Manual
 `POST /api/v1/admin/finanzas/gastos`
 
 ```go
@@ -398,7 +551,7 @@ type RegistrarGastoRequestDTO struct {
 }
 ```
 
-### 5.3 Endpoint Auditoría y Visado de Turnos Z
+### 5.5 Endpoint Auditoría y Visado de Turnos Z
 `PATCH /api/v1/admin/finanzas/turnos-caja/:id/visar`
 
 ```go
@@ -411,7 +564,7 @@ type VisarTurnoRequestDTO struct {
 }
 ```
 
-### 5.4 Endpoint Cierre Forzado Administrativo
+### 5.6 Endpoint Cierre Forzado Administrativo
 `POST /api/v1/admin/finanzas/turnos-caja/:id/cierre-forzado`
 
 ```go
@@ -531,6 +684,29 @@ FROM fechas_locales fl
 LEFT JOIN ventas v ON v.local_id = fl.local_id AND v.fecha = fl.fecha
 LEFT JOIN compras c ON c.local_id = fl.local_id AND c.fecha = fl.fecha
 LEFT JOIN gastos g ON g.local_id = fl.local_id AND g.fecha = fl.fecha;
+```
+
+#### 7.3.1 Consulta Agregada del Backend con Blindaje Anti-División por Cero
+Ejemplo de consulta ejecutada por el servicio financiero de Go/Laravel para poblar el `FlujoCajaResumenDTO`:
+
+```sql
+SELECT 
+    COALESCE(SUM(total_ingresos), 0) AS ingresos_totales,
+    COALESCE(SUM(ingresos_efectivo), 0) AS total_efectivo,
+    COALESCE(SUM(ingresos_tarjeta), 0) AS total_tarjeta,
+    COALESCE(SUM(ingresos_digital), 0) AS total_digital,
+    COALESCE(SUM(total_compras_insumos), 0) AS compras_insumos_total,
+    COALESCE(SUM(total_gastos_operativos), 0) AS gastos_manuales_total,
+    COALESCE(SUM(total_egresos), 0) AS egresos_totales,
+    COALESCE(SUM(balance_neto), 0) AS balance_neto,
+    -- Blindaje contra division by zero ante períodos sin egresos:
+    COALESCE(
+        ROUND(COALESCE(SUM(total_ingresos), 0) / NULLIF(COALESCE(SUM(total_egresos), 0), 0), 2),
+        1.00
+    ) AS ratio_cobertura
+FROM v_analitica_flujo_caja_mensual
+WHERE local_id = :local_id 
+  AND fecha BETWEEN :fecha_inicio AND :fecha_fin;
 ```
 
 ---

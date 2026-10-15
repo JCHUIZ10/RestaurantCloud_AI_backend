@@ -1578,4 +1578,159 @@ export interface SimulacionCobroResponseDTO {
   opciones: OpcionCobroSimuladaDTO[];
 }
 
+// ============================================================================
+// CU-ADMIN-14: Gestión de Flujo de Caja, Gastos Operativos y Auditoría de Cierres Z
+// Tablas: caja, gasto_manual, caja_movimiento, auditoria_caja_cierre (02_schema_ddl.sql)
+// ============================================================================
+
+export type PeriodoFlujoCaja = 'hoy' | 'semana' | 'este_mes' | 'personalizado';
+export type CategoriaGastoManual =
+  | 'servicios_basicos'
+  | 'alquiler'
+  | 'limpieza_aseo'
+  | 'mantenimiento'
+  | 'caja_chica'
+  | 'otros';
+export type OrigenFondosGasto = 'transferencia_bancaria' | 'efectivo_caja';
+
+export interface IngresosDesgloseDTO {
+  efectivo_monto: number;
+  efectivo_porcentaje: number;
+  tarjeta_pos_monto: number;
+  tarjeta_pos_porcentaje: number;
+  billeteras_monto: number;
+  billeteras_porcentaje: number;
+}
+
+export interface LiquidezDTO {
+  total_disponible: number;
+  en_bancos_monto: number;
+  en_bancos_porcentaje: number;
+  en_gavetas_monto: number;
+  en_gavetas_porcentaje: number;
+}
+
+export interface InsumoCompradoDTO {
+  insumo_id: string;
+  nombre_insumo: string;
+  cantidad_comprada: number;
+  unidad_medida: string;
+  monto_total: number;
+  porcentaje_de_compras: number;
+}
+
+export interface GastoCategoriaDTO {
+  categoria: CategoriaGastoManual;
+  nombre_categoria: string;
+  monto_total: number;
+  porcentaje_de_gastos: number;
+}
+
+export interface FlujoDiarioDTO {
+  fecha: string;
+  etiqueta_dia: string;
+  ingresos_dia: number;
+  egresos_dia: number;
+  saldo_neto_dia: number;
+}
+
+export interface FlujoCajaResumenDTO {
+  local_id: string;
+  sede_nombre: string;
+  periodo: PeriodoFlujoCaja;
+  fecha_inicio: string;
+  fecha_fin: string;
+  ingresos_totales: number;
+  delta_ingresos_pct: number;
+  ingresos_desglose: IngresosDesgloseDTO;
+  egresos_totales: number;
+  delta_egresos_pct: number;
+  compras_insumos_total: number;
+  gastos_manuales_total: number;
+  balance_neto: number;
+  margen_neto_porcentaje: number;
+  ratio_cobertura: number;
+  conciliacion_liquidez: LiquidezDTO;
+  curva_diaria: FlujoDiarioDTO[];
+  top_insumos_comprados: InsumoCompradoDTO[];
+  gastos_por_categoria: GastoCategoriaDTO[];
+}
+
+export interface GastoOperativoDTO {
+  id: string;
+  local_id: string;
+  categoria: CategoriaGastoManual;
+  monto: number;
+  origen_fondos: OrigenFondosGasto;
+  caja_id?: string | null;
+  caja_correlativo?: number | null;
+  proveedor_nombre: string;
+  tipo_comprobante: string;
+  numero_documento?: string;
+  descripcion: string;
+  fecha: string;
+  registrado_por: string;
+  registrado_por_nombre: string;
+  created_at: string;
+}
+
+export interface RegistrarGastoRequestDTO {
+  categoria: CategoriaGastoManual;
+  monto: number;
+  origen_fondos: OrigenFondosGasto;
+  proveedor_nombre: string;
+  tipo_comprobante?: string;
+  numero_documento?: string;
+  descripcion: string;
+  fecha: string;
+}
+
+export interface TurnoCajaResumenDTO {
+  id: string;
+  correlativo: number;
+  cajero_id: string;
+  cajero_nombre: string;
+  cajero_rol?: string;
+  fecha_apertura: string;
+  fecha_cierre?: string | null;
+  duracion_horas?: string;
+  monto_apertura: number;
+  monto_esperado: number;
+  monto_real?: number | null;
+  discrepancia?: number | null;
+  comentario_discrepancia?: string | null;
+  notas_cierre?: string | null;
+  estado: 'abierta' | 'cerrada';
+  revisado: boolean;
+  revisado_por?: string | null;
+  revisado_por_nombre?: string | null;
+  revisado_at?: string | null;
+  notas_auditoria?: string | null;
+  total_comprobantes?: number;
+  total_facturado?: number;
+  lote_pos?: string;
+}
+
+export interface AuditoriaTurnosKPIsDTO {
+  total_turnos: number;
+  turnos_cuadrados: number;
+  porcentaje_cuadratura: number;
+  turnos_con_discrepancia: number;
+  monto_total_discrepancias: number;
+  turnos_auditados: number;
+  turnos_pendientes_auditoria: number;
+  turno_activo?: TurnoCajaResumenDTO | null;
+}
+
+export interface VisarTurnoRequestDTO {
+  conforme: boolean;
+  notas_auditoria: string;
+}
+
+export interface CierreForzadoAdminRequestDTO {
+  efectivo_contado: number;
+  justificacion: string;
+}
+
+
 

@@ -60,7 +60,7 @@ export const DashboardLayout: React.FC = () => {
     { label: 'Incidentes Internos', href: ROUTES.ADMIN_INCIDENTES, icon: AlertTriangle },
     { label: 'Auditoría Anulaciones', href: ROUTES.ADMIN_ANULACIONES, icon: FileX2 },
     { label: 'Reportes de Venta', href: ROUTES.ADMIN_REPORTES_VENTAS, icon: Layers },
-    { label: 'Cierres de Caja Z', href: ROUTES.ADMIN_REPORTES_CIERRES_Z, icon: CreditCard },
+    { label: 'Flujo de Caja & Cierres Z', href: ROUTES.ADMIN_FLUJO_CAJA, icon: CreditCard },
   ];
 
   const currentLinks = isPropietario ? linksPropietario : linksAdmin;

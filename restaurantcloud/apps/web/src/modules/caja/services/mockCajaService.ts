@@ -9,7 +9,7 @@ import {
   CerrarCajaRequest,
   ReporteZDTO,
 } from '@/types/caja';
-import { CANONICAL_LOCAL_ID, CANONICAL_LOCAL_NOMBRE } from '@/modules/admin/services/mockAdminService';
+import { CANONICAL_LOCAL_ID, CANONICAL_LOCAL_NOMBRE } from '@/shared/constants/canonical';
 
 export const CAJERO_ACTUAL_MOCK = {
   id: '00000000-0000-4000-8000-000000000003',
