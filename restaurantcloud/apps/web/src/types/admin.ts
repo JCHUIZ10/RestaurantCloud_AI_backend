@@ -1323,5 +1323,144 @@ export interface NotificacionCampanaDTO {
   monto?: number;
 }
 
+// ============================================================================
+// CU-ADMIN-17: Gestionar Promociones del Local
+// Derivado estrictamente de la tabla `promocion` en 02_schema_ddl.sql (líneas 427-452)
+// Coherencia tributaria y operativa con CU-CAJA-02, CU-CAJA-03, CU-MOZO-08 y CU-MOZO-09
+// ============================================================================
 
+export type TipoDescuentoPromocion = 'porcentaje' | 'monto_fijo';
 
+export type TipoLimiteUsosPromocion = 'sin_limite' | 'global' | 'diario';
+
+export type EstadoVisualPromocion =
+  | 'vigente'
+  | 'programada'
+  | 'pausada'
+  | 'vencida'
+  | 'agotada'
+  | 'agotada_hoy';
+
+export type FiltroEstadoPromocion =
+  | 'todas'
+  | 'vigentes'
+  | 'programadas'
+  | 'pausadas'
+  | 'vencidas'
+  | 'agotadas';
+
+export type FiltroTipoPromocion = 'todos' | 'porcentaje' | 'monto_fijo';
+
+export interface PromocionAdminDTO {
+  id: string;
+  codigo: string; // ej. "PROMO-2026-001"
+  local_id: string;
+  nombre: string;
+  descripcion?: string | null;
+  tipo_descuento: TipoDescuentoPromocion;
+  valor: number; // Porcentaje (1..100) o Monto en Soles S/
+  tope_maximo_descuento?: number | null; // Tope en Soles por ticket/cuenta
+  monto_minimo_consumo: number; // 0.00 si no exige mínimo
+  dias_semana: number[]; // 1=Lunes..7=Domingo (ISO)
+  hora_inicio?: string | null; // "18:00"
+  hora_fin?: string | null; // "21:00"
+  fecha_inicio: string; // "2026-10-01"
+  fecha_fin: string; // "2026-10-31"
+  tipo_limite_usos: TipoLimiteUsosPromocion; // 'sin_limite' | 'global' | 'diario'
+  limite_usos?: number | null; // Límite numérico según el tipo
+  usos_actuales: number; // Usos acumulados en toda la historia de la campaña
+  usos_hoy: number; // Usos acumulados durante la jornada de hoy (O(1) Zero-Cron)
+  fecha_ultimo_uso?: string | null; // Fecha ISO del último canje para auto-reset diario
+  activa: boolean; // Switch inmediato para habilitar/pausar en Caja
+  estado_visual: EstadoVisualPromocion;
+  total_descontado: number; // S/ acumulado descontado
+  total_ventas_asociadas: number; // S/ acumulado de ventas brutas
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface PromocionKPIsDTO {
+  vigentes_hoy: number;
+  campanas_programadas: number;
+  descuentos_mes: number;
+  cuentas_beneficiadas: number;
+}
+
+export interface PromocionesBandejaResponseDTO {
+  kpis: PromocionKPIsDTO;
+  promociones: PromocionAdminDTO[];
+  total: number;
+}
+
+export interface CrearPromocionRequest {
+  nombre: string;
+  descripcion?: string;
+  tipo_descuento: TipoDescuentoPromocion;
+  valor: number;
+  tope_maximo_descuento?: number | null;
+  monto_minimo_consumo?: number;
+  dias_semana?: number[];
+  hora_inicio?: string | null;
+  hora_fin?: string | null;
+  fecha_inicio: string;
+  fecha_fin: string;
+  tipo_limite_usos?: TipoLimiteUsosPromocion;
+  limite_usos?: number | null;
+  activa: boolean;
+}
+
+export interface ActualizarPromocionRequest {
+  nombre?: string;
+  descripcion?: string;
+  tipo_descuento?: TipoDescuentoPromocion;
+  valor?: number;
+  tope_maximo_descuento?: number | null;
+  monto_minimo_consumo?: number;
+  dias_semana?: number[];
+  hora_inicio?: string | null;
+  hora_fin?: string | null;
+  fecha_inicio?: string;
+  fecha_fin?: string;
+  tipo_limite_usos?: TipoLimiteUsosPromocion;
+  limite_usos?: number | null;
+  activa?: boolean;
+}
+
+export interface PromocionComprobanteAuditoriaDTO {
+  id: string;
+  numero_comprobante: string; // "B001-000492" o "F001-000108"
+  fecha_hora: string;
+  mesa_numero: string;
+  cajero_nombre: string;
+  subtotal: number;
+  descuento: number;
+  total: number;
+}
+
+export interface PromocionRendimientoDTO {
+  promocion: PromocionAdminDTO;
+  ventas_totales: number;
+  descuentos_totales: number;
+  ticket_promedio: number;
+  usos_totales: number;
+  comprobantes: PromocionComprobanteAuditoriaDTO[];
+}
+
+export interface FiltrosPromocionesRequest {
+  estado?: FiltroEstadoPromocion;
+  tipo_descuento?: FiltroTipoPromocion;
+  busqueda?: string;
+  mes?: string;
+}
+
+export interface BuscarPromocionesRequestDTO {
+  q: string;
+  estado?: FiltroEstadoPromocion;
+  tipo?: FiltroTipoPromocion;
+}
+
+export interface BuscarPromocionesResponseDTO {
+  termino: string;
+  resultados: PromocionAdminDTO[];
+  total: number;
+}

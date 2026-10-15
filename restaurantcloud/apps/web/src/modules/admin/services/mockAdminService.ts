@@ -96,6 +96,17 @@ import {
   MarcarRevisadoRequestDTO,
   EscalarIncidenteAnulacionRequest,
   NotificacionCampanaDTO,
+  PromocionAdminDTO,
+  EstadoVisualPromocion,
+  PromocionesBandejaResponseDTO,
+  CrearPromocionRequest,
+  ActualizarPromocionRequest,
+  PromocionComprobanteAuditoriaDTO,
+  PromocionRendimientoDTO,
+  FiltrosPromocionesRequest,
+  BuscarPromocionesResponseDTO,
+  FiltroEstadoPromocion,
+  FiltroTipoPromocion,
 } from '@/types/admin';
 import {
   PropietarioIncidentesFiltrosRequest,
@@ -3397,6 +3408,222 @@ export const SEMILLAS_NOTIFICACIONES_CAMPANA: NotificacionCampanaDTO[] = [
   },
 ];
 
+// =============================================================================
+// SEMILLAS CANÓNICAS CU-ADMIN-17: GESTIÓN DE PROMOCIONES (02_schema_ddl.sql)
+// =============================================================================
+
+export const SEMILLAS_PROMOCIONES_AUREA: PromocionAdminDTO[] = [
+  {
+    id: 'promo-0000-0001',
+    codigo: 'PROMO-2026-001',
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: '🎉 Descuento Inaugural',
+    descripcion: '15% de descuento en toda la carta por marcha blanca de apertura.',
+    tipo_descuento: 'porcentaje',
+    valor: 15.0,
+    tope_maximo_descuento: null,
+    monto_minimo_consumo: 0.0,
+    dias_semana: [1, 2, 3, 4, 5, 6, 7],
+    hora_inicio: null,
+    hora_fin: null,
+    fecha_inicio: '2026-10-01',
+    fecha_fin: '2026-10-31',
+    tipo_limite_usos: 'global',
+    limite_usos: 200,
+    usos_actuales: 54,
+    usos_hoy: 3,
+    fecha_ultimo_uso: '2026-10-09',
+    activa: true,
+    estado_visual: 'vigente',
+    total_descontado: 890.0,
+    total_ventas_asociadas: 5933.0,
+    created_at: '2026-10-01T10:00:00Z',
+  },
+  {
+    id: 'promo-0000-0002',
+    codigo: 'PROMO-2026-002',
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Martes de Brasas',
+    descripcion: '20% en carnes y brasas criollas con consumo mínimo de S/ 60.00.',
+    tipo_descuento: 'porcentaje',
+    valor: 20.0,
+    tope_maximo_descuento: 40.0,
+    monto_minimo_consumo: 60.0,
+    dias_semana: [2],
+    hora_inicio: null,
+    hora_fin: null,
+    fecha_inicio: '2026-09-01',
+    fecha_fin: '2026-11-30',
+    tipo_limite_usos: 'diario',
+    limite_usos: 25,
+    usos_actuales: 22,
+    usos_hoy: 18,
+    fecha_ultimo_uso: '2026-10-09',
+    activa: true,
+    estado_visual: 'vigente',
+    total_descontado: 380.0,
+    total_ventas_asociadas: 1900.0,
+    created_at: '2026-09-01T10:00:00Z',
+  },
+  {
+    id: 'promo-0000-0003',
+    codigo: 'PROMO-2026-003',
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Happy Hour After-Office',
+    descripcion: '25% de descuento en coctelería y piqueos de 18:00 a 21:00.',
+    tipo_descuento: 'porcentaje',
+    valor: 25.0,
+    tope_maximo_descuento: 30.0,
+    monto_minimo_consumo: 0.0,
+    dias_semana: [1, 2, 3, 4, 5],
+    hora_inicio: '18:00',
+    hora_fin: '21:00',
+    fecha_inicio: '2026-10-01',
+    fecha_fin: '2026-12-31',
+    tipo_limite_usos: 'diario',
+    limite_usos: 15,
+    usos_actuales: 10,
+    usos_hoy: 5,
+    fecha_ultimo_uso: '2026-10-09',
+    activa: true,
+    estado_visual: 'vigente',
+    total_descontado: 150.0,
+    total_ventas_asociadas: 600.0,
+    created_at: '2026-10-01T15:00:00Z',
+  },
+  {
+    id: 'promo-0000-0004',
+    codigo: 'PROMO-2026-004',
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Bono Familiar Fin Sem',
+    descripcion: 'Deducción fija de S/ 20.00 en consumos familiares superiores a S/ 100.00.',
+    tipo_descuento: 'monto_fijo',
+    valor: 20.0,
+    tope_maximo_descuento: null,
+    monto_minimo_consumo: 100.0,
+    dias_semana: [6, 7],
+    hora_inicio: null,
+    hora_fin: null,
+    fecha_inicio: '2026-10-18',
+    fecha_fin: '2026-11-15',
+    tipo_limite_usos: 'diario',
+    limite_usos: 30,
+    usos_actuales: 0,
+    usos_hoy: 0,
+    fecha_ultimo_uso: null,
+    activa: true,
+    estado_visual: 'programada',
+    total_descontado: 0.0,
+    total_ventas_asociadas: 0.0,
+    created_at: '2026-10-05T12:00:00Z',
+  },
+  {
+    id: 'promo-0000-0005',
+    codigo: 'PROMO-2026-005',
+    local_id: CANONICAL_LOCAL_ID,
+    nombre: 'Campaña Primavera',
+    descripcion: '10% de descuento general por el mes de la primavera.',
+    tipo_descuento: 'porcentaje',
+    valor: 10.0,
+    tope_maximo_descuento: null,
+    monto_minimo_consumo: 0.0,
+    dias_semana: [1, 2, 3, 4, 5, 6, 7],
+    hora_inicio: null,
+    hora_fin: null,
+    fecha_inicio: '2026-09-01',
+    fecha_fin: '2026-09-30',
+    tipo_limite_usos: 'global',
+    limite_usos: 100,
+    usos_actuales: 45,
+    usos_hoy: 0,
+    fecha_ultimo_uso: '2026-09-30',
+    activa: false,
+    estado_visual: 'vencida',
+    total_descontado: 520.0,
+    total_ventas_asociadas: 5200.0,
+    created_at: '2026-08-25T11:00:00Z',
+  },
+];
+
+export const SEMILLAS_COMPROBANTES_AUDITORIA_PROMO: Record<string, PromocionComprobanteAuditoriaDTO[]> = {
+  'promo-0000-0001': [
+    {
+      id: 'comp-001',
+      numero_comprobante: 'B001-000492',
+      fecha_hora: '2026-10-09T14:15:00Z',
+      mesa_numero: 'Mesa 05',
+      cajero_nombre: 'Carlos Mendoza',
+      subtotal: 120.0,
+      descuento: 18.0,
+      total: 102.0,
+    },
+    {
+      id: 'comp-002',
+      numero_comprobante: 'B001-000489',
+      fecha_hora: '2026-10-09T13:40:00Z',
+      mesa_numero: 'Mesa 12',
+      cajero_nombre: 'Carlos Mendoza',
+      subtotal: 85.0,
+      descuento: 12.75,
+      total: 72.25,
+    },
+    {
+      id: 'comp-003',
+      numero_comprobante: 'F001-000108',
+      fecha_hora: '2026-10-08T21:10:00Z',
+      mesa_numero: 'Mesa 08',
+      cajero_nombre: 'Ana Paredes',
+      subtotal: 210.0,
+      descuento: 31.5,
+      total: 178.5,
+    },
+    {
+      id: 'comp-004',
+      numero_comprobante: 'B001-000482',
+      fecha_hora: '2026-10-08T20:05:00Z',
+      mesa_numero: 'Mesa 02',
+      cajero_nombre: 'Ana Paredes',
+      subtotal: 64.0,
+      descuento: 9.6,
+      total: 54.4,
+    },
+  ],
+  'promo-0000-0002': [
+    {
+      id: 'comp-005',
+      numero_comprobante: 'B001-000475',
+      fecha_hora: '2026-10-06T20:30:00Z',
+      mesa_numero: 'Mesa 04',
+      cajero_nombre: 'Carlos Mendoza',
+      subtotal: 150.0,
+      descuento: 30.0,
+      total: 120.0,
+    },
+    {
+      id: 'comp-006',
+      numero_comprobante: 'B001-000471',
+      fecha_hora: '2026-10-06T14:10:00Z',
+      mesa_numero: 'Mesa [ 02 ; 03 ]',
+      cajero_nombre: 'Ana Paredes',
+      subtotal: 240.0,
+      descuento: 40.0,
+      total: 200.0,
+    },
+  ],
+  'promo-0000-0003': [
+    {
+      id: 'comp-007',
+      numero_comprobante: 'B001-000460',
+      fecha_hora: '2026-10-07T19:20:00Z',
+      mesa_numero: 'Mesa 06',
+      cajero_nombre: 'Carlos Mendoza',
+      subtotal: 90.0,
+      descuento: 22.5,
+      total: 67.5,
+    },
+  ],
+};
+
 // Estado en memoria simulado
 class MockAdminService {
   private pisos: PisoAdminDTO[] = JSON.parse(JSON.stringify(SEMILLAS_PISOS));
@@ -3426,6 +3653,8 @@ class MockAdminService {
   private notificacionesCampana: NotificacionCampanaDTO[] = JSON.parse(JSON.stringify(SEMILLAS_NOTIFICACIONES_CAMPANA));
   private seqAnulacion: number = 43;
   private notificacionesSseListeners: Set<(notif: NotificacionCampanaDTO) => void> = new Set();
+  private promociones: PromocionAdminDTO[] = JSON.parse(JSON.stringify(SEMILLAS_PROMOCIONES_AUREA));
+  private seqPromo: number = 6;
 
 
   private calcularMetricasPiso(piso: PisoAdminDTO) {
@@ -8859,6 +9088,653 @@ class MockAdminService {
     this.anulaciones = JSON.parse(JSON.stringify(SEMILLAS_ANULACIONES_AUREA));
     this.notificacionesCampana = JSON.parse(JSON.stringify(SEMILLAS_NOTIFICACIONES_CAMPANA));
     this.seqAnulacion = 43;
+  }
+
+  // ===========================================================================
+  // MÉTODOS DE GESTIÓN DE PROMOCIONES: CU-ADMIN-17
+  // Coherencia con CU-CAJA-02, CU-CAJA-03, CU-MOZO-08, CU-MOZO-09
+  // ===========================================================================
+
+  private calcularEstadoVisualPromo(p: PromocionAdminDTO): EstadoVisualPromocion {
+    const today = '2026-10-09';
+    if (!p.activa) {
+      if (today > p.fecha_fin) return 'vencida';
+      return 'pausada';
+    }
+    if (today < p.fecha_inicio) return 'programada';
+    if (today > p.fecha_fin) return 'vencida';
+
+    // Regla de agotamiento por cupo (Opción C: Zero-Cron O(1))
+    if (p.tipo_limite_usos === 'diario' && p.limite_usos != null) {
+      const usosHoyEfectivos = p.fecha_ultimo_uso === today ? p.usos_hoy : 0;
+      if (usosHoyEfectivos >= p.limite_usos) return 'agotada_hoy';
+    } else if (p.tipo_limite_usos === 'global' && p.limite_usos != null) {
+      if (p.usos_actuales >= p.limite_usos) return 'agotada';
+    }
+
+    return 'vigente';
+  }
+
+  /**
+   * GET /api/v1/admin/promociones
+   * Retorna lista de promociones con filtros y KPIs de sede
+   */
+  async getBandejaPromociones(
+    filtros: FiltrosPromocionesRequest = {}
+  ): Promise<ApiResponse<PromocionesBandejaResponseDTO>> {
+    await new Promise((r) => setTimeout(r, 60));
+
+    // Actualizar estados visuales dinámicos
+    this.promociones.forEach((p) => {
+      p.estado_visual = this.calcularEstadoVisualPromo(p);
+    });
+
+    let lista = [...this.promociones];
+
+    // Filtro por estado
+    if (filtros.estado && filtros.estado !== 'todas') {
+      switch (filtros.estado) {
+        case 'vigentes':
+          lista = lista.filter((p) => p.estado_visual === 'vigente');
+          break;
+        case 'programadas':
+          lista = lista.filter((p) => p.estado_visual === 'programada');
+          break;
+        case 'pausadas':
+          lista = lista.filter((p) => p.estado_visual === 'pausada');
+          break;
+        case 'vencidas':
+          lista = lista.filter((p) => p.estado_visual === 'vencida');
+          break;
+        case 'agotadas':
+          lista = lista.filter((p) => p.estado_visual === 'agotada' || p.estado_visual === 'agotada_hoy');
+          break;
+        default:
+          break;
+      }
+    }
+
+    // Filtro por tipo de descuento
+    if (filtros.tipo_descuento && filtros.tipo_descuento !== 'todos') {
+      lista = lista.filter((p) => p.tipo_descuento === filtros.tipo_descuento);
+    }
+
+    // Buscador
+    if (filtros.busqueda && filtros.busqueda.trim()) {
+      const q = filtros.busqueda.toLowerCase().trim();
+      lista = lista.filter(
+        (p) =>
+          p.nombre.toLowerCase().includes(q) ||
+          p.codigo.toLowerCase().includes(q) ||
+          (p.descripcion && p.descripcion.toLowerCase().includes(q))
+      );
+    }
+
+    // KPIs consolidados de la sede
+    const vigentes_hoy = this.promociones.filter((p) => p.estado_visual === 'vigente').length;
+    const campanas_programadas = this.promociones.filter((p) => p.estado_visual === 'programada').length;
+    const descuentos_mes = this.promociones.reduce((sum, p) => sum + p.total_descontado, 0);
+    const cuentas_beneficiadas = this.promociones.reduce((sum, p) => sum + p.usos_actuales, 0);
+
+    return {
+      exito: true,
+      datos: {
+        kpis: {
+          vigentes_hoy,
+          campanas_programadas,
+          descuentos_mes,
+          cuentas_beneficiadas,
+        },
+        promociones: JSON.parse(JSON.stringify(lista)),
+        total: lista.length,
+      },
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/promociones/buscar?q={query}&estado={estado}&tipo={tipo}
+   * Búsqueda optimizada por demanda (activada por botón o tecla Enter).
+   * Evita ráfagas por pulsación de tecla y no recalcula KPIs de sede para máxima eficiencia.
+   */
+  async buscarPromociones(
+    q: string,
+    estado?: FiltroEstadoPromocion,
+    tipo?: FiltroTipoPromocion
+  ): Promise<ApiResponse<BuscarPromocionesResponseDTO>> {
+    await new Promise((r) => setTimeout(r, 40));
+
+    // Actualizar estados visuales dinámicos
+    this.promociones.forEach((p) => {
+      p.estado_visual = this.calcularEstadoVisualPromo(p);
+    });
+
+    let lista = [...this.promociones];
+
+    // Filtro por término de búsqueda (nombre, código o descripción)
+    if (q && q.trim()) {
+      const termino = q.toLowerCase().trim();
+      lista = lista.filter(
+        (p) =>
+          p.nombre.toLowerCase().includes(termino) ||
+          p.codigo.toLowerCase().includes(termino) ||
+          (p.descripcion && p.descripcion.toLowerCase().includes(termino))
+      );
+    }
+
+    // Filtro por estado
+    if (estado && estado !== 'todas') {
+      switch (estado) {
+        case 'vigentes':
+          lista = lista.filter((p) => p.estado_visual === 'vigente');
+          break;
+        case 'programadas':
+          lista = lista.filter((p) => p.estado_visual === 'programada');
+          break;
+        case 'pausadas':
+          lista = lista.filter((p) => p.estado_visual === 'pausada');
+          break;
+        case 'vencidas':
+          lista = lista.filter((p) => p.estado_visual === 'vencida');
+          break;
+        case 'agotadas':
+          lista = lista.filter((p) => p.estado_visual === 'agotada' || p.estado_visual === 'agotada_hoy');
+          break;
+        default:
+          break;
+      }
+    }
+
+    // Filtro por tipo de descuento
+    if (tipo && tipo !== 'todos') {
+      lista = lista.filter((p) => p.tipo_descuento === tipo);
+    }
+
+    return {
+      exito: true,
+      datos: {
+        termino: q.trim(),
+        resultados: JSON.parse(JSON.stringify(lista)),
+        total: lista.length,
+      },
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/promociones/{id}
+   */
+  async getPromocionDetalle(id: string): Promise<ApiResponse<PromocionAdminDTO>> {
+    await new Promise((r) => setTimeout(r, 40));
+    const promo = this.promociones.find((p) => p.id === id);
+    if (!promo) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_PROMOCION_NO_ENCONTRADA',
+            mensaje: 'La promoción solicitada no existe o fue desvinculada de la sede.',
+          },
+        ],
+      };
+    }
+
+    promo.estado_visual = this.calcularEstadoVisualPromo(promo);
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(promo)),
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/promociones
+   * Creación con validaciones de fechas, topes y duplicados
+   */
+  async crearPromocion(req: CrearPromocionRequest): Promise<ApiResponse<PromocionAdminDTO>> {
+    await new Promise((r) => setTimeout(r, 80));
+
+    // Validar nombre duplicado en la misma sede
+    const duplicado = this.promociones.some(
+      (p) => p.nombre.toLowerCase().trim() === req.nombre.toLowerCase().trim()
+    );
+    if (duplicado) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_PROMOCION_DUPLICADA',
+            mensaje: `Ya existe una promoción activa o registrada con el nombre "${req.nombre}" en esta sede.`,
+          },
+        ],
+      };
+    }
+
+    if (req.fecha_inicio > req.fecha_fin) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_FECHAS_INVALIDAS',
+            mensaje: 'La fecha de inicio no puede ser posterior a la fecha de finalización.',
+          },
+        ],
+      };
+    }
+
+    if (req.tipo_descuento === 'porcentaje' && (req.valor <= 0 || req.valor > 100)) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_VALOR_PORCENTAJE',
+            mensaje: 'El porcentaje de descuento debe encontrarse estrictamente entre 1% y 100%.',
+          },
+        ],
+      };
+    }
+
+    const id = `promo-0000-${String(Date.now()).slice(-6)}`;
+    const codigo = `PROMO-2026-${String(this.seqPromo++).padStart(3, '0')}`;
+    const now = new Date().toISOString();
+
+    const nuevaPromo: PromocionAdminDTO = {
+      id,
+      codigo,
+      local_id: CANONICAL_LOCAL_ID,
+      nombre: req.nombre.trim(),
+      descripcion: req.descripcion?.trim() || null,
+      tipo_descuento: req.tipo_descuento,
+      valor: req.valor,
+      tope_maximo_descuento: req.tope_maximo_descuento ?? null,
+      monto_minimo_consumo: req.monto_minimo_consumo ?? 0.0,
+      dias_semana: req.dias_semana && req.dias_semana.length > 0 ? req.dias_semana : [1, 2, 3, 4, 5, 6, 7],
+      hora_inicio: req.hora_inicio || null,
+      hora_fin: req.hora_fin || null,
+      fecha_inicio: req.fecha_inicio,
+      fecha_fin: req.fecha_fin,
+      tipo_limite_usos: req.tipo_limite_usos || (req.limite_usos ? 'global' : 'sin_limite'),
+      limite_usos: req.limite_usos ?? null,
+      usos_actuales: 0,
+      usos_hoy: 0,
+      fecha_ultimo_uso: null,
+      activa: req.activa,
+      estado_visual: 'vigente',
+      total_descontado: 0.0,
+      total_ventas_asociadas: 0.0,
+      created_at: now,
+      updated_at: now,
+    };
+
+    nuevaPromo.estado_visual = this.calcularEstadoVisualPromo(nuevaPromo);
+    this.promociones.unshift(nuevaPromo);
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(nuevaPromo)),
+    };
+  }
+
+  /**
+   * PUT /api/v1/admin/promociones/{id}
+   */
+  async actualizarPromocion(
+    id: string,
+    req: ActualizarPromocionRequest
+  ): Promise<ApiResponse<PromocionAdminDTO>> {
+    await new Promise((r) => setTimeout(r, 60));
+    const promo = this.promociones.find((p) => p.id === id);
+    if (!promo) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_PROMOCION_NO_ENCONTRADA',
+            mensaje: 'La promoción que intentas modificar no existe.',
+          },
+        ],
+      };
+    }
+
+    if (req.nombre && req.nombre.toLowerCase().trim() !== promo.nombre.toLowerCase().trim()) {
+      const duplicado = this.promociones.some(
+        (p) => p.id !== id && p.nombre.toLowerCase().trim() === req.nombre!.toLowerCase().trim()
+      );
+      if (duplicado) {
+        return {
+          exito: false,
+          datos: null as any,
+          errores: [
+            {
+              codigo: 'ERR_PROMOCION_DUPLICADA',
+              mensaje: `El nombre "${req.nombre}" ya está en uso por otra campaña.`,
+            },
+          ],
+        };
+      }
+      promo.nombre = req.nombre.trim();
+    }
+
+    if (req.descripcion !== undefined) promo.descripcion = req.descripcion?.trim() || null;
+    if (req.tipo_descuento !== undefined) promo.tipo_descuento = req.tipo_descuento;
+    if (req.valor !== undefined) promo.valor = req.valor;
+    if (req.tope_maximo_descuento !== undefined) promo.tope_maximo_descuento = req.tope_maximo_descuento;
+    if (req.monto_minimo_consumo !== undefined) promo.monto_minimo_consumo = req.monto_minimo_consumo;
+    if (req.dias_semana !== undefined) promo.dias_semana = req.dias_semana;
+    if (req.hora_inicio !== undefined) promo.hora_inicio = req.hora_inicio || null;
+    if (req.hora_fin !== undefined) promo.hora_fin = req.hora_fin || null;
+    if (req.fecha_inicio !== undefined) promo.fecha_inicio = req.fecha_inicio;
+    if (req.fecha_fin !== undefined) promo.fecha_fin = req.fecha_fin;
+    if (req.tipo_limite_usos !== undefined) promo.tipo_limite_usos = req.tipo_limite_usos;
+    if (req.limite_usos !== undefined) promo.limite_usos = req.limite_usos;
+    if (req.activa !== undefined) promo.activa = req.activa;
+
+    promo.updated_at = new Date().toISOString();
+    promo.estado_visual = this.calcularEstadoVisualPromo(promo);
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(promo)),
+    };
+  }
+
+  /**
+   * PATCH /api/v1/admin/promociones/{id}/estado
+   * Switch de activación inmediata en Caja
+   */
+  async toggleEstadoPromocion(
+    id: string,
+    activa: boolean
+  ): Promise<ApiResponse<PromocionAdminDTO>> {
+    await new Promise((r) => setTimeout(r, 40));
+    const promo = this.promociones.find((p) => p.id === id);
+    if (!promo) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_PROMOCION_NO_ENCONTRADA',
+            mensaje: 'No se encontró la promoción a modificar.',
+          },
+        ],
+      };
+    }
+
+    if (activa) {
+      const today = '2026-10-09';
+      if (today > promo.fecha_fin) {
+        return {
+          exito: false,
+          datos: null as any,
+          errores: [
+            {
+              codigo: 'ERR_PROMOCION_VENCIDA',
+              mensaje: `No es posible habilitar en caja la promoción "${promo.nombre}" porque su periodo de vigencia culminó el ${promo.fecha_fin}. Modifica la fecha de fin antes de reactivarla.`,
+            },
+          ],
+        };
+      }
+
+      if (
+        promo.tipo_limite_usos === 'global' &&
+        promo.limite_usos != null &&
+        promo.usos_actuales >= promo.limite_usos
+      ) {
+        return {
+          exito: false,
+          datos: null as any,
+          errores: [
+            {
+              codigo: 'ERR_CUPO_AGOTADO',
+              mensaje: `No es posible habilitar en caja la promoción "${promo.nombre}" porque agotó su cupo global máximo de ${promo.limite_usos} canjes. Amplía el cupo para reactivarla.`,
+            },
+          ],
+        };
+      }
+    }
+
+    promo.activa = activa;
+    promo.updated_at = new Date().toISOString();
+    promo.estado_visual = this.calcularEstadoVisualPromo(promo);
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(promo)),
+    };
+  }
+
+  /**
+   * DELETE /api/v1/admin/promociones/{id}
+   * Salvaguarda contable: ON DELETE RESTRICT si existen comprobantes históricos
+   */
+  async eliminarPromocion(id: string): Promise<ApiResponse<{ eliminado: boolean }>> {
+    await new Promise((r) => setTimeout(r, 60));
+    const promo = this.promociones.find((p) => p.id === id);
+    if (!promo) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_PROMOCION_NO_ENCONTRADA',
+            mensaje: 'La promoción ya no existe en el sistema.',
+          },
+        ],
+      };
+    }
+
+    // Regla de salvaguarda contable PostgreSQL ON DELETE RESTRICT
+    if (promo.usos_actuales > 0) {
+      return {
+        exito: false,
+        datos: { eliminado: false },
+        errores: [
+          {
+            codigo: 'ERR_PROMOCION_CON_HISTORIAL',
+            mensaje: `No es posible eliminar la promoción "${promo.nombre}" porque cuenta con ${promo.usos_actuales} comprobantes emitidos ante SUNAT. Utiliza la opción Pausar para suspenderla de caja sin alterar el histórico contable.`,
+          },
+        ],
+      };
+    }
+
+    this.promociones = this.promociones.filter((p) => p.id !== id);
+    return {
+      exito: true,
+      datos: { eliminado: true },
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/promociones/{id}/rendimiento
+   */
+  async getRendimientoPromocion(id: string): Promise<ApiResponse<PromocionRendimientoDTO>> {
+    await new Promise((r) => setTimeout(r, 60));
+    const promo = this.promociones.find((p) => p.id === id);
+    if (!promo) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_PROMOCION_NO_ENCONTRADA',
+            mensaje: 'No se encontró la promoción solicitada.',
+          },
+        ],
+      };
+    }
+
+    promo.estado_visual = this.calcularEstadoVisualPromo(promo);
+    const comprobantes = SEMILLAS_COMPROBANTES_AUDITORIA_PROMO[id] || [];
+
+    const ventas_totales = promo.total_ventas_asociadas;
+    const descuentos_totales = promo.total_descontado;
+    const ticket_promedio =
+      promo.usos_actuales > 0
+        ? Math.round((promo.total_ventas_asociadas / promo.usos_actuales) * 100) / 100
+        : 0.0;
+
+    return {
+      exito: true,
+      datos: {
+        promocion: JSON.parse(JSON.stringify(promo)),
+        ventas_totales,
+        descuentos_totales,
+        ticket_promedio,
+        usos_totales: promo.usos_actuales,
+        comprobantes: JSON.parse(JSON.stringify(comprobantes)),
+      },
+    };
+  }
+
+  /**
+   * QA Demo: Simular un nuevo cobro en caja con descuento aplicado
+   */
+  async simularUsoEnCaja(id?: string): Promise<ApiResponse<PromocionAdminDTO>> {
+    const promo = id ? this.promociones.find((p) => p.id === id) : this.promociones.find((p) => p.activa);
+    if (!promo) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_NO_PROMO_ACTIVA', mensaje: 'No hay promociones activas para simular uso.' }],
+      };
+    }
+
+    const consumoBruto = 120.0;
+    let dscto = 0;
+    if (promo.tipo_descuento === 'porcentaje') {
+      dscto = Math.round((consumoBruto * (promo.valor / 100)) * 100) / 100;
+      if (promo.tope_maximo_descuento && dscto > promo.tope_maximo_descuento) {
+        dscto = promo.tope_maximo_descuento;
+      }
+    } else {
+      dscto = promo.valor;
+    }
+
+    const today = '2026-10-09';
+    promo.usos_actuales += 1;
+    if (promo.fecha_ultimo_uso === today) {
+      promo.usos_hoy = (promo.usos_hoy || 0) + 1;
+    } else {
+      promo.usos_hoy = 1;
+      promo.fecha_ultimo_uso = today;
+    }
+
+    promo.total_descontado += dscto;
+    promo.total_ventas_asociadas += consumoBruto;
+    promo.estado_visual = this.calcularEstadoVisualPromo(promo);
+
+    // Agregar comprobante al historial
+    if (!SEMILLAS_COMPROBANTES_AUDITORIA_PROMO[promo.id]) {
+      SEMILLAS_COMPROBANTES_AUDITORIA_PROMO[promo.id] = [];
+    }
+    SEMILLAS_COMPROBANTES_AUDITORIA_PROMO[promo.id].unshift({
+      id: `comp-sim-${Date.now()}`,
+      numero_comprobante: `B001-000${500 + promo.usos_actuales}`,
+      fecha_hora: new Date().toISOString(),
+      mesa_numero: 'Mesa 04',
+      cajero_nombre: 'Carlos Mendoza',
+      subtotal: consumoBruto,
+      descuento: dscto,
+      total: consumoBruto - dscto,
+    });
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(promo)),
+    };
+  }
+
+  /**
+   * QA Demo: Simular que la cuponera global se agotó
+   */
+  async simularCupoAgotado(id?: string): Promise<ApiResponse<PromocionAdminDTO>> {
+    const promo = id
+      ? this.promociones.find((p) => p.id === id)
+      : this.promociones.find((p) => p.tipo_limite_usos === 'global') || this.promociones[0];
+
+    if (!promo) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_NO_PROMO', mensaje: 'No se encontró promoción para agotar cupo.' }],
+      };
+    }
+
+    promo.tipo_limite_usos = 'global';
+    promo.limite_usos = 50;
+    promo.usos_actuales = 50;
+    promo.estado_visual = 'agotada';
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(promo)),
+    };
+  }
+
+  /**
+   * QA Demo: Simular cupo diario agotado para la jornada de hoy (Opción C)
+   */
+  async simularCupoDiarioAgotado(id?: string): Promise<ApiResponse<PromocionAdminDTO>> {
+    const promo = id
+      ? this.promociones.find((p) => p.id === id)
+      : this.promociones.find((p) => p.tipo_limite_usos === 'diario') || this.promociones[1];
+
+    if (!promo) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_NO_PROMO', mensaje: 'No se encontró promoción de cupo diario.' }],
+      };
+    }
+
+    const today = '2026-10-09';
+    promo.tipo_limite_usos = 'diario';
+    promo.limite_usos = promo.limite_usos || 25;
+    promo.usos_hoy = promo.limite_usos;
+    promo.fecha_ultimo_uso = today;
+    promo.estado_visual = 'agotada_hoy';
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(promo)),
+    };
+  }
+
+  /**
+   * QA Demo: Simular cambio de día (Auto-Reset a 0 en O(1) Zero-Cron)
+   */
+  async simularNuevoDia(): Promise<ApiResponse<{ mensaje: string }>> {
+    // Simulamos que la fecha anterior era ayer
+    this.promociones.forEach((p) => {
+      if (p.tipo_limite_usos === 'diario') {
+        p.fecha_ultimo_uso = '2026-10-08'; // Ayer
+        p.usos_hoy = 0; // Se resetea atómicamente a 0
+        p.estado_visual = this.calcularEstadoVisualPromo(p);
+      }
+    });
+
+    return {
+      exito: true,
+      datos: { mensaje: '¡Jornada renovada! Todos los cupos diarios se han reseteado a 0 automáticamente en O(1).' },
+    };
+  }
+
+  /**
+   * QA Demo: Simular sede nueva sin promociones (Onboarding Vista 4)
+   */
+  simularSedeVaciaPromociones(): void {
+    this.promociones = [];
+  }
+
+  /**
+   * QA Demo: Restablecer semillas canónicas de Aúrea
+   */
+  restablecerSemillasPromociones(): void {
+    this.promociones = JSON.parse(JSON.stringify(SEMILLAS_PROMOCIONES_AUREA));
+    this.seqPromo = 6;
   }
 }
 

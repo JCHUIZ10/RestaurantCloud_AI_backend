@@ -112,6 +112,8 @@ CREATE INDEX IF NOT EXISTS idx_proveedor_nombre_trgm
 CREATE INDEX IF NOT EXISTS idx_cliente_nombre_trgm 
     ON cliente USING gin (nombre_identificativo gin_trgm_ops);
 
+-- Verificar porque se han dado nuevos INDEX gin en CU como el CU-ADMIN-17-
+
 -- ------------------------------------------------------------------------------
 -- 4. ÍNDICES COMPUESTOS PARA CLAVES FORÁNEAS Y REPORTES ANALÍTICOS
 -- ------------------------------------------------------------------------------
