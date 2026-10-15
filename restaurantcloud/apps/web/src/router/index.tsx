@@ -31,6 +31,7 @@ import { AdminConfiguracionKdsPage } from '@/modules/admin/pages/AdminConfigurac
 import { AdminMetodosPagoPage } from '@/modules/admin/pages/AdminMetodosPagoPage';
 import { PropietarioIncidentesPage } from '@/modules/propietario/pages/PropietarioIncidentesPage';
 import { CajeroPosPage } from '@/modules/caja/pages/CajeroPosPage';
+import { CajeroTurnoCierrePage } from '@/modules/caja/pages/CajeroTurnoCierrePage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
@@ -371,7 +372,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'turno',
-        element: <CajeroPosPage />,
+        element: <CajeroTurnoCierrePage />,
       },
     ],
   },

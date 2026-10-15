@@ -5,6 +5,9 @@ import {
   AbrirCajaRequest,
   MesaCajaMonitorDTO,
   CajaMetricasPosDTO,
+  BalancePreArqueoDTO,
+  CerrarCajaRequest,
+  ReporteZDTO,
 } from '@/types/caja';
 import { CANONICAL_LOCAL_ID, CANONICAL_LOCAL_NOMBRE } from '@/modules/admin/services/mockAdminService';
 
@@ -392,8 +395,200 @@ class MockCajaService {
     };
   }
 
+  private ultimoReporteZ: ReporteZDTO | null = null;
+
+  /**
+   * Obtiene el balance operativo previo al arqueo de caja (GET /api/v1/caja/turnos/actual/balance-cierre)
+   */
+  async getBalancePreArqueo(): Promise<ApiResponse<BalancePreArqueoDTO>> {
+    await new Promise((r) => setTimeout(r, 70));
+
+    const turno = this.turnoActivo || {
+      id: '00000000-0000-4000-8000-000000000542',
+      local_id: CANONICAL_LOCAL_ID,
+      cajero_id: CAJERO_ACTUAL_MOCK.id,
+      cajero_nombre: CAJERO_ACTUAL_MOCK.nombre,
+      cajero_rol: CAJERO_ACTUAL_MOCK.rol,
+      correlativo: 42,
+      monto_apertura: 300.0,
+      estado: 'abierta' as const,
+      fecha_apertura: '2026-10-15T11:30:00Z',
+      total_ventas: 15,
+      monto_ventas: 1485.0,
+      efectivo_actual: 300.0,
+    };
+
+    const mesasPendientes = this.mesas.filter((m) => m.estado !== 'libre').length;
+    const salonAlDia = mesasPendientes === 0;
+
+    const montoApertura = turno.monto_apertura;
+    const ingresosEfectivo = 85.0;
+    const egresosDevolucionNC = 85.0;
+    const efectivoEsperado = Math.round((montoApertura + ingresosEfectivo - egresosDevolucionNC) * 100) / 100;
+
+    return {
+      exito: true,
+      datos: {
+        caja_id: turno.id,
+        turno_correlativo: turno.correlativo,
+        cajero_nombre: turno.cajero_nombre,
+        cajero_rol: turno.cajero_rol || 'Cajero Titular (Turno Tarde)',
+        fecha_apertura: turno.fecha_apertura,
+        monto_apertura: montoApertura,
+        ingresos_efectivo: ingresosEfectivo,
+        egresos_devolucion_nc: egresosDevolucionNC,
+        efectivo_esperado: efectivoEsperado,
+        tarjetas_pos_total: 245.0,
+        tarjetas_operaciones: 1,
+        billeteras_total: 54.0,
+        otros_cobros_total: 1186.0,
+        total_facturado_neto: 1485.0,
+        base_imponible: 1258.47,
+        igv_18: 226.53,
+        total_comprobantes: 15,
+        mesas_activas_pendientes: mesasPendientes,
+        salon_al_dia: salonAlDia,
+        sede_nombre: CANONICAL_LOCAL_NOMBRE,
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * Cierra formalmente el turno de caja (POST /api/v1/caja/turnos/actual/cerrar)
+   * Valida monto físico, justificación obligatoria si hay discrepancia y ausencia de mesas activas
+   */
+  async cerrarTurno(req: CerrarCajaRequest): Promise<ApiResponse<ReporteZDTO>> {
+    await new Promise((r) => setTimeout(r, 140));
+
+    if (typeof req.monto_real_fisico !== 'number' || isNaN(req.monto_real_fisico) || req.monto_real_fisico < 0) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_MONTO_REAL_INVALIDO',
+            mensaje: 'El importe físico contado no puede ser negativo ni contener caracteres inválidos.',
+          },
+        ],
+      };
+    }
+
+    const mesasPendientes = this.mesas.filter((m) => m.estado !== 'libre').length;
+    if (mesasPendientes > 0) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_SALON_CON_MESAS_ACTIVAS',
+            mensaje: `No se puede cerrar caja: existen ${mesasPendientes} mesas con pedidos activos pendientes de cobro en el salón.`,
+          },
+        ],
+      };
+    }
+
+    const turno = this.turnoActivo || {
+      id: '00000000-0000-4000-8000-000000000542',
+      local_id: CANONICAL_LOCAL_ID,
+      cajero_id: CAJERO_ACTUAL_MOCK.id,
+      cajero_nombre: CAJERO_ACTUAL_MOCK.nombre,
+      cajero_rol: CAJERO_ACTUAL_MOCK.rol,
+      correlativo: 42,
+      monto_apertura: 300.0,
+      estado: 'abierta' as const,
+      fecha_apertura: '2026-10-15T11:30:00Z',
+    };
+
+    const efectivoEsperado = 300.0;
+    const discrepancia = Math.round((req.monto_real_fisico - efectivoEsperado) * 100) / 100;
+
+    // Validación de negocio RN-CAJA-08: comentario obligatorio si dif != 0 (mínimo 10 caracteres)
+    if (discrepancia !== 0) {
+      if (!req.comentario_discrepancia || req.comentario_discrepancia.trim().length < 10) {
+        return {
+          exito: false,
+          datos: null as any,
+          errores: [
+            {
+              codigo: 'ERR_DISCREPANCIA_SIN_JUSTIFICAR',
+              mensaje:
+                'Existe una diferencia entre el efectivo real y el esperado; el comentario justificativo es obligatorio (mínimo 10 caracteres).',
+            },
+          ],
+        };
+      }
+    }
+
+    const fechaCierre = new Date().toISOString();
+    const duracionStr = '8h 15m 07s';
+
+    const reporteZ: ReporteZDTO = {
+      caja_id: turno.id,
+      turno_correlativo: turno.correlativo,
+      local_nombre: CANONICAL_LOCAL_NOMBRE,
+      empresa_ruc: '20609876543',
+      cajero_nombre: turno.cajero_nombre,
+      fecha_apertura: turno.fecha_apertura,
+      fecha_cierre: fechaCierre,
+      duracion_turno: duracionStr,
+      monto_apertura: turno.monto_apertura,
+      efectivo_esperado: efectivoEsperado,
+      efectivo_real_contado: req.monto_real_fisico,
+      discrepancia: discrepancia,
+      comentario_discrepancia: req.comentario_discrepancia?.trim() || undefined,
+      total_ventas_efectivo: 85.0,
+      total_tarjetas_pos: 245.0,
+      total_billeteras_digital: 54.0,
+      otros_medios_total: 1186.0,
+      total_neto_facturado: 1485.0,
+      base_imponible_gravada: 1258.47,
+      igv_18: 226.53,
+      boletas_emitidas: 11,
+      facturas_emitidas: 3,
+      notas_venta_emitidas: 1,
+      notas_credito_emitidas: 1,
+      comprobantes_anulados: 1,
+      notas_cierre: req.notas_cierre?.trim() || 'Turno entregado sin novedades. Fondo S/ 300 listo en gaveta.',
+      url_descarga_pdf: `/api/v1/caja/turnos/${turno.id}/reporte-z/pdf`,
+    };
+
+    // Actualizar estado de servicio
+    this.ultimoReporteZ = reporteZ;
+    this.ultimoTurno = {
+      ...turno,
+      estado: 'cerrada',
+      fecha_cierre: fechaCierre,
+      monto_esperado: efectivoEsperado,
+      monto_real: req.monto_real_fisico,
+      discrepancia: discrepancia,
+      comentario_discrepancia: req.comentario_discrepancia || null,
+      notas_cierre: req.notas_cierre || null,
+    };
+    this.turnoActivo = null; // Libera uq_caja_abierta_local en PostgreSQL
+    this.correlativoContador = turno.correlativo + 1; // Siguiente turno será #043
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(reporteZ)),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * Obtiene el último Reporte Z generado en la sesión
+   */
+  async getUltimoReporteZ(): Promise<ApiResponse<ReporteZDTO | null>> {
+    await new Promise((r) => setTimeout(r, 40));
+    return {
+      exito: true,
+      datos: this.ultimoReporteZ ? JSON.parse(JSON.stringify(this.ultimoReporteZ)) : null,
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
   // =========================================================================
-  // Herramientas QA para probar todos los estados del CU-CAJA-01
+  // Herramientas QA para probar todos los estados del CU-CAJA-01 y CU-CAJA-05
   // =========================================================================
 
   /**
@@ -492,12 +687,44 @@ class MockCajaService {
   }
 
   /**
+   * QA Helper: Simula salón al día (todas las mesas libres) para permitir arqueo en CU-CAJA-05
+   */
+  simularSalonAlDiaQA(): void {
+    this.mesas = this.mesas.map((m) => ({
+      ...m,
+      estado: 'libre',
+      total_consumo: 0.0,
+      mozo_nombre: undefined,
+      comensales: undefined,
+      pedido_id: undefined,
+      minutos_espera_cuenta: undefined,
+    }));
+  }
+
+  /**
+   * QA Helper: Simula salón con mesas pendientes para probar el bloqueo Poka-Yoke en CU-CAJA-05
+   */
+  simularSalonConMesasPendientesQA(): void {
+    this.mesas = JSON.parse(JSON.stringify(SEMILLAS_MESAS_CAJA));
+  }
+
+  /**
+   * QA Helper: Restablece semillas para el cierre de turno CU-CAJA-05
+   */
+  restablecerSemillasCierreQA(): void {
+    this.simularTurnoAbiertoOperativoQA();
+    this.simularSalonAlDiaQA();
+    this.ultimoReporteZ = null;
+  }
+
+  /**
    * QA Helper: Restablece semillas a estado inicial
    */
   restablecerSemillasCajaQA(): void {
     this.turnoActivo = null;
     this.correlativoContador = 42;
     this.mesas = JSON.parse(JSON.stringify(SEMILLAS_MESAS_CAJA));
+    this.ultimoReporteZ = null;
   }
 }
 

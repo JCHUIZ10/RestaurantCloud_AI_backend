@@ -65,3 +65,62 @@ export interface CajaMetricasPosDTO {
   total_mesas_count: number;
   porcentaje_ocupacion: number;
 }
+
+export interface BalancePreArqueoDTO {
+  caja_id: string;
+  turno_correlativo: number;
+  cajero_nombre: string;
+  cajero_rol?: string;
+  fecha_apertura: string;
+  monto_apertura: number;
+  ingresos_efectivo: number;
+  egresos_devolucion_nc: number;
+  efectivo_esperado: number;
+  tarjetas_pos_total: number;
+  tarjetas_operaciones: number;
+  billeteras_total: number;
+  otros_cobros_total: number;
+  total_facturado_neto: number;
+  base_imponible: number;
+  igv_18: number;
+  total_comprobantes: number;
+  mesas_activas_pendientes: number;
+  salon_al_dia: boolean;
+  sede_nombre: string;
+}
+
+export interface CerrarCajaRequest {
+  monto_real_fisico: number;
+  comentario_discrepancia?: string;
+  notas_cierre?: string;
+}
+
+export interface ReporteZDTO {
+  caja_id: string;
+  turno_correlativo: number;
+  local_nombre: string;
+  empresa_ruc: string;
+  cajero_nombre: string;
+  fecha_apertura: string;
+  fecha_cierre: string;
+  duracion_turno: string;
+  monto_apertura: number;
+  efectivo_esperado: number;
+  efectivo_real_contado: number;
+  discrepancia: number;
+  comentario_discrepancia?: string;
+  total_ventas_efectivo: number;
+  total_tarjetas_pos: number;
+  total_billeteras_digital: number;
+  otros_medios_total?: number;
+  total_neto_facturado: number;
+  base_imponible_gravada: number;
+  igv_18: number;
+  boletas_emitidas: number;
+  facturas_emitidas: number;
+  notas_venta_emitidas: number;
+  notas_credito_emitidas: number;
+  comprobantes_anulados: number;
+  notas_cierre?: string;
+  url_descarga_pdf?: string;
+}
