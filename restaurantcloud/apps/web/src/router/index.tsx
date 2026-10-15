@@ -25,6 +25,7 @@ import { AdminPersonalPage } from '@/modules/admin/pages/AdminPersonalPage';
 import { AdminHorarioPage } from '@/modules/admin/pages/AdminHorarioPage';
 import { AdminPoliticasReservaPage } from '@/modules/admin/pages/AdminPoliticasReservaPage';
 import { AdminIncidentesPage } from '@/modules/admin/pages/AdminIncidentesPage';
+import { PropietarioIncidentesPage } from '@/modules/propietario/pages/PropietarioIncidentesPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
@@ -186,15 +187,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'incidentes',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-PROP-06"
-            nombrePantalla="Bitácora Corporativa de Incidentes"
-            rol="propietario"
-            layoutNombre="DashboardLayout"
-            descripcion="Registro y auditoría de incidencias operativas ocurridas en los distintos locales de la empresa."
-          />
-        ),
+        element: <PropietarioIncidentesPage />,
       },
     ],
   },

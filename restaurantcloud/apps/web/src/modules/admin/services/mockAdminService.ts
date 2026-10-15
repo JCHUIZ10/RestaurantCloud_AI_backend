@@ -91,10 +91,37 @@ import {
   ResolverIncidenteRequest,
   FiltrosIncidentesRequest,
 } from '@/types/admin';
+import {
+  PropietarioIncidentesFiltrosRequest,
+  PropietarioIncidentesBandejaResponse,
+  PasarARevisionRequest,
+  IncidenteBandejaItemDTO,
+} from '@/types/propietario';
 
 // Identificadores Canónicos del Seed de Desarrollo Local (07_seed_local_aurea_completo.sql)
 export const CANONICAL_LOCAL_ID = '00000000-0000-4000-8000-000000000010';
 export const CANONICAL_LOCAL_NOMBRE = 'Sede Miraflores (Principal)';
+export const CANONICAL_LOCAL_SAN_ISIDRO_ID = '00000000-0000-4000-8000-000000000020';
+export const CANONICAL_LOCAL_SAN_ISIDRO_NOMBRE = 'Sede San Isidro (Financiero)';
+
+export const SEDES_EMPRESA_AUREA = [
+  {
+    id: CANONICAL_LOCAL_ID,
+    nombre: CANONICAL_LOCAL_NOMBRE,
+    slug: 'aurea-miraflores',
+    direccion: 'Av. Larco 450',
+    distrito: 'Miraflores',
+    ciudad: 'Lima',
+  },
+  {
+    id: CANONICAL_LOCAL_SAN_ISIDRO_ID,
+    nombre: CANONICAL_LOCAL_SAN_ISIDRO_NOMBRE,
+    slug: 'aurea-san-isidro',
+    direccion: 'Av. Los Conquistadores 890',
+    distrito: 'San Isidro',
+    ciudad: 'Lima',
+  },
+];
 
 export const PISO_SALON_ID = '11111111-1111-4000-8000-000000000001';
 export const PISO_TERRAZA_ID = '11111111-1111-4000-8000-000000000002';
@@ -2909,15 +2936,15 @@ export const SEMILLAS_INCIDENTES_AUREA: IncidenteDetalleDTO[] = [
     id: '00000000-0000-4000-8000-000000000684',
     local_id: CANONICAL_LOCAL_ID,
     codigo: 'INC-2026-084',
-    titulo: 'Rotura de copas de vino en terraza exterior',
-    categoria: 'rotura_merma',
-    gravedad: 'media',
-    fecha_hora: '2026-10-12T20:30:00Z',
-    empleado_id: null,
-    empleado_nombre: null,
-    descripcion: 'Ráfaga de viento repentina derribó bandeja de cristalería en la estación auxiliar de la terraza. Se perdieron 6 copas de vino tinto importadas.',
-    medidas_inmediatas: 'Se limpiaron esquirlas de vidrio de inmediato para resguardar a los comensales.',
-    foto_url: null,
+    titulo: 'Corte en mano en cocina caliente',
+    categoria: 'seguridad_higiene',
+    gravedad: 'alta',
+    fecha_hora: '2026-10-12T18:15:00Z',
+    empleado_id: '00000000-0000-4000-8000-000000000104',
+    empleado_nombre: 'David Méndez (Ayudante Cocina)',
+    descripcion: 'Durante el turno cena, el colaborador sufrió un corte superficial al maniobrar cuchillo de fileteo. Se brindó primeros auxilios inmediatos con el botiquín del local y se derivó a la posta médica por precaución para descarte de sutura. El área de cocina quedó desinfectada y operativa sin interrumpir el servicio.',
+    medidas_inmediatas: 'Curación de emergencia, vendaje compresivo y relevo de turno con cocinero B. Área operativa y desinfectada.',
+    foto_url: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&auto=format&fit=crop&q=80',
     registrado_por: '00000000-0000-4000-8000-000000000102',
     registrador_nombre: 'Marcos López (Administrador)',
     estado: 'abierto',
@@ -2937,12 +2964,12 @@ export const SEMILLAS_INCIDENTES_AUREA: IncidenteDetalleDTO[] = [
         usuario_nombre: 'Marcos López (Administrador)',
         usuario_rol: 'admin_local',
         tipo_evento: 'apertura',
-        nota: 'Registro de rotura de cristalería por viento en terraza exterior.',
-        created_at: '2026-10-12T20:45:00Z',
+        nota: 'Registro de accidente de trabajo menor: corte en mano izquierda en cocina caliente.',
+        created_at: '2026-10-12T18:20:00Z',
       },
     ],
-    created_at: '2026-10-12T20:45:00Z',
-    updated_at: '2026-10-12T20:45:00Z',
+    created_at: '2026-10-12T18:20:00Z',
+    updated_at: '2026-10-12T18:20:00Z',
   },
   {
     id: '00000000-0000-4000-8000-000000000683',
@@ -3051,6 +3078,94 @@ export const SEMILLAS_INCIDENTES_AUREA: IncidenteDetalleDTO[] = [
     ],
     created_at: '2026-10-03T19:00:00Z',
     updated_at: '2026-10-04T11:00:00Z',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000680',
+    local_id: CANONICAL_LOCAL_SAN_ISIDRO_ID,
+    codigo: 'INC-2026-080',
+    titulo: 'Rotura vajilla (6 platos colección)',
+    categoria: 'rotura_merma',
+    gravedad: 'media',
+    fecha_hora: '2026-10-12T14:30:00Z',
+    empleado_id: '00000000-0000-4000-8000-000000000108',
+    empleado_nombre: 'Carlos Gómez (Mozo)',
+    descripcion: 'Durante el despacho de almuerzo en el salón principal de Sede San Isidro se quebraron 6 platos de la vajilla de autor al resbalar de la bandeja de traslado.',
+    medidas_inmediatas: 'Aislamiento de la zona, limpieza inmediata de restos cerámicos y reposición de la vajilla desde bodega.',
+    foto_url: 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?w=600&auto=format&fit=crop&q=80',
+    registrado_por: '00000000-0000-4000-8000-000000000107',
+    registrador_nombre: 'Diana Alarcón (Admin San Isidro)',
+    estado: 'abierto',
+    visto_por_propietario: false,
+    fecha_visto: null,
+    nota_propietario: null,
+    motivo_revision: null,
+    resolucion_nota: null,
+    resuelto_por: null,
+    resuelto_por_nombre: null,
+    fecha_resolucion: null,
+    bitacora: [
+      {
+        id: 'bit-0000-0080-1',
+        incidente_id: '00000000-0000-4000-8000-000000000680',
+        usuario_id: '00000000-0000-4000-8000-000000000107',
+        usuario_nombre: 'Diana Alarcón (Admin San Isidro)',
+        usuario_rol: 'admin_local',
+        tipo_evento: 'apertura',
+        nota: 'Registro de merma por rotura de vajilla artesanal de colección en salón.',
+        created_at: '2026-10-12T14:40:00Z',
+      },
+    ],
+    created_at: '2026-10-12T14:40:00Z',
+    updated_at: '2026-10-12T14:40:00Z',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000679',
+    local_id: CANONICAL_LOCAL_SAN_ISIDRO_ID,
+    codigo: 'INC-2026-079',
+    titulo: 'Tardanza reiterada de personal de cocina',
+    categoria: 'disciplinario',
+    gravedad: 'baja',
+    fecha_hora: '2026-10-08T11:20:00Z',
+    empleado_id: '00000000-0000-4000-8000-000000000109',
+    empleado_nombre: 'Miguel Luna (Cocinero)',
+    descripcion: 'El colaborador acumuló 3 tardanzas consecutivas de más de 30 minutos al turno de apertura en Sede San Isidro sin aviso previo.',
+    medidas_inmediatas: 'Entrevista de orientación con administración y registro de compromiso escrito.',
+    foto_url: null,
+    registrado_por: '00000000-0000-4000-8000-000000000107',
+    registrador_nombre: 'Diana Alarcón (Admin San Isidro)',
+    estado: 'resuelto',
+    visto_por_propietario: true,
+    fecha_visto: '2026-10-09T09:15:00Z',
+    nota_propietario: null,
+    motivo_revision: null,
+    resolucion_nota: 'El colaborador firmó acuerdo de cumplimiento de horario y se regularizó el registro biométrico de asistencia.',
+    resuelto_por: '00000000-0000-4000-8000-000000000107',
+    resuelto_por_nombre: 'Diana Alarcón (Admin San Isidro)',
+    fecha_resolucion: '2026-10-09T10:00:00Z',
+    bitacora: [
+      {
+        id: 'bit-0000-0079-1',
+        incidente_id: '00000000-0000-4000-8000-000000000679',
+        usuario_id: '00000000-0000-4000-8000-000000000107',
+        usuario_nombre: 'Diana Alarcón (Admin San Isidro)',
+        usuario_rol: 'admin_local',
+        tipo_evento: 'apertura',
+        nota: 'Apertura de caso disciplinario por reiteradas tardanzas sin justificación.',
+        created_at: '2026-10-08T11:30:00Z',
+      },
+      {
+        id: 'bit-0000-0079-2',
+        incidente_id: '00000000-0000-4000-8000-000000000679',
+        usuario_id: '00000000-0000-4000-8000-000000000107',
+        usuario_nombre: 'Diana Alarcón (Admin San Isidro)',
+        usuario_rol: 'admin_local',
+        tipo_evento: 'resolucion',
+        nota: 'El colaborador firmó acuerdo de cumplimiento de horario y se regularizó el registro biométrico de asistencia.',
+        created_at: '2026-10-09T10:00:00Z',
+      },
+    ],
+    created_at: '2026-10-08T11:30:00Z',
+    updated_at: '2026-10-09T10:00:00Z',
   },
 ];
 
@@ -7763,6 +7878,334 @@ class MockAdminService {
   restablecerSemillasIncidentes() {
     this.incidentes = JSON.parse(JSON.stringify(SEMILLAS_INCIDENTES_AUREA));
     this.seqIncidente = 86;
+  }
+
+  // ===========================================================================
+  // MÉTODOS CORPORATIVOS MULTI-SEDE: CU-PROP-06 (Portal Propietario)
+  // ===========================================================================
+
+  /**
+   * Obtiene el directorio de sedes de la empresa para el selector de filtros
+   */
+  getSedesEmpresa() {
+    return JSON.parse(JSON.stringify(SEDES_EMPRESA_AUREA));
+  }
+
+  /**
+   * GET /api/v1/propietario/incidentes
+   * Bandeja consolidada multi-sede con KPIs agregados ejecutivos
+   */
+  async getIncidentesEmpresa(
+    filtros: PropietarioIncidentesFiltrosRequest = {}
+  ): Promise<ApiResponse<PropietarioIncidentesBandejaResponse>> {
+    await new Promise((r) => setTimeout(r, 90));
+
+    const getNombreLocal = (localId: string) => {
+      if (localId === CANONICAL_LOCAL_ID) return CANONICAL_LOCAL_NOMBRE;
+      if (localId === CANONICAL_LOCAL_SAN_ISIDRO_ID) return CANONICAL_LOCAL_SAN_ISIDRO_NOMBRE;
+      const s = SEDES_EMPRESA_AUREA.find((sede) => sede.id === localId);
+      return s ? s.nombre : 'Sede Corporativa';
+    };
+
+    // Calcular KPIs corporativos globales (o contextuales de la sede activa si se filtra por sede)
+    const baseKpis =
+      filtros.local_id && filtros.local_id !== 'todas'
+        ? this.incidentes.filter((i) => i.local_id === filtros.local_id)
+        : this.incidentes;
+
+    const no_revisados = baseKpis.filter((i) => !i.visto_por_propietario).length;
+    const no_revisados_alta = baseKpis.filter((i) => !i.visto_por_propietario && i.gravedad === 'alta').length;
+    const gravedad_alta_activos = baseKpis.filter((i) => i.gravedad === 'alta' && i.estado !== 'resuelto').length;
+    const total_mes = baseKpis.length;
+    const desglose_mes = {
+      abiertos: baseKpis.filter((i) => i.estado === 'abierto').length,
+      en_revision: baseKpis.filter((i) => i.estado === 'en_revision').length,
+      resueltos: baseKpis.filter((i) => i.estado === 'resuelto').length,
+    };
+
+    const resueltos_por_sede: Record<string, { total_resueltos: number; no_revisados: number }> = {};
+    SEDES_EMPRESA_AUREA.forEach((s) => {
+      const incSede = this.incidentes.filter((i) => i.local_id === s.id);
+      resueltos_por_sede[s.id] = {
+        total_resueltos: incSede.filter((i) => i.estado === 'resuelto').length,
+        no_revisados: incSede.filter((i) => !i.visto_por_propietario).length,
+      };
+    });
+
+    // Aplicar filtros a la lista de incidentes
+    let lista = [...this.incidentes];
+
+    if (filtros.local_id && filtros.local_id !== 'todas') {
+      lista = lista.filter((i) => i.local_id === filtros.local_id);
+    }
+    if (filtros.gravedad && filtros.gravedad !== 'todas') {
+      lista = lista.filter((i) => i.gravedad === filtros.gravedad);
+    }
+    if (filtros.categoria && filtros.categoria !== 'todas') {
+      lista = lista.filter((i) => i.categoria === filtros.categoria);
+    }
+    if (filtros.estado && filtros.estado !== 'todos') {
+      lista = lista.filter((i) => i.estado === filtros.estado);
+    }
+    if (filtros.no_vistos) {
+      lista = lista.filter((i) => !i.visto_por_propietario);
+    }
+    if (filtros.busqueda && filtros.busqueda.trim()) {
+      const q = filtros.busqueda.toLowerCase().trim();
+      lista = lista.filter(
+        (i) =>
+          i.titulo.toLowerCase().includes(q) ||
+          i.codigo.toLowerCase().includes(q) ||
+          (i.empleado_nombre && i.empleado_nombre.toLowerCase().includes(q)) ||
+          i.descripcion.toLowerCase().includes(q)
+      );
+    }
+
+    // Ordenar de más reciente a más antiguo
+    lista.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    // Paginación
+    const pagina = filtros.pagina || 1;
+    const limite = filtros.limite || 15;
+    const total = lista.length;
+    const total_paginas = Math.ceil(total / limite) || 1;
+    const inicio = (pagina - 1) * limite;
+    const itemsPaginados = lista.slice(inicio, inicio + limite);
+
+    const itemsDTO: IncidenteBandejaItemDTO[] = itemsPaginados.map((inc) => {
+      const fechaCreacion = new Date(inc.created_at);
+      const diffMs = Date.now() - fechaCreacion.getTime();
+      const diasEnCurso = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+
+      return {
+        id: inc.id,
+        codigo: inc.codigo,
+        local_id: inc.local_id,
+        local_nombre: getNombreLocal(inc.local_id),
+        gravedad: inc.gravedad,
+        categoria: inc.categoria,
+        titulo: inc.titulo,
+        involucrado_nombre: inc.empleado_nombre || null,
+        involucrado_cargo: inc.empleado_nombre ? inc.empleado_nombre.split('(')[1]?.replace(')', '') || null : null,
+        estado: inc.estado,
+        visto_por_propietario: inc.visto_por_propietario,
+        fecha_visto: inc.fecha_visto,
+        tiene_evidencia: Boolean(inc.foto_url),
+        total_avances: inc.bitacora ? inc.bitacora.length : 0,
+        dias_en_curso: diasEnCurso,
+        created_at: inc.created_at,
+      };
+    });
+
+    return {
+      exito: true,
+      datos: {
+        kpis: {
+          no_revisados,
+          no_revisados_alta,
+          gravedad_alta_activos,
+          total_mes,
+          desglose_mes,
+          resueltos_por_sede,
+        },
+        incidentes: itemsDTO,
+        paginacion: {
+          total,
+          pagina,
+          limite,
+          total_paginas,
+        },
+      },
+    };
+  }
+
+  /**
+   * GET /api/v1/propietario/incidentes/{id}
+   * Detalle con marcado automático transparente de lectura en la primera apertura
+   */
+  async getIncidenteDetallePropietario(id: string): Promise<ApiResponse<IncidenteDetalleDTO>> {
+    await new Promise((r) => setTimeout(r, 60));
+
+    const inc = this.incidentes.find((i) => i.id === id);
+    if (!inc) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_INCIDENTE_NOT_FOUND',
+            mensaje: 'El incidente solicitado no existe o no pertenece a su organización.',
+          },
+        ],
+      };
+    }
+
+    // Efecto colateral transparente en DB: marcar como visto si era false
+    if (!inc.visto_por_propietario) {
+      const now = new Date().toISOString();
+      inc.visto_por_propietario = true;
+      inc.fecha_visto = now;
+      inc.updated_at = now;
+    }
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(inc)),
+    };
+  }
+
+  /**
+   * PATCH /api/v1/propietario/incidentes/{id}/pasar-a-revision
+   * Intervención ejecutiva del propietario con directiva vinculante
+   */
+  async pasarIncidenteARevisionPropietario(
+    id: string,
+    req: PasarARevisionRequest
+  ): Promise<ApiResponse<IncidenteDetalleDTO>> {
+    await new Promise((r) => setTimeout(r, 110));
+
+    const inc = this.incidentes.find((i) => i.id === id);
+    if (!inc) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_INCIDENTE_NOT_FOUND',
+            mensaje: 'El incidente solicitado no existe o no pertenece a su organización.',
+          },
+        ],
+      };
+    }
+
+    if (inc.estado === 'resuelto') {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_INCIDENTE_YA_RESUELTO',
+            mensaje: 'El incidente ya fue resuelto por la administración de la sede y no puede pasar a revisión.',
+          },
+        ],
+      };
+    }
+
+    if (!req.nota_propietario || req.nota_propietario.trim().length < 5) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_NOTA_PROPIETARIO_MIN',
+            mensaje: 'La directiva u observación ejecutiva debe contener al menos 5 caracteres.',
+          },
+        ],
+      };
+    }
+
+    if (req.nota_propietario.trim().length > 2000) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_NOTA_PROPIETARIO_EXCEDE_MAX',
+            mensaje: 'La instrucción u observación no puede superar los 2,000 caracteres.',
+          },
+        ],
+      };
+    }
+
+    const now = new Date().toISOString();
+    inc.estado = 'en_revision';
+    inc.nota_propietario = req.nota_propietario.trim();
+    inc.visto_por_propietario = true;
+    if (!inc.fecha_visto) {
+      inc.fecha_visto = now;
+    }
+    inc.updated_at = now;
+
+    if (!inc.bitacora) {
+      inc.bitacora = [];
+    }
+
+    inc.bitacora.push({
+      id: `bit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      incidente_id: inc.id,
+      usuario_id: '00000000-0000-4000-8000-000000000101',
+      usuario_nombre: 'Roberto Silva (Propietario)',
+      usuario_rol: 'propietario',
+      tipo_evento: 'directiva_propietario',
+      nota: req.nota_propietario.trim(),
+      created_at: now,
+    });
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(inc)),
+    };
+  }
+
+  /**
+   * Simular la llegada concurrente de un incidente crítico en tiempo real (SSE)
+   */
+  simularNuevoIncidenteCriticoSse(sedeId: string = CANONICAL_LOCAL_ID): IncidenteDetalleDTO {
+    const codigo = `INC-2026-${String(this.seqIncidente++).padStart(3, '0')}`;
+    const now = new Date().toISOString();
+    const esSanIsidro = sedeId === CANONICAL_LOCAL_SAN_ISIDRO_ID;
+
+    const nuevo: IncidenteDetalleDTO = {
+      id: `00000000-0000-4000-8000-${String(Date.now()).slice(-12)}`,
+      local_id: sedeId,
+      codigo,
+      titulo: esSanIsidro
+        ? 'Derrame de líquido inflamable en pasillo de bar'
+        : 'Corte de energía sectorial y desconexión de refrigerador de mariscos',
+      categoria: esSanIsidro ? 'seguridad_higiene' : 'rotura_merma',
+      gravedad: 'alta',
+      fecha_hora: now,
+      empleado_id: null,
+      empleado_nombre: null,
+      descripcion: esSanIsidro
+        ? 'Se detectó rotura de botella de destilado de alta graduación en el pasillo posterior de bar. Se evacuó temporalmente el pasillo.'
+        : 'Fluctuación eléctrica apagó preventivamente la conservadora N° 1 de pescados del día durante turno almuerzo.',
+      medidas_inmediatas: esSanIsidro
+        ? 'Ventilación forzada y absorción de material inflamable con arena sintética.'
+        : 'Arranque de grupo electrógeno auxiliar y resguardo térmico con hielo seco.',
+      foto_url: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&auto=format&fit=crop&q=80',
+      registrado_por: esSanIsidro ? '00000000-0000-4000-8000-000000000107' : '00000000-0000-4000-8000-000000000102',
+      registrador_nombre: esSanIsidro ? 'Diana Alarcón (Admin San Isidro)' : 'Marcos López (Administrador)',
+      estado: 'abierto',
+      visto_por_propietario: false,
+      fecha_visto: null,
+      nota_propietario: null,
+      motivo_revision: null,
+      resolucion_nota: null,
+      resuelto_por: null,
+      resuelto_por_nombre: null,
+      fecha_resolucion: null,
+      bitacora: [
+        {
+          id: `bit-${Date.now()}-1`,
+          incidente_id: '',
+          usuario_id: esSanIsidro ? '00000000-0000-4000-8000-000000000107' : '00000000-0000-4000-8000-000000000102',
+          usuario_nombre: esSanIsidro ? 'Diana Alarcón (Admin San Isidro)' : 'Marcos López (Administrador)',
+          usuario_rol: 'admin_local',
+          tipo_evento: 'apertura',
+          nota: esSanIsidro
+            ? 'Alerta crítica: Derrame de líquido inflamable en pasillo de bar.'
+            : 'Alerta crítica: Falla de energía sectorial en refrigerador de mariscos.',
+          created_at: now,
+        },
+      ],
+      created_at: now,
+      updated_at: now,
+    };
+    nuevo.bitacora[0].incidente_id = nuevo.id;
+
+    this.incidentes.unshift(nuevo);
+    return JSON.parse(JSON.stringify(nuevo));
   }
 }
 
