@@ -25,6 +25,7 @@ import { AdminPersonalPage } from '@/modules/admin/pages/AdminPersonalPage';
 import { AdminHorarioPage } from '@/modules/admin/pages/AdminHorarioPage';
 import { AdminPoliticasReservaPage } from '@/modules/admin/pages/AdminPoliticasReservaPage';
 import { AdminIncidentesPage } from '@/modules/admin/pages/AdminIncidentesPage';
+import { AdminAnulacionesPage } from '@/modules/admin/pages/AdminAnulacionesPage';
 import { PropietarioIncidentesPage } from '@/modules/propietario/pages/PropietarioIncidentesPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
@@ -254,6 +255,10 @@ export const router = createBrowserRouter([
       {
         path: 'incidentes',
         element: <AdminIncidentesPage />,
+      },
+      {
+        path: 'anulaciones',
+        element: <AdminAnulacionesPage />,
       },
       {
         path: 'reportes/ventas',

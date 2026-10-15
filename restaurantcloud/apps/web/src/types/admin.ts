@@ -1218,4 +1218,110 @@ export interface FiltrosIncidentesRequest {
   limite?: number;
 }
 
+// ============================================================================
+// CU-ADMIN-12: Recibir Notificación de Anulación de Pedido y Auditoría de Sala
+// Derivado estrictamente de la tabla `pedido_anulacion` en 02_schema_ddl.sql (líneas 751-781)
+// ============================================================================
+
+export type TipoAnulacion = 'item_individual' | 'comanda_completa';
+
+export type MotivoAnulacionCategoria =
+  | 'error_registro'
+  | 'demora_cliente'
+  | 'queja_calidad'
+  | 'cambio_plato'
+  | 'retiro_sin_consumo'
+  | 'otro';
+
+export type FiltroRapidoAnulaciones =
+  | 'todas'
+  | 'pendientes'
+  | 'con_merma'
+  | 'sin_merma'
+  | 'comandas_totales';
+
+export interface PedidoAnulacionItemDTO {
+  id: string;
+  codigo: string; // ej. "ANUL-2026-042"
+  local_id: string;
+  pedido_id: string;
+  pedido_item_id?: string | null;
+  tipo_anulacion: TipoAnulacion;
+  mesa_id: string;
+  mesa_numero: string; // Soporta mesas combinadas ej. "Mesa [ 02 ; 03 ]"
+  producto_id?: string | null;
+  producto_nombre: string;
+  cantidad: number;
+  precio_unitario: number;
+  monto_total: number;
+  mozo_id: string;
+  mozo_nombre: string;
+  anulado_por: string;
+  anulado_por_nombre: string;
+  motivo_categoria: MotivoAnulacionCategoria;
+  motivo_detalle: string;
+  pedido_created_at: string;
+  anulado_at: string;
+  minutos_espera: number; // Diferencia fáctica en minutos entre anulado_at y pedido_created_at
+  estado_anterior: 'en_cola' | 'en_preparacion' | 'listo' | 'servido';
+  es_merma: boolean;
+  costo_merma?: number | null;
+  revisado: boolean;
+  revisado_por?: string | null;
+  revisado_por_nombre?: string | null;
+  revisado_at?: string | null;
+  notas_supervision?: string | null;
+  incidente_id?: string | null;
+  incidente_codigo?: string | null;
+  partida_cocina?: string | null;
+  created_at: string;
+}
+
+export interface AnulacionesKPIsDTO {
+  total_anulaciones: number;
+  monto_total: number;
+  con_merma_cantidad: number;
+  costo_merma_total: number;
+  mesas_afectadas: number;
+  pendientes_revision: number;
+}
+
+export interface AnulacionesBandejaResponseDTO {
+  fecha: string;
+  kpis: AnulacionesKPIsDTO;
+  anulaciones: PedidoAnulacionItemDTO[];
+}
+
+export interface FiltrosAnulacionesRequest {
+  fecha?: string;
+  filtro_rapido?: FiltroRapidoAnulaciones;
+  mozo_id?: string;
+  busqueda?: string;
+}
+
+export interface MarcarRevisadoRequestDTO {
+  notas_supervision?: string;
+}
+
+export interface EscalarIncidenteAnulacionRequest {
+  titulo: string;
+  categoria: CategoriaIncidente;
+  gravedad: GravedadIncidente;
+  medidas_adoptadas: string;
+}
+
+export interface NotificacionCampanaDTO {
+  id: string;
+  tipo: 'anulacion_item' | 'anulacion_comanda' | 'stock_minimo' | 'otro';
+  prioridad: 'baja' | 'media' | 'alta' | 'critica';
+  titulo: string;
+  mensaje: string;
+  leido: boolean;
+  created_at: string;
+  anulacion_id?: string;
+  mesa_numero?: string;
+  monto?: number;
+}
+
+
 

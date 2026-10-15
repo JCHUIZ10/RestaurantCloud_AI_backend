@@ -20,8 +20,10 @@ import {
   Receipt,
   Clock,
   CalendarClock,
+  FileX2,
 } from 'lucide-react';
 import { ROUTES } from '@/router/routes.constants';
+import { DropdownCampanaNotificaciones } from '@/modules/admin/components/anulaciones/DropdownCampanaNotificaciones';
 
 export const DashboardLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -50,6 +52,7 @@ export const DashboardLayout: React.FC = () => {
     { label: 'Horario & Feriados', href: ROUTES.ADMIN_HORARIO, icon: Clock },
     { label: 'Políticas de Reserva', href: ROUTES.ADMIN_POLITICAS_RESERVA, icon: CalendarClock },
     { label: 'Incidentes Internos', href: ROUTES.ADMIN_INCIDENTES, icon: AlertTriangle },
+    { label: 'Auditoría Anulaciones', href: ROUTES.ADMIN_ANULACIONES, icon: FileX2 },
     { label: 'Reportes de Venta', href: ROUTES.ADMIN_REPORTES_VENTAS, icon: Layers },
     { label: 'Cierres de Caja Z', href: ROUTES.ADMIN_REPORTES_CIERRES_Z, icon: CreditCard },
   ];
@@ -168,6 +171,9 @@ export const DashboardLayout: React.FC = () => {
             >
               <span>Abrir KDS Cocina</span>
             </Link>
+
+            {/* Campana de Notificaciones Reactiva SSE */}
+            <DropdownCampanaNotificaciones />
 
             {/* Avatar del usuario */}
             <div className="w-9 h-9 rounded-full bg-aurea-champagne flex items-center justify-center font-bold text-sm text-aurea-navy border border-aurea-copper/50">

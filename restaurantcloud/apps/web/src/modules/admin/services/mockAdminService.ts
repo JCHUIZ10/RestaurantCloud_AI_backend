@@ -90,6 +90,12 @@ import {
   AgregarAvanceInvestigacionRequest,
   ResolverIncidenteRequest,
   FiltrosIncidentesRequest,
+  PedidoAnulacionItemDTO,
+  AnulacionesBandejaResponseDTO,
+  FiltrosAnulacionesRequest,
+  MarcarRevisadoRequestDTO,
+  EscalarIncidenteAnulacionRequest,
+  NotificacionCampanaDTO,
 } from '@/types/admin';
 import {
   PropietarioIncidentesFiltrosRequest,
@@ -3169,6 +3175,228 @@ export const SEMILLAS_INCIDENTES_AUREA: IncidenteDetalleDTO[] = [
   },
 ];
 
+// =============================================================================
+// SEMILLAS CANÓNICAS CU-ADMIN-12: AUDITORÍA DE ANULACIONES (02_schema_ddl.sql)
+// =============================================================================
+export const SEMILLAS_ANULACIONES_AUREA: PedidoAnulacionItemDTO[] = [
+  {
+    id: 'anul-0000-0042',
+    codigo: 'ANUL-2026-042',
+    local_id: CANONICAL_LOCAL_ID,
+    pedido_id: 'ped-0000-0154',
+    pedido_item_id: 'item-0000-0154-1',
+    tipo_anulacion: 'item_individual',
+    mesa_id: 'm1a2b3c4-0001-4000-8000-000000000004',
+    mesa_numero: 'Mesa 04',
+    producto_id: 'prod-0000-0001',
+    producto_nombre: '1x Lomo Saltado Criollo',
+    cantidad: 1,
+    precio_unitario: 38.0,
+    monto_total: 38.0,
+    mozo_id: '00000000-0000-4000-8000-000000000103',
+    mozo_nombre: 'Carlos Mendoza',
+    anulado_por: '00000000-0000-4000-8000-000000000103',
+    anulado_por_nombre: 'Carlos Mendoza (Mozo)',
+    motivo_categoria: 'demora_cliente',
+    motivo_detalle: 'El comensal lleva esperando más de 25 minutos y solicita retirar el plato porque ya debe retirarse a una reunión urgente. Se verificó con cocina que aún estaba en wok.',
+    pedido_created_at: '2026-10-09T13:50:12Z',
+    anulado_at: '2026-10-09T14:15:30Z',
+    minutos_espera: 25,
+    estado_anterior: 'en_preparacion',
+    es_merma: false,
+    costo_merma: null,
+    revisado: false,
+    revisado_por: null,
+    revisado_por_nombre: null,
+    revisado_at: null,
+    notas_supervision: null,
+    incidente_id: null,
+    incidente_codigo: null,
+    partida_cocina: 'Pase Caliente (Wok 1)',
+    created_at: '2026-10-09T14:15:30Z',
+  },
+  {
+    id: 'anul-0000-0041',
+    codigo: 'ANUL-2026-041',
+    local_id: CANONICAL_LOCAL_ID,
+    pedido_id: 'ped-0000-0151',
+    pedido_item_id: null,
+    tipo_anulacion: 'comanda_completa',
+    mesa_id: 'm1a2b3c4-0001-4000-8000-000000000001',
+    mesa_numero: 'Mesa 01',
+    producto_id: null,
+    producto_nombre: 'Comanda Total #151 (4 platos)',
+    cantidad: 4,
+    precio_unitario: 28.5,
+    monto_total: 114.0,
+    mozo_id: '00000000-0000-4000-8000-000000000104',
+    mozo_nombre: 'Ana Paredes',
+    anulado_por: '00000000-0000-4000-8000-000000000104',
+    anulado_por_nombre: 'Ana Paredes (Moza)',
+    motivo_categoria: 'retiro_sin_consumo',
+    motivo_detalle: 'Mesa familiar tuvo una emergencia personal sobrevenida y se retiró del local antes de que los platos empezaran a prepararse en cocina.',
+    pedido_created_at: '2026-10-09T13:40:00Z',
+    anulado_at: '2026-10-09T13:48:10Z',
+    minutos_espera: 8,
+    estado_anterior: 'en_cola',
+    es_merma: false,
+    costo_merma: null,
+    revisado: false,
+    revisado_por: null,
+    revisado_por_nombre: null,
+    revisado_at: null,
+    notas_supervision: null,
+    incidente_id: null,
+    incidente_codigo: null,
+    partida_cocina: 'Múltiples partidas',
+    created_at: '2026-10-09T13:48:10Z',
+  },
+  {
+    id: 'anul-0000-0040',
+    codigo: 'ANUL-2026-040',
+    local_id: CANONICAL_LOCAL_ID,
+    pedido_id: 'ped-0000-0149',
+    pedido_item_id: 'item-0000-0149-2',
+    tipo_anulacion: 'item_individual',
+    mesa_id: 'm1a2b3c4-0001-4000-8000-000000000002',
+    mesa_numero: 'Mesa [ 02 ; 03 ]',
+    producto_id: 'prod-0000-0002',
+    producto_nombre: '1x Causa Limeña Pollo',
+    cantidad: 1,
+    precio_unitario: 24.0,
+    monto_total: 24.0,
+    mozo_id: '00000000-0000-4000-8000-000000000103',
+    mozo_nombre: 'Carlos Mendoza',
+    anulado_por: '00000000-0000-4000-8000-000000000103',
+    anulado_por_nombre: 'Carlos Mendoza (Mozo)',
+    motivo_categoria: 'queja_calidad',
+    motivo_detalle: 'Cliente indicó sabor ácido excesivo y consistencia pasada en la palta. Se retiró el plato de la mesa y se ofreció reemplazo.',
+    pedido_created_at: '2026-10-09T13:08:00Z',
+    anulado_at: '2026-10-09T13:22:45Z',
+    minutos_espera: 14,
+    estado_anterior: 'servido',
+    es_merma: true,
+    costo_merma: 8.5,
+    revisado: true,
+    revisado_por: '00000000-0000-4000-8000-000000000102',
+    revisado_por_nombre: 'Marcos López (Administrador)',
+    revisado_at: '2026-10-09T14:00:00Z',
+    notas_supervision: 'Se auditó con cocina fría y se descartó el lote de palta madura.',
+    incidente_id: null,
+    incidente_codigo: null,
+    partida_cocina: 'Cocina Fría',
+    created_at: '2026-10-09T13:22:45Z',
+  },
+  {
+    id: 'anul-0000-0039',
+    codigo: 'ANUL-2026-039',
+    local_id: CANONICAL_LOCAL_ID,
+    pedido_id: 'ped-0000-0145',
+    pedido_item_id: 'item-0000-0145-1',
+    tipo_anulacion: 'item_individual',
+    mesa_id: 'm1a2b3c4-0001-4000-8000-000000000006',
+    mesa_numero: 'Mesa 06',
+    producto_id: 'prod-0000-0010',
+    producto_nombre: '2x Chicha Morada 1L',
+    cantidad: 2,
+    precio_unitario: 10.0,
+    monto_total: 20.0,
+    mozo_id: '00000000-0000-4000-8000-000000000103',
+    mozo_nombre: 'Carlos Mendoza',
+    anulado_por: '00000000-0000-4000-8000-000000000103',
+    anulado_por_nombre: 'Carlos Mendoza (Mozo)',
+    motivo_categoria: 'error_registro',
+    motivo_detalle: 'Mozo digitó por error 2 jarras en comanda móvil cuando la mesa solo solicitó 1 unidad. La jarra sobrante quedó sellada en bar.',
+    pedido_created_at: '2026-10-09T12:43:00Z',
+    anulado_at: '2026-10-09T12:45:12Z',
+    minutos_espera: 2,
+    estado_anterior: 'listo',
+    es_merma: false,
+    costo_merma: null,
+    revisado: true,
+    revisado_por: '00000000-0000-4000-8000-000000000102',
+    revisado_por_nombre: 'Marcos López (Administrador)',
+    revisado_at: '2026-10-09T13:00:00Z',
+    notas_supervision: 'Corregido inmediatamente en comanda de barra.',
+    incidente_id: null,
+    incidente_codigo: null,
+    partida_cocina: 'Barra y Bebidas',
+    created_at: '2026-10-09T12:45:12Z',
+  },
+  {
+    id: 'anul-0000-0038',
+    codigo: 'ANUL-2026-038',
+    local_id: CANONICAL_LOCAL_ID,
+    pedido_id: 'ped-0000-0140',
+    pedido_item_id: 'item-0000-0140-1',
+    tipo_anulacion: 'item_individual',
+    mesa_id: 'm1a2b3c4-0001-4000-8000-000000000008',
+    mesa_numero: 'Mesa 08',
+    producto_id: 'prod-0000-0004',
+    producto_nombre: '1x Seco de Res con Frijoles',
+    cantidad: 1,
+    precio_unitario: 42.0,
+    monto_total: 42.0,
+    mozo_id: '00000000-0000-4000-8000-000000000104',
+    mozo_nombre: 'Ana Paredes',
+    anulado_por: '00000000-0000-4000-8000-000000000104',
+    anulado_por_nombre: 'Ana Paredes (Moza)',
+    motivo_categoria: 'queja_calidad',
+    motivo_detalle: 'Comensal indicó que la carne de res presentaba exceso de dureza. Se retiró el plato y se cambió por Lomo Saltado.',
+    pedido_created_at: '2026-10-09T11:57:00Z',
+    anulado_at: '2026-10-09T12:15:00Z',
+    minutos_espera: 18,
+    estado_anterior: 'servido',
+    es_merma: true,
+    costo_merma: 20.0,
+    revisado: true,
+    revisado_por: '00000000-0000-4000-8000-000000000102',
+    revisado_por_nombre: 'Marcos López (Administrador)',
+    revisado_at: '2026-10-09T12:30:00Z',
+    notas_supervision: 'Se recalibró el tiempo de cocción en olla a presión con la jefa de cocina.',
+    incidente_id: null,
+    incidente_codigo: null,
+    partida_cocina: 'Cocina Caliente (Ollas)',
+    created_at: '2026-10-09T12:15:00Z',
+  },
+];
+
+export const SEMILLAS_NOTIFICACIONES_CAMPANA: NotificacionCampanaDTO[] = [
+  {
+    id: 'notif-001',
+    tipo: 'anulacion_item',
+    prioridad: 'alta',
+    titulo: 'Anulación en Mesa 04',
+    mensaje: '1x Lomo Saltado Criollo (S/ 38.00) por Carlos Mendoza • Motivo: Demora (25m de espera)',
+    leido: false,
+    anulacion_id: 'anul-0000-0042',
+    mesa_numero: 'Mesa 04',
+    monto: 38.0,
+    created_at: '2026-10-09T14:15:30Z',
+  },
+  {
+    id: 'notif-002',
+    tipo: 'anulacion_comanda',
+    prioridad: 'critica',
+    titulo: 'Comanda Completa Anulada en Mesa 01',
+    mensaje: 'Comanda #151 (4 platos • S/ 114.00) por Ana Paredes • Motivo: Retiro sin consumo',
+    leido: false,
+    anulacion_id: 'anul-0000-0041',
+    mesa_numero: 'Mesa 01',
+    monto: 114.0,
+    created_at: '2026-10-09T13:48:10Z',
+  },
+  {
+    id: 'notif-003',
+    tipo: 'stock_minimo',
+    prioridad: 'media',
+    titulo: 'Alerta de Inventario: Stock Mínimo',
+    mensaje: 'Papa amarilla alcanzó 4.5 kg en almacén (Umbral de reposición: 10.0 kg)',
+    leido: true,
+    created_at: '2026-10-09T12:30:00Z',
+  },
+];
+
 // Estado en memoria simulado
 class MockAdminService {
   private pisos: PisoAdminDTO[] = JSON.parse(JSON.stringify(SEMILLAS_PISOS));
@@ -3194,6 +3422,10 @@ class MockAdminService {
   private planSaaSActual: 'starter' | 'pro' | 'enterprise' = 'pro';
   private incidentes: IncidenteDetalleDTO[] = JSON.parse(JSON.stringify(SEMILLAS_INCIDENTES_AUREA));
   private seqIncidente: number = 86;
+  private anulaciones: PedidoAnulacionItemDTO[] = JSON.parse(JSON.stringify(SEMILLAS_ANULACIONES_AUREA));
+  private notificacionesCampana: NotificacionCampanaDTO[] = JSON.parse(JSON.stringify(SEMILLAS_NOTIFICACIONES_CAMPANA));
+  private seqAnulacion: number = 43;
+  private notificacionesSseListeners: Set<(notif: NotificacionCampanaDTO) => void> = new Set();
 
 
   private calcularMetricasPiso(piso: PisoAdminDTO) {
@@ -8206,6 +8438,427 @@ class MockAdminService {
 
     this.incidentes.unshift(nuevo);
     return JSON.parse(JSON.stringify(nuevo));
+  }
+
+  // ===========================================================================
+  // MÉTODOS DE AUDITORÍA DE ANULACIONES Y NOTIFICACIONES: CU-ADMIN-12
+  // ===========================================================================
+
+  /**
+   * GET /api/v1/admin/anulaciones
+   * Retorna KPIs del día y bandeja filtrada de anulaciones
+   */
+  async getBandejaAnulaciones(
+    filtros: FiltrosAnulacionesRequest = {}
+  ): Promise<ApiResponse<AnulacionesBandejaResponseDTO>> {
+    await new Promise((r) => setTimeout(r, 80));
+
+    const fechaActiva = filtros.fecha || '2026-10-09';
+    let lista = [...this.anulaciones];
+
+    // Filtro por fecha (prefijo YYYY-MM-DD)
+    if (filtros.fecha) {
+      lista = lista.filter((a) => a.anulado_at.startsWith(filtros.fecha!));
+    }
+
+    // Filtros rápidos en píldora
+    if (filtros.filtro_rapido) {
+      switch (filtros.filtro_rapido) {
+        case 'pendientes':
+          lista = lista.filter((a) => !a.revisado);
+          break;
+        case 'con_merma':
+          lista = lista.filter((a) => a.es_merma);
+          break;
+        case 'sin_merma':
+          lista = lista.filter((a) => !a.es_merma);
+          break;
+        case 'comandas_totales':
+          lista = lista.filter((a) => a.tipo_anulacion === 'comanda_completa');
+          break;
+        case 'todas':
+        default:
+          break;
+      }
+    }
+
+    // Filtro por mozo
+    if (filtros.mozo_id && filtros.mozo_id !== 'todos') {
+      lista = lista.filter((a) => a.mozo_id === filtros.mozo_id);
+    }
+
+    // Buscador textual
+    if (filtros.busqueda && filtros.busqueda.trim()) {
+      const q = filtros.busqueda.toLowerCase().trim();
+      lista = lista.filter(
+        (a) =>
+          a.producto_nombre.toLowerCase().includes(q) ||
+          a.mesa_numero.toLowerCase().includes(q) ||
+          a.codigo.toLowerCase().includes(q) ||
+          a.mozo_nombre.toLowerCase().includes(q) ||
+          a.motivo_detalle.toLowerCase().includes(q)
+      );
+    }
+
+    // Ordenar de más reciente a más antiguo
+    lista.sort((a, b) => new Date(b.anulado_at).getTime() - new Date(a.anulado_at).getTime());
+
+    // Calcular KPIs del día activo
+    const baseDia = filtros.fecha
+      ? this.anulaciones.filter((a) => a.anulado_at.startsWith(filtros.fecha!))
+      : this.anulaciones;
+
+    const total_anulaciones = baseDia.length;
+    const monto_total = baseDia.reduce((sum, a) => sum + a.monto_total, 0);
+    const con_merma_cantidad = baseDia.filter((a) => a.es_merma).length;
+    const costo_merma_total = baseDia.reduce((sum, a) => sum + (a.costo_merma || 0), 0);
+    const mesas_afectadas = new Set(baseDia.map((a) => a.mesa_numero)).size;
+    const pendientes_revision = baseDia.filter((a) => !a.revisado).length;
+
+    return {
+      exito: true,
+      datos: {
+        fecha: fechaActiva,
+        kpis: {
+          total_anulaciones,
+          monto_total,
+          con_merma_cantidad,
+          costo_merma_total,
+          mesas_afectadas,
+          pendientes_revision,
+        },
+        anulaciones: JSON.parse(JSON.stringify(lista)),
+      },
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/anulaciones/{id}
+   */
+  async getAnulacionDetalle(id: string): Promise<ApiResponse<PedidoAnulacionItemDTO>> {
+    await new Promise((r) => setTimeout(r, 40));
+    const item = this.anulaciones.find((a) => a.id === id);
+    if (!item) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_ANULACION_NO_ENCONTRADA',
+            mensaje: 'El registro de anulación solicitado no existe o pertenece a otra sede.',
+          },
+        ],
+      };
+    }
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(item)),
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/anulaciones/{id}/revisar
+   * Marca conformidad de auditoría administrativa
+   */
+  async marcarAnulacionRevisada(
+    id: string,
+    req?: MarcarRevisadoRequestDTO
+  ): Promise<ApiResponse<PedidoAnulacionItemDTO>> {
+    await new Promise((r) => setTimeout(r, 70));
+    const item = this.anulaciones.find((a) => a.id === id);
+    if (!item) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_ANULACION_NO_ENCONTRADA',
+            mensaje: 'El registro de anulación no existe.',
+          },
+        ],
+      };
+    }
+
+    const now = new Date().toISOString();
+    item.revisado = true;
+    item.revisado_por = '00000000-0000-4000-8000-000000000102';
+    item.revisado_por_nombre = 'Marcos López (Administrador)';
+    item.revisado_at = now;
+    if (req?.notas_supervision && req.notas_supervision.trim()) {
+      item.notas_supervision = req.notas_supervision.trim();
+    }
+
+    // Marcar como leída la notificación vinculada en la campana
+    const notifVinculada = this.notificacionesCampana.find((n) => n.anulacion_id === id);
+    if (notifVinculada) {
+      notifVinculada.leido = true;
+    }
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(item)),
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/anulaciones/{id}/escalar-incidente
+   * Escala asistidamente la anulación hacia CU-ADMIN-11 y vincula incidente_id
+   */
+  async escalarAnulacionAIncidente(
+    id: string,
+    req: EscalarIncidenteAnulacionRequest
+  ): Promise<ApiResponse<{ anulacion: PedidoAnulacionItemDTO; incidente: IncidenteDetalleDTO }>> {
+    await new Promise((r) => setTimeout(r, 100));
+
+    const item = this.anulaciones.find((a) => a.id === id);
+    if (!item) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_ANULACION_NO_ENCONTRADA',
+            mensaje: 'El registro de anulación no existe.',
+          },
+        ],
+      };
+    }
+
+    if (item.incidente_id) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_YA_ESCALADO',
+            mensaje: `Esta anulación ya fue escalada previamente bajo el expediente ${item.incidente_codigo}.`,
+          },
+        ],
+      };
+    }
+
+    if (!req.medidas_adoptadas || req.medidas_adoptadas.trim().length < 10) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_MEDIDAS_REQUERIDAS',
+            mensaje: 'Las medidas inmediatas adoptadas deben contener al menos 10 caracteres.',
+          },
+        ],
+      };
+    }
+
+    const now = new Date().toISOString();
+    const codigoIncidente = `INC-2026-${String(this.seqIncidente++).padStart(3, '0')}`;
+    const nuevoIncidenteId = `00000000-0000-4000-8000-${String(Date.now()).slice(-12)}`;
+
+    const descripcionIncidente = `Anulación ${item.codigo} en ${item.mesa_numero}: ${item.producto_nombre} (S/ ${item.monto_total.toFixed(2)}). Motivo manifestado: ${item.motivo_detalle}${
+      item.es_merma ? ` [Impacto de merma culinaria: S/ ${(item.costo_merma || 0).toFixed(2)}]` : ''
+    }`;
+
+    const nuevoIncidente: IncidenteDetalleDTO = {
+      id: nuevoIncidenteId,
+      local_id: item.local_id,
+      codigo: codigoIncidente,
+      titulo: req.titulo.trim(),
+      categoria: req.categoria,
+      gravedad: req.gravedad,
+      fecha_hora: item.anulado_at,
+      empleado_id: item.mozo_id,
+      empleado_nombre: `${item.mozo_nombre} (Mozo)`,
+      descripcion: descripcionIncidente,
+      medidas_inmediatas: req.medidas_adoptadas.trim(),
+      foto_url: null,
+      registrado_por: '00000000-0000-4000-8000-000000000102',
+      registrador_nombre: 'Marcos López (Administrador)',
+      estado: 'en_revision',
+      visto_por_propietario: false,
+      fecha_visto: null,
+      nota_propietario: null,
+      motivo_revision: 'Escalamiento formal por queja o impacto de merma en salón.',
+      resolucion_nota: null,
+      resuelto_por: null,
+      resuelto_por_nombre: null,
+      fecha_resolucion: null,
+      bitacora: [
+        {
+          id: `bit-${Date.now()}-1`,
+          incidente_id: nuevoIncidenteId,
+          usuario_id: '00000000-0000-4000-8000-000000000102',
+          usuario_nombre: 'Marcos López (Administrador)',
+          usuario_rol: 'admin_local',
+          tipo_evento: 'apertura',
+          nota: `Apertura de caso derivado de la anulación ${item.codigo}. Medidas: ${req.medidas_adoptadas.trim()}`,
+          created_at: now,
+        },
+      ],
+      created_at: now,
+      updated_at: now,
+    };
+
+    // Insertar en la colección de incidentes (CU-ADMIN-11 y CU-PROP-06)
+    this.incidentes.unshift(nuevoIncidente);
+
+    // Actualizar vinculación relacional inmutable en pedido_anulacion
+    item.incidente_id = nuevoIncidenteId;
+    item.incidente_codigo = codigoIncidente;
+    item.revisado = true;
+    item.revisado_por = '00000000-0000-4000-8000-000000000102';
+    item.revisado_por_nombre = 'Marcos López (Administrador)';
+    item.revisado_at = now;
+    item.notas_supervision = `Escalado a expediente ${codigoIncidente}`;
+
+    return {
+      exito: true,
+      datos: {
+        anulacion: JSON.parse(JSON.stringify(item)),
+        incidente: JSON.parse(JSON.stringify(nuevoIncidente)),
+      },
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/notificaciones
+   * Retorna la bandeja de notificaciones para el dropdown de la campana
+   */
+  async getNotificacionesCampana(): Promise<ApiResponse<NotificacionCampanaDTO[]>> {
+    await new Promise((r) => setTimeout(r, 40));
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(this.notificacionesCampana)),
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/notificaciones/marcar-todas-leidas
+   */
+  async marcarTodasNotificacionesLeidas(): Promise<ApiResponse<boolean>> {
+    this.notificacionesCampana.forEach((n) => {
+      n.leido = true;
+    });
+    return {
+      exito: true,
+      datos: true,
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/notificaciones/{id}/leer
+   */
+  async marcarNotificacionLeida(id: string): Promise<ApiResponse<boolean>> {
+    const notif = this.notificacionesCampana.find((n) => n.id === id);
+    if (notif) {
+      notif.leido = true;
+    }
+    return {
+      exito: true,
+      datos: true,
+    };
+  }
+
+  /**
+   * Suscripción reactiva al canal SSE de notificaciones de sede
+   */
+  subscribirNotificacionesSse(listener: (notif: NotificacionCampanaDTO) => void): () => void {
+    this.notificacionesSseListeners.add(listener);
+    return () => {
+      this.notificacionesSseListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Simula la llegada concurrente de una anulación en salón vía SSE
+   */
+  simularNuevaAnulacionSse(tipo: 'item' | 'comanda' = 'item'): NotificacionCampanaDTO {
+    const now = new Date().toISOString();
+    const codigoAnulacion = `ANUL-2026-0${this.seqAnulacion++}`;
+    const id = `anul-${Date.now()}`;
+
+    const nuevaAnulacion: PedidoAnulacionItemDTO = {
+      id,
+      codigo: codigoAnulacion,
+      local_id: CANONICAL_LOCAL_ID,
+      pedido_id: `ped-${Date.now()}`,
+      pedido_item_id: tipo === 'item' ? `item-${Date.now()}` : null,
+      tipo_anulacion: tipo === 'item' ? 'item_individual' : 'comanda_completa',
+      mesa_id: 'm1a2b3c4-0001-4000-8000-000000000004',
+      mesa_numero: tipo === 'item' ? 'Mesa 04' : 'Mesa 07',
+      producto_id: tipo === 'item' ? 'prod-0000-0003' : null,
+      producto_nombre: tipo === 'item' ? '1x Ceviche Clásico de Corvina' : 'Comanda Total #160 (3 platos)',
+      cantidad: tipo === 'item' ? 1 : 3,
+      precio_unitario: tipo === 'item' ? 45.0 : 32.0,
+      monto_total: tipo === 'item' ? 45.0 : 96.0,
+      mozo_id: '00000000-0000-4000-8000-000000000103',
+      mozo_nombre: 'Carlos Mendoza',
+      anulado_por: '00000000-0000-4000-8000-000000000103',
+      anulado_por_nombre: 'Carlos Mendoza (Mozo)',
+      motivo_categoria: tipo === 'item' ? 'demora_cliente' : 'retiro_sin_consumo',
+      motivo_detalle: tipo === 'item'
+        ? 'El comensal manifestó que debía retirarse al aeropuerto y canceló el cebiche en mesa.'
+        : 'Los comensales recibieron llamada de urgencia y desocuparon la mesa.',
+      pedido_created_at: new Date(Date.now() - 22 * 60000).toISOString(),
+      anulado_at: now,
+      minutos_espera: 22,
+      estado_anterior: 'en_preparacion',
+      es_merma: tipo === 'item',
+      costo_merma: tipo === 'item' ? 18.0 : null,
+      revisado: false,
+      revisado_por: null,
+      revisado_por_nombre: null,
+      revisado_at: null,
+      notas_supervision: null,
+      incidente_id: null,
+      incidente_codigo: null,
+      partida_cocina: 'Cocina Fría (Cebichería)',
+      created_at: now,
+    };
+
+    this.anulaciones.unshift(nuevaAnulacion);
+
+    const nuevaNotif: NotificacionCampanaDTO = {
+      id: `notif-${Date.now()}`,
+      tipo: tipo === 'item' ? 'anulacion_item' : 'anulacion_comanda',
+      prioridad: tipo === 'item' ? 'alta' : 'critica',
+      titulo: tipo === 'item' ? `Anulación en ${nuevaAnulacion.mesa_numero}` : `Comanda Completa Anulada en ${nuevaAnulacion.mesa_numero}`,
+      mensaje: `${nuevaAnulacion.producto_nombre} (S/ ${nuevaAnulacion.monto_total.toFixed(2)}) por ${nuevaAnulacion.mozo_nombre} • Motivo: Demora (22m de espera)`,
+      leido: false,
+      anulacion_id: id,
+      mesa_numero: nuevaAnulacion.mesa_numero,
+      monto: nuevaAnulacion.monto_total,
+      created_at: now,
+    };
+
+    this.notificacionesCampana.unshift(nuevaNotif);
+
+    // Notificar a todos los suscriptores SSE activos
+    this.notificacionesSseListeners.forEach((listener) => {
+      try {
+        listener(nuevaNotif);
+      } catch (err) {
+        console.error('Error al emitir notificación SSE:', err);
+      }
+    });
+
+    return nuevaNotif;
+  }
+
+  /**
+   * Simula el estado vacío de cero anulaciones para probar la Vista 4
+   */
+  simularDiaSinAnulaciones(): void {
+    this.anulaciones = [];
+  }
+
+  /**
+   * Restablece las semillas canónicas de anulaciones y notificaciones
+   */
+  restablecerSemillasAnulaciones(): void {
+    this.anulaciones = JSON.parse(JSON.stringify(SEMILLAS_ANULACIONES_AUREA));
+    this.notificacionesCampana = JSON.parse(JSON.stringify(SEMILLAS_NOTIFICACIONES_CAMPANA));
+    this.seqAnulacion = 43;
   }
 }
 
