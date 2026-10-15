@@ -30,6 +30,7 @@ import { AdminPromocionesPage } from '@/modules/admin/pages/AdminPromocionesPage
 import { AdminConfiguracionKdsPage } from '@/modules/admin/pages/AdminConfiguracionKdsPage';
 import { AdminMetodosPagoPage } from '@/modules/admin/pages/AdminMetodosPagoPage';
 import { PropietarioIncidentesPage } from '@/modules/propietario/pages/PropietarioIncidentesPage';
+import { CajeroPosPage } from '@/modules/caja/pages/CajeroPosPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
@@ -357,33 +358,20 @@ export const router = createBrowserRouter([
     element: <TerminalLayout />,
     children: [
       {
+        index: true,
+        element: <Navigate to={ROUTES.CAJERO_POS} replace />,
+      },
+      {
         path: 'pos',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-CAJA-03"
-            nombrePantalla="Cobro de Comandas & Facturación"
-            rol="cajero"
-            layoutNombre="TerminalLayout"
-            descripcion="Módulo de cobro rápido de comandas por mesa: división de cuenta, pagos mixtos (efectivo, tarjeta, Yape/Plin) y emisión de boleta o factura electrónica."
-            viewportSugerido="desktop"
-            enlacesRelacionados={[
-              { label: 'Turno & Arqueo Z', to: ROUTES.CAJERO_TURNO },
-            ]}
-          />
-        ),
+        element: <CajeroPosPage />,
+      },
+      {
+        path: 'apertura',
+        element: <CajeroPosPage />,
       },
       {
         path: 'turno',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-CAJA-01/05"
-            nombrePantalla="Apertura y Cierre de Caja Z"
-            rol="cajero"
-            layoutNombre="TerminalLayout"
-            descripcion="Control del turno de caja: monto de apertura en efectivo, registro de entradas/salidas de efectivo, arqueo ciego y generación del comprobante de Cierre Z."
-            viewportSugerido="desktop"
-          />
-        ),
+        element: <CajeroPosPage />,
       },
     ],
   },

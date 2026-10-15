@@ -52,6 +52,7 @@ export const ROUTES = {
   COCINA_STOCK_RAPIDO: '/cocina/stock-rapido',
 
   CAJERO_POS: '/cajero/pos',
+  CAJERO_APERTURA: '/cajero/apertura',
   CAJERO_TURNO: '/cajero/turno',
 
   // Consola Global Admin SaaS
