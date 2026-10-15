@@ -139,23 +139,28 @@ Cuando un cajero intenta abrir un turno pero el turno del cajero anterior sigue 
 |                             | FONDO INICIAL:                  ACTIVIDAD EN SALA:      |            |
 |                             | S/ 250.00                       24 Ventas (S/ 2,480.00) |            |
 |                             +---------------------------------------------------------+            |
-|                             | La sede opera bajo la política de Caja Única. Para      |            |
-|                             | mantener la integridad contable, el turno previo debe   |            |
-|                             | cerrarse formalmente con su respectivo arqueo           |            |
-|                             | (CU-CAJA-06) antes de aperturar el nuevo turno.         |            |
+|                             | La sede opera bajo la política de Caja Única. Por       |            |
+|                             | seguridad contable, un cajero no puede cerrar ni arquear|            |
+|                             | la gaveta asignada a otro colaborador.                  |            |
 |                             +---------------------------------------------------------+            |
 |                             | Opciones de Solución:                                   |            |
-|                             | 1. Relevo: Juan Pérez ingresa y realiza el arqueo.      |            |
-|                             | 2. Supervisión: Admin de sede autoriza cierre forzado.  |            |
+|                             | 1. Notificar a Mariana Ramos para resolver el cierre en |            |
+|                             |    la vista de supervisión CU-ADMIN-14 (Cierres Z).     |            |
+|                             | 2. Cerrar sesión para que Juan Pérez ingrese a arquear. |            |
 |                             +---------------------------------------------------------+            |
-|                             | [ Contactar Administrador ] [ 🔒 Proceder al Arqueo ]   |            |
+|                             | [ 🚪 Cerrar Sesión ]       [ 🔔 Notificar Administrador]|            |
 |                             +---------------------------------------------------------+            |
 +----------------------------------------------------------------------------------------------------+
 ```
 
+- **Acciones y Controles de la Vista 2**:
+  - **Botón `[ 🔔 Notificar Administrador ]`**: Acción principal que emite una alerta reactiva a `Mariana Ramos (Administradora de Sede)` con enlace a WhatsApp para que ella audite y resuelva el cierre pendiente desde la vista administrativa **`CU-ADMIN-14: Flujo de Caja & Supervisar Cierres Z`**.
+  - **Botón `[ 🚪 Cerrar Sesión ]`**: Permite al cajero entrante salir limpiamente de la terminal bloqueada para que el titular saliente pueda iniciar sesión con sus propias credenciales y ejecutar su arqueo formal (**`CU-CAJA-05: Cerrar Caja (Arqueo Z) y Rendición de Cuentas del Turno`**).
+  - **Salvaguarda RBAC Estricta**: El cajero entrante tiene estrictamente prohibido manipular, conmutar o forzar el cierre de la gaveta de otro colaborador. No existen PINs ficticios; toda intervención de supervisión se canaliza formalmente mediante `CU-ADMIN-14`.
+
 - **Manejo de Flexibilidad Horaria**:
   - Si un cajero permanece en su puesto 30 o 45 minutos después del fin formal de su turno programado, **el sistema NO bloquea artificialmente la venta**. Los turnos se rigen por eventos de apertura y cierre explícitos, garantizando que el restaurante siga atendiendo mesas sin caídas de servicio.
-  - El bloqueo solo ocurre cuando un **nuevo cajero** intenta tomar la posta sin que el titular saliente haya culminado su balance de arqueo (`CU-CAJA-06`).
+  - El bloqueo solo ocurre cuando un **nuevo cajero** intenta tomar la posta sin que el titular saliente haya culminado su balance de arqueo (`CU-CAJA-05`).
 
 ---
 
@@ -201,8 +206,8 @@ Una vez confirmada la apertura, la capa modal se disuelve y el cajero obtiene co
 | Consultar estado de sesión de caja (`GET /caja/estado-sesion`) | ✅ Permitido | ✅ Permitido | ✅ Permitido | ❌ Bloqueado | ❌ Bloqueado |
 | Aperturar nuevo turno con monto inicial directo (`POST /caja/apertura`) | ✅ Permitido | ✅ Permitido | ✅ Permitido | ❌ Bloqueado | ❌ Bloqueado |
 | Ver montos acumulados y ventas del turno (`GET /caja/metricas`) | ✅ Permitido | ✅ Permitido | ✅ Permitido | ❌ Bloqueado | ❌ Bloqueado |
-| Ejecutar arqueo y cierre formal de caja (`CU-CAJA-06`) | ✅ Permitido | ✅ Permitido | ✅ Permitido | ❌ Bloqueado | ❌ Bloqueado |
-| Forzar cierre de turno de otro cajero (`POST /admin/caja/cierre-forzado`)| ❌ Bloqueado | ✅ Permitido | ✅ Permitido | ❌ Bloqueado | ❌ Bloqueado |
+| Ejecutar arqueo y cierre formal de caja (`CU-CAJA-05`) | ✅ Permitido | ✅ Permitido | ✅ Permitido | ❌ Bloqueado | ❌ Bloqueado |
+| Forzar cierre de turno de otro cajero desde CU-ADMIN-14 (`POST /admin/caja/cierre-forzado`)| ❌ Bloqueado | ✅ Permitido | ✅ Permitido | ❌ Bloqueado | ❌ Bloqueado |
 
 ---
 
