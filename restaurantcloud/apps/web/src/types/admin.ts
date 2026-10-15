@@ -1501,3 +1501,81 @@ export interface EventoConfiguracionKdsActualizada {
   timestamp: string;
 }
 
+// ============================================================================
+// CU-ADMIN-19: Configurar Métodos de Pago y Comisiones de Cobro del Local
+// Tabla: metodo_pago_local (02_schema_ddl.sql)
+// ============================================================================
+
+export type CodigoMetodoPagoLocal = 'efectivo' | 'tarjeta' | 'billetera_digital' | 'transferencia';
+
+export interface DatosAdicionalesMetodoPago {
+  telefono?: string;
+  titular?: string;
+  operador?: string; // Niubiz, Izipay
+  banco?: string;
+  cuenta?: string;
+  cci?: string;
+  qr_url?: string;
+  instrucciones_cajero?: string;
+  ruc?: string;
+  [key: string]: any;
+}
+
+export interface MetodoPagoLocalDTO {
+  id: string;
+  local_id: string;
+  codigo: CodigoMetodoPagoLocal;
+  nombre: string;
+  activo: boolean;
+  comision_porcentaje: number; // 0.00 a 50.00
+  datos_adicionales: DatosAdicionalesMetodoPago;
+  icono: string;
+  orden: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MetodosPagoKPIsDTO {
+  formas_habilitadas: number;
+  total_formas: number;
+  metodos_con_comision: number;
+  ventas_tarjeta_mes: number;
+  recargos_percibidos_mes: number;
+}
+
+export interface CatalogoMetodosPagoResponseDTO {
+  kpis: MetodosPagoKPIsDTO;
+  metodos: MetodoPagoLocalDTO[];
+  sede_nombre: string;
+}
+
+export interface ActualizarMetodoPagoItemRequest {
+  codigo: CodigoMetodoPagoLocal;
+  activo: boolean;
+  comision_porcentaje: number;
+  datos_adicionales?: DatosAdicionalesMetodoPago;
+  nombre?: string;
+}
+
+export interface ActualizarCatalogoMetodosRequest {
+  metodos: ActualizarMetodoPagoItemRequest[];
+}
+
+export interface OpcionCobroSimuladaDTO {
+  codigo: CodigoMetodoPagoLocal;
+  nombre: string;
+  activo: boolean;
+  consumo_base: number;
+  comision_porcentaje: number;
+  monto_recargo: number;
+  total_final: number;
+  base_imponible: number;
+  igv: number;
+}
+
+export interface SimulacionCobroResponseDTO {
+  monto_consumo: number;
+  opciones: OpcionCobroSimuladaDTO[];
+}
+
+

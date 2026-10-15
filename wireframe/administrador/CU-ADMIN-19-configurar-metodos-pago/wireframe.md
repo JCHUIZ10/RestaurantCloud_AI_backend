@@ -124,27 +124,18 @@ sequenceDiagram
 | 📱 Configurar Billetera Digital (Yape / Plin)                      [✕] |
 | Ajustes de recepción para el monitor del cajero y comprobantes digitales|
 +------------------------------------------------------------------------+
-| [ Habilitar en Punto de Venta (POS) y Salón ]               [● ACTIVO] |
-| Al activar, mozos y cajeros podrán seleccionar Yape/Plin como medio.  |
+| Número Celular de la Sede (9 dígitos):   Razón Social del Titular:     |
+| [ 987 654 321                       ]   [ RESTAURANTE ÁUREA S.A.C.    ]|
 |                                                                        |
-| Número Celular de la Sede (9 dígitos):   Comisión al Comensal:         |
-| [ 987 654 321                       ]   [ 0.00 %                      ]|
+| +---------------------+  Código QR Dinámico Autogenerado               |
+| |  [QR INTEROPERABLE] |  Se autogenera directamente del celular 9 dig. |
+| |  [ YAPE • PLIN    ] |  Sin necesidad de URLs ni subida de archivos.  |
+| +---------------------+  Visible en pantalla secundaria y precuenta.   |
 |                                                                        |
-| Titular de la Cuenta / Razón Social (Visible al comensal):             |
-| [ Inversiones Gastronómicas del Sur S.A.C.                           ] |
-|                                                                        |
-| +---------------------+  Código QR Interoperable (Yape / Plin)         |
-| |  [QR ACTIVO DE LA]  |  Se proyecta en pantalla secundaria y precuenta|
-| |  [SEDE GASTRONÓM]   |  para escaneo directo de comensales en mesa.   |
-| +---------------------+  [ 📷 Reemplazar Archivo QR (PNG/JPG) ]        |
-|                                                                        |
-| Instrucción Interna para el Cajero:                                    |
-| [ Verificar confirmación de pago y código de operación de 6 dígitos ] |
-|                                                                        |
-| ℹ️ Trazabilidad: Transacciones se consolidan en Arqueo (CU-CAJA-06) bajo |
-|    la categoría independiente Billeteras Móviles para conciliación.    |
+| ℹ️ Activación: Para habilitar Yape/Plin, es obligatorio registrar      |
+|    primero el número celular receptor de la sede (RN-PAGO-04).         |
 +------------------------------------------------------------------------+
-| [ Cancelar ]                             [ ✓ Guardar Datos Billetera ] |
+| [ Cancelar ]                             [ ✓ Guardar Configuración ]   |
 +------------------------------------------------------------------------+
 ```
 
@@ -161,7 +152,7 @@ sequenceDiagram
 |       Restricción de Integridad Operativa (ERR_MINIMO_UN_PAGO)   |
 +------------------------------------------------------------------+
 | Acción Solicitada: Desactivar "Efectivo"        [ 409 CONFLICT ] |
-| Estado del catálogo: 1 de 3 métodos activo actualmente           |
+| Estado del catálogo: 1 de 4 métodos activo actualmente           |
 |                                                                  |
 | No es posible desactivar Efectivo porque es la única forma de    |
 | pago actualmente habilitada en la sede. Desactivar todos los     |
@@ -170,10 +161,10 @@ sequenceDiagram
 |                                                                  |
 | ■ Regla de negocio: La sede debe mantener al menos un método en  |
 |   estado activo = true en todo momento.                          |
-| ■ Recomendación: Si deseas pausar efectivo, primero habilita    |
-|   Tarjeta POS o Billetera Digital.                               |
+| ■ Solución: Si deseas pausar efectivo, primero habilita          |
+|   Tarjeta POS, Billetera Digital o Transferencia Bancaria.       |
 +------------------------------------------------------------------+
-| [ Habilitar Tarjeta Primero ]   [ ✓ Entendido / Mantener Efectivo] |
+|                  [ ✓ Entendido / Mantener Efectivo Activo ]      |
 +------------------------------------------------------------------+
 ```
 
@@ -307,59 +298,61 @@ type SimulacionCobroResponse struct {
 
 ## 7. Modelo Relacional PostgreSQL 16 y RLS
 
+Alineado de forma **100% estricta** con [`restaurantcloud/infra/sql/02_schema_ddl.sql`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/infra/sql/02_schema_ddl.sql#L453-L467) y [`03_indexes.sql`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/infra/sql/03_indexes.sql#L74-L77):
+
 ```sql
--- 1. Tabla de configuración de métodos de pago por local
+-- 5.4 Formas de Pago y Comisiones de Pasarela por Sede (CU-ADMIN-19)
 CREATE TABLE IF NOT EXISTS metodo_pago_local (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
     local_id UUID NOT NULL REFERENCES local(id) ON DELETE CASCADE,
-    codigo varchar(30) NOT NULL, -- 'efectivo', 'tarjeta', 'billetera_digital', 'transferencia'
-    nombre varchar(60) NOT NULL, -- 'Efectivo', 'Tarjeta Débito / Crédito (POS)', 'Billetera Digital (Yape/Plin)'
-    activo boolean NOT NULL DEFAULT true,
-    comision_porcentaje decimal(5, 2) NOT NULL DEFAULT 0.00 CHECK (comision_porcentaje >= 0 AND comision_porcentaje <= 50.00),
-    datos_adicionales jsonb DEFAULT '{}'::jsonb, -- {"telefono": "987654321", "titular": "Restaurant S.A.C.", "qr_url": "..."}
-    icono varchar(30) DEFAULT 'wallet',
-    orden int NOT NULL DEFAULT 1 CHECK (orden >= 1),
-    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
-    updated_at timestamp with time zone NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_metodo_pago_local UNIQUE(local_id, codigo)
+    codigo VARCHAR(30) NOT NULL, -- efectivo, tarjeta, billetera_digital, transferencia
+    nombre VARCHAR(60) NOT NULL,
+    activo BOOL NOT NULL DEFAULT true,
+    comision_porcentaje DECIMAL(5, 2) NOT NULL DEFAULT 0.00 CHECK (comision_porcentaje >= 0 AND comision_porcentaje <= 50.00),
+    datos_adicionales JSONB DEFAULT '{}'::jsonb, -- {"telefono": "987654321", "titular": "ÁUREA S.A.C.", "qr_url": "..."}
+    icono VARCHAR(30) NOT NULL DEFAULT 'wallet',
+    orden INT NOT NULL DEFAULT 1 CHECK (orden >= 1),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_metodo_pago_local UNIQUE (local_id, codigo)
 );
 
--- 2. Índices de optimización para el Punto de Venta (< 1ms)
+-- Índice parcial de alto rendimiento para el Punto de Venta (< 0.5ms)
 CREATE INDEX IF NOT EXISTS idx_metodo_pago_local_pos 
     ON metodo_pago_local(local_id, orden) 
     WHERE activo = true;
 
--- 3. Row-Level Security (Aislamiento Multi-Tenant)
-ALTER TABLE metodo_pago_local ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY rls_metodo_pago_local_isolation ON metodo_pago_local
-    FOR ALL
-    USING (local_id = NULLIF(current_setting('app.current_local_id', true), '')::uuid);
-
--- 4. Extensión en tabla comprobante para soportar recargos
-ALTER TABLE comprobante ADD COLUMN IF NOT EXISTS metodo_pago_codigo varchar(30);
-ALTER TABLE comprobante ADD COLUMN IF NOT EXISTS subtotal_consumo decimal(10, 2) NOT NULL DEFAULT 0.00;
-ALTER TABLE comprobante ADD COLUMN IF NOT EXISTS porcentaje_recargo decimal(5, 2) NOT NULL DEFAULT 0.00;
-ALTER TABLE comprobante ADD COLUMN IF NOT EXISTS monto_recargo decimal(10, 2) NOT NULL DEFAULT 0.00;
-
--- 5. Restricción Poka-Yoke: Billetera activa requiere obligatoriamente celular de 9 dígitos
+-- Restricción Poka-Yoke: Billetera activa requiere obligatoriamente celular de 9 dígitos
 ALTER TABLE metodo_pago_local ADD CONSTRAINT chk_billetera_digital_valida 
     CHECK (codigo != 'billetera_digital' OR activo = false OR (
         datos_adicionales ? 'telefono' AND length(datos_adicionales->>'telefono') >= 9
     ));
 ```
 
-### 7.1 Regla de Inicialización Segura (Poka-Yoke Operativo):
-1. **Estado Inicial en Sedes Nuevas:**
-   - `efectivo`: `activo = true` (inmutable 0.00% recargo).
-   - `tarjeta`: `activo = true` (0.00% recargo inicial, configurable).
-   - `billetera_digital`: `activo = false` (*Inactivo por defecto hasta configurar celular y titular*).
-2. **Protección del Punto de Venta:** En `CU-CAJA-02` y `CU-CAJA-03`, el POS solo expone medios con `activo = true`. Si el administrador aún no ingresó el número celular de Yape/Plin, el botón **no aparece en la botonera de cobro**, evitando que el personal cobre a cuentas inexistentes o imprima códigos QR vacíos en la precuenta.
-3. **Flujo Asistido en Formulario:** Si el administrador intenta conmutar el switch de Yape/Plin a activo sin haber ingresado el celular, la interfaz abre de inmediato la **Vista 2 (Modal de Configuración)** para completar los datos antes de encender el interruptor.
+> [!NOTE]
+> Las columnas de recargo y comisiones ya se encuentran incorporadas nativamente en la tabla `comprobante` ([`02_schema_ddl.sql`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/infra/sql/02_schema_ddl.sql#L573-L578)) y `pedido_subcuenta`:
+> `metodo_pago_id UUID REFERENCES metodo_pago_local(id) ON DELETE SET NULL`, `subtotal_consumo DECIMAL(10,2)`, `porcentaje_recargo DECIMAL(5,2)` y `monto_recargo DECIMAL(10,2)`.
 
 ---
 
-## 8. Checklist de Accesibilidad WCAG 2.1 AA
+## 8. Reglas de Negocio Operativas (RN-PAGO)
+
+- **RN-PAGO-01 (Mínimo 1 Método Activo):** La sede debe mantener al menos un método de pago en estado `activo = true` en todo momento. Toda acción o petición que intente desactivar la totalidad de medios será bloqueada con error `409 Conflict` (`ERR_MINIMO_UN_PAGO`) y abrirá el **Modal de Bloqueo de Seguridad (Vista 3)**.
+- **RN-PAGO-02 (Rango Válido de Comisiones):** El porcentaje de recargo o comisión debe estar comprendido estrictamente entre `0.00%` y `50.00%` (`CHECK (comision_porcentaje >= 0 AND comision_porcentaje <= 50.00)`). Cualquier valor fuera de este rango genera error `422 Unprocessable Entity` (`ERR_COMISION_INVALIDA`).
+- **RN-PAGO-03 (Efectivo sin Recargo):** Por mandato legal en Perú, el efectivo es el medio oficial incondicional y no admite recargo alguno (`comision_porcentaje = 0.00%` constante e inmutable).
+- **RN-PAGO-04 (Activación Condicionada de Billetera Digital):** Para activar `billetera_digital`, es obligatorio registrar previamente un número telefónico celular válido de 9 dígitos peruanos y el titular receptor (`chk_billetera_digital_valida`). El código QR se autogenera dinámicamente a partir del celular. Si el administrador intenta activar el switch sin haber configurado el número, el switch permanece apagado, se emite un toast informativo y la interfaz abre automáticamente la **Vista 2 (Modal de Configuración)**. Al guardar datos válidos, el método se habilita automáticamente.
+- **RN-PAGO-05 (Fórmulas Financieras SUNAT):**
+  $$\text{Monto Recargo} = \text{Monto Consumo} \times \left(\frac{\text{comision\_porcentaje}}{100}\right)$$
+  $$\text{Total a Pagar} = \text{Monto Consumo} + \text{Monto Recargo}$$
+  $$\text{Base Imponible} = \frac{\text{Total a Pagar}}{1.18}, \quad \text{IGV (18\%)} = \text{Total a Pagar} - \text{Base Imponible}$$
+- **RN-PAGO-06 (Sincronización Reactiva SSE < 30ms):** Al guardar los cambios, el servidor emite el evento SSE `metodos_pago_actualizados`. La pantalla de cobro del Cajero (`CU-CAJA-02`, `CU-CAJA-03`) y la precuenta del mozo (`CU-MOZO-08`) actualizan instantáneamente sus botones y recargos sin requerir recargar la sesión.
+- **RN-PAGO-07 (Onboarding Pre-Aprovisionado para Sedes Nuevas):** Si una sede física recién creada no cuenta con métodos de cobro, el sistema despliega la **Vista 4 (Onboarding Inicial)** con el paquete estándar completo (Efectivo 0%, Tarjeta POS 0%, Yape/Plin 0% y Transferencia inactiva) para confirmar en 1 clic o personalizar manualmente desde la plantilla canónica sin estados nulos.
+- **RN-PAGO-08 (Protección de Borrado / Inmutabilidad):** Los métodos de pago que ya poseen transacciones históricas en `comprobante` (`metodo_pago_id`) no pueden eliminarse físicamente de la base de datos (`ON DELETE RESTRICT / SET NULL`), permitiéndose únicamente su desactivación (`activo = false`).
+- **RN-PAGO-09 (Activación Condicionada de Transferencias Bancarias):** Para activar `transferencia`, es obligatorio registrar previamente la entidad financiera y el número de cuenta o CCI de la empresa. Si el administrador intenta activar el switch sin estos datos, el switch permanece apagado, se emite un toast informativo y se abre automáticamente el modal de transferencias. Al guardar datos bancarios válidos, el método se habilita automáticamente.
+
+---
+
+## 9. Checklist de Accesibilidad WCAG 2.1 AA
 
 - [x] **Contraste de Color:** Ratios superiores a `4.8:1` para texto regular `#334155` sobre fondo blanco `#FFFFFF` y `14:1` para títulos dark `#0F172A`.
 - [x] **Navegación por Teclado:** Steppers numéricos de comisión con soporte para teclas `ArrowUp` y `ArrowDown`; switches operables con tecla `Espacio`.

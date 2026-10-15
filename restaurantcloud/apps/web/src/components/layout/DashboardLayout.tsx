@@ -23,6 +23,7 @@ import {
   FileX2,
   Tag,
   Flame,
+  Wallet,
 } from 'lucide-react';
 import { ROUTES } from '@/router/routes.constants';
 import { DropdownCampanaNotificaciones } from '@/modules/admin/components/anulaciones/DropdownCampanaNotificaciones';
@@ -55,6 +56,7 @@ export const DashboardLayout: React.FC = () => {
     { label: 'Políticas de Reserva', href: ROUTES.ADMIN_POLITICAS_RESERVA, icon: CalendarClock },
     { label: 'Promociones de Sede', href: ROUTES.ADMIN_PROMOCIONES, icon: Tag },
     { label: 'Tiempos KDS & Cocina', href: ROUTES.ADMIN_CONFIGURACION_KDS, icon: Flame },
+    { label: 'Métodos de Pago & POS', href: ROUTES.ADMIN_METODOS_PAGO, icon: Wallet },
     { label: 'Incidentes Internos', href: ROUTES.ADMIN_INCIDENTES, icon: AlertTriangle },
     { label: 'Auditoría Anulaciones', href: ROUTES.ADMIN_ANULACIONES, icon: FileX2 },
     { label: 'Reportes de Venta', href: ROUTES.ADMIN_REPORTES_VENTAS, icon: Layers },

@@ -109,6 +109,12 @@ import {
   FiltroTipoPromocion,
   ConfiguracionKdsDTO,
   ActualizarConfiguracionKdsRequest,
+  CodigoMetodoPagoLocal,
+  MetodoPagoLocalDTO,
+  CatalogoMetodosPagoResponseDTO,
+  ActualizarCatalogoMetodosRequest,
+  ActualizarMetodoPagoItemRequest,
+  MetodosPagoKPIsDTO,
 } from '@/types/admin';
 import { MOCK_CONFIGURACION_KDS } from '@/modules/cocina/services/mockCocinaService';
 import {
@@ -3627,6 +3633,73 @@ export const SEMILLAS_COMPROBANTES_AUDITORIA_PROMO: Record<string, PromocionComp
   ],
 };
 
+export const SEMILLAS_METODOS_PAGO_AUREA: MetodoPagoLocalDTO[] = [
+  {
+    id: '00000000-0000-4000-8000-000000000451',
+    local_id: CANONICAL_LOCAL_ID,
+    codigo: 'efectivo',
+    nombre: 'Efectivo (Cash)',
+    activo: true,
+    comision_porcentaje: 0.0,
+    datos_adicionales: {},
+    icono: 'banknote',
+    orden: 1,
+    created_at: '2026-10-01T08:00:00Z',
+    updated_at: '2026-10-09T14:30:00Z',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000452',
+    local_id: CANONICAL_LOCAL_ID,
+    codigo: 'tarjeta',
+    nombre: 'Tarjeta Débito / Crédito (POS)',
+    activo: true,
+    comision_porcentaje: 3.5,
+    datos_adicionales: { operador: 'Niubiz' },
+    icono: 'credit-card',
+    orden: 2,
+    created_at: '2026-10-01T08:00:00Z',
+    updated_at: '2026-10-09T14:30:00Z',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000453',
+    local_id: CANONICAL_LOCAL_ID,
+    codigo: 'billetera_digital',
+    nombre: 'Billetera Digital (Yape / Plin)',
+    activo: true,
+    comision_porcentaje: 0.0,
+    datos_adicionales: {
+      telefono: '987654321',
+      titular: 'Inversiones Gastronómicas del Sur S.A.C.',
+      ruc: '20601234567',
+      instrucciones_cajero: 'Verificar confirmación de pago y código de operación de 6 dígitos',
+      qr_url: '',
+    },
+    icono: 'smartphone',
+    orden: 3,
+    created_at: '2026-10-01T08:00:00Z',
+    updated_at: '2026-10-09T14:30:00Z',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000454',
+    local_id: CANONICAL_LOCAL_ID,
+    codigo: 'transferencia',
+    nombre: 'Transferencia Bancaria',
+    activo: false,
+    comision_porcentaje: 0.0,
+    datos_adicionales: {
+      banco: 'BCP',
+      cuenta: '191-88421033-0-45',
+      cci: '00219100884210330451',
+      titular: 'Inversiones Gastronómicas del Sur S.A.C.',
+      instrucciones_cajero: 'Revisar abono bancario y adjuntar comprobante al arqueo',
+    },
+    icono: 'building-2',
+    orden: 4,
+    created_at: '2026-10-01T08:00:00Z',
+    updated_at: '2026-10-09T14:30:00Z',
+  },
+];
+
 // Estado en memoria simulado
 class MockAdminService {
   private pisos: PisoAdminDTO[] = JSON.parse(JSON.stringify(SEMILLAS_PISOS));
@@ -3670,6 +3743,8 @@ class MockAdminService {
     created_at: '2026-10-01T08:00:00Z',
     updated_at: '2026-10-09T14:30:00Z',
   };
+  private metodosPago: MetodoPagoLocalDTO[] = JSON.parse(JSON.stringify(SEMILLAS_METODOS_PAGO_AUREA));
+  private esSedeNuevaMetodosPago: boolean = false;
 
 
   private calcularMetricasPiso(piso: PisoAdminDTO) {
@@ -9875,8 +9950,336 @@ class MockAdminService {
       meta: { timestamp: new Date().toISOString() },
     };
   }
+
+  // ==========================================================================
+  // CU-ADMIN-19: Configurar Métodos de Pago y Comisiones de Cobro del Local
+  // Tabla: metodo_pago_local (02_schema_ddl.sql)
+  // ==========================================================================
+
+  private calcularKPIsMetodosPago(metodos: MetodoPagoLocalDTO[]): MetodosPagoKPIsDTO {
+    const habilitadas = metodos.filter((m) => m.activo).length;
+    const conComision = metodos.filter((m) => m.activo && m.comision_porcentaje > 0).length;
+    // Métricas de transacciones simuladas del mes para la sede
+    const ventasTarjetaMes = 24850.0;
+    const tarjetaActiva = metodos.find((m) => m.codigo === 'tarjeta' && m.activo);
+    const recargosPercibidosMes = tarjetaActiva
+      ? Math.round(((ventasTarjetaMes * tarjetaActiva.comision_porcentaje) / 100) * 100) / 100
+      : 0.0;
+
+    return {
+      formas_habilitadas: habilitadas,
+      total_formas: metodos.length,
+      metodos_con_comision: conComision,
+      ventas_tarjeta_mes: ventasTarjetaMes,
+      recargos_percibidos_mes: recargosPercibidosMes,
+    };
+  }
+
+  async getMetodosPago(_localId: string = CANONICAL_LOCAL_ID): Promise<ApiResponse<CatalogoMetodosPagoResponseDTO>> {
+    await new Promise((r) => setTimeout(r, 60));
+
+    // Si es sede nueva para simular Onboarding (Vista 4)
+    if (this.esSedeNuevaMetodosPago) {
+      return {
+        exito: true,
+        datos: {
+          kpis: {
+            formas_habilitadas: 0,
+            total_formas: 0,
+            metodos_con_comision: 0,
+            ventas_tarjeta_mes: 0,
+            recargos_percibidos_mes: 0,
+          },
+          metodos: [],
+          sede_nombre: CANONICAL_LOCAL_NOMBRE,
+        },
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    const kpis = this.calcularKPIsMetodosPago(this.metodosPago);
+
+    return {
+      exito: true,
+      datos: {
+        kpis,
+        metodos: JSON.parse(JSON.stringify(this.metodosPago)),
+        sede_nombre: CANONICAL_LOCAL_NOMBRE,
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  async actualizarMetodosPago(
+    req: ActualizarCatalogoMetodosRequest,
+    _localId: string = CANONICAL_LOCAL_ID
+  ): Promise<ApiResponse<CatalogoMetodosPagoResponseDTO>> {
+    await new Promise((r) => setTimeout(r, 120));
+
+    // Regla de Negocio RN-PAGO-01: Mínimo 1 método activo en todo momento (409 Conflict)
+    const activos = req.metodos.filter((m) => m.activo);
+    if (activos.length === 0) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_MINIMO_UN_PAGO',
+            mensaje:
+              'La sede debe mantener al menos un método de pago activo en todo momento para evitar la paralización del cobro de comandas en salón.',
+          },
+        ],
+      };
+    }
+
+    // Regla de Negocio RN-PAGO-02: Rango válido de comisiones 0% a 50% (422)
+    for (const m of req.metodos) {
+      if (m.comision_porcentaje < 0 || m.comision_porcentaje > 50) {
+        return {
+          exito: false,
+          datos: null as any,
+          errores: [
+            {
+              codigo: 'ERR_COMISION_INVALIDA',
+              mensaje: `El porcentaje de comisión para ${m.codigo} debe estar comprendido entre 0.00% y 50.00%.`,
+            },
+          ],
+        };
+      }
+
+      // Regla de Negocio RN-PAGO-03: Efectivo siempre 0.00%
+      if (m.codigo === 'efectivo' && m.comision_porcentaje > 0) {
+        return {
+          exito: false,
+          datos: null as any,
+          errores: [
+            {
+              codigo: 'ERR_COMISION_EFECTIVO_PROHIBIDA',
+              mensaje: 'El método Efectivo no admite comisiones ni recargos por mandato legal.',
+            },
+          ],
+        };
+      }
+
+      // Regla de Negocio RN-PAGO-04: Billetera digital requiere teléfono de 9 dígitos (422)
+      if (m.codigo === 'billetera_digital' && m.activo) {
+        const tel = m.datos_adicionales?.telefono?.replace(/\D/g, '') || '';
+        if (tel.length < 9) {
+          return {
+            exito: false,
+            datos: null as any,
+            errores: [
+              {
+                codigo: 'ERR_DATOS_BILLETERA_INCOMPLETOS',
+                mensaje:
+                  'Para activar Billetera Digital (Yape / Plin) es obligatorio ingresar el número celular de contacto de 9 dígitos de la sede.',
+              },
+            ],
+          };
+        }
+      }
+    }
+
+    // Actualizar catálogo en memoria
+    this.metodosPago = this.metodosPago.map((item) => {
+      const match = req.metodos.find((m) => m.codigo === item.codigo);
+      if (match) {
+        return {
+          ...item,
+          activo: match.activo,
+          comision_porcentaje: match.codigo === 'efectivo' ? 0.0 : match.comision_porcentaje,
+          datos_adicionales: match.datos_adicionales ? { ...match.datos_adicionales } : item.datos_adicionales,
+          updated_at: new Date().toISOString(),
+        };
+      }
+      return item;
+    });
+
+    const kpis = this.calcularKPIsMetodosPago(this.metodosPago);
+
+    return {
+      exito: true,
+      datos: {
+        kpis,
+        metodos: JSON.parse(JSON.stringify(this.metodosPago)),
+        sede_nombre: CANONICAL_LOCAL_NOMBRE,
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  async actualizarMetodoPagoIndividual(
+    codigo: CodigoMetodoPagoLocal,
+    req: ActualizarMetodoPagoItemRequest,
+    _localId: string = CANONICAL_LOCAL_ID
+  ): Promise<ApiResponse<MetodoPagoLocalDTO>> {
+    await new Promise((r) => setTimeout(r, 80));
+
+    // Verificar existencia
+    const index = this.metodosPago.findIndex((m) => m.codigo === codigo);
+    if (index === -1) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_METODO_NO_ENCONTRADO', mensaje: `El método de pago ${codigo} no está registrado.` }],
+      };
+    }
+
+    // Regla de Negocio RN-PAGO-01: No permitir desactivar si es el único activo
+    if (!req.activo) {
+      const otrosActivos = this.metodosPago.filter((m) => m.codigo !== codigo && m.activo);
+      if (otrosActivos.length === 0) {
+        return {
+          exito: false,
+          datos: null as any,
+          errores: [
+            {
+              codigo: 'ERR_MINIMO_UN_PAGO',
+              mensaje:
+                'No es posible pausar este método de pago porque es el único activo en la sede. Desactivarlo paralizaría el cobro en salón y caja.',
+            },
+          ],
+        };
+      }
+    }
+
+    // Regla de Negocio RN-PAGO-04: Billetera digital requiere teléfono
+    if (codigo === 'billetera_digital' && req.activo) {
+      const tel = req.datos_adicionales?.telefono?.replace(/\D/g, '') || '';
+      if (tel.length < 9) {
+        return {
+          exito: false,
+          datos: null as any,
+          errores: [
+            {
+              codigo: 'ERR_DATOS_BILLETERA_INCOMPLETOS',
+              mensaje: 'La billetera digital requiere un número celular de contacto de al menos 9 dígitos.',
+            },
+          ],
+        };
+      }
+    }
+
+    this.metodosPago[index] = {
+      ...this.metodosPago[index],
+      activo: req.activo,
+      comision_porcentaje: codigo === 'efectivo' ? 0.0 : req.comision_porcentaje,
+      datos_adicionales: req.datos_adicionales
+        ? { ...this.metodosPago[index].datos_adicionales, ...req.datos_adicionales }
+        : this.metodosPago[index].datos_adicionales,
+      updated_at: new Date().toISOString(),
+    };
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(this.metodosPago[index])),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * Onboarding Vista 4: Aprovisionar sede nueva con los 3 métodos canónicos al 0%
+   */
+  async aprovisionarSedeNuevaMetodosPago(_localId: string = CANONICAL_LOCAL_ID): Promise<ApiResponse<CatalogoMetodosPagoResponseDTO>> {
+    await new Promise((r) => setTimeout(r, 100));
+
+    this.esSedeNuevaMetodosPago = false;
+    this.metodosPago = [
+      {
+        id: '00000000-0000-4000-8000-000000000451',
+        local_id: CANONICAL_LOCAL_ID,
+        codigo: 'efectivo',
+        nombre: 'Efectivo (Cash)',
+        activo: true,
+        comision_porcentaje: 0.0,
+        datos_adicionales: {},
+        icono: 'banknote',
+        orden: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: '00000000-0000-4000-8000-000000000452',
+        local_id: CANONICAL_LOCAL_ID,
+        codigo: 'tarjeta',
+        nombre: 'Tarjeta Débito / Crédito (POS)',
+        activo: true,
+        comision_porcentaje: 0.0,
+        datos_adicionales: { operador: 'Niubiz / Izipay' },
+        icono: 'credit-card',
+        orden: 2,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: '00000000-0000-4000-8000-000000000453',
+        local_id: CANONICAL_LOCAL_ID,
+        codigo: 'billetera_digital',
+        nombre: 'Billetera Digital (Yape / Plin)',
+        activo: true,
+        comision_porcentaje: 0.0,
+        datos_adicionales: {
+          telefono: '987654321',
+          titular: 'Inversiones Gastronómicas S.A.C.',
+          instrucciones_cajero: 'Verificar confirmación de pago de 6 dígitos',
+        },
+        icono: 'smartphone',
+        orden: 3,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: '00000000-0000-4000-8000-000000000454',
+        local_id: CANONICAL_LOCAL_ID,
+        codigo: 'transferencia',
+        nombre: 'Transferencia Bancaria',
+        activo: false,
+        comision_porcentaje: 0.0,
+        datos_adicionales: {
+          banco: 'BCP',
+          cuenta: '191-88421033-0-45',
+          cci: '00219100884210330451',
+          titular: 'Inversiones Gastronómicas S.A.C.',
+          instrucciones_cajero: 'Revisar abono bancario y adjuntar comprobante al arqueo',
+        },
+        icono: 'building-2',
+        orden: 4,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ];
+
+    const kpis = this.calcularKPIsMetodosPago(this.metodosPago);
+
+    return {
+      exito: true,
+      datos: {
+        kpis,
+        metodos: JSON.parse(JSON.stringify(this.metodosPago)),
+        sede_nombre: CANONICAL_LOCAL_NOMBRE,
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * QA Helper: Simular que la sede es nueva sin métodos de cobro (Vista 4 Onboarding)
+   */
+  simularSedeNuevaMetodosPago(): void {
+    this.esSedeNuevaMetodosPago = true;
+    this.metodosPago = [];
+  }
+
+  /**
+   * QA Helper: Restablecer semillas canónicas de Aúrea
+   */
+  restablecerSemillasMetodosPago(): void {
+    this.esSedeNuevaMetodosPago = false;
+    this.metodosPago = JSON.parse(JSON.stringify(SEMILLAS_METODOS_PAGO_AUREA));
+  }
 }
 
 export const mockAdminService = new MockAdminService();
+
 
 
