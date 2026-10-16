@@ -52,16 +52,18 @@ SET ultima_suscripcion_id = '00000000-0000-4000-8000-000000000002'
 WHERE id = '00000000-0000-4000-8000-000000000001';
 
 INSERT INTO local (
-    id, empresa_id, nombre, slug, direccion, distrito, ciudad, telefono,
+    id, empresa_id, nombre, slug, direccion, ubigeo_cod, departamento, provincia, distrito, ciudad, telefono,
     zona_horaria, moneda, giro_negocio, estado
 ) VALUES (
     '00000000-0000-4000-8000-000000000010',
     '00000000-0000-4000-8000-000000000001',
-    'ÁUREA Miraflores', 'aurea-miraflores', 'Av. Larco 450', 'Miraflores', 'Lima',
+    'ÁUREA Miraflores', 'aurea-miraflores', 'Av. Larco 450', '150122', 'Lima', 'Lima', 'Miraflores', 'Lima',
     '+51 987 654 321', 'America/Lima', 'PEN', 'cevicheria', 'activo'
 )
 ON CONFLICT (id) DO UPDATE SET
     nombre = EXCLUDED.nombre, slug = EXCLUDED.slug, estado = EXCLUDED.estado,
+    ubigeo_cod = EXCLUDED.ubigeo_cod, departamento = EXCLUDED.departamento,
+    provincia = EXCLUDED.provincia, distrito = EXCLUDED.distrito, ciudad = EXCLUDED.ciudad,
     updated_at = NOW();
 
 -- Usuarios de todos los roles operativos. crypt() usa pgcrypto (script 01).

@@ -27,6 +27,16 @@ CREATE INDEX IF NOT EXISTS idx_local_slug
     ON local(slug) 
     WHERE estado = 'activo';
 
+-- 1.5 Índices de Búsqueda Geográfica Nacional y Localización (UBIGEO INEI)
+CREATE INDEX IF NOT EXISTS idx_provincia_departamento 
+    ON provincia(departamento_codigo);
+
+CREATE INDEX IF NOT EXISTS idx_distrito_provincia 
+    ON distrito(provincia_codigo);
+
+CREATE INDEX IF NOT EXISTS idx_local_ubigeo 
+    ON local(ubigeo_cod);
+
 -- ------------------------------------------------------------------------------
 -- 2. ÍNDICES PARCIALES DE ALTO RENDIMIENTO PARA OPERACIONES EN VIVO
 -- ------------------------------------------------------------------------------
