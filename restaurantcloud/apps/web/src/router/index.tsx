@@ -33,6 +33,7 @@ import { AdminFlujoCajaPage } from '@/modules/admin/pages/AdminFlujoCajaPage';
 import { PropietarioIncidentesPage } from '@/modules/propietario/pages/PropietarioIncidentesPage';
 import { RegistroEmpresaPage } from '@/modules/propietario/pages/RegistroEmpresaPage';
 import { PropietarioLocalesPage } from '@/modules/propietario/pages/PropietarioLocalesPage';
+import { PropietarioAdministradoresPage } from '@/modules/propietario/pages/PropietarioAdministradoresPage';
 import { CajeroPosPage } from '@/modules/caja/pages/CajeroPosPage';
 import { CajeroTurnoCierrePage } from '@/modules/caja/pages/CajeroTurnoCierrePage';
 
@@ -148,15 +149,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'administradores',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-PROP-05"
-            nombrePantalla="Asignación de Administradores de Local"
-            rol="propietario"
-            layoutNombre="DashboardLayout"
-            descripcion="Gestión de accesos y asignación de encargados de administración por local operativo."
-          />
-        ),
+        element: <PropietarioAdministradoresPage />,
       },
       {
         path: 'suscripcion',

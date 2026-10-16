@@ -19,7 +19,7 @@
 | **Cocina (KDS)** | 4 | 1 | 3 | **25%** |
 | **Caja & Cobranza** | 5 | 0 | 5 | 0% |
 | **Administración Local** | 16 | 4 | 12 | **25%** |
-| **Propietario / Tenant** | 6 | 2 | 4 | **33%** |
+| **Propietario / Tenant** | 6 | 3 | 3 | **50%** |
 | **SuperAdmin SaaS** | 3 | 0 | 3 | 0% |
 
 ---
@@ -152,7 +152,26 @@
 
 ---
 
-### 2.5 `CU-MOZO-01`: Ver Estado de Mesas y Centro de Comandas en Vivo (Hub de Salón)
+### 2.7 `CU-PROP-05`: Crear y Gestionar Administradores de Local
+- **Ruta Activa:** `/propietario/administradores` ([`DashboardLayout.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/DashboardLayout.tsx))
+- **Componentes Creados:**
+  - [`PropietarioAdministradoresPage.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/pages/PropietarioAdministradoresPage.tsx): Orquestador corporativo de personal administrativo, gestión de modales, toasts reactivos y recarga de datos.
+  - [`AdminsHeader.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/administradores/AdminsHeader.tsx): Barra accesible de progreso `role="progressbar"` de consumo de cuota de personal (`plan.max_usuarios`: 8 de 15 cuentas activas en Plan Pro), con botón condicionado `[ + Invitar Nuevo Administrador ]` que se bloquea preventivamente al 100% enlazando a `/propietario/suscripcion`.
+  - [`AdminsTabla.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/administradores/AdminsTabla.tsx): Tabla para PC (`>= 1024px`) y tarjetas táctiles para smartphones (`< 1024px`), con avatar de iniciales, insignia de sede titular asignada, estados semánticos (`[ ✓ Activo ]`, `[ ⏳ Invitación pendiente ]` con tiempo restante dinámico, `[ ⚠️ Invitación expirada ]` si superó 24h, `[ Inactivo ]`), último login y acciones contextuales (`[ Reasignar Sede ]`, `[ Desactivar ]`, `[ Reenviar ]`, `[ Cancelar ]`, `[ Ver Enlace ]`, `[ Reactivar ]`).
+  - [`ModalInvitarAdmin.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/administradores/ModalInvitarAdmin.tsx): Modal de invitación segura con banner de impacto en cuota, formulario validado (nombre, email corporativo, teléfono opcional), dropdown con sedes disponibles vs sedes ocupadas (regla de negocio: 1 administrador titular por sede), tarjeta informativa de enlace temporal firmado por 24 horas y spinner de envío.
+  - [`ModalReasignarSede.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/administradores/ModalReasignarSede.tsx): Modal de transferencia de sede titular (1:1) con selector de nueva sede y resumen de impacto (pérdida de acceso a sede anterior, pase de la sede anterior a autogestión directa del propietario, y asunción de la nueva sede en el próximo inicio de sesión).
+  - [`ModalDesactivarAdmin.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/administradores/ModalDesactivarAdmin.tsx): Modal de confirmación destructiva segura con advertencia de revocación inmediata de sesiones JWT en Redis Blacklist y liberación del cupo de usuario.
+  - [`ModalCopiarInvitacion.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/administradores/ModalCopiarInvitacion.tsx): Modal para copiar la URL de activación generada (`/activar-cuenta?token=...`), feedback visual de copiado y botón directo de compartir por WhatsApp para pruebas ágiles.
+  - [`DemoAdminsWidget.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/administradores/DemoAdminsWidget.tsx): Widget flotante Sandbox QA en la esquina inferior derecha para alternar cupo lleno (15/15), simular invitación expirada (> 24h), simular conflicto de correo 409 y restablecer semillas canónicas de Áurea en 1 clic.
+- **Servicios y DTOs:**
+  - [`propietarioAdminsService.ts`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/services/propietarioAdminsService.ts): Endpoints simulados (`GET /administradores`, `GET /formulario-datos`, `POST /administradores`, `POST /{id}/reenviar-invitacion`, `DELETE /{id}/invitacion`, `PATCH /{id}/reasignar-sede`, `PATCH /{id}/cambiar-estado`) con persistencia en `localStorage` sincronizada con las sedes de `CU-PROP-04`.
+  - [`src/types/propietarioAdmins.ts`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/propietarioAdmins.ts): DTOs rigurosamente tipados según `usuario`, `local`, `empresa` y `plan` de `02_schema_ddl.sql`. Cero datos inventados.
+- **Responsive:** Soporte completo para Desktop (`1440x900`), Tablet (`768x1024`) y Smartphone (`375x812`), con áreas de toque $\ge 44\text{px}$.
+- **Estado de Build:** ✅ Compilado con 0 errores TypeScript (`npm run build`).
+
+---
+
+### 2.8 `CU-MOZO-01`: Ver Estado de Mesas y Centro de Comandas en Vivo (Hub de Salón)
 - **Ruta Activa:** `/mozo/mesas` ([`TerminalLayout.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/TerminalLayout.tsx))
 - **Componentes Creados:**
   - [`MozoMesasPage.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/pages/MozoMesasPage.tsx): Orquestador principal de la pantalla integrada del salón con gestión de eventos SSE y estado reactivo.
