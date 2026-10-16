@@ -21,8 +21,8 @@ import { MonitorCajaPosView } from '../components/monitor/MonitorCajaPosView';
 import { ModalCobroFiscalPos } from '../components/cobro/ModalCobroFiscalPos';
 import { ModalPrecuentaCompleta } from '@/modules/mozo/components/precuenta/ModalPrecuentaCompleta';
 import { ModalDividirCuenta } from '@/modules/mozo/components/split/ModalDividirCuenta';
-import { ModalHistorialComprobantesPos } from '../components/ModalHistorialComprobantesPos';
-import { ModalEmisionNotaCredito } from '../components/ModalEmisionNotaCredito';
+import { ModalHistorialComprobantesPos } from '../components/comprobantes/ModalHistorialComprobantesPos';
+import { ModalEmisionNotaCredito } from '../components/comprobantes/ModalEmisionNotaCredito';
 import { DemoCajaTurnoWidget } from '../components/demo/DemoCajaTurnoWidget';
 import type { DividirCuentaResponseDTO } from '@/types/mozo';
 import type {
