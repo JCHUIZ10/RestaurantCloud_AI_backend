@@ -78,14 +78,37 @@ return new class extends Migration
                 ADD CONSTRAINT fk_empresa_ultima_suscripcion 
                 FOREIGN KEY (ultima_suscripcion_id) REFERENCES suscripcion(id) ON DELETE SET NULL;
 
+            -- 1.3.1 Catálogo Maestro de Ubicación Geográfica Nacional (UBIGEO INEI / SUNAT)
+            CREATE TABLE IF NOT EXISTS departamento (
+                codigo CHAR(2) PRIMARY KEY,
+                nombre VARCHAR(50) NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS provincia (
+                codigo CHAR(4) PRIMARY KEY,
+                departamento_codigo CHAR(2) NOT NULL REFERENCES departamento(codigo) ON DELETE RESTRICT,
+                nombre VARCHAR(50) NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS distrito (
+                codigo CHAR(6) PRIMARY KEY,
+                provincia_codigo CHAR(4) NOT NULL REFERENCES provincia(codigo) ON DELETE RESTRICT,
+                departamento_codigo CHAR(2) NOT NULL REFERENCES departamento(codigo) ON DELETE RESTRICT,
+                nombre VARCHAR(50) NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS local (
                 id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
                 empresa_id UUID NOT NULL REFERENCES empresa(id) ON DELETE CASCADE,
                 nombre VARCHAR(100) NOT NULL,
                 slug VARCHAR(100) NOT NULL UNIQUE,
                 direccion VARCHAR(200) NOT NULL,
-                distrito VARCHAR(100) NOT NULL,
-                ciudad VARCHAR(100) NOT NULL,
+                ubigeo_cod CHAR(6) NOT NULL REFERENCES distrito(codigo) ON DELETE RESTRICT,
+                departamento VARCHAR(50) NOT NULL DEFAULT 'Áncash',
+                provincia VARCHAR(50) NOT NULL DEFAULT 'Santa',
+                distrito VARCHAR(50) NOT NULL DEFAULT 'Chimbote',
+                ciudad VARCHAR(100) NOT NULL DEFAULT 'Chimbote',
+                referencia VARCHAR(200),
                 telefono VARCHAR(20) NOT NULL,
                 zona_horaria VARCHAR(50) NOT NULL DEFAULT 'America/Lima',
                 moneda VARCHAR(3) NOT NULL DEFAULT 'PEN',

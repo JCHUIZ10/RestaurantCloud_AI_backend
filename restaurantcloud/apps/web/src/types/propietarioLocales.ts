@@ -41,8 +41,12 @@ export interface LocalItemDTO {
   slug: string;
   url_carta_digital: string;
   direccion: string;
-  distrito: string;
+  ubigeo_cod: string; // '021801'
+  departamento: string; // 'Áncash'
+  provincia: string; // 'Santa'
+  distrito: string; // 'Chimbote'
   ciudad: string;
+  referencia?: string;
   telefono: string;
   zona_horaria: string;
   moneda: string;
@@ -78,8 +82,12 @@ export interface CrearLocalRequestDTO {
   nombre: string;
   slug: string;
   direccion: string;
+  ubigeo_cod: string;
+  departamento: string;
+  provincia: string;
   distrito: string;
   ciudad: string;
+  referencia?: string;
   telefono: string;
   modo_administracion: ModoAdministracionLocal;
   administrador_usuario_id: string | null;
@@ -90,8 +98,12 @@ export interface ActualizarLocalRequestDTO {
   nombre: string;
   slug: string;
   direccion: string;
+  ubigeo_cod: string;
+  departamento: string;
+  provincia: string;
   distrito: string;
   ciudad: string;
+  referencia?: string;
   telefono: string;
   modo_administracion: ModoAdministracionLocal;
   administrador_usuario_id: string | null;

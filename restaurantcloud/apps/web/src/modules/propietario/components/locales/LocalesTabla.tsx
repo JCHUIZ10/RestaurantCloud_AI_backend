@@ -81,7 +81,9 @@ export const LocalesTabla: React.FC<LocalesTablaProps> = ({
                       <div className="flex items-center gap-1.5 text-aurea-navy/70 text-[11px]">
                         <MapPin className="w-3.5 h-3.5 text-aurea-copper shrink-0" />
                         <span>
-                          {local.direccion}, {local.distrito}
+                          {local.direccion} &bull; {local.distrito}
+                          {local.provincia ? `, ${local.provincia}` : ''}{' '}
+                          {local.departamento ? `(${local.departamento})` : ''}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 text-aurea-navy/60 text-[11px]">
@@ -306,7 +308,9 @@ export const LocalesTabla: React.FC<LocalesTablaProps> = ({
                 <div className="flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-aurea-copper shrink-0" />
                   <span>
-                    {local.direccion}, {local.distrito}
+                    {local.direccion} &bull; {local.distrito}
+                    {local.provincia ? `, ${local.provincia}` : ''}{' '}
+                    {local.departamento ? `(${local.departamento})` : ''}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">

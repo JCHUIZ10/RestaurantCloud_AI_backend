@@ -33,21 +33,15 @@ interface ModalCrearLocalProps {
   mostrarToast: (tipo: 'success' | 'error', mensaje: string) => void;
 }
 
-const DISTRITOS_LIMA = [
-  'Miraflores',
-  'San Isidro',
-  'Santiago de Surco',
-  'San Borja',
-  'Barranco',
-  'La Molina',
-  'Magdalena del Mar',
-  'Pueblo Libre',
-  'Jesús María',
-  'Lince',
-  'Surquillo',
-  'San Miguel',
-  'Cercado de Lima',
-];
+import {
+  DEPARTAMENTOS_PERU,
+  DEFAULT_DEPARTAMENTO_COD,
+  DEFAULT_PROVINCIA_COD,
+  DEFAULT_DISTRITO_COD,
+  getProvinciasByDepartamento,
+  getDistritosByProvincia,
+  getUbigeoCompleto,
+} from '@/data/peruUbigeo';
 
 function slugify(text: string): string {
   return text
@@ -77,7 +71,12 @@ export const ModalCrearLocal: React.FC<ModalCrearLocalProps> = ({
   const [slug, setSlug] = useState('');
   const [slugEditadoManualmente, setSlugEditadoManualmente] = useState(false);
   const [direccion, setDireccion] = useState('');
-  const [distrito, setDistrito] = useState('San Borja');
+
+  // Estados Geográficos UBIGEO (Por defecto: Áncash > Santa > Chimbote)
+  const [departamentoCod, setDepartamentoCod] = useState(DEFAULT_DEPARTAMENTO_COD);
+  const [provinciaCod, setProvinciaCod] = useState(DEFAULT_PROVINCIA_COD);
+  const [distritoCod, setDistritoCod] = useState(DEFAULT_DISTRITO_COD);
+
   const [telefono, setTelefono] = useState('');
   const [modoAdmin, setModoAdmin] = useState<ModoAdministracionLocal>('propietario');
   const [adminId, setAdminId] = useState<string>('');
@@ -93,7 +92,37 @@ export const ModalCrearLocal: React.FC<ModalCrearLocalProps> = ({
   const [adminsDisponibles, setAdminsDisponibles] = useState<AdministradorResumenDTO[]>([]);
   const [guardando, setGuardando] = useState(false);
 
-  // Cargar administradores al abrir
+  // Listas en cascada reactivas
+  const provinciasDisponibles = getProvinciasByDepartamento(departamentoCod);
+  const distritosDisponibles = getDistritosByProvincia(provinciaCod);
+  const ubigeoActual = getUbigeoCompleto(distritoCod);
+  const distritoNombre = ubigeoActual?.distrito.nombre || 'Chimbote';
+  const provinciaNombre = ubigeoActual?.provincia.nombre || 'Santa';
+  const departamentoNombre = ubigeoActual?.departamento.nombre || 'Áncash';
+
+  // Manejo de cascada geográfica
+  const handleDepartamentoChange = (nuevoDepCod: string) => {
+    setDepartamentoCod(nuevoDepCod);
+    const nuevasProvs = getProvinciasByDepartamento(nuevoDepCod);
+    if (nuevasProvs.length > 0) {
+      const primerProv = nuevasProvs[0];
+      setProvinciaCod(primerProv.codigo);
+      const nuevosDists = getDistritosByProvincia(primerProv.codigo);
+      if (nuevosDists.length > 0) {
+        setDistritoCod(nuevosDists[0].codigo);
+      }
+    }
+  };
+
+  const handleProvinciaChange = (nuevaProvCod: string) => {
+    setProvinciaCod(nuevaProvCod);
+    const nuevosDists = getDistritosByProvincia(nuevaProvCod);
+    if (nuevosDists.length > 0) {
+      setDistritoCod(nuevosDists[0].codigo);
+    }
+  };
+
+  // Cargar administradores al abrir y resetear a Áncash > Santa > Chimbote
   useEffect(() => {
     if (isOpen) {
       setPaso(1);
@@ -101,7 +130,9 @@ export const ModalCrearLocal: React.FC<ModalCrearLocalProps> = ({
       setSlug('');
       setSlugEditadoManualmente(false);
       setDireccion('');
-      setDistrito('San Borja');
+      setDepartamentoCod(DEFAULT_DEPARTAMENTO_COD);
+      setProvinciaCod(DEFAULT_PROVINCIA_COD);
+      setDistritoCod(DEFAULT_DISTRITO_COD);
       setTelefono('');
       setModoAdmin('propietario');
       setAdminId('');
@@ -124,7 +155,7 @@ export const ModalCrearLocal: React.FC<ModalCrearLocalProps> = ({
   // Autogenerar slug predictivo cuando cambia nombre o distrito (si no fue desacoplado manualmente)
   useEffect(() => {
     if (!slugEditadoManualmente && nombre.trim().length > 0) {
-      const sugerido = `${slugify(nombre)}${distrito ? '-' + slugify(distrito) : ''}`;
+      const sugerido = `${slugify(nombre)}${distritoNombre ? '-' + slugify(distritoNombre) : ''}`;
       setSlug(sugerido);
       // Validar reactivamente
       propietarioLocalesService.verificarSlug(sugerido).then((res) => {
@@ -135,7 +166,7 @@ export const ModalCrearLocal: React.FC<ModalCrearLocalProps> = ({
         }
       });
     }
-  }, [nombre, distrito, slugEditadoManualmente]);
+  }, [nombre, distritoNombre, slugEditadoManualmente]);
 
   const handleComprobarSlug = async () => {
     if (!slug.trim()) return;
@@ -166,7 +197,7 @@ export const ModalCrearLocal: React.FC<ModalCrearLocalProps> = ({
     slug.trim().length >= 3 &&
     slugDisponible === true &&
     direccion.trim().length >= 5 &&
-    distrito.trim().length > 0 &&
+    distritoNombre.trim().length > 0 &&
     telefono.trim().length >= 7 &&
     (modoAdmin === 'propietario' || (modoAdmin === 'asignar_admin' && !!adminId));
 
@@ -178,8 +209,11 @@ export const ModalCrearLocal: React.FC<ModalCrearLocalProps> = ({
         nombre: nombre.trim(),
         slug: slug.trim().toLowerCase(),
         direccion: direccion.trim(),
-        distrito: distrito.trim(),
-        ciudad: 'Lima',
+        ubigeo_cod: distritoCod,
+        departamento: departamentoNombre,
+        provincia: provinciaNombre,
+        distrito: distritoNombre,
+        ciudad: provinciaNombre === 'Santa' ? 'Chimbote' : distritoNombre,
         telefono: telefono.trim(),
         modo_administracion: modoAdmin,
         administrador_usuario_id: modoAdmin === 'asignar_admin' ? adminId : null,
@@ -310,6 +344,80 @@ export const ModalCrearLocal: React.FC<ModalCrearLocalProps> = ({
                 />
               </div>
 
+                           {/* Ubicación Territorial Nacional (UBIGEO INEI / SUNAT) */}
+              <div className="space-y-3 p-4 rounded-2xl bg-aurea-ivory/40 border border-aurea-copper/25">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-aurea-navy uppercase tracking-wider">
+                    Ubicación Territorial (Perú) <span className="text-rose-500">*</span>
+                  </span>
+                  <span className="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-aurea-gold/20 text-aurea-navy border border-aurea-gold/40">
+                    UBIGEO: {distritoCod}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Departamento */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-aurea-navy/80 mb-1">
+                      Región / Departamento
+                    </label>
+                    <select
+                      value={departamentoCod}
+                      onChange={(e) => handleDepartamentoChange(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-aurea-copper/30 bg-white focus:outline-none focus:ring-2 focus:ring-aurea-gold/50"
+                    >
+                      {DEPARTAMENTOS_PERU.map((dep) => (
+                        <option key={dep.codigo} value={dep.codigo}>
+                          {dep.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Provincia */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-aurea-navy/80 mb-1">
+                      Provincia
+                    </label>
+                    <select
+                      value={provinciaCod}
+                      onChange={(e) => handleProvinciaChange(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-aurea-copper/30 bg-white focus:outline-none focus:ring-2 focus:ring-aurea-gold/50"
+                    >
+                      {provinciasDisponibles.map((prov) => (
+                        <option key={prov.codigo} value={prov.codigo}>
+                          {prov.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Distrito */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-aurea-navy/80 mb-1">
+                      Distrito
+                    </label>
+                    <select
+                      value={distritoCod}
+                      onChange={(e) => setDistritoCod(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-aurea-copper/30 bg-white focus:outline-none focus:ring-2 focus:ring-aurea-gold/50"
+                    >
+                      {distritosDisponibles.map((dist) => (
+                        <option key={dist.codigo} value={dist.codigo}>
+                          {dist.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-aurea-navy/60 italic">
+                  📍 Sede fijada en: <strong>{distritoNombre}</strong>, Provincia de{' '}
+                  <strong>{provinciaNombre}</strong>, Región <strong>{departamentoNombre}</strong>.
+                </p>
+              </div>
+
+
               {/* Dirección Web / Slug de la Carta Digital */}
               <div>
                 <label className="block text-xs font-bold text-aurea-navy uppercase tracking-wider mb-1.5">
@@ -406,39 +514,20 @@ export const ModalCrearLocal: React.FC<ModalCrearLocalProps> = ({
                 </div>
               </div>
 
-              {/* Distrito y Teléfono en dos columnas */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-aurea-navy uppercase tracking-wider mb-1.5">
-                    Distrito <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={distrito}
-                    onChange={(e) => setDistrito(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-aurea-copper/30 bg-white focus:outline-none focus:ring-2 focus:ring-aurea-gold/50 focus:border-aurea-copper transition-all"
-                  >
-                    {DISTRITOS_LIMA.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-aurea-navy uppercase tracking-wider mb-1.5">
-                    Teléfono de Contacto <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-aurea-navy/40 absolute left-3.5 top-3" />
-                    <input
-                      type="text"
-                      placeholder="Ej. +51 1 221-3410 o 987 654 321"
-                      value={telefono}
-                      onChange={(e) => setTelefono(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-aurea-copper/30 bg-white focus:outline-none focus:ring-2 focus:ring-aurea-gold/50 focus:border-aurea-copper transition-all"
-                    />
-                  </div>
+              {/* Teléfono de Contacto */}
+              <div>
+                <label className="block text-xs font-bold text-aurea-navy uppercase tracking-wider mb-1.5">
+                  Teléfono de Contacto <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <Phone className="w-4 h-4 text-aurea-navy/40 absolute left-3.5 top-3" />
+                  <input
+                    type="text"
+                    placeholder="Ej. +51 1 221-3410 o 987 654 321"
+                    value={telefono}
+                    onChange={(e) => setTelefono(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-aurea-copper/30 bg-white focus:outline-none focus:ring-2 focus:ring-aurea-gold/50 focus:border-aurea-copper transition-all"
+                  />
                 </div>
               </div>
 
