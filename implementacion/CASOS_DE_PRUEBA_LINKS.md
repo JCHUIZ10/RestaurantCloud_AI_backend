@@ -24,6 +24,15 @@
 (CU-AUTH-01: Iniciar Sesión y Resolución Multi-Cuenta):
 - Formulario de login con widget flotante en esquina inferior para copiar y probar 7 perfiles en 1 clic: http://localhost:5173/login
 
+(CU-PROP-01: Registrar Empresa y Suscribirse con Verificación OTP y Cobro según Plan):
+- Flujo interactivo de autoservicio para nuevos propietarios en 5 pasos (Paso 1 Selección de Plan, Paso 2 RUC 10/20 y datos de empresa con resumen sticky, Paso 3 Verificación OTP con reenvío y modal de corrección de correo, Paso 4 Cobro exacto en Stripe según Plan Starter S/ 99, Pro S/ 249 o Enterprise S/ 499, y Paso 5 Activación con descarga de constancia y soporte 24/7), vinculado a /#planes y con widget flotante de pruebas QA: http://localhost:5173/registro
+- Enlace directo con Plan Starter preseleccionado (S/ 99/mes): http://localhost:5173/registro?plan=1
+- Enlace directo con Plan Pro preseleccionado (S/ 249/mes): http://localhost:5173/registro?plan=2
+- Enlace directo con Plan Enterprise preseleccionado (S/ 499/mes): http://localhost:5173/registro?plan=3
+
+(CU-PROP-04: Registrar y Administrar Locales (Sedes) con Slugs Reactivos, Quota Plan Pro y Autogestión):
+- que es : Directorio corporativo de sedes operativas en DashboardLayout con barra de progreso de cuota Plan Pro (2/3 sedes, 66% consumido), tabla desktop y cards responsive mobile, badge distintivo [ 👑 Autogestionado ] con botón ergonómico directo [ 🚀 Acceder a Sede ] para cambiar de contexto operativo al panel de administración (/admin/dashboard), enlace directo a la carta digital (/sede/:slug/carta), Wizard de Alta en 2 Pasos (Paso 1: datos comerciales, teléfono y comprobador predictivo reactivo de slug web con sugerencias ante duplicados + selector de modelo de supervisión; Paso 2: selector de 4 plantillas gastronómicas [Pollería, Cevichería, Chifa, En Blanco] con aprovisionamiento atómico de Salón Principal 5x3 mesas, categorías e insumos), Modal de Auditoría de Baja con Bloqueo Duro en tiempo real (invalida la desactivación si hay turnos de caja abiertos o comandas pendientes en salón y exige código de confirmación DESACTIVAR si está limpio), y widget flotante Sandbox QA para alternar bloqueo duro, forzar cuota al 100% (3/3) y alternar autogestión en 1 clic: http://localhost:5173/propietario/sedes
+
 (CU-MOZO-01: Ver Estado de Mesas y Centro de Comandas en Vivo):
 - Pantalla integrada de salón (layout 70/30) con plano táctil, despacho dual en acordeones colapsables (productos de despacho directo como gelatinas/bebidas y pase de cocina), disponibilidad en vivo de mesas libres y ocupadas por piso, Quick-Drawer de 440px y simulador de eventos: http://localhost:5173/mozo/mesas
 

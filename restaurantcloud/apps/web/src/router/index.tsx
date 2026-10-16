@@ -31,6 +31,8 @@ import { AdminConfiguracionKdsPage } from '@/modules/admin/pages/AdminConfigurac
 import { AdminMetodosPagoPage } from '@/modules/admin/pages/AdminMetodosPagoPage';
 import { AdminFlujoCajaPage } from '@/modules/admin/pages/AdminFlujoCajaPage';
 import { PropietarioIncidentesPage } from '@/modules/propietario/pages/PropietarioIncidentesPage';
+import { RegistroEmpresaPage } from '@/modules/propietario/pages/RegistroEmpresaPage';
+import { PropietarioLocalesPage } from '@/modules/propietario/pages/PropietarioLocalesPage';
 import { CajeroPosPage } from '@/modules/caja/pages/CajeroPosPage';
 import { CajeroTurnoCierrePage } from '@/modules/caja/pages/CajeroTurnoCierrePage';
 
@@ -58,20 +60,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'registro',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-PROP-01"
-            nombrePantalla="Registro de Empresa & Onboarding RUC + OTP"
-            rol="propietario"
-            layoutNombre="PublicLayout"
-            descripcion="Asistente de registro público en 3 pasos: Validación de RUC 10/20, Verificación obligatoria de correo con código OTP de 6 dígitos, y SetupIntent seguro de Stripe."
-            viewportSugerido="desktop"
-            enlacesRelacionados={[
-              { label: 'Ir al Login', to: ROUTES.LOGIN },
-              { label: 'Ver Planes en el Home', to: '/#planes' },
-            ]}
-          />
-        ),
+        element: <RegistroEmpresaPage />,
       },
       {
         path: 'recuperar-password',
@@ -155,18 +144,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'sedes',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-PROP-04"
-            nombrePantalla="Administración de Sedes & Slugs Web"
-            rol="propietario"
-            layoutNombre="DashboardLayout"
-            descripcion="Alta y mantenimiento de locales físicos. Configuración del slug de la carta digital con comprobación reactiva de disponibilidad en tiempo real."
-            enlacesRelacionados={[
-              { label: 'Probar Carta de una Sede', to: '/sede/mi-restaurante/carta' },
-            ]}
-          />
-        ),
+        element: <PropietarioLocalesPage />,
       },
       {
         path: 'administradores',

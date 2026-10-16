@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { SaasDashboard3D } from '@/components/3d/SaasDashboard3D';
 import { TiltCard } from '@/components/ui/TiltCard';
@@ -81,11 +82,11 @@ const PLANES_SAAS: PlanSaaS[] = [
     id: 1,
     nombre: 'Starter',
     precioMensual: 99,
-    descripcion: 'Ideal para cafeterías, bistrós y restaurantes independientes de 1 sede.',
+    descripcion: 'Ideal para cafeterías, bistrós y restaurantes independientes de 1 sede con hasta 25 mesas.',
     limites: {
       locales: '1 Sede / Local',
       pisos: '1 Piso o Salón',
-      mesas: 'Hasta 12 Mesas',
+      mesas: 'Hasta 25 Mesas',
       usuarios: '5 Usuarios operativos',
     },
     caracteristicas: [
@@ -99,39 +100,39 @@ const PLANES_SAAS: PlanSaaS[] = [
   {
     id: 2,
     nombre: 'Pro (Con IA)',
-    precioMensual: 199,
-    descripcion: 'Para restaurantes en expansión que buscan optimizar márgenes con Inteligencia Artificial.',
+    precioMensual: 249,
+    descripcion: 'Para restaurantes en expansión con múltiples ambientes, reservas de salón, KDS y asistente IA.',
     destacado: true,
     limites: {
       locales: 'Hasta 3 Locales / Sedes',
-      pisos: 'Pisos ilimitados',
-      mesas: 'Mesas ilimitadas',
-      usuarios: 'Usuarios ilimitados',
+      pisos: 'Hasta 2 Pisos / Salones',
+      mesas: 'Hasta 30 Mesas',
+      usuarios: '15 Usuarios operativos',
     },
     caracteristicas: [
       'Todo lo del Plan Starter',
+      'Gestión de Reservas de Salón',
       'Módulo IA: Forecasting de Demanda',
       'Recomendaciones inteligentes de stock',
-      'Gestión multi-local consolidada',
       'Soporte prioritario por WhatsApp',
     ],
   },
   {
     id: 3,
     nombre: 'Enterprise',
-    precioMensual: 349,
-    descripcion: 'Franquicias y cadenas de restaurantes con requerimientos avanzados y alto volumen.',
+    precioMensual: 499,
+    descripcion: 'Para cadenas gastronómicas y franquicias con operaciones complejas y suite completa de IA.',
     limites: {
-      locales: 'Locales ilimitados',
-      pisos: 'Pisos ilimitados',
-      mesas: 'Mesas ilimitadas',
-      usuarios: 'Usuarios ilimitados',
+      locales: 'Hasta 10 Sedes / Locales',
+      pisos: 'Hasta 5 Pisos / Salones',
+      mesas: 'Hasta 60 Mesas',
+      usuarios: '40 Usuarios operativos',
     },
     caracteristicas: [
       'Todo lo del Plan Pro',
       'Asistente Conversacional con IA',
+      'Predicción predictiva multi-sede',
       'Integraciones API a medida y ERP',
-      'Acompañamiento e inducción presencial',
       'Acuerdo de nivel de servicio (SLA 99.9%)',
     ],
   },
@@ -473,8 +474,8 @@ export const HomePage: React.FC = () => {
                 </div>
 
                 <div className="pt-8 mt-6 border-t border-aurea-copper/20">
-                  <a
-                    href="https://wa.me/51987654321?text=Hola,%20deseo%20activar%20el%20Plan%20para%20mi%20restaurante"
+                  <Link
+                    to={`/registro?plan=${plan.id}`}
                     className="block w-full"
                   >
                     <Button
@@ -488,7 +489,7 @@ export const HomePage: React.FC = () => {
                     >
                       Elegir {plan.nombre}
                     </Button>
-                  </a>
+                  </Link>
                 </div>
               </div>
             ))}

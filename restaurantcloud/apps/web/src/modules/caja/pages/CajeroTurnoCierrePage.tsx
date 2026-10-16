@@ -7,7 +7,7 @@ import { mockCajaService } from '../services/mockCajaService';
 import { BalancePreArqueoView } from '../components/cierre/BalancePreArqueoView';
 import { ModalArqueoConteo } from '../components/cierre/ModalArqueoConteo';
 import { ReporteZCerradoView } from '../components/cierre/ReporteZCerradoView';
-import { DemoCajaCierreWidget } from '../components/DemoCajaCierreWidget';
+import { DemoCajaCierreWidget } from '../components/demo/DemoCajaCierreWidget';
 
 export const CajeroTurnoCierrePage: React.FC = () => {
   const navigate = useNavigate();

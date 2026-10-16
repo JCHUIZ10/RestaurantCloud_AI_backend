@@ -19,7 +19,7 @@
 | **Cocina (KDS)** | 4 | 1 | 3 | **25%** |
 | **Caja & Cobranza** | 5 | 0 | 5 | 0% |
 | **Administración Local** | 16 | 4 | 12 | **25%** |
-| **Propietario / Tenant** | 6 | 0 | 6 | 0% |
+| **Propietario / Tenant** | 6 | 2 | 4 | **33%** |
 | **SuperAdmin SaaS** | 3 | 0 | 3 | 0% |
 
 ---
@@ -96,6 +96,52 @@
 - **Responsive:**
   - Totalmente adaptado a Desktop, Tablet y Móvil con paleta ÁUREA (#0B2340 Navy, #D5A06F Cobre, #F4D7B0 Champán, #FFF9F0 Marfil) y fuentes *DM Serif Display* y *DM Sans*.
 - **Estado de Build:** ✅ Compilado y probado en vivo (`npm run build`).
+
+---
+
+### 2.5 `CU-PROP-01`: Registrar Empresa y Suscribirse con Verificación OTP de Correo y Cobro según Plan
+- **Ruta Activa:** `/registro` ([`PublicLayout.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/PublicLayout.tsx))
+- **Parámetros URL Soportados:** `?plan=1` (Starter S/ 99), `?plan=2` (Pro S/ 249), `?plan=3` (Enterprise S/ 499)
+- **Componentes Creados:**
+  - [`RegistroEmpresaPage.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/pages/RegistroEmpresaPage.tsx): Orquestador reactivo del flujo de autoservicio en 5 pasos con sincronización en `sessionStorage` y resolución de query params.
+  - [`RegistroStepper.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/registro/RegistroStepper.tsx): Barra de progreso dual (compacta para smartphones con barra de avance animada y horizontal con nodos e iconos para PC/tablet).
+  - [`Paso1PlanSelector.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/registro/Paso1PlanSelector.tsx): Selector de catálogo oficial con 3 tiers (Starter S/ 99, Pro S/ 249, Enterprise S/ 499), toggle mensual/anual y límites de mesas/locales/IA.
+  - [`Paso2DatosEmpresa.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/registro/Paso2DatosEmpresa.tsx): Formulario en 2 columnas (8 cols formulario / 4 cols resumen sticky) con selector de contribuyente (RUC 20 Jurídica vs RUC 10 Natural), validación de 11 dígitos, medidor de seguridad de contraseña y banner de conflicto 409 con enlace a login.
+  - [`Paso3VerificacionOtp.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/registro/Paso3VerificacionOtp.tsx): 6 casillas independientes con auto-focus, soporte de pegado (paste) directo de 6 dígitos, temporizador regresivo de 10 minutos, cooldown de reenvío de 60s y animación shake ante código incorrecto.
+  - [`ModalModificarCorreo.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/registro/ModalModificarCorreo.tsx): Modal asistido para subsanar errores tipográficos de email sin perder los datos de la empresa ni el plan seleccionado.
+  - [`Paso4PagoStripe.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/registro/Paso4PagoStripe.tsx): Checkout seguro Stripe Elements con resumen de compra que debita y desglosa el **monto exacto según el plan elegido**, prevención anti-doble clic y aviso de cifrado TLS.
+  - [`Paso5RegistroExitoso.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/registro/Paso5RegistroExitoso.tsx): Confirmación con check verde, resumen de empresa y próximo cobro, botón para descargar constancia oficial en PDF/TXT, canales directos de soporte 24/7 (WhatsApp y correo) y botón para ingresar al panel de control que activa la sesión de propietario.
+  - [`DemoRegistroWidget.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/registro/DemoRegistroWidget.tsx): Widget flotante interactivo para autollenar RUCs válidos (20 y 10), simular conflicto 409, autollenar OTP válido (529148), simular tarjeta rechazada 402, alternar planes para ver recálculo dinámico de cobro, y saltar de paso en 1 clic.
+- **Servicios y DTOs:**
+  - [`registroEmpresaService.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/services/registroEmpresaService.ts): Servicio de onboarding con contratos `ApiResponse<T>`, catálogo canónico de `06_seed_initial_data.sql` y soporte de resiliencia F5.
+  - [`src/types/registroEmpresa.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/registroEmpresa.ts): DTOs tipados estrictamente según `02_schema_ddl.sql` (tablas `plan`, `empresa`, `usuario`, `pago`).
+- **Responsive:**
+  - Desktop (`>= 1024px`): Layout 2 columnas 8/4 cols con resumen sticky de compra.
+  - Tablet (`768px - 1023px`): Grid balanceado y touch targets >= 44px.
+  - Mobile (`< 768px`): 1 columna vertical fluida ergonómica al pulgar.
+- **Estado de Build:** ✅ Compilado con 0 errores TypeScript (`npm run build`).
+
+---
+
+### 2.6 `CU-PROP-04`: Registrar y Administrar Locales (Sedes) con Slugs Reactivos, Quota Plan Pro y Autogestión
+- **Ruta Activa:** `/propietario/sedes` ([`DashboardLayout.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/DashboardLayout.tsx))
+- **Componentes Creados:**
+  - [`PropietarioLocalesPage.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/pages/PropietarioLocalesPage.tsx): Orquestador corporativo de sedes, cambio de contexto de local activo en sesión y persistencia local, notificaciones Toast automáticas.
+  - [`LocalesHeader.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/locales/LocalesHeader.tsx): Barra de progreso de consumo de cuota del Plan Pro (2/3 sedes, 66% consumido) con rol `progressbar` y botón condicionado `[ + Registrar Nuevo Local ]` que se inhabilita al 100% de ocupación enlazando a `/propietario/suscripcion`.
+  - [`LocalesTabla.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/locales/LocalesTabla.tsx): Tabla para PC (`>= 1024px`) y Cards táctiles para smartphones (`< 1024px`), con badge distintivo `[ 👑 Autogestionado ]` y botón directo `[ 🚀 Acceder a Sede ]` para cambiar al panel operativo de la sede (`/admin/dashboard`), enlace a carta digital pública, indicadores de capacidad (pisos y mesas) y menú de acciones.
+  - [`ModalCrearLocal.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/locales/ModalCrearLocal.tsx): Wizard guiado en 2 pasos:
+    - *Paso 1:* Datos comerciales, dirección física, distrito, teléfono, generador predictivo de slug web (`slugify(nombre) + "-" + slugify(distrito)`) con botón `[ 🔍 Comprobar ]` y sugerencias de 1 clic ante colisión + selector de supervisión (Autogestionado vs Asignar Administrador existente).
+    - *Paso 2:* Selector de 4 plantillas gastronómicas (`🍗 Pollería & Brasas`, `🐟 Cevichería & Mariscos`, `🥢 Chifa & Comida China`, `⚪ Totalmente en Blanco`) con aprovisionamiento atómico de Salón Principal (5x3 mesas), categorías de carta e insumos de inventario.
+  - [`ModalEditarLocal.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/locales/ModalEditarLocal.tsx): Edición en caliente de datos comerciales, teléfono, slug de carta digital y conmutador de autogestión vs administrador asignado.
+  - [`ModalDesactivarLocal.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/locales/ModalDesactivarLocal.tsx): Auditoría operativa en tiempo real con **Bloqueo Duro**: si la sede tiene cajas abiertas o mesas activas en salón, inactiva el botón de baja detallando cajeros y mesas afectadas; si la sede está limpia de operaciones, despliega confirmación destructiva segura exigiendo digitar `DESACTIVAR`.
+  - [`DemoLocalesWidget.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/locales/DemoLocalesWidget.tsx): Widget flotante Sandbox QA en la esquina inferior derecha para alternar bloqueo duro, forzar cuota al 100% (3/3), alternar autogestión en San Isidro y restablecer semillas en 1 clic.
+- **Servicios y DTOs:**
+  - [`propietarioLocalesService.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/services/propietarioLocalesService.ts): Endpoints simulados `GET /api/v1/propietario/locales`, `verificar-disponibilidad`, `verificar-slug`, `POST /locales`, `PUT /locales/{id}`, `GET /locales/{id}/validar-baja`, `PATCH /locales/{id}/cambiar-estado`.
+  - [`src/types/propietarioLocales.ts`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/propietarioLocales.ts): DTOs auditados contra tablas `local`, `usuario`, `piso`, `mesa`, `caja`, `pedido` de `02_schema_ddl.sql`. Cero datos inventados.
+- **Responsive:**
+  - Desktop (`>= 1024px`): Tabla densa completa con orden de columnas canónico de wireframe.
+  - Móvil (`< 1024px`): Cards estructuradas con botones de acción grandes al pulgar.
+- **Estado de Build:** ✅ Compilado con 0 errores TypeScript (`npm run build`).
 
 ---
 
