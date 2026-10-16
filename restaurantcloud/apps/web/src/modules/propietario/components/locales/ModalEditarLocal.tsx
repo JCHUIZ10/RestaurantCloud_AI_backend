@@ -37,7 +37,7 @@ import {
   getProvinciasByDepartamento,
   getDistritosByProvincia,
   getUbigeoCompleto,
-} from '@/data/peruUbigeo';
+} from '../../services/propietarioLocalesService';
 
 function slugify(text: string): string {
   return text
