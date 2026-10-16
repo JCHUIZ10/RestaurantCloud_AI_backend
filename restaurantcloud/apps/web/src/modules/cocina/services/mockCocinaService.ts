@@ -7,6 +7,9 @@ import {
   ItemAnuladoSSEEvent,
   KDSPedidoDespachadoDTO,
   MetricasDespachoDTO,
+  AlertaStockInsuficienteSSE,
+  PlatoDisponibilidadDTO,
+  ItemEnFuegoResolucionDTO,
 } from '@/types/cocina';
 
 // Configuración de sede predeterminada (tabla configuracion_kds)
@@ -20,6 +23,145 @@ export const MOCK_CONFIGURACION_KDS: ConfiguracionKDSDTO = {
   intervalo_sonido_rojo_seg: 60,
   vista_predeterminada: 'fifo',
 };
+
+// Almacén físico de insumos e ingredientes (tabla insumo de 02_schema_ddl.sql - CU-COCINA-03)
+export interface InsumoAlmacenMock {
+  id: string;
+  nombre: string;
+  unidad_medida: string;
+  stock_actual: number;
+  stock_minimo: number;
+  estado: 'activo' | 'agotado' | 'inactivo';
+}
+
+let mockInsumosAlmacen: InsumoAlmacenMock[] = [
+  { id: 'ins-lomo-fino', nombre: 'Carne Lomo Fino', unidad_medida: 'kg', stock_actual: 13.700, stock_minimo: 5.000, estado: 'activo' },
+  { id: 'ins-papa-yungay', nombre: 'Papa Yungay', unidad_medida: 'saco', stock_actual: 1.172, stock_minimo: 0.500, estado: 'activo' },
+  { id: 'ins-aceite-vegetal', nombre: 'Aceite Vegetal (Bidón 20L)', unidad_medida: 'bidon', stock_actual: 0.005, stock_minimo: 1.000, estado: 'activo' },
+  { id: 'ins-pollo-entero', nombre: 'Pollo Entero Marinado', unidad_medida: 'und', stock_actual: 14.000, stock_minimo: 6.000, estado: 'activo' },
+  { id: 'ins-pescado-corvina', nombre: 'Pescado Corvina Fresca', unidad_medida: 'kg', stock_actual: 8.500, stock_minimo: 3.000, estado: 'activo' },
+  { id: 'ins-limon-sutil', nombre: 'Limón Sutil Fresco', unidad_medida: 'kg', stock_actual: 0.000, stock_minimo: 2.000, estado: 'agotado' },
+  { id: 'ins-queso-paria', nombre: 'Queso Paria', unidad_medida: 'kg', stock_actual: 4.200, stock_minimo: 1.500, estado: 'activo' },
+  { id: 'ins-arroz-extra', nombre: 'Arroz Extra', unidad_medida: 'saco', stock_actual: 2.500, stock_minimo: 1.000, estado: 'activo' },
+];
+
+// Catálogo maestro de productos y su disponibilidad en carta (tabla producto + categoria_producto - CU-COCINA-04)
+export interface ProductoCartaMock {
+  id: string;
+  nombre: string;
+  categoria_id: string;
+  categoria_nombre: string;
+  precio: number;
+  foto_url?: string;
+  disponibilidad: 'disponible' | 'agotado';
+  motivo_agotado?: 'quiebre_stock_receta' | 'apagado_manual_cocina' | 'decision_admin' | null;
+  usuario_modifico_nombre?: string | null;
+  fecha_modificacion_disp?: string | null;
+  receta_resumen: string;
+  insumo_requerido_id?: string;
+  cantidad_descuenta?: number;
+}
+
+let mockProductosCarta: ProductoCartaMock[] = [
+  {
+    id: 'prod-lomo-saltado',
+    nombre: 'Lomo Saltado Criollo',
+    categoria_id: 'cat-criollos',
+    categoria_nombre: 'Platos Criollos',
+    precio: 48.00,
+    disponibilidad: 'disponible',
+    motivo_agotado: null,
+    receta_resumen: '0.200 kg Carne Lomo Fino • 0.007 sacos Papa Yungay • 0.004 bidones Aceite Vegetal',
+    insumo_requerido_id: 'ins-aceite-vegetal',
+    cantidad_descuenta: 0.004,
+  },
+  {
+    id: 'prod-causa-limena',
+    nombre: 'Causa Limeña de Pollo',
+    categoria_id: 'cat-frios',
+    categoria_nombre: 'Entradas y Fríos',
+    precio: 28.00,
+    disponibilidad: 'disponible',
+    motivo_agotado: null,
+    receta_resumen: '0.250 kg Papa Amarilla • 0.150 kg Pechuga Pollo',
+    insumo_requerido_id: 'ins-pollo-entero',
+    cantidad_descuenta: 0.150,
+  },
+  {
+    id: 'prod-ceviche-mixto',
+    nombre: 'Ceviche Mixto Tradicional',
+    categoria_id: 'cat-ceviches',
+    categoria_nombre: 'Ceviches y Fríos',
+    precio: 52.00,
+    disponibilidad: 'agotado',
+    motivo_agotado: 'quiebre_stock_receta',
+    usuario_modifico_nombre: 'Sistema (Kardex Automático)',
+    fecha_modificacion_disp: new Date(Date.now() - 40 * 60 * 1000).toISOString(),
+    receta_resumen: '0.200 kg Pescado Corvina • 0.100 kg Mixtura Mariscos • 0.050 kg Limón Sutil',
+    insumo_requerido_id: 'ins-limon-sutil',
+    cantidad_descuenta: 0.050,
+  },
+  {
+    id: 'prod-arroz-mariscos',
+    nombre: 'Arroz con Mariscos',
+    categoria_id: 'cat-criollos',
+    categoria_nombre: 'Platos Criollos',
+    precio: 49.00,
+    disponibilidad: 'disponible',
+    motivo_agotado: null,
+    receta_resumen: '0.300 kg Arroz Extra • 0.150 kg Mixtura Mariscos • 0.020 kg Pasta Ají Amarillo',
+    insumo_requerido_id: 'ins-arroz-extra',
+    cantidad_descuenta: 0.005,
+  },
+  {
+    id: 'prod-pollo-brasa',
+    nombre: '1/2 Pollo a la Brasa',
+    categoria_id: 'cat-brasas',
+    categoria_nombre: 'Brasas y Horno',
+    precio: 38.00,
+    disponibilidad: 'disponible',
+    motivo_agotado: null,
+    receta_resumen: '0.500 und Pollo Entero Marinado • 0.020 sacos Papa Yungay',
+    insumo_requerido_id: 'ins-pollo-entero',
+    cantidad_descuenta: 0.500,
+  },
+  {
+    id: 'prod-tequenos',
+    nombre: 'Porción Tequeños Criollos',
+    categoria_id: 'cat-frios',
+    categoria_nombre: 'Entradas y Fríos',
+    precio: 24.00,
+    disponibilidad: 'disponible',
+    motivo_agotado: null,
+    receta_resumen: '0.120 kg Queso Paria • 12 und Masa Wantán • 0.060 kg Palta Fuerte',
+    insumo_requerido_id: 'ins-queso-paria',
+    cantidad_descuenta: 0.120,
+  },
+  {
+    id: 'prod-bife-angosto',
+    nombre: 'Bife Angosto Criollo',
+    categoria_id: 'cat-criollos',
+    categoria_nombre: 'Platos Criollos',
+    precio: 56.00,
+    disponibilidad: 'agotado',
+    motivo_agotado: 'apagado_manual_cocina',
+    usuario_modifico_nombre: 'Marco V. (Chef)',
+    fecha_modificacion_disp: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
+    receta_resumen: '0.300 kg Carne Bife Angosto • 0.100 kg Papas Nativas • 0.050 kg Mantequilla',
+    insumo_requerido_id: 'ins-lomo-fino',
+    cantidad_descuenta: 0.300,
+  },
+  {
+    id: 'prod-pastel-choclo',
+    nombre: 'Pastel de Choclo Criollo',
+    categoria_id: 'cat-criollos',
+    categoria_nombre: 'Platos Criollos',
+    precio: 32.00,
+    disponibilidad: 'disponible',
+    motivo_agotado: null,
+    receta_resumen: '0.300 kg Choclo Desgranado • 0.100 kg Carne Molida • 0.050 kg Pasas Morenas',
+  },
+];
 
 // Semilla de comandas activas iniciales reflejando fielmente el wireframe canónico
 let mockComandasMemoria: KDSComandaDTO[] = [
@@ -279,17 +421,101 @@ export const mockCocinaService = {
 
   /**
    * Cambia el estado de un plato (PATCH /api/v1/cocina/items/:id/estado)
+   * Integra deducción atómica de recetas y política de servicio continuo (CU-COCINA-03)
    */
   async cambiarEstadoItem(
     itemId: string,
     nuevoEstado: 'en_preparacion' | 'listo'
-  ): Promise<ApiResponse<{ item_id: string; estado: EstadoItemCocina }>> {
-    let encontrado = false;
+  ): Promise<ApiResponse<{
+    item_id: string;
+    estado: EstadoItemCocina;
+    alerta_stock?: AlertaStockInsuficienteSSE | null;
+  }>> {
+    let targetItem: any = null;
+    let targetComanda: any = null;
+
+    for (const comanda of mockComandasMemoria) {
+      const it = comanda.items.find((i) => i.item_id === itemId);
+      if (it) {
+        targetItem = it;
+        targetComanda = comanda;
+        break;
+      }
+    }
+
+    if (!targetItem || !targetComanda) {
+      return {
+        exito: false,
+        datos: { item_id: itemId, estado: 'en_cola' },
+        errores: [{ codigo: 'ITEM_NO_ENCONTRADO', mensaje: 'El ítem culinario no existe.' }],
+      };
+    }
+
+    let alertaStock: AlertaStockInsuficienteSSE | null = null;
+
+    // Deducción automática de insumos al marcar Listo (CU-COCINA-03)
+    if (nuevoEstado === 'listo') {
+      const prod = mockProductosCarta.find((p) => p.id === targetItem.producto_id);
+      if (prod && prod.insumo_requerido_id) {
+        const insumo = mockInsumosAlmacen.find((ins) => ins.id === prod.insumo_requerido_id);
+        if (insumo) {
+          const cantidadDescuenta = prod.cantidad_descuenta || 0.004;
+          const consumoRequerido = targetItem.cantidad * cantidadDescuenta;
+          const stockAnterior = insumo.stock_actual;
+
+          if (insumo.stock_actual < consumoRequerido) {
+            // Inconsistencia de bodega: no bloquea cocina, fija stock 0 y alerta
+            const faltante = consumoRequerido - insumo.stock_actual;
+            insumo.stock_actual = 0;
+            insumo.estado = 'agotado';
+            prod.disponibilidad = 'agotado';
+            prod.motivo_agotado = 'quiebre_stock_receta';
+            prod.fecha_modificacion_disp = new Date().toISOString();
+
+            alertaStock = {
+              insumo_id: insumo.id,
+              insumo_nombre: insumo.nombre,
+              unidad_medida: insumo.unidad_medida,
+              pedido_id: targetComanda.pedido_id,
+              numero_comanda: targetComanda.numero_comanda,
+              mesa_codigo: targetComanda.mesa_codigo,
+              plato_nombre: targetItem.nombre_producto,
+              consumo_requerido: Number(consumoRequerido.toFixed(4)),
+              stock_disponible: Number(stockAnterior.toFixed(4)),
+              faltante_teorico: Number(faltante.toFixed(4)),
+              timestamp: new Date().toISOString(),
+            };
+          } else {
+            insumo.stock_actual = Number((insumo.stock_actual - consumoRequerido).toFixed(4));
+            if (insumo.stock_actual <= 0) {
+              insumo.stock_actual = 0;
+              insumo.estado = 'agotado';
+              prod.disponibilidad = 'agotado';
+              prod.motivo_agotado = 'quiebre_stock_receta';
+              prod.fecha_modificacion_disp = new Date().toISOString();
+
+              alertaStock = {
+                insumo_id: insumo.id,
+                insumo_nombre: insumo.nombre,
+                unidad_medida: insumo.unidad_medida,
+                pedido_id: targetComanda.pedido_id,
+                numero_comanda: targetComanda.numero_comanda,
+                mesa_codigo: targetComanda.mesa_codigo,
+                plato_nombre: targetItem.nombre_producto,
+                consumo_requerido: Number(consumoRequerido.toFixed(4)),
+                stock_disponible: Number(stockAnterior.toFixed(4)),
+                faltante_teorico: 0,
+                timestamp: new Date().toISOString(),
+              };
+            }
+          }
+        }
+      }
+    }
 
     mockComandasMemoria = mockComandasMemoria.map((comanda) => {
       const itemsActualizados = comanda.items.map((item) => {
         if (item.item_id === itemId) {
-          encontrado = true;
           return {
             ...item,
             estado: nuevoEstado,
@@ -308,27 +534,50 @@ export const mockCocinaService = {
       return { ...comanda, items: itemsActualizados };
     });
 
-    if (!encontrado) {
-      return {
-        exito: false,
-        datos: { item_id: itemId, estado: 'en_cola' },
-        errores: [{ codigo: 'ITEM_NO_ENCONTRADO', mensaje: 'El ítem culinario no existe.' }],
-      };
-    }
-
     return {
       exito: true,
-      datos: { item_id: itemId, estado: nuevoEstado },
+      datos: { item_id: itemId, estado: nuevoEstado, alerta_stock: alertaStock },
       meta: { timestamp: new Date().toISOString() },
     };
   },
 
   /**
    * Deshace el cambio a 'listo' regresando el plato a 'en_preparacion' dentro de los 30s
+   * Ejecuta rollback de stock y reactivación condicional de carta (CU-COCINA-03 Transacción 7.2)
    */
   async deshacerListoItem(
     itemId: string
   ): Promise<ApiResponse<{ item_id: string; estado: EstadoItemCocina }>> {
+    let itemDeshacer: any = null;
+    for (const comanda of mockComandasMemoria) {
+      const it = comanda.items.find((i) => i.item_id === itemId);
+      if (it) {
+        itemDeshacer = it;
+        break;
+      }
+    }
+
+    if (itemDeshacer) {
+      const prod = mockProductosCarta.find((p) => p.id === itemDeshacer.producto_id);
+      if (prod && prod.insumo_requerido_id) {
+        const insumo = mockInsumosAlmacen.find((ins) => ins.id === prod.insumo_requerido_id);
+        if (insumo) {
+          const cantidadDescuenta = prod.cantidad_descuenta || 0.004;
+          const reposicion = itemDeshacer.cantidad * cantidadDescuenta;
+          insumo.stock_actual = Number((insumo.stock_actual + reposicion).toFixed(4));
+          if (insumo.stock_actual > 0) {
+            insumo.estado = 'activo';
+            // Reactivar en carta SOLO si fue apagado por receta (no altera apagados manuales del chef)
+            if (prod.motivo_agotado === 'quiebre_stock_receta') {
+              prod.disponibilidad = 'disponible';
+              prod.motivo_agotado = null;
+              prod.fecha_modificacion_disp = new Date().toISOString();
+            }
+          }
+        }
+      }
+    }
+
     mockComandasMemoria = mockComandasMemoria.map((comanda) => ({
       ...comanda,
       items: comanda.items.map((item) => {
@@ -700,6 +949,259 @@ export const mockCocinaService = {
       motivo_anulacion: 'Demora excesiva en entrega. Comensal desistió del plato.',
       es_merma: false,
       minutos_transcurridos: 25,
+      timestamp: new Date().toISOString(),
+    };
+  },
+
+  /**
+   * Obtiene el catálogo completo de platos con disponibilidad y conteo de órdenes activas (CU-COCINA-04)
+   */
+  async obtenerCatalogoDisponibilidad(): Promise<ApiResponse<PlatoDisponibilidadDTO[]>> {
+    const catalogo: PlatoDisponibilidadDTO[] = mockProductosCarta.map((prod) => {
+      let enCola = 0;
+      let enFuego = 0;
+
+      mockComandasMemoria.forEach((c) => {
+        c.items.forEach((it) => {
+          if (it.producto_id === prod.id) {
+            if (it.estado === 'en_cola') enCola += it.cantidad;
+            if (it.estado === 'en_preparacion') enFuego += it.cantidad;
+          }
+        });
+      });
+
+      let insumoBloqueante: string | null = null;
+      if (prod.insumo_requerido_id) {
+        const ins = mockInsumosAlmacen.find((i) => i.id === prod.insumo_requerido_id);
+        if (ins && ins.stock_actual <= 0) {
+          insumoBloqueante = `${ins.nombre} (Stock: 0 ${ins.unidad_medida})`;
+        }
+      }
+
+      return {
+        producto_id: prod.id,
+        nombre: prod.nombre,
+        categoria_id: prod.categoria_id,
+        categoria_nombre: prod.categoria_nombre,
+        precio: prod.precio,
+        foto_url: prod.foto_url,
+        disponibilidad: prod.disponibilidad,
+        motivo_agotado: prod.motivo_agotado,
+        fecha_modificacion_disp: prod.fecha_modificacion_disp,
+        usuario_modifico_nombre: prod.usuario_modifico_nombre,
+        receta_resumen: prod.receta_resumen,
+        insumo_bloqueante: insumoBloqueante,
+        ordenes_en_cola: enCola,
+        ordenes_en_fuego: enFuego,
+      };
+    });
+
+    return {
+      exito: true,
+      datos: catalogo,
+      meta: { timestamp: new Date().toISOString(), total: catalogo.length },
+    };
+  },
+
+  /**
+   * Obtiene la lista de órdenes activas en fuego para un plato (CU-COCINA-04 Vista 2)
+   */
+  async obtenerItemsEnFuegoDeProducto(
+    productoId: string
+  ): Promise<ApiResponse<ItemEnFuegoResolucionDTO[]>> {
+    const itemsEnFuego: ItemEnFuegoResolucionDTO[] = [];
+
+    mockComandasMemoria.forEach((comanda) => {
+      comanda.items.forEach((it) => {
+        if (it.producto_id === productoId && it.estado === 'en_preparacion') {
+          itemsEnFuego.push({
+            item_id: it.item_id,
+            pedido_id: comanda.pedido_id,
+            numero_comanda: comanda.numero_comanda,
+            mesa_codigo: comanda.mesa_codigo,
+            mozo_nombre: comanda.mozo_nombre,
+            cantidad: it.cantidad,
+            minutos_espera: comanda.minutos_espera,
+            cubierto: true,
+          });
+        }
+      });
+    });
+
+    itemsEnFuego.sort((a, b) => b.minutos_espera - a.minutos_espera);
+
+    return {
+      exito: true,
+      datos: itemsEnFuego,
+      meta: { timestamp: new Date().toISOString(), total: itemsEnFuego.length },
+    };
+  },
+
+  /**
+   * Conmuta disponibilidad directa de un plato (cuando no hay raciones en fuego)
+   */
+  async conmutarDisponibilidadPlatoDirecto(
+    productoId: string,
+    nuevoEstado: 'disponible' | 'agotado'
+  ): Promise<ApiResponse<{ producto_id: string; disponibilidad: 'disponible' | 'agotado'; requiere_resolucion?: boolean }>> {
+    const prod = mockProductosCarta.find((p) => p.id === productoId);
+    if (!prod) {
+      return {
+        exito: false,
+        datos: { producto_id: productoId, disponibilidad: 'disponible' },
+        errores: [{ codigo: 'PRODUCTO_NO_ENCONTRADO', mensaje: 'El producto no existe en la carta.' }],
+      };
+    }
+
+    if (nuevoEstado === 'disponible') {
+      if (prod.insumo_requerido_id) {
+        const ins = mockInsumosAlmacen.find((i) => i.id === prod.insumo_requerido_id);
+        if (ins && ins.stock_actual <= 0) {
+          return {
+            exito: false,
+            datos: { producto_id: productoId, disponibilidad: 'agotado' },
+            errores: [
+              {
+                codigo: 'BLOQUEO_STOCK_TEORICO',
+                mensaje: `No es posible reactivar manualmente "${prod.nombre}". El insumo "${ins.nombre}" tiene 0 existencias en almacén. Requiere recepción de compras (CU-ADMIN-06/07).`,
+              },
+            ],
+          };
+        }
+      }
+
+      prod.disponibilidad = 'disponible';
+      prod.motivo_agotado = null;
+      prod.usuario_modifico_nombre = 'Marco V. (Chef)';
+      prod.fecha_modificacion_disp = new Date().toISOString();
+
+      return {
+        exito: true,
+        datos: { producto_id: productoId, disponibilidad: 'disponible' },
+        meta: { timestamp: new Date().toISOString() },
+      };
+    } else {
+      let racionesEnFuego = 0;
+      mockComandasMemoria.forEach((c) => {
+        c.items.forEach((it) => {
+          if (it.producto_id === productoId && it.estado === 'en_preparacion') {
+            racionesEnFuego += it.cantidad;
+          }
+        });
+      });
+
+      if (racionesEnFuego > 0) {
+        return {
+          exito: true,
+          datos: { producto_id: productoId, disponibilidad: 'disponible', requiere_resolucion: true },
+          meta: { timestamp: new Date().toISOString() },
+        };
+      }
+
+      // Si no hay órdenes en fuego, conmutar las órdenes en cola a anulado (no_disponible)
+      mockComandasMemoria = mockComandasMemoria.map((c) => ({
+        ...c,
+        items: c.items.map((it) => {
+          if (it.producto_id === productoId && it.estado === 'en_cola') {
+            return {
+              ...it,
+              estado: 'anulado',
+              nota_cocina: '🚫 No disponible: plato apagado en cocina',
+            };
+          }
+          return it;
+        }),
+      }));
+
+      prod.disponibilidad = 'agotado';
+      prod.motivo_agotado = 'apagado_manual_cocina';
+      prod.usuario_modifico_nombre = 'Marco V. (Chef)';
+      prod.fecha_modificacion_disp = new Date().toISOString();
+
+      return {
+        exito: true,
+        datos: { producto_id: productoId, disponibilidad: 'agotado' },
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+  },
+
+  /**
+   * Confirma la resolución granular de fuego activo ante quiebre de plato (CU-COCINA-04 Vista 2)
+   */
+  async confirmarResolucionFuego(
+    productoId: string,
+    itemsEnFuegoNoAlcanzadosIds: string[],
+    motivoAnulacion: string
+  ): Promise<ApiResponse<{ producto_id: string; totalAnulados: number }>> {
+    const prod = mockProductosCarta.find((p) => p.id === productoId);
+    if (prod) {
+      prod.disponibilidad = 'agotado';
+      prod.motivo_agotado = 'apagado_manual_cocina';
+      prod.usuario_modifico_nombre = 'Marco V. (Chef)';
+      prod.fecha_modificacion_disp = new Date().toISOString();
+    }
+
+    let anulados = 0;
+
+    mockComandasMemoria = mockComandasMemoria.map((c) => ({
+      ...c,
+      items: c.items.map((it) => {
+        if (it.producto_id === productoId) {
+          if (it.estado === 'en_cola') {
+            anulados += it.cantidad;
+            return {
+              ...it,
+              estado: 'anulado',
+              nota_cocina: `🚫 No disponible: ${motivoAnulacion}`,
+            };
+          }
+          if (it.estado === 'en_preparacion' && itemsEnFuegoNoAlcanzadosIds.includes(it.item_id)) {
+            anulados += it.cantidad;
+            return {
+              ...it,
+              estado: 'anulado',
+              nota_cocina: `🚫 No disponible en fuego: ${motivoAnulacion}`,
+            };
+          }
+        }
+        return it;
+      }),
+    }));
+
+    return {
+      exito: true,
+      datos: { producto_id: productoId, totalAnulados: anulados },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  },
+
+  /**
+   * Simula un consumo que agota el Aceite Vegetal y dispara la alerta reactiva (Demo CU-03)
+   */
+  simularConsumoStockCritico(): AlertaStockInsuficienteSSE {
+    const insumo = mockInsumosAlmacen.find((i) => i.id === 'ins-aceite-vegetal')!;
+    const stockPrevio = insumo.stock_actual;
+    insumo.stock_actual = 0;
+    insumo.estado = 'agotado';
+
+    const prod = mockProductosCarta.find((p) => p.id === 'prod-lomo-saltado')!;
+    prod.disponibilidad = 'agotado';
+    prod.motivo_agotado = 'quiebre_stock_receta';
+    prod.usuario_modifico_nombre = 'Sistema (Kardex Automático)';
+    prod.fecha_modificacion_disp = new Date().toISOString();
+
+    return {
+      insumo_id: insumo.id,
+      insumo_nombre: insumo.nombre,
+      unidad_medida: insumo.unidad_medida,
+      pedido_id: 'ped-kds-001',
+      numero_comanda: 149,
+      mesa_codigo: '04',
+      plato_nombre: prod.nombre,
+      consumo_requerido: 0.008,
+      stock_disponible: stockPrevio,
+      faltante_teorico: 0.003,
       timestamp: new Date().toISOString(),
     };
   },

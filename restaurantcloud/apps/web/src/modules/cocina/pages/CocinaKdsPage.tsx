@@ -6,6 +6,9 @@ import {
   ItemAnuladoSSEEvent,
   KDSPedidoDespachadoDTO,
   MetricasDespachoDTO,
+  PlatoDisponibilidadDTO,
+  AlertaStockInsuficienteSSE,
+  ItemEnFuegoResolucionDTO,
 } from '@/types/cocina';
 import { mockCocinaService, MOCK_CONFIGURACION_KDS } from '../services/mockCocinaService';
 import { KdsHeader } from '../components/kds/KdsHeader';
@@ -13,6 +16,9 @@ import { KdsTicketCard } from '../components/kds/KdsTicketCard';
 import { ModalDetalleComanda } from '../components/kds/ModalDetalleComanda';
 import { ModalAlertaParadaFogones } from '../components/kds/ModalAlertaParadaFogones';
 import { ModalHistorialDespachados } from '../components/kds/ModalHistorialDespachados';
+import { ModalDisponibilidadPlatos } from '../components/kds/ModalDisponibilidadPlatos';
+import { DialogoResolucionFuego } from '../components/kds/DialogoResolucionFuego';
+import { ToastAlertaStock } from '../components/kds/ToastAlertaStock';
 import { ConsolidadoAllDayView } from '../components/kds/ConsolidadoAllDayView';
 import { DemoKdsWidget } from '../components/kds/DemoKdsWidget';
 import { WifiOff, AlertCircle } from 'lucide-react';
@@ -23,6 +29,7 @@ export const CocinaKdsPage: React.FC = () => {
   const [configuracion, setConfiguracion] = useState<ConfiguracionKDSDTO>(MOCK_CONFIGURACION_KDS);
   const [consolidado, setConsolidado] = useState<ConsolidadoAllDayDTO[]>([]);
   const [pedidosDespachados, setPedidosDespachados] = useState<KDSPedidoDespachadoDTO[]>([]);
+  const [catalogoDisponibilidad, setCatalogoDisponibilidad] = useState<PlatoDisponibilidadDTO[]>([]);
   const [metricasDespacho, setMetricasDespacho] = useState<MetricasDespachoDTO>({
     despachadosUltimos30m: 3,
     tiempoPromedioCoccionMin: 11.6,
@@ -42,6 +49,11 @@ export const CocinaKdsPage: React.FC = () => {
   const [comandaDetalle, setComandaDetalle] = useState<KDSComandaDTO | null>(null);
   const [alertaParada, setAlertaParada] = useState<ItemAnuladoSSEEvent | null>(null);
   const [modalDespachadosAbierto, setModalDespachadosAbierto] = useState(false);
+  const [modalDisponibilidadAbierto, setModalDisponibilidadAbierto] = useState(false);
+  const [dialogoFuegoAbierto, setDialogoFuegoAbierto] = useState(false);
+  const [platoEnResolucion, setPlatoEnResolucion] = useState<PlatoDisponibilidadDTO | null>(null);
+  const [itemsEnFuegoResolucion, setItemsEnFuegoResolucion] = useState<ItemEnFuegoResolucionDTO[]>([]);
+  const [alertaStockToast, setAlertaStockToast] = useState<AlertaStockInsuficienteSSE | null>(null);
 
   // Reloj digital en vivo
   const [horaActual, setHoraActual] = useState(
@@ -95,12 +107,13 @@ export const CocinaKdsPage: React.FC = () => {
     try {
       setCargando(true);
       setError(null);
-      const [resConfig, resComandas, resConsolidado, resDespachados, resMetricas] = await Promise.all([
+      const [resConfig, resComandas, resConsolidado, resDespachados, resMetricas, resCatalogo] = await Promise.all([
         mockCocinaService.obtenerConfiguracion(),
         mockCocinaService.obtenerComandas(),
         mockCocinaService.obtenerConsolidadoAllDay(),
         mockCocinaService.obtenerPedidosDespachados(),
         mockCocinaService.obtenerMetricasDespacho(),
+        mockCocinaService.obtenerCatalogoDisponibilidad(),
       ]);
 
       if (resConfig.exito) setConfiguracion(resConfig.datos);
@@ -108,6 +121,7 @@ export const CocinaKdsPage: React.FC = () => {
       if (resConsolidado.exito) setConsolidado(resConsolidado.datos);
       if (resDespachados.exito) setPedidosDespachados(resDespachados.datos);
       if (resMetricas.exito) setMetricasDespacho(resMetricas.datos);
+      if (resCatalogo.exito) setCatalogoDisponibilidad(resCatalogo.datos);
     } catch {
       setError('No se pudo conectar con el servidor KDS de cocina.');
     } finally {
@@ -167,6 +181,11 @@ export const CocinaKdsPage: React.FC = () => {
   ) => {
     const res = await mockCocinaService.cambiarEstadoItem(itemId, nuevoEstado);
     if (res.exito) {
+      if (res.datos.alerta_stock) {
+        setAlertaStockToast(res.datos.alerta_stock);
+        reproducirChime('alerta_parada');
+      }
+
       setComandas((prev) =>
         prev.map((comanda) => ({
           ...comanda,
@@ -186,6 +205,10 @@ export const CocinaKdsPage: React.FC = () => {
         }))
       );
       actualizarConsolidado();
+
+      // Refrescar catálogo por si cambió la disponibilidad por stock cero
+      const resCat = await mockCocinaService.obtenerCatalogoDisponibilidad();
+      if (resCat.exito) setCatalogoDisponibilidad(resCat.datos);
     }
   };
 
@@ -209,7 +232,73 @@ export const CocinaKdsPage: React.FC = () => {
         }))
       );
       actualizarConsolidado();
+
+      // Refrescar catálogo tras rollback
+      const resCat = await mockCocinaService.obtenerCatalogoDisponibilidad();
+      if (resCat.exito) setCatalogoDisponibilidad(resCat.datos);
     }
+  };
+
+  // Manejador: Conmutar disponibilidad de plato en carta (CU-COCINA-04 Vista 1)
+  const handleConmutarDisponibilidad = async (
+    productoId: string,
+    nuevoEstado: 'disponible' | 'agotado'
+  ) => {
+    const res = await mockCocinaService.conmutarDisponibilidadPlatoDirecto(productoId, nuevoEstado);
+    if (res.exito) {
+      if (res.datos.requiere_resolucion) {
+        // Tiene órdenes en fuego: abrir Diálogo de Resolución (CU-COCINA-04 Vista 2)
+        const targetPlato = catalogoDisponibilidad.find((p) => p.producto_id === productoId) || null;
+        const resItems = await mockCocinaService.obtenerItemsEnFuegoDeProducto(productoId);
+        if (resItems.exito) {
+          setItemsEnFuegoResolucion(resItems.datos);
+          setPlatoEnResolucion(targetPlato);
+          setDialogoFuegoAbierto(true);
+        }
+      } else {
+        const [resCat, resCom] = await Promise.all([
+          mockCocinaService.obtenerCatalogoDisponibilidad(),
+          mockCocinaService.obtenerComandas(),
+        ]);
+        if (resCat.exito) setCatalogoDisponibilidad(resCat.datos);
+        if (resCom.exito) setComandas(resCom.datos);
+        actualizarConsolidado();
+      }
+    } else if (res.errores && res.errores.length > 0) {
+      alert(res.errores[0].mensaje);
+    }
+  };
+
+  // Manejador: Confirmar resolución de fuego activo ante quiebre (CU-COCINA-04 Vista 2)
+  const handleConfirmarResolucionFuego = async (
+    productoId: string,
+    itemsEnFuegoNoAlcanzadosIds: string[],
+    motivo: string
+  ) => {
+    const res = await mockCocinaService.confirmarResolucionFuego(
+      productoId,
+      itemsEnFuegoNoAlcanzadosIds,
+      motivo
+    );
+    if (res.exito) {
+      const [resCat, resCom] = await Promise.all([
+        mockCocinaService.obtenerCatalogoDisponibilidad(),
+        mockCocinaService.obtenerComandas(),
+      ]);
+      if (resCat.exito) setCatalogoDisponibilidad(resCat.datos);
+      if (resCom.exito) setComandas(resCom.datos);
+      actualizarConsolidado();
+      reproducirChime('alerta_parada');
+    }
+  };
+
+  // Manejador: Simular consumo que agota stock de insumo (Demo CU-03)
+  const handleSimularStockAgotado = async () => {
+    const alerta = mockCocinaService.simularConsumoStockCritico();
+    setAlertaStockToast(alerta);
+    reproducirChime('alerta_parada');
+    const resCat = await mockCocinaService.obtenerCatalogoDisponibilidad();
+    if (resCat.exito) setCatalogoDisponibilidad(resCat.datos);
   };
 
   // Manejador: Despachar comanda completa (CU-COCINA-02)
@@ -420,6 +509,8 @@ export const CocinaKdsPage: React.FC = () => {
         configuracion={configuracion}
         despachadosCount={pedidosDespachados.length}
         onAbrirDespachados={() => setModalDespachadosAbierto(true)}
+        platosAgotadosCount={catalogoDisponibilidad.filter((p) => p.disponibilidad === 'agotado').length}
+        onAbrirDisponibilidad={() => setModalDisponibilidadAbierto(true)}
       />
 
       {/* Contenido Principal: Skeleton Loading / Error / Loaded State */}
@@ -518,10 +609,36 @@ export const CocinaKdsPage: React.FC = () => {
         onRecuperarPedido={handleRecuperarPedido}
       />
 
+      {/* Vista 1 de CU-COCINA-04: Modal Táctil de Disponibilidad de Platos (1120px) */}
+      <ModalDisponibilidadPlatos
+        abierto={modalDisponibilidadAbierto}
+        onCerrar={() => setModalDisponibilidadAbierto(false)}
+        catalogo={catalogoDisponibilidad}
+        onConmutarDisponibilidad={handleConmutarDisponibilidad}
+      />
+
+      {/* Vista 2 de CU-COCINA-04: Diálogo Táctil de Resolución de Órdenes en Fuego (720px) */}
+      <DialogoResolucionFuego
+        abierto={dialogoFuegoAbierto}
+        onCerrar={() => setDialogoFuegoAbierto(false)}
+        plato={platoEnResolucion}
+        itemsEnFuego={itemsEnFuegoResolucion}
+        onConfirmar={handleConfirmarResolucionFuego}
+      />
+
+      {/* Alerta Flotante de Inconsistencia de Inventario Culinario (CU-COCINA-03 Toast SSE) */}
+      <ToastAlertaStock
+        alerta={alertaStockToast}
+        onCerrar={() => setAlertaStockToast(null)}
+        onAbrirDisponibilidad={() => setModalDisponibilidadAbierto(true)}
+      />
+
       {/* Widget Flotante de Demostración */}
       <DemoKdsWidget
         onInyectarComanda={handleInyectarComanda}
         onSimularParadaFogones={handleSimularParadaFogones}
+        onSimularStockAgotado={handleSimularStockAgotado}
+        onAbrirDisponibilidad={() => setModalDisponibilidadAbierto(true)}
         onAcelerarTiempos={handleAcelerarTiempos}
         onAlternarVacio={handleAlternarVacio}
         onAlternarSse={handleAlternarSse}

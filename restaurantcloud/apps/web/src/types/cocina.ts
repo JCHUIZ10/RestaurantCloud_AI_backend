@@ -150,3 +150,55 @@ export interface MetricasDespachoDTO {
   totalTurnoHoy: number;
 }
 
+/**
+ * Evento SSE de alerta por consumo con stock insuficiente (CU-COCINA-03)
+ */
+export interface AlertaStockInsuficienteSSE {
+  insumo_id: string;
+  insumo_nombre: string;
+  unidad_medida: string;
+  pedido_id: string;
+  numero_comanda: number;
+  mesa_codigo: string;
+  plato_nombre: string;
+  consumo_requerido: number;
+  stock_disponible: number;
+  faltante_teorico: number;
+  timestamp: string;
+}
+
+/**
+ * Plato culinario para el modal de gestión de disponibilidad de carta (CU-COCINA-04)
+ * Auditado contra tabla producto, categoria_producto y producto_insumo
+ */
+export interface PlatoDisponibilidadDTO {
+  producto_id: string;
+  nombre: string;
+  categoria_id: string;
+  categoria_nombre: string;
+  precio: number;
+  foto_url?: string | null;
+  disponibilidad: 'disponible' | 'agotado';
+  motivo_agotado?: 'quiebre_stock_receta' | 'apagado_manual_cocina' | 'decision_admin' | null;
+  fecha_modificacion_disp?: string | null;
+  usuario_modifico_nombre?: string | null;
+  receta_resumen: string;
+  insumo_bloqueante?: string | null;
+  ordenes_en_cola: number;
+  ordenes_en_fuego: number;
+}
+
+/**
+ * Detalle de comanda con raciones activas en fuego para el diálogo de resolución (CU-COCINA-04)
+ */
+export interface ItemEnFuegoResolucionDTO {
+  item_id: string;
+  pedido_id: string;
+  numero_comanda: number;
+  mesa_codigo: string;
+  mozo_nombre: string;
+  cantidad: number;
+  minutos_espera: number;
+  cubierto: boolean;
+}
+
