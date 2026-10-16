@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   RotateCcw,
 } from 'lucide-react';
-import { CAJERO_ACTUAL_MOCK } from '../services/mockCajaService';
+import { CAJERO_ACTUAL_MOCK } from '../../services/mockCajaService';
 
 interface ModalAperturaTurnoProps {
   isOpen: boolean;

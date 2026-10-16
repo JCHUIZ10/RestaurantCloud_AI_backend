@@ -17,7 +17,7 @@ import {
   CajaTurnoDTO,
   ComprobanteHistorialItemDTO,
 } from '@/types/caja';
-import { mockCajaService } from '../services/mockCajaService';
+import { mockCajaService } from '../../services/mockCajaService';
 
 interface ModalHistorialComprobantesPosProps {
   isOpen: boolean;

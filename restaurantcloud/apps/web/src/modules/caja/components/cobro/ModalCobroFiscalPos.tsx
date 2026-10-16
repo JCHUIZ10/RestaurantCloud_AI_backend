@@ -18,7 +18,7 @@ import {
   SubcuentaComandaDTO,
   ProcesarCobroFiscalResponseDTO,
 } from '@/types/caja';
-import { mockCajaService } from '../services/mockCajaService';
+import { mockCajaService } from '../../services/mockCajaService';
 
 interface ModalCobroFiscalPosProps {
   isOpen: boolean;

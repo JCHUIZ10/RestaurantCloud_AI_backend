@@ -15,15 +15,15 @@ import {
   mockCajaService,
   CAJERO_ACTUAL_MOCK,
 } from '../services/mockCajaService';
-import { ModalAperturaTurno } from '../components/ModalAperturaTurno';
-import { ModalBloqueoTurnoPrevio } from '../components/ModalBloqueoTurnoPrevio';
-import { MonitorCajaPosView } from '../components/MonitorCajaPosView';
-import { ModalCobroFiscalPos } from '../components/ModalCobroFiscalPos';
+import { ModalAperturaTurno } from '../components/apertura/ModalAperturaTurno';
+import { ModalBloqueoTurnoPrevio } from '../components/apertura/ModalBloqueoTurnoPrevio';
+import { MonitorCajaPosView } from '../components/monitor/MonitorCajaPosView';
+import { ModalCobroFiscalPos } from '../components/cobro/ModalCobroFiscalPos';
 import { ModalPrecuentaCompleta } from '@/modules/mozo/components/precuenta/ModalPrecuentaCompleta';
 import { ModalDividirCuenta } from '@/modules/mozo/components/split/ModalDividirCuenta';
 import { ModalHistorialComprobantesPos } from '../components/ModalHistorialComprobantesPos';
 import { ModalEmisionNotaCredito } from '../components/ModalEmisionNotaCredito';
-import { DemoCajaTurnoWidget } from '../components/DemoCajaTurnoWidget';
+import { DemoCajaTurnoWidget } from '../components/demo/DemoCajaTurnoWidget';
 import type { DividirCuentaResponseDTO } from '@/types/mozo';
 import type {
   ComprobanteHistorialItemDTO,

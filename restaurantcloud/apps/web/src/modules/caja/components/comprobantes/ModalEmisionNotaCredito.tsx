@@ -21,7 +21,7 @@ import {
   EmitirNotaCreditoResponseDTO,
   MotivoNotaCreditoSUNAT,
 } from '@/types/caja';
-import { mockCajaService } from '../services/mockCajaService';
+import { mockCajaService } from '../../services/mockCajaService';
 
 interface ModalEmisionNotaCreditoProps {
   isOpen: boolean;
