@@ -34,6 +34,7 @@ import { PropietarioIncidentesPage } from '@/modules/propietario/pages/Propietar
 import { RegistroEmpresaPage } from '@/modules/propietario/pages/RegistroEmpresaPage';
 import { PropietarioLocalesPage } from '@/modules/propietario/pages/PropietarioLocalesPage';
 import { PropietarioAdministradoresPage } from '@/modules/propietario/pages/PropietarioAdministradoresPage';
+import { PropietarioSuscripcionPage } from '@/modules/propietario/pages/PropietarioSuscripcionPage';
 import { CajeroPosPage } from '@/modules/caja/pages/CajeroPosPage';
 import { CajeroTurnoCierrePage } from '@/modules/caja/pages/CajeroTurnoCierrePage';
 
@@ -153,15 +154,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'suscripcion',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-PROP-02/03"
-            nombrePantalla="Gestión de Suscripción & Cambio de Plan"
-            rol="propietario"
-            layoutNombre="DashboardLayout"
-            descripcion="Integración con Stripe Billing: actualización de tarjetas de crédito/débito, historial de facturas, simulación de upgrades inmediatos y downgrades programados con asistente de conciliación de recursos."
-          />
-        ),
+        element: <PropietarioSuscripcionPage />,
       },
       {
         path: 'incidentes',

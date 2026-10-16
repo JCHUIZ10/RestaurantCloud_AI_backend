@@ -19,7 +19,7 @@
 | **Cocina (KDS)** | 4 | 1 | 3 | **25%** |
 | **Caja & Cobranza** | 5 | 0 | 5 | 0% |
 | **Administración Local** | 16 | 4 | 12 | **25%** |
-| **Propietario / Tenant** | 6 | 3 | 3 | **50%** |
+| **Propietario / Tenant** | 6 | 4 | 2 | **67%** |
 | **SuperAdmin SaaS** | 3 | 0 | 3 | 0% |
 
 ---
@@ -171,7 +171,27 @@
 
 ---
 
-### 2.8 `CU-MOZO-01`: Ver Estado de Mesas y Centro de Comandas en Vivo (Hub de Salón)
+### 2.8 `CU-PROP-02`: Gestionar Suscripción y Método de Pago (Stripe Billing, Dunning, Facturas y Cuotas en Tiempo Real)
+- **Ruta Activa:** `/propietario/suscripcion` ([`DashboardLayout.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/DashboardLayout.tsx))
+- **Componentes Creados:**
+  - [`PropietarioSuscripcionPage.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/pages/PropietarioSuscripcionPage.tsx): Orquestador principal de la consola de facturación y suscripción del propietario.
+  - [`SuscripcionHeader.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/suscripcion/SuscripcionHeader.tsx): Cabecera corporativa con migas de pan (`Configuración > Facturación > Suscripción`), título jerárquico, insignia de estado de suscripción (`Activa y al Día`, `En Periodo de Gracia`, `Suspendida`) y botones de acción rápida.
+  - [`DunningBannerAlerta.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/suscripcion/DunningBannerAlerta.tsx): Banner de alerta condicional para fallos de cobro con temporizador regresivo de 5 días de gracia no bloqueantes para la cocina/salón, mensaje bancario del emisor y CTA directo de regularización inmediata.
+  - [`PlanActualCard.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/suscripcion/PlanActualCard.tsx): Tarjeta de resumen de Plan Pro (`S/ 249.00 / mes`), fecha de próximo cobro, medidores reactivos de consumo de recursos en tiempo real (locales 2/3, mesas 26/30, personal 8/15) sincronizados con los módulos de locales y personal, y desglose de capacidades gastronómicas habilitadas.
+  - [`MetodoPagoCard.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/suscripcion/MetodoPagoCard.tsx): Representación de tarjeta de crédito en degradé con chip, marca (`Visa`), numeración enmascarada (`•••• 4242`), fecha de expiración, titular, advertencia si vence en menos de 30 días y nota de seguridad PCI-DSS Nivel 1.
+  - [`HistorialFacturasTabla.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/suscripcion/HistorialFacturasTabla.tsx): Tabla para escritorio y tarjetas táctiles para móviles con el historial de comprobantes de pago de la suscripción, estado de cobro y botón para descargar el comprobante tributario oficial en formato electrónico PDF/TXT.
+  - [`ModalActualizarTarjeta.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/suscripcion/ModalActualizarTarjeta.tsx): Modal con formulario simulado de Stripe Elements, formateo automático de 16 dígitos, expiración MM/AA, CVC encriptado, detección de franquicia bancaria y regularización automática de cobros pendientes sin fricciones.
+  - [`ModalCambiarPlanPreview.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/suscripcion/ModalCambiarPlanPreview.tsx): Modal comparativo de planes SaaS (`Starter S/ 99`, `Pro S/ 249`, `Enterprise S/ 499`) con detalle de límites de locales, mesas y personal, indicación de plan actual y explicación del cálculo prorrateado automático en Stripe (`CU-PROP-03`).
+  - [`DemoSuscripcionWidget.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/components/suscripcion/DemoSuscripcionWidget.tsx): Widget flotante Sandbox QA para simular cobro fallido (Dunning), tarjeta próxima a vencer, suspensión de cuenta y restablecer a Plan Pro en 1 clic.
+- **Servicios y DTOs:**
+  - [`propietarioSuscripcionService.ts`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/propietario/services/propietarioSuscripcionService.ts): Endpoints simulados (`getDashboardSuscripcion`, `solicitarSetupTarjeta`, `confirmarTarjeta`, `descargarFactura`, simuladores QA) con cálculo dinámico de recursos reales desde `localStorage`.
+  - [`src/types/propietarioSuscripcion.ts`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/propietarioSuscripcion.ts): DTOs rigurosamente tipados según `suscripcion`, `pago`, `empresa` y `plan` de `02_schema_ddl.sql`. Cero datos inventados.
+- **Responsive:** Soporte completo para Desktop (`1440x900`), Tablet (`768x1024`) y Smartphone (`375x812`), con áreas de toque $\ge 44\text{px}$.
+- **Estado de Build:** ✅ Compilado con 0 errores TypeScript (`npm run build`).
+
+---
+
+### 2.9 `CU-MOZO-01`: Ver Estado de Mesas y Centro de Comandas en Vivo (Hub de Salón)
 - **Ruta Activa:** `/mozo/mesas` ([`TerminalLayout.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/TerminalLayout.tsx))
 - **Componentes Creados:**
   - [`MozoMesasPage.tsx`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/mozo/pages/MozoMesasPage.tsx): Orquestador principal de la pantalla integrada del salón con gestión de eventos SSE y estado reactivo.
