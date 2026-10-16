@@ -99,48 +99,67 @@ Resolver con justicia culinaria y sin desperdicios el apagado de un plato cuando
 ```sql
 BEGIN;
 
--- 1. Actualizar disponibilidad del producto
+-- 1. Actualizar disponibilidad del producto con causal manual y trazabilidad
 UPDATE producto
 SET disponibilidad = 'agotado',
     motivo_agotado = 'apagado_manual_cocina',
     usuario_modifico_disp_id = :chef_usuario_id,
-    fecha_modificacion_disp = CURRENT_TIMESTAMP
+    fecha_modificacion_disp = NOW(),
+    updated_at = NOW()
 WHERE id = :producto_id AND local_id = :local_id;
 
--- 2. Conmutar órdenes en cola directamente a no_disponible
-UPDATE pedido_item
+-- 2. Conmutar órdenes en cola a no_disponible vinculando pedido para resolver local_id
+UPDATE pedido_item pi
 SET estado = 'no_disponible',
-    motivo_anulacion = 'quiebre_stock_cocina'
-WHERE producto_id = :producto_id 
-  AND local_id = :local_id 
-  AND estado = 'en_cola';
+    motivo_anulacion = 'quiebre_stock_cocina',
+    anulado_por = :chef_usuario_id,
+    updated_at = NOW()
+FROM pedido p
+WHERE pi.pedido_id = p.id
+  AND pi.producto_id = :producto_id 
+  AND p.local_id = :local_id 
+  AND pi.estado = 'en_cola';
 
--- 3. Conmutar órdenes en fuego no cubiertas a no_disponible
+-- 3. Conmutar órdenes en fuego no cubiertas a no_disponible con trazabilidad
 UPDATE pedido_item
 SET estado = 'no_disponible',
-    motivo_anulacion = 'quiebre_fuego_parcial'
+    motivo_anulacion = 'quiebre_fuego_parcial',
+    anulado_por = :chef_usuario_id,
+    updated_at = NOW()
 WHERE id IN (:items_en_fuego_no_alcanzados);
 
 -- 4. Mantener órdenes cubiertas en_preparacion (continúan en fuego)
 -- (:items_en_fuego_cubiertos permanecen en estado = 'en_preparacion')
 
--- 5. Registrar alerta para el Administrador de Sede
+-- 5. Registrar alerta institucional en notificacion con empresa_id y rol_destinatario
 INSERT INTO notificacion (
+    id,
+    empresa_id,
     local_id, 
-    usuario_id, 
+    usuario_id,
+    rol_destinatario,
     tipo, 
+    prioridad,
     titulo, 
     mensaje, 
-    prioridad, 
-    leida
+    entidad_tipo,
+    entidad_id,
+    leida,
+    created_at
 ) VALUES (
+    fn_uuid_v8(),
+    (SELECT empresa_id FROM local WHERE id = :local_id),
     :local_id,
     :admin_local_id,
+    'admin_local',
     'quiebre_manual_cocina',
+    'media',
     '⚠️ Quiebre manual en cocina: Lomo Saltado Clásico',
     'El Chef Marco V. apagó el plato por falta de insumo. 3 porciones derivadas a salón.',
-    'media',
-    false
+    'producto',
+    :producto_id,
+    false,
+    NOW()
 );
 
 COMMIT;

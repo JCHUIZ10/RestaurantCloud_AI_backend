@@ -132,7 +132,7 @@ Pantalla desktop corporativa (`1440x900`). Muestra la recepción reactiva SSE de
 | **2. Stock Bajo Mínimo** | `stock_actual >= deduccion` pero `stock_resultante <= stock_minimo` | Descuenta insumos. Emite notificación preventiva al Administrador: *"Insumo en stock crítico; sugerida orden de compra"*. |
 | **3. Stock Cero (Agotado)** | `stock_actual - deduccion == 0` | Descuenta a 0. Conmuta `insumo.estado = 'agotado'` y propaga `producto.disponibilidad = 'agotado'` a carta digital ([`CU-COCINA-04`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/context/cu.md#cu-cocina-04-marcar-producto-como-agotado--disponible)). |
 | **4. Inconsistencia / Faltante** | `stock_actual < deduccion` (Stock insuficiente) | **Aplica Política de Continuidad:** no bloquea la cocina; fija `stock_actual = 0`, asienta en `auditoria_stock_ajuste` con motivo `'inconsistencia_cocina'` y dispara Toast SSE al Administrador. |
-| **5. Reversión por Deshacer** | Cocinero pulsa `[ ↺ Deshacer ]` en < 30s ([`CU-COCINA-02`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cocina/CU-COCINA-02-actualizar-estado-preparacion/wireframe.md)) | **Rollback Atómico:** repone exactamente las cantidades a `insumo.stock_actual` y restaura a `'disponible'` si estaba agotado. |
+| **5. Reversión por Deshacer** | Cocinero pulsa `[ ↺ Deshacer ]` en < 30s ([`CU-COCINA-02`](file:///j:/proyectos_git/RestaurantCloud_AI_backend/wireframe/cocina/CU-COCINA-02-actualizar-estado-preparacion/wireframe.md)) | **Rollback Atómico:** repone exactamente las cantidades a `insumo.stock_actual` y restaura a `'activo'` si estaba agotado. |
 
 ---
 
@@ -205,45 +205,59 @@ type InsumoDeducidoDTO struct {
 -- Ejecución ACID dentro del servicio de cocina al marcar ítem listo
 BEGIN;
 
--- 1. Deducción atómica con protección de piso no negativo (GREATEST)
-UPDATE insumo i
-SET stock_actual = GREATEST(0, i.stock_actual - (pi.cantidad * pin.cantidad_descuenta)),
-    estado = CASE 
-        WHEN (i.stock_actual - (pi.cantidad * pin.cantidad_descuenta)) <= 0 THEN 'agotado' 
-        ELSE i.estado 
-    END,
-    updated_at = NOW()
-FROM producto_insumo pin
-JOIN pedido_item pi ON pi.producto_id = pin.producto_id
-WHERE pi.id = $1
-  AND i.id = pin.insumo_id;
-
--- 2. Registro de discrepancia en auditoría si el stock era insuficiente
+-- 1. Captura de stock previo y cálculo atómico mediante CTE
+WITH insumos_consumo AS (
+    SELECT 
+        i.id AS insumo_id,
+        i.local_id,
+        i.stock_actual AS stock_anterior,
+        (pi.cantidad * pin.cantidad_descuenta) AS cantidad_requerida,
+        GREATEST(0, i.stock_actual - (pi.cantidad * pin.cantidad_descuenta)) AS stock_nuevo,
+        p.local_id AS ped_local_id,
+        p.numero_comanda,
+        pr.nombre AS producto_nombre,
+        p.mozo_id
+    FROM pedido_item pi
+    JOIN pedido p ON p.id = pi.pedido_id
+    JOIN producto pr ON pr.id = pi.producto_id
+    JOIN producto_insumo pin ON pin.producto_id = pr.id
+    JOIN insumo i ON i.id = pin.insumo_id
+    WHERE pi.id = $1
+),
+update_insumos AS (
+    UPDATE insumo i
+    SET stock_actual = ic.stock_nuevo,
+        estado = CASE 
+            WHEN ic.stock_nuevo <= 0 THEN 'agotado' 
+            ELSE i.estado 
+        END,
+        updated_at = NOW()
+    FROM insumos_consumo ic
+    WHERE i.id = ic.insumo_id
+)
+-- 2. Registro de discrepancia en auditoría con datos previos fidedignos
 INSERT INTO auditoria_stock_ajuste (
     id, local_id, insumo_id, usuario_id, stock_anterior, stock_nuevo, diferencia, motivo, notas, created_at
 )
 SELECT 
-    gen_random_uuid(),
-    p.local_id,
-    i.id,
-    p.mozo_id,
-    i.stock_actual,
-    0.000,
-    (i.stock_actual - (pi.cantidad * pin.cantidad_descuenta)),
+    fn_uuid_v8(),
+    ic.local_id,
+    ic.insumo_id,
+    ic.mozo_id,
+    ic.stock_anterior,
+    ic.stock_nuevo,
+    (ic.stock_nuevo - ic.stock_anterior),
     'inconsistencia_cocina',
-    CONCAT('Consumo culinario en comanda #', p.numero_comanda, ' superó el stock físico en almacén. Plato: ', pr.nombre),
+    CONCAT('Consumo culinario en comanda #', ic.numero_comanda, ' superó el stock físico en almacén. Plato: ', ic.producto_nombre),
     NOW()
-FROM pedido_item pi
-JOIN pedido p ON p.id = pi.pedido_id
-JOIN producto pr ON pr.id = pi.producto_id
-JOIN producto_insumo pin ON pin.producto_id = pr.id
-JOIN insumo i ON i.id = pin.insumo_id
-WHERE pi.id = $1
-  AND i.stock_actual < (pi.cantidad * pin.cantidad_descuenta);
+FROM insumos_consumo ic
+WHERE ic.stock_anterior < ic.cantidad_requerida;
 
--- 3. Propagar agotado a platos dependientes en la carta digital (CU-COCINA-04)
+-- 3. Propagar agotado a platos dependientes en la carta digital con causal canónica
 UPDATE producto pr
 SET disponibilidad = 'agotado',
+    motivo_agotado = 'quiebre_stock_receta',
+    fecha_modificacion_disp = NOW(),
     updated_at = NOW()
 FROM producto_insumo pin
 JOIN insumo i ON i.id = pin.insumo_id
@@ -272,16 +286,19 @@ JOIN pedido_item pi ON pi.producto_id = pin.producto_id
 WHERE pi.id = $1
   AND i.id = pin.insumo_id;
 
--- 2. Reactivar platos dependientes en la carta si el insumo volvió a estar disponible
+-- 2. Reactivar platos en carta SOLO si fueron agotados por receta (no altera apagados manuales del chef)
 UPDATE producto pr
 SET disponibilidad = 'disponible',
+    motivo_agotado = NULL,
+    fecha_modificacion_disp = NOW(),
     updated_at = NOW()
 FROM producto_insumo pin
 JOIN insumo i ON i.id = pin.insumo_id
 WHERE pin.producto_id = pr.id
   AND i.id = pin.insumo_id
   AND i.stock_actual > 0
-  AND pr.disponibilidad = 'agotado';
+  AND pr.disponibilidad = 'agotado'
+  AND pr.motivo_agotado = 'quiebre_stock_receta';
 
 COMMIT;
 ```
