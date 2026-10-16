@@ -310,16 +310,23 @@ import (
 	"github.com/google/uuid"
 )
 
+type ItemResumenDespachadoDTO struct {
+	ProductoNombre string  `json:"producto_nombre"`
+	Cantidad       int     `json:"cantidad"`
+	NotaCocina     *string `json:"nota_cocina,omitempty"`
+}
+
 type KDSPedidoDespachadoDTO struct {
-	PedidoID        uuid.UUID `json:"pedido_id"`
-	NumeroComanda   int       `json:"numero_comanda"`
-	MesaCodigo      string    `json:"mesa_codigo"`
-	MozoNombre      string    `json:"mozo_nombre"`
-	PisoNombre      string    `json:"piso_nombre"`
-	TotalItems      int       `json:"total_items"`
-	FechaDespacho   time.Time `json:"fecha_despacho"`
-	MinutosDesdeDespacho int  `json:"minutos_desde_despacho"`
-	PuedeRecuperar  bool      `json:"puede_recuperar"` // true si <= 30 minutos
+	PedidoID             uuid.UUID                  `json:"pedido_id"`
+	NumeroComanda        int                        `json:"numero_comanda"`
+	MesaCodigo           string                     `json:"mesa_codigo"`
+	MozoNombre           string                     `json:"mozo_nombre"`
+	PisoNombre           string                     `json:"piso_nombre"`
+	TotalItems           int                        `json:"total_items"`
+	FechaDespacho        time.Time                  `json:"fecha_despacho"`
+	MinutosDesdeDespacho int                        `json:"minutos_desde_despacho"`
+	PuedeRecuperar       bool                       `json:"puede_recuperar"` // true si <= 30 minutos
+	ItemsResumen         []ItemResumenDespachadoDTO `json:"items_resumen"`
 }
 ```
 
@@ -382,7 +389,7 @@ WHERE id = $1
 -- 2. Rollback exacto de insumos de bodega (reposición de existencias)
 UPDATE insumo i
 SET stock_actual = i.stock_actual + (pi.cantidad * pin.cantidad_descuenta),
-    estado = CASE WHEN (i.stock_actual + (pi.cantidad * pin.cantidad_descuenta)) > 0 THEN 'disponible' ELSE i.estado END,
+    estado = CASE WHEN (i.stock_actual + (pi.cantidad * pin.cantidad_descuenta)) > 0 THEN 'activo' ELSE i.estado END,
     updated_at = NOW()
 FROM producto_insumo pin
 JOIN pedido_item pi ON pi.producto_id = pin.producto_id
@@ -398,7 +405,7 @@ COMMIT;
 SELECT 
     p.id AS pedido_id,
     p.numero_comanda,
-    m.codigo AS mesa_codigo,
+    m.numero AS mesa_codigo,
     u.nombre_completo AS mozo_nombre,
     pis.nombre AS piso_nombre,
     COUNT(pi.id)::INT AS total_items,
@@ -420,7 +427,7 @@ JOIN producto pr ON pr.id = pi.producto_id
 WHERE p.local_id = $1
   AND pi.estado = 'listo'
   AND pi.fecha_listo_cocina >= NOW() - INTERVAL '30 minutes'
-GROUP BY p.id, p.numero_comanda, m.codigo, u.nombre_completo, pis.nombre
+GROUP BY p.id, p.numero_comanda, m.numero, u.nombre_completo, pis.nombre
 ORDER BY MAX(pi.fecha_listo_cocina) DESC;
 ```
 

@@ -4,12 +4,15 @@ import {
   ConfiguracionKDSDTO,
   ConsolidadoAllDayDTO,
   ItemAnuladoSSEEvent,
+  KDSPedidoDespachadoDTO,
+  MetricasDespachoDTO,
 } from '@/types/cocina';
 import { mockCocinaService, MOCK_CONFIGURACION_KDS } from '../services/mockCocinaService';
 import { KdsHeader } from '../components/kds/KdsHeader';
 import { KdsTicketCard } from '../components/kds/KdsTicketCard';
 import { ModalDetalleComanda } from '../components/kds/ModalDetalleComanda';
 import { ModalAlertaParadaFogones } from '../components/kds/ModalAlertaParadaFogones';
+import { ModalHistorialDespachados } from '../components/kds/ModalHistorialDespachados';
 import { ConsolidadoAllDayView } from '../components/kds/ConsolidadoAllDayView';
 import { DemoKdsWidget } from '../components/kds/DemoKdsWidget';
 import { WifiOff, AlertCircle } from 'lucide-react';
@@ -19,6 +22,13 @@ export const CocinaKdsPage: React.FC = () => {
   const [comandas, setComandas] = useState<KDSComandaDTO[]>([]);
   const [configuracion, setConfiguracion] = useState<ConfiguracionKDSDTO>(MOCK_CONFIGURACION_KDS);
   const [consolidado, setConsolidado] = useState<ConsolidadoAllDayDTO[]>([]);
+  const [pedidosDespachados, setPedidosDespachados] = useState<KDSPedidoDespachadoDTO[]>([]);
+  const [metricasDespacho, setMetricasDespacho] = useState<MetricasDespachoDTO>({
+    despachadosUltimos30m: 3,
+    tiempoPromedioCoccionMin: 11.6,
+    tiempoPromedioPaseMin: 2.2,
+    totalTurnoHoy: 45,
+  });
 
   // Estados de interfaz y UX
   const [cargando, setCargando] = useState(true);
@@ -31,6 +41,7 @@ export const CocinaKdsPage: React.FC = () => {
   // Modales
   const [comandaDetalle, setComandaDetalle] = useState<KDSComandaDTO | null>(null);
   const [alertaParada, setAlertaParada] = useState<ItemAnuladoSSEEvent | null>(null);
+  const [modalDespachadosAbierto, setModalDespachadosAbierto] = useState(false);
 
   // Reloj digital en vivo
   const [horaActual, setHoraActual] = useState(
@@ -84,15 +95,19 @@ export const CocinaKdsPage: React.FC = () => {
     try {
       setCargando(true);
       setError(null);
-      const [resConfig, resComandas, resConsolidado] = await Promise.all([
+      const [resConfig, resComandas, resConsolidado, resDespachados, resMetricas] = await Promise.all([
         mockCocinaService.obtenerConfiguracion(),
         mockCocinaService.obtenerComandas(),
         mockCocinaService.obtenerConsolidadoAllDay(),
+        mockCocinaService.obtenerPedidosDespachados(),
+        mockCocinaService.obtenerMetricasDespacho(),
       ]);
 
       if (resConfig.exito) setConfiguracion(resConfig.datos);
       if (resComandas.exito) setComandas(resComandas.datos);
       if (resConsolidado.exito) setConsolidado(resConsolidado.datos);
+      if (resDespachados.exito) setPedidosDespachados(resDespachados.datos);
+      if (resMetricas.exito) setMetricasDespacho(resMetricas.datos);
     } catch {
       setError('No se pudo conectar con el servidor KDS de cocina.');
     } finally {
@@ -197,11 +212,57 @@ export const CocinaKdsPage: React.FC = () => {
     }
   };
 
-  // Manejador: Despachar comanda completa
+  // Manejador: Despachar comanda completa (CU-COCINA-02)
   const handleDespacharTodo = async (pedidoId: string) => {
     const res = await mockCocinaService.despacharComandaCompleta(pedidoId);
     if (res.exito) {
       setComandas((prev) => prev.filter((c) => c.pedido_id !== pedidoId));
+      actualizarConsolidado();
+
+      // Refrescar lista de despachados recientes y métricas
+      const [resDesp, resMet] = await Promise.all([
+        mockCocinaService.obtenerPedidosDespachados(),
+        mockCocinaService.obtenerMetricasDespacho(),
+      ]);
+      if (resDesp.exito) setPedidosDespachados(resDesp.datos);
+      if (resMet.exito) setMetricasDespacho(resMet.datos);
+    }
+  };
+
+  // Manejador: Recuperar comanda despachada (Recall 30m - CU-COCINA-02)
+  const handleRecuperarPedido = async (pedidoId: string) => {
+    const res = await mockCocinaService.recuperarPedidoDespachado(pedidoId);
+    if (res.exito) {
+      // Recargar comandas activas, consolidado y lista de despachados
+      const [resCom, resDesp, resMet] = await Promise.all([
+        mockCocinaService.obtenerComandas(),
+        mockCocinaService.obtenerPedidosDespachados(),
+        mockCocinaService.obtenerMetricasDespacho(),
+      ]);
+      if (resCom.exito) setComandas(resCom.datos);
+      if (resDesp.exito) setPedidosDespachados(resDesp.datos);
+      if (resMet.exito) setMetricasDespacho(resMet.datos);
+      actualizarConsolidado();
+      reproducirChime('nueva_comanda');
+    }
+  };
+
+  // Manejador: Poner en fuego por tanda acumulada en Consolidado All-Day (CU-COCINA-02 Vista 3)
+  const handlePonerEnFuegoTanda = async (productoId: string) => {
+    const res = await mockCocinaService.ponerEnFuegoPorTanda(productoId);
+    if (res.exito) {
+      const resCom = await mockCocinaService.obtenerComandas();
+      if (resCom.exito) setComandas(resCom.datos);
+      actualizarConsolidado();
+    }
+  };
+
+  // Manejador: Marcar listos en pase por tanda acumulada (CU-COCINA-02 Vista 3)
+  const handleMarcarListoTanda = async (productoId: string, cantidad: number) => {
+    const res = await mockCocinaService.marcarListoPorTanda(productoId, cantidad);
+    if (res.exito) {
+      const resCom = await mockCocinaService.obtenerComandas();
+      if (resCom.exito) setComandas(resCom.datos);
       actualizarConsolidado();
     }
   };
@@ -357,6 +418,8 @@ export const CocinaKdsPage: React.FC = () => {
         categoriasDisponibles={categoriasDisponibles}
         metricas={metricas}
         configuracion={configuracion}
+        despachadosCount={pedidosDespachados.length}
+        onAbrirDespachados={() => setModalDespachadosAbierto(true)}
       />
 
       {/* Contenido Principal: Skeleton Loading / Error / Loaded State */}
@@ -391,8 +454,12 @@ export const CocinaKdsPage: React.FC = () => {
           </button>
         </div>
       ) : vistaActiva === 'all_day' ? (
-        // Vista 4: Consolidado All-Day Summary
-        <ConsolidadoAllDayView consolidado={consolidado} />
+        // Vista 4: Consolidado All-Day Summary (con acciones por tandas de CU-COCINA-02)
+        <ConsolidadoAllDayView
+          consolidado={consolidado}
+          onPonerEnFuegoTanda={handlePonerEnFuegoTanda}
+          onMarcarListoTanda={handleMarcarListoTanda}
+        />
       ) : comandasFiltradas.length === 0 ? (
         // Estado 2: Empty State ("¡Fogones al día!")
         <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-slate-400">
@@ -440,6 +507,15 @@ export const CocinaKdsPage: React.FC = () => {
       <ModalAlertaParadaFogones
         evento={alertaParada}
         onConfirmarEntendido={() => setAlertaParada(null)}
+      />
+
+      {/* Vista 2 de CU-COCINA-02: Modal de Historial de Pedidos Despachados y Recall (1120px) */}
+      <ModalHistorialDespachados
+        abierto={modalDespachadosAbierto}
+        onCerrar={() => setModalDespachadosAbierto(false)}
+        pedidos={pedidosDespachados}
+        metricas={metricasDespacho}
+        onRecuperarPedido={handleRecuperarPedido}
       />
 
       {/* Widget Flotante de Demostración */}

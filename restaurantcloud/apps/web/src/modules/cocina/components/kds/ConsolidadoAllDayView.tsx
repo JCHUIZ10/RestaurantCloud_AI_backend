@@ -5,10 +5,14 @@ import { ConsolidadoAllDayDTO } from '@/types/cocina';
 interface ConsolidadoAllDayViewProps {
   consolidado: ConsolidadoAllDayDTO[];
   onIniciarCoccionPlato?: (productoId: string) => void;
+  onPonerEnFuegoTanda?: (productoId: string) => void;
+  onMarcarListoTanda?: (productoId: string, cantidad: number) => void;
 }
 
 export const ConsolidadoAllDayView: React.FC<ConsolidadoAllDayViewProps> = ({
   consolidado,
+  onPonerEnFuegoTanda,
+  onMarcarListoTanda,
 }) => {
   // Cálculos globales
   const totalRaciones = consolidado.reduce((acc, cat) => acc + cat.total_raciones, 0);
@@ -54,7 +58,7 @@ export const ConsolidadoAllDayView: React.FC<ConsolidadoAllDayViewProps> = ({
 
         <div className="flex items-center gap-1.5 text-aurea-copper font-medium text-xs bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
           <Lightbulb className="w-4 h-4 shrink-0" />
-          <span>Permite a la brigada cocinar por tandas acumuladas en wok/horno</span>
+          <span>Cocción masiva por tandas acumuladas en wok/horno (CU-COCINA-02)</span>
         </div>
       </div>
 
@@ -77,69 +81,97 @@ export const ConsolidadoAllDayView: React.FC<ConsolidadoAllDayViewProps> = ({
 
             {/* Lista de Platos Consolidados */}
             <div className="p-3 space-y-3">
-              {cat.platos.map((plato) => (
-                <div
-                  key={plato.producto_id}
-                  className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-all space-y-2"
-                >
-                  {/* Fila del Plato con Total */}
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-sm sm:text-base text-white">
-                      {plato.nombre_producto}
-                    </span>
-                    <span className="px-2.5 py-1 rounded-lg font-mono font-black text-sm bg-slate-800 text-aurea-champagne border border-slate-700">
-                      {plato.cantidad_total}x
-                    </span>
-                  </div>
+              {cat.platos.map((plato) => {
+                const racionesEnCola = plato.cantidad_total - plato.cantidad_en_fuego;
 
-                  {/* Estado rápido de fuego */}
-                  <div className="flex items-center gap-2 text-[11px] font-mono">
-                    {plato.cantidad_en_fuego > 0 && (
-                      <span className="flex items-center gap-1 text-amber-400">
-                        <Flame className="w-3.5 h-3.5 fill-current" />
-                        {plato.cantidad_en_fuego} en fuego
+                return (
+                  <div
+                    key={plato.producto_id}
+                    className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-all space-y-2"
+                  >
+                    {/* Fila del Plato con Total */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-sm sm:text-base text-white">
+                        {plato.nombre_producto}
                       </span>
-                    )}
-                    {plato.cantidad_critica > 0 && (
-                      <span className="flex items-center gap-1 text-rose-400 font-bold">
-                        <Clock className="w-3.5 h-3.5" />
-                        {plato.cantidad_critica} en alerta crítica
+                      <span className="px-2.5 py-1 rounded-lg font-mono font-black text-sm bg-slate-800 text-aurea-champagne border border-slate-700">
+                        {plato.cantidad_total}x
                       </span>
-                    )}
-                  </div>
+                    </div>
 
-                  {/* Desglose de Mesas Involucradas */}
-                  <div className="pt-2 border-t border-slate-900 space-y-1 text-xs">
-                    {plato.detalle_mesas.map((m, idx) => (
-                      <div
-                        key={`${m.mesa_codigo}-${idx}`}
-                        className="flex items-center justify-between text-slate-300 py-0.5"
-                      >
-                        <div className="flex items-center gap-1.5 truncate">
-                          <span className="font-mono text-aurea-champagne font-bold">
-                            • Mesa {m.mesa_codigo} ({m.cantidad}x)
-                          </span>
-                          {m.nota_cocina && (
-                            <span className="text-[11px] text-amber-300 truncate">
-                              [{m.nota_cocina}]
-                            </span>
-                          )}
-                        </div>
-
-                        <span
-                          className={`font-mono text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
-                            m.estado === 'en_preparacion'
-                              ? 'bg-amber-950/80 text-amber-400'
-                              : 'bg-slate-800 text-slate-400'
-                          }`}
-                        >
-                          {m.estado === 'en_preparacion' ? 'Fuego' : 'En cola'}
+                    {/* Estado rápido de fuego */}
+                    <div className="flex items-center gap-2 text-[11px] font-mono">
+                      {plato.cantidad_en_fuego > 0 && (
+                        <span className="flex items-center gap-1 text-amber-400">
+                          <Flame className="w-3.5 h-3.5 fill-current" />
+                          {plato.cantidad_en_fuego} en fuego
                         </span>
-                      </div>
-                    ))}
+                      )}
+                      {plato.cantidad_critica > 0 && (
+                        <span className="flex items-center gap-1 text-rose-400 font-bold">
+                          <Clock className="w-3.5 h-3.5" />
+                          {plato.cantidad_critica} en alerta crítica
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Botones de Acción por Tandas (CU-COCINA-02 Vista 3) */}
+                    <div className="flex items-center gap-2 pt-1">
+                      {racionesEnCola > 0 && onPonerEnFuegoTanda && (
+                        <button
+                          onClick={() => onPonerEnFuegoTanda(plato.producto_id)}
+                          className="flex-1 py-1.5 px-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold font-mono text-[11px] transition-all flex items-center justify-center gap-1 shadow"
+                          title="Poner en fuego todas las raciones en cola de este plato"
+                        >
+                          <Flame className="w-3 h-3 fill-current" />
+                          <span>Poner {racionesEnCola}x en Fuego</span>
+                        </button>
+                      )}
+
+                      {plato.cantidad_en_fuego > 0 && onMarcarListoTanda && (
+                        <button
+                          onClick={() => onMarcarListoTanda(plato.producto_id, plato.cantidad_en_fuego)}
+                          className="flex-1 py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold font-mono text-[11px] transition-all flex items-center justify-center gap-1 shadow"
+                          title="Marcar listos en pase todas las raciones en fuego (FIFO)"
+                        >
+                          <span>✓ {plato.cantidad_en_fuego}x en Pase</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Desglose de Mesas Involucradas */}
+                    <div className="pt-2 border-t border-slate-900 space-y-1 text-xs">
+                      {plato.detalle_mesas.map((m, idx) => (
+                        <div
+                          key={`${m.mesa_codigo}-${idx}`}
+                          className="flex items-center justify-between text-slate-300 py-0.5"
+                        >
+                          <div className="flex items-center gap-1.5 truncate">
+                            <span className="font-mono text-aurea-champagne font-bold">
+                              • Mesa {m.mesa_codigo} ({m.cantidad}x)
+                            </span>
+                            {m.nota_cocina && (
+                              <span className="text-[11px] text-amber-300 truncate">
+                                [{m.nota_cocina}]
+                              </span>
+                            )}
+                          </div>
+
+                          <span
+                            className={`font-mono text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
+                              m.estado === 'en_preparacion'
+                                ? 'bg-amber-950/80 text-amber-400'
+                                : 'bg-slate-800 text-slate-400'
+                            }`}
+                          >
+                            {m.estado === 'en_preparacion' ? 'Fuego' : 'En cola'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ))}

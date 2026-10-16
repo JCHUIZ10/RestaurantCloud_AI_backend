@@ -114,3 +114,39 @@ export interface ItemAnuladoSSEEvent {
   minutos_transcurridos: number;
   timestamp: string;
 }
+
+/**
+ * Resumen de ítem culinario despachado para la bandeja de histórico/recall (CU-COCINA-02)
+ */
+export interface ItemResumenDespachadoDTO {
+  producto_nombre: string;
+  cantidad: number;
+  nota_cocina?: string | null;
+}
+
+/**
+ * Comanda despachada en los últimos 30 minutos (CU-COCINA-02)
+ */
+export interface KDSPedidoDespachadoDTO {
+  pedido_id: string;
+  numero_comanda: number;
+  mesa_codigo: string;
+  mozo_nombre: string;
+  piso_nombre: string;
+  total_items: number;
+  fecha_despacho: string; // ISO string
+  minutos_desde_despacho: number;
+  puede_recuperar: boolean;
+  items_resumen: ItemResumenDespachadoDTO[];
+}
+
+/**
+ * Métricas operativas de despacho de comandas en cocina
+ */
+export interface MetricasDespachoDTO {
+  despachadosUltimos30m: number;
+  tiempoPromedioCoccionMin: number;
+  tiempoPromedioPaseMin: number;
+  totalTurnoHoy: number;
+}
+

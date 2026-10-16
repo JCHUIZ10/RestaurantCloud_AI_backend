@@ -502,7 +502,7 @@ CREATE TABLE IF NOT EXISTS pedido (
     promocion_id UUID REFERENCES promocion(id) ON DELETE RESTRICT,
     tipo_comprobante_sugerido VARCHAR(20) DEFAULT NULL CHECK (tipo_comprobante_sugerido IN ('boleta', 'factura', 'nota_venta')),
     documento_cliente_sugerido VARCHAR(20) DEFAULT NULL,
-    nombre_cliente_sugerido VARCHAR(255) DEFAULT NULL;
+    nombre_cliente_sugerido VARCHAR(255) DEFAULT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

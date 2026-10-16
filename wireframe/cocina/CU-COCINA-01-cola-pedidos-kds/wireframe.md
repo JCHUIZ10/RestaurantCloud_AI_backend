@@ -285,9 +285,9 @@ type KDSItemDTO struct {
 	Estado             string     `json:"estado"` // "en_cola", "en_preparacion", "listo", "anulado"
 	CategoriaID        uuid.UUID  `json:"categoria_id"`
 	CategoriaNombre    string     `json:"categoria_nombre"` // De categoria_producto.nombre
-	NotasCocina        *string    `json:"notas_cocina,omitempty"`
+	NotaCocina         *string    `json:"nota_cocina,omitempty"`
 	FechaInicioCoccion *time.Time `json:"fecha_inicio_coccion,omitempty"`
-	FechaListo         *time.Time `json:"fecha_listo,omitempty"`
+	FechaListoCocina   *time.Time `json:"fecha_listo_cocina,omitempty"`
 	RecetaResumen      string     `json:"receta_resumen"` // Concatenación producto_insumo + insumo
 }
 ```
@@ -317,7 +317,7 @@ type ConsolidadoPlatoDTO struct {
 type PlatoMesaDetalleDTO struct {
 	MesaCodigo    string  `json:"mesa_codigo"`
 	Cantidad      int     `json:"cantidad"`
-	Notas         *string `json:"notas,omitempty"`
+	NotaCocina    *string `json:"nota_cocina,omitempty"`
 	MinutosEspera int     `json:"minutos_espera"`
 }
 ```
@@ -363,16 +363,18 @@ WITH config AS (
 SELECT 
     p.id AS pedido_id,
     p.numero_comanda,
-    m.codigo AS mesa_codigo,
-    p.es_mesa_agrupada,
+    m.numero AS mesa_codigo,
+    (m.mesa_principal_id IS NOT NULL OR EXISTS (SELECT 1 FROM mesa m_sec WHERE m_sec.mesa_principal_id = m.id)) AS es_mesa_agrupada,
     u.nombre_completo AS mozo_nombre,
     pis.nombre AS piso_nombre,
-    p.ronda_numero,
-    p.fecha_apertura AS fecha_envio,
-    ROUND(EXTRACT(EPOCH FROM (NOW() - p.fecha_apertura)) / 60)::INT AS minutos_espera,
+    COALESCE(MAX(pi.numero_ronda), 1)::INT AS ronda_numero,
+    CASE WHEN COALESCE(MAX(pi.numero_ronda), 1) > 1 THEN 'adicional' ELSE 'inicial' END AS ronda_tipo,
+    p.comensales,
+    p.created_at AS fecha_envio,
+    ROUND(EXTRACT(EPOCH FROM (NOW() - p.created_at)) / 60)::INT AS minutos_espera,
     CASE 
-        WHEN ROUND(EXTRACT(EPOCH FROM (NOW() - p.fecha_apertura)) / 60) <= cfg.tiempo_optimo_verde_min THEN 'verde'
-        WHEN ROUND(EXTRACT(EPOCH FROM (NOW() - p.fecha_apertura)) / 60) <= cfg.tiempo_alerta_ambar_min THEN 'ambar'
+        WHEN ROUND(EXTRACT(EPOCH FROM (NOW() - p.created_at)) / 60) <= cfg.tiempo_optimo_verde_min THEN 'verde'
+        WHEN ROUND(EXTRACT(EPOCH FROM (NOW() - p.created_at)) / 60) <= cfg.tiempo_alerta_ambar_min THEN 'ambar'
         ELSE 'rojo'
     END AS semaforo_color,
     -- Conteo de bebidas despachadas por salón (requiere_preparacion = false)
@@ -407,7 +409,7 @@ JOIN categoria_producto cp ON cp.id = pr.categoria_id
 WHERE p.local_id = $1
   AND p.estado IN ('enviado', 'cuenta_pedida')
   AND pi.estado IN ('en_cola', 'en_preparacion', 'listo')
-GROUP BY p.id, p.numero_comanda, m.numero, p.es_mesa_agrupada, u.nombre_completo, pis.nombre, p.ronda_numero, p.created_at, cfg.tiempo_optimo_verde_min, cfg.tiempo_alerta_ambar_min
+GROUP BY p.id, p.numero_comanda, m.id, m.numero, m.mesa_principal_id, u.nombre_completo, pis.nombre, p.comensales, p.created_at, cfg.tiempo_optimo_verde_min, cfg.tiempo_alerta_ambar_min
 HAVING COUNT(pi.id) FILTER (WHERE pr.requiere_preparacion = true AND pi.estado IN ('en_cola', 'en_preparacion')) > 0
 ORDER BY p.created_at ASC;
 ```

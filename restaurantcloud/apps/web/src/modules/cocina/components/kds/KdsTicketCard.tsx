@@ -145,10 +145,6 @@ export const KdsTicketCard: React.FC<KdsTicketCardProps> = ({
           const esAnulado = item.estado === 'anulado';
           const esEnCola = item.estado === 'en_cola';
 
-          // Ventana de 30s de deshacer
-          const puedeDeshacer =
-            esListo && item.deshacer_hasta && item.deshacer_hasta > Date.now();
-
           return (
             <div
               key={item.item_id}
@@ -211,7 +207,7 @@ export const KdsTicketCard: React.FC<KdsTicketCardProps> = ({
                 </div>
               )}
 
-              {/* Botones Táctiles de Acción Culinaria (Touch Targets >= 44px) */}
+              {/* Botones Táctiles de Acción Culinaria (Touch Targets >= 44px - CU-COCINA-02) */}
               {!esAnulado && (
                 <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
                   {esEnCola && (
@@ -220,36 +216,73 @@ export const KdsTicketCard: React.FC<KdsTicketCardProps> = ({
                       className="w-full min-h-[44px] rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-slate-950 shadow"
                     >
                       <Flame className="w-4 h-4 fill-current" />
-                      <span>[ 🔥 Iniciar / En Fuego ]</span>
+                      <span>[ 🔥 Poner en Fuego ]</span>
                     </button>
                   )}
 
                   {esEnFuego && (
-                    <button
-                      onClick={() => onCambiarEstadoItem(item.item_id, 'listo')}
-                      className="w-full min-h-[44px] rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>[ ✓ Marcar Listo ]</span>
-                    </button>
+                    <div className="w-full flex flex-col gap-2">
+                      <div className="flex items-center justify-between text-xs font-mono font-bold text-amber-400 bg-amber-950/60 px-2.5 py-1.5 rounded-lg border border-amber-800/60">
+                        <span className="flex items-center gap-1.5">
+                          <Flame className="w-4 h-4 fill-amber-400 animate-pulse" />
+                          <span>En Fuego</span>
+                        </span>
+                        <span>
+                          ⏱️ {(() => {
+                            if (!item.fecha_inicio_coccion) return '00:00';
+                            const diffSec = Math.max(0, Math.floor((Date.now() - new Date(item.fecha_inicio_coccion).getTime()) / 1000));
+                            const m = Math.floor(diffSec / 60);
+                            const s = diffSec % 60;
+                            return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+                          })()}
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={() => onCambiarEstadoItem(item.item_id, 'listo')}
+                        className={`w-full min-h-[44px] rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow ${
+                          esRojo
+                            ? 'bg-rose-600 hover:bg-rose-500 text-white animate-pulse'
+                            : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                        }`}
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>{esRojo ? '[ ✓ Listo Urgente ]' : '[ ✓ Listo en Pase ]'}</span>
+                      </button>
+                    </div>
                   )}
 
                   {esListo && (
                     <div className="w-full flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1 text-emerald-400 font-mono font-bold text-xs">
+                      <div className="flex items-center gap-1.5 text-emerald-400 font-mono font-bold text-xs">
                         <CheckCircle2 className="w-4 h-4" />
                         <span>✓ LISTO EN PASE</span>
                       </div>
 
-                      {puedeDeshacer && (
-                        <button
-                          onClick={() => onDeshacerListo(item.item_id)}
-                          className="min-h-[38px] px-3 rounded-lg text-xs font-bold transition-all bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/40 flex items-center gap-1"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5" />
-                          <span>Deshacer</span>
-                        </button>
-                      )}
+                      {(() => {
+                        const segundosRestantes = item.deshacer_hasta
+                          ? Math.max(0, Math.ceil((item.deshacer_hasta - Date.now()) / 1000))
+                          : 0;
+
+                        if (segundosRestantes > 0) {
+                          return (
+                            <button
+                              onClick={() => onDeshacerListo(item.item_id)}
+                              className="min-h-[38px] px-3 rounded-lg text-xs font-bold transition-all bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/40 flex items-center gap-1.5 shadow animate-pulse"
+                              title="Revertir a fuego y restaurar existencias en inventario"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span>[ ↺ Deshacer ({segundosRestantes}s) ]</span>
+                            </button>
+                          );
+                        }
+
+                        return (
+                          <span className="text-[10px] font-mono text-slate-500">
+                            (Deshacer vencido)
+                          </span>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>

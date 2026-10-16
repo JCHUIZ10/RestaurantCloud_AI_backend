@@ -38,7 +38,7 @@ export const DemoKdsWidget: React.FC<DemoKdsWidgetProps> = ({
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-aurea-copper animate-spin" />
             <span className="font-serif font-bold text-xs tracking-wider text-aurea-champagne">
-              DEMO KDS COCINA • CU-COCINA-01
+              DEMO KDS COCINA • CU-COCINA-01 & 02
             </span>
           </div>
 

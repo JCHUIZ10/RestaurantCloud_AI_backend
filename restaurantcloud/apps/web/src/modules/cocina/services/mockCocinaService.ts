@@ -5,6 +5,8 @@ import {
   ConsolidadoAllDayDTO,
   EstadoItemCocina,
   ItemAnuladoSSEEvent,
+  KDSPedidoDespachadoDTO,
+  MetricasDespachoDTO,
 } from '@/types/cocina';
 
 // Configuración de sede predeterminada (tabla configuracion_kds)
@@ -200,6 +202,55 @@ let mockComandasMemoria: KDSComandaDTO[] = [
   },
 ];
 
+// Semilla de comandas despachadas en los últimos 30 minutos (CU-COCINA-02)
+let mockDespachadosMemoria: KDSPedidoDespachadoDTO[] = [
+  {
+    pedido_id: 'ped-kds-desp-01',
+    numero_comanda: 145,
+    mesa_codigo: '03',
+    mozo_nombre: 'Carlos Mendoza',
+    piso_nombre: 'Salón Principal',
+    total_items: 3,
+    fecha_despacho: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
+    minutos_desde_despacho: 3,
+    puede_recuperar: true,
+    items_resumen: [
+      { producto_nombre: 'Seco de Res Norteña', cantidad: 2, nota_cocina: 'Con frijoles bien calientes' },
+      { producto_nombre: 'Papa Rellena Criolla', cantidad: 1, nota_cocina: null },
+    ],
+  },
+  {
+    pedido_id: 'ped-kds-desp-02',
+    numero_comanda: 144,
+    mesa_codigo: '08',
+    mozo_nombre: 'Ana Paredes',
+    piso_nombre: 'Terraza Jardín',
+    total_items: 4,
+    fecha_despacho: new Date(Date.now() - 11 * 60 * 1000).toISOString(),
+    minutos_desde_despacho: 11,
+    puede_recuperar: true,
+    items_resumen: [
+      { producto_nombre: 'Arroz Chaufa Especial', cantidad: 3, nota_cocina: null },
+      { producto_nombre: 'Porción Wantán Frito', cantidad: 1, nota_cocina: 'Salsa tamarindo extra' },
+    ],
+  },
+  {
+    pedido_id: 'ped-kds-desp-03',
+    numero_comanda: 142,
+    mesa_codigo: '05',
+    mozo_nombre: 'Carlos Mendoza',
+    piso_nombre: 'Salón Principal',
+    total_items: 3,
+    fecha_despacho: new Date(Date.now() - 22 * 60 * 1000).toISOString(),
+    minutos_desde_despacho: 22,
+    puede_recuperar: true,
+    items_resumen: [
+      { producto_nombre: 'Pollo Saltado Criollo', cantidad: 2, nota_cocina: 'Término bien cocido' },
+      { producto_nombre: 'Ensalada Mixta Fresca', cantidad: 1, nota_cocina: 'Aliño aparte' },
+    ],
+  },
+];
+
 export const mockCocinaService = {
   /**
    * Obtiene la configuración de sede para el KDS
@@ -301,19 +352,212 @@ export const mockCocinaService = {
   },
 
   /**
-   * Despacha todos los platos culinarios de una comanda al pase de salón
+   * Despacha todos los platos culinarios de una comanda al pase de salón (CU-COCINA-02)
    */
   async despacharComandaCompleta(
     pedidoId: string
   ): Promise<ApiResponse<{ pedido_id: string; despachado: boolean }>> {
     const idx = mockComandasMemoria.findIndex((c) => c.pedido_id === pedidoId);
     if (idx !== -1) {
+      const comanda = mockComandasMemoria[idx];
       mockComandasMemoria.splice(idx, 1);
+
+      // Registrar en la bandeja de pedidos despachados recientes (CU-COCINA-02)
+      const despachado: KDSPedidoDespachadoDTO = {
+        pedido_id: comanda.pedido_id,
+        numero_comanda: comanda.numero_comanda,
+        mesa_codigo: comanda.mesa_codigo,
+        mozo_nombre: comanda.mozo_nombre,
+        piso_nombre: comanda.piso_nombre,
+        total_items: comanda.items.length,
+        fecha_despacho: new Date().toISOString(),
+        minutos_desde_despacho: 0,
+        puede_recuperar: true,
+        items_resumen: comanda.items.map((i) => ({
+          producto_nombre: i.nombre_producto,
+          cantidad: i.cantidad,
+          nota_cocina: i.nota_cocina,
+        })),
+      };
+      mockDespachadosMemoria = [despachado, ...mockDespachadosMemoria];
     }
 
     return {
       exito: true,
       datos: { pedido_id: pedidoId, despachado: true },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  },
+
+  /**
+   * Consulta las órdenes terminadas en los últimos 30 minutos (CU-COCINA-02)
+   */
+  async obtenerPedidosDespachados(): Promise<ApiResponse<KDSPedidoDespachadoDTO[]>> {
+    const ahora = Date.now();
+    const actualizados = mockDespachadosMemoria.map((d) => {
+      const minutos = Math.max(0, Math.floor((ahora - new Date(d.fecha_despacho).getTime()) / 60000));
+      return {
+        ...d,
+        minutos_desde_despacho: minutos,
+        puede_recuperar: minutos <= 30,
+      };
+    });
+
+    return {
+      exito: true,
+      datos: actualizados,
+      meta: { timestamp: new Date().toISOString(), total: actualizados.length },
+    };
+  },
+
+  /**
+   * Métricas operativas de despacho para la cabecera del modal de histórico
+   */
+  async obtenerMetricasDespacho(): Promise<ApiResponse<MetricasDespachoDTO>> {
+    const ahora = Date.now();
+    const recientes30m = mockDespachadosMemoria.filter((d) => {
+      const minutos = (ahora - new Date(d.fecha_despacho).getTime()) / 60000;
+      return minutos <= 30;
+    }).length;
+
+    return {
+      exito: true,
+      datos: {
+        despachadosUltimos30m: recientes30m,
+        tiempoPromedioCoccionMin: 11.6,
+        tiempoPromedioPaseMin: 2.2,
+        totalTurnoHoy: 42 + mockDespachadosMemoria.length,
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  },
+
+  /**
+   * Recupera una comanda despachada devolviéndola al tablero activo del KDS (Recall 30m - CU-COCINA-02)
+   */
+  async recuperarPedidoDespachado(
+    pedidoId: string
+  ): Promise<ApiResponse<{ pedido_id: string; recuperado: boolean }>> {
+    const idx = mockDespachadosMemoria.findIndex((d) => d.pedido_id === pedidoId);
+    if (idx === -1) {
+      return {
+        exito: false,
+        datos: { pedido_id: pedidoId, recuperado: false },
+        errores: [{ codigo: 'PEDIDO_NO_ENCONTRADO', mensaje: 'El pedido no se encuentra en el historial.' }],
+      };
+    }
+
+    const itemDespachado = mockDespachadosMemoria[idx];
+    const minutos = (Date.now() - new Date(itemDespachado.fecha_despacho).getTime()) / 60000;
+    if (minutos > 30) {
+      return {
+        exito: false,
+        datos: { pedido_id: pedidoId, recuperado: false },
+        errores: [{ codigo: 'TIEMPO_EXCEDIDO', mensaje: 'No es posible recuperar pedidos despachados hace más de 30 minutos.' }],
+      };
+    }
+
+    mockDespachadosMemoria.splice(idx, 1);
+
+    // Reinsertar en el tablero activo con sus platos en fuego
+    const comandaRecuperada: KDSComandaDTO = {
+      pedido_id: itemDespachado.pedido_id,
+      numero_comanda: itemDespachado.numero_comanda,
+      mesa_codigo: itemDespachado.mesa_codigo,
+      es_mesa_agrupada: false,
+      mozo_nombre: itemDespachado.mozo_nombre,
+      piso_nombre: itemDespachado.piso_nombre,
+      ronda_numero: 1,
+      ronda_tipo: 'inicial',
+      comensales: 4,
+      fecha_envio: itemDespachado.fecha_despacho,
+      minutos_espera: Math.floor(minutos),
+      segundos_transcurridos: Math.floor(minutos * 60),
+      semaforo_color: minutos > 25 ? 'rojo' : minutos > 15 ? 'ambar' : 'verde',
+      bebidas_salon_count: 0,
+      items: itemDespachado.items_resumen.map((it, i) => ({
+        item_id: `recup-${Date.now()}-${i}`,
+        producto_id: `prod-recup-${i}`,
+        nombre_producto: it.producto_nombre,
+        cantidad: it.cantidad,
+        estado: 'en_preparacion',
+        categoria_id: 'cat-recuperados',
+        categoria_nombre: 'Platos Criollos',
+        nota_cocina: it.nota_cocina,
+        fecha_inicio_coccion: new Date().toISOString(),
+        receta_resumen: 'Insumos reingresados a inventario (Rollback de bodega)',
+      })),
+    };
+
+    mockComandasMemoria = [comandaRecuperada, ...mockComandasMemoria];
+
+    return {
+      exito: true,
+      datos: { pedido_id: pedidoId, recuperado: true },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  },
+
+  /**
+   * Acción masiva por tanda: Poner en fuego todas las raciones en cola de un plato (CU-COCINA-02 Vista 3)
+   */
+  async ponerEnFuegoPorTanda(
+    productoId: string
+  ): Promise<ApiResponse<{ producto_id: string; actualizados: number }>> {
+    let actualizados = 0;
+    mockComandasMemoria = mockComandasMemoria.map((c) => ({
+      ...c,
+      items: c.items.map((it) => {
+        if (it.producto_id === productoId && it.estado === 'en_cola') {
+          actualizados += it.cantidad;
+          return {
+            ...it,
+            estado: 'en_preparacion',
+            fecha_inicio_coccion: new Date().toISOString(),
+          };
+        }
+        return it;
+      }),
+    }));
+
+    return {
+      exito: true,
+      datos: { producto_id: productoId, actualizados },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  },
+
+  /**
+   * Acción masiva por tanda: Marcar listos los platos en fuego de un producto (FIFO) (CU-COCINA-02 Vista 3)
+   */
+  async marcarListoPorTanda(
+    productoId: string,
+    cantidadRaciones: number
+  ): Promise<ApiResponse<{ producto_id: string; listos: number }>> {
+    let restantes = cantidadRaciones;
+    let listos = 0;
+
+    mockComandasMemoria = mockComandasMemoria.map((c) => ({
+      ...c,
+      items: c.items.map((it) => {
+        if (it.producto_id === productoId && it.estado === 'en_preparacion' && restantes > 0) {
+          const porciones = Math.min(it.cantidad, restantes);
+          restantes -= porciones;
+          listos += porciones;
+          return {
+            ...it,
+            estado: 'listo',
+            fecha_listo_cocina: new Date().toISOString(),
+            deshacer_hasta: Date.now() + 30 * 1000,
+          };
+        }
+        return it;
+      }),
+    }));
+
+    return {
+      exito: true,
+      datos: { producto_id: productoId, listos },
       meta: { timestamp: new Date().toISOString() },
     };
   },

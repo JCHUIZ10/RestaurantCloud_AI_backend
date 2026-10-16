@@ -20,6 +20,8 @@ interface KdsHeaderProps {
     listos: number;
   };
   configuracion: ConfiguracionKDSDTO;
+  despachadosCount?: number;
+  onAbrirDespachados?: () => void;
 }
 
 export const KdsHeader: React.FC<KdsHeaderProps> = ({
@@ -34,6 +36,8 @@ export const KdsHeader: React.FC<KdsHeaderProps> = ({
   categoriasDisponibles,
   metricas,
   configuracion,
+  despachadosCount = 0,
+  onAbrirDespachados,
 }) => {
   return (
     <header className="bg-slate-900 border-b border-slate-800 shrink-0 text-slate-100 select-none shadow-md">
@@ -45,7 +49,7 @@ export const KdsHeader: React.FC<KdsHeaderProps> = ({
               RESTAURANTCLOUD <span className="text-aurea-copper">AI</span>
             </span>
             <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-slate-800 text-aurea-champagne border border-slate-700">
-              KDS COCINA • CU-COCINA-01
+              KDS COCINA • CU-COCINA-01 & 02
             </span>
           </div>
         </div>
@@ -57,6 +61,20 @@ export const KdsHeader: React.FC<KdsHeaderProps> = ({
             {horaActual}
           </span>
         </div>
+
+        {/* Acceso a Historial Despachados (CU-COCINA-02) */}
+        {onAbrirDespachados && (
+          <button
+            onClick={onAbrirDespachados}
+            className="px-3 py-1.5 rounded-lg font-mono font-bold text-xs bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 hover:border-amber-400 transition-all flex items-center gap-2 shadow"
+            title="Bandeja de pedidos despachados en los últimos 30 minutos (Recall)"
+          >
+            <span>⏱️ Pedidos Despachados</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 text-[11px]">
+              {despachadosCount}
+            </span>
+          </button>
+        )}
 
         {/* Estado SSE, Sonido y Chef */}
         <div className="flex items-center gap-3 text-xs">
