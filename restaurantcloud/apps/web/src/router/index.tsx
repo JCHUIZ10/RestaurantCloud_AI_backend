@@ -35,6 +35,7 @@ import { RegistroEmpresaPage } from '@/modules/propietario/pages/RegistroEmpresa
 import { PropietarioLocalesPage } from '@/modules/propietario/pages/PropietarioLocalesPage';
 import { PropietarioAdministradoresPage } from '@/modules/propietario/pages/PropietarioAdministradoresPage';
 import { PropietarioSuscripcionPage } from '@/modules/propietario/pages/PropietarioSuscripcionPage';
+import { PropietarioCambiarPlanPage } from '@/modules/propietario/pages/PropietarioCambiarPlanPage';
 import { CajeroPosPage } from '@/modules/caja/pages/CajeroPosPage';
 import { CajeroTurnoCierrePage } from '@/modules/caja/pages/CajeroTurnoCierrePage';
 
@@ -155,6 +156,10 @@ export const router = createBrowserRouter([
       {
         path: 'suscripcion',
         element: <PropietarioSuscripcionPage />,
+      },
+      {
+        path: 'cambiar-plan',
+        element: <PropietarioCambiarPlanPage />,
       },
       {
         path: 'incidentes',

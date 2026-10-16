@@ -21,6 +21,7 @@ export const ROUTES = {
   PROPIETARIO_SEDES: '/propietario/sedes',
   PROPIETARIO_ADMINISTRADORES: '/propietario/administradores',
   PROPIETARIO_SUSCRIPCION: '/propietario/suscripcion',
+  PROPIETARIO_CAMBIAR_PLAN: '/propietario/cambiar-plan',
   PROPIETARIO_INCIDENTES: '/propietario/incidentes',
 
   // Portal Administrador de Local

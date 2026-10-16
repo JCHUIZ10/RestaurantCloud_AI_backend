@@ -15,12 +15,32 @@ import type {
   UsoRecursosDTO,
   EstadoSuscripcion,
 } from '@/types/propietarioSuscripcion';
+import type {
+  PlanesComparativaApiResponse,
+  PlanComparativoDTO,
+  SimularUpgradeRequestDTO,
+  SimularUpgradeApiResponse,
+  EjecutarUpgradeRequestDTO,
+  EjecutarUpgradeApiResponse,
+  RecursosConciliacionApiResponse,
+  ProgramarDowngradeRequestDTO,
+  ProgramarDowngradeApiResponse,
+  CancelarDowngradeApiResponse,
+  ConfiguracionDowngradeDTO,
+  PeriodicidadFacturacion,
+} from '@/types/propietarioCambiarPlan';
 
 const SUSCRIPCION_STORAGE_KEY = 'restaurantcloud_propietario_suscripcion_db';
 const LOCALES_STORAGE_KEY = 'restaurantcloud_locales_propietario_db';
 const ADMINS_STORAGE_KEY = 'restaurantcloud_propietario_admins_db';
 
 interface SuscripcionStoreData {
+  plan_id?: number; // 1: Starter, 2: Pro, 3: Enterprise
+  periodicidad?: PeriodicidadFacturacion;
+  proximo_plan_id?: number | null;
+  config_downgrade?: ConfiguracionDowngradeDTO | null;
+  recursos_conciliados?: boolean;
+  stripe_schedule_id?: string | null;
   suscripcion_estado: EstadoSuscripcion;
   metodo_pago: MetodoPagoDTO;
   al_dia: boolean;
@@ -34,6 +54,12 @@ interface SuscripcionStoreData {
 }
 
 const DEFAULT_STORE_DATA: SuscripcionStoreData = {
+  plan_id: 2,
+  periodicidad: 'mensual',
+  proximo_plan_id: null,
+  config_downgrade: null,
+  recursos_conciliados: false,
+  stripe_schedule_id: null,
   suscripcion_estado: 'activa',
   metodo_pago: {
     marca: 'visa',
@@ -111,7 +137,7 @@ class PropietarioSuscripcionService {
   }
 
   // Sincronizar consumo real de recursos de la plataforma
-  private getUsoRecursosReal(): UsoRecursosDTO {
+  private getUsoRecursosReal(planId?: number): UsoRecursosDTO {
     // 1. Locales reales
     let localesActivos = 2; // Áurea Miraflores + San Isidro
     try {
@@ -158,10 +184,34 @@ class PropietarioSuscripcionService {
       // fallback
     }
 
-    // Plan Pro canónico (06_seed_initial_data.sql): max_locales = 3, max_mesas = 30, max_usuarios = 15
-    const maxLocales = 3;
-    const maxMesas = 30;
-    const maxPersonal = 15;
+    // Límites según plan contratado (06_seed_initial_data.sql)
+    let maxLocales = 3;
+    let maxMesas = 30;
+    let maxPersonal = 15;
+    let incluyeReservas = true;
+    let incluyeReportes = true;
+    let incluyeAsistenteIa = true;
+    let incluyePrediccionIa = false;
+
+    if (planId === 1) {
+      // Starter
+      maxLocales = 1;
+      maxMesas = 25;
+      maxPersonal = 5;
+      incluyeReservas = false;
+      incluyeReportes = false;
+      incluyeAsistenteIa = false;
+      incluyePrediccionIa = false;
+    } else if (planId === 3) {
+      // Enterprise
+      maxLocales = 10;
+      maxMesas = 60;
+      maxPersonal = 40;
+      incluyeReservas = true;
+      incluyeReportes = true;
+      incluyeAsistenteIa = true;
+      incluyePrediccionIa = true;
+    }
 
     return {
       locales: {
@@ -182,10 +232,10 @@ class PropietarioSuscripcionService {
         porcentaje: Math.min(100, Math.round((personalActivo / maxPersonal) * 100)),
         limite_alcanzado: personalActivo >= maxPersonal,
       },
-      incluye_reservas: true,
-      incluye_reportes_avanzados: true,
-      incluye_asistente_ia: true,
-      incluye_prediccion_ia: true,
+      incluye_reservas: incluyeReservas,
+      incluye_reportes_avanzados: incluyeReportes,
+      incluye_asistente_ia: incluyeAsistenteIa,
+      incluye_prediccion_ia: incluyePrediccionIa,
     };
   }
 
@@ -193,7 +243,25 @@ class PropietarioSuscripcionService {
   async getDashboardSuscripcion(): Promise<SuscripcionDashboardApiResponse> {
     await new Promise((r) => setTimeout(r, 200));
     const store = this.loadData();
-    const recursos = this.getUsoRecursosReal();
+    const planId = store.plan_id ?? 2;
+    const recursos = this.getUsoRecursosReal(planId);
+
+    const planNombre = planId === 3 ? 'Enterprise' : planId === 1 ? 'Starter' : 'Pro';
+    const planSlug = planId === 3 ? 'plan-enterprise' : planId === 1 ? 'plan-starter' : 'plan-pro';
+    const precioMensual = planId === 3 ? 499.00 : planId === 1 ? 99.00 : 249.00;
+    const precioAnual = planId === 3 ? 4990.00 : planId === 1 ? 990.00 : 2490.00;
+    const periodicidad = store.periodicidad ?? 'mensual';
+
+    let proximoPlanInfo = null;
+    if (store.proximo_plan_id) {
+      const pId = store.proximo_plan_id;
+      proximoPlanInfo = {
+        id: pId,
+        nombre: pId === 1 ? 'Starter' : pId === 2 ? 'Pro' : 'Enterprise',
+        precio_mensual: pId === 1 ? 99.00 : pId === 2 ? 249.00 : 499.00,
+        fecha_efectiva: '2026-11-01T23:59:59Z',
+      };
+    }
 
     const datos: SuscripcionDashboardDTO = {
       empresa: {
@@ -206,13 +274,14 @@ class PropietarioSuscripcionService {
         estado: store.suscripcion_estado === 'suspendida' ? 'suspendida' : 'activa',
       },
       plan: {
-        id: 2,
-        nombre: 'Pro',
-        slug: 'plan-pro',
-        precio_mensual: 249.00,
-        precio_anual: 2490.00,
-        periodicidad: 'mensual',
+        id: planId,
+        nombre: planNombre,
+        slug: planSlug,
+        precio_mensual: precioMensual,
+        precio_anual: precioAnual,
+        periodicidad: periodicidad,
         proximo_cobro: '2026-11-01T23:59:59Z',
+        proximo_plan: proximoPlanInfo,
       },
       suscripcion_estado: store.suscripcion_estado,
       metodo_pago: store.metodo_pago,
@@ -450,6 +519,497 @@ Representación impresa de la Factura Electrónica consultable en www.restaurant
     store.metodo_pago.exp_mes = now.getMonth() + 1;
     store.metodo_pago.exp_ano = now.getFullYear();
     store.metodo_pago.proximo_a_vencer = true;
+    this.saveData(store);
+  }
+
+  // =========================================================================
+  // MÉTODOS CU-PROP-03: Cambiar Plan de Suscripción
+  // =========================================================================
+
+  // 5. Consultar Catálogo Comparativo de Planes y Límites
+  async getPlanesComparativa(): Promise<PlanesComparativaApiResponse> {
+    await new Promise((r) => setTimeout(r, 200));
+    const store = this.loadData();
+    const planIdActual = store.plan_id ?? 2;
+    const uso = this.getUsoRecursosReal(planIdActual);
+
+    const periodicidad = store.periodicidad ?? 'mensual';
+    const planActualNombre = planIdActual === 3 ? 'Enterprise' : planIdActual === 1 ? 'Starter' : 'Pro';
+    const precioMensual = planIdActual === 3 ? 499.00 : planIdActual === 1 ? 99.00 : 249.00;
+    const precioAnual = planIdActual === 3 ? 4990.00 : planIdActual === 1 ? 990.00 : 2490.00;
+
+    const tieneDowngrade = !!store.proximo_plan_id;
+    let proximoPlan = null;
+    if (tieneDowngrade) {
+      const pId = store.proximo_plan_id!;
+      proximoPlan = {
+        id: pId,
+        nombre: pId === 1 ? 'Starter' : pId === 2 ? 'Pro' : 'Enterprise',
+        precio_mensual: pId === 1 ? 99.00 : pId === 2 ? 249.00 : 499.00,
+      };
+    }
+
+    const recursosEnUso = {
+      locales_activos: uso.locales.usados,
+      pisos_activos: 3, // Miraflores: 2 pisos + San Isidro: 1 piso
+      mesas_activas: uso.mesas.usados,
+      usuarios_activos: uso.usuarios_personal.usados,
+    };
+
+    // Determinar qué excede Starter
+    const excedidosStarter: string[] = [];
+    if (recursosEnUso.locales_activos > 1) excedidosStarter.push('locales');
+    if (recursosEnUso.pisos_activos > 1) excedidosStarter.push('pisos');
+    if (recursosEnUso.mesas_activas > 25) excedidosStarter.push('mesas');
+    if (recursosEnUso.usuarios_activos > 5) excedidosStarter.push('usuarios');
+
+    const planes: PlanComparativoDTO[] = [
+      {
+        id: 1,
+        nombre: 'Starter',
+        slug: 'plan-starter',
+        descripcion: 'Ideal para restaurantes pequeños y pollerías de salón único con hasta 25 mesas.',
+        precio_mensual: 99.00,
+        precio_anual: 990.00,
+        limites: {
+          max_locales: 1,
+          max_pisos: 1,
+          max_mesas: 25,
+          max_usuarios: 5,
+          incluye_reservas: false,
+          incluye_reportes_avanzados: false,
+          incluye_asistente_ia: false,
+          incluye_prediccion_ia: false,
+          tipo_reportes: 'Básico (CSV)',
+          tipo_soporte: 'Correo (48h)',
+        },
+        es_plan_actual: planIdActual === 1,
+        tipo_accion: planIdActual === 1 ? 'actual' : 'downgrade',
+        requiere_conciliacion: planIdActual > 1 && excedidosStarter.length > 0,
+        recursos_excedidos: excedidosStarter,
+      },
+      {
+        id: 2,
+        nombre: 'Pro',
+        slug: 'plan-pro',
+        descripcion: 'Para restaurantes en expansión con múltiples ambientes, reservas de salón y KDS.',
+        precio_mensual: 249.00,
+        precio_anual: 2490.00,
+        limites: {
+          max_locales: 3,
+          max_pisos: 2,
+          max_mesas: 30,
+          max_usuarios: 15,
+          incluye_reservas: true,
+          incluye_reportes_avanzados: true,
+          incluye_asistente_ia: true,
+          incluye_prediccion_ia: false,
+          tipo_reportes: 'Avanzado (PDF/Excel)',
+          tipo_soporte: 'Chat (24h)',
+        },
+        es_plan_actual: planIdActual === 2,
+        tipo_accion: planIdActual === 2 ? 'actual' : planIdActual === 1 ? 'upgrade' : 'downgrade',
+        requiere_conciliacion: planIdActual === 3,
+        recursos_excedidos: [],
+        destacado: true,
+      },
+      {
+        id: 3,
+        nombre: 'Enterprise',
+        slug: 'plan-enterprise',
+        descripcion: 'Para cadenas gastronómicas y franquicias con operaciones complejas y suite completa de IA.',
+        precio_mensual: 499.00,
+        precio_anual: 4990.00,
+        limites: {
+          max_locales: 10,
+          max_pisos: 5,
+          max_mesas: 60,
+          max_usuarios: 40,
+          incluye_reservas: true,
+          incluye_reportes_avanzados: true,
+          incluye_asistente_ia: true,
+          incluye_prediccion_ia: true,
+          tipo_reportes: 'Auditoría + BI',
+          tipo_soporte: 'Prioritario 24/7',
+        },
+        es_plan_actual: planIdActual === 3,
+        tipo_accion: planIdActual === 3 ? 'actual' : 'upgrade',
+        requiere_conciliacion: false,
+        recursos_excedidos: [],
+      },
+    ];
+
+    return {
+      exito: true,
+      datos: {
+        plan_actual: {
+          id: planIdActual,
+          nombre: planActualNombre,
+          precio_mensual: precioMensual,
+          precio_anual: precioAnual,
+          periodicidad,
+          dias_restantes_ciclo: 15,
+          dias_totales_ciclo: 30,
+          fecha_renovacion: '2026-11-01T23:59:59Z',
+          downgrade_programado: tieneDowngrade,
+          proximo_plan: proximoPlan,
+        },
+        recursos_en_uso: recursosEnUso,
+        planes,
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+      },
+    };
+  }
+
+  // 6. Simular Prorrateo de Upgrade (Stripe Invoice Preview)
+  async simularUpgrade(dto: SimularUpgradeRequestDTO): Promise<SimularUpgradeApiResponse> {
+    await new Promise((r) => setTimeout(r, 220));
+    const store = this.loadData();
+    const planIdActual = store.plan_id ?? 2;
+    const planOrigen = planIdActual === 1 ? 'Starter' : planIdActual === 2 ? 'Pro' : 'Enterprise';
+    const planDestino = dto.nuevo_plan_id === 3 ? 'Enterprise' : 'Pro';
+
+    const esAnual = dto.periodicidad === 'anual';
+    const precioOrigen = esAnual ? (planIdActual === 1 ? 990 : 2490) : (planIdActual === 1 ? 99 : 249);
+    const precioDestino = esAnual ? (dto.nuevo_plan_id === 3 ? 4990 : 2490) : (dto.nuevo_plan_id === 3 ? 499 : 249);
+
+    const diasRestantes = 15;
+    const diasTotales = 30;
+    const factorDias = diasRestantes / diasTotales;
+
+    // Prorrateo Stripe canónico
+    const creditoActual = Math.round(precioOrigen * factorDias * 100) / 100;
+    const costoProporcional = Math.round(precioDestino * factorDias * 100) / 100;
+    const netoAPagar = Math.max(0, Math.round((costoProporcional - creditoActual) * 100) / 100);
+
+    return {
+      exito: true,
+      datos: {
+        plan_origen: planOrigen,
+        plan_destino: planDestino,
+        dias_restantes_ciclo: diasRestantes,
+        dias_totales_ciclo: diasTotales,
+        fecha_proximo_ciclo: '2026-11-01T23:59:59Z',
+        credito_plan_actual: creditoActual,
+        costo_nuevo_plan_proporcional: costoProporcional,
+        monto_neto_a_pagar_hoy: netoAPagar,
+        moneda: 'PEN',
+        nuevo_monto_recurrente: precioDestino,
+        metodo_pago_defecto: store.metodo_pago,
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+      },
+    };
+  }
+
+  // 7. Ejecutar Upgrade Inmediato
+  async ejecutarUpgrade(dto: EjecutarUpgradeRequestDTO): Promise<EjecutarUpgradeApiResponse> {
+    await new Promise((r) => setTimeout(r, 450));
+    const store = this.loadData();
+
+    // Actualizar plan activo
+    store.plan_id = dto.nuevo_plan_id;
+    store.periodicidad = dto.periodicidad;
+    // Si tenía downgrade programado, se cancela al hacer upgrade
+    store.proximo_plan_id = null;
+    store.config_downgrade = null;
+    store.recursos_conciliados = false;
+    store.stripe_schedule_id = null;
+
+    const planNombre = dto.nuevo_plan_id === 3 ? 'Enterprise' : 'Pro';
+    const montoCobrado = dto.nuevo_plan_id === 3 ? 125.00 : 75.00;
+    const pagoId = 'p1a2b3c4-upgrade-' + Date.now().toString(36);
+    const numFactura = `F-100${Math.floor(500 + Math.random() * 400)}`;
+
+    const nuevaFactura: FacturaSuscripcionDTO = {
+      id: pagoId,
+      numero_comprobante: numFactura,
+      fecha: new Date().toISOString(),
+      monto: montoCobrado,
+      moneda: 'PEN',
+      estado: 'exitoso',
+      origen_pago: 'stripe',
+      stripe_payment_id: 'py_upgrade_' + Math.random().toString(36).substring(2, 9),
+      descripcion: `Upgrade Inmediato a Plan ${planNombre} — Cargo Prorrateado (15 días)`,
+    };
+
+    store.historial_pagos.unshift(nuevaFactura);
+    this.saveData(store);
+
+    return {
+      exito: true,
+      datos: {
+        suscripcion_id: '00000000-0000-4000-8000-000000000001',
+        plan_id: dto.nuevo_plan_id,
+        plan_nombre: planNombre,
+        estado: 'activa',
+        comprobante_pago: {
+          pago_id: pagoId,
+          numero_factura: numFactura,
+          monto_cobrado: montoCobrado,
+          moneda: 'PEN',
+          url_recibo_pdf: `/api/v1/propietario/suscripcion/facturas/${pagoId}/descargar`,
+          descripcion: `Upgrade a Plan ${planNombre} (Prorrateo)`,
+        },
+        modulos_activados: [
+          'asistente_conversacional_ia',
+          'prediccion_diaria_demanda',
+          'reportes_auditoria_bi',
+          'capacidad_multisede_10_locales',
+        ],
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+      },
+    };
+  }
+
+  // 8. Previsualizar Árbol de Recursos para Conciliación de Downgrade
+  async getRecursosConciliacion(nuevoPlanId: number): Promise<RecursosConciliacionApiResponse> {
+    await new Promise((r) => setTimeout(r, 200));
+
+    // Datos canónicos sincronizados con 07_seed_local_aurea_completo.sql
+    const arbolLocales = [
+      {
+        id: '00000000-0000-4000-8000-000000000010',
+        nombre: 'Sede Principal - Miraflores',
+        slug: 'aurea-miraflores',
+        es_casa_matriz: true,
+        pisos: [
+          {
+            id: '00000000-0000-4000-8000-000000000301',
+            nombre: 'Salón Principal (Piso 1)',
+            mesas: [
+              { id: 'mes-0001', etiqueta: 'Mesa 01', capacidad: 4, forma: 'cuadrada', estado_actual: 'activa' },
+              { id: 'mes-0002', etiqueta: 'Mesa 02', capacidad: 4, forma: 'cuadrada', estado_actual: 'activa' },
+              { id: 'mes-0003', etiqueta: 'Mesa 03', capacidad: 4, forma: 'cuadrada', estado_actual: 'activa' },
+              { id: 'mes-0004', etiqueta: 'Mesa 04', capacidad: 6, forma: 'rectangular', estado_actual: 'activa' },
+              { id: 'mes-0005', etiqueta: 'Mesa 05', capacidad: 4, forma: 'redonda', estado_actual: 'activa' },
+              { id: 'mes-0006', etiqueta: 'Mesa 06', capacidad: 2, forma: 'cuadrada', estado_actual: 'activa' },
+              { id: 'mes-0007', etiqueta: 'Mesa 07', capacidad: 2, forma: 'cuadrada', estado_actual: 'activa' },
+              { id: 'mes-0008', etiqueta: 'Mesa 08', capacidad: 4, forma: 'cuadrada', estado_actual: 'activa' },
+              { id: 'mes-0009', etiqueta: 'Mesa 09', capacidad: 4, forma: 'cuadrada', estado_actual: 'activa' },
+              { id: 'mes-0010', etiqueta: 'Mesa 10', capacidad: 4, forma: 'cuadrada', estado_actual: 'activa' },
+              { id: 'mes-0011', etiqueta: 'Mesa 11', capacidad: 6, forma: 'rectangular', estado_actual: 'activa' },
+              { id: 'mes-0012', etiqueta: 'Mesa 12', capacidad: 4, forma: 'cuadrada', estado_actual: 'activa' },
+            ],
+          },
+          {
+            id: '00000000-0000-4000-8000-000000000302',
+            nombre: 'Terraza VIP (Piso 2)',
+            mesas: [
+              { id: 'mes-0021', etiqueta: 'Terraza 01', capacidad: 4, forma: 'cuadrada', estado_actual: 'activa' },
+              { id: 'mes-0022', etiqueta: 'Terraza 02', capacidad: 4, forma: 'cuadrada', estado_actual: 'activa' },
+              { id: 'mes-0023', etiqueta: 'Terraza 03', capacidad: 4, forma: 'cuadrada', estado_actual: 'activa' },
+              { id: 'mes-0024', etiqueta: 'Terraza 04', capacidad: 4, forma: 'cuadrada', estado_actual: 'activa' },
+              { id: 'mes-0025', etiqueta: 'Terraza 05', capacidad: 6, forma: 'rectangular', estado_actual: 'activa' },
+              { id: 'mes-0026', etiqueta: 'Terraza 06', capacidad: 2, forma: 'cuadrada', estado_actual: 'activa' },
+            ],
+          },
+        ],
+      },
+      {
+        id: '00000000-0000-4000-8000-000000000020',
+        nombre: 'Sucursal San Isidro',
+        slug: 'aurea-san-isidro',
+        es_casa_matriz: false,
+        pisos: [
+          {
+            id: '00000000-0000-4000-8000-000000000303',
+            nombre: 'Planta Baja',
+            mesas: [
+              { id: 'mes-si-01', etiqueta: 'Mesa SI-01', capacidad: 4, forma: 'cuadrada', estado_actual: 'activa' },
+              { id: 'mes-si-02', etiqueta: 'Mesa SI-02', capacidad: 4, forma: 'cuadrada', estado_actual: 'activa' },
+              { id: 'mes-si-03', etiqueta: 'Mesa SI-03', capacidad: 2, forma: 'cuadrada', estado_actual: 'activa' },
+              { id: 'mes-si-04', etiqueta: 'Mesa SI-04', capacidad: 4, forma: 'cuadrada', estado_actual: 'activa' },
+              { id: 'mes-si-05', etiqueta: 'Mesa SI-05', capacidad: 4, forma: 'cuadrada', estado_actual: 'activa' },
+              { id: 'mes-si-06', etiqueta: 'Mesa SI-06', capacidad: 6, forma: 'rectangular', estado_actual: 'activa' },
+              { id: 'mes-si-07', etiqueta: 'Mesa SI-07', capacidad: 4, forma: 'cuadrada', estado_actual: 'activa' },
+              { id: 'mes-si-08', etiqueta: 'Mesa SI-08', capacidad: 4, forma: 'cuadrada', estado_actual: 'activa' },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const usuariosStaff = [
+      {
+        id: 'usr-prop-01',
+        nombre: 'Rodrigo De Las Casas',
+        email: 'rodrigo@aurea.local',
+        rol: 'propietario',
+        protegido: true,
+      },
+      {
+        id: 'usr-adm-01',
+        nombre: 'Carlos Mendoza',
+        email: 'admin@aurea.local',
+        rol: 'admin_local',
+        protegido: false,
+        local_asignado: 'Miraflores',
+      },
+      {
+        id: 'usr-adm-02',
+        nombre: 'Elena Ramos',
+        email: 'elena.ramos@aurea.local',
+        rol: 'admin_local',
+        protegido: false,
+        local_asignado: 'San Isidro',
+      },
+      {
+        id: 'usr-moz-01',
+        nombre: 'Mateo Silva',
+        email: 'mozo1@aurea.local',
+        rol: 'mozo',
+        protegido: false,
+        local_asignado: 'Miraflores',
+      },
+      {
+        id: 'usr-coc-01',
+        nombre: 'Chef Javier Peña',
+        email: 'cocina@aurea.local',
+        rol: 'cocina',
+        protegido: false,
+        local_asignado: 'Miraflores',
+      },
+      {
+        id: 'usr-caj-01',
+        nombre: 'Valeria Solís',
+        email: 'cajero@aurea.local',
+        rol: 'cajero',
+        protegido: false,
+        local_asignado: 'Miraflores',
+      },
+      {
+        id: 'usr-caj-02',
+        nombre: 'Lucía Flores',
+        email: 'lucia.flores@aurea.local',
+        rol: 'cajero',
+        protegido: false,
+        local_asignado: 'San Isidro',
+      },
+      {
+        id: 'usr-coc-02',
+        nombre: 'Rosa Morales',
+        email: 'rosa.morales@aurea.local',
+        rol: 'cocina',
+        protegido: false,
+        local_asignado: 'San Isidro',
+      },
+    ];
+
+    const limites = nuevoPlanId === 1
+      ? { max_locales: 1, max_pisos: 1, max_mesas: 25, max_usuarios: 5 }
+      : { max_locales: 3, max_pisos: 2, max_mesas: 30, max_usuarios: 15 };
+
+    return {
+      exito: true,
+      datos: {
+        nuevo_plan: {
+          id: nuevoPlanId,
+          nombre: nuevoPlanId === 1 ? 'Starter' : 'Pro',
+          limites,
+        },
+        arbol_locales: arbolLocales,
+        usuarios_staff: usuariosStaff,
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+      },
+    };
+  }
+
+  // 9. Programar Downgrade con Conciliación de Recursos
+  async programarDowngrade(dto: ProgramarDowngradeRequestDTO): Promise<ProgramarDowngradeApiResponse> {
+    await new Promise((r) => setTimeout(r, 380));
+    const store = this.loadData();
+
+    store.proximo_plan_id = dto.nuevo_plan_id;
+    store.config_downgrade = dto.config_downgrade;
+    store.recursos_conciliados = true;
+    store.stripe_schedule_id = 'sub_sched_' + Math.random().toString(36).substring(2, 9);
+
+    this.saveData(store);
+
+    const planActualNombre = store.plan_id === 3 ? 'Enterprise' : 'Pro';
+    const nuevoPlanNombre = dto.nuevo_plan_id === 1 ? 'Starter' : 'Pro';
+
+    return {
+      exito: true,
+      datos: {
+        programado: true,
+        plan_actual: planActualNombre,
+        proximo_plan: nuevoPlanNombre,
+        fecha_efectiva: '2026-11-01T23:59:59Z',
+        recursos_conciliados: true,
+        resumen_desactivacion_programada: {
+          locales_a_inactivar: 1,
+          pisos_a_inactivar: 2,
+          mesas_a_inactivar: 16,
+          usuarios_a_inactivar: 3,
+        },
+        aviso: `Tu plan actual ${planActualNombre} seguirá funcionando sin limitaciones hasta el 01/Nov/2026. A partir de esa fecha se aplicará la tarifa ${nuevoPlanNombre} (S/ 99.00/mes).`,
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+      },
+    };
+  }
+
+  // 10. Cancelar Downgrade Programado
+  async cancelarDowngrade(): Promise<CancelarDowngradeApiResponse> {
+    await new Promise((r) => setTimeout(r, 250));
+    const store = this.loadData();
+
+    store.proximo_plan_id = null;
+    store.config_downgrade = null;
+    store.recursos_conciliados = false;
+    store.stripe_schedule_id = null;
+
+    this.saveData(store);
+
+    const planActualNombre = store.plan_id === 3 ? 'Enterprise' : 'Pro';
+    const tarifa = store.plan_id === 3 ? 499.00 : 249.00;
+
+    return {
+      exito: true,
+      datos: {
+        cancelado: true,
+        plan_activo: planActualNombre,
+        tarifa_mensual: tarifa,
+        proximo_cobro: '2026-11-01T23:59:59Z',
+        mensaje: `Se canceló la programación de downgrade. Tu Plan ${planActualNombre} continúa activo indefinidamente.`,
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+      },
+    };
+  }
+
+  // Métodos Sandbox QA para CU-PROP-03
+  simularDowngradeProgramado(): void {
+    const store = this.loadData();
+    store.proximo_plan_id = 1;
+    store.recursos_conciliados = true;
+    store.config_downgrade = {
+      local_id_activo: '00000000-0000-4000-8000-000000000010',
+      piso_id_activo: '00000000-0000-4000-8000-000000000301',
+      mesas_ids_activas: ['mes-0001', 'mes-0002', 'mes-0003', 'mes-0004', 'mes-0005', 'mes-0006', 'mes-0007', 'mes-0008', 'mes-0009', 'mes-0010'],
+      usuarios_ids_activos: ['usr-prop-01', 'usr-adm-01', 'usr-moz-01'],
+    };
+    store.stripe_schedule_id = 'sub_sched_demo_qa';
+    this.saveData(store);
+  }
+
+  simularUpgradeEnterprise(): void {
+    const store = this.loadData();
+    store.plan_id = 3;
+    store.proximo_plan_id = null;
+    store.config_downgrade = null;
+    store.recursos_conciliados = false;
     this.saveData(store);
   }
 

@@ -63,6 +63,15 @@ export const PlanActualCard: React.FC<PlanActualCardProps> = ({
               </span>
               <span className="text-sm font-medium text-slate-500">/ mes (facturación recurrente)</span>
             </div>
+
+            {plan.proximo_plan && (
+              <div className="mt-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-amber-700 shrink-0" />
+                <span>
+                  Downgrade programado a <strong>Plan {plan.proximo_plan.nombre}</strong> a partir del <strong>01/Nov/2026</strong>.
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col sm:items-end gap-2">

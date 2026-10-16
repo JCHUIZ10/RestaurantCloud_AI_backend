@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   SuscripcionDashboardDTO,
   MetodoPagoDTO,
@@ -12,9 +13,11 @@ import { HistorialFacturasTabla } from '../components/suscripcion/HistorialFactu
 import { ModalActualizarTarjeta } from '../components/suscripcion/ModalActualizarTarjeta';
 import { ModalCambiarPlanPreview } from '../components/suscripcion/ModalCambiarPlanPreview';
 import { DemoSuscripcionWidget } from '../components/suscripcion/DemoSuscripcionWidget';
+import { ROUTES } from '@/router/routes.constants';
 import { Loader2, CheckCircle2, AlertCircle, X, Info } from 'lucide-react';
 
 export const PropietarioSuscripcionPage: React.FC = () => {
+  const navigate = useNavigate();
   const [dashboard, setDashboard] = useState<SuscripcionDashboardDTO | null>(null);
   const [cargando, setCargando] = useState(true);
 
@@ -156,7 +159,7 @@ export const PropietarioSuscripcionPage: React.FC = () => {
         estadoSuscripcion={dashboard.suscripcion_estado}
         estadoCobro={dashboard.estado_cobro}
         onAbrirActualizarTarjeta={() => setModalTarjetaAbierto(true)}
-        onAbrirCambiarPlan={() => setModalPlanAbierto(true)}
+        onAbrirCambiarPlan={() => navigate(ROUTES.PROPIETARIO_CAMBIAR_PLAN)}
       />
 
       {/* 2. Banner de Dunning / Periodo de Gracia / Suspensión */}
@@ -172,7 +175,7 @@ export const PropietarioSuscripcionPage: React.FC = () => {
           <PlanActualCard
             plan={dashboard.plan}
             usoRecursos={dashboard.uso_recursos}
-            onCambiarPlan={() => setModalPlanAbierto(true)}
+            onCambiarPlan={() => navigate(ROUTES.PROPIETARIO_CAMBIAR_PLAN)}
           />
         </div>
 

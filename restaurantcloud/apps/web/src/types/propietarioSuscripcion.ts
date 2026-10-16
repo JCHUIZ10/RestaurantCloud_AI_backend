@@ -29,6 +29,12 @@ export interface PlanSuscripcionDTO {
   precio_anual: number;
   periodicidad: 'mensual' | 'anual';
   proximo_cobro: string;
+  proximo_plan?: {
+    id: number;
+    nombre: string;
+    precio_mensual: number;
+    fecha_efectiva: string;
+  } | null;
 }
 
 export interface MetodoPagoDTO {
