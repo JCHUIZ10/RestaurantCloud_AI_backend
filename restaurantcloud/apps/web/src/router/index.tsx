@@ -38,6 +38,8 @@ import { PropietarioSuscripcionPage } from '@/modules/propietario/pages/Propieta
 import { PropietarioCambiarPlanPage } from '@/modules/propietario/pages/PropietarioCambiarPlanPage';
 import { CajeroPosPage } from '@/modules/caja/pages/CajeroPosPage';
 import { CajeroTurnoCierrePage } from '@/modules/caja/pages/CajeroTurnoCierrePage';
+import { SaasTenantsPage } from '@/modules/saas/pages/SaasTenantsPage';
+import { SaasTenantOnboardingPage } from '@/modules/saas/pages/SaasTenantOnboardingPage';
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
@@ -352,18 +354,11 @@ export const router = createBrowserRouter([
     children: [
       {
         path: 'tenants',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-SAAS-01"
-            nombrePantalla="Supervisión Global de Tenants & Empresas"
-            rol="saas_admin"
-            layoutNombre="DashboardLayout"
-            descripcion="Consola central de supervisión: base instalada de restaurantes, estado de períodos de gracia (dunning) de Stripe y alta manual corporativa B2B."
-            enlacesRelacionados={[
-              { label: 'Catálogo de Planes Globales', to: ROUTES.SAAS_PLANES },
-            ]}
-          />
-        ),
+        element: <SaasTenantsPage />,
+      },
+      {
+        path: 'tenants/nuevo',
+        element: <SaasTenantOnboardingPage />,
       },
       {
         path: 'planes',

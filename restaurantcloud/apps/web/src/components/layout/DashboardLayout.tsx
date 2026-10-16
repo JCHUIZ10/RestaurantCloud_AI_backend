@@ -33,7 +33,13 @@ export const DashboardLayout: React.FC = () => {
   const [sedeActiva] = useState('Miraflores (Principal)');
   const location = useLocation();
 
+  const isSaas = location.pathname.startsWith('/saas');
   const isPropietario = location.pathname.startsWith('/propietario');
+
+  const linksSaas = [
+    { label: 'Supervisión Tenants', href: ROUTES.SAAS_TENANTS, icon: Building2 },
+    { label: 'Catálogo de Planes', href: ROUTES.SAAS_PLANES, icon: CreditCard },
+  ];
 
   const linksPropietario = [
     { label: 'Resumen General', href: ROUTES.PROPIETARIO_DASHBOARD, icon: TrendingUp },
@@ -63,7 +69,7 @@ export const DashboardLayout: React.FC = () => {
     { label: 'Flujo de Caja & Cierres Z', href: ROUTES.ADMIN_FLUJO_CAJA, icon: CreditCard },
   ];
 
-  const currentLinks = isPropietario ? linksPropietario : linksAdmin;
+  const currentLinks = isSaas ? linksSaas : isPropietario ? linksPropietario : linksAdmin;
 
   return (
     <div className="min-h-screen flex bg-aurea-ivory text-aurea-navy">
@@ -80,7 +86,7 @@ export const DashboardLayout: React.FC = () => {
                 RestaurantCloud
               </span>
               <span className="text-[10px] text-aurea-copper font-mono uppercase tracking-wider">
-                {isPropietario ? 'Consola Propietario' : 'Admin de Local'}
+                {isSaas ? 'Consola Admin SaaS' : isPropietario ? 'Consola Propietario' : 'Admin de Local'}
               </span>
             </div>
           </Link>
@@ -111,22 +117,30 @@ export const DashboardLayout: React.FC = () => {
         {/* Pie del Sidebar: Switcher a otras áreas y Cerrar sesión */}
         <div className="p-4 border-t border-white/10 space-y-2">
           <div className="text-[11px] text-white/50 px-2">Cambiar de Entorno:</div>
-          <div className="flex gap-2">
+          <div className="flex gap-1.5">
+            <Link
+              to={ROUTES.SAAS_TENANTS}
+              className={`flex-1 text-center py-1.5 px-1.5 rounded-lg text-[11px] font-semibold ${
+                isSaas ? 'bg-white/20 text-white' : 'bg-white/5 text-white/70 hover:bg-white/10'
+              }`}
+            >
+              SaaS
+            </Link>
             <Link
               to={ROUTES.PROPIETARIO_DASHBOARD}
-              className={`flex-1 text-center py-1.5 px-2 rounded-lg text-xs font-semibold ${
+              className={`flex-1 text-center py-1.5 px-1.5 rounded-lg text-[11px] font-semibold ${
                 isPropietario ? 'bg-white/20 text-white' : 'bg-white/5 text-white/70 hover:bg-white/10'
               }`}
             >
-              Propietario
+              Dueño
             </Link>
             <Link
               to={ROUTES.ADMIN_DASHBOARD}
-              className={`flex-1 text-center py-1.5 px-2 rounded-lg text-xs font-semibold ${
-                !isPropietario ? 'bg-white/20 text-white' : 'bg-white/5 text-white/70 hover:bg-white/10'
+              className={`flex-1 text-center py-1.5 px-1.5 rounded-lg text-[11px] font-semibold ${
+                !isPropietario && !isSaas ? 'bg-white/20 text-white' : 'bg-white/5 text-white/70 hover:bg-white/10'
               }`}
             >
-              Admin Sede
+              Sede
             </Link>
           </div>
 
@@ -153,13 +167,20 @@ export const DashboardLayout: React.FC = () => {
               <Menu className="w-6 h-6" />
             </button>
 
-            {/* Selector de Sede Activa (Multi-Tenant Local Switcher) */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-aurea-ivory border border-aurea-copper/30 text-xs sm:text-sm">
-              <MapPin className="w-4 h-4 text-aurea-copper shrink-0" />
-              <span className="text-aurea-navy/60 hidden sm:inline">Sede activa:</span>
-              <span className="font-semibold text-aurea-navy">{sedeActiva}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-aurea-copper cursor-pointer" />
-            </div>
+            {/* Selector de Sede o Consola Global SaaS */}
+            {isSaas ? (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-aurea-navy text-white text-xs sm:text-sm font-semibold border border-aurea-copper/40 shadow-sm">
+                <Building2 className="w-4 h-4 text-aurea-copper shrink-0" />
+                <span>Supervisión Global SaaS (Bypass RLS)</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-aurea-ivory border border-aurea-copper/30 text-xs sm:text-sm">
+                <MapPin className="w-4 h-4 text-aurea-copper shrink-0" />
+                <span className="text-aurea-navy/60 hidden sm:inline">Sede activa:</span>
+                <span className="font-semibold text-aurea-navy">{sedeActiva}</span>
+                <ChevronDown className="w-3.5 h-3.5 text-aurea-copper cursor-pointer" />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -183,7 +204,7 @@ export const DashboardLayout: React.FC = () => {
 
             {/* Avatar del usuario */}
             <div className="w-9 h-9 rounded-full bg-aurea-champagne flex items-center justify-center font-bold text-sm text-aurea-navy border border-aurea-copper/50">
-              AD
+              {isSaas ? 'SA' : isPropietario ? 'PR' : 'AD'}
             </div>
           </div>
         </header>

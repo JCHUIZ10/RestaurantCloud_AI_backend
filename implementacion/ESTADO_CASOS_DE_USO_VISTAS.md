@@ -20,7 +20,7 @@
 | **Caja & Cobranza** | 5 | 0 | 5 | 0% |
 | **Administración Local** | 16 | 4 | 12 | **25%** |
 | **Propietario / Tenant** | 6 | 4 | 2 | **67%** |
-| **SuperAdmin SaaS** | 3 | 0 | 3 | 0% |
+| **SuperAdmin SaaS** | 3 | 1 | 2 | **33%** |
 
 ---
 
@@ -459,6 +459,33 @@
 - **Estado de Build:** ✅ Compilado y probado en producción con 0 errores (`npm run build`).
 
 ---
+
+### 2.10 `CU-SAAS-01`: Supervisar Empresas Registradas, Activaciones y Renovaciones de Suscripción (Consola Global Admin SaaS)
+- **Rutas Activas:**
+  - `/saas/tenants` ([`DashboardLayout.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/DashboardLayout.tsx)): Bandeja general de supervisión, KPIs y filtrado.
+  - `/saas/tenants/nuevo` ([`DashboardLayout.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/components/layout/DashboardLayout.tsx)): Página dedicada de **Onboarding Corporativo B2B** (`max-w-7xl`, layout 2 columnas maestro-detalle 8 cols / 4 cols sticky) según `GUIA_DISENO_VISTAS_RESPONSIVE_DTO.md`.
+- **Componentes Creados:**
+  - [`SaasTenantsPage.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/saas/pages/SaasTenantsPage.tsx): Orquestador principal de la consola de supervisión global de tenants que gestiona los 5 estados UX (Loading, Loaded, Empty State, Error de red, Conflicto) y apertura automática de expediente vía query params (`?expediente=`).
+  - [`SaasTenantOnboardingPage.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/saas/pages/SaasTenantOnboardingPage.tsx): Orquestador de la página de alta B2B en 4 pasos guiados + pantalla de éxito, soporte de resiliencia F5 (`sessionStorage`), recálculo automático de bonificación anual y soporte de prellenado QA (`?demo=true`).
+  - [`OnboardingStepper.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/saas/components/onboarding/OnboardingStepper.tsx): Barra de progreso dual (horizontal con iconos para desktop/tablet y barra compacta de progreso con texto para smartphones).
+  - [`Paso1EmpresaRuc.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/saas/components/onboarding/Paso1EmpresaRuc.tsx): Validación sintáctica local **Módulo 11** en tiempo real (cero llamadas a APIs externas), deducción automática de clasificación (RUC 20 Jurídica vs RUC 10 Natural), Razón Social y Sede Principal obligatoria.
+  - [`Paso2TitularPropietario.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/saas/components/onboarding/Paso2TitularPropietario.tsx): Datos de contacto del titular y nota explicativa del capability token efímero de 72h para fijar credenciales.
+  - [`Paso3PlanSaaS.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/saas/components/onboarding/Paso3PlanSaaS.tsx): Selector interactivo de los 3 planes oficiales (Starter S/ 99, Pro S/ 249, Enterprise S/ 499), conmutador mensual/anual con 2 meses gratis y fechas de vigencia.
+  - [`Paso4PagoBancario.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/saas/components/onboarding/Paso4PagoBancario.tsx): Liquidación contable y asentamiento obligatorio en la tabla `pago` de PostgreSQL 16 con validación Poka-Yoke (monto > 0, medio de pago bancario, número de constancia y nota de auditoría).
+  - [`Paso5TenantActivado.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/saas/components/onboarding/Paso5TenantActivado.tsx): Pantalla de confirmación con código de empresa (`EMP-XXXXX`), constancia oficial de liquidación descargable en formato TXT y enlaces directos al expediente y a la bandeja.
+  - [`ResumenExpedienteSticky.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/saas/components/onboarding/ResumenExpedienteSticky.tsx): Tarjeta sticky lateral (`lg:col-span-4`) con resumen en tiempo real del contrato y checklist de salvaguarda de integridad en PostgreSQL 16 (`empresa`, `local`, `suscripcion`, `pago`, `usuario`).
+  - [`KpisSupervisionSaas.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/saas/components/tenants/KpisSupervisionSaas.tsx): 4 tarjetas KPI (Total Empresas, Suscripciones Activas, En Período de Gracia con MRR en riesgo, Sedes Operativas Conectadas) con soporte de skeletons animados.
+  - [`FiltrosTenantsBar.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/saas/components/tenants/FiltrosTenantsBar.tsx): Barra de pestañas con conteo reactivo (`Todos`, `Activos`, `En Gracia`, `Suspendidos`, `Baja`), buscador reactivo con botón de limpieza, selector de plan y botón `[ ➕ Nueva Alta Manual B2B ]` conectado a `ROUTES.SAAS_TENANT_NUEVO`.
+  - [`TenantsTablaDesktop.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/saas/components/tenants/TenantsTablaDesktop.tsx): Grilla de datos densa para escritorio (`>= 1024px`) con badges semánticos, seguimiento de días de gracia (`Día X de 5 de gracia`), fechas relativas de vencimiento y acción `[ 👁️ Expediente ]`.
+  - [`TenantCardMobile.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/saas/components/tenants/TenantCardMobile.tsx): Tarjetas táctiles ergonómicas para smartphones y tablets (`< 1024px`) con touch targets $\ge 44\text{px}$.
+  - [`ModalExpedienteTenant.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/saas/components/tenants/ModalExpedienteTenant.tsx): Modal de auditoría 360° (Vista 2) con 4 bloques canónicos (Identidad, Contrato Stripe, Historial de pagos `pago`, Cuotas vs límites de plan), reenvío de notificación de cobro con capability token y suspensión preventiva.
+  - [`EstadoVacioTenants.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/saas/components/tenants/EstadoVacioTenants.tsx): Vista 4 de estado vacío con escudo de conformidad `🛡️` cuando no hay cobros pendientes en gracia o la búsqueda arroja 0 filas.
+  - [`DemoSaasTenantsWidget.tsx`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/saas/components/tenants/DemoSaasTenantsWidget.tsx): Widget flotante Sandbox QA para alternar en 1 clic: Vaciar gracia (Vista 4), Forzar día 5/5 de gracia, Regularizar El Tenedor Gourmet, Abrir Onboarding con RUC 20603849201 y Restablecer semillas canónicas.
+- **Servicios y DTOs:**
+  - [`mockSaasTenantsService.ts`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/modules/saas/services/mockSaasTenantsService.ts): Motor de datos con persistencia en `localStorage`, validador de Módulo 11, recálculo de métricas y métodos operativos.
+  - [`src/types/saasTenants.ts`](file:///d:/Proyecto/RestaurantCloud_AI_backend/restaurantcloud/apps/web/src/types/saasTenants.ts): DTOs tipados estrictamente según `empresa`, `suscripcion`, `pago`, `plan`, `local` y `usuario` de `02_schema_ddl.sql`. Cero datos inventados.
+- **Responsive:** Adaptación completa a Desktop (`1440x900`), Tablet (`768x1024`) y Mobile (`375x812`), con paleta ÁUREA.
+- **Estado de Build:** ✅ Compilado y verificado con 0 errores TypeScript (`cmd /c npm run build`).
 
 ---
 

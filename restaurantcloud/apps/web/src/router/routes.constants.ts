@@ -59,5 +59,6 @@ export const ROUTES = {
 
   // Consola Global Admin SaaS
   SAAS_TENANTS: '/saas/tenants',
+  SAAS_TENANT_NUEVO: '/saas/tenants/nuevo',
   SAAS_PLANES: '/saas/planes',
 } as const;
