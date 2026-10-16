@@ -270,3 +270,103 @@ export interface ClienteFiscalLookupDTO {
   existe_en_bd: boolean;
   origen: 'bd_local' | 'api_peru';
 }
+
+// ==============================================================================
+// TIPOS OFICIALES PARA CU-CAJA-04: ANULACIÓN DE COMPROBANTE Y NOTA DE CRÉDITO
+// ==============================================================================
+
+export type MotivoNotaCreditoSUNAT = '01' | '02' | '06';
+
+export interface ComprobanteHistorialItemDTO {
+  id: string;
+  tipo_comprobante: 'boleta' | 'factura' | 'nota_venta' | 'nota_credito';
+  serie: string;
+  correlativo: number;
+  serie_numero: string;
+  hora: string;
+  fecha_emision: string;
+  mesa_id?: string;
+  mesa_numero: string;
+  subcuenta_id?: string;
+  subcuenta_numero?: number;
+  comanda_numero: number;
+  cliente_nombre: string;
+  cliente_documento?: string;
+  medio_pago: 'efectivo' | 'tarjeta' | 'billetera_digital';
+  total: number;
+  base_imponible: number;
+  igv: number;
+  estado: 'emitido' | 'anulado';
+  token_digital: string;
+  url_publica_qr: string;
+  telefono_envio?: string;
+  email_envio?: string;
+  // Si fue anulado mediante Nota de Crédito
+  nota_credito_id?: string;
+  nota_credito_serie_numero?: string;
+  motivo_codigo_sunat?: MotivoNotaCreditoSUNAT;
+  sustento_motivo?: string;
+  // Si este registro es una Nota de Crédito
+  comprobante_modificado_id?: string;
+  documento_modificado?: string;
+}
+
+export interface FiltrosHistorialComprobantesDTO {
+  estado: 'vigente' | 'anulado' | 'todos';
+  tipo: 'todos' | 'boleta' | 'factura' | 'nota_venta' | 'nota_credito';
+  q?: string;
+}
+
+export interface PrepararAnulacionResponseDTO {
+  comprobante_id: string;
+  tipo_comprobante_original: 'boleta' | 'factura' | 'nota_venta';
+  serie_original: string;
+  correlativo_original: number;
+  serie_numero_original: string;
+  mesa_numero: string;
+  comanda_numero: number;
+  subcuenta_id?: string;
+  subcuenta_numero?: number;
+  cliente_nombre: string;
+  cliente_numero_doc?: string;
+  medio_pago_codigo: 'efectivo' | 'tarjeta' | 'billetera_digital';
+  total_original: number;
+  base_imponible: number;
+  igv: number;
+  serie_nota_credito_sugerida: string; // 'BC01', 'FC01', 'NVC01'
+  efectivo_gaveta_actual: number;
+  efectivo_gaveta_proyectado: number;
+  telefono_envio?: string;
+  email_envio?: string;
+}
+
+export interface EmitirNotaCreditoRequest {
+  motivo_codigo_sunat: MotivoNotaCreditoSUNAT;
+  sustento_motivo: string;
+  devolucion_metodo: 'efectivo' | 'extorno_tarjeta' | 'transferencia';
+  referencia_extorno?: string;
+  telefono_envio?: string;
+  email_envio?: string;
+}
+
+export interface EmitirNotaCreditoResponseDTO {
+  nota_credito_id: string;
+  tipo_comprobante: 'nota_credito';
+  serie: string;
+  correlativo: number;
+  serie_numero: string; // Ej. 'BC01-0000042'
+  documento_modificado: string; // Ej. 'B001-0012894'
+  comprobante_modificado_id: string;
+  motivo_codigo_sunat: MotivoNotaCreditoSUNAT;
+  sustento_motivo: string;
+  importe_rectificado: number; // Ej. -85.00
+  efectivo_gaveta_nuevo: number;
+  token_digital: string;
+  url_publica_qr: string;
+  mesa_numero: string;
+  subcuenta_numero?: number;
+  telefono_registrado?: string;
+  email_registrado?: string;
+  emitido_at: string;
+}
+

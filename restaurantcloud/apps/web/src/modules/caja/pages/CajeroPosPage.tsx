@@ -21,8 +21,14 @@ import { MonitorCajaPosView } from '../components/MonitorCajaPosView';
 import { ModalCobroFiscalPos } from '../components/ModalCobroFiscalPos';
 import { ModalPrecuentaCompleta } from '@/modules/mozo/components/precuenta/ModalPrecuentaCompleta';
 import { ModalDividirCuenta } from '@/modules/mozo/components/split/ModalDividirCuenta';
+import { ModalHistorialComprobantesPos } from '../components/ModalHistorialComprobantesPos';
+import { ModalEmisionNotaCredito } from '../components/ModalEmisionNotaCredito';
 import { DemoCajaTurnoWidget } from '../components/DemoCajaTurnoWidget';
 import type { DividirCuentaResponseDTO } from '@/types/mozo';
+import type {
+  ComprobanteHistorialItemDTO,
+  EmitirNotaCreditoResponseDTO,
+} from '@/types/caja';
 
 export const CajeroPosPage: React.FC = () => {
   const navigate = useNavigate();
@@ -40,6 +46,10 @@ export const CajeroPosPage: React.FC = () => {
   const [mesaCobroFiscalActiva, setMesaCobroFiscalActiva] = useState<MesaCajaMonitorDTO | null>(null);
   const [subcuentaCobroFiscalActiva, setSubcuentaCobroFiscalActiva] = useState<SubcuentaComandaDTO | null>(null);
   const [precuentaFiscalActiva, setPrecuentaFiscalActiva] = useState<PrecuentaResponseDTO | null>(null);
+
+  // Estados para CU-CAJA-04: Historial de Comprobantes y Anulaciones / Nota de Crédito
+  const [modalHistorialAbierto, setModalHistorialAbierto] = useState<boolean>(false);
+  const [comprobanteParaAnular, setComprobanteParaAnular] = useState<ComprobanteHistorialItemDTO | null>(null);
 
   // Toast de feedback
   const [toast, setToast] = useState<{ tipo: 'success' | 'error' | 'info'; mensaje: string } | null>(null);
@@ -80,6 +90,18 @@ export const CajeroPosPage: React.FC = () => {
   useEffect(() => {
     cargarDatos();
   }, [cargarDatos]);
+
+  // Atajo de teclado global F4 para alternar Historial de Comprobantes (CU-CAJA-04)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F4') {
+        e.preventDefault();
+        setModalHistorialAbierto((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Manejador de Apertura de Turno (Vista 1)
   const handleConfirmarApertura = async (monto: number, notas?: string) => {
@@ -204,6 +226,28 @@ export const CajeroPosPage: React.FC = () => {
         }
       }
       setSubcuentaCobroFiscalActiva(null);
+    }
+  };
+
+  // ============================================================================
+  // Manejadores para CU-CAJA-04: Anulación de Comprobante y Nota de Crédito
+  // ============================================================================
+  const handleAnularComprobanteDesdeHistorial = (comp: ComprobanteHistorialItemDTO) => {
+    setComprobanteParaAnular(comp);
+  };
+
+  const handleNotaCreditoEmitida = async (nc: EmitirNotaCreditoResponseDTO) => {
+    showToast(
+      'success',
+      `Nota de Crédito ${nc.serie_numero} emitida con éxito. Comprobante ${nc.documento_modificado} anulado formalmente.`
+    );
+    await cargarDatos();
+  };
+
+  const handleVerQRDesdeHistorial = (comp: ComprobanteHistorialItemDTO) => {
+    // Si tiene token_digital, abrimos la URL en nueva pestaña o mostramos modal
+    if (comp.url_publica_qr) {
+      window.open(comp.url_publica_qr, '_blank');
     }
   };
 
@@ -333,6 +377,7 @@ export const CajeroPosPage: React.FC = () => {
           onAbrirPrecuenta={handleAbrirPrecuenta}
           onAbrirDividir={handleAbrirDividir}
           onEmitirComprobante={handleAbrirEmitirComprobante}
+          onAbrirHistorialComprobantes={() => setModalHistorialAbierto(true)}
           onProcederCierre={() => {
             showToast('info', 'Redirigiendo a Arqueo y Cierre Z (CU-CAJA-05)...');
             navigate(ROUTES.CAJERO_TURNO);
@@ -401,6 +446,27 @@ export const CajeroPosPage: React.FC = () => {
             setPrecuentaFiscalActiva(null);
           }}
           onComprobanteEmitido={handleComprobanteEmitido}
+        />
+      )}
+
+      {/* MODAL 4: Historial de Comprobantes Emitidos en Turno (CU-CAJA-04 Vista 1) */}
+      {modalHistorialAbierto && turnoActivo && (
+        <ModalHistorialComprobantesPos
+          isOpen={modalHistorialAbierto}
+          onClose={() => setModalHistorialAbierto(false)}
+          turnoActivo={turnoActivo}
+          onAnularComprobante={handleAnularComprobanteDesdeHistorial}
+          onVerQR={handleVerQRDesdeHistorial}
+        />
+      )}
+
+      {/* MODAL 5: Emisión de Nota de Crédito Electrónica SUNAT (CU-CAJA-04 Vista 2 y 3) */}
+      {comprobanteParaAnular && (
+        <ModalEmisionNotaCredito
+          isOpen={Boolean(comprobanteParaAnular)}
+          comprobanteId={comprobanteParaAnular.id}
+          onClose={() => setComprobanteParaAnular(null)}
+          onNotaCreditoEmitida={handleNotaCreditoEmitida}
         />
       )}
 

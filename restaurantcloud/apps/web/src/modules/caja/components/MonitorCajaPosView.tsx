@@ -11,6 +11,7 @@ import {
   Coffee,
   FileText,
   Split,
+  Receipt,
 } from 'lucide-react';
 import {
   CajaTurnoDTO,
@@ -26,6 +27,7 @@ interface MonitorCajaPosViewProps {
   onAbrirDividir: (mesa: MesaCajaMonitorDTO) => void;
   onEmitirComprobante: (mesa: MesaCajaMonitorDTO) => void;
   onProcederCierre: () => void;
+  onAbrirHistorialComprobantes?: () => void;
 }
 
 export const MonitorCajaPosView: React.FC<MonitorCajaPosViewProps> = ({
@@ -36,6 +38,7 @@ export const MonitorCajaPosView: React.FC<MonitorCajaPosViewProps> = ({
   onAbrirDividir,
   onEmitirComprobante,
   onProcederCierre,
+  onAbrirHistorialComprobantes,
 }) => {
   const [filtroEstado, setFiltroEstado] = useState<'todas' | 'cuenta_pedida' | 'ocupada' | 'libre'>('todas');
   const [filtroAmbiente, setFiltroAmbiente] = useState<string>('todos');
@@ -103,6 +106,18 @@ export const MonitorCajaPosView: React.FC<MonitorCajaPosViewProps> = ({
               S/ {(turnoActivo.efectivo_actual || turnoActivo.monto_apertura).toFixed(2)}
             </span>
           </div>
+
+          {onAbrirHistorialComprobantes && (
+            <button
+              type="button"
+              onClick={onAbrirHistorialComprobantes}
+              className="px-4 py-2.5 rounded-2xl border border-slate-300 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 transition-colors flex items-center gap-2 shadow-xs"
+              title="Historial de comprobantes emitidos y Notas de Crédito (F4)"
+            >
+              <Receipt className="w-3.5 h-3.5 text-amber-500" />
+              <span>Comprobantes (F4)</span>
+            </button>
+          )}
 
           <button
             type="button"

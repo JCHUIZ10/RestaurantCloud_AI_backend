@@ -247,7 +247,8 @@ INSERT INTO comprobante_serie (id, local_id, tipo_comprobante, serie, correlativ
 ('00000000-0000-4000-8000-000000000511','00000000-0000-4000-8000-000000000010','boleta','B001',1289,true),
 ('00000000-0000-4000-8000-000000000512','00000000-0000-4000-8000-000000000010','factura','F001',452,true),
 ('00000000-0000-4000-8000-000000000513','00000000-0000-4000-8000-000000000010','nota_venta','NV01',91,true),
-('00000000-0000-4000-8000-000000000514','00000000-0000-4000-8000-000000000010','nota_credito','BC01',12,true)
+('00000000-0000-4000-8000-000000000514','00000000-0000-4000-8000-000000000010','nota_credito','BC01',12,true),
+('00000000-0000-4000-8000-000000000515','00000000-0000-4000-8000-000000000010','nota_credito','FC01',3,true)
 ON CONFLICT (id) DO UPDATE SET correlativo_actual = EXCLUDED.correlativo_actual, activo = EXCLUDED.activo, updated_at = NOW();
 
 INSERT INTO cliente (id, empresa_id, tipo_documento, numero_documento, nombre_identificativo, telefono, email, detalle) VALUES

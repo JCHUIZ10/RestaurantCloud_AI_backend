@@ -17,6 +17,11 @@ import {
   ProcesarCobroFiscalRequest,
   ProcesarCobroFiscalResponseDTO,
   ClienteFiscalLookupDTO,
+  ComprobanteHistorialItemDTO,
+  FiltrosHistorialComprobantesDTO,
+  PrepararAnulacionResponseDTO,
+  EmitirNotaCreditoRequest,
+  EmitirNotaCreditoResponseDTO,
 } from '@/types/caja';
 import { CANONICAL_LOCAL_ID, CANONICAL_LOCAL_NOMBRE } from '@/shared/constants/canonical';
 
@@ -238,9 +243,173 @@ class MockCajaService {
   private correlativoBoleta: number = 12894;
   private correlativoFactura: number = 4521;
   private correlativoNotaVenta: number = 8412;
+  private correlativoNotaCreditoBoleta: number = 41;
+  private correlativoNotaCreditoFactura: number = 14;
   private mesas: MesaCajaMonitorDTO[] = JSON.parse(JSON.stringify(SEMILLAS_MESAS_CAJA));
   private promocionesPorMesa: Record<string, string | null> = {};
   private subcuentasPorMesa: Record<string, SubcuentaComandaDTO[]> = {};
+  private comprobantesTurno: ComprobanteHistorialItemDTO[] = [
+    {
+      id: 'comp-12894',
+      tipo_comprobante: 'boleta',
+      serie: 'B001',
+      correlativo: 12894,
+      serie_numero: 'B001-0012894',
+      hora: '18:35:12',
+      fecha_emision: new Date(Date.now() - 1200000).toISOString(),
+      mesa_id: 'm-caja-004',
+      mesa_numero: '04',
+      comanda_numero: 108,
+      cliente_nombre: 'CARLOS MENDOZA QUISPE',
+      cliente_documento: '72819201',
+      medio_pago: 'efectivo',
+      total: 85.0,
+      base_imponible: 72.03,
+      igv: 12.97,
+      estado: 'emitido',
+      token_digital: '0192d2f8-b3a1-7c9e-9102-120938475610',
+      url_publica_qr: 'https://app.restaurantcloud.pe/c/0192d2f8-b3a1-7c9e-9102-120938475610',
+      telefono_envio: '+51 987 654 321',
+      email_envio: 'carlos.mendoza@gmail.com',
+    },
+    {
+      id: 'comp-4520',
+      tipo_comprobante: 'factura',
+      serie: 'F001',
+      correlativo: 4520,
+      serie_numero: 'F001-0004520',
+      hora: '18:14:05',
+      fecha_emision: new Date(Date.now() - 3600000).toISOString(),
+      mesa_id: 'm-caja-007',
+      mesa_numero: '07',
+      subcuenta_id: 'sub-4520',
+      subcuenta_numero: 1,
+      comanda_numero: 106,
+      cliente_nombre: 'INVERSIONES GASTRONÓMICAS S.A.C.',
+      cliente_documento: '20601234567',
+      medio_pago: 'tarjeta',
+      total: 245.0,
+      base_imponible: 207.63,
+      igv: 37.37,
+      estado: 'emitido',
+      token_digital: '0192d2f8-b3a1-7c9e-9102-120938475611',
+      url_publica_qr: 'https://app.restaurantcloud.pe/c/0192d2f8-b3a1-7c9e-9102-120938475611',
+      telefono_envio: '+51 999 888 777',
+      email_envio: 'contabilidad@inversionesgastro.pe',
+    },
+    {
+      id: 'comp-12893',
+      tipo_comprobante: 'boleta',
+      serie: 'B001',
+      correlativo: 12893,
+      serie_numero: 'B001-0012893',
+      hora: '17:50:33',
+      fecha_emision: new Date(Date.now() - 5400000).toISOString(),
+      mesa_id: 'm-caja-002',
+      mesa_numero: '02',
+      comanda_numero: 105,
+      cliente_nombre: 'MARÍA FERNANDA ROJAS',
+      cliente_documento: '45892301',
+      medio_pago: 'billetera_digital',
+      total: 54.0,
+      base_imponible: 45.76,
+      igv: 8.24,
+      estado: 'emitido',
+      token_digital: '0192d2f8-b3a1-7c9e-9102-120938475612',
+      url_publica_qr: 'https://app.restaurantcloud.pe/c/0192d2f8-b3a1-7c9e-9102-120938475612',
+    },
+    {
+      id: 'comp-12890',
+      tipo_comprobante: 'boleta',
+      serie: 'B001',
+      correlativo: 12890,
+      serie_numero: 'B001-0012890',
+      hora: '16:42:10',
+      fecha_emision: new Date(Date.now() - 7200000).toISOString(),
+      mesa_id: 'm-caja-001',
+      mesa_numero: '01',
+      comanda_numero: 99,
+      cliente_nombre: 'JORGE ALBERTO SÁNCHEZ',
+      cliente_documento: '10293847',
+      medio_pago: 'efectivo',
+      total: 45.0,
+      base_imponible: 38.14,
+      igv: 6.86,
+      estado: 'anulado',
+      token_digital: '0192d2f8-b3a1-7c9e-9102-120938475613',
+      url_publica_qr: 'https://app.restaurantcloud.pe/c/0192d2f8-b3a1-7c9e-9102-120938475613',
+      nota_credito_id: 'nc-41',
+      nota_credito_serie_numero: 'BC01-0000041',
+      motivo_codigo_sunat: '01',
+      sustento_motivo: 'Comensal solicita cambio a Factura con RUC',
+    },
+    {
+      id: 'nc-41',
+      tipo_comprobante: 'nota_credito',
+      serie: 'BC01',
+      correlativo: 41,
+      serie_numero: 'BC01-0000041',
+      hora: '16:48:22',
+      fecha_emision: new Date(Date.now() - 7000000).toISOString(),
+      mesa_numero: '01',
+      comanda_numero: 99,
+      cliente_nombre: 'JORGE ALBERTO SÁNCHEZ',
+      cliente_documento: '10293847',
+      medio_pago: 'efectivo',
+      total: -45.0,
+      base_imponible: -38.14,
+      igv: -6.86,
+      estado: 'emitido',
+      token_digital: '0192d2f8-b3a1-7c9e-9102-120938475614',
+      url_publica_qr: 'https://app.restaurantcloud.pe/c/0192d2f8-b3a1-7c9e-9102-120938475614',
+      comprobante_modificado_id: 'comp-12890',
+      documento_modificado: 'B001-0012890',
+      motivo_codigo_sunat: '01',
+      sustento_motivo: 'Comensal solicita cambio a Factura con RUC',
+    },
+    {
+      id: 'comp-12889',
+      tipo_comprobante: 'boleta',
+      serie: 'B001',
+      correlativo: 12889,
+      serie_numero: 'B001-0012889',
+      hora: '16:15:00',
+      fecha_emision: new Date(Date.now() - 9000000).toISOString(),
+      mesa_id: 'm-caja-005',
+      mesa_numero: '05',
+      comanda_numero: 97,
+      cliente_nombre: 'LUCÍA PAREDES RAMOS',
+      cliente_documento: '44556677',
+      medio_pago: 'tarjeta',
+      total: 112.0,
+      base_imponible: 94.92,
+      igv: 17.08,
+      estado: 'emitido',
+      token_digital: '0192d2f8-b3a1-7c9e-9102-120938475615',
+      url_publica_qr: 'https://app.restaurantcloud.pe/c/0192d2f8-b3a1-7c9e-9102-120938475615',
+    },
+    {
+      id: 'comp-12888',
+      tipo_comprobante: 'boleta',
+      serie: 'B001',
+      correlativo: 12888,
+      serie_numero: 'B001-0012888',
+      hora: '15:40:20',
+      fecha_emision: new Date(Date.now() - 11000000).toISOString(),
+      mesa_id: 'm-caja-003',
+      mesa_numero: '03',
+      comanda_numero: 95,
+      cliente_nombre: 'ROBERTO GÓMEZ PAZ',
+      cliente_documento: '09887766',
+      medio_pago: 'efectivo',
+      total: 38.0,
+      base_imponible: 32.2,
+      igv: 5.8,
+      estado: 'emitido',
+      token_digital: '0192d2f8-b3a1-7c9e-9102-120938475616',
+      url_publica_qr: 'https://app.restaurantcloud.pe/c/0192d2f8-b3a1-7c9e-9102-120938475616',
+    },
+  ];
 
   /**
    * Consulta el estado operativo de caja en la sede (GET /api/v1/caja/estado-sesion)
@@ -563,10 +732,312 @@ class MockCajaService {
       emitido_at: new Date().toISOString(),
     };
 
+    // Registrar en la colección en memoria de comprobantes del turno (CU-CAJA-04)
+    this.comprobantesTurno.unshift({
+      id: responseData.comprobante_id,
+      tipo_comprobante: responseData.tipo_comprobante,
+      serie: responseData.serie,
+      correlativo: responseData.correlativo,
+      serie_numero: responseData.serie_numero,
+      hora: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
+      fecha_emision: responseData.emitido_at,
+      mesa_id: responseData.mesa_id,
+      mesa_numero: responseData.mesa_numero,
+      subcuenta_id: responseData.subcuenta_id,
+      comanda_numero: precuenta?.numero_comanda || 108,
+      cliente_nombre: responseData.cliente_nombre,
+      cliente_documento: responseData.cliente_documento,
+      medio_pago: request.metodo_pago_codigo,
+      total: responseData.total_cobrado,
+      base_imponible: responseData.base_imponible,
+      igv: responseData.igv,
+      estado: 'emitido',
+      token_digital: responseData.token_digital,
+      url_publica_qr: responseData.url_publica_qr,
+      telefono_envio: responseData.telefono_registrado,
+      email_envio: responseData.email_registrado,
+    });
+
     return {
       exito: true,
       datos: responseData,
       meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * Consulta el historial de comprobantes del turno (CU-CAJA-04, Vista 1)
+   */
+  async getComprobantesTurno(
+    filtros: FiltrosHistorialComprobantesDTO = { estado: 'todos', tipo: 'todos' }
+  ): Promise<ApiResponse<ComprobanteHistorialItemDTO[]>> {
+    await new Promise((r) => setTimeout(r, 80));
+
+    let lista = [...this.comprobantesTurno];
+
+    // Filtro por estado
+    if (filtros.estado === 'vigente') {
+      lista = lista.filter((c) => c.estado === 'emitido' && c.tipo_comprobante !== 'nota_credito');
+    } else if (filtros.estado === 'anulado') {
+      lista = lista.filter((c) => c.estado === 'anulado');
+    }
+
+    // Filtro por tipo
+    if (filtros.tipo && filtros.tipo !== 'todos') {
+      lista = lista.filter((c) => c.tipo_comprobante === filtros.tipo);
+    }
+
+    // Búsqueda rápida con debounce (serie/número, cliente, mesa)
+    if (filtros.q && filtros.q.trim()) {
+      const q = filtros.q.toLowerCase().trim();
+      lista = lista.filter(
+        (c) =>
+          c.serie_numero.toLowerCase().includes(q) ||
+          c.cliente_nombre.toLowerCase().includes(q) ||
+          (c.cliente_documento && c.cliente_documento.toLowerCase().includes(q)) ||
+          c.mesa_numero.toLowerCase().includes(q)
+      );
+    }
+
+    return {
+      exito: true,
+      datos: lista,
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * Prepara los datos del comprobante para abrir el modal de emisión de Nota de Crédito (CU-CAJA-04, Vista 2)
+   */
+  async prepararAnulacionComprobante(
+    id: string
+  ): Promise<ApiResponse<PrepararAnulacionResponseDTO>> {
+    await new Promise((r) => setTimeout(r, 100));
+
+    const comp = this.comprobantesTurno.find((c) => c.id === id);
+    if (!comp) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_COMPROBANTE_NO_ENCONTRADO', mensaje: 'Comprobante no encontrado en el turno activo' }],
+      };
+    }
+
+    if (comp.estado === 'anulado') {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_COMPROBANTE_YA_ANULADO', mensaje: 'El comprobante ya fue anulado previamente mediante una Nota de Crédito' }],
+      };
+    }
+
+    // Serie sugerida de Nota de Crédito
+    let serieSugerida = 'BC01';
+    if (comp.tipo_comprobante === 'factura') {
+      serieSugerida = 'FC01';
+    } else if (comp.tipo_comprobante === 'nota_venta') {
+      serieSugerida = 'NVC01';
+    }
+
+    const efectivoGavetaActual = this.turnoActivo?.efectivo_actual || 385.0;
+    const efectivoGavetaProyectado =
+      comp.medio_pago === 'efectivo'
+        ? Math.max(0, Math.round((efectivoGavetaActual - comp.total) * 100) / 100)
+        : efectivoGavetaActual;
+
+    const data: PrepararAnulacionResponseDTO = {
+      comprobante_id: comp.id,
+      tipo_comprobante_original: comp.tipo_comprobante as 'boleta' | 'factura' | 'nota_venta',
+      serie_original: comp.serie,
+      correlativo_original: comp.correlativo,
+      serie_numero_original: comp.serie_numero,
+      mesa_numero: comp.mesa_numero,
+      comanda_numero: comp.comanda_numero,
+      subcuenta_id: comp.subcuenta_id,
+      subcuenta_numero: comp.subcuenta_numero,
+      cliente_nombre: comp.cliente_nombre,
+      cliente_numero_doc: comp.cliente_documento,
+      medio_pago_codigo: comp.medio_pago,
+      total_original: comp.total,
+      base_imponible: comp.base_imponible,
+      igv: comp.igv,
+      serie_nota_credito_sugerida: serieSugerida,
+      efectivo_gaveta_actual: efectivoGavetaActual,
+      efectivo_gaveta_proyectado: efectivoGavetaProyectado,
+      telefono_envio: comp.telefono_envio,
+      email_envio: comp.email_envio,
+    };
+
+    return {
+      exito: true,
+      datos: data,
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * Ejecuta la emisión formal de la Nota de Crédito Electrónica y anula el comprobante (CU-CAJA-04, Vista 3)
+   * Transacción atómica ACID: asigna correlativo, genera NC, extorna gaveta y actualiza turno
+   */
+  async emitirNotaCredito(
+    id: string,
+    req: EmitirNotaCreditoRequest
+  ): Promise<ApiResponse<EmitirNotaCreditoResponseDTO>> {
+    await new Promise((r) => setTimeout(r, 220));
+
+    const index = this.comprobantesTurno.findIndex((c) => c.id === id);
+    if (index === -1) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_COMPROBANTE_NO_ENCONTRADO', mensaje: 'Comprobante no encontrado en el turno activo' }],
+      };
+    }
+
+    const comp = this.comprobantesTurno[index];
+
+    if (comp.estado === 'anulado') {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_COMPROBANTE_YA_ANULADO', mensaje: 'El comprobante ya fue anulado previamente' }],
+      };
+    }
+
+    if (!req.sustento_motivo || req.sustento_motivo.trim().length < 5) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_SUSTENTO_OBLIGATORIO', mensaje: 'El sustento detallado es obligatorio y debe tener al menos 5 caracteres' }],
+      };
+    }
+
+    // Asignación de serie y correlativo de Nota de Crédito
+    let serieNC = 'BC01';
+    let corrNC = ++this.correlativoNotaCreditoBoleta;
+    if (comp.tipo_comprobante === 'factura') {
+      serieNC = 'FC01';
+      corrNC = ++this.correlativoNotaCreditoFactura;
+    } else if (comp.tipo_comprobante === 'nota_venta') {
+      serieNC = 'NVC01';
+      corrNC = ++this.correlativoNotaCreditoBoleta;
+    }
+
+    const serieNumeroNC = `${serieNC}-${String(corrNC).padStart(7, '0')}`;
+    const ncId = `nc-${corrNC}`;
+    const tokenDigital = `0192d2f8-b3a1-${String(Date.now()).slice(-8)}-${String(corrNC).padStart(4, '0')}`;
+    const urlPublicaQr = `https://app.restaurantcloud.pe/c/${tokenDigital}`;
+
+    // Conmutar comprobante original a anulado
+    const horaActual = new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    comp.estado = 'anulado';
+    comp.nota_credito_id = ncId;
+    comp.nota_credito_serie_numero = serieNumeroNC;
+    comp.motivo_codigo_sunat = req.motivo_codigo_sunat;
+    comp.sustento_motivo = req.sustento_motivo;
+
+    // Actualizar teléfono y email si se suministraron en el request
+    if (req.telefono_envio) comp.telefono_envio = req.telefono_envio;
+    if (req.email_envio) comp.email_envio = req.email_envio;
+
+    // Impacto en flujo de caja y turno activo
+    let efectivoGavetaNuevo = this.turnoActivo?.efectivo_actual || 385.0;
+    if (this.turnoActivo) {
+      // Extornar de las ventas del turno
+      this.turnoActivo.monto_ventas = Math.max(0, Math.round(((this.turnoActivo.monto_ventas || 0) - comp.total) * 100) / 100);
+      
+      // Si fue efectivo, devolver de gaveta
+      if (comp.medio_pago === 'efectivo') {
+        this.turnoActivo.efectivo_actual = Math.max(
+          0,
+          Math.round(((this.turnoActivo.efectivo_actual || this.turnoActivo.monto_apertura) - comp.total) * 100) / 100
+        );
+        efectivoGavetaNuevo = this.turnoActivo.efectivo_actual;
+      }
+    }
+
+    // Registrar la Nota de Crédito en la colección oficial de comprobantes del turno
+    const nuevaNC: ComprobanteHistorialItemDTO = {
+      id: ncId,
+      tipo_comprobante: 'nota_credito',
+      serie: serieNC,
+      correlativo: corrNC,
+      serie_numero: serieNumeroNC,
+      hora: horaActual,
+      fecha_emision: new Date().toISOString(),
+      mesa_numero: comp.mesa_numero,
+      subcuenta_id: comp.subcuenta_id,
+      subcuenta_numero: comp.subcuenta_numero,
+      comanda_numero: comp.comanda_numero,
+      cliente_nombre: comp.cliente_nombre,
+      cliente_documento: comp.cliente_documento,
+      medio_pago: comp.medio_pago,
+      total: -comp.total,
+      base_imponible: -comp.base_imponible,
+      igv: -comp.igv,
+      estado: 'emitido',
+      token_digital: tokenDigital,
+      url_publica_qr: urlPublicaQr,
+      telefono_envio: req.telefono_envio || comp.telefono_envio,
+      email_envio: req.email_envio || comp.email_envio,
+      comprobante_modificado_id: comp.id,
+      documento_modificado: comp.serie_numero,
+      motivo_codigo_sunat: req.motivo_codigo_sunat,
+      sustento_motivo: req.sustento_motivo,
+    };
+
+    this.comprobantesTurno.unshift(nuevaNC);
+
+    const responseDTO: EmitirNotaCreditoResponseDTO = {
+      nota_credito_id: ncId,
+      tipo_comprobante: 'nota_credito',
+      serie: serieNC,
+      correlativo: corrNC,
+      serie_numero: serieNumeroNC,
+      documento_modificado: comp.serie_numero,
+      comprobante_modificado_id: comp.id,
+      motivo_codigo_sunat: req.motivo_codigo_sunat,
+      sustento_motivo: req.sustento_motivo,
+      importe_rectificado: -comp.total,
+      efectivo_gaveta_nuevo: efectivoGavetaNuevo,
+      token_digital: tokenDigital,
+      url_publica_qr: urlPublicaQr,
+      mesa_numero: comp.mesa_numero,
+      subcuenta_numero: comp.subcuenta_numero,
+      telefono_registrado: req.telefono_envio || comp.telefono_envio,
+      email_registrado: req.email_envio || comp.email_envio,
+      emitido_at: new Date().toISOString(),
+    };
+
+    return {
+      exito: true,
+      datos: responseDTO,
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * Actualiza inline los datos de contacto (teléfono y correo) de un comprobante (CU-CAJA-03 / CU-CAJA-04)
+   */
+  async actualizarContactoComprobante(
+    id: string,
+    req: { telefono_envio?: string; email_envio?: string }
+  ): Promise<ApiResponse<{ id: string; telefono_envio?: string; email_envio?: string }>> {
+    await new Promise((r) => setTimeout(r, 60));
+
+    const comp = this.comprobantesTurno.find((c) => c.id === id);
+    if (comp) {
+      if (req.telefono_envio !== undefined) comp.telefono_envio = req.telefono_envio;
+      if (req.email_envio !== undefined) comp.email_envio = req.email_envio;
+    }
+
+    return {
+      exito: true,
+      datos: {
+        id,
+        telefono_envio: req.telefono_envio,
+        email_envio: req.email_envio,
+      },
     };
   }
 
