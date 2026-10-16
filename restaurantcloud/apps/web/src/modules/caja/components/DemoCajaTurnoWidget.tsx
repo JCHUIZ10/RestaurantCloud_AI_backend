@@ -13,11 +13,13 @@ import {
 interface DemoCajaTurnoWidgetProps {
   onSelectEscenario: (escenario: 'cerrada' | 'conflicto_409' | 'abierta_operativa' | 'forzar_cierre' | 'restablecer') => void;
   estadoActual: string;
+  onSelectMesaDemo?: (mesaId: string) => void;
 }
 
 export const DemoCajaTurnoWidget: React.FC<DemoCajaTurnoWidgetProps> = ({
   onSelectEscenario,
   estadoActual,
+  onSelectMesaDemo,
 }) => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
 
@@ -113,6 +115,47 @@ export const DemoCajaTurnoWidget: React.FC<DemoCajaTurnoWidgetProps> = ({
                 <span className="text-[10px] text-amber-300 font-mono">Admin Local</span>
               </button>
             </div>
+
+            {/* Accesos Rápidos CU-CAJA-02: Precuenta Digital */}
+            {onSelectMesaDemo && (
+              <div className="pt-2 border-t border-slate-800 space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block font-mono">
+                  Mesas CU-CAJA-02 (Precuenta):
+                </span>
+                <div className="grid grid-cols-3 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectMesaDemo('m-caja-004');
+                      setIsOpen(false);
+                    }}
+                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-center text-[10px] font-mono font-bold text-amber-300 border border-slate-700 transition-colors"
+                  >
+                    Mesa 04 (S/ 100)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectMesaDemo('m-caja-008');
+                      setIsOpen(false);
+                    }}
+                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-center text-[10px] font-mono font-bold text-sky-300 border border-slate-700 transition-colors"
+                  >
+                    Mesa 08 (S/ 145)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectMesaDemo('m-caja-002');
+                      setIsOpen(false);
+                    }}
+                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-center text-[10px] font-mono font-bold text-indigo-300 border border-slate-700 transition-colors"
+                  >
+                    Mesa [02;03]
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="pt-2 border-t border-slate-800 flex justify-between items-center text-[11px]">
               <span className="text-slate-500 font-mono">Sede: Miraflores</span>

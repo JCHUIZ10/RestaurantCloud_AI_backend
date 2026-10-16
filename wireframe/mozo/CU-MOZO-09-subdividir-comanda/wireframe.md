@@ -164,6 +164,8 @@ Formulario en dos columnas que parametriza independientemente las promociones co
 |   | |                                          | |                                                        | |   |
 |   | | Medio de Pago Previsto:                  | | Medio de Pago Previsto:                                | |   |
 |   | | [ Efectivo ] [● 💳 Tarjeta POS (+3.5%) ]  | | [ Efectivo ] [ Tarjeta POS ] [● 📱 Billetera (Yape) ]   | |   |
+|   | |                                          | | Recaudación: 987 654 321 • Restaurant S.A.C. [ Ver QR ] | |   |
+|   | |                                          | | N° Operación: [ 581902    ]                            | |   |
 |   | |                                          | |                                                        | |   |
 |   | | Desglose SUNAT:                          | | Desglose SUNAT:                                        | |   |
 |   | | Bruto: S/ 38.00 | Dscto (15%): - S/ 5.70 | | Bruto: S/ 62.00 | Dscto: S/ 0.00                       | |   |
@@ -394,6 +396,7 @@ stateDiagram-v2
       "promocion_id": null,
       "metodo_pago_id": "mp03-billetera-digital",
       "medio_pago": "billetera_digital",
+      "numero_operacion": "581902",
       "subtotal_bruto": 62.00,
       "descuento": 0.00,
       "monto_recargo": 0.00,

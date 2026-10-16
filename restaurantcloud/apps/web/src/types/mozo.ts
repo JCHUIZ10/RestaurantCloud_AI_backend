@@ -375,6 +375,10 @@ export interface SolicitarCuentaRequest {
   numero_operacion?: string | null;
   monto_declarado: number;
   promocion_id?: string | null;
+  tipo_comprobante?: 'boleta' | 'factura' | 'nota_venta';
+  documento_cliente?: string | null;
+  nombre_cliente?: string | null;
+  consumidor_final?: boolean;
 }
 
 /**

@@ -17,12 +17,14 @@
   3. Existen series electrónicas activas registradas en la tabla `comprobante_serie` para el local (`F001`, `B001`, `NV01`).
 
 - **Postcondiciones:**
-  1. `pedido.estado` conmuta atómicamente a `'cobrado'`.
-  2. `mesa.estado` conmuta atómicamente a `'libre'`, liberando el espacio en salón para nuevos clientes en tiempo real.
-  3. Se genera un registro oficial inmutable en la tabla `comprobante` con serie, correlativo correlativo monótono asignado bajo bloqueo ACID (`fn_obtener_siguiente_correlativo`), desglose fiscal oficial SUNAT Perú (Base Imponible e IGV 18%) y token criptográfico único impredecible (UUID v8).
+  1. `pedido.estado` conmuta atómicamente a `'cobrado'` cuando se liquidan todos los consumos.
+  2. `mesa.estado`:
+     - **Cuenta consolidada única:** Conmuta atómicamente a `'libre'`, liberando el espacio en salón para nuevos clientes en tiempo real.
+     - **Mesa con comanda dividida (`CU-MOZO-09`):** Permanece en `'cuenta_pedida'` mientras existan subcuentas impagas (`subcuentas_pendientes > 0`). Conmuta a `'libre'` únicamente al liquidar y confirmar la última subcuenta (`subcuentas_pendientes == 0`).
+  3. Se genera un registro oficial inmutable en la tabla `comprobante` con serie, correlativo monótono asignado bajo bloqueo ACID (`fn_obtener_siguiente_correlativo`), desglose fiscal oficial SUNAT Perú (Base Imponible e IGV 18%) y token criptográfico único impredecible (UUID v8). Si es subcuenta, se referencia a `pedido_subcuenta.id`.
   4. Se inserta un asiento contable en `caja_movimiento` (`tipo = 'ingreso_venta'`) vinculado a la caja activa, actualizando el efectivo en gaveta y el total recaudado.
   5. Se almacena o actualiza la información del comensal en la tabla relacional `cliente` (asociando datos de ApiPerú, teléfono/WhatsApp y correo electrónico en `detalle JSONB`).
-  6. Se despliega en pantalla el código QR dinámico de alta resolución para escaneo por el comensal (arquitectura *Cero Papel*), con opciones asistidas de confirmación/modificación para despacho por WhatsApp y Correo Electrónico.
+  6. Se despliega en pantalla el código QR dinámico de alta resolución para escaneo por el comensal (arquitectura *Cero Papel*), con botón **`[ 📋 Copiar ]`** a la izquierda de la URL pública, y opciones asistidas de **`[ ＋ Registrar ]`** / **`[ ✏️ Modificar ]`** antes de despachar por WhatsApp y Correo Electrónico.
 
 ---
 
@@ -35,71 +37,78 @@ sequenceDiagram
     participant POS as Terminal POS (Web UI)
     participant API as Core Backend (Go)
     participant BD as PostgreSQL 16 (ACID)
+    participant SSE as SSE Event Hub
     participant EXT as ApiPerú (RUC/DNI)
 
     Note over C, POS: Entrada desde CU-CAJA-02 o Mesa cuenta_pedida
-    C->>POS: Pulsa [ ⚡ Cobrar Comanda Completa ]
+    C->>POS: Pulsa [ ⚡ Emitir Comprobante ]
     POS->>API: GET /api/v1/caja/pedidos/{id}/checkout-data
-    API->>POS: Datos consolidados (S/ 85.00 Neto, Base S/ 72.03, IGV S/ 12.97)
+    API->>POS: Datos consolidados (S/ 145.00 Neto, 2 Subcuentas: Sub 1 S/ 88, Sub 2 S/ 57)
 
-    alt Identificación con Documento (Factura / Boleta)
-        C->>POS: Digita DNI (8 dígitos) o RUC (11 dígitos)
-        POS->>API: GET /api/v1/caja/clientes/buscar?tipo=DNI&numero=72819201
-        API->>BD: SELECT * FROM cliente WHERE numero_documento = '72819201'
-        alt Cliente ya existe en BD Local (UUID v8)
-            BD-->>API: Fila encontrada (nombre_identificativo, telefono, email, detalle)
-            API-->>POS: Retorna cliente + Badge "Cliente Registrado" (< 1ms)
-            POS-->>C: Autocompleta Nombre, WhatsApp y Correo
-        else Cliente No Registrado en BD
-            BD-->>API: NULL
-            API->>EXT: Consulta ApiPerú GET /v1/dni/72819201
-            EXT-->>API: 200 OK {nombres: "CARLOS", apellido_paterno: "MENDOZA", ...}
-            API->>BD: INSERT INTO cliente (UUID v8, DNI, nombre_identificativo, detalle)
-            API-->>POS: Retorna datos recuperados de ApiPerú
-            POS-->>C: Autocompleta Nombre y habilita captura de WhatsApp/Email
+    Note over C, POS: Vista 2: Diálogo Fiscal y Token Digital QR (Cero Papel)
+    POS-->>C: Renderiza Subcuenta #1 (Carlos Mendoza - S/ 88.00 Boleta)
+
+    opt Edición o Registro Asistido de Contacto
+        alt Teléfono ya registrado
+            POS-->>C: Muestra "📱 WhatsApp: +51 987 654 321 [ Guardado ]"
+            C->>POS: Clic en [ ✏️ Modificar ] -> Digita nuevo número y pulsa [ Guardar ]
+            POS->>API: PATCH /api/v1/caja/comprobantes/{id}/contacto { telefono: "+51 999 123 456" }
+            API->>BD: UPDATE cliente SET telefono = ... WHERE id = ...
+            API-->>POS: 200 OK (Contacto actualizado)
+        else Teléfono no registrado (Vacío)
+            POS-->>C: Muestra "📱 WhatsApp: No registrado" + Botón [ ＋ Registrar ]
+            C->>POS: Clic en [ ＋ Registrar ] -> Digita número comensal y pulsa [ Guardar ]
         end
-    else Nota de Venta (Control Interno)
-        C->>POS: Selecciona pestaña [ 📋 Nota Venta ]
-        POS-->>C: Solicita exclusivamente [ Nombre del Cliente ] (sin validación fiscal)
-    end
-
-    Note over C, POS: Forma de Pago: Efectivo (Digitación Directa)
-    C->>POS: Digita monto recibido en efectivo: "100.00"
-    POS-->>C: Calcula en tiempo real: Vuelto S/ 15.00
-
-    C->>POS: Pulsa [ ⚡ Confirmar Cobro y Emitir Comprobante (F9) ]
-    POS->>API: POST /api/v1/caja/pedidos/{id}/cobrar (Payload)
-    
-    rect rgb(240, 248, 255)
-        Note over API, BD: Transacción Atómica ACID (BEGIN ... COMMIT)
-        API->>BD: BEGIN TRANSACTION
-        API->>BD: SELECT fn_obtener_siguiente_correlativo(local_id, 'boleta', 'B001')
-        Note over BD: Bloqueo exclusivo FOR UPDATE en comprobante_serie.<br/>Incremento monótono correlativo = 12894.
-        BD-->>API: Correlativo asignado: 12894
-        API->>BD: INSERT INTO comprobante (..., serie='B001', correlativo=12894, token_qr=UUIDv8)
-        API->>BD: INSERT INTO caja_movimiento (caja_id, tipo='ingreso_venta', monto=85.00)
-        API->>BD: UPDATE pedido SET estado = 'cobrado'
-        API->>BD: UPDATE mesa SET estado = 'libre'
-        opt Sincronizar contacto si fue editado
-            API->>BD: UPDATE cliente SET telefono = $1, email = $2, updated_at = NOW() WHERE id = $3
-        end
-        API->>BD: COMMIT
-    end
-
-    API-->>POS: 200 OK (Comprobante B001-0012894, Token QR, URL Pública)
-
-    Note over C, POS: Vista 2: Diálogo de Entrega Digital (Cero Papel)
-    POS-->>C: Muestra Gran Código QR + Ficha Fiscal
-    
-    alt Envío por WhatsApp
-        POS-->>C: Muestra "📱 WhatsApp: +51 987 654 321 [ Guardado ]"
-        C->>POS: Pulsa [ ✓ Confirmar y Enviar ] (o [ ✏️ Modificar ] si cambió)
+        C->>POS: Clic en [ ✓ Confirmar y Enviar ]
         POS->>API: POST /api/v1/caja/comprobantes/{id}/enviar-whatsapp
     end
 
-    Note over POS: Botón [ 🖨️ Imprimir Ticket ] en estado DISABLED (Cero Papel)
-    C->>POS: Pulsa [ ✓ Finalizar y Volver al Salón (Esc) ]
-    POS-->>C: Vista 3: Monitor POS en vivo con Mesa 04 en estado [ LIBRE ]
+    opt Copia Rápida de Enlace de Comprobante
+        C->>POS: Clic en [ 📋 Copiar ] (a la izquierda de la URL pública)
+        POS-->>C: Copia URL al portapapeles y conmuta a [ ✓ ¡Copiado! ] por 2 seg
+    end
+
+    Note over C, POS: Confirmación de Pago de Subcuenta #1
+    C->>POS: Pulsa [ ✓ Confirmar Pago Subcuenta #1 ]
+    POS->>API: POST /api/v1/caja/pedidos/{id}/cobrar { subcuenta_id: "sub-1", tipo_comprobante: "boleta" }
+    
+    rect rgb(240, 248, 255)
+        Note over API, BD: Transacción Atómica ACID Subcuenta 1
+        API->>BD: BEGIN TRANSACTION
+        API->>BD: SELECT fn_obtener_siguiente_correlativo(local_id, 'boleta', 'B001')
+        BD-->>API: Correlativo: 12894
+        API->>BD: INSERT INTO comprobante (serie='B001', correlativo=12894, subcuenta_id='sub-1', ...)
+        API->>BD: INSERT INTO caja_movimiento (tipo='ingreso_venta', monto=88.00)
+        API->>BD: UPDATE pedido_subcuenta SET estado='cobrado' WHERE id='sub-1'
+        Note over BD: Subcuentas restantes: 1 pendiente.<br/>Mesa NO se libera aún.
+        API->>BD: COMMIT
+    end
+
+    API->>SSE: Broadcast 'subcuenta_cobrada' { mesa_id, subcuenta_id: 'sub-1', subcuentas_pendientes: 1 }
+    API-->>POS: 200 OK { mesa_liberada: false, subcuentas_pendientes: 1 }
+    
+    Note over POS: Transición Automática: Subcuenta #1 queda marcada [ ✓ ]<br/>POS avanza automáticamente a Subcuenta #2 (Empresa SAC - S/ 57 Factura)
+    POS-->>C: Renderiza Subcuenta #2 activa lista para cobro
+
+    C->>POS: Pulsa [ ✓ Confirmar Pago Subcuenta #2 ]
+    POS->>API: POST /api/v1/caja/pedidos/{id}/cobrar { subcuenta_id: "sub-2", tipo_comprobante: "factura" }
+
+    rect rgb(240, 255, 240)
+        Note over API, BD: Transacción Atómica ACID Última Subcuenta (Liquidación Total)
+        API->>BD: BEGIN TRANSACTION
+        API->>BD: SELECT fn_obtener_siguiente_correlativo(local_id, 'factura', 'F001')
+        BD-->>API: Correlativo: 4521
+        API->>BD: INSERT INTO comprobante (serie='F001', correlativo=4521, subcuenta_id='sub-2', ...)
+        API->>BD: INSERT INTO caja_movimiento (tipo='ingreso_venta', monto=57.00)
+        API->>BD: UPDATE pedido_subcuenta SET estado='cobrado' WHERE id='sub-2'
+        API->>BD: UPDATE pedido SET estado = 'cobrado' WHERE id = :id
+        API->>BD: UPDATE mesa SET estado = 'libre' WHERE id = :mesa_id
+        API->>BD: COMMIT
+    end
+
+    API->>SSE: Broadcast 'mesa_liberada' { mesa_id, mesa_numero: "08" }
+    API-->>POS: 200 OK { mesa_liberada: true, subcuentas_pendientes: 0 }
+    POS-->>C: Cierra diálogo fiscal. Monitor POS muestra Mesa 08 en estado [ LIBRE ]
 ```
 
 ---
@@ -139,32 +148,47 @@ sequenceDiagram
 
 ### 3.2 Vista 2: Diálogo de Comprobante Emitido y Token Digital QR (`wf_caja_03_comprobante_qr_exito.jpg`)
 
+Soporta de manera nativa tanto **1 sola cuenta consolidada** como **múltiples subcuentas divididas** (`CU-MOZO-09`), con avance secuencial, copia instantánea de URL pública y modos de registro / edición asistida de contacto:
+
 ```text
-+---------------------------------------------------------------------------------------------------------+
-| [ ✓ ] Cobro Confirmado con Éxito                                                    [ Mesa 04 LIBERADA ]|
-|       Comanda #108 cobrada • Movimiento de S/ 85.00 registrado en caja                                  |
-+---------------------------------------------------------------------------------------------------------+
-| 📄 Boleta de Venta Electrónica B001-0012894                                  10/10/2026 18:35:12 • T#042|
-|                                                                                                         |
-| COMENSAL / TITULAR:                           MEDIO DE PAGO:                                            |
-| Carlos Mendoza Quispe (DNI 72819201)          Efectivo • Recibido S/ 100.00 • Vuelto S/ 15.00           |
-| DESGLOSE FISCAL SUNAT:                        TOTAL LIQUIDADO:                                          |
-| Base: S/ 72.03 • IGV (18%): S/ 12.97          S/ 85.00 NETO                                             |
-+---------------------------------------------------------------------------------------------------------+
-| +--------------+  TOKEN DIGITAL QR • CERO PAPEL                                                         |
-| |  [QR CODE]   |  Escaneo Directo por el Comensal                                                       |
-| |  DINÁMICO    |  El cliente puede escanear este código con su smartphone para ver y descargar el PDF.  |
-| |  ALTA RES.   |  https://app.restaurantcloud.pe/c/0192d2f4-e7b8...                       [ UUID v8 ]   |
-| +--------------+                                                                                        |
-+---------------------------------------------------------------------------------------------------------+
-| ENTREGA DIGITAL DIRECTA (OPCIONES ASISTIDAS)                                                            |
-| 📱 WhatsApp:  +51 987 654 321  [ Guardado ]                  [ ✓ Confirmar y Enviar ] [ ✏️ Modificar ]   |
-| ✉️ Correo:    carlos.mendoza@gmail.com  [ Guardado ]         [ ✓ Confirmar y Enviar ] [ ✏️ Modificar ]   |
-+---------------------------------------------------------------------------------------------------------+
-| [ 📄 Ver Comprobante PDF en Nueva Pestaña ]  [ 🖨️ Imprimir Ticket (DESHABILITADO • CERO PAPEL) ]        |
-+---------------------------------------------------------------------------------------------------------+
-| Presione Esc o pulse finalizar para retornar a la grilla de monitoreo.      [ ✓ Finalizar y Volver (Esc)]|
-+---------------------------------------------------------------------------------------------------------+
++---------------------------------------------------------------------------------------------------------------------+
+| [ ✓ ] Cobro y Comprobantes Fiscales • Mesa 08                                          [ 1 de 2 pagadas ] [ T#042 ] |
+|       Comanda #108 • Mozo: Marco Valdivia • Total Mesa: S/ 145.00                                                   |
++---------------------------------------------------------------------------------------------------------------------+
+| Cuentas: [ Subcuenta #1: Carlos Mendoza S/ 88.00 (✓) ]  [● Subcuenta #2: Inversiones SAC S/ 57.00 ]                 |
++---------------------------------------------------------------------------------------------------------------------+
+| 📄 Factura de Venta Electrónica F001-0004521                                             10/10/2026 18:35:12 • T#042|
+|                                                                                                                     |
+| COMENSAL / TITULAR:                                       MEDIO DE PAGO:                                            |
+| Inversiones Gastronómicas S.A.C. (RUC 20601234567)        Tarjeta POS Débito/Crédito (+3.5%)                        |
+|                                                           Estado: Pendiente de cobro en caja                        |
+|                                                                                                                     |
+| DESGLOSE FISCAL SUNAT (D.S. 055-99-EF):                   TOTAL LIQUIDADO:                                          |
+| Base Imponible: S/ 48.31 • IGV (18%): S/ 8.69             S/ 57.00 NETO                                             |
++---------------------------------------------------------------------------------------------------------------------+
+| +--------------+  TOKEN DIGITAL QR • CERO PAPEL                                                                     |
+| |  [QR CODE]   |  Escaneo Directo por el Comensal                                                                   |
+| |  DINÁMICO    |  El cliente puede escanear este código con su smartphone para ver y descargar el PDF.              |
+| |  ALTA RES.   |  [ 📋 Copiar ]  https://app.restaurantcloud.pe/c/0192d2f4-e7b8-8000-0002-84910212                 |
+| +--------------+                                                                                                    |
++---------------------------------------------------------------------------------------------------------------------+
+| ENTREGA DIGITAL DIRECTA (OPCIONES ASISTIDAS)                                                                        |
+|                                                                                                                     |
+| [Modo Con Dato]                                                                                                     |
+| 📱 WhatsApp:  +51 987 654 321  [ Guardado ]  [ ✏️ Modificar ]                    [ ✓ Confirmar y Enviar ]           |
+|                                                                                                                     |
+| [Modo Vacío / Comensal No Registrado]                                                                               |
+| 📱 WhatsApp:  No registrado  [ ＋ Registrar ]                                   [ Confirmar y Enviar (Deshabilitado)|
+|                                                                                                                     |
+| [Modo Edición en Línea al pulsar Modificar o Registrar]                                                             |
+| 📱 WhatsApp:  [ Input: +51 987 654 321       ]  [ Guardar ]  [ Cancelar ]                                           |
+|                                                                                                                     |
+| ✉️ Correo:    facturacion@gastronomicas.pe  [ Guardado ]  [ ✏️ Modificar ]       [ ✓ Confirmar y Enviar ]           |
++---------------------------------------------------------------------------------------------------------------------+
+| [ 📄 Ver Comprobante PDF ]  [ 🖨️ Imprimir Ticket (DESHABILITADO • CERO PAPEL) ]                                     |
++---------------------------------------------------------------------------------------------------------------------+
+|                                              [ Cerrar ]  [ ✓ Confirmar Pago Subcuenta #2 ]                          |
++---------------------------------------------------------------------------------------------------------------------+
 ```
 
 ### 3.3 Vista 3: Monitor POS en Vivo con Mesa Liberada (`wf_caja_03_pos_mesa_liberada.jpg`)
@@ -225,42 +249,54 @@ type BuscarClienteResponseDTO struct {
 	ExisteEnBD           bool            `json:"existe_en_bd"`
 }
 
-// ProcesarCobroRequest payload enviado por el POS para ejecutar el cobro
+// ProcesarCobroRequest payload enviado por el POS para ejecutar el cobro (mesa completa o subcuenta)
 type ProcesarCobroRequest struct {
-	PedidoID         uuid.UUID `json:"pedido_id" binding:"required"`
-	TipoComprobante  string    `json:"tipo_comprobante" binding:"required"` // 'factura', 'boleta', 'nota_venta'
-	Serie            string    `json:"serie" binding:"required"`            // 'F001', 'B001', 'NV01'
+	PedidoID         uuid.UUID  `json:"pedido_id" binding:"required"`
+	MesaID           uuid.UUID  `json:"mesa_id" binding:"required"`
+	SubcuentaID      *uuid.UUID `json:"subcuenta_id,omitempty"`      // UUID si es liquidación de subcuenta (CU-MOZO-09)
+	SubcuentaNumero  *int       `json:"subcuenta_numero,omitempty"`  // Número correlativo de subcuenta (1, 2, ...)
+	TipoComprobante  string     `json:"tipo_comprobante" binding:"required"` // 'factura', 'boleta', 'nota_venta'
+	Serie            string     `json:"serie" binding:"required"`            // 'F001', 'B001', 'NV01'
 	
 	// Datos de cliente
 	ClienteTipoDoc   *string   `json:"cliente_tipo_doc,omitempty"`          // 'DNI', 'RUC' (NULL para nota_venta o consumidor final)
 	ClienteNumDoc    *string   `json:"cliente_num_doc,omitempty"`
-	ClienteNombre    string    `json:"cliente_nombre" binding:"required"`   // Nombre identificativo
+	ClienteNombre    string    `json:"cliente_nombre" binding:"required"`   // Nombre identificativo o Razón Social
 	TelefonoEnvio    *string   `json:"telefono_envio,omitempty"`
 	EmailEnvio       *string   `json:"email_envio,omitempty"`
 	
 	// Datos de pago
 	MetodoPagoCodigo string    `json:"metodo_pago_codigo" binding:"required"` // 'efectivo', 'tarjeta', 'billetera_digital'
 	MontoRecibido    *float64  `json:"monto_recibido,omitempty"`              // Digitado en efectivo
-	ReferenciaPago   *string   `json:"referencia_pago,omitempty"`             // Voucher POS o código Yape
+	ReferenciaPago   *string   `json:"referencia_pago,omitempty"`             // Voucher POS o N° de Operación Yape/Plin
 }
 
-// ProcesarCobroResponseDTO respuesta tras la emisión fiscal y liberación
+// ProcesarCobroResponseDTO respuesta tras la emisión fiscal y liquidación (parcial o total)
 type ProcesarCobroResponseDTO struct {
-	ComprobanteID      uuid.UUID `json:"comprobante_id"` // UUID v8
-	TipoComprobante    string    `json:"tipo_comprobante"`
-	Serie              string    `json:"serie"`
-	Correlativo        int       `json:"correlativo"`
-	SerieNumero        string    `json:"serie_numero"`   // ej: 'B001-0012894'
-	TotalCobrado       float64   `json:"total_cobrado"`
-	MontoRecibido      *float64  `json:"monto_recibido,omitempty"`
-	Vuelto             *float64  `json:"vuelto,omitempty"`
-	TelefonoRegistrado *string   `json:"telefono_registrado,omitempty"`
-	EmailRegistrado    *string   `json:"email_registrado,omitempty"`
-	TokenDigital       uuid.UUID `json:"token_digital"`  // UUID v8
-	URLPublicaQR       string    `json:"url_publica_qr"` // https://app.restaurantcloud.pe/c/{token}
-	MesaID             uuid.UUID `json:"mesa_id"`
-	MesaLiberada       bool      `json:"mesa_liberada"`
-	EmitidoAt          time.Time `json:"emitido_at"`
+	ComprobanteID        uuid.UUID  `json:"comprobante_id"` // UUID v8
+	SubcuentaID          *uuid.UUID `json:"subcuenta_id,omitempty"`
+	TipoComprobante      string     `json:"tipo_comprobante"`
+	Serie                string     `json:"serie"`
+	Correlativo          int        `json:"correlativo"`
+	SerieNumero          string     `json:"serie_numero"`   // ej: 'B001-0012894'
+	TotalCobrado         float64    `json:"total_cobrado"`
+	MontoRecibido        *float64   `json:"monto_recibido,omitempty"`
+	Vuelto               *float64   `json:"vuelto,omitempty"`
+	TelefonoRegistrado   *string    `json:"telefono_registrado,omitempty"`
+	EmailRegistrado      *string    `json:"email_registrado,omitempty"`
+	TokenDigital         uuid.UUID  `json:"token_digital"`  // UUID v8
+	URLPublicaQR         string     `json:"url_publica_qr"` // https://app.restaurantcloud.pe/c/{token}
+	MesaID               uuid.UUID  `json:"mesa_id"`
+	MesaNumero           string     `json:"mesa_numero"`
+	MesaLiberada         bool       `json:"mesa_liberada"`        // true solo si se pagaron todas las subcuentas
+	SubcuentasPendientes int        `json:"subcuentas_pendientes"` // 0 cuando la mesa está completamente liquidada
+	EmitidoAt            time.Time  `json:"emitido_at"`
+}
+
+// ActualizarContactoComprobanteRequest para modo [ ✏️ Modificar ] o [ ＋ Registrar ] antes de enviar
+type ActualizarContactoComprobanteRequest struct {
+	TelefonoWhatsApp *string `json:"telefono_whatsapp,omitempty"`
+	Correo           *string `json:"correo,omitempty"`
 }
 ```
 
@@ -270,9 +306,10 @@ type ProcesarCobroResponseDTO struct {
 
 | Método | Endpoint | Rol Mínimo | Código Éxito | Descripción |
 | :--- | :--- | :---: | :---: | :--- |
-| `GET` | `/api/v1/caja/pedidos/{pedido_id}/checkout-data` | `cajero`, `admin_local` | `200 OK` | Carga el consolidado de consumo, promociones y desglose para el cobro |
+| `GET` | `/api/v1/caja/pedidos/{pedido_id}/checkout-data` | `cajero`, `admin_local` | `200 OK` | Carga el consolidado de consumo, subcuentas, promociones y desglose para el cobro |
 | `GET` | `/api/v1/caja/clientes/buscar` | `cajero`, `admin_local` | `200 OK` | Busca cliente en BD local o consulta ApiPerú (RUC/DNI) y persiste |
-| `POST` | `/api/v1/caja/pedidos/{pedido_id}/cobrar` | `cajero`, `admin_local` | `200 OK` | Ejecuta transacción atómica ACID: correlativo, comprobante, caja y liberación de mesa |
+| `POST` | `/api/v1/caja/pedidos/{pedido_id}/cobrar` | `cajero`, `admin_local` | `200 OK` | Transacción ACID: correlativo, comprobante, caja, y liberación de mesa (si `pendientes == 0`) |
+| `PATCH`| `/api/v1/caja/comprobantes/{id}/contacto` | `cajero`, `admin_local` | `200 OK` | Actualiza en caliente el WhatsApp/Correo del comprobante y comensal previo al despacho |
 | `POST` | `/api/v1/caja/comprobantes/{id}/enviar-whatsapp` | `cajero`, `admin_local` | `200 OK` | Despacha enlace de comprobante por WhatsApp y sincroniza teléfono en cliente si cambió |
 | `POST` | `/api/v1/caja/comprobantes/{id}/enviar-email` | `cajero`, `admin_local` | `200 OK` | Despacha comprobante en PDF por correo y sincroniza email en cliente si cambió |
 

@@ -8,6 +8,15 @@ import {
   BalancePreArqueoDTO,
   CerrarCajaRequest,
   ReporteZDTO,
+  PrecuentaItemDTO,
+  DesgloseTributarioSUNATDTO,
+  OpcionCobroPrecuentaDTO,
+  PromocionAplicableDTO,
+  PrecuentaResponseDTO,
+  SubcuentaComandaDTO,
+  ProcesarCobroFiscalRequest,
+  ProcesarCobroFiscalResponseDTO,
+  ClienteFiscalLookupDTO,
 } from '@/types/caja';
 import { CANONICAL_LOCAL_ID, CANONICAL_LOCAL_NOMBRE } from '@/shared/constants/canonical';
 
@@ -25,13 +34,34 @@ export const CAJERO_PREVIO_MOCK = {
   iniciales: 'JP',
 };
 
+export const PROMOCIONES_CATALOGO_MOCK: PromocionAplicableDTO[] = [
+  {
+    id: 'promo-almuerzo-15',
+    nombre: 'Descuento Almuerzo Ejecutivo (15% dscto)',
+    tipo_descuento: 'porcentaje',
+    valor: 15.0,
+    ahorro_calculado: 15.0,
+    aplicada: false,
+    descripcion_condicion: 'Lunes a Viernes 12pm - 4pm',
+  },
+  {
+    id: 'promo-chilcano-2x1',
+    nombre: '2x1 Chilcanos Clásicos',
+    tipo_descuento: 'monto_fijo',
+    valor: 18.0,
+    ahorro_calculado: 18.0,
+    aplicada: false,
+    descripcion_condicion: 'Happy Hour 5pm - 8pm',
+  },
+];
+
 const SEMILLAS_MESAS_CAJA: MesaCajaMonitorDTO[] = [
   {
     id: 'm-caja-004',
     numero: '04',
     piso_nombre: 'Salón Principal',
     estado: 'cuenta_pedida',
-    mozo_nombre: 'Carlos M.',
+    mozo_nombre: 'Marco Valdivia',
     comensales: 4,
     total_consumo: 100.0,
     pedido_id: 'ped-caja-104',
@@ -49,6 +79,7 @@ const SEMILLAS_MESAS_CAJA: MesaCajaMonitorDTO[] = [
     pedido_id: 'ped-caja-108',
     minutos_en_mesa: 42,
     minutos_espera_cuenta: 7,
+    subcuentas_count: 2,
   },
   {
     id: 'm-caja-002',
@@ -204,7 +235,12 @@ class MockCajaService {
     efectivo_actual: 0.0,
   };
   private correlativoContador: number = 42;
+  private correlativoBoleta: number = 12894;
+  private correlativoFactura: number = 4521;
+  private correlativoNotaVenta: number = 8412;
   private mesas: MesaCajaMonitorDTO[] = JSON.parse(JSON.stringify(SEMILLAS_MESAS_CAJA));
+  private promocionesPorMesa: Record<string, string | null> = {};
+  private subcuentasPorMesa: Record<string, SubcuentaComandaDTO[]> = {};
 
   /**
    * Consulta el estado operativo de caja en la sede (GET /api/v1/caja/estado-sesion)
@@ -349,12 +385,78 @@ class MockCajaService {
   }
 
   /**
-   * Simulación de cobro rápido de una mesa para demostrar que el POS está desbloqueado
+   * Consulta datos de cliente ante la BD local o simulación ApiPerú (CU-CAJA-03)
    */
-  async cobrarMesaMock(mesaId: string): Promise<ApiResponse<{ mesa_numero: string; total_cobrado: number }>> {
-    await new Promise((r) => setTimeout(r, 80));
+  async consultarClienteFiscal(tipoDoc: 'DNI' | 'RUC', numeroDoc: string): Promise<ApiResponse<ClienteFiscalLookupDTO>> {
+    await new Promise((r) => setTimeout(r, 120));
 
-    const index = this.mesas.findIndex((m) => m.id === mesaId);
+    if (tipoDoc === 'DNI') {
+      if (numeroDoc === '72819201') {
+        return {
+          exito: true,
+          datos: {
+            tipo_documento: 'DNI',
+            numero_documento: '72819201',
+            nombre_identificativo: 'CARLOS MENDOZA QUISPE',
+            telefono: '+51 987 654 321',
+            email: 'carlos.mendoza@gmail.com',
+            existe_en_bd: true,
+            origen: 'bd_local',
+          },
+        };
+      }
+      return {
+        exito: true,
+        datos: {
+          tipo_documento: 'DNI',
+          numero_documento: numeroDoc,
+          nombre_identificativo: `CLIENTE DNI ${numeroDoc.slice(-4)}`,
+          telefono: '',
+          email: '',
+          existe_en_bd: false,
+          origen: 'api_peru',
+        },
+      };
+    } else {
+      if (numeroDoc === '20601234567') {
+        return {
+          exito: true,
+          datos: {
+            tipo_documento: 'RUC',
+            numero_documento: '20601234567',
+            nombre_identificativo: 'INVERSIONES GASTRONÓMICAS S.A.C.',
+            direccion: 'AV. LARCO 1045, MIRAFLORES, LIMA',
+            telefono: '+51 912 345 678',
+            email: 'facturacion@gastronomicas.pe',
+            existe_en_bd: true,
+            origen: 'bd_local',
+          },
+        };
+      }
+      return {
+        exito: true,
+        datos: {
+          tipo_documento: 'RUC',
+          numero_documento: numeroDoc,
+          nombre_identificativo: `EMPRESA CONSULTORA DEMO ${numeroDoc.slice(-4)} S.A.C.`,
+          direccion: `CALLE LOS NEGOCIOS ${numeroDoc.slice(-3)}, SAN ISIDRO, LIMA`,
+          telefono: '',
+          email: '',
+          existe_en_bd: false,
+          origen: 'api_peru',
+        },
+      };
+    }
+  }
+
+  /**
+   * Ejecuta la emisión y liquidación del comprobante fiscal oficial (CU-CAJA-03)
+   * Transacción atómica ACID: asigna correlativo, genera token QR, inserta caja_movimiento y libera mesa
+   */
+  async emitirComprobanteFiscal(request: ProcesarCobroFiscalRequest): Promise<ApiResponse<ProcesarCobroFiscalResponseDTO>> {
+    await new Promise((r) => setTimeout(r, 180));
+
+    const index = this.mesas.findIndex((m) => m.id === request.mesa_id);
     if (index === -1) {
       return {
         exito: false,
@@ -364,34 +466,580 @@ class MockCajaService {
     }
 
     const mesa = this.mesas[index];
-    const monto = mesa.total_consumo;
 
-    // Liberar mesa en el monitor
-    this.mesas[index] = {
-      ...mesa,
-      estado: 'libre',
-      total_consumo: 0.0,
-      comensales: undefined,
-      mozo_nombre: undefined,
-      pedido_id: undefined,
-      minutos_espera_cuenta: undefined,
-    };
+    // Determinar correlativo según tipo
+    let serie = 'B001';
+    let corr = ++this.correlativoBoleta;
+    if (request.tipo_comprobante === 'factura') {
+      serie = 'F001';
+      corr = ++this.correlativoFactura;
+    } else if (request.tipo_comprobante === 'nota_venta') {
+      serie = 'NV01';
+      corr = ++this.correlativoNotaVenta;
+    }
+
+    const serieNumero = `${serie}-${String(corr).padStart(8, '0')}`;
+    const tokenDigital = `0192d2f4-e7b8-8000-8000-${String(Date.now()).slice(-12)}`;
+    const urlPublicaQr = `https://app.restaurantcloud.pe/c/${tokenDigital}`;
+
+    // Obtener precuenta para calcular montos exactos
+    const precuenta = this.calcularPrecuentaParaMesa(mesa.id);
+    let totalCobrado = precuenta?.tributacion_sunat.total_neto || mesa.total_consumo;
+
+    // Si es una subcuenta específica
+    let subcuentasPendientes = 0;
+    if (request.subcuenta_id && precuenta?.subcuentas) {
+      const sub = precuenta.subcuentas.find((s) => s.id === request.subcuenta_id);
+      if (sub) {
+        totalCobrado = sub.total_neto;
+        sub.estado = 'cobrado';
+        sub.estado_pago = 'cobrado';
+      }
+      subcuentasPendientes = precuenta.subcuentas.filter((s) => s.estado !== 'cobrado' && s.estado_pago !== 'cobrado').length;
+    }
+
+    const baseImponible = Math.round((totalCobrado / 1.18) * 100) / 100;
+    const igv = Math.round((totalCobrado - baseImponible) * 100) / 100;
+
+    let vuelto = 0.0;
+    if (request.metodo_pago_codigo === 'efectivo' && request.monto_recibido) {
+      vuelto = Math.max(0, Math.round((request.monto_recibido - totalCobrado) * 100) / 100);
+    }
+
+    const mesaLiberada = subcuentasPendientes === 0;
+
+    if (mesaLiberada) {
+      this.mesas[index] = {
+        ...mesa,
+        estado: 'libre',
+        total_consumo: 0.0,
+        comensales: undefined,
+        mozo_nombre: undefined,
+        pedido_id: undefined,
+        minutos_espera_cuenta: undefined,
+        subcuentas_count: undefined,
+      };
+    } else {
+      // Descontar consumo liquidado de la mesa
+      this.mesas[index] = {
+        ...mesa,
+        total_consumo: Math.max(0, Math.round((mesa.total_consumo - totalCobrado) * 100) / 100),
+        subcuentas_count: subcuentasPendientes,
+      };
+    }
 
     // Actualizar ventas del turno activo
     if (this.turnoActivo) {
       this.turnoActivo.total_ventas = (this.turnoActivo.total_ventas || 0) + 1;
-      this.turnoActivo.monto_ventas = Math.round(((this.turnoActivo.monto_ventas || 0) + monto) * 100) / 100;
-      this.turnoActivo.efectivo_actual =
-        Math.round(((this.turnoActivo.efectivo_actual || this.turnoActivo.monto_apertura) + monto) * 100) / 100;
+      this.turnoActivo.monto_ventas = Math.round(((this.turnoActivo.monto_ventas || 0) + totalCobrado) * 100) / 100;
+      if (request.metodo_pago_codigo === 'efectivo') {
+        this.turnoActivo.efectivo_actual =
+          Math.round(((this.turnoActivo.efectivo_actual || this.turnoActivo.monto_apertura) + totalCobrado) * 100) / 100;
+      }
+    }
+
+    const responseData: ProcesarCobroFiscalResponseDTO = {
+      comprobante_id: `comp-${corr}`,
+      tipo_comprobante: request.tipo_comprobante,
+      serie,
+      correlativo: corr,
+      serie_numero: serieNumero,
+      total_cobrado: totalCobrado,
+      base_imponible: baseImponible,
+      igv,
+      monto_recibido: request.monto_recibido,
+      vuelto,
+      cliente_nombre: request.cliente_nombre,
+      cliente_documento: request.cliente_num_doc,
+      telefono_registrado: request.telefono_envio,
+      email_registrado: request.email_envio,
+      token_digital: tokenDigital,
+      url_publica_qr: urlPublicaQr,
+      mesa_id: mesa.id,
+      mesa_numero: mesa.numero,
+      mesa_liberada: mesaLiberada,
+      subcuenta_id: request.subcuenta_id,
+      subcuentas_pendientes: subcuentasPendientes,
+      emitido_at: new Date().toISOString(),
+    };
+
+    return {
+      exito: true,
+      datos: responseData,
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * Simulación básica de compatibilidad
+   */
+  async cobrarMesaMock(mesaId: string): Promise<ApiResponse<{ mesa_numero: string; total_cobrado: number }>> {
+    const res = await this.emitirComprobanteFiscal({
+      mesa_id: mesaId,
+      pedido_id: 'ped-caja-mock',
+      tipo_comprobante: 'boleta',
+      serie: 'B001',
+      cliente_nombre: 'CLIENTE MOSTRADOR',
+      metodo_pago_codigo: 'efectivo',
+    });
+    if (!res.exito || !res.datos) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: res.errores,
+      };
+    }
+    return {
+      exito: true,
+      datos: {
+        mesa_numero: res.datos.mesa_numero,
+        total_cobrado: res.datos.total_cobrado,
+      },
+    };
+  }
+
+  /**
+   * Obtiene la precuenta digital consolidada de una mesa (GET /api/v1/caja/mesas/{mesa_id}/precuenta)
+   * RN-CAJA-02-01: Consolida consumos, calcula desglose SUNAT y proyecta medios de pago
+   */
+  async getPrecuentaMesa(mesaId: string): Promise<ApiResponse<PrecuentaResponseDTO>> {
+    await new Promise((r) => setTimeout(r, 60));
+
+    const precuenta = this.calcularPrecuentaParaMesa(mesaId);
+    if (!precuenta) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_MESA_SIN_PEDIDOS', mensaje: 'La mesa seleccionada no tiene pedidos activos para liquidar.' }],
+      };
     }
 
     return {
       exito: true,
-      datos: {
-        mesa_numero: mesa.numero,
-        total_cobrado: monto,
-      },
+      datos: JSON.parse(JSON.stringify(precuenta)),
       meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * Aplica una promoción comercial a la precuenta digital (POST /api/v1/caja/mesas/{mesa_id}/precuenta/promocion)
+   * Recalcula en caliente Base Imponible e IGV según normativa SUNAT
+   */
+  async aplicarPromocionPrecuenta(
+    mesaId: string,
+    promocionId: string
+  ): Promise<ApiResponse<PrecuentaResponseDTO>> {
+    await new Promise((r) => setTimeout(r, 70));
+
+    const promo = PROMOCIONES_CATALOGO_MOCK.find((p) => p.id === promocionId);
+    if (!promo) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_PROMOCION_NO_VIGENTE', mensaje: 'La promoción seleccionada no se encuentra activa o no existe.' }],
+      };
+    }
+
+    this.promocionesPorMesa[mesaId] = promocionId;
+    const precuenta = this.calcularPrecuentaParaMesa(mesaId);
+    if (!precuenta) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_MESA_NO_ENCONTRADA', mensaje: 'Mesa no encontrada.' }],
+      };
+    }
+
+    // Actualizar total_consumo en la tarjeta del salón
+    const idx = this.mesas.findIndex((m) => m.id === mesaId);
+    if (idx !== -1) {
+      this.mesas[idx].total_consumo = precuenta.tributacion_sunat.total_neto;
+    }
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(precuenta)),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * Remueve la promoción activa de la precuenta digital (DELETE /api/v1/caja/mesas/{mesa_id}/precuenta/promocion)
+   * Restaura los importes brutos originales
+   */
+  async removerPromocionPrecuenta(mesaId: string): Promise<ApiResponse<PrecuentaResponseDTO>> {
+    await new Promise((r) => setTimeout(r, 50));
+
+    this.promocionesPorMesa[mesaId] = null;
+    const precuenta = this.calcularPrecuentaParaMesa(mesaId);
+    if (!precuenta) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_MESA_NO_ENCONTRADA', mensaje: 'Mesa no encontrada.' }],
+      };
+    }
+
+    // Actualizar total_consumo en la tarjeta del salón
+    const idx = this.mesas.findIndex((m) => m.id === mesaId);
+    if (idx !== -1) {
+      this.mesas[idx].total_consumo = precuenta.tributacion_sunat.consumo_bruto;
+    }
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(precuenta)),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * Conmuta una mesa de 'ocupada' a 'cuenta_pedida' tras confirmar la precuenta digital (CU-CAJA-02)
+   */
+  async conmutarACuentaPedida(mesaId: string, subcuentasCount?: number): Promise<ApiResponse<MesaCajaMonitorDTO>> {
+    await new Promise((r) => setTimeout(r, 60));
+    const mesa = this.mesas.find((m) => m.id === mesaId);
+    if (!mesa) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_MESA_NO_ENCONTRADA', mensaje: 'Mesa no encontrada.' }],
+      };
+    }
+    mesa.estado = 'cuenta_pedida';
+    mesa.minutos_espera_cuenta = 1;
+    if (subcuentasCount !== undefined) {
+      mesa.subcuentas_count = subcuentasCount;
+    }
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(mesa)),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * Registra formalmente la subdivisión de cuenta en comanda (CU-MOZO-09 / CU-CAJA-04)
+   * Asocia las subcuentas calculadas y conmuta la mesa a 'cuenta_pedida'
+   */
+  async registrarDivisionCuenta(
+    mesaId: string,
+    subcuentas: SubcuentaComandaDTO[]
+  ): Promise<ApiResponse<MesaCajaMonitorDTO>> {
+    await new Promise((r) => setTimeout(r, 80));
+    const mesa = this.mesas.find((m) => m.id === mesaId);
+    if (!mesa) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_MESA_NO_ENCONTRADA', mensaje: 'Mesa no encontrada.' }],
+      };
+    }
+
+    this.subcuentasPorMesa[mesaId] = subcuentas;
+    mesa.estado = 'cuenta_pedida';
+    mesa.minutos_espera_cuenta = 1;
+    mesa.subcuentas_count = subcuentas.length;
+
+    return {
+      exito: true,
+      datos: JSON.parse(JSON.stringify(mesa)),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * Motor determinista de cálculo tributario SUNAT e ítems para la precuenta
+   */
+  calcularPrecuentaParaMesa(mesaId: string): PrecuentaResponseDTO | null {
+    const mesa = this.mesas.find((m) => m.id === mesaId);
+    if (!mesa || mesa.estado === 'libre') return null;
+
+    let items: PrecuentaItemDTO[] = [];
+    let subcuentas: SubcuentaComandaDTO[] | undefined = undefined;
+    let numeroComanda = 108;
+    let horaPedido = '12:45 PM';
+    let mozoNombre = mesa.mozo_nombre || 'Marco Valdivia';
+    let tieneCocinaPendiente = false;
+    let alertaCocina: string | undefined = undefined;
+
+    if (mesa.id === 'm-caja-004' || mesa.numero === '04') {
+      numeroComanda = 108;
+      horaPedido = '12:45 PM';
+      mozoNombre = 'Marco Valdivia';
+      tieneCocinaPendiente = true;
+      alertaCocina = "Aviso Informativo: 1 plato 'Lomo Saltado' en preparación en cocina. No bloquea la emisión ni el cobro de la cuenta.";
+      items = [
+        {
+          producto_id: '00000000-0000-4000-8000-000000000201',
+          nombre: 'Lomo Saltado Criollo',
+          nota_cocina: 'Término 3/4, con papas',
+          cantidad: 1,
+          precio_unitario: 38.0,
+          subtotal: 38.0,
+          estado_cocina: 'en_preparacion',
+        },
+        {
+          producto_id: '00000000-0000-4000-8000-000000000202',
+          nombre: 'Arroz con Mariscos Especial',
+          nota_cocina: 'Sin cebolla china',
+          cantidad: 1,
+          precio_unitario: 34.0,
+          subtotal: 34.0,
+          estado_cocina: 'entregado',
+        },
+        {
+          producto_id: '00000000-0000-4000-8000-000000000203',
+          nombre: 'Chicha Morada Jarra 1L',
+          cantidad: 1,
+          precio_unitario: 16.0,
+          subtotal: 16.0,
+          estado_cocina: 'entregado',
+        },
+        {
+          producto_id: '00000000-0000-4000-8000-000000000204',
+          nombre: 'Causa Limeña Clásica',
+          nota_cocina: 'Entrada compartida',
+          cantidad: 1,
+          precio_unitario: 12.0,
+          subtotal: 12.0,
+          estado_cocina: 'entregado',
+        },
+      ];
+    } else if (mesa.id === 'm-caja-008' || mesa.numero === '08') {
+      numeroComanda = 109;
+      horaPedido = '01:10 PM';
+      mozoNombre = 'Rosa P.';
+      tieneCocinaPendiente = false;
+      items = [
+        {
+          producto_id: '00000000-0000-4000-8000-000000000205',
+          nombre: 'Ceviche Mixto Tradicional',
+          nota_cocina: 'Picante moderado',
+          cantidad: 1,
+          precio_unitario: 48.0,
+          subtotal: 48.0,
+          estado_cocina: 'entregado',
+        },
+        {
+          producto_id: '00000000-0000-4000-8000-000000000206',
+          nombre: 'Arroz Chaufa Especial',
+          cantidad: 1,
+          precio_unitario: 42.0,
+          subtotal: 42.0,
+          estado_cocina: 'entregado',
+        },
+        {
+          producto_id: '00000000-0000-4000-8000-000000000207',
+          nombre: 'Chilcano Clásico',
+          cantidad: 2,
+          precio_unitario: 20.0,
+          subtotal: 40.0,
+          estado_cocina: 'entregado',
+        },
+        {
+          producto_id: '00000000-0000-4000-8000-000000000208',
+          nombre: 'Suspiro a la Limeña',
+          cantidad: 1,
+          precio_unitario: 15.0,
+          subtotal: 15.0,
+          estado_cocina: 'entregado',
+        },
+      ];
+      subcuentas = [
+        {
+          id: 'sub-08-1',
+          numero_subcuenta: 1,
+          titular_referencia: 'Comensal 1 (Ceviche + Chilcano)',
+          subtotal_bruto: 88.0,
+          descuento: 0.0,
+          total_neto: 88.0,
+          tipo_comprobante_sugerido: 'BOLETA',
+          estado_pago: 'pendiente',
+          items: [
+            { producto_id: '00000000-0000-4000-8000-000000000205', nombre: 'Ceviche Mixto Tradicional', cantidad: 1, precio_unitario: 48.0, subtotal: 48.0, estado_cocina: 'entregado' },
+            { producto_id: '00000000-0000-4000-8000-000000000207', nombre: 'Chilcano Clásico', cantidad: 2, precio_unitario: 20.0, subtotal: 40.0, estado_cocina: 'entregado' },
+          ],
+        },
+        {
+          id: 'sub-08-2',
+          numero_subcuenta: 2,
+          titular_referencia: 'Comensal 2 (Chaufa + Suspiro)',
+          subtotal_bruto: 57.0,
+          descuento: 0.0,
+          total_neto: 57.0,
+          tipo_comprobante_sugerido: 'FACTURA',
+          estado_pago: 'pendiente',
+          items: [
+            { producto_id: '00000000-0000-4000-8000-000000000206', nombre: 'Arroz Chaufa Especial', cantidad: 1, precio_unitario: 42.0, subtotal: 42.0, estado_cocina: 'entregado' },
+            { producto_id: '00000000-0000-4000-8000-000000000208', nombre: 'Suspiro a la Limeña', cantidad: 1, precio_unitario: 15.0, subtotal: 15.0, estado_cocina: 'entregado' },
+          ],
+        },
+      ];
+    } else if (mesa.id === 'm-caja-002' || mesa.numero.includes(';')) {
+      numeroComanda = 102;
+      horaPedido = '12:15 PM';
+      mozoNombre = 'Marco Valdivia';
+      tieneCocinaPendiente = false;
+      items = [
+        {
+          producto_id: '00000000-0000-4000-8000-000000000209',
+          nombre: 'Bife Angosto Parrilla 350g',
+          nota_cocina: 'Término medio',
+          cantidad: 2,
+          precio_unitario: 48.0,
+          subtotal: 96.0,
+          estado_cocina: 'entregado',
+        },
+        {
+          producto_id: '00000000-0000-4000-8000-000000000201',
+          nombre: 'Lomo Saltado Criollo',
+          cantidad: 2,
+          precio_unitario: 38.0,
+          subtotal: 76.0,
+          estado_cocina: 'entregado',
+        },
+        {
+          producto_id: '00000000-0000-4000-8000-000000000210',
+          nombre: 'Tacu Tacu con Sábana de Lomo',
+          cantidad: 1,
+          precio_unitario: 45.0,
+          subtotal: 45.0,
+          estado_cocina: 'entregado',
+        },
+        {
+          producto_id: '00000000-0000-4000-8000-000000000203',
+          nombre: 'Chicha Morada Jarra 1L',
+          cantidad: 2,
+          precio_unitario: 16.0,
+          subtotal: 32.0,
+          estado_cocina: 'entregado',
+        },
+        {
+          producto_id: '00000000-0000-4000-8000-000000000211',
+          nombre: 'Cerveza Cusqueña Trigo',
+          cantidad: 3,
+          precio_unitario: 12.0,
+          subtotal: 36.0,
+          estado_cocina: 'entregado',
+        },
+      ];
+    } else {
+      numeroComanda = 101;
+      horaPedido = '01:20 PM';
+      items = [
+        {
+          producto_id: '00000000-0000-4000-8000-000000000201',
+          nombre: 'Lomo Saltado Criollo',
+          cantidad: 1,
+          precio_unitario: 38.0,
+          subtotal: 38.0,
+          estado_cocina: 'entregado',
+        },
+        {
+          producto_id: '00000000-0000-4000-8000-000000000203',
+          nombre: 'Chicha Morada Jarra 1L',
+          cantidad: 1,
+          precio_unitario: 16.0,
+          subtotal: 16.0,
+          estado_cocina: 'entregado',
+        },
+        {
+          producto_id: '00000000-0000-4000-8000-000000000212',
+          nombre: 'Porción Tequeños de Queso (8 un)',
+          cantidad: 1,
+          precio_unitario: 10.0,
+          subtotal: 10.0,
+          estado_cocina: 'entregado',
+        },
+      ];
+    }
+    if (this.subcuentasPorMesa[mesaId]) {
+      subcuentas = this.subcuentasPorMesa[mesaId];
+    }
+
+    const consumoBruto = Math.round(items.reduce((acc, it) => acc + it.subtotal, 0) * 100) / 100;
+    const promoActivaId = this.promocionesPorMesa[mesaId] || null;
+
+    let descuento = 0.0;
+    if (promoActivaId === 'promo-almuerzo-15') {
+      descuento = Math.round(consumoBruto * 0.15 * 100) / 100;
+    } else if (promoActivaId === 'promo-chilcano-2x1') {
+      descuento = Math.min(consumoBruto, 18.0);
+    }
+
+    const totalNeto = Math.round((consumoBruto - descuento) * 100) / 100;
+    const baseImponible = Math.round((totalNeto / 1.18) * 100) / 100;
+    const igv = Math.round((totalNeto - baseImponible) * 100) / 100;
+
+    const tributacionSunat: DesgloseTributarioSUNATDTO = {
+      consumo_bruto: consumoBruto,
+      descuento_aplicado: descuento,
+      total_neto: totalNeto,
+      base_imponible: baseImponible,
+      igv: igv,
+      tasa_igv: 0.18,
+    };
+
+    const comisionTarjeta = Math.round(totalNeto * 0.035 * 100) / 100;
+    const opcionesCobro: OpcionCobroPrecuentaDTO[] = [
+      {
+        metodo_pago_codigo: 'efectivo',
+        metodo_pago_nombre: 'Efectivo',
+        comision_porcentaje: 0.0,
+        monto_comision: 0.0,
+        total_estimado: totalNeto,
+      },
+      {
+        metodo_pago_codigo: 'billetera_digital',
+        metodo_pago_nombre: 'Yape / Plin',
+        comision_porcentaje: 0.0,
+        monto_comision: 0.0,
+        total_estimado: totalNeto,
+      },
+      {
+        metodo_pago_codigo: 'tarjeta',
+        metodo_pago_nombre: 'Tarjeta POS',
+        comision_porcentaje: 3.5,
+        monto_comision: comisionTarjeta,
+        total_estimado: Math.round((totalNeto + comisionTarjeta) * 100) / 100,
+      },
+    ];
+
+    const promocionesDisponibles: PromocionAplicableDTO[] = PROMOCIONES_CATALOGO_MOCK.map((p) => {
+      let ahorro = 0.0;
+      if (p.tipo_descuento === 'porcentaje') {
+        ahorro = Math.round(consumoBruto * (p.valor / 100) * 100) / 100;
+      } else {
+        ahorro = Math.min(consumoBruto, p.valor);
+      }
+      return {
+        ...p,
+        ahorro_calculado: ahorro,
+        aplicada: p.id === promoActivaId,
+      };
+    });
+
+    return {
+      mesa_id: mesa.id,
+      mesa_numero: mesa.numero,
+      mesa_estado: mesa.estado,
+      minutos_espera_cuenta: mesa.minutos_espera_cuenta,
+      es_mesa_unida: mesa.numero.includes(';'),
+      mozo_nombre: mozoNombre,
+      comensales: mesa.comensales || 4,
+      numero_comanda: numeroComanda,
+      hora_pedido: horaPedido,
+      items,
+      tiene_cocina_pendiente: tieneCocinaPendiente,
+      alerta_cocina: alertaCocina,
+      promociones_disponibles: promocionesDisponibles,
+      promocion_activa_id: promoActivaId,
+      tributacion_sunat: tributacionSunat,
+      opciones_cobro: opcionesCobro,
+      subcuentas,
+      generada_at: new Date().toISOString(),
     };
   }
 
@@ -645,6 +1293,7 @@ class MockCajaService {
       efectivo_actual: 300.0,
     };
     this.mesas = JSON.parse(JSON.stringify(SEMILLAS_MESAS_CAJA));
+    this.promocionesPorMesa = {};
   }
 
   /**
@@ -724,6 +1373,8 @@ class MockCajaService {
     this.turnoActivo = null;
     this.correlativoContador = 42;
     this.mesas = JSON.parse(JSON.stringify(SEMILLAS_MESAS_CAJA));
+    this.promocionesPorMesa = {};
+    this.subcuentasPorMesa = {};
     this.ultimoReporteZ = null;
   }
 }

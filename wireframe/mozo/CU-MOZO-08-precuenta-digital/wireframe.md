@@ -43,24 +43,25 @@ sequenceDiagram
     BE-->>FE: 200 OK (PrecuentaMozoResponseDTO)
     FE->>M: Renderiza Vista 1: Modal Táctil de Precuenta Digital con Promociones
 
-    %% 3. Comensal elige pagar con Billetera Digital (Yape / Plin)
-    CL->>M: "Voy a pagar con Yape"
+    %% 3. Comensal elige pagar con Billetera Digital (Yape / Plin) e indica comprobante
+    CL->>M: "Voy a pagar con Yape y deseo Boleta a mi DNI"
+    M->>FE: Selecciona [● Boleta] -> Digita DNI "72819201" (o toggle Consumidor Final)
     M->>FE: Toca opción "[ 📱 Billetera Digital (Yape / Plin) - S/ 85.00 ]"
     FE->>M: Renderiza Vista 2: Despliegue Dedicado de Billetera Digital (QR en Mesa)
     CL->>FE: Escanea código QR de Yape/Plin desde la tablet del mozo
     CL->>M: Muestra confirmación de transferencia en su móvil (Op: #581902)
 
-    %% 4. Notificación reactiva a caja para validación y comprobante
+    %% 4. Notificación reactiva a caja con intención fiscal y método
     M->>FE: Toca "[ ⚡ Confirmar y Notificar a Caja ]"
-    FE->>BE: POST /api/v1/mozo/mesas/{mesa_id}/solicitar-cuenta { metodo_pago: "billetera_digital", numero_operacion: "581902", monto: 85.00 }
-    BE->>DB: UPDATE pedido SET estado = 'cuenta_pedida', precuenta_generada_at = NOW(), promocion_id = :promo_id
-    BE->>SSE: Broadcast 'cuenta_solicitada' { mesa_id, mesa_numero: "04", total: 85.00, metodo: "Yape", mozo_id }
-    SSE-->>C: Monitor POS de Caja destaca Mesa 04 con badge ámbar y monto precargado (< 25ms)
+    FE->>BE: POST /api/v1/mozo/mesas/{mesa_id}/solicitar-cuenta { metodo_pago: "billetera_digital", numero_operacion: "581902", monto: 85.00, tipo_comprobante: "boleta", documento_cliente: "72819201" }
+    BE->>DB: UPDATE pedido SET estado = 'cuenta_pedida', precuenta_generada_at = NOW(), promocion_id = :promo_id, tipo_comprobante_sugerido = 'boleta', documento_cliente_sugerido = '72819201'
+    BE->>SSE: Broadcast 'cuenta_solicitada' { mesa_id, mesa_numero: "04", total: 85.00, metodo: "Yape", tipo_comprobante: "boleta", documento: "72819201", mozo_id }
+    SSE-->>C: Monitor POS de Caja destaca Mesa 04 con badge ámbar e intención fiscal precargada (< 25ms)
     BE-->>FE: 200 OK
     FE->>M: Renderiza Vista 3: Plano de Salón con Mesa 04 en [CUENTA PEDIDA] y Toast de espera
 
     %% 5. Validación de pago y comprobante formal por el cajero (CU-CAJA-03)
-    Note over C: El cajero valida el ingreso del dinero o voucher Yape<br/>y emite formalmente la Boleta o Factura electrónica (CU-CAJA-03).
+    Note over C: El cajero valida el ingreso del dinero o voucher Yape<br/>y emite formalmente el comprobante ya precargado sin redundancias (CU-CAJA-03).
 ```
 
 ---
@@ -69,7 +70,7 @@ sequenceDiagram
 
 ### Vista 1: Modal Táctil de Precuenta con Promociones Integradas (`wf_mozo_08_modal_precuenta.jpg`)
 
-Modal táctil de alta densidad (640px de ancho) que se superpone sobre el plano de salón atenuado de `CU-MOZO-01`. Agrupa la comanda consolidada, el banner sintético de cocina sin bloqueo, las promociones activas aplicadas en 1 toque (`CU-ADMIN-17`), el desglose oficial SUNAT Perú y un selector limpio con los 3 métodos de pago configurados en la sede (`CU-ADMIN-19`).
+Modal táctil de alta densidad (640px de ancho) que se superpone sobre el plano de salón atenuado de `CU-MOZO-01`. Agrupa la comanda consolidada, el banner sintético de cocina sin bloqueo, las promociones activas aplicadas en 1 toque (`CU-ADMIN-17`), el desglose oficial SUNAT Perú, el selector de comprobante fiscal sugerido y un selector limpio con los 3 métodos de pago configurados en la sede (`CU-ADMIN-19`).
 
 ![Vista 1: Modal Táctil de Precuenta con Promociones Integradas](assets/wf_mozo_08_modal_precuenta.jpg)
 
@@ -101,6 +102,10 @@ Modal táctil de alta densidad (640px de ancho) que se superpone sobre el plano 
 |                       | -------------------------------------------------- |                       |
 |                       | TOTAL NETO A COBRAR:                      S/  85.00|                       |
 |                       | Base Imponible: S/ 72.03   |   IGV 18%: S/ 12.97   |                       |
+|                       +----------------------------------------------------+                       |
+|                       | COMPROBANTE FISCAL SOLICITADO                      |                       |
+|                       | [● Boleta ]           [ Factura ]     [ Nota Venta]|                       |
+|                       | DNI: [ 72819201    ]  [ ] Consumidor Final         |                       |
 |                       +----------------------------------------------------+                       |
 |                       | FORMA DE PAGO DEL COMENSAL (CU-ADMIN-19)           |                       |
 |                       | +----------------+ +----------------+ +----------+ |                       |
@@ -296,6 +301,12 @@ type SolicitarCuentaRequest struct {
 	MetodoPagoSeleccionado string  `json:"metodo_pago" binding:"required" example:"billetera_digital"`
 	NumeroOperacion        string  `json:"numero_operacion,omitempty" example:"581902"`
 	MontoDeclarado         float64 `json:"monto_declarado" binding:"required,gt=0" example:"85.00"`
+	
+	// Intención fiscal capturada en mesa (poka-yoke para agilizar el cobro en CU-CAJA-03)
+	TipoComprobante        *string `json:"tipo_comprobante,omitempty" example:"boleta"`    // 'boleta', 'factura', 'nota_venta'
+	DocumentoCliente       *string `json:"documento_cliente,omitempty" example:"72819201"` // DNI 8 dígitos o RUC 11 dígitos
+	NombreCliente          *string `json:"nombre_cliente,omitempty" example:"Carlos Mendoza Quispe"`
+	ConsumidorFinal        bool    `json:"consumidor_final,omitempty"`                     // true si no solicita DNI (< S/ 700.00)
 }
 ```
 

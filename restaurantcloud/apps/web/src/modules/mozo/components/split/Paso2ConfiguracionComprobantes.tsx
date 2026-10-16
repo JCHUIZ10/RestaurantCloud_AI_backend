@@ -11,6 +11,7 @@ import {
   Building2,
   User,
   Info,
+  QrCode,
 } from 'lucide-react';
 import {
   SubcuentaConfigDTO,
@@ -19,6 +20,7 @@ import {
   PromocionSedeDTO,
 } from '@/types/mozo';
 import { mockMozoService } from '../../services/mockMozoService';
+import { ModalQRBilletera } from '../precuenta/ModalQRBilletera';
 
 interface Paso2ConfiguracionComprobantesProps {
   subcuentas: SubcuentaConfigDTO[];
@@ -33,6 +35,7 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
 }) => {
   const [buscandoDoc, setBuscandoDoc] = useState<Record<string, boolean>>({});
   const [docErrores, setDocErrores] = useState<Record<string, string | null>>({});
+  const [subcuentaModalQR, setSubcuentaModalQR] = useState<SubcuentaConfigDTO | null>(null);
 
   // Recalcular montos de una subcuenta cuando cambian promos, pasarela o comprobante
   const recalcularSubcuenta = (
@@ -453,7 +456,7 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
                       )}
 
                       {sub.nombre_cliente && !sub.consumidor_final_sin_doc && (
-                        <div className="pt-1 border-t border-slate-200 text-[11px] font-semibold text-slate-800 truncate">
+                        <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-xs font-bold text-slate-900 truncate">
                           {sub.nombre_cliente}
                         </div>
                       )}
@@ -549,6 +552,37 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
                       <span>Yape/Plin</span>
                     </button>
                   </div>
+
+                  {/* Detalle y Botón Ver QR para Yape / Plin */}
+                  {sub.medio_pago === 'billetera_digital' && (
+                    <div className="mt-2.5 p-3 rounded-xl bg-purple-50 border border-purple-200 text-xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] text-purple-700 font-bold uppercase block">Datos Yape / Plin</span>
+                          <span className="font-bold text-purple-950 font-mono text-sm">987 654 321</span>
+                          <span className="text-[11px] text-purple-800 ml-1.5">(Restaurant S.A.C.)</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSubcuentaModalQR(sub)}
+                          className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+                        >
+                          <QrCode className="w-3.5 h-3.5" />
+                          <span>Ver QR</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1.5 border-t border-purple-200/70">
+                        <span className="text-[11px] text-purple-900 font-semibold shrink-0">N° Operación:</span>
+                        <input
+                          type="text"
+                          defaultValue="581902"
+                          placeholder="581902"
+                          className="flex-1 py-1 px-2.5 rounded-lg border border-purple-300 bg-white font-mono text-xs font-bold text-purple-950 focus:outline-none focus:border-purple-500"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -602,6 +636,24 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
           </p>
         </div>
       </div>
+
+      {/* Modal QR de Billetera Digital para la Subcuenta */}
+      {subcuentaModalQR && (
+        <ModalQRBilletera
+          isOpen={Boolean(subcuentaModalQR)}
+          onClose={() => setSubcuentaModalQR(null)}
+          monto={subcuentaModalQR.total_neto}
+          detalle={{
+            telefono: '987 654 321',
+            titular: 'Restaurant S.A.C.',
+            ruc: '20601234567',
+            monto_exacto: subcuentaModalQR.total_neto,
+          }}
+          onConfirmarPago={(_numOp) => {
+            setSubcuentaModalQR(null);
+          }}
+        />
+      )}
     </div>
   );
 };

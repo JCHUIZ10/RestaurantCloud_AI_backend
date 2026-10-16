@@ -7,6 +7,9 @@ import {
   MesaCajaMonitorDTO,
   CajaMetricasPosDTO,
   CajaTurnoDTO,
+  PrecuentaResponseDTO,
+  SubcuentaComandaDTO,
+  ProcesarCobroFiscalResponseDTO,
 } from '@/types/caja';
 import {
   mockCajaService,
@@ -15,8 +18,11 @@ import {
 import { ModalAperturaTurno } from '../components/ModalAperturaTurno';
 import { ModalBloqueoTurnoPrevio } from '../components/ModalBloqueoTurnoPrevio';
 import { MonitorCajaPosView } from '../components/MonitorCajaPosView';
-import { ModalCobroPrecuentaDemo } from '../components/ModalCobroPrecuentaDemo';
+import { ModalCobroFiscalPos } from '../components/ModalCobroFiscalPos';
+import { ModalPrecuentaCompleta } from '@/modules/mozo/components/precuenta/ModalPrecuentaCompleta';
+import { ModalDividirCuenta } from '@/modules/mozo/components/split/ModalDividirCuenta';
 import { DemoCajaTurnoWidget } from '../components/DemoCajaTurnoWidget';
+import type { DividirCuentaResponseDTO } from '@/types/mozo';
 
 export const CajeroPosPage: React.FC = () => {
   const navigate = useNavigate();
@@ -28,8 +34,12 @@ export const CajeroPosPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [isSubmittingApertura, setIsSubmittingApertura] = useState<boolean>(false);
 
-  // Modales interactivos
-  const [mesaCobroActiva, setMesaCobroActiva] = useState<MesaCajaMonitorDTO | null>(null);
+  // Modales Canónicos Unificados
+  const [mesaPrecuentaActiva, setMesaPrecuentaActiva] = useState<MesaCajaMonitorDTO | null>(null);
+  const [mesaDividirActiva, setMesaDividirActiva] = useState<MesaCajaMonitorDTO | null>(null);
+  const [mesaCobroFiscalActiva, setMesaCobroFiscalActiva] = useState<MesaCajaMonitorDTO | null>(null);
+  const [subcuentaCobroFiscalActiva, setSubcuentaCobroFiscalActiva] = useState<SubcuentaComandaDTO | null>(null);
+  const [precuentaFiscalActiva, setPrecuentaFiscalActiva] = useState<PrecuentaResponseDTO | null>(null);
 
   // Toast de feedback
   const [toast, setToast] = useState<{ tipo: 'success' | 'error' | 'info'; mensaje: string } | null>(null);
@@ -98,19 +108,102 @@ export const CajeroPosPage: React.FC = () => {
     }
   };
 
-  // Manejador de Cobro Demostrativo (Vista 3)
-  const handleConfirmarCobroMesa = async (mesaId: string) => {
+  // 1. Abrir Modal Canónico de Precuenta (CU-MOZO-08 / CU-CAJA-02)
+  const handleAbrirPrecuenta = (mesa: MesaCajaMonitorDTO) => {
+    setMesaPrecuentaActiva(mesa);
+  };
+
+  // 2. Abrir Modal Canónico de Dividir Cuenta (CU-MOZO-09 / CU-CAJA-04)
+  const handleAbrirDividir = (mesa: MesaCajaMonitorDTO) => {
+    setMesaDividirActiva(mesa);
+  };
+
+  // 3. Abrir Emisión de Comprobante Fiscal (CU-CAJA-03)
+  const handleAbrirEmitirComprobante = async (mesa: MesaCajaMonitorDTO, subcuenta?: SubcuentaComandaDTO) => {
     try {
-      const resp = await mockCajaService.cobrarMesaMock(mesaId);
+      const res = await mockCajaService.getPrecuentaMesa(mesa.id);
+      if (res.exito && res.datos) {
+        setPrecuentaFiscalActiva(res.datos);
+      } else {
+        setPrecuentaFiscalActiva(null);
+      }
+    } catch {
+      setPrecuentaFiscalActiva(null);
+    }
+    setMesaCobroFiscalActiva(mesa);
+    setSubcuentaCobroFiscalActiva(subcuenta || null);
+  };
+
+  // Manejador tras notificar precuenta en mesa (Conmuta a CUENTA PEDIDA)
+  const handlePrecuentaNotificada = async (mesaId: string, totalNeto: number) => {
+    try {
+      const resp = await mockCajaService.conmutarACuentaPedida(mesaId);
       if (resp.exito && resp.datos) {
         showToast(
           'success',
-          `Mesa ${resp.datos.mesa_numero} cobrada por S/ ${resp.datos.total_cobrado.toFixed(2)}. Gaveta y métricas actualizadas.`
+          `Mesa ${resp.datos.numero} conmutada a CUENTA PEDIDA (Esperando Comprobante). Total fijado: S/ ${totalNeto.toFixed(2)}.`
         );
-        await cargarDatos();
       }
     } catch {
-      showToast('error', 'Error al procesar el cobro de la mesa.');
+      showToast('error', 'Error al actualizar el estado de la mesa a Cuenta Pedida.');
+    } finally {
+      setMesaPrecuentaActiva(null);
+      await cargarDatos();
+    }
+  };
+
+  // Manejador tras confirmar división de cuenta en mesa (Conmuta a CUENTA PEDIDA con subcuentas)
+  const handleDivisionConfirmada = async (datos: DividirCuentaResponseDTO) => {
+    try {
+      const subcuentasDTO: SubcuentaComandaDTO[] = datos.subcuentas_resumen.map((s) => ({
+        id: s.id,
+        numero_subcuenta: s.numero,
+        titular_referencia: s.nombre_referencia,
+        subtotal_bruto: s.total,
+        descuento: 0,
+        total_neto: s.total,
+        tipo_comprobante_sugerido: (s.tipo_comprobante.toUpperCase() as 'BOLETA' | 'FACTURA' | 'NOTA_VENTA') || 'BOLETA',
+        estado: s.estado,
+        estado_pago: s.estado,
+        items: [],
+      }));
+
+      await mockCajaService.registrarDivisionCuenta(datos.mesa_id, subcuentasDTO);
+      showToast(
+        'success',
+        `Mesa ${datos.mesa_numero} subdividida en ${datos.partes} cuentas. Estado conmutado a CUENTA PEDIDA (Esperando Comprobante).`
+      );
+    } catch {
+      showToast('error', 'Error al registrar la subdivisión de cuenta en la comanda.');
+    } finally {
+      setMesaDividirActiva(null);
+      await cargarDatos();
+    }
+  };
+
+  // Manejador tras emitir comprobante fiscal (CU-CAJA-03)
+  const handleComprobanteEmitido = async (response: ProcesarCobroFiscalResponseDTO) => {
+    await cargarDatos();
+    if (response.mesa_liberada) {
+      showToast(
+        'success',
+        `Comprobante ${response.serie_numero} emitido exitosamente por S/ ${response.total_cobrado.toFixed(2)}. ¡Mesa ${response.mesa_numero} liberada!`
+      );
+      setMesaCobroFiscalActiva(null);
+      setSubcuentaCobroFiscalActiva(null);
+      setPrecuentaFiscalActiva(null);
+    } else {
+      showToast(
+        'info',
+        `Comprobante ${response.serie_numero} emitido por S/ ${response.total_cobrado.toFixed(2)}. Quedan ${response.subcuentas_pendientes} subcuentas pendientes en Mesa ${response.mesa_numero}.`
+      );
+      if (mesaCobroFiscalActiva) {
+        const res = await mockCajaService.getPrecuentaMesa(mesaCobroFiscalActiva.id);
+        if (res.exito && res.datos) {
+          setPrecuentaFiscalActiva(res.datos);
+        }
+      }
+      setSubcuentaCobroFiscalActiva(null);
     }
   };
 
@@ -151,7 +244,7 @@ export const CajeroPosPage: React.FC = () => {
       showToast('error', 'Sandbox: Provocando conflicto 409 (Turno previo no cerrado). Mostrando Vista 2.');
     } else if (escenario === 'abierta_operativa') {
       mockCajaService.simularTurnoAbiertoOperativoQA();
-      showToast('success', 'Sandbox: Turno #042 de Carlos Mendoza activo. Mostrando Vista 3 (POS Desbloqueado).');
+      showToast('success', 'Sandbox: Turno #042 activo. Salón operativo listo.');
     } else if (escenario === 'forzar_cierre') {
       mockCajaService.simularCierreDesdeCuAdmin14QA();
       showToast('info', 'Sandbox: Cierre de caja ejecutado por Administradora en CU-ADMIN-14.');
@@ -160,6 +253,17 @@ export const CajeroPosPage: React.FC = () => {
       showToast('info', 'Sandbox: Semillas restablecidas al estado cerrado inicial.');
     }
     await cargarDatos();
+  };
+
+  // Demo QA: Abrir mesa directamente
+  const handleSelectMesaDemo = (mesaId: string) => {
+    const mesa = mesas.find((m) => m.id === mesaId);
+    if (!mesa) return;
+    if (mesa.estado === 'cuenta_pedida') {
+      handleAbrirEmitirComprobante(mesa);
+    } else if (mesa.estado === 'ocupada') {
+      handleAbrirPrecuenta(mesa);
+    }
   };
 
   if (loading || !session || !metricas) {
@@ -226,9 +330,11 @@ export const CajeroPosPage: React.FC = () => {
           }
           mesas={mesas}
           metricas={metricas}
-          onSolicitarCobroMesa={(mesa) => setMesaCobroActiva(mesa)}
+          onAbrirPrecuenta={handleAbrirPrecuenta}
+          onAbrirDividir={handleAbrirDividir}
+          onEmitirComprobante={handleAbrirEmitirComprobante}
           onProcederCierre={() => {
-            showToast('info', 'Redirigiendo a Arqueo y Cierre Z (CU-CAJA-03/05)...');
+            showToast('info', 'Redirigiendo a Arqueo y Cierre Z (CU-CAJA-05)...');
             navigate(ROUTES.CAJERO_TURNO);
           }}
         />
@@ -261,18 +367,48 @@ export const CajeroPosPage: React.FC = () => {
         />
       )}
 
-      {/* Sub-modal demostrativo de Precuenta y Cobro (CU-CAJA-02) */}
-      <ModalCobroPrecuentaDemo
-        isOpen={Boolean(mesaCobroActiva)}
-        mesa={mesaCobroActiva}
-        onClose={() => setMesaCobroActiva(null)}
-        onConfirmarCobro={handleConfirmarCobroMesa}
-      />
+      {/* MODAL 1: Precuenta Completa en Mesa (Reutilización Canónica de CU-MOZO-08) */}
+      {mesaPrecuentaActiva && (
+        <ModalPrecuentaCompleta
+          isOpen={Boolean(mesaPrecuentaActiva)}
+          onClose={() => setMesaPrecuentaActiva(null)}
+          mesaId={mesaPrecuentaActiva.id}
+          mesaEstadoActual={mesaPrecuentaActiva.estado}
+          onCuentaNotificada={handlePrecuentaNotificada}
+        />
+      )}
+
+      {/* MODAL 2: Dividir Cuenta en Mesa (Reutilización Canónica de CU-MOZO-09) */}
+      {mesaDividirActiva && (
+        <ModalDividirCuenta
+          isOpen={Boolean(mesaDividirActiva)}
+          onClose={() => setMesaDividirActiva(null)}
+          mesaId={mesaDividirActiva.id}
+          onDivisionConfirmada={handleDivisionConfirmada}
+        />
+      )}
+
+      {/* MODAL 3: Emisión de Comprobante Fiscal SUNAT (CU-CAJA-03 Oficial) */}
+      {mesaCobroFiscalActiva && (
+        <ModalCobroFiscalPos
+          isOpen={Boolean(mesaCobroFiscalActiva)}
+          mesa={mesaCobroFiscalActiva}
+          subcuenta={subcuentaCobroFiscalActiva}
+          precuenta={precuentaFiscalActiva}
+          onClose={() => {
+            setMesaCobroFiscalActiva(null);
+            setSubcuentaCobroFiscalActiva(null);
+            setPrecuentaFiscalActiva(null);
+          }}
+          onComprobanteEmitido={handleComprobanteEmitido}
+        />
+      )}
 
       {/* Widget Flotante de Pruebas QA (Esquina inferior derecha) */}
       <DemoCajaTurnoWidget
         onSelectEscenario={handleSelectEscenarioQA}
         estadoActual={estadoBadgeTexto}
+        onSelectMesaDemo={handleSelectMesaDemo}
       />
     </div>
   );

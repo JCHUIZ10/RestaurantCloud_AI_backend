@@ -40,6 +40,10 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
   const [modalQRAbierto, setModalQRAbierto] = useState(false);
   const [numeroOperacion, setNumeroOperacion] = useState<string>('581902');
   const [enviandoNotificacion, setEnviandoNotificacion] = useState(false);
+  const [tipoComprobante, setTipoComprobante] = useState<'boleta' | 'factura' | 'nota_venta'>('boleta');
+  const [documentoCliente, setDocumentoCliente] = useState<string>('72819201');
+  const [nombreCliente, setNombreCliente] = useState<string>('CARLOS MENDOZA QUISPE');
+  const [consumidorFinal, setConsumidorFinal] = useState<boolean>(false);
   const [cuentaPedidaExitosa, setCuentaPedidaExitosa] = useState(
     mesaEstadoActual === 'cuenta_pedida'
   );
@@ -155,6 +159,10 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
         numero_operacion: opToUse,
         monto_declarado: calculos.totalNeto,
         promocion_id: promocionSeleccionada?.id || null,
+        tipo_comprobante: tipoComprobante,
+        documento_cliente: consumidorFinal ? '00000000' : documentoCliente,
+        nombre_cliente: consumidorFinal ? 'CONSUMIDOR FINAL' : nombreCliente,
+        consumidor_final: consumidorFinal,
       });
 
       if (res.exito) {
@@ -278,6 +286,131 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
               {/* Columna Derecha: Desglose SUNAT + Métodos de Pago y QR (5 cols) */}
               <div className="lg:col-span-5 space-y-4">
                 <DesgloseSUNATCard desglose={calculos.desgloseSUNAT} />
+
+                {/* Selector de Comprobante Deseado (Boleta / Factura / Nota Venta) */}
+                <div className="p-3.5 rounded-xl bg-black/25 border border-white/10 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-200">Tipo de Comprobante Deseado</span>
+                    <span className="text-[10px] text-[#D5A06F] font-mono">Para emisión en Caja</span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTipoComprobante('boleta');
+                        setDocumentoCliente('72819201');
+                        setNombreCliente('CARLOS MENDOZA QUISPE');
+                        setConsumidorFinal(false);
+                      }}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
+                        tipoComprobante === 'boleta'
+                          ? 'bg-[#D5A06F] text-[#0B2340] shadow-sm'
+                          : 'bg-white/5 hover:bg-white/10 text-slate-300'
+                      }`}
+                    >
+                      Boleta
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTipoComprobante('factura');
+                        setDocumentoCliente('20601234567');
+                        setNombreCliente('INVERSIONES GASTRONÓMICAS S.A.C.');
+                        setConsumidorFinal(false);
+                      }}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
+                        tipoComprobante === 'factura'
+                          ? 'bg-[#D5A06F] text-[#0B2340] shadow-sm'
+                          : 'bg-white/5 hover:bg-white/10 text-slate-300'
+                      }`}
+                    >
+                      Factura
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTipoComprobante('nota_venta');
+                        setConsumidorFinal(false);
+                      }}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
+                        tipoComprobante === 'nota_venta'
+                          ? 'bg-[#D5A06F] text-[#0B2340] shadow-sm'
+                          : 'bg-white/5 hover:bg-white/10 text-slate-300'
+                      }`}
+                    >
+                      Nota Venta
+                    </button>
+                  </div>
+
+                  {tipoComprobante === 'boleta' && (
+                    <div className="space-y-1.5 text-xs">
+                      {!consumidorFinal ? (
+                        <>
+                          <div className="flex gap-1.5">
+                            <input
+                              type="text"
+                              value={documentoCliente}
+                              maxLength={8}
+                              onChange={(e) => setDocumentoCliente(e.target.value.replace(/\D/g, ''))}
+                              placeholder="DNI"
+                              className="w-28 py-1.5 px-2.5 rounded-lg border border-white/15 bg-black/40 font-mono text-xs text-white"
+                            />
+                            <div className="flex-1 p-1.5 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-xs font-bold text-emerald-300 truncate flex items-center">
+                              {nombreCliente}
+                            </div>
+                          </div>
+                          {calculos.totalNeto < 700 && (
+                            <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-400">
+                              <input
+                                type="checkbox"
+                                checked={consumidorFinal}
+                                onChange={(e) => setConsumidorFinal(e.target.checked)}
+                                className="rounded border-white/20 text-[#D5A06F]"
+                              />
+                              <span>Consumidor Final (&lt; S/ 700.00 sin DNI)</span>
+                            </label>
+                          )}
+                        </>
+                      ) : (
+                        <div className="p-2 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-400 flex items-center justify-between">
+                          <span>CONSUMIDOR FINAL</span>
+                          <button
+                            type="button"
+                            onClick={() => setConsumidorFinal(false)}
+                            className="text-[#D5A06F] text-[11px] underline"
+                          >
+                            Ingresar DNI
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {tipoComprobante === 'factura' && (
+                    <div className="space-y-1.5 text-xs">
+                      <input
+                        type="text"
+                        value={documentoCliente}
+                        maxLength={11}
+                        onChange={(e) => setDocumentoCliente(e.target.value.replace(/\D/g, ''))}
+                        placeholder="RUC 11 dígitos"
+                        className="w-full py-1.5 px-2.5 rounded-lg border border-white/15 bg-black/40 font-mono text-xs text-white"
+                      />
+                      <div className="p-1.5 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-xs font-bold text-emerald-300 truncate">
+                        {nombreCliente}
+                      </div>
+                    </div>
+                  )}
+
+                  {tipoComprobante === 'nota_venta' && (
+                    <p className="text-[11px] text-slate-400 italic">
+                      Control interno simplificado para la comanda.
+                    </p>
+                  )}
+                </div>
 
                 <MetodosPagoSelector
                   opcionesPago={calculos.opcionesPago}

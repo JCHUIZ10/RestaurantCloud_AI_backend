@@ -69,13 +69,16 @@ sequenceDiagram
         FE->>C: Renderiza Vista 2: Precuenta con Promoción Aplicada
     end
 
-    %% 4. Enrutamiento directo de cobro en POS (Sin rebotes al mozo)
-    alt Cobro Unificado (Toda la comanda en 1 solo comprobante)
-        C->>FE: Clic en [ ⚡ Cobrar Comanda Completa (CU-CAJA-03) ]
-        FE->>C: Abre modal de cobro y emisión fiscal de CU-CAJA-03 (Factura, Boleta o Nota de Venta)
-    else Cobro Dividido (Comensales en counter solicitan pagar por separado)
-        C->>FE: Clic en [ ➗ Dividir Cuenta en POS (CU-CAJA-04) ]
-        FE->>C: Abre motor de asignación ítem por ítem en POS de CU-CAJA-04
+    %% 4. Enrutamiento directo de cobro en POS (Drawer Lateral Derecho)
+    alt Mesa en estado 'cuenta_pedida' (Precuenta o Subcuentas ya generadas en salón)
+        C->>FE: Clic en [ ⚡ Emitir Comprobante (CU-CAJA-03) ]
+        FE->>C: Abre diálogo de emisión fiscal y token QR (CU-CAJA-03 Vista 2)
+    else Mesa en estado 'ocupada' (Atención en Counter)
+        alt Cajero liquida cuenta completa en mostrador
+            C->>FE: Clic en [ ⚡ Emitir Comprobante ] -> Abre modal CU-CAJA-03
+        else Comensales en counter solicitan división de cuenta
+            C->>FE: Clic en [ ➗ Dividir Cuenta en POS ] -> Abre motor de asignación (CU-CAJA-04)
+        end
     end
 ```
 
@@ -83,9 +86,9 @@ sequenceDiagram
 
 ## 3. Especificación de Pantallas y Wireframes Blueprint (2 Vistas Canónicas)
 
-### Vista 1: Panel Principal de Precuenta en POS Monitor (Mesa 04 Seleccionada)
+### Vista 1: Panel Principal de Precuenta en POS Monitor (Drawer Lateral Derecho)
 
-Pantalla táctil de alta densidad visual para terminal de caja (`1440x900`). Integra a la izquierda el plano del salón en vista condensada con filtros rápidos, y a la derecha el panel de liquidación de precuenta con ítems consolidados, banner informativo de cocina sin bloqueo, selector de promociones de `CU-ADMIN-17`, desglose tributario SUNAT y comparativa de medios de pago configurados en `CU-ADMIN-19`.
+Pantalla táctil de alta densidad visual para terminal de caja (`1440x900`). Integra a la izquierda el plano del salón en vista condensada con filtros rápidos, y a la derecha un **Drawer Lateral Derecho** de liquidación de precuenta con ítems consolidados, subcuentas si la mesa fue dividida por el mozo (`CU-MOZO-09`), banner informativo de cocina sin bloqueo, selector de promociones de `CU-ADMIN-17`, desglose tributario SUNAT y comparativa de medios de pago configurados en `CU-ADMIN-19`.
 
 ![Vista 1: Panel Principal de Precuenta en POS Monitor](assets/wf_caja_02_panel_pos.jpg)
 
@@ -94,7 +97,7 @@ Pantalla táctil de alta densidad visual para terminal de caja (`1440x900`). Int
 +------------------------------------------------------------------------------------------------------------------------------------+
 | [SaaS] RestaurantCloud AI  /  Monitor de Caja y Precuentas                     [● Turno #042 Abierto • S/ 300.00]   [CM Carlos M.]  |
 +------------------------------------------------------------------------------------------------------------------------------------+
-| PANEL DE MESAS EN SALÓN                                           | DETALLE DE PRECUENTA DIGITAL — MESA 04                         |
+| PANEL DE MESAS EN SALÓN                                           | DRAWER LATERAL DERECHO: PRECUENTA — MESA 04                    |
 | Filtros: [Todas (16)] [💳 Cta Pedida (2)] [Ocupadas (8)] [Libres]  | Mozo: Marco Valdivia | 4 Comensales | Comanda #108 (12:45 PM)  |
 |                                                                   +----------------------------------------------------------------+
 | +-------------------------+ +-------------------------+           | [ ⚠️ Aviso Informativo: 1 plato 'Lomo Saltado' en preparación  |
@@ -121,7 +124,7 @@ Pantalla táctil de alta densidad visual para terminal de caja (`1440x900`). Int
 |                                                                   | PROYECCIÓN POR MÉTODO DE PAGO (CU-ADMIN-19)                    |
 |                                                                   | [ Efectivo: S/ 100.00 ] [ Yape/Plin: S/ 100.00 ] [ Tarjeta: S/ 103.50 ]|
 |                                                                   +----------------------------------------------------------------+
-|                                                                   | [ ➗ Dividir Cuenta en POS (CU-CAJA-04) ] [ ⚡ Cobrar Comanda Completa (CU-CAJA-03) ] |
+|                                                                   | [ ➗ Dividir Cuenta ]     [ ⚡ Emitir Comprobante (CU-CAJA-03) ]  |
 +------------------------------------------------------------------------------------------------------------------------------------+
 ```
 
@@ -133,8 +136,8 @@ Pantalla táctil de alta densidad visual para terminal de caja (`1440x900`). Int
   - **Desglose Fiscal SUNAT**: Separación rigurosa de Consumo Bruto, Descuento, Total Neto, Base Imponible gravada ($T_{neto} / 1.18$) e IGV ($T_{neto} - \text{Base}$).
   - **Tarjetas Comparativas de Pasarela (`CU-ADMIN-19`)**: Proyección instantánea del total según el medio de pago, alertando al cajero y comensal sobre recargos configurados en terminales POS bancarias (ej. +3.5% = S/ 103.50).
   - **Botones de Resolución Inmediata en POS**:
-    - `[ ➗ Dividir Cuenta en POS (CU-CAJA-04) ]`: Abre el motor de división para fragmentar ítems si los clientes en el mostrador deciden pagar por separado.
-    - `[ ⚡ Cobrar Comanda Completa (CU-CAJA-03) ]`: Conduce directamente a la liquidación fiscal completa (Factura, Boleta o Nota de Venta) y liberación de la mesa.
+    - `[ ➗ Dividir Cuenta ]`: Abre el motor de división para fragmentar ítems si los clientes en el mostrador deciden pagar por separado.
+    - `[ ⚡ Emitir Comprobante (CU-CAJA-03) ]`: Conduce directamente a la liquidación fiscal completa o por subcuentas en la Vista 2 de `CU-CAJA-03`.
 
 ---
 
@@ -322,10 +325,13 @@ ALTER TABLE pedido
     ADD CONSTRAINT chk_pedido_estado 
     CHECK (estado IN ('borrador', 'enviado', 'cuenta_pedida', 'cobrado', 'anulado'));
 
--- 2. Trazabilidad de emisión de precuenta digital y vinculación a promoción comercial
+-- 2. Trazabilidad de emisión de precuenta digital, vinculación a promoción comercial e intención fiscal
 ALTER TABLE pedido
     ADD COLUMN IF NOT EXISTS precuenta_generada_at timestamp with time zone DEFAULT NULL,
-    ADD COLUMN IF NOT EXISTS promocion_id UUID REFERENCES promocion(id) ON DELETE RESTRICT;
+    ADD COLUMN IF NOT EXISTS promocion_id UUID REFERENCES promocion(id) ON DELETE RESTRICT,
+    ADD COLUMN IF NOT EXISTS tipo_comprobante_sugerido VARCHAR(20) DEFAULT NULL CHECK (tipo_comprobante_sugerido IN ('boleta', 'factura', 'nota_venta')),
+    ADD COLUMN IF NOT EXISTS documento_cliente_sugerido VARCHAR(20) DEFAULT NULL,
+    ADD COLUMN IF NOT EXISTS nombre_cliente_sugerido VARCHAR(255) DEFAULT NULL;
 
 -- 3. Índice para consulta ultra rápida de precuenta por mesa (< 0.5ms)
 CREATE INDEX IF NOT EXISTS idx_pedido_mesa_precuenta 
