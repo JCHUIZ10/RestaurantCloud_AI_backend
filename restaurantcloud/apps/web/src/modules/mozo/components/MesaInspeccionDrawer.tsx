@@ -61,6 +61,7 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
   if (!abierto) return null;
 
   const tieneItems = Boolean(detalle?.items && detalle.items.length > 0);
+  const esCuentaPedida = detalle?.estado === 'cuenta_pedida';
   const platosCocina = detalle?.items.filter((i) => i.requiere_preparacion) || [];
   const bebidasSalon = detalle?.items.filter((i) => !i.requiere_preparacion) || [];
 
@@ -254,7 +255,7 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
                         </div>
                       ) : (
                         /* Botón de anulación táctica ordinaria (CU-MOZO-06) */
-                        onAbrirModalAnular && (
+                        !esCuentaPedida && onAbrirModalAnular && (
                           <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between">
                             <span className="text-[10px] text-slate-400 font-mono">
                               {item.estado === 'entregado' ? '⚠️ Califica como merma' : '🛑 Cancela en KDS'}
