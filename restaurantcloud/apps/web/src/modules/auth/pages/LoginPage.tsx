@@ -4,7 +4,7 @@ import { Utensils } from 'lucide-react';
 import { LoginForm } from '../components/LoginForm';
 import { SelectorCuentaModal } from '../components/SelectorCuentaModal';
 import { BetaCredentialsWidget } from '../components/BetaCredentialsWidget';
-import { loginWithCredentials, seleccionarCuenta } from '../services/mockAuthService';
+import { loginWithCredentials, seleccionarCuenta } from '@/services/serviceAdapter';
 import { useAuthStore } from '@/stores/authStore';
 import { ROUTES } from '@/router/routes.constants';
 import type { CuentaItemDTO, RolUsuario } from '@/types/auth';
@@ -14,8 +14,8 @@ export const LoginPage: React.FC = () => {
   const setUsuario = useAuthStore((s) => s.setUsuario);
 
   // Estados del Formulario
-  const [correo, setCorreo] = useState<string>('propietario@aurea.pe');
-  const [password, setPassword] = useState<string>('PasswordPropietario2026!');
+  const [correo, setCorreo] = useState<string>('propietario@aurea.local');
+  const [password, setPassword] = useState<string>('propietario2026');
   const [cargando, setCargando] = useState<boolean>(false);
   const [errorMensaje, setErrorMensaje] = useState<string | null>(null);
 
