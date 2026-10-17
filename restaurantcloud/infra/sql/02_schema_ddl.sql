@@ -522,9 +522,43 @@ CREATE TABLE IF NOT EXISTS pedido_item (
     es_merma BOOL NOT NULL DEFAULT false,
     fecha_inicio_coccion TIMESTAMPTZ,
     fecha_listo_cocina TIMESTAMPTZ,
+    estado_pago VARCHAR(20) NOT NULL DEFAULT 'pendiente' CHECK (estado_pago IN ('pendiente', 'cobrado')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_cocina_tiempos_coherentes CHECK (fecha_listo_cocina IS NULL OR fecha_inicio_coccion IS NULL OR fecha_listo_cocina >= fecha_inicio_coccion)
+);
+
+-- 5.7 Subcuentas para División de Cuentas en Mesa/Counter (CU-MOZO-09, CU-CAJA-03)
+CREATE TABLE IF NOT EXISTS pedido_subcuenta (
+    id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
+    pedido_id UUID NOT NULL REFERENCES pedido(id) ON DELETE CASCADE,
+    numero_subcuenta INT NOT NULL CHECK (numero_subcuenta >= 1),
+    promocion_id UUID REFERENCES promocion(id) ON DELETE RESTRICT,
+    tipo_comprobante VARCHAR(20) NOT NULL CHECK (tipo_comprobante IN ('boleta', 'factura', 'nota_venta')),
+    documento_cliente VARCHAR(20),
+    nombre_cliente VARCHAR(150) NOT NULL,
+    direccion_cliente VARCHAR(255),
+    metodo_pago_id UUID REFERENCES metodo_pago_local(id) ON DELETE RESTRICT,
+    medio_pago VARCHAR(30) NOT NULL CHECK (medio_pago IN ('efectivo', 'tarjeta', 'billetera_digital')),
+    subtotal_bruto DECIMAL(10, 2) NOT NULL CHECK (subtotal_bruto > 0),
+    descuento DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    monto_recargo DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    total DECIMAL(10, 2) NOT NULL CHECK (total > 0),
+    estado VARCHAR(20) NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'cobrado', 'anulado')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_pedido_subcuenta UNIQUE (pedido_id, numero_subcuenta)
+);
+
+-- 5.8 Asignación Fraccionada de Ítems a Subcuentas (CU-MOZO-09)
+CREATE TABLE IF NOT EXISTS pedido_subcuenta_item (
+    id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
+    subcuenta_id UUID NOT NULL REFERENCES pedido_subcuenta(id) ON DELETE CASCADE,
+    pedido_item_id UUID NOT NULL REFERENCES pedido_item(id) ON DELETE RESTRICT,
+    cantidad INT NOT NULL CHECK (cantidad > 0),
+    precio_unitario DECIMAL(10, 2) NOT NULL CHECK (precio_unitario >= 0),
+    subtotal DECIMAL(10, 2) NOT NULL CHECK (subtotal >= 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ------------------------------------------------------------------------------
@@ -616,46 +650,28 @@ CREATE TABLE IF NOT EXISTS comprobante (
     sustento_motivo TEXT,
     fecha TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     estado VARCHAR(20) NOT NULL DEFAULT 'emitido' CHECK (estado IN ('emitido', 'anulado')),
+    subcuenta_id UUID REFERENCES pedido_subcuenta(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_comprobante_serie_correlativo UNIQUE (serie, correlativo)
 );
 
--- 6.5 Subcuentas para División de Cuentas en Mesa/Counter (CU-MOZO-09, CU-CAJA-03)
-CREATE TABLE IF NOT EXISTS pedido_subcuenta (
+-- 6.5 Líneas de Venta Inmutables de Comprobante Fiscal (UBL 2.1 SUNAT / CU-CAJA-03)
+CREATE TABLE IF NOT EXISTS comprobante_item (
     id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
-    pedido_id UUID NOT NULL REFERENCES pedido(id) ON DELETE CASCADE,
-    numero_subcuenta INT NOT NULL CHECK (numero_subcuenta >= 1),
-    promocion_id UUID REFERENCES promocion(id) ON DELETE RESTRICT,
-    tipo_comprobante VARCHAR(20) NOT NULL CHECK (tipo_comprobante IN ('boleta', 'factura', 'nota_venta')),
-    documento_cliente VARCHAR(20),
-    nombre_cliente VARCHAR(150) NOT NULL,
-    direccion_cliente VARCHAR(255),
-    metodo_pago_id UUID REFERENCES metodo_pago_local(id) ON DELETE RESTRICT,
-    medio_pago VARCHAR(30) NOT NULL CHECK (medio_pago IN ('efectivo', 'tarjeta', 'billetera_digital')),
-    subtotal_bruto DECIMAL(10, 2) NOT NULL CHECK (subtotal_bruto > 0),
-    descuento DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    monto_recargo DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    total DECIMAL(10, 2) NOT NULL CHECK (total > 0),
-    estado VARCHAR(20) NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'cobrado', 'anulado')),
-    comprobante_id UUID REFERENCES comprobante(id) ON DELETE SET NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_pedido_subcuenta UNIQUE (pedido_id, numero_subcuenta)
-);
-
--- 6.6 Asignación Fraccionada de Ítems a Subcuentas (CU-MOZO-09)
-CREATE TABLE IF NOT EXISTS pedido_subcuenta_item (
-    id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
-    subcuenta_id UUID NOT NULL REFERENCES pedido_subcuenta(id) ON DELETE CASCADE,
-    pedido_item_id UUID NOT NULL REFERENCES pedido_item(id) ON DELETE RESTRICT,
+    comprobante_id UUID NOT NULL REFERENCES comprobante(id) ON DELETE CASCADE,
+    pedido_item_id UUID REFERENCES pedido_item(id) ON DELETE SET NULL,
+    producto_id UUID NOT NULL REFERENCES producto(id) ON DELETE RESTRICT,
+    descripcion VARCHAR(150) NOT NULL,
     cantidad INT NOT NULL CHECK (cantidad > 0),
     precio_unitario DECIMAL(10, 2) NOT NULL CHECK (precio_unitario >= 0),
     subtotal DECIMAL(10, 2) NOT NULL CHECK (subtotal >= 0),
+    base_imponible DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    igv DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 6.7 Gastos Operativos de Sede y Compras Menores (CU-ADMIN-14)
+-- 6.6 Gastos Operativos de Sede y Compras Menores (CU-ADMIN-14)
 CREATE TABLE IF NOT EXISTS gasto_manual (
     id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
     local_id UUID NOT NULL REFERENCES local(id) ON DELETE CASCADE,

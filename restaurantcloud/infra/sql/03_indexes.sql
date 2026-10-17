@@ -66,6 +66,11 @@ CREATE INDEX IF NOT EXISTS idx_pedido_item_despachados_recientes
     ON pedido_item(pedido_id, fecha_listo_cocina) 
     WHERE estado = 'listo';
 
+-- 2.6 Caja y Salón: Ítems con cobro pendiente para precuentas y liquidación anti-sobrecobro (CU-CAJA-02, CU-MOZO-08)
+CREATE INDEX IF NOT EXISTS idx_pedido_item_cobro_pendiente 
+    ON pedido_item(pedido_id, estado_pago) 
+    WHERE estado_pago = 'pendiente' AND estado != 'anulado';
+
 -- 2.6 Carta y KDS: Filtrado de platos que requieren preparación vs despacho directo (CU-ADMIN-04, CU-COCINA-01)
 CREATE INDEX IF NOT EXISTS idx_producto_requiere_prep 
     ON producto(local_id, requiere_preparacion) 
@@ -139,6 +144,12 @@ CREATE INDEX IF NOT EXISTS idx_comprobante_caja_fecha
 
 CREATE INDEX IF NOT EXISTS idx_comprobante_serie_correlativo 
     ON comprobante(serie, correlativo);
+
+CREATE INDEX IF NOT EXISTS idx_comprobante_subcuenta 
+    ON comprobante(subcuenta_id);
+
+CREATE INDEX IF NOT EXISTS idx_comprobante_item_comprobante 
+    ON comprobante_item(comprobante_id);
 
 CREATE INDEX IF NOT EXISTS idx_caja_movimiento_caja_fecha 
     ON caja_movimiento(caja_id, created_at ASC);

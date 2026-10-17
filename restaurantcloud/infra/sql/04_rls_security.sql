@@ -215,6 +215,25 @@ CREATE POLICY p_comprobante_tenant ON comprobante
         OR (current_setting('app.public_access', true) = 'true' AND token_qr = NULLIF(current_setting('app.public_token_qr', true), '')::UUID)
     );
 
+ALTER TABLE comprobante_item ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS p_comprobante_item_tenant ON comprobante_item;
+CREATE POLICY p_comprobante_item_tenant ON comprobante_item
+    FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM comprobante c 
+            JOIN caja ca ON ca.id = c.caja_id 
+            WHERE c.id = comprobante_item.comprobante_id 
+            AND (
+                fn_pertenece_tenant(ca.local_id) 
+                OR (
+                    current_setting('app.public_access', true) = 'true' 
+                    AND c.token_qr = NULLIF(current_setting('app.public_token_qr', true), '')::UUID
+                )
+            )
+        )
+    );
+
 -- 3.3 Archivos y Metadatos MinIO: Tenant isolation + Catálogo público + Descarga QR de comprobantes (CU-CLIENTE-02)
 ALTER TABLE archivo ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS p_archivo_tenant ON archivo;

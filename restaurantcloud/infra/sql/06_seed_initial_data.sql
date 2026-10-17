@@ -84,8 +84,7 @@ ON CONFLICT (id) DO UPDATE SET
     updated_at = NOW();
 
 -- 2. USUARIO RAÍZ ADMINISTRADOR GLOBAL SAAS (CU-SAAS-01)
--- Credencial de inicio: admin@restaurantcloud.pe / AdminSaaS2026!
--- Hash Bcrypt costo 12: $2y$12$eA5uO6pQkY4GzD/W6C9F2.7YqK3gY6v7R9V2v1u7L4Z5x8k1m2n3a
+-- Credencial de inicio: admin@restaurantcloud.pe / admin-saas2026
 INSERT INTO usuario (
     id, empresa_id, local_id, nombre, correo, password_hash, telefono, rol, estado
 ) VALUES (
@@ -94,7 +93,7 @@ INSERT INTO usuario (
     NULL,
     'Super Administrador SaaS',
     'admin@restaurantcloud.pe',
-    '$2y$12$6qK6XqFmI.eT/yUe8SjS4.H7N9kQzV5G2q3P8x9mK4l5o6r7s8t9u',
+    crypt('admin-saas2026', gen_salt('bf', 12)),
     '+51 930 723 537',
     'admin_saas',
     'activo'

@@ -52,36 +52,35 @@ SET ultima_suscripcion_id = '00000000-0000-4000-8000-000000000002'
 WHERE id = '00000000-0000-4000-8000-000000000001';
 
 INSERT INTO local (
-    id, empresa_id, nombre, slug, direccion, ubigeo_cod, departamento, provincia, distrito, ciudad, telefono,
+    id, empresa_id, nombre, slug, direccion, distrito, ciudad, telefono,
     zona_horaria, moneda, giro_negocio, estado
 ) VALUES (
     '00000000-0000-4000-8000-000000000010',
     '00000000-0000-4000-8000-000000000001',
-    'ÁUREA Miraflores', 'aurea-miraflores', 'Av. Larco 450', '150122', 'Lima', 'Lima', 'Miraflores', 'Lima',
+    'ÁUREA Miraflores', 'aurea-miraflores', 'Av. Larco 450', 'Miraflores', 'Lima',
     '+51 987 654 321', 'America/Lima', 'PEN', 'cevicheria', 'activo'
 )
 ON CONFLICT (id) DO UPDATE SET
     nombre = EXCLUDED.nombre, slug = EXCLUDED.slug, estado = EXCLUDED.estado,
-    ubigeo_cod = EXCLUDED.ubigeo_cod, departamento = EXCLUDED.departamento,
-    provincia = EXCLUDED.provincia, distrito = EXCLUDED.distrito, ciudad = EXCLUDED.ciudad,
+    distrito = EXCLUDED.distrito, ciudad = EXCLUDED.ciudad,
     updated_at = NOW();
 
 -- Usuarios de todos los roles operativos. crypt() usa pgcrypto (script 01).
 INSERT INTO usuario (id, empresa_id, local_id, nombre, correo, password_hash, telefono, rol, estado)
 VALUES
 ('00000000-0000-4000-8000-000000000101','00000000-0000-4000-8000-000000000001',NULL,
- 'Rodrigo De Las Casas','propietario@aurea.local',crypt('PasswordLocal2026!', gen_salt('bf', 12)),'+51 900 000 101','propietario','activo'),
+ 'Rodrigo De Las Casas','propietario@aurea.local',crypt('propietario2026', gen_salt('bf', 12)),'+51 900 000 101','propietario','activo'),
 ('00000000-0000-4000-8000-000000000102','00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000010',
- 'Valeria Mendoza','admin@aurea.local',crypt('PasswordLocal2026!', gen_salt('bf', 12)),'+51 900 000 102','admin_local','activo'),
+ 'Valeria Mendoza','admin@aurea.local',crypt('admin-local2026', gen_salt('bf', 12)),'+51 900 000 102','admin_local','activo'),
 ('00000000-0000-4000-8000-000000000103','00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000010',
- 'Carlos Huamán','mozo@aurea.local',crypt('PasswordLocal2026!', gen_salt('bf', 12)),'+51 900 000 103','mozo','activo'),
+ 'Carlos Huamán','mozo@aurea.local',crypt('mozo2026', gen_salt('bf', 12)),'+51 900 000 103','mozo','activo'),
 ('00000000-0000-4000-8000-000000000104','00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000010',
- 'Roberto Vargas','cocina@aurea.local',crypt('PasswordLocal2026!', gen_salt('bf', 12)),'+51 900 000 104','cocina','activo'),
+ 'Roberto Vargas','cocina@aurea.local',crypt('cocina2026', gen_salt('bf', 12)),'+51 900 000 104','cocina','activo'),
 ('00000000-0000-4000-8000-000000000105','00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000010',
- 'Lucía Quispe','cajero@aurea.local',crypt('PasswordLocal2026!', gen_salt('bf', 12)),'+51 900 000 105','cajero','activo')
+ 'Lucía Quispe','cajero@aurea.local',crypt('cajero2026', gen_salt('bf', 12)),'+51 900 000 105','cajero','activo')
 ON CONFLICT (empresa_id, correo) DO UPDATE SET
     nombre = EXCLUDED.nombre, local_id = EXCLUDED.local_id, telefono = EXCLUDED.telefono,
-    rol = EXCLUDED.rol, estado = EXCLUDED.estado, updated_at = NOW();
+    rol = EXCLUDED.rol, estado = EXCLUDED.estado, password_hash = EXCLUDED.password_hash, updated_at = NOW();
 
 -- Parámetros operativos y horario de la sede.
 INSERT INTO configuracion_kds (
@@ -198,24 +197,41 @@ INSERT INTO reserva_mesa (reserva_id, mesa_id) VALUES
 
 INSERT INTO horario_excepcion (id, local_id, fecha, cerrado, hora_inicio, hora_fin, motivo, created_by) VALUES
 ('00000000-0000-4000-8000-000000000462','00000000-0000-4000-8000-000000000010',CURRENT_DATE + INTERVAL '7 days',true,NULL,NULL,'Mantenimiento preventivo del local','00000000-0000-4000-8000-000000000102')
-ON CONFLICT (local_id, fecha) DO UPDATE SET motivo = EXCLUDED.motivo;
+ON CONFLICT (id) DO UPDATE SET motivo = EXCLUDED.motivo, fecha = EXCLUDED.fecha, cerrado = EXCLUDED.cerrado;
 
 INSERT INTO pedido (id, local_id, numero_comanda, mesa_id, mozo_id, estado, comensales, created_at) VALUES
-('00000000-0000-4000-8000-000000000471','00000000-0000-4000-8000-000000000010',148,'00000000-0000-4000-8000-000000000312','00000000-0000-4000-8000-000000000103','enviado',2,NOW()-INTERVAL '14 minutes'),
-('00000000-0000-4000-8000-000000000472','00000000-0000-4000-8000-000000000010',149,'00000000-0000-4000-8000-000000000314','00000000-0000-4000-8000-000000000103','cuenta_pedida',4,NOW()-INTERVAL '32 minutes'),
+('00000000-0000-4000-8000-000000000471','00000000-0000-4000-8000-000000000010',148,'00000000-0000-4000-8000-000000000312','00000000-0000-4000-8000-000000000103','enviado',2,NOW()-INTERVAL '22 minutes'),
+('00000000-0000-4000-8000-000000000472','00000000-0000-4000-8000-000000000010',149,'00000000-0000-4000-8000-000000000314','00000000-0000-4000-8000-000000000103','cuenta_pedida',4,NOW()-INTERVAL '9 minutes'),
+('00000000-0000-4000-8000-000000000475','00000000-0000-4000-8000-000000000010',151,'00000000-0000-4000-8000-000000000311','00000000-0000-4000-8000-000000000103','enviado',2,NOW()-INTERVAL '19 minutes'),
+('00000000-0000-4000-8000-000000000476','00000000-0000-4000-8000-000000000010',152,'00000000-0000-4000-8000-000000000317','00000000-0000-4000-8000-000000000103','enviado',3,NOW()-INTERVAL '29 minutes'),
+('00000000-0000-4000-8000-000000000477','00000000-0000-4000-8000-000000000010',145,'00000000-0000-4000-8000-000000000313','00000000-0000-4000-8000-000000000103','enviado',2,NOW()-INTERVAL '25 minutes'),
+('00000000-0000-4000-8000-000000000478','00000000-0000-4000-8000-000000000010',144,'00000000-0000-4000-8000-000000000315','00000000-0000-4000-8000-000000000103','enviado',4,NOW()-INTERVAL '35 minutes'),
 ('00000000-0000-4000-8000-000000000473','00000000-0000-4000-8000-000000000010',147,'00000000-0000-4000-8000-000000000316','00000000-0000-4000-8000-000000000103','cobrado',2,NOW()-INTERVAL '3 hours'),
 ('00000000-0000-4000-8000-000000000474','00000000-0000-4000-8000-000000000010',146,'00000000-0000-4000-8000-000000000313','00000000-0000-4000-8000-000000000103','anulado',2,NOW()-INTERVAL '4 hours')
-ON CONFLICT (id) DO UPDATE SET estado = EXCLUDED.estado, comensales = EXCLUDED.comensales, updated_at = NOW();
+ON CONFLICT (id) DO UPDATE SET estado = EXCLUDED.estado, comensales = EXCLUDED.comensales, created_at = EXCLUDED.created_at, updated_at = NOW();
 
-INSERT INTO pedido_item (id, pedido_id, producto_id, cantidad, precio_unitario, nota_cocina, estado, numero_ronda, fecha_inicio_coccion, fecha_listo_cocina) VALUES
-('00000000-0000-4000-8000-000000000481','00000000-0000-4000-8000-000000000471','00000000-0000-4000-8000-000000000431',1,38.00,'Picante medio','listo',1,NOW()-INTERVAL '12 minutes',NOW()-INTERVAL '1 minute'),
-('00000000-0000-4000-8000-000000000482','00000000-0000-4000-8000-000000000471','00000000-0000-4000-8000-000000000432',1,42.00,'Término 3/4','en_preparacion',1,NOW()-INTERVAL '8 minutes',NULL),
-('00000000-0000-4000-8000-000000000483','00000000-0000-4000-8000-000000000471','00000000-0000-4000-8000-000000000433',2,9.00,'Servir heladas','entregado',1,NULL,NULL),
-('00000000-0000-4000-8000-000000000484','00000000-0000-4000-8000-000000000472','00000000-0000-4000-8000-000000000432',2,42.00,'Papas crocantes','entregado',1,NOW()-INTERVAL '25 minutes',NOW()-INTERVAL '14 minutes'),
-('00000000-0000-4000-8000-000000000485','00000000-0000-4000-8000-000000000472','00000000-0000-4000-8000-000000000434',1,18.00,'Con velita','listo',1,NULL,NULL),
-('00000000-0000-4000-8000-000000000486','00000000-0000-4000-8000-000000000473','00000000-0000-4000-8000-000000000431',2,38.00,NULL,'entregado',1,NOW()-INTERVAL '170 minutes',NOW()-INTERVAL '155 minutes'),
-('00000000-0000-4000-8000-000000000487','00000000-0000-4000-8000-000000000474','00000000-0000-4000-8000-000000000435',2,24.00,'Cliente reportó demora prolongada','anulado',1,NOW()-INTERVAL '230 minutes',NULL)
-ON CONFLICT (id) DO UPDATE SET estado = EXCLUDED.estado, nota_cocina = EXCLUDED.nota_cocina, updated_at = NOW();
+INSERT INTO pedido_item (id, pedido_id, producto_id, cantidad, precio_unitario, nota_cocina, estado, numero_ronda, fecha_inicio_coccion, fecha_listo_cocina, estado_pago) VALUES
+-- Mesa 02 (Comanda 148, Ámbar 22m): 1 Ceviche en preparación
+('00000000-0000-4000-8000-000000000481','00000000-0000-4000-8000-000000000471','00000000-0000-4000-8000-000000000431',1,38.00,'Picante medio','en_preparacion',1,NOW()-INTERVAL '15 minutes',NULL,'pendiente'),
+('00000000-0000-4000-8000-000000000483','00000000-0000-4000-8000-000000000471','00000000-0000-4000-8000-000000000433',2,9.00,'Servir heladas','entregado',1,NULL,NULL,'pendiente'),
+-- Mesa 04 (Comanda 149, Verde 9m): 2 Lomo en preparación, 1 Causa lista hace 1m, 1 Suspiro listo vitrina
+('00000000-0000-4000-8000-000000000484','00000000-0000-4000-8000-000000000472','00000000-0000-4000-8000-000000000432',2,42.00,'Papas crocantes • Término 3/4','en_preparacion',1,NOW()-INTERVAL '5 minutes',NULL,'pendiente'),
+('00000000-0000-4000-8000-000000000485','00000000-0000-4000-8000-000000000472','00000000-0000-4000-8000-000000000434',1,18.00,'Con velita','listo',1,NULL,NULL,'pendiente'),
+('00000000-0000-4000-8000-000000000488','00000000-0000-4000-8000-000000000472','00000000-0000-4000-8000-000000000435',1,24.00,'Pase frío #01','listo',1,NOW()-INTERVAL '7 minutes',NOW()-INTERVAL '1 minute','pendiente'),
+-- Mesa 01 (Comanda 151, Ámbar 19m): 1 Ceviche en cola, 1 Lomo en preparación
+('00000000-0000-4000-8000-000000000489','00000000-0000-4000-8000-000000000475','00000000-0000-4000-8000-000000000431',1,38.00,'Sin picante por favor','en_cola',1,NULL,NULL,'pendiente'),
+('00000000-0000-4000-8000-000000000490','00000000-0000-4000-8000-000000000475','00000000-0000-4000-8000-000000000432',1,42.00,'Término medio','en_preparacion',1,NOW()-INTERVAL '10 minutes',NULL,'pendiente'),
+-- Mesa T1 (Comanda 152, Rojo Crítico 29m): 2 Lomo en cola
+('00000000-0000-4000-8000-000000000495','00000000-0000-4000-8000-000000000476','00000000-0000-4000-8000-000000000432',2,42.00,'URGENTE mesa terraza','en_cola',1,NULL,NULL,'pendiente'),
+-- Mesa 03 (Comanda 145, Despachada hace 7m en auditoría 30m): todo culinario despachado y entregado
+('00000000-0000-4000-8000-000000000496','00000000-0000-4000-8000-000000000477','00000000-0000-4000-8000-000000000431',1,38.00,'Picante alto','entregado',1,NOW()-INTERVAL '20 minutes',NOW()-INTERVAL '7 minutes','pendiente'),
+('00000000-0000-4000-8000-000000000497','00000000-0000-4000-8000-000000000477','00000000-0000-4000-8000-000000000432',1,42.00,'Bien cocido','entregado',1,NOW()-INTERVAL '18 minutes',NOW()-INTERVAL '7 minutes','pendiente'),
+-- Mesa 05 (Comanda 144, Despachada hace 18m en auditoría 30m): todo culinario despachado y entregado
+('00000000-0000-4000-8000-000000000498','00000000-0000-4000-8000-000000000478','00000000-0000-4000-8000-000000000432',2,42.00,'Término 3/4','entregado',1,NOW()-INTERVAL '30 minutes',NOW()-INTERVAL '18 minutes','pendiente'),
+-- Pedidos históricos de referencia
+('00000000-0000-4000-8000-000000000486','00000000-0000-4000-8000-000000000473','00000000-0000-4000-8000-000000000431',2,38.00,NULL,'entregado',1,NOW()-INTERVAL '170 minutes',NOW()-INTERVAL '155 minutes','cobrado'),
+('00000000-0000-4000-8000-000000000487','00000000-0000-4000-8000-000000000474','00000000-0000-4000-8000-000000000435',2,24.00,'Cliente reportó demora prolongada','anulado',1,NOW()-INTERVAL '230 minutes',NULL,'pendiente')
+ON CONFLICT (id) DO UPDATE SET estado = EXCLUDED.estado, estado_pago = EXCLUDED.estado_pago, nota_cocina = EXCLUDED.nota_cocina, fecha_inicio_coccion = EXCLUDED.fecha_inicio_coccion, fecha_listo_cocina = EXCLUDED.fecha_listo_cocina, updated_at = NOW();
 
 -- Dos subcuentas pendientes en la mesa 04 para CU-MOZO-09 / Caja POS.
 INSERT INTO pedido_subcuenta (
@@ -269,6 +285,15 @@ INSERT INTO comprobante (
     '00000000-0000-4000-8000-000000000451','efectivo',76.00,0.00,76.00,64.41,11.59,'emitido'
 )
 ON CONFLICT (id) DO UPDATE SET estado = EXCLUDED.estado, total = EXCLUDED.total, updated_at = NOW();
+
+INSERT INTO comprobante_item (
+    id, comprobante_id, pedido_item_id, producto_id, descripcion, cantidad, precio_unitario, subtotal, base_imponible, igv
+) VALUES (
+    '00000000-0000-4000-8000-000000000561','00000000-0000-4000-8000-000000000531',
+    '00000000-0000-4000-8000-000000000486','00000000-0000-4000-8000-000000000431',
+    'Lomo Saltado Clásico',2,38.00,76.00,64.41,11.59
+)
+ON CONFLICT (id) DO UPDATE SET subtotal = EXCLUDED.subtotal, base_imponible = EXCLUDED.base_imponible, igv = EXCLUDED.igv;
 
 INSERT INTO caja_movimiento (id, caja_id, local_id, tipo, monto, metodo_pago, comprobante_id, descripcion) VALUES
 ('00000000-0000-4000-8000-000000000541','00000000-0000-4000-8000-000000000501','00000000-0000-4000-8000-000000000010','apertura',200.00,'efectivo',NULL,'Fondo inicial del turno'),
@@ -343,6 +368,6 @@ ON CONFLICT (id) DO UPDATE SET stock_nuevo = EXCLUDED.stock_nuevo, diferencia = 
 INSERT INTO snapshot_stock_diario (id, insumo_id, local_id, fecha, stock_cantidad, estuvo_agotado) VALUES
 ('00000000-0000-4000-8000-000000000631','00000000-0000-4000-8000-000000000423','00000000-0000-4000-8000-000000000010',CURRENT_DATE,1.000,false),
 ('00000000-0000-4000-8000-000000000632','00000000-0000-4000-8000-000000000426','00000000-0000-4000-8000-000000000010',CURRENT_DATE,2.000,true)
-ON CONFLICT (insumo_id, local_id, fecha) DO UPDATE SET stock_cantidad = EXCLUDED.stock_cantidad, estuvo_agotado = EXCLUDED.estuvo_agotado;
+ON CONFLICT (id) DO UPDATE SET stock_cantidad = EXCLUDED.stock_cantidad, estuvo_agotado = EXCLUDED.estuvo_agotado, fecha = EXCLUDED.fecha;
 
 COMMIT;
