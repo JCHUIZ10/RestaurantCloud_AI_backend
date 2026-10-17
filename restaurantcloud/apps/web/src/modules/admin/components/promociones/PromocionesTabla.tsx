@@ -27,6 +27,13 @@ export const PromocionesTabla: React.FC<PromocionesTablaProps> = ({
   onEliminar,
   onToggleEstado,
 }) => {
+  const [paginaActual, setPaginaActual] = React.useState(1);
+  const itemsPorPagina = 5;
+
+  React.useEffect(() => {
+    setPaginaActual(1);
+  }, [promociones.length]);
+
   if (cargando) {
     return (
       <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-4">
@@ -90,12 +97,7 @@ export const PromocionesTabla: React.FC<PromocionesTablaProps> = ({
 
   const nombresDias = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
-  const [paginaActual, setPaginaActual] = React.useState(1);
-  const itemsPorPagina = 5;
 
-  React.useEffect(() => {
-    setPaginaActual(1);
-  }, [promociones.length]);
 
   const totalPaginas = Math.ceil(promociones.length / itemsPorPagina);
   const indiceInicio = (paginaActual - 1) * itemsPorPagina;
