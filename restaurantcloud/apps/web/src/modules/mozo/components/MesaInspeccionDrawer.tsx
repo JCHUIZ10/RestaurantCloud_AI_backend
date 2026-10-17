@@ -14,6 +14,7 @@ import {
   Scissors,
   AlertTriangle,
   RefreshCw,
+  UserX,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MesaDetalleMozoDTO, ItemDetalleComandaDTO } from '@/types/mozo';
@@ -26,6 +27,7 @@ interface MesaInspeccionDrawerProps {
   cargando: boolean;
   onSolicitarOVerCuenta: (mesaId: string) => void;
   onMarcarItemServido: (itemId: string) => void;
+  onLiberarMesaSinConsumo?: (mesaId: string) => void;
   onAbrirModalUnir?: (mesaId: string) => void;
   onAbrirModalSeparar?: (mesaId: string) => void;
   onAbrirModalDividir?: (mesaId: string) => void;
@@ -43,6 +45,7 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
   cargando,
   onSolicitarOVerCuenta,
   onMarcarItemServido,
+  onLiberarMesaSinConsumo,
   onAbrirModalUnir,
   onAbrirModalSeparar,
   onAbrirModalDividir,
@@ -53,9 +56,11 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
   onAnularPorQuiebre,
 }) => {
   const navigate = useNavigate();
+  const [modalConfirmarLiberar, setModalConfirmarLiberar] = React.useState(false);
 
   if (!abierto) return null;
 
+  const tieneItems = Boolean(detalle?.items && detalle.items.length > 0);
   const platosCocina = detalle?.items.filter((i) => i.requiere_preparacion) || [];
   const bebidasSalon = detalle?.items.filter((i) => !i.requiere_preparacion) || [];
 
@@ -144,8 +149,20 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
                 </strong>
               </div>
 
-              {/* BLOQUE A: Platos en Cocina KDS */}
-              <div>
+              {!tieneItems ? (
+                <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200/80 text-center space-y-2 my-2">
+                  <div className="w-10 h-10 mx-auto rounded-full bg-amber-100 flex items-center justify-center text-amber-700">
+                    <UserX className="w-5 h-5 text-amber-700" />
+                  </div>
+                  <p className="font-semibold text-amber-950 text-xs">Mesa sentada sin comanda activa</p>
+                  <p className="text-[11px] text-amber-800/80 max-w-[280px] mx-auto leading-relaxed">
+                    Los {detalle?.comensales || 2} comensales fueron sentados pero aún no han solicitado platos ni bebidas. Si decidieron retirarse, puedes liberar la mesa de inmediato.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* BLOQUE A: Platos en Cocina KDS */}
+                  <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-bold text-slate-700 uppercase tracking-wider text-[11px] flex items-center gap-1">
                     <Utensils className="w-3.5 h-3.5 text-aurea-copper" />
@@ -388,6 +405,8 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
                   </div>
                 </div>
               )}
+                </>
+              )}
             </>
           )}
         </div>
@@ -402,83 +421,149 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
 
         {/* Barra de Acciones Rápidas Integradas (Conecta los otros CUs) */}
         <div className="p-4 bg-white border-t border-slate-200 space-y-2">
-          {/* Botón Primario: Tomar Más Pedidos / Adicionales (CU-MOZO-02) */}
-          <button
-            onClick={() => {
-              if (detalle?.mesa_id) {
-                navigate(ROUTES.MOZO_COMANDA(detalle.mesa_id));
-              }
-            }}
-            className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-aurea-copper hover:bg-[#c48e5d] text-aurea-navy transition-all flex items-center justify-center gap-2 shadow-sm active:scale-98"
-          >
-            <PlusCircle className="w-4 h-4 text-aurea-navy" />
-            <span>＋ Tomar Más Pedidos / Adicionales (CU-MOZO-02)</span>
-          </button>
-
-          {/* Fila 2: Acción Unificada de Cuenta (Solicitar Cuenta / Ver Cuenta) */}
-          <button
-            onClick={() => detalle?.mesa_id && onSolicitarOVerCuenta(detalle.mesa_id)}
-            className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm active:scale-98 ${
-              detalle?.estado === 'cuenta_pedida'
-                ? 'bg-amber-500 hover:bg-amber-600 text-slate-900 border border-amber-400 font-bold'
-                : 'bg-aurea-navy hover:bg-[#123156] text-[#F4D7B0] border border-[#D5A06F]/50'
-            }`}
-          >
-            <Receipt className="w-4 h-4 text-[#D5A06F]" />
-            <span>
-              {detalle?.estado === 'cuenta_pedida' ? '🧾 Ver Cuenta' : '🧾 Solicitar Cuenta'}
-            </span>
-          </button>
-
-          {/* Fila 3: Operaciones Especiales de Salón (Unir Mesas & Dividir Cuenta) */}
-          <div className="grid grid-cols-2 gap-2 pt-0.5">
-            {detalle?.es_mesa_unida ? (
+          {!tieneItems ? (
+            <>
+              {/* Botón Primario: Tomar Pedido inicial */}
               <button
-                onClick={() =>
-                  detalle?.mesa_id && onAbrirModalSeparar && onAbrirModalSeparar(detalle.mesa_id)
-                }
-                className="py-2 px-3 rounded-xl text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 transition-all flex items-center justify-center gap-1.5 active:scale-98"
+                onClick={() => {
+                  if (detalle?.mesa_id) {
+                    navigate(ROUTES.MOZO_COMANDA(detalle.mesa_id));
+                  }
+                }}
+                className="w-full py-3 px-4 rounded-xl text-xs font-bold bg-aurea-copper hover:bg-[#c48e5d] text-aurea-navy transition-all flex items-center justify-center gap-2 shadow-sm active:scale-98"
               >
-                <Scissors className="w-3.5 h-3.5 text-rose-600" />
-                <span>✂️ Separar Mesas</span>
+                <PlusCircle className="w-4 h-4 text-aurea-navy" />
+                <span>＋ Tomar Pedido (CU-MOZO-02)</span>
               </button>
-            ) : (
+
+              {/* Botón Liberar Mesa (Cliente se retiró sin consumo) */}
               <button
-                onClick={() =>
-                  detalle?.mesa_id && onAbrirModalUnir && onAbrirModalUnir(detalle.mesa_id)
-                }
-                className="py-2 px-3 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition-all flex items-center justify-center gap-1.5 active:scale-98"
+                onClick={() => setModalConfirmarLiberar(true)}
+                className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-all flex items-center justify-center gap-2 active:scale-98"
               >
-                <Link2 className="w-3.5 h-3.5 text-slate-600" />
-                <span>🔗 Unir Mesas</span>
+                <UserX className="w-4 h-4 text-emerald-600" />
+                <span>🍃 Liberar Mesa (Cliente se retiró sin consumir)</span>
               </button>
-            )}
+            </>
+          ) : (
+            <>
+              {/* Botón Primario: Tomar Más Pedidos / Adicionales (CU-MOZO-02) */}
+              <button
+                onClick={() => {
+                  if (detalle?.mesa_id) {
+                    navigate(ROUTES.MOZO_COMANDA(detalle.mesa_id));
+                  }
+                }}
+                className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-aurea-copper hover:bg-[#c48e5d] text-aurea-navy transition-all flex items-center justify-center gap-2 shadow-sm active:scale-98"
+              >
+                <PlusCircle className="w-4 h-4 text-aurea-navy" />
+                <span>＋ Tomar Más Pedidos / Adicionales (CU-MOZO-02)</span>
+              </button>
 
-            <button
-              onClick={() => {
-                if (detalle?.mesa_id && onAbrirModalDividir) {
-                  onAbrirModalDividir(detalle.mesa_id);
-                }
-              }}
-              className="py-2 px-3 rounded-xl text-xs font-semibold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 transition-all flex items-center justify-center gap-1 active:scale-98"
-            >
-              <Split className="w-3.5 h-3.5 text-slate-500" />
-              <span>➗ Dividir Cuenta</span>
-            </button>
-          </div>
+              {/* Fila 2: Acción Unificada de Cuenta (Solicitar Cuenta / Ver Cuenta) */}
+              <button
+                onClick={() => detalle?.mesa_id && onSolicitarOVerCuenta(detalle.mesa_id)}
+                className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm active:scale-98 ${
+                  detalle?.estado === 'cuenta_pedida'
+                    ? 'bg-amber-500 hover:bg-amber-600 text-slate-900 border border-amber-400 font-bold'
+                    : 'bg-aurea-navy hover:bg-[#123156] text-[#F4D7B0] border border-[#D5A06F]/50'
+                }`}
+              >
+                <Receipt className="w-4 h-4 text-[#D5A06F]" />
+                <span>
+                  {detalle?.estado === 'cuenta_pedida' ? '🧾 Ver Cuenta' : '🧾 Solicitar Cuenta'}
+                </span>
+              </button>
 
-          {/* Fila 4: Anulación Total de Comanda Destructiva (CU-MOZO-06 Vista 1) */}
-          {detalle?.items && detalle.items.length > 0 && onAbrirModalAnularComanda && (
-            <button
-              onClick={() => detalle?.mesa_id && onAbrirModalAnularComanda(detalle.mesa_id)}
-              className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 hover:border-rose-300 transition-all flex items-center justify-center gap-1.5 active:scale-98"
-            >
-              <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-              <span>⚠️ Anular Comanda Completa de Mesa {detalle.numero}</span>
-            </button>
+              {/* Fila 3: Operaciones Especiales de Salón (Unir Mesas & Dividir Cuenta) */}
+              <div className="grid grid-cols-2 gap-2 pt-0.5">
+                {detalle?.es_mesa_unida ? (
+                  <button
+                    onClick={() =>
+                      detalle?.mesa_id && onAbrirModalSeparar && onAbrirModalSeparar(detalle.mesa_id)
+                    }
+                    className="py-2 px-3 rounded-xl text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 transition-all flex items-center justify-center gap-1.5 active:scale-98"
+                  >
+                    <Scissors className="w-3.5 h-3.5 text-rose-600" />
+                    <span>✂️ Separar Mesas</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() =>
+                      detalle?.mesa_id && onAbrirModalUnir && onAbrirModalUnir(detalle.mesa_id)
+                    }
+                    className="py-2 px-3 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition-all flex items-center justify-center gap-1.5 active:scale-98"
+                  >
+                    <Link2 className="w-3.5 h-3.5 text-slate-600" />
+                    <span>🔗 Unir Mesas</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    if (detalle?.mesa_id && onAbrirModalDividir) {
+                      onAbrirModalDividir(detalle.mesa_id);
+                    }
+                  }}
+                  className="py-2 px-3 rounded-xl text-xs font-semibold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 transition-all flex items-center justify-center gap-1 active:scale-98"
+                >
+                  <Split className="w-3.5 h-3.5 text-slate-500" />
+                  <span>➗ Dividir Cuenta</span>
+                </button>
+              </div>
+
+              {/* Fila 4: Anulación Total de Comanda Destructiva (CU-MOZO-06 Vista 1) */}
+              {detalle?.items && detalle.items.length > 0 && onAbrirModalAnularComanda && (
+                <button
+                  onClick={() => detalle?.mesa_id && onAbrirModalAnularComanda(detalle.mesa_id)}
+                  className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 hover:border-rose-300 transition-all flex items-center justify-center gap-1.5 active:scale-98"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                  <span>⚠️ Anular Comanda Completa de Mesa {detalle.numero}</span>
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
+
+      {/* Modal Confirmación de Liberación Sin Consumo */}
+      {modalConfirmarLiberar && (
+        <div className="fixed inset-0 z-60 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200">
+            <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+              <UserX className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-800 text-center font-serif">
+              ¿Liberar Mesa {detalle?.numero}?
+            </h3>
+            <p className="text-xs text-slate-600 text-center mt-2 leading-relaxed">
+              El cliente se retiró sin ordenar ningún producto. La mesa volverá al estado <strong>LIBRE</strong> de inmediato y la comanda vacía se anulará sin penalización.
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setModalConfirmarLiberar(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs hover:bg-slate-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (detalle?.mesa_id && onLiberarMesaSinConsumo) {
+                    onLiberarMesaSinConsumo(detalle.mesa_id);
+                  }
+                  setModalConfirmarLiberar(false);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-colors flex items-center justify-center gap-1.5"
+              >
+                <span>Liberar Mesa</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

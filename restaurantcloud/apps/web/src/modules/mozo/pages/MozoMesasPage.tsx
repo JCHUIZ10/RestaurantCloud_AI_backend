@@ -12,7 +12,7 @@ import {
   ReservaCardDTO,
   AnularPorQuiebreRequestDTO,
 } from '@/types/mozo';
-import { mockMozoService } from '../services/mockMozoService';
+import { mozoService as mockMozoService } from '@/services/serviceAdapter';
 import { SalonHeaderMozo, FiltroMesaTipo } from '../components/SalonHeaderMozo';
 import { PlanoMesasGrid } from '../components/PlanoMesasGrid';
 import { SidebarDespachoVivo } from '../components/SidebarDespachoVivo';
@@ -92,17 +92,34 @@ export const MozoMesasPage: React.FC = () => {
     setTimeout(() => setToastNotificacion(null), 3500);
   };
 
-  // Carga inicial
+  // Carga inicial y Short Polling en segundo plano (cada 3.5 segundos)
   useEffect(() => {
     cargarPlano(pisoActivoId);
+
+    const polling = setInterval(() => {
+      mockMozoService.obtenerPlanoCompleto(pisoActivoId).then((res: any) => {
+        if (res?.exito && res.datos) {
+          setPlanoData(res.datos);
+        }
+      }).catch(() => {});
+    }, 3500);
+
+    return () => clearInterval(polling);
   }, [pisoActivoId]);
 
   const cargarPlano = async (pisoId: string) => {
     setCargando(true);
     try {
       const res = await mockMozoService.obtenerPlanoCompleto(pisoId);
-      if (res.exito) {
+      if (res.exito && res.datos) {
         setPlanoData(res.datos);
+        if (
+          res.datos.piso_activo?.id &&
+          res.datos.piso_activo.id !== pisoId &&
+          (pisoId === 'piso-01-salon' || !res.datos.pisos_disponibles.some((p: any) => p.id === pisoId))
+        ) {
+          setPisoActivoId(res.datos.piso_activo.id);
+        }
       }
     } finally {
       setCargando(false);
@@ -172,7 +189,7 @@ export const MozoMesasPage: React.FC = () => {
     const res = await mockMozoService.obtenerReservas();
     let encontrada: ReservaCardDTO | undefined;
     if (res.exito) {
-      encontrada = res.datos.find((r) => r.mesa_ids.includes(mesa.id));
+      encontrada = (res.datos as any[]).find((r: any) => r.mesa_ids.includes(mesa.id));
     }
 
     if (!encontrada) {
@@ -282,30 +299,18 @@ export const MozoMesasPage: React.FC = () => {
     const comensales = mesa.capacidad || 2;
     const res = await mockMozoService.abrirMesa(mesa.id, comensales);
     if (res.exito) {
-      // Actualizamos estado local
-      setPlanoData((prev) => {
-        if (!prev) return prev;
-        const actualizadas = prev.mesas.map((m) =>
-          m.id === mesa.id
-            ? {
-                ...m,
-                estado: 'ocupada' as const,
-                pedido_id: res.datos.pedidoId,
-                comensales_sentados: comensales,
-                minutos_ocupada: 1,
-                total_consumo: 0,
-                mozo_nombre: prev.mozo_actual.nombre,
-                es_mi_mesa: true,
-              }
-            : m
-        );
-        return {
-          ...prev,
-          mesas: actualizadas,
-          mesas_libres: Math.max(0, prev.mesas_libres - 1),
-          mesas_ocupadas: prev.mesas_ocupadas + 1,
-        };
-      });
+      await cargarPlano(pisoActivoId);
+      setMesaSeleccionada({ ...mesa, estado: 'ocupada' });
+      setDrawerAbierto(true);
+      setCargandoDetalle(true);
+      try {
+        const detRes = await mockMozoService.obtenerDetalleMesa(mesa.id);
+        if (detRes.exito) {
+          setDetalleMesa(detRes.datos);
+        }
+      } finally {
+        setCargandoDetalle(false);
+      }
     }
   };
 
@@ -478,6 +483,18 @@ export const MozoMesasPage: React.FC = () => {
       await cargarPlano(pisoActivoId);
       setDrawerAbierto(false);
       setDetalleMesa(null);
+    }
+  };
+
+  const handleLiberarMesaSinConsumo = async (mesaId: string) => {
+    const res = await mockMozoService.liberarMesaSinConsumo(mesaId);
+    if (res.exito) {
+      await cargarPlano(pisoActivoId);
+      setDrawerAbierto(false);
+      setDetalleMesa(null);
+      mostrarToast('✓ Mesa liberada con éxito (cliente se retiró sin consumo).');
+    } else {
+      mostrarToast(`⚠️ No se pudo liberar la mesa: ${res.mensaje || 'Error desconocido'}`);
     }
   };
 
@@ -759,6 +776,7 @@ export const MozoMesasPage: React.FC = () => {
         cargando={cargandoDetalle}
         onSolicitarOVerCuenta={handleSolicitarOVerCuenta}
         onMarcarItemServido={handleMarcarServido}
+        onLiberarMesaSinConsumo={handleLiberarMesaSinConsumo}
         onAbrirModalUnir={handleAbrirModalUnir}
         onAbrirModalSeparar={handleAbrirModalSeparar}
         onAbrirModalDividir={handleAbrirModalDividir}

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
-import { mockMozoService } from '../services/mockMozoService';
+import { mozoService as mockMozoService } from '@/services/serviceAdapter';
 import type {
   PrecuentaMozoResponseDTO,
   PromocionSedeDTO,
@@ -44,7 +44,7 @@ export const MozoPrecuentaPage: React.FC = () => {
 
     mockMozoService
       .obtenerPrecuentaMesa(mesaId)
-      .then((res) => {
+      .then((res: any) => {
         if (!montado) return;
         if (res.exito && res.datos) {
           setDataOriginal(res.datos);
@@ -54,7 +54,7 @@ export const MozoPrecuentaPage: React.FC = () => {
           setError(res.errores?.[0]?.mensaje || 'No se pudo cargar la precuenta de la mesa.');
         }
       })
-      .catch((err) => {
+      .catch((err: any) => {
         if (montado) setError(err.message || 'Error de conexión');
       })
       .finally(() => {

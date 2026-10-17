@@ -704,6 +704,41 @@ export const mockMozoService = {
   },
 
   /**
+   * CU-MOZO-01 / CU-MOZO-06: Liberar mesa cuando el cliente se retira sin consumo
+   */
+  async liberarMesaSinConsumo(
+    mesaId: string
+  ): Promise<ApiResponse<{ mesa_id: string; mensaje: string }>> {
+    await new Promise((res) => setTimeout(res, 100));
+    MESAS_SALON_MOCK = MESAS_SALON_MOCK.map((m) =>
+      m.id === mesaId
+        ? {
+            ...m,
+            estado: 'libre',
+            pedido_id: null,
+            comensales_sentados: null,
+            minutos_ocupada: null,
+            total_consumo: null,
+            mozo_id: null,
+            mozo_nombre: null,
+            es_mi_mesa: false,
+            platos_listos: 0,
+            platos_en_cocina: 0,
+            despacho_directo_pendiente: 0,
+            bebidas_pendientes: 0,
+          }
+        : m
+    );
+    return {
+      exito: true,
+      datos: {
+        mesa_id: mesaId,
+        mensaje: 'Mesa liberada exitosamente.',
+      },
+    };
+  },
+
+  /**
    * Genera un evento simulado de plato listo en cocina
    */
   simularPlatoListoCocina(): ItemDespachoListoDTO {

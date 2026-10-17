@@ -10,7 +10,8 @@ import {
   AlertaStockInsuficienteSSE,
   ItemEnFuegoResolucionDTO,
 } from '@/types/cocina';
-import { mockCocinaService, MOCK_CONFIGURACION_KDS } from '../services/mockCocinaService';
+import { cocinaService as mockCocinaService } from '@/services/serviceAdapter';
+import { MOCK_CONFIGURACION_KDS } from '../services/mockCocinaService';
 import { KdsHeader } from '../components/kds/KdsHeader';
 import { KdsTicketCard } from '../components/kds/KdsTicketCard';
 import { ModalDetalleComanda } from '../components/kds/ModalDetalleComanda';
@@ -131,6 +132,17 @@ export const CocinaKdsPage: React.FC = () => {
 
   useEffect(() => {
     cargarDatos();
+
+    // Short polling cada 3 segundos para reflejar nuevas comandas desde salón
+    const pollingKds = setInterval(() => {
+      mockCocinaService.obtenerComandas().then((res: any) => {
+        if (res?.exito && res.datos) {
+          setComandas(res.datos);
+        }
+      }).catch(() => {});
+    }, 3000);
+
+    return () => clearInterval(pollingKds);
   }, [cargarDatos]);
 
   // Interval de 1 segundo: reloj digital y avance de semáforo

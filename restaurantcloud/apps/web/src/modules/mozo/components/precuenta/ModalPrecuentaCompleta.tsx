@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { X, Loader2, AlertCircle, CheckCircle2, UtensilsCrossed, Clock, Users, User, AlertTriangle } from 'lucide-react';
-import { mockMozoService } from '../../services/mockMozoService';
+import { mozoService as mockMozoService } from '@/services/serviceAdapter';
 import type {
   PrecuentaMozoResponseDTO,
   PromocionSedeDTO,
@@ -64,7 +64,7 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
 
     mockMozoService
       .obtenerPrecuentaMesa(mesaId)
-      .then((res) => {
+      .then((res: any) => {
         if (!montado) return;
         if (res.exito && res.datos) {
           setDataOriginal(res.datos);
@@ -73,7 +73,7 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
           setError(res.errores?.[0]?.mensaje || 'No se pudo cargar la precuenta de la mesa.');
         }
       })
-      .catch((err) => {
+      .catch((err: any) => {
         if (montado) setError(err.message || 'Error de conexión');
       })
       .finally(() => {

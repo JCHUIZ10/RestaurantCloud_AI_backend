@@ -1,6 +1,13 @@
-import { apiGet, apiPost, apiClient } from './client';
+import { apiGet, apiPost, apiPatch, apiClient } from './client';
 import type { ApiResponse } from '@/types/api';
-import type { PlanoCompletoMozoDTO, CrearPedidoRequest } from '@/types/mozo';
+import type {
+  PlanoCompletoMozoDTO,
+  CrearPedidoRequest,
+  MesaDetalleMozoDTO,
+  CatalogoProductosMozoDTO,
+  HistorialMesaComandaDTO,
+  PrecuentaMozoResponseDTO,
+} from '@/types/mozo';
 import type { KDSComandaDTO } from '@/types/cocina';
 
 export interface LoginParams {
@@ -145,17 +152,109 @@ export const realAuthService = {
 
 
 export const realMozoService = {
+  // CU-MOZO-01: Plano de mesas y despacho en vivo
   async obtenerPlanoCompleto(pisoId?: string): Promise<ApiResponse<PlanoCompletoMozoDTO>> {
     const params = pisoId ? { piso_id: pisoId } : undefined;
     return apiGet<PlanoCompletoMozoDTO>('/mozo/plano', params);
   },
 
+  async abrirMesa(mesaId: string, comensales: number): Promise<ApiResponse<{ pedido_id: string; pedidoId: string; mensaje: string }>> {
+    return apiPost<{ pedido_id: string; pedidoId: string; mensaje: string }>(`/mozo/mesas/${mesaId}/abrir`, { comensales });
+  },
+
+  async obtenerDetalleMesa(mesaId: string): Promise<ApiResponse<MesaDetalleMozoDTO>> {
+    return apiGet<MesaDetalleMozoDTO>(`/mozo/mesas/${mesaId}/detalle`);
+  },
+
+  async marcarItemServido(itemId: string): Promise<ApiResponse<{ item_id: string; estado: string; mensaje: string }>> {
+    return apiPatch<{ item_id: string; estado: string; mensaje: string }>(`/mozo/items/${itemId}/servido`);
+  },
+
+  async solicitarCuenta(mesaId: string): Promise<ApiResponse<{ mesa_id: string; pedido_id: string; mensaje: string }>> {
+    return apiPost<{ mesa_id: string; pedido_id: string; mensaje: string }>(`/mozo/mesas/${mesaId}/solicitar-cuenta`);
+  },
+
+  async solicitarCuentaMesaConDetalle(
+    request: any
+  ): Promise<ApiResponse<{ success: boolean; mesa_id: string; mensaje: string }>> {
+    const res = await apiPost<any>(`/mozo/mesas/${request.mesa_id}/solicitar-cuenta`, request);
+    return {
+      exito: res.exito,
+      datos: {
+        success: res.exito,
+        mesa_id: request.mesa_id,
+        mensaje: res.datos?.mensaje || 'Cuenta solicitada exitosamente',
+      },
+      errores: res.errores,
+      meta: res.meta,
+    };
+  },
+
+  async liberarMesaSinConsumo(
+    mesaId: string
+  ): Promise<ApiResponse<{ mesa_id: string; numero?: string; mensaje: string }>> {
+    return apiPost<{ mesa_id: string; numero?: string; mensaje: string }>(`/mozo/mesas/${mesaId}/liberar`);
+  },
+
+  // CU-MOZO-02: Carta, historial y comanda táctil
   async obtenerCarta(): Promise<ApiResponse<{ categorias: any[]; productos: any[] }>> {
     return apiGet<{ categorias: any[]; productos: any[] }>('/mozo/carta');
   },
 
+  async obtenerCatalogoCarta(mesaId: string): Promise<ApiResponse<CatalogoProductosMozoDTO>> {
+    return apiGet<CatalogoProductosMozoDTO>(`/mozo/mesas/${mesaId}/carta`);
+  },
+
+  async obtenerHistorialMesa(mesaId: string): Promise<ApiResponse<HistorialMesaComandaDTO>> {
+    return apiGet<HistorialMesaComandaDTO>(`/mozo/mesas/${mesaId}/historial`);
+  },
+
+  async enviarPedidoCocina(
+    payload: {
+      mesa_id: string;
+      comensales: number;
+      numero_ronda?: number;
+      items: Array<{
+        producto_id: string;
+        cantidad: number;
+        nota_cocina?: string | null;
+      }>;
+    },
+    forzarConflicto409?: boolean
+  ): Promise<ApiResponse<any>> {
+    if (forzarConflicto409) {
+      return {
+        exito: false,
+        datos: null,
+        errores: [
+          {
+            codigo: 'ERR_PRODUCTO_AGOTADO',
+            mensaje: 'El insumo crítico se agotó en cocina hace segundos. La preparación no es posible.',
+          },
+        ],
+      };
+    }
+    try {
+      return await apiPost<any>(`/mozo/mesas/${payload.mesa_id}/pedidos`, payload);
+    } catch (err: any) {
+      if (err.response?.data) {
+        return err.response.data as ApiResponse<any>;
+      }
+      return {
+        exito: false,
+        datos: null,
+        errores: [{ codigo: 'ERROR_CONEXION', mensaje: 'No se pudo enviar la comanda al servidor.' }],
+      };
+    }
+  },
+
   async crearPedido(datos: CrearPedidoRequest): Promise<ApiResponse<{ pedido_id: string; mensaje: string }>> {
     return apiPost<{ pedido_id: string; mensaje: string }>('/mozo/pedidos', datos);
+  },
+
+  // CU-MOZO-08: Precuenta digital
+  async obtenerPrecuentaMesa(mesaId: string): Promise<ApiResponse<PrecuentaMozoResponseDTO>> {
+    return apiGet<PrecuentaMozoResponseDTO>(`/mozo/mesas/${mesaId}/precuenta`);
   },
 };
 

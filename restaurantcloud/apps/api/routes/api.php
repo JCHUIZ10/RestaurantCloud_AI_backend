@@ -25,11 +25,25 @@ Route::prefix('v1')->group(function (): void {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
 
 
-        // Salón / Mozo
+        // Salón / Mozo (CU-MOZO-01, CU-MOZO-02, CU-MOZO-08)
         Route::prefix('mozo')->group(function (): void {
+            // CU-MOZO-01: Centro de Salón y Mesas en Vivo
             Route::get('/plano', [MozoController::class, 'getPlano']);
+            Route::post('/mesas/{id}/abrir', [MozoController::class, 'abrirMesa']);
+            Route::get('/mesas/{id}/detalle', [MozoController::class, 'getDetalleMesa']);
+            Route::patch('/items/{id}/servido', [MozoController::class, 'marcarItemServido']);
+            Route::post('/mesas/{id}/solicitar-cuenta', [MozoController::class, 'solicitarCuenta']);
+            Route::post('/mesas/{id}/liberar', [MozoController::class, 'liberarMesa']);
+
+            // CU-MOZO-02: Catálogo de Carta, Historial y Despacho de Comandas
             Route::get('/carta', [MozoController::class, 'getCarta']);
+            Route::get('/mesas/{id}/carta', [MozoController::class, 'getCartaMesa']);
+            Route::get('/mesas/{id}/historial', [MozoController::class, 'getHistorialMesa']);
             Route::post('/pedidos', [MozoController::class, 'crearPedido']);
+            Route::post('/mesas/{id}/pedidos', [MozoController::class, 'enviarPedidoMesa']);
+
+            // CU-MOZO-08: Precuenta Digital en Salón
+            Route::get('/mesas/{id}/precuenta', [MozoController::class, 'getPrecuentaMesa']);
         });
 
         // Cocina / KDS

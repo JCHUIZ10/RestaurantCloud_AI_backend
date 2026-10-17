@@ -8,7 +8,7 @@ import {
   ProductoCatalogoMozoDTO,
   ConflictoStockDTO,
 } from '@/types/mozo';
-import { mockMozoService } from '../services/mockMozoService';
+import { mozoService as mockMozoService } from '@/services/serviceAdapter';
 import { ComandaHeader } from '../components/comanda/ComandaHeader';
 import { CatalogoCartaGrid } from '../components/comanda/CatalogoCartaGrid';
 import { TicketComandaPanel } from '../components/comanda/TicketComandaPanel';
