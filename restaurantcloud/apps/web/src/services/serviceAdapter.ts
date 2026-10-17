@@ -28,7 +28,8 @@ export const IS_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 export const mozoService = new Proxy(mockMozoService as any, {
   get(target, prop, receiver) {
     if (IS_REAL_API && prop in realMozoService) {
-      return (realMozoService as any)[prop];
+      const val = (realMozoService as any)[prop];
+      return typeof val === 'function' ? val.bind(realMozoService) : val;
     }
     return Reflect.get(target, prop, receiver);
   },
@@ -38,7 +39,8 @@ export const mozoService = new Proxy(mockMozoService as any, {
 export const cocinaService = new Proxy(mockCocinaService as any, {
   get(target, prop, receiver) {
     if (IS_REAL_API && prop in realCocinaService) {
-      return (realCocinaService as any)[prop];
+      const val = (realCocinaService as any)[prop];
+      return typeof val === 'function' ? val.bind(realCocinaService) : val;
     }
     return Reflect.get(target, prop, receiver);
   },
@@ -48,7 +50,8 @@ export const cocinaService = new Proxy(mockCocinaService as any, {
 export const cajaService = new Proxy(mockCajaService as any, {
   get(target, prop, receiver) {
     if (IS_REAL_API && prop in realCajaService) {
-      return (realCajaService as any)[prop];
+      const val = (realCajaService as any)[prop];
+      return typeof val === 'function' ? val.bind(realCajaService) : val;
     }
     return Reflect.get(target, prop, receiver);
   },

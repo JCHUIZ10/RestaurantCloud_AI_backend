@@ -70,17 +70,7 @@ export const BETA_CREDENTIALS: BetaCredentialPreset[] = [
     descripcion: 'Consola global de plataforma: auditoría de restaurantes tenants y planes Stripe.',
     destinoDashboard: '/saas/tenants',
     badgeColor: 'bg-slate-800 text-white border-slate-900',
-  },
-  {
-    rol: 'multi_cuenta',
-    rolLabel: 'Usuario Multi-Tenant',
-    nombrePersona: 'Fernando Tapia',
-    correo: 'multicuenta@restaurantcloud.pe',
-    password: 'multicuenta2026',
-    descripcion: 'Acceso a múltiples locales en diferentes empresas gastronómicas (activa selector).',
-    destinoDashboard: 'Selector de Empresa (Paso 2)',
-    badgeColor: 'bg-rose-100 text-rose-800 border-rose-200',
-  },
+  }
 ];
 
 

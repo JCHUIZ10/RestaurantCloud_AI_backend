@@ -55,7 +55,8 @@ export const PromocionComercialSelector: React.FC<PromocionComercialSelectorProp
         {/* Lista de Promociones de la Sede */}
         {promocionesDisponibles.map((promo) => {
           const isSelected = promocionSeleccionada?.id === promo.id;
-          const montoAhorro = Math.round(consumoBruto * (promo.porcentaje_descuento / 100) * 100) / 100;
+          const porcentaje = Number(promo.porcentaje_descuento ?? (promo as any).valor ?? 0) || 0;
+          const montoAhorro = Math.round(consumoBruto * (porcentaje / 100) * 100) / 100;
 
           return (
             <button
@@ -72,10 +73,10 @@ export const PromocionComercialSelector: React.FC<PromocionComercialSelectorProp
                 <span className="text-xs font-semibold truncate pr-2">{promo.nombre}</span>
                 {isSelected && <Check className="w-3.5 h-3.5 text-[#D5A06F] shrink-0" />}
               </div>
-              <p className="text-[11px] text-slate-400 line-clamp-1">{promo.descripcion}</p>
+              <p className="text-[11px] text-slate-400 line-clamp-1">{promo.descripcion || (promo as any).descripcion_condicion || ''}</p>
               <div className="flex items-center justify-between mt-2">
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  {promo.porcentaje_descuento}% OFF
+                  {porcentaje}% OFF
                 </span>
                 <span className="text-xs font-bold text-emerald-300">
                   -S/ {montoAhorro.toFixed(2)}

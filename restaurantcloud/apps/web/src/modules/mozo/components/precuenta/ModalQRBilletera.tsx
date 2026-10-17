@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { X, Check, Copy, CheckCircle2, ShieldCheck, Smartphone } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import type { DetalleBilleteraDigitalDTO } from '../../../../types/mozo';
+import { generateYapeEmvcoPayload } from '@/shared/utils/emvcoQr';
 
 interface ModalQRBilleteraProps {
   isOpen: boolean;
   onClose: () => void;
-  detalle?: DetalleBilleteraDigitalDTO;
+  detalle?: DetalleBilleteraDigitalDTO | null;
   monto: number;
   onConfirmarPago: (numeroOperacion: string) => void;
+  actor?: 'mozo' | 'cajero';
 }
 
 export const ModalQRBilletera: React.FC<ModalQRBilleteraProps> = ({
@@ -16,16 +19,27 @@ export const ModalQRBilletera: React.FC<ModalQRBilleteraProps> = ({
   detalle,
   monto,
   onConfirmarPago,
+  actor = 'mozo',
 }) => {
   const [numeroOperacion, setNumeroOperacion] = useState('581902');
   const [copiado, setCopiado] = useState(false);
   const [verificadoMozo, setVerificadoMozo] = useState(true);
+  const [conMontoExacto, setConMontoExacto] = useState(true);
 
   if (!isOpen) return null;
 
-  const telefono = detalle?.telefono || '987 654 321';
-  const titular = detalle?.titular || 'Restaurant S.A.C.';
+  const telefono = detalle?.telefono || '930723537';
+  const titular = detalle?.titular || 'AUREA RESTAURANTE';
   const ruc = detalle?.ruc || '20601234567';
+
+  // Payload estándar EMVCo MPM oficial interoperable para Yape y Plin
+  const qrPayload = generateYapeEmvcoPayload({
+    phone: telefono,
+    name: titular,
+    amount: conMontoExacto ? monto : 0,
+    isDynamic: conMontoExacto,
+    city: 'LIMA',
+  });
 
   const handleCopiarNumero = () => {
     navigator.clipboard.writeText(telefono.replace(/\s+/g, ''));
@@ -76,59 +90,52 @@ export const ModalQRBilletera: React.FC<ModalQRBilleteraProps> = ({
             </span>
           </div>
 
-          {/* QR Renderizado en Vector de Alta Nitidez */}
-          <div className="flex flex-col items-center justify-center bg-white p-4 rounded-xl shadow-inner border-2 border-[#D5A06F]/40 mx-auto max-w-[240px]">
-            <svg
-              className="w-44 h-44"
-              viewBox="0 0 100 100"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
+          {/* Selector de modo QR (Exacto vs Libre) */}
+          <div className="flex rounded-lg bg-black/40 p-1 border border-white/10 text-xs">
+            <button
+              type="button"
+              onClick={() => setConMontoExacto(true)}
+              className={`flex-1 py-1.5 px-2 rounded-md font-medium transition-all ${
+                conMontoExacto
+                  ? 'bg-[#D5A06F] text-[#0B2340] font-bold shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
             >
-              {/* Patrón SVG simula QR code estilizado */}
-              <rect width="100" height="100" fill="white" />
-              {/* Esquinas QR */}
-              <rect x="5" y="5" width="28" height="28" fill="#0B2340" rx="4" />
-              <rect x="9" y="9" width="20" height="20" fill="white" rx="2" />
-              <rect x="13" y="13" width="12" height="12" fill="#D5A06F" rx="2" />
-
-              <rect x="67" y="5" width="28" height="28" fill="#0B2340" rx="4" />
-              <rect x="71" y="9" width="20" height="20" fill="white" rx="2" />
-              <rect x="75" y="13" width="12" height="12" fill="#D5A06F" rx="2" />
-
-              <rect x="5" y="67" width="28" height="28" fill="#0B2340" rx="4" />
-              <rect x="9" y="71" width="20" height="20" fill="white" rx="2" />
-              <rect x="13" y="75" width="12" height="12" fill="#D5A06F" rx="2" />
-
-              {/* Matriz de datos */}
-              <rect x="40" y="8" width="6" height="6" fill="#0B2340" />
-              <rect x="50" y="14" width="6" height="6" fill="#0B2340" />
-              <rect x="40" y="24" width="6" height="6" fill="#0B2340" />
-              <rect x="52" y="26" width="6" height="6" fill="#D5A06F" />
-
-              <rect x="8" y="42" width="6" height="6" fill="#0B2340" />
-              <rect x="18" y="48" width="6" height="6" fill="#0B2340" />
-              <rect x="28" y="40" width="6" height="6" fill="#D5A06F" />
-              <rect x="40" y="42" width="20" height="18" fill="#0B2340" rx="3" />
-              <rect x="68" y="40" width="6" height="6" fill="#0B2340" />
-              <rect x="80" y="46" width="8" height="6" fill="#0B2340" />
-
-              <rect x="42" y="68" width="6" height="6" fill="#0B2340" />
-              <rect x="54" y="72" width="6" height="6" fill="#D5A06F" />
-              <rect x="46" y="82" width="8" height="6" fill="#0B2340" />
-              <rect x="66" y="78" width="8" height="8" fill="#0B2340" />
-              <rect x="80" y="70" width="8" height="8" fill="#0B2340" />
-              <rect x="76" y="86" width="8" height="8" fill="#D5A06F" />
-
-              {/* Centro de marca Yape/Plin */}
-              <circle cx="50" cy="51" r="7" fill="#74226C" />
-              <text x="47" y="54" fill="white" fontSize="9" fontWeight="bold" fontFamily="sans-serif">Y</text>
-            </svg>
-            <span className="text-[10px] font-bold tracking-wider uppercase text-[#0B2340] mt-1">
-              YAPE / PLIN OFICIAL
-            </span>
+              Monto Exacto (S/ {monto.toFixed(2)})
+            </button>
+            <button
+              type="button"
+              onClick={() => setConMontoExacto(false)}
+              className={`flex-1 py-1.5 px-2 rounded-md font-medium transition-all ${
+                !conMontoExacto
+                  ? 'bg-[#D5A06F] text-[#0B2340] font-bold shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              QR Simple (Digitar en App)
+            </button>
           </div>
 
-          {/* Datos de cuenta destino */}
+          {/* QR Renderizado Vectorial Real con QRCodeSVG */}
+          <div className="flex flex-col items-center justify-center bg-white p-4 rounded-xl shadow-inner border-2 border-[#D5A06F]/40 mx-auto max-w-[220px]">
+            <QRCodeSVG
+              value={qrPayload}
+              size={172}
+              level="M"
+              includeMargin={false}
+              className="w-40 h-40"
+            />
+            <div className="text-center mt-2">
+              <span className="text-[10px] font-bold tracking-wider uppercase text-[#0B2340] block">
+                YAPE / PLIN EMVCo
+              </span>
+              <span className="text-[9px] text-slate-500 font-medium">
+                {conMontoExacto ? `S/ ${monto.toFixed(2)} precargado` : 'Monto a digitar por el cliente'}
+              </span>
+            </div>
+          </div>
+
+          {/* Datos de cuenta destino configurados en BD */}
           <div className="bg-white/5 rounded-xl p-3 border border-white/10 space-y-2 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Número Yape/Plin:</span>
@@ -156,7 +163,7 @@ export const ModalQRBilletera: React.FC<ModalQRBilleteraProps> = ({
             </div>
           </div>
 
-          {/* Formulario de Verificación del Mozo */}
+          {/* Formulario de Verificación del Mozo / Cajero */}
           <form onSubmit={handleConfirmar} className="space-y-3 pt-2 border-t border-[#D5A06F]/20">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
@@ -180,7 +187,9 @@ export const ModalQRBilletera: React.FC<ModalQRBilleteraProps> = ({
               />
               <span className="flex items-center gap-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                Transferencia validada en pantalla del cliente
+                {actor === 'cajero'
+                  ? 'Transferencia validada en pantalla del cliente o voucher'
+                  : 'Transferencia validada en pantalla del cliente'}
               </span>
             </label>
 
@@ -190,7 +199,9 @@ export const ModalQRBilletera: React.FC<ModalQRBilleteraProps> = ({
               className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#D5A06F] to-[#b88655] hover:from-[#e0aa78] hover:to-[#c4905e] text-[#0B2340] font-bold text-xs tracking-wide shadow-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>Confirmar y Notificar a Caja</span>
+              <span>
+                {actor === 'cajero' ? 'Confirmar y Generar Cuenta' : 'Confirmar y Notificar a Caja'}
+              </span>
             </button>
           </form>
         </div>

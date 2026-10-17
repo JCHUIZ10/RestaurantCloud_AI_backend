@@ -330,24 +330,6 @@ export const CocinaKdsPage: React.FC = () => {
     }
   };
 
-  // Manejador: Recuperar comanda despachada (Recall 30m - CU-COCINA-02)
-  const handleRecuperarPedido = async (pedidoId: string) => {
-    const res = await mockCocinaService.recuperarPedidoDespachado(pedidoId);
-    if (res.exito) {
-      // Recargar comandas activas, consolidado y lista de despachados
-      const [resCom, resDesp, resMet] = await Promise.all([
-        mockCocinaService.obtenerComandas(),
-        mockCocinaService.obtenerPedidosDespachados(),
-        mockCocinaService.obtenerMetricasDespacho(),
-      ]);
-      if (resCom.exito) setComandas(resCom.datos);
-      if (resDesp.exito) setPedidosDespachados(resDesp.datos);
-      if (resMet.exito) setMetricasDespacho(resMet.datos);
-      actualizarConsolidado();
-      reproducirChime('nueva_comanda');
-    }
-  };
-
   // Manejador: Poner en fuego por tanda acumulada en Consolidado All-Day (CU-COCINA-02 Vista 3)
   const handlePonerEnFuegoTanda = async (productoId: string) => {
     const res = await mockCocinaService.ponerEnFuegoPorTanda(productoId);
@@ -612,13 +594,12 @@ export const CocinaKdsPage: React.FC = () => {
         onConfirmarEntendido={() => setAlertaParada(null)}
       />
 
-      {/* Vista 2 de CU-COCINA-02: Modal de Historial de Pedidos Despachados y Recall (1120px) */}
+      {/* Vista 2 de CU-COCINA-02: Modal de Historial de Pedidos Despachados (Solo Lectura 30m - 1120px) */}
       <ModalHistorialDespachados
         abierto={modalDespachadosAbierto}
         onCerrar={() => setModalDespachadosAbierto(false)}
         pedidos={pedidosDespachados}
         metricas={metricasDespacho}
-        onRecuperarPedido={handleRecuperarPedido}
       />
 
       {/* Vista 1 de CU-COCINA-04: Modal Táctil de Disponibilidad de Platos (1120px) */}

@@ -26,17 +26,17 @@ import {
 import { CANONICAL_LOCAL_ID, CANONICAL_LOCAL_NOMBRE } from '@/shared/constants/canonical';
 
 export const CAJERO_ACTUAL_MOCK = {
-  id: '00000000-0000-4000-8000-000000000003',
-  nombre: 'Carlos Mendoza',
-  rol: 'Cajero Titular (Turno Tarde)',
-  iniciales: 'CM',
+  id: '00000000-0000-4000-8000-000000000105',
+  nombre: 'Lucía Quispe',
+  rol: 'Cajero Titular (Turno Mañana)',
+  iniciales: 'LQ',
 };
 
 export const CAJERO_PREVIO_MOCK = {
-  id: '00000000-0000-4000-8000-000000000004',
-  nombre: 'Juan Pérez',
-  rol: 'Cajero Saliente (Turno Mañana)',
-  iniciales: 'JP',
+  id: '00000000-0000-4000-8000-000000000106',
+  nombre: 'Carlos Mendoza',
+  rol: 'Cajero Saliente (Turno Tarde)',
+  iniciales: 'CM',
 };
 
 export const PROMOCIONES_CATALOGO_MOCK: PromocionAplicableDTO[] = [

@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   RotateCcw,
 } from 'lucide-react';
+import { useAuthStore } from '@/stores/authStore';
 import { CAJERO_ACTUAL_MOCK } from '../../services/mockCajaService';
 
 interface ModalAperturaTurnoProps {
@@ -28,6 +29,19 @@ export const ModalAperturaTurno: React.FC<ModalAperturaTurnoProps> = ({
   onCerrarSesion,
   isSubmitting = false,
 }) => {
+  const usuario = useAuthStore((s) => s.usuario);
+  const cajeroNombre = usuario?.nombre || CAJERO_ACTUAL_MOCK.nombre;
+  const cajeroRol =
+    usuario?.rol === 'cajero' ? 'Cajero(a) de Turno' : usuario?.rol || CAJERO_ACTUAL_MOCK.rol;
+  const cajeroIniciales = usuario?.nombre
+    ? usuario.nombre
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0].toUpperCase())
+        .join('')
+    : CAJERO_ACTUAL_MOCK.iniciales;
+
   const [monto, setMonto] = useState<string>('300.00');
   const [notas, setNotas] = useState<string>('');
   const [errorMonto, setErrorMonto] = useState<string | null>(null);
@@ -115,14 +129,14 @@ export const ModalAperturaTurno: React.FC<ModalAperturaTurnoProps> = ({
           <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-aurea-navy text-aurea-champagne flex items-center justify-center font-bold text-sm shadow-sm border border-aurea-copper/30">
-                {CAJERO_ACTUAL_MOCK.iniciales}
+                {cajeroIniciales}
               </div>
               <div>
                 <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                  {CAJERO_ACTUAL_MOCK.nombre}
+                  {cajeroNombre}
                 </span>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
-                  {CAJERO_ACTUAL_MOCK.rol}
+                  {cajeroRol}
                 </span>
               </div>
             </div>

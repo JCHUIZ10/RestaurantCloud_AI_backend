@@ -337,7 +337,7 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
                       )}
 
                       {/* Botón de anulación táctica para bebidas / salón */}
-                      {onAbrirModalAnular && (
+                      {!esCuentaPedida && onAbrirModalAnular && (
                         <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between">
                           <span className="text-[10px] text-slate-400 font-mono">
                             {item.estado === 'entregado' ? '⚠️ Califica como merma' : 'Salón'}
@@ -447,83 +447,88 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
               </button>
             </>
           ) : (
-            <>
-              {/* Botón Primario: Tomar Más Pedidos / Adicionales (CU-MOZO-02) */}
-              <button
-                onClick={() => {
-                  if (detalle?.mesa_id) {
-                    navigate(ROUTES.MOZO_COMANDA(detalle.mesa_id));
-                  }
-                }}
-                className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-aurea-copper hover:bg-[#c48e5d] text-aurea-navy transition-all flex items-center justify-center gap-2 shadow-sm active:scale-98"
-              >
-                <PlusCircle className="w-4 h-4 text-aurea-navy" />
-                <span>＋ Tomar Más Pedidos / Adicionales (CU-MOZO-02)</span>
-              </button>
-
-              {/* Fila 2: Acción Unificada de Cuenta (Solicitar Cuenta / Ver Cuenta) */}
+            esCuentaPedida ? (
+              /* En CUENTA PEDIDA: Solo mostrar acción única y prominente de Ver Cuenta (visión limpia) */
               <button
                 onClick={() => detalle?.mesa_id && onSolicitarOVerCuenta(detalle.mesa_id)}
-                className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm active:scale-98 ${
-                  detalle?.estado === 'cuenta_pedida'
-                    ? 'bg-amber-500 hover:bg-amber-600 text-slate-900 border border-amber-400 font-bold'
-                    : 'bg-aurea-navy hover:bg-[#123156] text-[#F4D7B0] border border-[#D5A06F]/50'
-                }`}
+                className="w-full py-3.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md active:scale-98 bg-amber-500 hover:bg-amber-600 text-slate-950 border border-amber-400 font-bold"
               >
-                <Receipt className="w-4 h-4 text-[#D5A06F]" />
-                <span>
-                  {detalle?.estado === 'cuenta_pedida' ? '🧾 Ver Cuenta' : '🧾 Solicitar Cuenta'}
-                </span>
+                <Receipt className="w-4 h-4 text-slate-950" />
+                <span>🧾 Ver Precuenta Digital / Comprobante (Mesa en Ámbar)</span>
               </button>
-
-              {/* Fila 3: Operaciones Especiales de Salón (Unir Mesas & Dividir Cuenta) */}
-              <div className="grid grid-cols-2 gap-2 pt-0.5">
-                {detalle?.es_mesa_unida ? (
-                  <button
-                    onClick={() =>
-                      detalle?.mesa_id && onAbrirModalSeparar && onAbrirModalSeparar(detalle.mesa_id)
-                    }
-                    className="py-2 px-3 rounded-xl text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 transition-all flex items-center justify-center gap-1.5 active:scale-98"
-                  >
-                    <Scissors className="w-3.5 h-3.5 text-rose-600" />
-                    <span>✂️ Separar Mesas</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={() =>
-                      detalle?.mesa_id && onAbrirModalUnir && onAbrirModalUnir(detalle.mesa_id)
-                    }
-                    className="py-2 px-3 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition-all flex items-center justify-center gap-1.5 active:scale-98"
-                  >
-                    <Link2 className="w-3.5 h-3.5 text-slate-600" />
-                    <span>🔗 Unir Mesas</span>
-                  </button>
-                )}
-
+            ) : (
+              <>
+                {/* Botón Primario: Tomar Más Pedidos / Adicionales (CU-MOZO-02) */}
                 <button
                   onClick={() => {
-                    if (detalle?.mesa_id && onAbrirModalDividir) {
-                      onAbrirModalDividir(detalle.mesa_id);
+                    if (detalle?.mesa_id) {
+                      navigate(ROUTES.MOZO_COMANDA(detalle.mesa_id));
                     }
                   }}
-                  className="py-2 px-3 rounded-xl text-xs font-semibold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 transition-all flex items-center justify-center gap-1 active:scale-98"
+                  className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-aurea-copper hover:bg-[#c48e5d] text-aurea-navy transition-all flex items-center justify-center gap-2 shadow-sm active:scale-98"
                 >
-                  <Split className="w-3.5 h-3.5 text-slate-500" />
-                  <span>➗ Dividir Cuenta</span>
+                  <PlusCircle className="w-4 h-4 text-aurea-navy" />
+                  <span>＋ Tomar Más Pedidos / Adicionales (CU-MOZO-02)</span>
                 </button>
-              </div>
 
-              {/* Fila 4: Anulación Total de Comanda Destructiva (CU-MOZO-06 Vista 1) */}
-              {detalle?.items && detalle.items.length > 0 && onAbrirModalAnularComanda && (
+                {/* Fila 2: Solicitar Precuenta */}
                 <button
-                  onClick={() => detalle?.mesa_id && onAbrirModalAnularComanda(detalle.mesa_id)}
-                  className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 hover:border-rose-300 transition-all flex items-center justify-center gap-1.5 active:scale-98"
+                  onClick={() => detalle?.mesa_id && onSolicitarOVerCuenta(detalle.mesa_id)}
+                  className="w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm active:scale-98 bg-aurea-navy hover:bg-[#123156] text-[#F4D7B0] border border-[#D5A06F]/50"
                 >
-                  <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-                  <span>⚠️ Anular Comanda Completa de Mesa {detalle.numero}</span>
+                  <Receipt className="w-4 h-4 text-[#D5A06F]" />
+                  <span>🧾 Solicitar Cuenta</span>
                 </button>
-              )}
-            </>
+
+                {/* Fila 3: Operaciones Especiales de Salón (Unir Mesas & Dividir Cuenta) */}
+                <div className="grid grid-cols-2 gap-2 pt-0.5">
+                  {detalle?.es_mesa_unida ? (
+                    <button
+                      onClick={() =>
+                        detalle?.mesa_id && onAbrirModalSeparar && onAbrirModalSeparar(detalle.mesa_id)
+                      }
+                      className="py-2 px-3 rounded-xl text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 transition-all flex items-center justify-center gap-1.5 active:scale-98"
+                    >
+                      <Scissors className="w-3.5 h-3.5 text-rose-600" />
+                      <span>✂️ Separar Mesas</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() =>
+                        detalle?.mesa_id && onAbrirModalUnir && onAbrirModalUnir(detalle.mesa_id)
+                      }
+                      className="py-2 px-3 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition-all flex items-center justify-center gap-1.5 active:scale-98"
+                    >
+                      <Link2 className="w-3.5 h-3.5 text-slate-600" />
+                      <span>🔗 Unir Mesas</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      if (detalle?.mesa_id && onAbrirModalDividir) {
+                        onAbrirModalDividir(detalle.mesa_id);
+                      }
+                    }}
+                    className="py-2 px-3 rounded-xl text-xs font-semibold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 transition-all flex items-center justify-center gap-1 active:scale-98"
+                  >
+                    <Split className="w-3.5 h-3.5 text-slate-500" />
+                    <span>➗ Dividir Cuenta</span>
+                  </button>
+                </div>
+
+                {/* Fila 4: Anulación Total de Comanda Destructiva (CU-MOZO-06 Vista 1) */}
+                {detalle?.items && detalle.items.length > 0 && onAbrirModalAnularComanda && (
+                  <button
+                    onClick={() => detalle?.mesa_id && onAbrirModalAnularComanda(detalle.mesa_id)}
+                    className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 hover:border-rose-300 transition-all flex items-center justify-center gap-1.5 active:scale-98"
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                    <span>⚠️ Anular Comanda Completa de Mesa {detalle.numero}</span>
+                  </button>
+                )}
+              </>
+            )
           )}
         </div>
       </div>

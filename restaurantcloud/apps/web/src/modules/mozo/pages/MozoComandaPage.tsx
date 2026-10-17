@@ -66,8 +66,13 @@ export const MozoComandaPage: React.FC = () => {
     cargarDatos();
   }, [cargarDatos]);
 
+  const esCuentaPedida = Boolean(
+    (historial as any)?.cuenta_pedida || (historial as any)?.estado_mesa === 'cuenta_pedida'
+  );
+
   // 1. Agregar producto al borrador táctil
   const handleAgregarProducto = (producto: ProductoCatalogoMozoDTO) => {
+    if (esCuentaPedida) return;
     if (producto.disponibilidad === 'agotado') return;
 
     setItemsBorrador((prev) => {
@@ -128,7 +133,7 @@ export const MozoComandaPage: React.FC = () => {
 
   // 4. Confirmación y Envío a Cocina KDS
   const handleConfirmarEnvio = async () => {
-    if (itemsBorrador.length === 0) return;
+    if (esCuentaPedida || itemsBorrador.length === 0) return;
 
     setEnviando(true);
     try {
@@ -347,6 +352,27 @@ export const MozoComandaPage: React.FC = () => {
         mozoNombre={historial?.mozo_nombre || 'Carlos Mendoza'}
         rondaActual={rondaActual}
       />
+
+      {/* Banner de Bloqueo Poka-Yoke: Mesa con Cuenta Pedida */}
+      {esCuentaPedida && (
+        <div className="bg-amber-500/20 border-b border-amber-500/40 px-4 py-2.5 flex items-center justify-between text-amber-950 text-xs shrink-0 animate-fadeIn">
+          <div className="flex items-center space-x-2">
+            <span className="font-bold uppercase tracking-wider text-amber-900 bg-amber-200 px-2 py-0.5 rounded text-[10px] border border-amber-300">
+              🔒 CUENTA PEDIDA
+            </span>
+            <span className="font-medium text-amber-900">
+              La comanda se encuentra cerrada temporalmente para liquidación en Caja POS. No se pueden agregar nuevos platos o bebidas.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate(ROUTES.MOZO_MESAS)}
+            className="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-sm transition-all"
+          >
+            ← Volver al Salón
+          </button>
+        </div>
+      )}
 
       {/* 2. Cuerpo Principal: Layout 65% Catálogo + 35% Ticket de Comanda */}
       <div className="flex-1 flex overflow-hidden relative">

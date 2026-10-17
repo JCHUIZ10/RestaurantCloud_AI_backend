@@ -803,6 +803,7 @@ export const MozoMesasPage: React.FC = () => {
             planoData?.mesas.find((m) => m.id === mesaPrecuentaId)?.estado || detalleMesa?.estado
           }
           onCuentaNotificada={handleCuentaNotificadaDesdeModal}
+          actor="mozo"
         />
       )}
 

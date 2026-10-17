@@ -307,11 +307,13 @@ export interface HistorialMesaComandaDTO {
  * =========================================================================
  */
 
-export type CodigoMetodoPago = 'efectivo' | 'billetera_digital' | 'tarjeta';
+export type CodigoMetodoPago = 'efectivo' | 'billetera_digital' | 'tarjeta' | 'yape' | 'plin' | string;
 
 export interface PrecuentaItemDTO {
-  producto_id: string;
+  id?: string;
+  producto_id?: string;
   nombre: string;
+  producto_nombre?: string;
   nota_cocina?: string | null;
   cantidad: number;
   precio_unitario: number;
@@ -337,12 +339,15 @@ export interface DetalleBilleteraDigitalDTO {
 }
 
 export interface OpcionPagoMozoDTO {
+  id?: string;
   codigo: CodigoMetodoPago;
   nombre: string;
+  icono?: string;
   comision_porcentaje: number;
   monto_comision: number;
   total_estimado: number;
-  detalle_billetera?: DetalleBilleteraDigitalDTO;
+  detalle_billetera?: DetalleBilleteraDigitalDTO | null;
+  datos_adicionales?: Record<string, any>;
 }
 
 export interface PromocionSedeDTO {

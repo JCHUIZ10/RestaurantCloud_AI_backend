@@ -355,7 +355,6 @@ let mockDespachadosMemoria: KDSPedidoDespachadoDTO[] = [
     total_items: 3,
     fecha_despacho: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
     minutos_desde_despacho: 3,
-    puede_recuperar: true,
     items_resumen: [
       { producto_nombre: 'Seco de Res Norteña', cantidad: 2, nota_cocina: 'Con frijoles bien calientes' },
       { producto_nombre: 'Papa Rellena Criolla', cantidad: 1, nota_cocina: null },
@@ -370,7 +369,6 @@ let mockDespachadosMemoria: KDSPedidoDespachadoDTO[] = [
     total_items: 4,
     fecha_despacho: new Date(Date.now() - 11 * 60 * 1000).toISOString(),
     minutos_desde_despacho: 11,
-    puede_recuperar: true,
     items_resumen: [
       { producto_nombre: 'Arroz Chaufa Especial', cantidad: 3, nota_cocina: null },
       { producto_nombre: 'Porción Wantán Frito', cantidad: 1, nota_cocina: 'Salsa tamarindo extra' },
@@ -385,7 +383,6 @@ let mockDespachadosMemoria: KDSPedidoDespachadoDTO[] = [
     total_items: 3,
     fecha_despacho: new Date(Date.now() - 22 * 60 * 1000).toISOString(),
     minutos_desde_despacho: 22,
-    puede_recuperar: true,
     items_resumen: [
       { producto_nombre: 'Pollo Saltado Criollo', cantidad: 2, nota_cocina: 'Término bien cocido' },
       { producto_nombre: 'Ensalada Mixta Fresca', cantidad: 1, nota_cocina: 'Aliño aparte' },
@@ -621,7 +618,6 @@ export const mockCocinaService = {
         total_items: comanda.items.length,
         fecha_despacho: new Date().toISOString(),
         minutos_desde_despacho: 0,
-        puede_recuperar: true,
         items_resumen: comanda.items.map((i) => ({
           producto_nombre: i.nombre_producto,
           cantidad: i.cantidad,
@@ -648,7 +644,6 @@ export const mockCocinaService = {
       return {
         ...d,
         minutos_desde_despacho: minutos,
-        puede_recuperar: minutos <= 30,
       };
     });
 
@@ -677,72 +672,6 @@ export const mockCocinaService = {
         tiempoPromedioPaseMin: 2.2,
         totalTurnoHoy: 42 + mockDespachadosMemoria.length,
       },
-      meta: { timestamp: new Date().toISOString() },
-    };
-  },
-
-  /**
-   * Recupera una comanda despachada devolviéndola al tablero activo del KDS (Recall 30m - CU-COCINA-02)
-   */
-  async recuperarPedidoDespachado(
-    pedidoId: string
-  ): Promise<ApiResponse<{ pedido_id: string; recuperado: boolean }>> {
-    const idx = mockDespachadosMemoria.findIndex((d) => d.pedido_id === pedidoId);
-    if (idx === -1) {
-      return {
-        exito: false,
-        datos: { pedido_id: pedidoId, recuperado: false },
-        errores: [{ codigo: 'PEDIDO_NO_ENCONTRADO', mensaje: 'El pedido no se encuentra en el historial.' }],
-      };
-    }
-
-    const itemDespachado = mockDespachadosMemoria[idx];
-    const minutos = (Date.now() - new Date(itemDespachado.fecha_despacho).getTime()) / 60000;
-    if (minutos > 30) {
-      return {
-        exito: false,
-        datos: { pedido_id: pedidoId, recuperado: false },
-        errores: [{ codigo: 'TIEMPO_EXCEDIDO', mensaje: 'No es posible recuperar pedidos despachados hace más de 30 minutos.' }],
-      };
-    }
-
-    mockDespachadosMemoria.splice(idx, 1);
-
-    // Reinsertar en el tablero activo con sus platos en fuego
-    const comandaRecuperada: KDSComandaDTO = {
-      pedido_id: itemDespachado.pedido_id,
-      numero_comanda: itemDespachado.numero_comanda,
-      mesa_codigo: itemDespachado.mesa_codigo,
-      es_mesa_agrupada: false,
-      mozo_nombre: itemDespachado.mozo_nombre,
-      piso_nombre: itemDespachado.piso_nombre,
-      ronda_numero: 1,
-      ronda_tipo: 'inicial',
-      comensales: 4,
-      fecha_envio: itemDespachado.fecha_despacho,
-      minutos_espera: Math.floor(minutos),
-      segundos_transcurridos: Math.floor(minutos * 60),
-      semaforo_color: minutos > 25 ? 'rojo' : minutos > 15 ? 'ambar' : 'verde',
-      bebidas_salon_count: 0,
-      items: itemDespachado.items_resumen.map((it, i) => ({
-        item_id: `recup-${Date.now()}-${i}`,
-        producto_id: `prod-recup-${i}`,
-        nombre_producto: it.producto_nombre,
-        cantidad: it.cantidad,
-        estado: 'en_preparacion',
-        categoria_id: 'cat-recuperados',
-        categoria_nombre: 'Platos Criollos',
-        nota_cocina: it.nota_cocina,
-        fecha_inicio_coccion: new Date().toISOString(),
-        receta_resumen: 'Insumos reingresados a inventario (Rollback de bodega)',
-      })),
-    };
-
-    mockComandasMemoria = [comandaRecuperada, ...mockComandasMemoria];
-
-    return {
-      exito: true,
-      datos: { pedido_id: pedidoId, recuperado: true },
       meta: { timestamp: new Date().toISOString() },
     };
   },

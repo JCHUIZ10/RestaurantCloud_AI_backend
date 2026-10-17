@@ -136,7 +136,6 @@ export interface KDSPedidoDespachadoDTO {
   total_items: number;
   fecha_despacho: string; // ISO string
   minutos_desde_despacho: number;
-  puede_recuperar: boolean;
   items_resumen: ItemResumenDespachadoDTO[];
 }
 

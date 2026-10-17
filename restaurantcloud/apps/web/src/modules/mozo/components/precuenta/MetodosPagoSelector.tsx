@@ -7,6 +7,8 @@ import {
   Loader2,
   CheckCircle2,
   Info,
+  Wallet,
+  AlertTriangle,
 } from 'lucide-react';
 import type { CodigoMetodoPago, OpcionPagoMozoDTO } from '../../../../types/mozo';
 
@@ -18,6 +20,9 @@ interface MetodosPagoSelectorProps {
   onNotificarCaja: () => void;
   enviandoNotificacion: boolean;
   cuentaPedidaExitosa: boolean;
+  actor?: 'mozo' | 'cajero';
+  isComprobanteValido?: boolean;
+  motivoBloqueoComprobante?: string;
 }
 
 export const MetodosPagoSelector: React.FC<MetodosPagoSelectorProps> = ({
@@ -28,27 +33,33 @@ export const MetodosPagoSelector: React.FC<MetodosPagoSelectorProps> = ({
   onNotificarCaja,
   enviandoNotificacion,
   cuentaPedidaExitosa,
+  actor = 'mozo',
+  isComprobanteValido = true,
+  motivoBloqueoComprobante,
 }) => {
   const getIcon = (codigo: CodigoMetodoPago) => {
     switch (codigo) {
       case 'efectivo':
         return <Banknote className="w-5 h-5 text-emerald-400" />;
+      case 'yape':
+      case 'plin':
       case 'billetera_digital':
         return <QrCode className="w-5 h-5 text-[#D5A06F]" />;
       case 'tarjeta':
         return <CreditCard className="w-5 h-5 text-blue-400" />;
+      default:
+        return <Wallet className="w-5 h-5 text-amber-400" />;
     }
   };
 
-  const getSubtitulo = (codigo: CodigoMetodoPago) => {
-    switch (codigo) {
-      case 'efectivo':
-        return 'Sin recargo bancario (0%)';
-      case 'billetera_digital':
+  const getSubtitulo = (opcion: OpcionPagoMozoDTO) => {
+    if (opcion.comision_porcentaje === 0) {
+      if (['yape', 'plin', 'billetera_digital'].includes(opcion.codigo)) {
         return 'Yape o Plin directo (0%)';
-      case 'tarjeta':
-        return '+3.5% recargo de comisión POS';
+      }
+      return 'Sin recargo bancario (0%)';
     }
+    return `+${opcion.comision_porcentaje}% recargo de comisión POS`;
   };
 
   return (
@@ -96,7 +107,7 @@ export const MetodosPagoSelector: React.FC<MetodosPagoSelectorProps> = ({
                   {opcion.nombre}
                 </h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  {getSubtitulo(opcion.codigo)}
+                  {getSubtitulo(opcion)}
                 </p>
               </div>
 
@@ -111,8 +122,8 @@ export const MetodosPagoSelector: React.FC<MetodosPagoSelectorProps> = ({
         })}
       </div>
 
-      {/* Botón directo de apertura QR para Billetera Digital */}
-      {metodoSeleccionado === 'billetera_digital' && (
+      {/* Botón directo de apertura QR para Billeteras Digitales (Yape / Plin) */}
+      {['yape', 'plin', 'billetera_digital'].includes(metodoSeleccionado) && (
         <div className="p-3.5 rounded-xl bg-[#D5A06F]/10 border border-[#D5A06F]/40 flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
           <div className="flex items-center space-x-3">
             <div className="p-2.5 rounded-lg bg-[#D5A06F]/20 text-[#D5A06F]">
@@ -139,39 +150,61 @@ export const MetodosPagoSelector: React.FC<MetodosPagoSelectorProps> = ({
         </div>
       )}
 
-      {/* Acción Final: Notificar a Caja */}
+      {/* Acción Final: Notificar a Caja o Generar Cuenta */}
       <div className="pt-3 border-t border-[#D5A06F]/20 space-y-3">
         <div className="flex items-center space-x-2 text-xs text-slate-300 bg-black/20 p-2.5 rounded-lg border border-white/5">
           <Info className="w-4 h-4 text-[#D5A06F] shrink-0" />
           <span>
-            Al notificar a Caja, la mesa cambiará a estado <strong>[CUENTA PEDIDA]</strong> (color ámbar) y emitirá una alerta SSE al cajero.
+            {actor === 'cajero' ? (
+              <>Al confirmar, se generará la cuenta de la mesa y se mantendrá en estado <strong>[CUENTA PEDIDA]</strong> para control de cobro.</>
+            ) : (
+              <>Al notificar a Caja, la mesa cambiará a estado <strong>[CUENTA PEDIDA]</strong> (color ámbar) y emitirá una alerta SSE al cajero.</>
+            )}
           </span>
         </div>
 
+        {/* Banner de Validación Bloqueante de Comprobante */}
+        {!isComprobanteValido && !cuentaPedidaExitosa && (
+          <div className="p-2.5 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs flex items-center gap-2 animate-fadeIn">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+            <span>{motivoBloqueoComprobante || 'Complete los datos requeridos del comprobante para habilitar la emisión.'}</span>
+          </div>
+        )}
+
         <button
           type="button"
-          disabled={enviandoNotificacion || cuentaPedidaExitosa}
+          disabled={enviandoNotificacion || cuentaPedidaExitosa || !isComprobanteValido}
           onClick={onNotificarCaja}
           className={`w-full py-3.5 px-4 rounded-xl font-bold text-sm tracking-wide shadow-xl transition-all flex items-center justify-center space-x-2 ${
             cuentaPedidaExitosa
               ? 'bg-amber-600 text-white cursor-default'
-              : 'bg-gradient-to-r from-[#D5A06F] to-[#b88655] hover:from-[#e0aa78] hover:to-[#c4905e] text-[#0B2340] active:scale-[0.99] disabled:opacity-50'
+              : !isComprobanteValido
+              ? 'bg-slate-700/60 text-slate-400 border border-white/10 cursor-not-allowed opacity-60'
+              : 'bg-gradient-to-r from-[#D5A06F] to-[#b88655] hover:from-[#e0aa78] hover:to-[#c4905e] text-[#0B2340] active:scale-[0.99]'
           }`}
         >
           {enviandoNotificacion ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Transmitiendo solicitud a terminal de Caja vía SSE...</span>
+              <span>
+                {actor === 'cajero'
+                  ? 'Generando precuenta y bloqueando mesa...'
+                  : 'Transmitiendo solicitud a terminal de Caja vía SSE...'}
+              </span>
             </>
           ) : cuentaPedidaExitosa ? (
             <>
               <CheckCircle2 className="w-4 h-4" />
-              <span>Cuenta Notificada a Caja (Mesa en Ámbar)</span>
+              <span>
+                {actor === 'cajero'
+                  ? 'Cuenta Generada en Mesa (Estado Ámbar)'
+                  : 'Cuenta Notificada a Caja (Mesa en Ámbar)'}
+              </span>
             </>
           ) : (
             <>
               <Send className="w-4 h-4" />
-              <span>⚡ Confirmar y Notificar a Caja</span>
+              <span>{actor === 'cajero' ? '⚡ Generar Cuenta' : '⚡ Confirmar y Notificar a Caja'}</span>
             </>
           )}
         </button>

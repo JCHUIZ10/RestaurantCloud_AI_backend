@@ -1,5 +1,5 @@
 import React from 'react';
-import { RotateCcw, Clock, Utensils, CheckCircle2, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Clock, Utensils, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { KDSPedidoDespachadoDTO, MetricasDespachoDTO } from '@/types/cocina';
 
 interface ModalHistorialDespachadosProps {
@@ -7,7 +7,6 @@ interface ModalHistorialDespachadosProps {
   onCerrar: () => void;
   pedidos: KDSPedidoDespachadoDTO[];
   metricas: MetricasDespachoDTO;
-  onRecuperarPedido: (pedidoId: string) => void;
 }
 
 export const ModalHistorialDespachados: React.FC<ModalHistorialDespachadosProps> = ({
@@ -15,7 +14,6 @@ export const ModalHistorialDespachados: React.FC<ModalHistorialDespachadosProps>
   onCerrar,
   pedidos,
   metricas,
-  onRecuperarPedido,
 }) => {
   if (!abierto) return null;
 
@@ -32,11 +30,11 @@ export const ModalHistorialDespachados: React.FC<ModalHistorialDespachadosProps>
               <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
                 <span>BANDEJA DE PEDIDOS DESPACHADOS</span>
                 <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-aurea-champagne border border-slate-700 font-mono">
-                  ÚLTIMOS 30 MINUTOS
+                  ÚLTIMOS 30 MINUTOS • AUDITORÍA
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Permite recuperar a fogones pedidos despachados por equivocación o reclamo de sala. Cero pérdida de comandas.
+                Consulta y verificación de comandas finalizadas recientemente para control del pase y servicio. Sin alteración del flujo activo de fogones.
               </p>
             </div>
           </div>
@@ -88,7 +86,7 @@ export const ModalHistorialDespachados: React.FC<ModalHistorialDespachadosProps>
               <CheckCircle2 className="w-12 h-12 text-slate-600 mx-auto mb-3" />
               <p className="font-semibold text-slate-300">No hay pedidos despachados recientemente</p>
               <p className="text-xs text-slate-500 mt-1">
-                Las órdenes despachadas durante los últimos 30 minutos aparecerán aquí para posible recuperación.
+                Las órdenes despachadas durante los últimos 30 minutos aparecerán aquí para control y auditoría del servicio.
               </p>
             </div>
           ) : (
@@ -149,22 +147,12 @@ export const ModalHistorialDespachados: React.FC<ModalHistorialDespachadosProps>
                       </ul>
                     </div>
 
-                    {/* Botón de Recuperación Táctil (Recall) */}
+                    {/* Insignia Fija de Estado en Pase (Solo Lectura) */}
                     <div className="p-3 bg-slate-900 border-t border-slate-800">
-                      {pedido.puede_recuperar ? (
-                        <button
-                          onClick={() => onRecuperarPedido(pedido.pedido_id)}
-                          className="w-full min-h-[44px] rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all bg-sky-600 hover:bg-sky-500 text-white shadow"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                          <span>[ ↺ Devolver a Cocina (Recall) ]</span>
-                        </button>
-                      ) : (
-                        <div className="w-full min-h-[44px] rounded-xl font-mono text-xs flex items-center justify-center gap-1.5 bg-slate-800/50 text-slate-500 border border-slate-800">
-                          <AlertTriangle className="w-3.5 h-3.5 text-slate-600" />
-                          <span>Recuperación expirada (&gt;30m)</span>
-                        </div>
-                      )}
+                      <div className="w-full min-h-[40px] px-3 py-2 rounded-xl font-mono text-xs flex items-center justify-center gap-2 bg-emerald-950/60 text-emerald-300 border border-emerald-800/60 font-semibold shadow-inner">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span>Despachado al Pase de Salón</span>
+                      </div>
                     </div>
                   </article>
                 );
@@ -175,7 +163,7 @@ export const ModalHistorialDespachados: React.FC<ModalHistorialDespachadosProps>
 
         {/* Footer del Modal */}
         <div className="px-5 py-3 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-          <span>💡 Al devolver un pedido a cocina, reaparece en el tablero activo con sus platos en fuego.</span>
+          <span>💡 Vista de solo lectura. Las comandas completadas se archivan durante 30 minutos para consulta y no pueden devolverse a cocina para proteger el ritmo de las partidas culinarias.</span>
           <button
             onClick={onCerrar}
             className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition-colors"

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { useAuthStore } from '@/stores/authStore';
 import { ROUTES } from '@/router/routes.constants';
 import {
   EstadoCajaSesionDTO,
@@ -11,6 +12,9 @@ import {
   SubcuentaComandaDTO,
   ProcesarCobroFiscalResponseDTO,
 } from '@/types/caja';
+import {
+  cajaService,
+} from '@/services/serviceAdapter';
 import {
   mockCajaService,
   CAJERO_ACTUAL_MOCK,
@@ -32,6 +36,7 @@ import type {
 
 export const CajeroPosPage: React.FC = () => {
   const navigate = useNavigate();
+  const usuario = useAuthStore((s) => s.usuario);
 
   // Estados de datos
   const [session, setSession] = useState<EstadoCajaSesionDTO | null>(null);
@@ -65,9 +70,9 @@ export const CajeroPosPage: React.FC = () => {
   const cargarDatos = useCallback(async () => {
     try {
       const [resSession, resMesas, resMetricas] = await Promise.all([
-        mockCajaService.getEstadoSesion(),
-        mockCajaService.getMesasMonitor(),
-        mockCajaService.getMetricasPos(),
+        cajaService.getEstadoSesion(),
+        cajaService.getMesasMonitor(),
+        cajaService.getMetricasPos(),
       ]);
 
       if (resSession.exito && resSession.datos) {
@@ -107,7 +112,7 @@ export const CajeroPosPage: React.FC = () => {
   const handleConfirmarApertura = async (monto: number, notas?: string) => {
     setIsSubmittingApertura(true);
     try {
-      const resp = await mockCajaService.abrirTurno({
+      const resp = await cajaService.abrirTurno({
         monto_apertura: monto,
         notas,
       });
@@ -143,7 +148,7 @@ export const CajeroPosPage: React.FC = () => {
   // 3. Abrir Emisión de Comprobante Fiscal (CU-CAJA-03)
   const handleAbrirEmitirComprobante = async (mesa: MesaCajaMonitorDTO, subcuenta?: SubcuentaComandaDTO) => {
     try {
-      const res = await mockCajaService.getPrecuentaMesa(mesa.id);
+      const res = await cajaService.getPrecuentaMesa(mesa.id);
       if (res.exito && res.datos) {
         setPrecuentaFiscalActiva(res.datos);
       } else {
@@ -159,7 +164,7 @@ export const CajeroPosPage: React.FC = () => {
   // Manejador tras notificar precuenta en mesa (Conmuta a CUENTA PEDIDA)
   const handlePrecuentaNotificada = async (mesaId: string, totalNeto: number) => {
     try {
-      const resp = await mockCajaService.conmutarACuentaPedida(mesaId);
+      const resp = await cajaService.conmutarACuentaPedida(mesaId);
       if (resp.exito && resp.datos) {
         showToast(
           'success',
@@ -220,7 +225,7 @@ export const CajeroPosPage: React.FC = () => {
         `Comprobante ${response.serie_numero} emitido por S/ ${response.total_cobrado.toFixed(2)}. Quedan ${response.subcuentas_pendientes} subcuentas pendientes en Mesa ${response.mesa_numero}.`
       );
       if (mesaCobroFiscalActiva) {
-        const res = await mockCajaService.getPrecuentaMesa(mesaCobroFiscalActiva.id);
+        const res = await cajaService.getPrecuentaMesa(mesaCobroFiscalActiva.id);
         if (res.exito && res.datos) {
           setPrecuentaFiscalActiva(res.datos);
         }
@@ -254,7 +259,8 @@ export const CajeroPosPage: React.FC = () => {
   // Manejador de Notificar a Administración (Vista 2)
   const handleNotificarAdmin = async () => {
     try {
-      const resp = await mockCajaService.notificarAdministradorCajaBloqueada(CAJERO_ACTUAL_MOCK.nombre);
+      const nombreCajero = usuario?.nombre || CAJERO_ACTUAL_MOCK.nombre;
+      const resp = await mockCajaService.notificarAdministradorCajaBloqueada(nombreCajero);
       if (resp.exito && resp.datos) {
         showToast(
           'info',
@@ -321,8 +327,9 @@ export const CajeroPosPage: React.FC = () => {
 
   // Determinación de la Vista Canónica
   const turnoActivo: CajaTurnoDTO | null = session.turno_activo || null;
+  const currentUserId = usuario?.id || CAJERO_ACTUAL_MOCK.id;
   const isTurnoPrevioDeOtroCajero =
-    turnoActivo !== null && turnoActivo.cajero_id !== CAJERO_ACTUAL_MOCK.id;
+    turnoActivo !== null && turnoActivo.cajero_id !== currentUserId;
   const isCajaCerrada = session.estado_caja === 'cerrada' && !turnoActivo;
   const isPosDesbloqueado = turnoActivo !== null && !isTurnoPrevioDeOtroCajero;
 
@@ -360,9 +367,9 @@ export const CajeroPosPage: React.FC = () => {
           turnoActivo={
             turnoActivo || {
               id: 'turno-temp',
-              local_id: 'local-1',
-              cajero_id: CAJERO_ACTUAL_MOCK.id,
-              cajero_nombre: CAJERO_ACTUAL_MOCK.nombre,
+              local_id: session.sede_nombre || 'local-1',
+              cajero_id: currentUserId,
+              cajero_nombre: usuario?.nombre || CAJERO_ACTUAL_MOCK.nombre,
               correlativo: session.correlativo_proyectado,
               monto_apertura: 0,
               estado: 'cerrada',
@@ -420,6 +427,7 @@ export const CajeroPosPage: React.FC = () => {
           mesaId={mesaPrecuentaActiva.id}
           mesaEstadoActual={mesaPrecuentaActiva.estado}
           onCuentaNotificada={handlePrecuentaNotificada}
+          actor="cajero"
         />
       )}
 

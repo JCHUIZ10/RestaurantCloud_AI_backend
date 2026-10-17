@@ -54,7 +54,7 @@ export const PrecuentaConsolidadoCard: React.FC<PrecuentaConsolidadoCardProps> =
       <div className="divide-y divide-white/5 max-h-[380px] overflow-y-auto">
         {items.map((item, index) => (
           <div
-            key={`${item.producto_id}-${index}`}
+            key={`${item.producto_id || item.id || index}-${index}`}
             className="p-3 hover:bg-white/[0.02] transition-colors flex items-start justify-between gap-3 text-sm"
           >
             <div className="flex items-start space-x-3">
@@ -64,7 +64,9 @@ export const PrecuentaConsolidadoCard: React.FC<PrecuentaConsolidadoCardProps> =
 
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-medium text-slate-100">{item.nombre}</span>
+                  <span className="font-medium text-slate-100">
+                    {item.nombre || item.producto_nombre || 'Producto'}
+                  </span>
                   {renderEstadoBadge(item.estado_cocina)}
                 </div>
                 {item.nota_cocina && (

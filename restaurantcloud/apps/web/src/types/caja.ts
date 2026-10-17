@@ -268,7 +268,7 @@ export interface ClienteFiscalLookupDTO {
   telefono?: string;
   email?: string;
   existe_en_bd: boolean;
-  origen: 'bd_local' | 'api_peru';
+  origen: 'bd_local' | 'api_peru' | 'sunat' | 'reniec';
 }
 
 // ==============================================================================

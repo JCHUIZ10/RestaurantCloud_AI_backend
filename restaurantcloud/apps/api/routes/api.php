@@ -44,18 +44,36 @@ Route::prefix('v1')->group(function (): void {
 
             // CU-MOZO-08: Precuenta Digital en Salón
             Route::get('/mesas/{id}/precuenta', [MozoController::class, 'getPrecuentaMesa']);
+            Route::get('/clientes/buscar', [CajaController::class, 'buscarCliente']);
         });
 
-        // Cocina / KDS
+        // Cocina / KDS (CU-COCINA-01 y CU-COCINA-02)
         Route::prefix('cocina')->group(function (): void {
+            Route::get('/configuracion', [CocinaController::class, 'getConfiguracion']);
             Route::get('/comandas', [CocinaController::class, 'getComandas']);
+            Route::get('/consolidado-all-day', [CocinaController::class, 'getConsolidadoAllDay']);
             Route::patch('/items/{id}/estado', [CocinaController::class, 'cambiarEstadoItem']);
+            Route::post('/items/{id}/deshacer', [CocinaController::class, 'deshacerItem']);
+            Route::post('/pedidos/{id}/despachar', [CocinaController::class, 'despacharPedido']);
+            Route::get('/pedidos/despachados-recientes', [CocinaController::class, 'getDespachadosRecientes']);
+            Route::get('/metricas-despacho', [CocinaController::class, 'getMetricasDespacho']);
         });
 
-        // Caja / POS
+        // Caja / POS (CU-CAJA-01, CU-CAJA-02, CU-CAJA-03)
         Route::prefix('caja')->group(function (): void {
+            // CU-CAJA-01: Apertura de Turno y Estado de Sesión
+            Route::get('/estado-sesion', [CajaController::class, 'getEstadoSesion']);
+            Route::post('/apertura', [CajaController::class, 'apertura']);
+
+            // CU-CAJA-02: Monitor POS y Precuenta
+            Route::get('/mesas-monitor', [CajaController::class, 'getMesasMonitor']);
+            Route::get('/metricas-pos', [CajaController::class, 'getMetricasPos']);
             Route::get('/mesas/{id}/cuenta', [CajaController::class, 'getPrecuentaMesa']);
+            Route::post('/mesas/{id}/conmutar-cuenta-pedida', [CajaController::class, 'conmutarCuentaPedida']);
+
+            // CU-CAJA-03: Cobro y Facturación Fiscal SUNAT
             Route::post('/cobrar', [CajaController::class, 'cobrar']);
+            Route::get('/clientes/buscar', [CajaController::class, 'buscarCliente']);
         });
     });
 });

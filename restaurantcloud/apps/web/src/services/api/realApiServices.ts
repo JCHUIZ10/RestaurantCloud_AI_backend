@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch, apiClient } from './client';
+import { apiGet, apiPost, apiPatch } from './client';
 import type { ApiResponse } from '@/types/api';
 import type {
   PlanoCompletoMozoDTO,
@@ -8,7 +8,22 @@ import type {
   HistorialMesaComandaDTO,
   PrecuentaMozoResponseDTO,
 } from '@/types/mozo';
-import type { KDSComandaDTO } from '@/types/cocina';
+import type {
+  KDSComandaDTO,
+  ConfiguracionKDSDTO,
+  ConsolidadoAllDayDTO,
+  MetricasDespachoDTO,
+  KDSPedidoDespachadoDTO,
+} from '@/types/cocina';
+import type {
+  CajaTurnoDTO,
+  EstadoCajaSesionDTO,
+  AbrirCajaRequest,
+  MesaCajaMonitorDTO,
+  CajaMetricasPosDTO,
+  PrecuentaResponseDTO,
+  ClienteFiscalLookupDTO,
+} from '@/types/caja';
 
 export interface LoginParams {
   correo: string;
@@ -256,24 +271,84 @@ export const realMozoService = {
   async obtenerPrecuentaMesa(mesaId: string): Promise<ApiResponse<PrecuentaMozoResponseDTO>> {
     return apiGet<PrecuentaMozoResponseDTO>(`/mozo/mesas/${mesaId}/precuenta`);
   },
+
+  async consultarClienteFiscal(tipoDoc: 'DNI' | 'RUC', numeroDoc: string): Promise<ApiResponse<ClienteFiscalLookupDTO>> {
+    return apiGet<ClienteFiscalLookupDTO>(`/caja/clientes/buscar?tipo=${tipoDoc}&documento=${numeroDoc}`);
+  },
 };
 
 export const realCocinaService = {
-  async obtenerComandasKDS(): Promise<ApiResponse<KDSComandaDTO[]>> {
+  // CU-COCINA-01: Tablero KDS y Configuración
+  async obtenerConfiguracion(): Promise<ApiResponse<ConfiguracionKDSDTO>> {
+    return apiGet<ConfiguracionKDSDTO>('/cocina/configuracion');
+  },
+
+  async obtenerComandas(): Promise<ApiResponse<KDSComandaDTO[]>> {
     return apiGet<KDSComandaDTO[]>('/cocina/comandas');
   },
 
+  async obtenerComandasKDS(): Promise<ApiResponse<KDSComandaDTO[]>> {
+    return this.obtenerComandas();
+  },
+
+  async obtenerConsolidadoAllDay(): Promise<ApiResponse<ConsolidadoAllDayDTO[]>> {
+    return apiGet<ConsolidadoAllDayDTO[]>('/cocina/consolidado-all-day');
+  },
+
+  async obtenerMetricasDespacho(): Promise<ApiResponse<MetricasDespachoDTO>> {
+    return apiGet<MetricasDespachoDTO>('/cocina/metricas-despacho');
+  },
+
+  // CU-COCINA-02: Transiciones, Deshacer 30s, Despacho Completo y Recall
   async cambiarEstadoItem(itemId: string, estado: string): Promise<ApiResponse<any>> {
-    const response = await apiClient.patch<ApiResponse<any>>(`/cocina/items/${itemId}/estado`, { estado });
-    return response.data;
+    return apiPatch<any>(`/cocina/items/${itemId}/estado`, { estado });
+  },
+
+  async deshacerListoItem(itemId: string): Promise<ApiResponse<any>> {
+    return apiPost<any>(`/cocina/items/${itemId}/deshacer`);
+  },
+
+  async despacharComandaCompleta(pedidoId: string): Promise<ApiResponse<any>> {
+    return apiPost<any>(`/cocina/pedidos/${pedidoId}/despachar`);
+  },
+
+  async obtenerPedidosDespachados(): Promise<ApiResponse<KDSPedidoDespachadoDTO[]>> {
+    return apiGet<KDSPedidoDespachadoDTO[]>('/cocina/pedidos/despachados-recientes');
   },
 };
 
 export const realCajaService = {
-  async obtenerPrecuentaMesa(mesaId: string): Promise<ApiResponse<any>> {
-    return apiGet<any>(`/caja/mesas/${mesaId}/cuenta`);
+  // CU-CAJA-01: Apertura de Turno y Estado de Sesión
+  async getEstadoSesion(): Promise<ApiResponse<EstadoCajaSesionDTO>> {
+    return apiGet<EstadoCajaSesionDTO>('/caja/estado-sesion');
   },
 
+  async abrirTurno(datos: AbrirCajaRequest): Promise<ApiResponse<CajaTurnoDTO>> {
+    return apiPost<CajaTurnoDTO>('/caja/apertura', datos);
+  },
+
+  // CU-CAJA-02: Monitor POS y Precuenta
+  async getMesasMonitor(): Promise<ApiResponse<MesaCajaMonitorDTO[]>> {
+    return apiGet<MesaCajaMonitorDTO[]>('/caja/mesas-monitor');
+  },
+
+  async getMetricasPos(): Promise<ApiResponse<CajaMetricasPosDTO>> {
+    return apiGet<CajaMetricasPosDTO>('/caja/metricas-pos');
+  },
+
+  async getPrecuentaMesa(mesaId: string): Promise<ApiResponse<PrecuentaResponseDTO>> {
+    return apiGet<PrecuentaResponseDTO>(`/caja/mesas/${mesaId}/cuenta`);
+  },
+
+  async obtenerPrecuentaMesa(mesaId: string): Promise<ApiResponse<PrecuentaResponseDTO>> {
+    return this.getPrecuentaMesa(mesaId);
+  },
+
+  async conmutarACuentaPedida(mesaId: string): Promise<ApiResponse<{ id: string; numero: string; estado: string }>> {
+    return apiPost<{ id: string; numero: string; estado: string }>(`/caja/mesas/${mesaId}/conmutar-cuenta-pedida`);
+  },
+
+  // CU-CAJA-03: Cobro y Facturación Fiscal SUNAT
   async cobrarComanda(datos: {
     pedido_id: string;
     tipo_comprobante: string;
@@ -281,7 +356,12 @@ export const realCajaService = {
     monto_recibido?: number;
     documento_cliente?: string;
     nombre_cliente?: string;
+    subcuenta_id?: string;
   }): Promise<ApiResponse<any>> {
     return apiPost<any>('/caja/cobrar', datos);
+  },
+
+  async consultarClienteFiscal(tipoDoc: 'DNI' | 'RUC', numeroDoc: string): Promise<ApiResponse<ClienteFiscalLookupDTO>> {
+    return apiGet<ClienteFiscalLookupDTO>(`/caja/clientes/buscar?tipo=${tipoDoc}&documento=${numeroDoc}`);
   },
 };

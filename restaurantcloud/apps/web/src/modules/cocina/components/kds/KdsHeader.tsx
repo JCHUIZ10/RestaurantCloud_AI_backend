@@ -72,7 +72,7 @@ export const KdsHeader: React.FC<KdsHeaderProps> = ({
             <button
               onClick={onAbrirDespachados}
               className="px-3 py-1.5 rounded-lg font-mono font-bold text-xs bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 hover:border-amber-400 transition-all flex items-center gap-2 shadow"
-              title="Bandeja de pedidos despachados en los últimos 30 minutos (Recall)"
+              title="Bandeja de pedidos despachados en los últimos 30 minutos (Auditoría de solo lectura)"
             >
               <span>⏱️ Despachados</span>
               <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 text-[11px]">

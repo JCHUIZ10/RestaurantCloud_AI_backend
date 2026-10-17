@@ -770,6 +770,8 @@ class MozoController extends Controller
             'comensales' => (int) $pedido->comensales,
             'comanda_id' => $pedido->id,
             'numero_comanda' => (int) $pedido->numero_comanda,
+            'estado_mesa' => $pedido->estado,
+            'cuenta_pedida' => $pedido->estado === 'cuenta_pedida',
             'ronda_actual' => $rondaActual,
             'rondas_previas' => $rondasAgrupadas->values(),
             'total_acumulado' => round($totalAcumulado, 2),
@@ -844,6 +846,13 @@ class MozoController extends Controller
                 ->where('mesa_id', $validated['mesa_id'])
                 ->whereIn('estado', ['enviado', 'cuenta_pedida', 'borrador'])
                 ->first();
+
+            if ($pedidoExistente && $pedidoExistente->estado === 'cuenta_pedida') {
+                return ApiResponse::error(
+                    'La mesa se encuentra en estado CUENTA PEDIDA. La comanda está en proceso de cobro en Caja y no se pueden agregar nuevos platos ni bebidas.',
+                    422
+                );
+            }
 
             $comensales = $validated['comensales'] ?? ($pedidoExistente?->comensales ?? $mesa->capacidad ?: 2);
             $pedidoId = $pedidoExistente ? $pedidoExistente->id : (string) Str::uuid();
@@ -954,6 +963,7 @@ class MozoController extends Controller
             ->where('pi.estado', '!=', 'anulado')
             ->select([
                 'pi.id',
+                'pi.producto_id',
                 'prod.nombre as producto_nombre',
                 'pi.cantidad',
                 'pi.precio_unitario',
@@ -968,6 +978,8 @@ class MozoController extends Controller
             $subtotal = round((float) $it->cantidad * (float) $it->precio_unitario, 2);
             return [
                 'id' => $it->id,
+                'producto_id' => $it->producto_id,
+                'nombre' => $it->producto_nombre,
                 'producto_nombre' => $it->producto_nombre,
                 'nota_cocina' => $it->nota_cocina,
                 'cantidad' => (int) $it->cantidad,
@@ -993,26 +1005,43 @@ class MozoController extends Controller
 
         $opcionesPago = $metodosPagoRaw->map(function ($mp) use ($total) {
             $comision = round($total * ((float) $mp->comision_porcentaje / 100), 2);
+            $datosAdicionales = is_string($mp->datos_adicionales)
+                ? json_decode($mp->datos_adicionales, true)
+                : (array) ($mp->datos_adicionales ?? []);
+
+            $esBilletera = in_array($mp->codigo, ['billetera_digital', 'yape', 'plin']);
+
             return [
+                'id' => $mp->id,
                 'codigo' => $mp->codigo,
                 'nombre' => $mp->nombre,
+                'icono' => $mp->icono ?? 'wallet',
                 'comision_porcentaje' => (float) $mp->comision_porcentaje,
                 'monto_comision' => $comision,
                 'total_estimado' => round($total + $comision, 2),
-                'detalle_billetera' => $mp->codigo === 'billetera_digital' ? [
-                    'telefono' => '+51 987 654 321',
-                    'titular' => 'AUREA RESTAURANTE',
-                    'ruc' => '20601234567',
+                'detalle_billetera' => $esBilletera ? [
+                    'telefono' => $datosAdicionales['telefono'] ?? '930723537',
+                    'titular' => $datosAdicionales['titular'] ?? 'ÁUREA S.A.C.',
+                    'ruc' => $datosAdicionales['ruc'] ?? '20601234567',
                     'monto_exacto' => round($total, 2),
                 ] : null,
+                'datos_adicionales' => $datosAdicionales,
             ];
         });
 
         $promociones = DB::table('promocion')
             ->where('local_id', $localId)
             ->where('activa', true)
-            ->select('id', 'nombre', 'valor as porcentaje_descuento', 'descripcion')
-            ->get();
+            ->get()
+            ->map(fn ($pr) => [
+                'id' => $pr->id,
+                'nombre' => $pr->nombre,
+                'tipo_descuento' => 'porcentaje',
+                'porcentaje_descuento' => (float) $pr->valor,
+                'valor' => (float) $pr->valor,
+                'descripcion' => $pr->descripcion,
+                'descripcion_condicion' => $pr->descripcion,
+            ]);
 
         $minutosEnMesa = (int) max(0, round((now()->timestamp - strtotime($pedido->created_at)) / 60));
 
