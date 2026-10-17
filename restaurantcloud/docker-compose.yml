@@ -75,6 +75,33 @@ services:
     networks:
       - saas_network
 
+  api:
+    build:
+      context: .
+      dockerfile: ./infra/docker/api.Dockerfile
+    container_name: saas_laravel_api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: ${POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - ./apps/api:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - saas_network
+
 volumes:
   postgres_data:
     driver: local
