@@ -1027,6 +1027,39 @@ Para soportar la consola central de supervisión global sin vulnerar el principi
 
 ---
 
+### 2.12 Metadatos de almacenamiento de objetos MinIO (`archivo`)
+
+Para desacoplar el almacenamiento binario (imágenes, PDFs oficiales, XMLs de comprobantes y paquetes ZIP) de la base de datos transaccional, se implementa la tabla relacional `archivo`. PostgreSQL conserva la metadata, integridad criptográfica (SHA-256), relaciones de negocio y control de acceso multi-tenant vía RLS, mientras MinIO aloja los blobs físicos compatibles con S3:
+
+| Campo | Tipo | Clave / Restricción | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id` | UUID | PK (`fn_uuid_v8()`) | Identificador único del registro de archivo |
+| `empresa_id` | UUID | FK -> `empresa.id` ON DELETE CASCADE | Tenant propietario del archivo (aislamiento estricto) |
+| `local_id` | UUID | FK -> `local.id` ON DELETE SET NULL (nullable) | Sede específica del archivo; NULL si es corporativo/portabilidad |
+| `bucket` | varchar(63) | DEFAULT `'restaurantcloud'` | Nombre del bucket MinIO |
+| `object_key` | varchar(500) | UNIQUE, NOT NULL | Ruta física del objeto dentro de MinIO (con prefijos `catalogo/` o `privado/`) |
+| `nombre_original` | varchar(255) | NOT NULL | Nombre descriptivo del archivo suministrado por el usuario/sistema |
+| `mime_type` | varchar(100) | NOT NULL | Tipo MIME verificado (`image/webp`, `application/pdf`, etc.) |
+| `tamanio_bytes` | bigint | NOT NULL, CHECK >= 0 | Peso exacto del archivo en bytes |
+| `sha256` | char(64) | nullable | Hash criptográfico para verificación de integridad (documentos oficiales) |
+| `visibilidad` | varchar(20) | CHECK (`catalogo`, `privado`, `temporal`) | Ámbito de exposición y entrega |
+| `entidad_tipo` | varchar(50) | NOT NULL | Entidad asociada: `producto`, `incidente`, `comprobante`, `caja_cierre`, `portabilidad`, `gasto_manual` |
+| `entidad_id` | UUID | NOT NULL | Identificador UUID de la entidad propietaria |
+| `estado` | varchar(20) | DEFAULT `'disponible'`, CHECK (`pendiente`, `disponible`, `fallido`, `eliminado`, `expirado`) | Ciclo de vida del objeto |
+| `creado_por` | UUID | FK -> `usuario.id` ON DELETE SET NULL | Usuario que realizó la carga o disparó la generación |
+| `expira_at` | timestamptz | nullable | Fecha límite de retención; mandatorio para portabilidad (30 días, `CU-SAAS-02`) y exportaciones temporales |
+| `created_at` | timestamptz | DEFAULT NOW() | Fecha de creación del registro |
+| `updated_at` | timestamptz | DEFAULT NOW() | Fecha de última modificación |
+| `deleted_at` | timestamptz | nullable | Borrado lógico (Soft Delete) |
+
+#### Políticas de Seguridad Row-Level Security (RLS) en `archivo`
+1. **Administrador SaaS (`fn_es_admin_saas()`):** Acceso global para soporte y auditoría de la plataforma.
+2. **Aislamiento por Tenant (`empresa_id` y `fn_pertenece_tenant(local_id)`):** Ningún usuario puede consultar metadatos ni solicitar streams de otra empresa o local ajeno.
+3. **Catálogo Público (`visibilidad = 'catalogo'`):** Permite lectura pública de fotografías de platos para comensales en carta digital (`CU-CLIENTE-01`).
+4. **Descarga de Comprobante QR (`CU-CLIENTE-02`):** Permite acceso anónimo limitado cuando `app.public_access = 'true'`, validando que `entidad_tipo = 'comprobante'` y que el token QR coincida con `app.public_token_qr`.
+
+---
+
 ## 3. Recomendaciones para la siguiente etapa
 
 1. **Definir índices compuestos** por `(local_id, fecha)` en las tablas de alto volumen de consulta (`pedido`, `pedido_item`, `snapshot_stock_diario`, `comanda`) para acelerar reportes y forecasting.

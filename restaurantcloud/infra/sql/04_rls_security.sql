@@ -214,3 +214,30 @@ CREATE POLICY p_comprobante_tenant ON comprobante
         fn_pertenece_tenant((SELECT local_id FROM caja WHERE id = comprobante.caja_id))
         OR (current_setting('app.public_access', true) = 'true' AND token_qr = NULLIF(current_setting('app.public_token_qr', true), '')::UUID)
     );
+
+-- 3.3 Archivos y Metadatos MinIO: Tenant isolation + Catálogo público + Descarga QR de comprobantes (CU-CLIENTE-02)
+ALTER TABLE archivo ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS p_archivo_tenant ON archivo;
+CREATE POLICY p_archivo_tenant ON archivo
+    FOR ALL
+    USING (
+        -- 1. Bypass para Administrador Global SaaS
+        fn_es_admin_saas()
+        -- 2. Aislamiento por tenant para archivos privados/temporales
+        OR (
+            empresa_id = NULLIF(current_setting('app.current_empresa_id', true), '')::UUID
+            AND (local_id IS NULL OR fn_pertenece_tenant(local_id))
+        )
+        -- 3. Archivos públicos de catálogo para cartas QR abiertas
+        OR (visibilidad = 'catalogo' AND (local_id IS NULL OR fn_pertenece_tenant(local_id)))
+        -- 4. Acceso público controlado a comprobantes mediante token QR (CU-CLIENTE-02)
+        OR (
+            current_setting('app.public_access', true) = 'true'
+            AND entidad_tipo = 'comprobante'
+            AND EXISTS (
+                SELECT 1 FROM comprobante c 
+                WHERE c.id = archivo.entidad_id 
+                  AND c.token_qr = NULLIF(current_setting('app.public_token_qr', true), '')::UUID
+            )
+        )
+    );

@@ -817,6 +817,28 @@ CREATE TABLE IF NOT EXISTS snapshot_stock_diario (
     CONSTRAINT uq_snapshot_stock_diario UNIQUE (insumo_id, local_id, fecha)
 );
 
+-- 7.6 Almacenamiento Centralizado de Archivos y Metadatos de MinIO (CU-SAAS-02, CU-ADMIN-04, CU-ADMIN-11, CU-CAJA-03, CU-CAJA-05)
+CREATE TABLE IF NOT EXISTS archivo (
+    id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
+    empresa_id UUID NOT NULL REFERENCES empresa(id) ON DELETE CASCADE,
+    local_id UUID REFERENCES local(id) ON DELETE SET NULL,
+    bucket VARCHAR(63) NOT NULL DEFAULT 'restaurantcloud',
+    object_key VARCHAR(500) NOT NULL UNIQUE,
+    nombre_original VARCHAR(255) NOT NULL,
+    mime_type VARCHAR(100) NOT NULL,
+    tamanio_bytes BIGINT NOT NULL CHECK (tamanio_bytes >= 0),
+    sha256 CHAR(64),
+    visibilidad VARCHAR(20) NOT NULL CHECK (visibilidad IN ('catalogo', 'privado', 'temporal')),
+    entidad_tipo VARCHAR(50) NOT NULL, -- 'producto', 'incidente', 'comprobante', 'caja_cierre', 'portabilidad', 'gasto_manual'
+    entidad_id UUID NOT NULL,
+    estado VARCHAR(20) NOT NULL DEFAULT 'disponible' CHECK (estado IN ('pendiente', 'disponible', 'fallido', 'eliminado', 'expirado')),
+    creado_por UUID REFERENCES usuario(id) ON DELETE SET NULL,
+    expira_at TIMESTAMPTZ, -- Obligatorio para exportaciones temporales y CU-SAAS-02 (30 días)
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
+);
+
 -- ------------------------------------------------------------------------------
 -- 8. TRIGGERS DE ACTUALIZACIÓN AUTOMÁTICA DE updated_at
 -- ------------------------------------------------------------------------------

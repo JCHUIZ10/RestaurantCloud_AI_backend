@@ -154,3 +154,15 @@ CREATE INDEX IF NOT EXISTS idx_pedido_anulacion_local_fecha
 
 CREATE INDEX IF NOT EXISTS idx_incidente_local_fecha 
     ON incidente(local_id, fecha_hora DESC);
+
+-- 4.10 Índices para el Dominio de Archivos y Metadatos MinIO S3
+CREATE INDEX IF NOT EXISTS idx_archivo_tenant_entidad 
+    ON archivo(empresa_id, entidad_tipo, entidad_id);
+
+CREATE INDEX IF NOT EXISTS idx_archivo_local 
+    ON archivo(local_id) 
+    WHERE local_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_archivo_expiracion 
+    ON archivo(expira_at) 
+    WHERE expira_at IS NOT NULL AND estado = 'disponible';
