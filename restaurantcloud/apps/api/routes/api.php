@@ -20,7 +20,7 @@ Route::prefix('v1')->group(function (): void {
     Route::post('/auth/refresh', [AuthController::class, 'refresh']);
 
     // Rutas protegidas con Caché de Sesión en Redis (Alta Velocidad)
-    Route::middleware('auth.redis')->group(function (): void {
+    Route::middleware(['auth.redis', 'tenant.context'])->group(function (): void {
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
 

@@ -286,7 +286,19 @@ class AuthController extends Controller
                 'token_hash' => $tokenHash,
             ]));
         } catch (\Throwable $e) {
-            // Silencioso
+            // No se debe entregar un token si la sesión no fue persistida.
+            try {
+                Redis::del("auth:session:{$tokenHash}");
+                Redis::del("auth:refresh:{$refreshToken}");
+            } catch (\Throwable $cleanupException) {
+                // La respuesta principal conserva el error de disponibilidad.
+            }
+
+            return ApiResponse::error(
+                'SERVICIO_SESION_NO_DISPONIBLE',
+                'No fue posible iniciar la sesión. Intenta nuevamente en unos minutos.',
+                503
+            );
         }
 
 

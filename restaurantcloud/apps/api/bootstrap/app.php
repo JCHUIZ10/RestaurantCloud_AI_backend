@@ -15,6 +15,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'auth.redis' => \App\Http\Middleware\RedisTokenAuth::class,
+            'tenant.context' => \App\Http\Middleware\TenantContext::class,
+            'role' => \App\Http\Middleware\EnsureRole::class,
         ]);
     })
 
