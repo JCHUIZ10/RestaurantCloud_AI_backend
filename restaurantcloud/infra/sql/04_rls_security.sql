@@ -4,6 +4,8 @@
 -- Aislamiento: Fail-Closed por empresa_id y local_id con Bypass para admin_saas
 -- ==============================================================================
 
+SET client_encoding = 'UTF8';
+
 -- 1. FUNCIÓN AUXILIAR DE VALIDACIÓN DE ÁMBITO DE SEDE (LOCAL / PROPIETARIO)
 CREATE OR REPLACE FUNCTION fn_pertenece_tenant(p_local_id UUID)
 RETURNS BOOLEAN AS $$

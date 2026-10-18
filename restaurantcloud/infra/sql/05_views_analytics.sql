@@ -4,6 +4,8 @@
 -- Modelado Canónico: Sobre pedido, pedido_item, local_id y empresa_id
 -- ==============================================================================
 
+SET client_encoding = 'UTF8';
+
 -- 1. SUPERVISIÓN CONSOLIDADA DE TENANTS SAAS (CU-SAAS-01)
 CREATE OR REPLACE VIEW v_saas_tenants_resumen AS
 SELECT 

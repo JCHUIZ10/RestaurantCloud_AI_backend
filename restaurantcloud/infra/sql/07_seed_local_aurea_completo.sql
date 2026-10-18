@@ -17,6 +17,8 @@
 -- cajero@aurea.local      / cajero2026
 -- =============================================================================
 
+SET client_encoding = 'UTF8';
+
 BEGIN;
 
 -- Identificadores canónicos del escenario local.

@@ -3,6 +3,8 @@
 -- Motor: PostgreSQL 16
 -- ==============================================================================
 
+SET client_encoding = 'UTF8';
+
 -- 1. EXTENSIONES DEL SISTEMA
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "unaccent";

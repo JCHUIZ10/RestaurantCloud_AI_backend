@@ -4,6 +4,8 @@
 -- Alcance: Catálogo comercial oficial (CU-SAAS-03) y Usuario raíz Admin SaaS
 -- ==============================================================================
 
+SET client_encoding = 'UTF8';
+
 -- 1. CATÁLOGO COMERCIAL OFICIAL DE PLANES (CU-SAAS-03)
 INSERT INTO plan (
     id, nombre, slug, descripcion, precio_mensual, precio_anual, 
