@@ -10,6 +10,7 @@ import {
   User,
   AlertTriangle,
   Search,
+  Split,
 } from 'lucide-react';
 import { mozoService, cajaService } from '@/services/serviceAdapter';
 import { useAuthStore } from '@/stores/authStore';
@@ -419,6 +420,59 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
               {/* Columna Izquierda: Consumo en Mesa + Selector de Promociones (7 cols) */}
               <div className="lg:col-span-7 space-y-4">
                 <PrecuentaConsolidadoCard items={dataOriginal.items} />
+
+                {/* Visualización informativa de Subcuentas si la cuenta fue dividida */}
+                {dataOriginal.subcuentas && dataOriginal.subcuentas.length > 0 && (
+                  <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Split className="w-4 h-4 text-amber-400" />
+                        <span className="text-xs font-bold text-amber-300">
+                          Cuenta Dividida ({dataOriginal.subcuentas.length} Subcuentas)
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        {dataOriginal.subcuentas.every((s) => s.estado === 'cobrado') ? 'Todas Cobradas' : 'Desglose Activo'}
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      Esta mesa cuenta con comprobantes independientes configurados. Cada subcuenta se liquida con su comprobante fiscal correspondiente en Caja POS.
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {dataOriginal.subcuentas.map((sub) => (
+                        <div
+                          key={sub.id}
+                          className="p-2.5 rounded-lg bg-black/40 border border-white/10 flex items-center justify-between text-xs"
+                        >
+                          <div>
+                            <div className="flex items-center gap-1.5 font-bold text-white">
+                              <span className="px-1.5 py-0.5 rounded text-[9px] uppercase font-mono bg-white/10 text-[#D5A06F]">
+                                {sub.tipo_comprobante}
+                              </span>
+                              <span className="truncate max-w-[140px]">{sub.nombre_titular || sub.nombre_referencia}</span>
+                            </div>
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              {sub.medio_pago_tentativo?.toUpperCase() || 'PAGO PENDIENTE'}
+                            </div>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <span className="font-mono font-bold text-amber-300">
+                              S/ {Number(sub.total_neto).toFixed(2)}
+                            </span>
+                            <span className={`block text-[9px] font-bold ${
+                              sub.estado === 'cobrado' ? 'text-emerald-400' : 'text-amber-400'
+                            }`}>
+                              {sub.estado === 'cobrado' ? '✓ Cobrado' : '⏳ Pendiente'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <PromocionComercialSelector
                   promocionesDisponibles={dataOriginal.promociones_disponibles}

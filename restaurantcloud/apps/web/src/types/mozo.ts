@@ -357,6 +357,20 @@ export interface PromocionSedeDTO {
   descripcion: string;
 }
 
+export interface PrecuentaSubcuentaDTO {
+  id: string;
+  numero_subcuenta: number;
+  nombre_referencia: string;
+  nombre_titular?: string;
+  titular_referencia?: string;
+  tipo_comprobante: string;
+  tipo_comprobante_sugerido?: string;
+  total_neto: number;
+  estado: string;
+  estado_pago?: string;
+  medio_pago_tentativo?: string;
+}
+
 export interface PrecuentaMozoResponseDTO {
   mesa_id: string;
   mesa_numero: string;
@@ -372,6 +386,7 @@ export interface PrecuentaMozoResponseDTO {
   tributacion_sunat: DesgloseSUNATMozoDTO;
   opciones_pago: OpcionPagoMozoDTO[];
   calculada_at: string;
+  subcuentas?: PrecuentaSubcuentaDTO[] | null;
 }
 
 export interface SolicitarCuentaRequest {

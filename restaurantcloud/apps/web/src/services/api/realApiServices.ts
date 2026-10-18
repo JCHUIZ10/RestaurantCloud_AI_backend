@@ -7,6 +7,9 @@ import type {
   CatalogoProductosMozoDTO,
   HistorialMesaComandaDTO,
   PrecuentaMozoResponseDTO,
+  ItemsParaDividirResponseDTO,
+  DividirCuentaRequestDTO,
+  DividirCuentaResponseDTO,
 } from '@/types/mozo';
 import type {
   KDSComandaDTO,
@@ -277,6 +280,15 @@ export const realMozoService = {
   async consultarClienteFiscal(tipoDoc: 'DNI' | 'RUC', numeroDoc: string): Promise<ApiResponse<ClienteFiscalLookupDTO>> {
     return apiGet<ClienteFiscalLookupDTO>(`/caja/clientes/buscar?tipo=${tipoDoc}&documento=${numeroDoc}`);
   },
+
+  // CU-MOZO-09: Dividir Cuenta en Mesa (Subcuentas)
+  async obtenerItemsParaDividir(mesaId: string): Promise<ApiResponse<ItemsParaDividirResponseDTO>> {
+    return apiGet<ItemsParaDividirResponseDTO>(`/mozo/mesas/${mesaId}/items-dividir`);
+  },
+
+  async dividirCuentaMesa(payload: DividirCuentaRequestDTO): Promise<ApiResponse<DividirCuentaResponseDTO>> {
+    return apiPost<DividirCuentaResponseDTO>(`/mozo/mesas/${payload.mesa_id}/dividir-cuenta`, payload);
+  },
 };
 
 export const realCocinaService = {
@@ -365,6 +377,15 @@ export const realCajaService = {
 
   async consultarClienteFiscal(tipoDoc: 'DNI' | 'RUC', numeroDoc: string): Promise<ApiResponse<ClienteFiscalLookupDTO>> {
     return apiGet<ClienteFiscalLookupDTO>(`/caja/clientes/buscar?tipo=${tipoDoc}&documento=${numeroDoc}`);
+  },
+
+  // CU-CAJA-04: Dividir Cuenta en POS (Subcuentas)
+  async obtenerItemsParaDividir(mesaId: string): Promise<ApiResponse<ItemsParaDividirResponseDTO>> {
+    return apiGet<ItemsParaDividirResponseDTO>(`/caja/mesas/${mesaId}/items-dividir`);
+  },
+
+  async dividirCuentaMesa(payload: DividirCuentaRequestDTO): Promise<ApiResponse<DividirCuentaResponseDTO>> {
+    return apiPost<DividirCuentaResponseDTO>(`/caja/mesas/${payload.mesa_id}/dividir-cuenta`, payload);
   },
 };
 

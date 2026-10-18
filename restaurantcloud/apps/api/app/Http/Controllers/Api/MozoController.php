@@ -135,7 +135,9 @@ class MozoController extends Controller
             $minutosReserva = null;
 
             if ($m->pedido_id) {
-                $estadoMesa = $m->precuenta_generada_at ? 'cuenta_pedida' : 'ocupada';
+                $estadoMesa = ($m->pedido_estado === 'cuenta_pedida' || ! empty($m->precuenta_generada_at))
+                    ? 'cuenta_pedida'
+                    : 'ocupada';
             } elseif ($reservasProximas->has($m->id)) {
                 $res = $reservasProximas->get($m->id);
                 $estadoMesa = 'bloqueada';
@@ -467,7 +469,7 @@ class MozoController extends Controller
             'mesa_id' => $mesa->id,
             'numero' => $mesa->numero,
             'ambiente' => $mesa->ambiente_nombre,
-            'estado' => $pedido->precuenta_generada_at ? 'cuenta_pedida' : 'ocupada',
+            'estado' => ($pedido->estado === 'cuenta_pedida' || ! empty($pedido->precuenta_generada_at)) ? 'cuenta_pedida' : 'ocupada',
             'comanda_id' => $pedido->id,
             'mozo_nombre' => $pedido->mozo_nombre ?? $user->nombre,
             'minutos_en_mesa' => $minutosEnMesa,
@@ -520,7 +522,7 @@ class MozoController extends Controller
         $pedido = DB::table('pedido')
             ->where('mesa_id', $id)
             ->where('local_id', $localId)
-            ->whereIn('estado', ['enviado', 'borrador'])
+            ->whereIn('estado', ['enviado', 'borrador', 'cuenta_pedida'])
             ->orderBy('created_at', 'desc')
             ->first();
 
@@ -1045,6 +1047,28 @@ class MozoController extends Controller
 
         $minutosEnMesa = (int) max(0, round((now()->timestamp - strtotime($pedido->created_at)) / 60));
 
+        $subcuentasRaw = DB::table('pedido_subcuenta')
+            ->where('pedido_id', $pedido->id)
+            ->where('estado', '!=', 'anulado')
+            ->orderBy('numero_subcuenta')
+            ->get();
+
+        $subcuentas = $subcuentasRaw->map(function ($s) {
+            return [
+                'id' => $s->id,
+                'numero_subcuenta' => (int) $s->numero_subcuenta,
+                'nombre_referencia' => "Subcuenta #{$s->numero_subcuenta}",
+                'nombre_titular' => $s->nombre_cliente,
+                'titular_referencia' => $s->nombre_cliente,
+                'tipo_comprobante' => $s->tipo_comprobante,
+                'tipo_comprobante_sugerido' => strtoupper($s->tipo_comprobante),
+                'total_neto' => (float) $s->total,
+                'estado' => $s->estado,
+                'estado_pago' => $s->estado,
+                'medio_pago_tentativo' => $s->medio_pago,
+            ];
+        });
+
         return ApiResponse::ok([
             'mesa_id' => $mesa->id,
             'mesa_numero' => $mesa->numero,
@@ -1069,6 +1093,7 @@ class MozoController extends Controller
                 'tasa_igv' => 18.0,
             ],
             'opciones_pago' => $opcionesPago->values(),
+            'subcuentas' => $subcuentas->isNotEmpty() ? $subcuentas->values() : null,
             'subtotal' => $baseImponible,
             'descuento' => 0.0,
             'base_imponible' => $baseImponible,
@@ -1076,5 +1101,268 @@ class MozoController extends Controller
             'total' => round($total, 2),
             'calculada_at' => now()->toIso8601String(),
         ]);
+    }
+
+    /**
+     * CU-MOZO-09 / CU-CAJA-04: Obtener ítems consumidos de la mesa listos para subdividir.
+     */
+    public function getItemsDividir(string $id, Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $localId = $user->local_id;
+
+        $mesa = DB::table('mesa')
+            ->where('id', $id)
+            ->where('local_id', $localId)
+            ->first();
+
+        if (! $mesa) {
+            return ApiResponse::error('La mesa no existe en esta sede.', 404);
+        }
+
+        $pedido = DB::table('pedido')
+            ->where('mesa_id', $mesa->id)
+            ->where('local_id', $localId)
+            ->whereIn('estado', ['enviado', 'cuenta_pedida', 'borrador'])
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        if (! $pedido) {
+            return ApiResponse::error('No hay un pedido activo para dividir en esta mesa.', 404);
+        }
+
+        // Obtener ítems activos de la comanda
+        $itemsRaw = DB::table('pedido_item as pi')
+            ->join('producto as prod', 'prod.id', '=', 'pi.producto_id')
+            ->where('pi.pedido_id', $pedido->id)
+            ->where('pi.estado', '!=', 'anulado')
+            ->where('pi.estado_pago', 'pendiente')
+            ->select([
+                'pi.id',
+                'pi.producto_id',
+                'prod.nombre as producto_nombre',
+                'pi.cantidad',
+                'pi.precio_unitario',
+                'pi.nota_cocina',
+                'pi.estado as estado_cocina',
+            ])
+            ->orderBy('pi.created_at')
+            ->get();
+
+        // Consultar si existen subcuentas pendientes previamente guardadas
+        $subcuentasPrevias = DB::table('pedido_subcuenta')
+            ->where('pedido_id', $pedido->id)
+            ->where('estado', 'pendiente')
+            ->orderBy('numero_subcuenta')
+            ->get();
+
+        // Mapeo de items asignados si ya existían subcuentas
+        $subcuentaItemsMap = collect();
+        if ($subcuentasPrevias->isNotEmpty()) {
+            $subcuentaItemsMap = DB::table('pedido_subcuenta_item')
+                ->whereIn('subcuenta_id', $subcuentasPrevias->pluck('id'))
+                ->get()
+                ->keyBy('pedido_item_id');
+        }
+
+        $items = $itemsRaw->map(function ($it) use ($subcuentaItemsMap) {
+            $subcuentaAsignadaId = $subcuentaItemsMap->get($it->id)?->subcuenta_id;
+            return [
+                'id' => $it->id,
+                'pedido_item_id' => $it->id,
+                'producto_id' => $it->producto_id,
+                'nombre' => $it->producto_nombre,
+                'nota_cocina' => $it->nota_cocina,
+                'cantidad' => (int) $it->cantidad,
+                'precio_unitario' => (float) $it->precio_unitario,
+                'subtotal' => round((float) $it->cantidad * (float) $it->precio_unitario, 2),
+                'subcuenta_asignada_id' => $subcuentaAsignadaId,
+            ];
+        });
+
+        $totalBruto = (float) $items->sum('subtotal');
+
+        return ApiResponse::ok([
+            'pedido_id' => $pedido->id,
+            'mesa_id' => $mesa->id,
+            'mesa_numero' => $mesa->numero,
+            'comensales' => (int) $pedido->comensales,
+            'total_bruto' => round($totalBruto, 2),
+            'items' => $items->values(),
+            'subcuentas_existentes' => $subcuentasPrevias->map(function ($s) {
+                return [
+                    'id' => $s->id,
+                    'numero_subcuenta' => (int) $s->numero_subcuenta,
+                    'nombre_referencia' => $s->nombre_cliente,
+                    'tipo_comprobante' => $s->tipo_comprobante,
+                    'documento_cliente' => $s->documento_cliente,
+                    'nombre_cliente' => $s->nombre_cliente,
+                    'direccion_cliente' => $s->direccion_cliente,
+                    'medio_pago' => $s->medio_pago,
+                    'promocion_id' => $s->promocion_id,
+                    'subtotal_bruto' => (float) $s->subtotal_bruto,
+                    'descuento' => (float) $s->descuento,
+                    'monto_recargo' => (float) $s->monto_recargo,
+                    'total_neto' => (float) $s->total,
+                    'estado' => $s->estado,
+                ];
+            })->values(),
+        ]);
+    }
+
+    /**
+     * CU-MOZO-09 / CU-CAJA-04: Registrar la división de cuenta en subcuentas y pasar a cuenta_pedida.
+     */
+    public function dividirCuenta(string $id, Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $localId = $user->local_id;
+
+        $validated = $request->validate([
+            'pedido_id' => ['required', 'uuid'],
+            'subcuentas' => ['required', 'array', 'min:2'],
+            'subcuentas.*.numero_subcuenta' => ['required', 'integer', 'min:1'],
+            'subcuentas.*.nombre_referencia' => ['nullable', 'string', 'max:100'],
+            'subcuentas.*.tipo_comprobante' => ['required', 'string', 'in:boleta,factura,nota_venta'],
+            'subcuentas.*.documento_cliente' => ['nullable', 'string', 'max:20'],
+            'subcuentas.*.nombre_cliente' => ['required', 'string', 'max:150'],
+            'subcuentas.*.direccion_cliente' => ['nullable', 'string', 'max:255'],
+            'subcuentas.*.medio_pago' => ['required', 'string', 'in:efectivo,tarjeta,billetera_digital'],
+            'subcuentas.*.promocion_id' => ['nullable', 'uuid'],
+            'subcuentas.*.subtotal_bruto' => ['required', 'numeric', 'min:0.01'],
+            'subcuentas.*.descuento' => ['nullable', 'numeric', 'min:0'],
+            'subcuentas.*.monto_recargo' => ['nullable', 'numeric', 'min:0'],
+            'subcuentas.*.total_neto' => ['required', 'numeric', 'min:0.01'],
+            'subcuentas.*.items' => ['required', 'array', 'min:1'],
+            'subcuentas.*.items.*.pedido_item_id' => ['required', 'string'],
+            'subcuentas.*.items.*.cantidad' => ['required', 'integer', 'min:1'],
+            'subcuentas.*.items.*.precio_unitario' => ['required', 'numeric', 'min:0'],
+            'subcuentas.*.items.*.subtotal' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $mesa = DB::table('mesa')
+            ->where('id', $id)
+            ->where('local_id', $localId)
+            ->first();
+
+        if (! $mesa) {
+            return ApiResponse::error('La mesa no existe en esta sede.', 404);
+        }
+
+        return DB::transaction(function () use ($validated, $mesa, $localId) {
+            $pedido = DB::table('pedido')
+                ->where('id', $validated['pedido_id'])
+                ->where('mesa_id', $mesa->id)
+                ->where('local_id', $localId)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $pedido) {
+                return ApiResponse::error('La comanda especificada no existe o no pertenece a esta mesa.', 404);
+            }
+
+            // Verificar si alguna subcuenta previa ya fue cobrada
+            $tieneCobros = DB::table('pedido_subcuenta')
+                ->where('pedido_id', $pedido->id)
+                ->where('estado', 'cobrado')
+                ->exists();
+
+            if ($tieneCobros) {
+                return ApiResponse::error(
+                    'No se puede re-dividir la cuenta porque ya existen subcuentas cobradas en esta mesa.',
+                    422
+                );
+            }
+
+            // Eliminar subcuentas pendientes anteriores si las hubiese (para reemplazo limpio)
+            DB::table('pedido_subcuenta')
+                ->where('pedido_id', $pedido->id)
+                ->where('estado', 'pendiente')
+                ->delete();
+
+            $subcuentasResumen = [];
+            $totalBrutoAcumulado = 0.0;
+            $totalNetoAcumulado = 0.0;
+
+            foreach ($validated['subcuentas'] as $sub) {
+                $subcuentaId = (string) Str::uuid();
+                $subtotalBruto = (float) $sub['subtotal_bruto'];
+                $descuento = (float) ($sub['descuento'] ?? 0.0);
+                $montoRecargo = (float) ($sub['monto_recargo'] ?? 0.0);
+                $totalNeto = (float) $sub['total_neto'];
+
+                $totalBrutoAcumulado += $subtotalBruto;
+                $totalNetoAcumulado += $totalNeto;
+
+                DB::table('pedido_subcuenta')->insert([
+                    'id' => $subcuentaId,
+                    'pedido_id' => $pedido->id,
+                    'numero_subcuenta' => (int) $sub['numero_subcuenta'],
+                    'promocion_id' => $sub['promocion_id'] ?? null,
+                    'tipo_comprobante' => $sub['tipo_comprobante'],
+                    'documento_cliente' => $sub['documento_cliente'] ?? null,
+                    'nombre_cliente' => $sub['nombre_cliente'],
+                    'direccion_cliente' => $sub['direccion_cliente'] ?? null,
+                    'medio_pago' => $sub['medio_pago'],
+                    'subtotal_bruto' => $subtotalBruto,
+                    'descuento' => $descuento,
+                    'monto_recargo' => $montoRecargo,
+                    'total' => $totalNeto,
+                    'estado' => 'pendiente',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                // Insertar ítems en pedido_subcuenta_item
+                foreach ($sub['items'] as $item) {
+                    $rawId = $item['pedido_item_id'];
+                    $originalItemId = str_contains($rawId, '-u') ? explode('-u', $rawId)[0] : $rawId;
+
+                    DB::table('pedido_subcuenta_item')->insert([
+                        'id' => (string) Str::uuid(),
+                        'subcuenta_id' => $subcuentaId,
+                        'pedido_item_id' => $originalItemId,
+                        'cantidad' => (int) $item['cantidad'],
+                        'precio_unitario' => (float) $item['precio_unitario'],
+                        'subtotal' => (float) $item['subtotal'],
+                        'created_at' => now(),
+                    ]);
+                }
+
+                $subcuentasResumen[] = [
+                    'id' => $subcuentaId,
+                    'numero' => (int) $sub['numero_subcuenta'],
+                    'nombre_referencia' => $sub['nombre_referencia'] ?? "Subcuenta #{$sub['numero_subcuenta']}",
+                    'tipo_comprobante' => $sub['tipo_comprobante'],
+                    'cliente' => $sub['nombre_cliente'],
+                    'documento' => $sub['documento_cliente'] ?? null,
+                    'medio_pago' => $sub['medio_pago'],
+                    'total' => round($totalNeto, 2),
+                    'total_items' => count($sub['items']),
+                    'estado' => 'pendiente',
+                ];
+            }
+
+            // Conmutar comanda a 'cuenta_pedida'
+            DB::table('pedido')
+                ->where('id', $pedido->id)
+                ->update([
+                    'estado' => 'cuenta_pedida',
+                    'precuenta_generada_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+            return ApiResponse::ok([
+                'status' => 'success',
+                'mesa_id' => $mesa->id,
+                'mesa_numero' => $mesa->numero,
+                'estado_mesa' => 'cuenta_pedida',
+                'partes' => count($validated['subcuentas']),
+                'total_bruto' => round($totalBrutoAcumulado, 2),
+                'total_neto' => round($totalNetoAcumulado, 2),
+                'mensaje' => 'Subcuentas registradas con éxito. Comanda conmutada a cuenta pedida.',
+                'subcuentas_resumen' => $subcuentasResumen,
+            ], 201);
+        });
     }
 }

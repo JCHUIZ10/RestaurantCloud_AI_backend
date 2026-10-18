@@ -57,6 +57,10 @@ Route::prefix('v1')->group(function (): void {
             // CU-MOZO-08: Precuenta Digital en Salón
             Route::get('/mesas/{id}/precuenta', [MozoController::class, 'getPrecuentaMesa']);
             Route::get('/clientes/buscar', [CajaController::class, 'buscarCliente']);
+
+            // CU-MOZO-09: Dividir Cuenta en Mesa (Subcuentas)
+            Route::get('/mesas/{id}/items-dividir', [MozoController::class, 'getItemsDividir']);
+            Route::post('/mesas/{id}/dividir-cuenta', [MozoController::class, 'dividirCuenta']);
         });
 
         // Cocina / KDS (CU-COCINA-01 y CU-COCINA-02)
@@ -71,7 +75,7 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/metricas-despacho', [CocinaController::class, 'getMetricasDespacho']);
         });
 
-        // Caja / POS (CU-CAJA-01, CU-CAJA-02, CU-CAJA-03)
+        // Caja / POS (CU-CAJA-01, CU-CAJA-02, CU-CAJA-03, CU-CAJA-04)
         Route::prefix('caja')->group(function (): void {
             // CU-CAJA-01: Apertura de Turno y Estado de Sesión
             Route::get('/estado-sesion', [CajaController::class, 'getEstadoSesion']);
@@ -82,6 +86,10 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/metricas-pos', [CajaController::class, 'getMetricasPos']);
             Route::get('/mesas/{id}/cuenta', [CajaController::class, 'getPrecuentaMesa']);
             Route::post('/mesas/{id}/conmutar-cuenta-pedida', [CajaController::class, 'conmutarCuentaPedida']);
+
+            // CU-CAJA-04: Dividir Cuenta en Monitor POS (Subcuentas)
+            Route::get('/mesas/{id}/items-dividir', [MozoController::class, 'getItemsDividir']);
+            Route::post('/mesas/{id}/dividir-cuenta', [MozoController::class, 'dividirCuenta']);
 
             // CU-CAJA-03: Cobro y Facturación Fiscal SUNAT
             Route::post('/cobrar', [CajaController::class, 'cobrar']);

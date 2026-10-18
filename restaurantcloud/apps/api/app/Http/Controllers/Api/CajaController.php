@@ -291,8 +291,9 @@ class CajaController extends Controller
             $minutosEnMesa = (int) max(0, round((now()->timestamp - strtotime($pedido->created_at)) / 60));
 
             $minutosEsperaCuenta = null;
-            if ($pedido->precuenta_generada_at) {
-                $minutosEsperaCuenta = (int) max(0, round((now()->timestamp - strtotime($pedido->precuenta_generada_at)) / 60));
+            $fechaCuenta = $pedido->precuenta_generada_at ?? ($pedido->pedido_estado === 'cuenta_pedida' ? ($pedido->created_at ?? null) : null);
+            if ($fechaCuenta) {
+                $minutosEsperaCuenta = (int) max(0, round((now()->timestamp - strtotime($fechaCuenta)) / 60));
             }
 
             $subcuentasCount = DB::table('pedido_subcuenta')
@@ -547,8 +548,9 @@ class CajaController extends Controller
         });
 
         $minutosEsperaCuenta = null;
-        if ($pedido->precuenta_generada_at) {
-            $minutosEsperaCuenta = (int) max(0, round((now()->timestamp - strtotime($pedido->precuenta_generada_at)) / 60));
+        $fechaCuenta = $pedido->precuenta_generada_at ?? ($pedido->pedido_estado === 'cuenta_pedida' ? ($pedido->created_at ?? null) : null);
+        if ($fechaCuenta) {
+            $minutosEsperaCuenta = (int) max(0, round((now()->timestamp - strtotime($fechaCuenta)) / 60));
         }
 
         return ApiResponse::ok([
@@ -677,7 +679,9 @@ class CajaController extends Controller
                 ]);
 
             $subcuentaId = $validated['subcuenta_id'] ?? null;
+            $subcuenta = null;
             if ($subcuentaId) {
+                $subcuenta = DB::table('pedido_subcuenta')->where('id', $subcuentaId)->first();
                 $subcuentaItemIds = DB::table('pedido_subcuenta_item')
                     ->where('subcuenta_id', $subcuentaId)
                     ->pluck('pedido_item_id');
@@ -691,7 +695,7 @@ class CajaController extends Controller
                 return ApiResponse::error('NO_HAY_ITEMS_PENDIENTES', 'No existen consumos pendientes por cobrar.', 400);
             }
 
-            $totalConsumo = (float) $itemsToCharge->sum('subtotal');
+            $totalConsumo = $subcuenta ? (float) $subcuenta->total : (float) $itemsToCharge->sum('subtotal');
             $baseImponible = round($totalConsumo / 1.18, 2);
             $igv = round($totalConsumo - $baseImponible, 2);
 
@@ -721,8 +725,8 @@ class CajaController extends Controller
                 'tipo' => $validated['tipo_comprobante'],
                 'serie' => $serie,
                 'correlativo' => $correlativo,
-                'documento_cliente' => $validated['documento_cliente'] ?? null,
-                'nombre_cliente' => $validated['nombre_cliente'] ?? 'Cliente General',
+                'documento_cliente' => $validated['documento_cliente'] ?? ($subcuenta?->documento_cliente ?? null),
+                'nombre_cliente' => $validated['nombre_cliente'] ?? ($subcuenta?->nombre_cliente ?? 'Cliente General'),
                 'medio_pago' => $validated['medio_pago'],
                 'subtotal_consumo' => $baseImponible,
                 'base_imponible' => $baseImponible,
@@ -769,6 +773,7 @@ class CajaController extends Controller
             if ($subcuentaId) {
                 DB::table('pedido_subcuenta')->where('id', $subcuentaId)->update([
                     'estado' => 'cobrado',
+                    'comprobante_id' => $comprobanteId,
                     'updated_at' => now(),
                 ]);
             }
@@ -786,14 +791,13 @@ class CajaController extends Controller
                 'created_at' => now(),
             ]);
 
-            // 6. Verificar si quedan ítems pendientes en el pedido madre
-            $quedanPendientes = DB::table('pedido_item')
-                ->where('pedido_id', $pedido->id)
-                ->where('estado', '!=', 'anulado')
-                ->where('estado_pago', 'pendiente')
-                ->exists();
+            // 6. Verificar si el pedido madre queda saldado al 100%
+            $tieneSubcuentas = DB::table('pedido_subcuenta')->where('pedido_id', $pedido->id)->where('estado', '!=', 'anulado')->exists();
+            $pedidoCerrado = $tieneSubcuentas
+                ? ! DB::table('pedido_subcuenta')->where('pedido_id', $pedido->id)->where('estado', 'pendiente')->exists()
+                : ! DB::table('pedido_item')->where('pedido_id', $pedido->id)->where('estado', '!=', 'anulado')->where('estado_pago', 'pendiente')->exists();
 
-            if (! $quedanPendientes) {
+            if ($pedidoCerrado) {
                 DB::table('pedido')->where('id', $pedido->id)->update([
                     'estado' => 'cobrado',
                     'updated_at' => now(),

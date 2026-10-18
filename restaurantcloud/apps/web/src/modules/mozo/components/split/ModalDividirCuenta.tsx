@@ -14,7 +14,7 @@ import {
   PromocionSedeDTO,
   DividirCuentaResponseDTO,
 } from '@/types/mozo';
-import { mockMozoService } from '../../services/mockMozoService';
+import { mozoService } from '@/services/serviceAdapter';
 import { Paso1AsignacionItems } from './Paso1AsignacionItems';
 import { Paso2ConfiguracionComprobantes } from './Paso2ConfiguracionComprobantes';
 
@@ -23,6 +23,7 @@ interface ModalDividirCuentaProps {
   onClose: () => void;
   mesaId: string;
   onDivisionConfirmada: (datos: DividirCuentaResponseDTO) => void;
+  actor?: 'mozo' | 'cajero';
 }
 
 export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
@@ -30,6 +31,7 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
   onClose,
   mesaId,
   onDivisionConfirmada,
+  actor = 'mozo',
 }) => {
   const [paso, setPaso] = useState<1 | 2>(1);
   const [cargando, setCargando] = useState(true);
@@ -59,10 +61,10 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
     setPaso(1);
 
     try {
-      // 1. Cargar ítems disponibles para dividir
-      const resItems = await mockMozoService.obtenerItemsParaDividir(mesaId);
+      // 1. Cargar ítems disponibles para dividir desde la API real
+      const resItems = await mozoService.obtenerItemsParaDividir(mesaId);
       // 2. Cargar precuenta para promociones disponibles
-      const resPrecuenta = await mockMozoService.obtenerPrecuentaMesa(mesaId);
+      const resPrecuenta = await mozoService.obtenerPrecuentaMesa(mesaId);
 
       if (resItems.exito && resItems.datos) {
         setMesaInfo({
@@ -73,43 +75,76 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
         });
         setItems(resItems.datos.items);
 
-        // Inicializar 2 subcuentas por defecto
-        const sub1: SubcuentaConfigDTO = {
-          id: 'sub-1',
-          numero_subcuenta: 1,
-          nombre_referencia: 'Comensal A',
-          items: [],
-          tipo_comprobante: 'factura',
-          documento_cliente: '',
-          nombre_cliente: '',
-          direccion_cliente: '',
-          medio_pago: 'tarjeta',
-          subtotal_bruto: 0,
-          descuento: 0,
-          monto_recargo: 0,
-          total_neto: 0,
-          base_imponible: 0,
-          igv: 0,
-        };
+        // Si existen subcuentas previas en la base de datos (ej. pre-guardadas o semillas), re-poblarlas
+        const previas = (resItems.datos as any).subcuentas_existentes;
+        if (previas && Array.isArray(previas) && previas.length >= 2) {
+          const subsCargadas: SubcuentaConfigDTO[] = previas.map((p: any) => {
+            const itemsDeEsta = resItems.datos.items.filter(
+              (i: any) => i.subcuenta_asignada_id === p.id
+            );
+            return {
+              id: p.id,
+              numero_subcuenta: p.numero_subcuenta,
+              nombre_referencia: p.nombre_referencia || `Comensal #${p.numero_subcuenta}`,
+              items: itemsDeEsta,
+              tipo_comprobante: p.tipo_comprobante || 'boleta',
+              documento_cliente: p.documento_cliente || '',
+              nombre_cliente: p.nombre_cliente || '',
+              direccion_cliente: p.direccion_cliente || '',
+              consumidor_final_sin_doc: !p.documento_cliente,
+              medio_pago: p.medio_pago || 'efectivo',
+              promocion_id: p.promocion_id || null,
+              subtotal_bruto: Number(p.subtotal_bruto) || 0,
+              descuento: Number(p.descuento) || 0,
+              monto_recargo: Number(p.monto_recargo) || 0,
+              total_neto: Number(p.total_neto) || 0,
+              base_imponible: Math.round(((Number(p.total_neto) || 0) / 1.18) * 100) / 100,
+              igv: Math.round(((Number(p.total_neto) || 0) - (Number(p.total_neto) || 0) / 1.18) * 100) / 100,
+            };
+          });
+          setSubcuentas(subsCargadas);
+        } else {
+          // Inicializar 2 subcuentas por defecto
+          const sub1: SubcuentaConfigDTO = {
+            id: 'sub-1',
+            numero_subcuenta: 1,
+            nombre_referencia: 'Comensal A',
+            items: [],
+            tipo_comprobante: 'boleta',
+            documento_cliente: '',
+            nombre_cliente: '',
+            direccion_cliente: '',
+            consumidor_final_sin_doc: true,
+            medio_pago: 'efectivo',
+            subtotal_bruto: 0,
+            descuento: 0,
+            monto_recargo: 0,
+            total_neto: 0,
+            base_imponible: 0,
+            igv: 0,
+          };
 
-        const sub2: SubcuentaConfigDTO = {
-          id: 'sub-2',
-          numero_subcuenta: 2,
-          nombre_referencia: 'Comensal B',
-          items: [],
-          tipo_comprobante: 'boleta',
-          documento_cliente: '',
-          nombre_cliente: '',
-          medio_pago: 'billetera_digital',
-          subtotal_bruto: 0,
-          descuento: 0,
-          monto_recargo: 0,
-          total_neto: 0,
-          base_imponible: 0,
-          igv: 0,
-        };
+          const sub2: SubcuentaConfigDTO = {
+            id: 'sub-2',
+            numero_subcuenta: 2,
+            nombre_referencia: 'Comensal B',
+            items: [],
+            tipo_comprobante: 'boleta',
+            documento_cliente: '',
+            nombre_cliente: '',
+            direccion_cliente: '',
+            consumidor_final_sin_doc: true,
+            medio_pago: 'billetera_digital',
+            subtotal_bruto: 0,
+            descuento: 0,
+            monto_recargo: 0,
+            total_neto: 0,
+            base_imponible: 0,
+            igv: 0,
+          };
 
-        setSubcuentas([sub1, sub2]);
+          setSubcuentas([sub1, sub2]);
+        }
       }
 
       if (resPrecuenta.exito && resPrecuenta.datos) {
@@ -174,7 +209,7 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
     const subcuentasActivas = subcuentas.filter((s) => s.items.length > 0);
 
     try {
-      const res = await mockMozoService.dividirCuentaMesa({
+      const res = await mozoService.dividirCuentaMesa({
         mesa_id: mesaId,
         pedido_id: mesaInfo.pedidoId,
         subcuentas: subcuentasActivas,
@@ -184,7 +219,7 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
         onDivisionConfirmada(res.datos);
         onClose();
       } else {
-        setErrorGlobal(res.errores?.[0]?.mensaje || 'Error al enviar las subcuentas a Caja.');
+        setErrorGlobal(res.errores?.[0]?.mensaje || 'Error al enviar las subcuentas.');
       }
     } catch {
       setErrorGlobal('Error de red al procesar la división de la comanda.');
@@ -211,11 +246,11 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
                 </span>
                 <span className="text-slate-400 text-xs">•</span>
                 <span className="text-xs text-slate-300">
-                  Mesa {mesaInfo.numero} — Salón
+                  Mesa {mesaInfo.numero} — {actor === 'cajero' ? 'Terminal Caja POS' : 'Salón'}
                 </span>
               </div>
               <h2 className="font-serif text-lg font-bold tracking-wide flex items-center gap-2 mt-0.5">
-                <span>➗ Subdividir Comanda en Mesa</span>
+                <span>➗ Subdividir Comanda {actor === 'cajero' ? 'en Caja POS' : 'en Mesa'}</span>
                 <span className="text-slate-400 font-normal text-xs">
                   (👥 {mesaInfo.comensales} Comensales • 🧾 Comanda #{mesaInfo.pedidoId.replace(/\D/g, '') || '108'} • 💰 Consumo: S/ {mesaInfo.totalBruto.toFixed(2)})
                 </span>
@@ -327,12 +362,16 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
                 {enviando ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Transmitiendo a Caja...</span>
+                    <span>{actor === 'cajero' ? 'Guardando en Caja...' : 'Transmitiendo a Caja...'}</span>
                   </>
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
-                    <span>📤 Confirmar y Enviar Subcuentas a Caja (S/ {totalAsignadoNeto.toFixed(2)})</span>
+                    <span>
+                      {actor === 'cajero'
+                        ? `💾 Confirmar Subcuentas y Habilitar Cobro (S/ ${totalAsignadoNeto.toFixed(2)})`
+                        : `📤 Confirmar y Enviar Subcuentas a Caja (S/ ${totalAsignadoNeto.toFixed(2)})`}
+                    </span>
                   </>
                 )}
               </button>

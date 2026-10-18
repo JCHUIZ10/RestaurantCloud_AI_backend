@@ -19,7 +19,7 @@ import {
   CodigoMetodoPago,
   PromocionSedeDTO,
 } from '@/types/mozo';
-import { mockMozoService } from '../../services/mockMozoService';
+import { mozoService } from '@/services/serviceAdapter';
 import { ModalQRBilletera } from '../precuenta/ModalQRBilletera';
 
 interface Paso2ConfiguracionComprobantesProps {
@@ -155,7 +155,7 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
     onActualizarSubcuentas(actualizadas);
   };
 
-  // Consulta de RUC ante SUNAT
+  // Consulta de RUC ante SUNAT / BD Local
   const handleConsultarRuc = async (subId: string, ruc: string) => {
     if (!ruc || ruc.trim().length !== 11) {
       setDocErrores((prev) => ({
@@ -169,15 +169,15 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
     setDocErrores((prev) => ({ ...prev, [subId]: null }));
 
     try {
-      const res = await mockMozoService.consultarRuc(ruc.trim());
+      const res = await mozoService.consultarClienteFiscal('RUC', ruc.trim());
       if (res.exito && res.datos) {
         const actualizadas = subcuentas.map((s) => {
           if (s.id === subId) {
             return {
               ...s,
-              documento_cliente: res.datos.ruc,
-              nombre_cliente: res.datos.razon_social,
-              direccion_cliente: res.datos.direccion,
+              documento_cliente: res.datos.numero_documento,
+              nombre_cliente: res.datos.nombre_identificativo,
+              direccion_cliente: res.datos.direccion || '',
             };
           }
           return s;
@@ -186,15 +186,20 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
       } else {
         setDocErrores((prev) => ({
           ...prev,
-          [subId]: res.errores?.[0]?.mensaje || 'No se encontró el RUC en SUNAT.',
+          [subId]: res.errores?.[0]?.mensaje || 'No se encontró el RUC en SUNAT / BD.',
         }));
       }
+    } catch {
+      setDocErrores((prev) => ({
+        ...prev,
+        [subId]: 'Error de conexión al consultar RUC.',
+      }));
     } finally {
       setBuscandoDoc((prev) => ({ ...prev, [subId]: false }));
     }
   };
 
-  // Consulta de DNI ante RENIEC
+  // Consulta de DNI ante RENIEC / BD Local
   const handleConsultarDni = async (subId: string, dni: string) => {
     if (!dni || dni.trim().length !== 8) {
       setDocErrores((prev) => ({
@@ -208,14 +213,14 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
     setDocErrores((prev) => ({ ...prev, [subId]: null }));
 
     try {
-      const res = await mockMozoService.consultarDni(dni.trim());
+      const res = await mozoService.consultarClienteFiscal('DNI', dni.trim());
       if (res.exito && res.datos) {
         const actualizadas = subcuentas.map((s) => {
           if (s.id === subId) {
             return {
               ...s,
-              documento_cliente: res.datos.dni,
-              nombre_cliente: res.datos.nombre_completo,
+              documento_cliente: res.datos.numero_documento,
+              nombre_cliente: res.datos.nombre_identificativo,
             };
           }
           return s;
@@ -224,9 +229,14 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
       } else {
         setDocErrores((prev) => ({
           ...prev,
-          [subId]: res.errores?.[0]?.mensaje || 'No se encontró el DNI en RENIEC.',
+          [subId]: res.errores?.[0]?.mensaje || 'No se encontró el DNI en RENIEC / BD.',
         }));
       }
+    } catch {
+      setDocErrores((prev) => ({
+        ...prev,
+        [subId]: 'Error de conexión al consultar DNI.',
+      }));
     } finally {
       setBuscandoDoc((prev) => ({ ...prev, [subId]: false }));
     }

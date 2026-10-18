@@ -438,6 +438,7 @@ export const CajeroPosPage: React.FC = () => {
           onClose={() => setMesaDividirActiva(null)}
           mesaId={mesaDividirActiva.id}
           onDivisionConfirmada={handleDivisionConfirmada}
+          actor="cajero"
         />
       )}
 
