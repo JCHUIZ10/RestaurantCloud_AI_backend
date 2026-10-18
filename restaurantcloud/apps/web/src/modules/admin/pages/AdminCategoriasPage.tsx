@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  mockAdminService,
-  CANONICAL_LOCAL_ID,
-} from '@/modules/admin/services/mockAdminService';
+import { adminService as mockAdminService } from '@/services/serviceAdapter';
+import { CANONICAL_LOCAL_ID } from '@/modules/admin/services/mockAdminService';
 import {
   CategoriasAdminResponseDTO,
   CategoriaAdminDTO,

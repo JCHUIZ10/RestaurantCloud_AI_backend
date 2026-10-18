@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch } from './client';
+import { apiClient, apiGet, apiPost, apiPatch } from './client';
 import type { ApiResponse } from '@/types/api';
 import type {
   PlanoCompletoMozoDTO,
@@ -24,6 +24,8 @@ import type {
   PrecuentaResponseDTO,
   ClienteFiscalLookupDTO,
 } from '@/types/caja';
+import type { ApiResponse as ApiEnvelope } from '@/types/api';
+import type { CategoriasAdminResponseDTO, CategoriaAdminDTO, CrearCategoriaRequest, ActualizarCategoriaRequest, ReordenarCategoriasRequest, ReasignarYEliminarCategoriaRequest, ResultadoReasignacionCategoriaDTO, CargarPlantillaCategoriasRequest } from '@/types/admin';
 
 export interface LoginParams {
   correo: string;
@@ -364,4 +366,17 @@ export const realCajaService = {
   async consultarClienteFiscal(tipoDoc: 'DNI' | 'RUC', numeroDoc: string): Promise<ApiResponse<ClienteFiscalLookupDTO>> {
     return apiGet<ClienteFiscalLookupDTO>(`/caja/clientes/buscar?tipo=${tipoDoc}&documento=${numeroDoc}`);
   },
+};
+
+export const realAdminService = {
+  obtenerCategorias: (): Promise<ApiEnvelope<CategoriasAdminResponseDTO>> => apiGet('/admin/categorias'),
+  crearCategoria: (payload: CrearCategoriaRequest): Promise<ApiEnvelope<CategoriaAdminDTO>> => apiPost('/admin/categorias', payload),
+  actualizarCategoria: (id: string, payload: ActualizarCategoriaRequest): Promise<ApiEnvelope<CategoriaAdminDTO>> => apiPatch(`/admin/categorias/${id}`, payload),
+  conmutarVisibilidadCategoria: (id: string, activa: boolean): Promise<ApiEnvelope<CategoriaAdminDTO>> => apiPatch(`/admin/categorias/${id}/visibilidad`, { activa }),
+  reordenarCategorias: (payload: ReordenarCategoriasRequest): Promise<ApiEnvelope<CategoriaAdminDTO[]>> => apiPatch('/admin/categorias/reordenar', payload),
+  async eliminarCategoria(id: string): Promise<ApiEnvelope<{ mensaje: string; categoria_id: string }>> {
+    try { return (await apiClient.delete(`/admin/categorias/${id}`)).data; } catch (error: any) { return error.response?.data ?? Promise.reject(error); }
+  },
+  reasignarYEliminarCategoria: (id: string, payload: ReasignarYEliminarCategoriaRequest): Promise<ApiEnvelope<ResultadoReasignacionCategoriaDTO>> => apiPost(`/admin/categorias/${id}/reasignar-y-eliminar`, payload),
+  cargarPlantillaGastronomica: (payload: CargarPlantillaCategoriasRequest): Promise<ApiEnvelope<CategoriasAdminResponseDTO>> => apiPost('/admin/categorias/plantilla', payload),
 };

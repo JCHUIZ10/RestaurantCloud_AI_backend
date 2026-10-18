@@ -9,6 +9,7 @@ import {
   realMozoService,
   realCocinaService,
   realCajaService,
+  realAdminService,
 } from './api/realApiServices';
 
 import {
@@ -20,6 +21,7 @@ import {
 import { mockMozoService } from '@/modules/mozo/services/mockMozoService';
 import { mockCocinaService } from '@/modules/cocina/services/mockCocinaService';
 import { mockCajaService } from '@/modules/caja/services/mockCajaService';
+import { mockAdminService } from '@/modules/admin/services/mockAdminService';
 
 export const IS_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 
@@ -57,6 +59,16 @@ export const cajaService = new Proxy(mockCajaService as any, {
   },
 });
 
+export const adminService = new Proxy(mockAdminService as any, {
+  get(target, prop, receiver) {
+    if (IS_REAL_API && prop in realAdminService) {
+      const val = (realAdminService as any)[prop];
+      return typeof val === 'function' ? val.bind(realAdminService) : val;
+    }
+    return Reflect.get(target, prop, receiver);
+  },
+});
+
 // Auth Exports
 export const loginWithCredentials = IS_REAL_API
   ? realAuthService.loginWithCredentials
@@ -67,4 +79,3 @@ export const seleccionarCuenta = IS_REAL_API
   : mockSeleccionarCuenta;
 
 export { BETA_CREDENTIALS };
-

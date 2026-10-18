@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Admin\CategoriaController;
 use App\Http\Controllers\Api\CajaController;
 use App\Http\Controllers\Api\CocinaController;
 use App\Http\Controllers\Api\MozoController;
@@ -23,6 +24,17 @@ Route::prefix('v1')->group(function (): void {
     Route::middleware(['auth.redis', 'tenant.context'])->group(function (): void {
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
+
+        Route::prefix('admin')->middleware('role:admin_local,propietario,admin_saas')->group(function (): void {
+            Route::get('/categorias', [CategoriaController::class, 'index']);
+            Route::post('/categorias', [CategoriaController::class, 'store']);
+            Route::patch('/categorias/reordenar', [CategoriaController::class, 'reordenar']);
+            Route::post('/categorias/plantilla', [CategoriaController::class, 'plantilla']);
+            Route::patch('/categorias/{id}', [CategoriaController::class, 'update']);
+            Route::patch('/categorias/{id}/visibilidad', [CategoriaController::class, 'visibilidad']);
+            Route::delete('/categorias/{id}', [CategoriaController::class, 'destroy']);
+            Route::post('/categorias/{id}/reasignar-y-eliminar', [CategoriaController::class, 'reasignar']);
+        });
 
 
         // Salón / Mozo (CU-MOZO-01, CU-MOZO-02, CU-MOZO-08)
