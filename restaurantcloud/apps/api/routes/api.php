@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Admin\CategoriaController;
+use App\Http\Controllers\Api\Admin\ProductoController;
 use App\Http\Controllers\Api\CajaController;
 use App\Http\Controllers\Api\CocinaController;
 use App\Http\Controllers\Api\MozoController;
@@ -34,6 +35,13 @@ Route::prefix('v1')->group(function (): void {
             Route::patch('/categorias/{id}/visibilidad', [CategoriaController::class, 'visibilidad']);
             Route::delete('/categorias/{id}', [CategoriaController::class, 'destroy']);
             Route::post('/categorias/{id}/reasignar-y-eliminar', [CategoriaController::class, 'reasignar']);
+
+            Route::get('/productos', [ProductoController::class, 'index']);
+            Route::post('/productos', [ProductoController::class, 'store']);
+            Route::get('/productos/{id}', [ProductoController::class, 'show']);
+            Route::patch('/productos/{id}', [ProductoController::class, 'update']);
+            Route::patch('/productos/{id}/disponibilidad', [ProductoController::class, 'disponibilidad']);
+            Route::delete('/productos/{id}', [ProductoController::class, 'destroy']);
         });
 
 

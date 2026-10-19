@@ -14,6 +14,7 @@ import {
   CANONICAL_LOCAL_ID,
   CANONICAL_LOCAL_NOMBRE,
 } from '../services/mockAdminService';
+import { adminService, IS_REAL_API } from '@/services/serviceAdapter';
 import { ProductosHeader } from '../components/carta/ProductosHeader';
 import { ProductosKpis } from '../components/carta/ProductosKpis';
 import { ProductosToolbar } from '../components/carta/ProductosToolbar';
@@ -67,15 +68,18 @@ export const AdminProductosPage: React.FC = () => {
   // Cargar categorías e insumos para selectores
   const cargarCatalogosSecundarios = useCallback(async () => {
     try {
-      const [resCat, resIns] = await Promise.all([
-        mockAdminService.obtenerCategorias(CANONICAL_LOCAL_ID),
-        mockAdminService.obtenerInsumos(CANONICAL_LOCAL_ID, 'todos', '', 1, 100),
-      ]);
+      const resCat = await adminService.obtenerCategorias(CANONICAL_LOCAL_ID);
       if (resCat.exito && resCat.datos) {
         setCategorias(resCat.datos.categorias || []);
       }
-      if (resIns.exito && resIns.datos) {
-        setInsumos(resIns.datos.insumos || []);
+
+      if (IS_REAL_API) {
+        setInsumos([]);
+      } else {
+        const resIns = await mockAdminService.obtenerInsumos(CANONICAL_LOCAL_ID, 'todos', '', 1, 100);
+        if (resIns.exito && resIns.datos) {
+          setInsumos(resIns.datos.insumos || []);
+        }
       }
     } catch (err) {
       console.error('Error cargando catálogos secundarios:', err);
@@ -86,7 +90,7 @@ export const AdminProductosPage: React.FC = () => {
   const cargarProductos = useCallback(async () => {
     setCargando(true);
     try {
-      const res = await mockAdminService.obtenerProductos(
+      const res = await adminService.obtenerProductos(
         CANONICAL_LOCAL_ID,
         categoriaSeleccionada,
         disponibilidadSeleccionada,
@@ -156,7 +160,7 @@ export const AdminProductosPage: React.FC = () => {
   const handleGuardarProducto = async (req: CrearProductoRequest): Promise<boolean> => {
     try {
       if (productoEditar) {
-        const res = await mockAdminService.actualizarProducto(productoEditar.id, req);
+        const res = await adminService.actualizarProducto(productoEditar.id, req);
         if (res.exito) {
           mostrarToast(`Plato "${req.nombre}" actualizado exitosamente.`);
           await cargarProductos();
@@ -166,9 +170,13 @@ export const AdminProductosPage: React.FC = () => {
           return false;
         }
       } else {
-        const res = await mockAdminService.crearProducto(CANONICAL_LOCAL_ID, req);
+        const res = await adminService.crearProducto(CANONICAL_LOCAL_ID, req);
         if (res.exito) {
-          mostrarToast(`Plato "${req.nombre}" registrado exitosamente con su receta culinaria.`);
+          mostrarToast(
+            IS_REAL_API
+              ? `Plato "${req.nombre}" registrado exitosamente.`
+              : `Plato "${req.nombre}" registrado exitosamente con su receta culinaria.`
+          );
           await cargarProductos();
           return true;
         } else {
@@ -227,7 +235,7 @@ export const AdminProductosPage: React.FC = () => {
   const handleConmutarDisponibilidad = async (prod: ProductoAdminDTO) => {
     const nuevoEstado = prod.disponibilidad === 'disponible' ? 'agotado' : 'disponible';
     try {
-      const res = await mockAdminService.conmutarDisponibilidadProducto(
+      const res = await adminService.conmutarDisponibilidadProducto(
         prod.id,
         nuevoEstado,
         nuevoEstado === 'agotado' ? 'decision_admin' : undefined
@@ -252,7 +260,7 @@ export const AdminProductosPage: React.FC = () => {
     if (!confirmar) return;
 
     try {
-      const res = await mockAdminService.archivarProducto(prod.id);
+      const res = await adminService.archivarProducto(prod.id);
       if (res.exito) {
         mostrarToast(res.datos.mensaje);
         await cargarProductos();
@@ -336,6 +344,7 @@ export const AdminProductosPage: React.FC = () => {
         <OnboardingCartaVacia
           onCrearPrimerPlato={handleAbrirNuevoProducto}
           onCargarSemillasAurea={handleRestablecerAurea}
+          habilitarReceta={!IS_REAL_API}
         />
       ) : (
         <>
@@ -365,6 +374,7 @@ export const AdminProductosPage: React.FC = () => {
             onEditarProducto={handleEditarProducto}
             onArchivarProducto={handleArchivarProducto}
             onConmutarDisponibilidad={handleConmutarDisponibilidad}
+            mostrarDatosReceta={!IS_REAL_API}
           />
         </>
       )}
@@ -381,25 +391,30 @@ export const AdminProductosPage: React.FC = () => {
           setModalAbierto(false);
           navigate(ROUTES.ADMIN_CATEGORIAS);
         }}
+        habilitarReceta={!IS_REAL_API}
       />
 
       {/* Drawer de Calibración Rápida de Recetas y Capacidad */}
-      <DrawerCalibrarReceta
-        abierto={drawerAbierto}
-        producto={productoParaReceta}
-        insumosDisponibles={insumos}
-        simulacion={simulacionCapacidad}
-        onCerrar={() => setDrawerAbierto(false)}
-        onGuardarReceta={handleGuardarReceta}
-      />
+      {!IS_REAL_API && (
+        <DrawerCalibrarReceta
+          abierto={drawerAbierto}
+          producto={productoParaReceta}
+          insumosDisponibles={insumos}
+          simulacion={simulacionCapacidad}
+          onCerrar={() => setDrawerAbierto(false)}
+          onGuardarReceta={handleGuardarReceta}
+        />
+      )}
 
       {/* Widget Interactivo de Pruebas */}
-      <DemoAdminProductosWidget
-        onSimularQuiebreLimon={handleSimularQuiebreLimon}
-        onSimularReposicionLimon={handleSimularReposicionLimon}
-        onSimularCartaVacia={handleSimularCartaVacia}
-        onRestablecerAurea={handleRestablecerAurea}
-      />
+      {!IS_REAL_API && (
+        <DemoAdminProductosWidget
+          onSimularQuiebreLimon={handleSimularQuiebreLimon}
+          onSimularReposicionLimon={handleSimularReposicionLimon}
+          onSimularCartaVacia={handleSimularCartaVacia}
+          onRestablecerAurea={handleRestablecerAurea}
+        />
+      )}
     </div>
   );
 };

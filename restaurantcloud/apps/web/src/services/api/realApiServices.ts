@@ -28,7 +28,20 @@ import type {
   ClienteFiscalLookupDTO,
 } from '@/types/caja';
 import type { ApiResponse as ApiEnvelope } from '@/types/api';
-import type { CategoriasAdminResponseDTO, CategoriaAdminDTO, CrearCategoriaRequest, ActualizarCategoriaRequest, ReordenarCategoriasRequest, ReasignarYEliminarCategoriaRequest, ResultadoReasignacionCategoriaDTO, CargarPlantillaCategoriasRequest } from '@/types/admin';
+import type {
+  ActualizarCategoriaRequest,
+  CategoriaAdminDTO,
+  CategoriasAdminResponseDTO,
+  CargarPlantillaCategoriasRequest,
+  CrearCategoriaRequest,
+  CrearProductoRequest,
+  DisponibilidadProducto,
+  ListarProductosResponseDTO,
+  ProductoAdminDTO,
+  ReasignarYEliminarCategoriaRequest,
+  ReordenarCategoriasRequest,
+  ResultadoReasignacionCategoriaDTO,
+} from '@/types/admin';
 
 export interface LoginParams {
   correo: string;
@@ -400,4 +413,35 @@ export const realAdminService = {
   },
   reasignarYEliminarCategoria: (id: string, payload: ReasignarYEliminarCategoriaRequest): Promise<ApiEnvelope<ResultadoReasignacionCategoriaDTO>> => apiPost(`/admin/categorias/${id}/reasignar-y-eliminar`, payload),
   cargarPlantillaGastronomica: (payload: CargarPlantillaCategoriasRequest): Promise<ApiEnvelope<CategoriasAdminResponseDTO>> => apiPost('/admin/categorias/plantilla', payload),
+
+  obtenerProductos: (
+    _localId: string,
+    categoriaId = 'todas',
+    disponibilidad: 'todos' | DisponibilidadProducto = 'todos',
+    busqueda = '',
+    pagina = 1,
+    limite = 10,
+  ): Promise<ApiEnvelope<ListarProductosResponseDTO>> => apiGet('/admin/productos', {
+    ...(categoriaId !== 'todas' ? { categoria_id: categoriaId } : {}),
+    disponibilidad,
+    busqueda,
+    pagina,
+    limite,
+  }),
+  crearProducto: (_localId: string, payload: CrearProductoRequest): Promise<ApiEnvelope<ProductoAdminDTO>> =>
+    apiPost('/admin/productos', payload),
+  actualizarProducto: (id: string, payload: CrearProductoRequest): Promise<ApiEnvelope<ProductoAdminDTO>> =>
+    apiPatch(`/admin/productos/${id}`, payload),
+  conmutarDisponibilidadProducto: (
+    id: string,
+    disponibilidad: DisponibilidadProducto,
+  ): Promise<ApiEnvelope<ProductoAdminDTO>> =>
+    apiPatch(`/admin/productos/${id}/disponibilidad`, { disponibilidad }),
+  async archivarProducto(id: string): Promise<ApiEnvelope<{ producto_id: string; mensaje: string }>> {
+    try {
+      return (await apiClient.delete(`/admin/productos/${id}`)).data;
+    } catch (error: any) {
+      return error.response?.data ?? Promise.reject(error);
+    }
+  },
 };
