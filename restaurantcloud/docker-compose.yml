@@ -121,7 +121,18 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-saas_minio_admin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-rC_minio_secret_2026!}
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_BUCKET: ${MINIO_DEFAULT_BUCKET:-restaurantcloud}
+      AWS_ENDPOINT: http://minio:9000
+      AWS_USE_PATH_STYLE_ENDPOINT: "true"
+      FILESYSTEM_DISK: s3
+      STRIPE_KEY: ${STRIPE_KEY:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
     volumes:
+
       - ./apps/api:/app
     depends_on:
       db:

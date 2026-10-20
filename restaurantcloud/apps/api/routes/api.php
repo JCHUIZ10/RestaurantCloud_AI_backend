@@ -6,7 +6,9 @@ use App\Http\Controllers\Api\Admin\ProductoController;
 use App\Http\Controllers\Api\CajaController;
 use App\Http\Controllers\Api\CocinaController;
 use App\Http\Controllers\Api\MozoController;
+use App\Http\Controllers\Api\Public\RegistroController;
 use Illuminate\Support\Facades\Route;
+
 
 Route::prefix('v1')->group(function (): void {
     // Healthcheck
@@ -16,10 +18,23 @@ Route::prefix('v1')->group(function (): void {
         'meta' => ['timestamp' => now()->toIso8601String()],
     ]));
 
+    // Onboarding y Registro de Empresa (CU-PROP-01) - Rutas Públicas
+    Route::prefix('public')->group(function (): void {
+        Route::get('/planes', [RegistroController::class, 'getPlanes']);
+        Route::post('/registro/iniciar', [RegistroController::class, 'iniciarRegistro']);
+        Route::patch('/registro/modificar-correo', [RegistroController::class, 'modificarCorreo']);
+        Route::post('/registro/verificar-otp', [RegistroController::class, 'verificarOtp']);
+        Route::post('/registro/completar', [RegistroController::class, 'completarRegistro']);
+    });
+
+    // Webhooks de Stripe Billing
+    Route::post('/webhooks/stripe', [RegistroController::class, 'stripeWebhook']);
+
     // Autenticación pública
     Route::post('/auth/login', [AuthController::class, 'login'])->name('login');
     Route::post('/auth/seleccionar-cuenta', [AuthController::class, 'seleccionarCuenta']);
     Route::post('/auth/refresh', [AuthController::class, 'refresh']);
+
 
     // Rutas protegidas con Caché de Sesión en Redis (Alta Velocidad)
     Route::middleware(['auth.redis', 'tenant.context'])->group(function (): void {

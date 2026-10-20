@@ -12,6 +12,9 @@ import type {
   VerificarOTPApiResponse,
   CompletarRegistroApiResponse,
 } from '@/types/registroEmpresa';
+import { realRegistroEmpresaService } from '@/services/api/realApiServices';
+
+const IS_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 
 /**
  * Catálogo Canónico Oficial de Planes SaaS (PostgreSQL 16: 06_seed_initial_data.sql)
@@ -85,6 +88,7 @@ interface RegistroEnProgreso {
   telefono: string;
   nombre_propietario: string;
   correo: string;
+  ciclo_facturacion: 'mensual' | 'anual';
   otp_valido: string;
   correo_verificado: boolean;
   intentos_restantes: number;
@@ -95,17 +99,44 @@ const DEFAULT_OTP = '529148';
 const RUC_DUPLICADO_PRUEBA = '20100000001';
 
 class RegistroEmpresaService {
+  private planesCache: PlanSaaSDTO[] | null = null;
+
   /**
-   * Obtiene la lista de planes públicos
+   * Obtiene la lista de planes públicos desde la API /public/planes
    */
-  getPlanes(): PlanSaaSDTO[] {
-    return PLANES_CANONICOS;
+  async getPlanes(forceRefresh = false): Promise<PlanSaaSDTO[]> {
+    if (!forceRefresh && this.planesCache && this.planesCache.length > 0) {
+      return this.planesCache;
+    }
+
+    try {
+      const datos = await realRegistroEmpresaService.getPlanes();
+      if (Array.isArray(datos) && datos.length > 0) {
+        this.planesCache = datos;
+        return datos;
+      }
+    } catch (err) {
+      if (this.planesCache) return this.planesCache;
+      throw err;
+    }
+
+    if (this.planesCache) return this.planesCache;
+
+    // Si no estamos en modo API real o falló, solo usar canónicos si VITE_USE_REAL_API no está forzado
+    if (!IS_REAL_API) {
+      this.planesCache = PLANES_CANONICOS;
+      return PLANES_CANONICOS;
+    }
+
+    throw new Error('No se pudo obtener el catálogo de planes del servidor.');
   }
 
   /**
    * Obtiene un plan por su ID
    */
   getPlanById(id: number): PlanSaaSDTO {
+    const enCache = this.planesCache?.find((p) => p.id === id);
+    if (enCache) return enCache;
     const plan = PLANES_CANONICOS.find((p) => p.id === id);
     return plan ?? PLANES_CANONICOS[1]; // Pro por defecto si no existe
   }
@@ -137,7 +168,29 @@ class RegistroEmpresaService {
   async iniciarRegistro(
     req: IniciarRegistroRequestDTO
   ): Promise<IniciarRegistroApiResponse> {
+    if (IS_REAL_API) {
+      const res = await realRegistroEmpresaService.iniciarRegistro(req);
+      if (res.exito && res.datos) {
+        this.saveRegistroEnProgreso({
+          registro_id: res.datos.registro_id,
+          plan_id: req.plan_id,
+          tipo_contribuyente: req.tipo_contribuyente,
+          ruc: req.ruc,
+          razon_social: req.razon_social,
+          telefono: req.telefono,
+          nombre_propietario: req.nombre_propietario,
+          correo: req.correo,
+          ciclo_facturacion: req.ciclo_facturacion || 'mensual',
+          otp_valido: (res.datos as any).otp_debug || DEFAULT_OTP,
+          correo_verificado: false,
+          intentos_restantes: 3,
+        });
+      }
+      return res;
+    }
+
     await new Promise((res) => setTimeout(res, 600));
+
 
     // Validación de RUC duplicado de prueba
     if (req.ruc.trim() === RUC_DUPLICADO_PRUEBA) {
@@ -165,6 +218,7 @@ class RegistroEmpresaService {
       telefono: req.telefono,
       nombre_propietario: req.nombre_propietario,
       correo: req.correo,
+      ciclo_facturacion: req.ciclo_facturacion || 'mensual',
       otp_valido: DEFAULT_OTP,
       correo_verificado: false,
       intentos_restantes: 3,
@@ -192,6 +246,21 @@ class RegistroEmpresaService {
   async modificarCorreo(
     req: ModificarCorreoRequestDTO
   ): Promise<ModificarCorreoApiResponse> {
+    if (IS_REAL_API) {
+      const res = await realRegistroEmpresaService.modificarCorreo(req);
+      if (res.exito && res.datos) {
+        const reg = this.getRegistroEnProgreso();
+        if (reg) {
+          reg.correo = req.nuevo_correo;
+          if ((res.datos as any).otp_debug) {
+            reg.otp_valido = (res.datos as any).otp_debug;
+          }
+          this.saveRegistroEnProgreso(reg);
+        }
+      }
+      return res;
+    }
+
     await new Promise((res) => setTimeout(res, 400));
     const registro = this.getRegistroEnProgreso();
 
@@ -234,6 +303,18 @@ class RegistroEmpresaService {
   async verificarOTP(
     req: VerificarRegistroOTPRequestDTO
   ): Promise<VerificarOTPApiResponse> {
+    if (IS_REAL_API) {
+      const res = await realRegistroEmpresaService.verificarOTP(req);
+      if (res.exito && res.datos) {
+        const reg = this.getRegistroEnProgreso();
+        if (reg) {
+          reg.correo_verificado = true;
+          this.saveRegistroEnProgreso(reg);
+        }
+      }
+      return res;
+    }
+
     await new Promise((res) => setTimeout(res, 500));
     const registro = this.getRegistroEnProgreso();
 
@@ -277,6 +358,8 @@ class RegistroEmpresaService {
     this.saveRegistroEnProgreso(registro);
 
     const plan = this.getPlanById(registro.plan_id);
+    const esAnual = registro.ciclo_facturacion === 'anual';
+    const montoTotal = esAnual ? plan.precio_anual : plan.precio_mensual;
 
     return {
       exito: true,
@@ -285,7 +368,7 @@ class RegistroEmpresaService {
         correo_verificado: true,
         stripe_client_secret: `seti_${crypto.randomUUID()}_secret_${crypto.randomUUID().slice(0, 8)}`,
         stripe_public_key: 'pk_test_51MzRestaurantCloudDemoKey2026',
-        monto_total: plan.precio_mensual,
+        monto_total: montoTotal,
         moneda: 'PEN',
       },
       meta: { timestamp: new Date().toISOString() },
@@ -299,7 +382,12 @@ class RegistroEmpresaService {
   async completarRegistro(
     req: CompletarRegistroRequestDTO
   ): Promise<CompletarRegistroApiResponse> {
+    if (IS_REAL_API) {
+      return realRegistroEmpresaService.completarRegistro(req);
+    }
+
     await new Promise((res) => setTimeout(res, 800));
+
     const registro = this.getRegistroEnProgreso();
 
     if (!registro || registro.registro_id !== req.registro_id) {
@@ -333,9 +421,15 @@ class RegistroEmpresaService {
     const plan = this.getPlanById(registro.plan_id);
     const empresaId = crypto.randomUUID();
     const usuarioId = crypto.randomUUID();
+    const esAnual = registro.ciclo_facturacion === 'anual';
     const hoy = new Date();
-    const proximoMes = new Date(hoy);
-    proximoMes.setMonth(proximoMes.getMonth() + 1);
+    const proximoPeriodo = new Date(hoy);
+    if (esAnual) {
+      proximoPeriodo.setFullYear(proximoPeriodo.getFullYear() + 1);
+    } else {
+      proximoPeriodo.setMonth(proximoPeriodo.getMonth() + 1);
+    }
+    const montoPagado = esAnual ? plan.precio_anual : plan.precio_mensual;
 
     const respuesta: CompletarRegistroResponseDTO = {
       mensaje: '¡Empresa registrada y suscripción activada con éxito!',
@@ -357,7 +451,7 @@ class RegistroEmpresaService {
         plan: {
           id: plan.id,
           nombre: plan.nombre,
-          precio: plan.precio_mensual,
+          precio: montoPagado,
         },
       },
       usuario: {
@@ -368,10 +462,10 @@ class RegistroEmpresaService {
       },
       constancia: {
         numero_comprobante: `REC-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-        periodo: 'Mensual',
+        periodo: esAnual ? 'Anual' : 'Mensual',
         fecha_pago: hoy.toISOString(),
-        proximo_cobro: proximoMes.toISOString(),
-        monto_pagado: plan.precio_mensual,
+        proximo_cobro: proximoPeriodo.toISOString(),
+        monto_pagado: montoPagado,
         moneda: 'PEN',
         url_descarga_pdf: `/api/v1/descargas/constancia-registro/${empresaId}`,
       },

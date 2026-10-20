@@ -79,3 +79,5 @@ export const seleccionarCuenta = IS_REAL_API
   : mockSeleccionarCuenta;
 
 export { BETA_CREDENTIALS };
+export { registroEmpresaService } from '@/modules/propietario/services/registroEmpresaService';
+

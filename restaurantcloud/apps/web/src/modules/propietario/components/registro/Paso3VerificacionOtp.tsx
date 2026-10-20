@@ -5,6 +5,7 @@ import { ModalModificarCorreo } from './ModalModificarCorreo';
 
 interface Paso3VerificacionOtpProps {
   correo: string;
+  otpSugerido?: string | null;
   onVerificarOtp: (otp: string) => Promise<void>;
   onReenviarOtp: () => Promise<void>;
   onModificarCorreo: (nuevoCorreo: string) => Promise<void>;
@@ -14,6 +15,7 @@ interface Paso3VerificacionOtpProps {
 
 export const Paso3VerificacionOtp: React.FC<Paso3VerificacionOtpProps> = ({
   correo,
+  otpSugerido,
   onVerificarOtp,
   onReenviarOtp,
   onModificarCorreo,
@@ -142,6 +144,26 @@ export const Paso3VerificacionOtp: React.FC<Paso3VerificacionOtpProps> = ({
             ¿Correo incorrecto? Modificar aquí
           </button>
         </div>
+
+        {/* Chip para Entorno de Desarrollo / Pruebas */}
+        {otpSugerido && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-amber-900 text-xs flex items-center justify-between gap-2 text-left">
+            <div>
+              <span className="font-bold block text-amber-950">Modo Desarrollo / Test:</span>
+              <span>Código OTP en sesión: <strong className="font-mono text-sm tracking-wider">{otpSugerido}</strong></span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const arr = otpSugerido.slice(0, 6).split('');
+                setDigits(arr);
+              }}
+              className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold rounded-xl text-xs transition-colors shrink-0"
+            >
+              Autocompletar
+            </button>
+          </div>
+        )}
 
         {/* Formulario de 6 dígitos */}
         <form onSubmit={handleSubmit} className="space-y-6 pt-2">

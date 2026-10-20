@@ -23,9 +23,25 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
-        <env name="DB_URL" value=""/>
+        <env name="DB_CONNECTION" value="pgsql"/>
+        <env name="DB_HOST" value="db"/>
+        <env name="DB_PORT" value="5432"/>
+        <env name="DB_DATABASE" value="restaurantcloud_db"/>
+        <env name="DB_USERNAME" value="saas_admin"/>
+        <env name="DB_PASSWORD" value="123"/>
+        <env name="REDIS_CLIENT" value="predis"/>
+        <env name="REDIS_HOST" value="redis"/>
+        <env name="REDIS_PORT" value="6379"/>
+        <env name="REDIS_PASSWORD" value="rC_redis_secret_2026!"/>
+        <env name="FILESYSTEM_DISK" value="s3"/>
+        <env name="AWS_ACCESS_KEY_ID" value="saas_minio_admin"/>
+        <env name="AWS_SECRET_ACCESS_KEY" value="rC_minio_secret_2026!"/>
+        <env name="AWS_DEFAULT_REGION" value="us-east-1"/>
+        <env name="AWS_BUCKET" value="restaurantcloud"/>
+        <env name="AWS_ENDPOINT" value="http://minio:9000"/>
+        <env name="AWS_USE_PATH_STYLE_ENDPOINT" value="true"/>
+        <env name="STRIPE_KEY" value="pk_test_51RXxfq02BE027197zUNZ6B7NNUGu8E4qNLGnx0D5Kxu46SHNlKQxUP9qCt7rDgqhtg9RCRqcC2oKqSgAuZvgVFj4004cl4ycQi"/>
+        <env name="STRIPE_SECRET_KEY" value="sk_test_51RXxfq02BE0271973rio6XFQD6uYl64ktkfr5SwtnXpPEFXmd5aXp5AufI2UU5HH0pG4SgkD5Pp5TrpjBigL208V00dvWMPRGT"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
@@ -33,4 +49,5 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
     </php>
+
 </phpunit>

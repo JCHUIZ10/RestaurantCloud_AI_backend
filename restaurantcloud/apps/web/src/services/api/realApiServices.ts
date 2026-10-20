@@ -445,3 +445,100 @@ export const realAdminService = {
     }
   },
 };
+
+// CU-PROP-01: Onboarding y Registro de Empresa (Propietario)
+export const realRegistroEmpresaService = {
+  async getPlanes(): Promise<any[]> {
+    try {
+      const res = await apiGet<any[]>('/public/planes');
+      return res.exito && res.datos ? res.datos : [];
+    } catch {
+      return [];
+    }
+  },
+
+  async iniciarRegistro(req: any): Promise<any> {
+    try {
+      return await apiPost<any>('/public/registro/iniciar', req);
+    } catch (err: any) {
+      if (err.response?.data) {
+        return err.response.data;
+      }
+      return {
+        exito: false,
+        datos: null,
+        errores: [
+          {
+            codigo: 'ERROR_CONEXION',
+            mensaje: 'No se pudo conectar con el servidor. Por favor verifica tu conexión.',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+  },
+
+  async modificarCorreo(req: any): Promise<any> {
+    try {
+      return await apiPatch<any>('/public/registro/modificar-correo', req);
+    } catch (err: any) {
+      if (err.response?.data) {
+        return err.response.data;
+      }
+      return {
+        exito: false,
+        datos: null,
+        errores: [
+          {
+            codigo: 'ERROR_CONEXION',
+            mensaje: 'No se pudo conectar con el servidor al actualizar el correo.',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+  },
+
+  async verificarOTP(req: any): Promise<any> {
+    try {
+      return await apiPost<any>('/public/registro/verificar-otp', req);
+    } catch (err: any) {
+      if (err.response?.data) {
+        return err.response.data;
+      }
+      return {
+        exito: false,
+        datos: null,
+        errores: [
+          {
+            codigo: 'ERROR_CONEXION',
+            mensaje: 'No se pudo verificar el código con el servidor.',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+  },
+
+  async completarRegistro(req: any): Promise<any> {
+    try {
+      return await apiPost<any>('/public/registro/completar', req);
+    } catch (err: any) {
+      if (err.response?.data) {
+        return err.response.data;
+      }
+      return {
+        exito: false,
+        datos: null,
+        errores: [
+          {
+            codigo: 'ERROR_CONEXION',
+            mensaje: 'No se pudo completar el registro con la pasarela bancaria.',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+  },
+};
+

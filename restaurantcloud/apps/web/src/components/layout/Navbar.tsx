@@ -62,13 +62,13 @@ export const Navbar: React.FC = () => {
             Iniciar Sesión
           </Link>
 
-          <a
-            href="/#planes"
+          <Link
+            to="/registro"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-aurea-ivory bg-aurea-navy hover:bg-opacity-90 shadow-md transition-all group"
           >
             <span>Crear Restaurante</span>
             <ArrowRight className="w-4 h-4 text-aurea-copper group-hover:translate-x-1 transition-transform" />
-          </a>
+          </Link>
         </div>
 
         {/* Botón Hamburguesa Móvil */}
@@ -114,14 +114,14 @@ export const Navbar: React.FC = () => {
             </nav>
 
             <div className="pt-3 border-t border-aurea-copper/20 flex flex-col gap-2.5">
-              <a
-                href="/#planes"
+              <Link
+                to="/registro"
                 onClick={() => setIsOpen(false)}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold text-aurea-ivory bg-aurea-navy shadow-md"
               >
                 <Sparkles className="w-4 h-4 text-aurea-copper" />
                 Registrar Restaurante (Prueba Gratis)
-              </a>
+              </Link>
 
               <Link
                 to="/login"

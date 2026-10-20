@@ -102,7 +102,8 @@ export const Paso5RegistroExitoso: React.FC<Paso5RegistroExitosoProps> = ({
                 Plan Seleccionado:
               </span>
               <span className="font-bold text-aurea-navy">
-                Plan {resultado.empresa.plan.nombre} ({formatPEN(resultado.constancia.monto_pagado)}/mes)
+                Plan {resultado.empresa.plan.nombre} ({formatPEN(resultado.constancia.monto_pagado)} /{' '}
+                {resultado.constancia.periodo?.toLowerCase() === 'anual' ? 'año' : 'mes'})
               </span>
             </div>
 

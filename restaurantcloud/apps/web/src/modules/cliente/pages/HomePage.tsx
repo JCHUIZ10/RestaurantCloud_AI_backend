@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { SaasDashboard3D } from '@/components/3d/SaasDashboard3D';
 import { TiltCard } from '@/components/ui/TiltCard';
 import { Button } from '@/components/ui/Button';
 import { formatPEN } from '@/shared/utils';
+import { registroEmpresaService } from '@/modules/propietario/services/registroEmpresaService';
+import { PlanSaaSDTO } from '@/types/registroEmpresa';
 import {
   Sparkles,
   ArrowRight,
@@ -62,83 +64,55 @@ const MODULOS_SISTEMA: ModuloSaaS[] = [
   },
 ];
 
-interface PlanSaaS {
-  id: number;
-  nombre: string;
-  precioMensual: number;
-  descripcion: string;
-  destacado?: boolean;
-  limites: {
-    locales: string;
-    pisos: string;
-    mesas: string;
-    usuarios: string;
-  };
-  caracteristicas: string[];
-}
-
-const PLANES_SAAS: PlanSaaS[] = [
-  {
-    id: 1,
-    nombre: 'Starter',
-    precioMensual: 99,
-    descripcion: 'Ideal para cafeterías, bistrós y restaurantes independientes de 1 sede con hasta 25 mesas.',
-    limites: {
-      locales: '1 Sede / Local',
-      pisos: '1 Piso o Salón',
-      mesas: 'Hasta 25 Mesas',
-      usuarios: '5 Usuarios operativos',
-    },
-    caracteristicas: [
-      'Mozo POS en smartphones',
-      'Cocina KDS en tiempo real',
-      'Carta digital interactiva QR',
-      'Cierre de caja y arqueos Z',
-      'Soporte técnico por correo',
-    ],
-  },
-  {
-    id: 2,
-    nombre: 'Pro (Con IA)',
-    precioMensual: 249,
-    descripcion: 'Para restaurantes en expansión con múltiples ambientes, reservas de salón, KDS y asistente IA.',
-    destacado: true,
-    limites: {
-      locales: 'Hasta 3 Locales / Sedes',
-      pisos: 'Hasta 2 Pisos / Salones',
-      mesas: 'Hasta 30 Mesas',
-      usuarios: '15 Usuarios operativos',
-    },
-    caracteristicas: [
-      'Todo lo del Plan Starter',
-      'Gestión de Reservas de Salón',
-      'Módulo IA: Forecasting de Demanda',
-      'Recomendaciones inteligentes de stock',
-      'Soporte prioritario por WhatsApp',
-    ],
-  },
-  {
-    id: 3,
-    nombre: 'Enterprise',
-    precioMensual: 499,
-    descripcion: 'Para cadenas gastronómicas y franquicias con operaciones complejas y suite completa de IA.',
-    limites: {
-      locales: 'Hasta 10 Sedes / Locales',
-      pisos: 'Hasta 5 Pisos / Salones',
-      mesas: 'Hasta 60 Mesas',
-      usuarios: '40 Usuarios operativos',
-    },
-    caracteristicas: [
-      'Todo lo del Plan Pro',
-      'Asistente Conversacional con IA',
-      'Predicción predictiva multi-sede',
-      'Integraciones API a medida y ERP',
-      'Acuerdo de nivel de servicio (SLA 99.9%)',
-    ],
-  },
-];
+const CARACTERISTICAS_POR_PLAN: Record<number, string[]> = {
+  1: [
+    'Mozo POS en smartphones',
+    'Cocina KDS en tiempo real',
+    'Carta digital interactiva QR',
+    'Cierre de caja y arqueos Z',
+    'Soporte técnico por correo',
+  ],
+  2: [
+    'Todo lo del Plan Starter',
+    'Gestión de Reservas de Salón',
+    'Módulo IA: Forecasting de Demanda',
+    'Recomendaciones inteligentes de stock',
+    'Soporte prioritario por WhatsApp',
+  ],
+  3: [
+    'Todo lo del Plan Pro',
+    'Asistente Conversacional con IA',
+    'Predicción predictiva multi-sede',
+    'Integraciones API a medida y ERP',
+    'Acuerdo de nivel de servicio (SLA 99.9%)',
+  ],
+};
 
 export const HomePage: React.FC = () => {
+  const [esAnual, setEsAnual] = useState(false);
+  const [planes, setPlanes] = useState<PlanSaaSDTO[]>([]);
+  const [cargandoPlanes, setCargandoPlanes] = useState(true);
+
+  useEffect(() => {
+    let montado = true;
+    registroEmpresaService
+      .getPlanes()
+      .then((data) => {
+        if (montado && data && data.length > 0) {
+          setPlanes(data);
+        }
+      })
+      .catch(() => {
+        // En caso de error en landing, evitamos bloquear el resto de la página
+      })
+      .finally(() => {
+        if (montado) setCargandoPlanes(false);
+      });
+    return () => {
+      montado = false;
+    };
+  }, []);
+
   const whatsappUrl = 'https://wa.me/51987654321?text=Hola,%20deseo%20asesoría%20sobre%20RestaurantCloud%20AI%20para%20mi%20restaurante';
 
   return (
@@ -400,100 +374,252 @@ export const HomePage: React.FC = () => {
             <p className="font-sans text-sm sm:text-base text-aurea-navy/75 leading-relaxed">
               Sin costos ocultos ni permanencias forzadas. Comienza en Starter y escala a Pro con IA cuando lo requieras.
             </p>
-          </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
-            {PLANES_SAAS.map((plan) => (
-              <div
-                key={plan.id}
-                className={`rounded-3xl p-8 flex flex-col justify-between transition-all duration-300 relative ${
-                  plan.destacado
-                    ? 'bg-aurea-navy text-aurea-ivory border-2 border-aurea-copper shadow-2xl scale-105 z-20'
-                    : 'bg-white text-aurea-navy border-2 border-aurea-copper/25 shadow-md hover:shadow-xl'
+            {/* Toggle Mensual / Anual */}
+            <div className="pt-4 flex items-center justify-center gap-3">
+              <span
+                className={`text-sm font-semibold transition-colors ${
+                  !esAnual ? 'text-aurea-navy' : 'text-aurea-navy/50'
                 }`}
               >
-                {plan.destacado && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-aurea-copper text-aurea-navy font-bold text-xs uppercase tracking-wider shadow-md">
-                    Más Elegido por Restaurantes
-                  </div>
-                )}
-
-                <div className="space-y-6">
-                  <div>
-                    <h3 className={`font-serif text-2xl ${plan.destacado ? 'text-aurea-champagne' : 'text-aurea-navy'}`}>
-                      {plan.nombre}
-                    </h3>
-                    <p className={`text-xs mt-1 ${plan.destacado ? 'text-white/70' : 'text-aurea-navy/70'}`}>
-                      {plan.descripcion}
-                    </p>
-                  </div>
-
-                  <div className="flex items-baseline gap-1.5 pb-4 border-b border-aurea-copper/20">
-                    <span className="text-3xl sm:text-4xl font-bold font-sans">
-                      {formatPEN(plan.precioMensual)}
+                Facturación Mensual
+              </span>
+              <button
+                type="button"
+                onClick={() => setEsAnual(!esAnual)}
+                className="w-14 h-7 rounded-full bg-aurea-navy relative p-1 transition-colors focus:outline-none shadow-inner"
+                aria-label="Alternar ciclo de facturación"
+              >
+                <div
+                  className={`w-5 h-5 rounded-full bg-aurea-champagne shadow-md transition-transform duration-200 ${
+                    esAnual ? 'translate-x-7' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+              <span
+                className={`text-sm font-semibold flex items-center gap-2 transition-colors ${
+                  esAnual ? 'text-aurea-navy' : 'text-aurea-navy/50'
+                }`}
+              >
+                Facturación Anual
+                {/* Solo se muestra si el cálculo arroja ahorro positivo en los planes */}
+                {!cargandoPlanes &&
+                  Math.max(
+                    ...planes.map((p) => {
+                      const ahorro = p.precio_mensual * 12 - p.precio_anual;
+                      return ahorro > 0 && p.precio_mensual > 0
+                        ? Math.floor(ahorro / p.precio_mensual)
+                        : 0;
+                    }),
+                    0
+                  ) >= 1 && (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      Ahorra hasta{' '}
+                      {Math.max(
+                        ...planes.map((p) => {
+                          const ahorro = p.precio_mensual * 12 - p.precio_anual;
+                          return ahorro > 0 && p.precio_mensual > 0
+                            ? Math.floor(ahorro / p.precio_mensual)
+                            : 0;
+                        }),
+                        0
+                      )}{' '}
+                      meses
                     </span>
-                    <span className={`text-xs ${plan.destacado ? 'text-white/60' : 'text-aurea-navy/60'}`}>
-                      / mes + IGV
-                    </span>
-                  </div>
-
-                  {/* Límites de recursos clave */}
-                  <div className={`p-4 rounded-xl text-xs space-y-2 font-mono ${plan.destacado ? 'bg-white/10' : 'bg-aurea-ivory'}`}>
-                    <div className="flex justify-between">
-                      <span className="opacity-75">Locales:</span>
-                      <span className="font-bold">{plan.limites.locales}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="opacity-75">Pisos:</span>
-                      <span className="font-bold">{plan.limites.pisos}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="opacity-75">Mesas:</span>
-                      <span className="font-bold">{plan.limites.mesas}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="opacity-75">Personal:</span>
-                      <span className="font-bold">{plan.limites.usuarios}</span>
-                    </div>
-                  </div>
-
-                  {/* Lista de características */}
-                  <div className="space-y-2.5 pt-2">
-                    <span className={`text-[11px] font-semibold uppercase tracking-wider block ${plan.destacado ? 'text-aurea-copper' : 'text-aurea-copper'}`}>
-                      Incluye:
-                    </span>
-                    <ul className="space-y-2 text-xs sm:text-sm">
-                      {plan.caracteristicas.map((c, i) => (
-                        <li key={i} className="flex items-start gap-2">
-                          <CheckCircle2 className={`w-4 h-4 shrink-0 mt-0.5 ${plan.destacado ? 'text-aurea-copper' : 'text-emerald-600'}`} />
-                          <span className={plan.destacado ? 'text-white/90' : 'text-aurea-navy/80'}>{c}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-
-                <div className="pt-8 mt-6 border-t border-aurea-copper/20">
-                  <Link
-                    to={`/registro?plan=${plan.id}`}
-                    className="block w-full"
-                  >
-                    <Button
-                      variant={plan.destacado ? 'secondary' : 'primary'}
-                      size="lg"
-                      className={`w-full font-semibold shadow-md ${
-                        plan.destacado
-                          ? 'bg-aurea-champagne text-aurea-navy hover:bg-white'
-                          : 'bg-aurea-navy text-aurea-ivory hover:bg-opacity-90'
-                      }`}
-                    >
-                      Elegir {plan.nombre}
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            ))}
+                  )}
+              </span>
+            </div>
           </div>
+
+          {/* Skeleton mientras carga catálogo real de PostgreSQL */}
+          {cargandoPlanes && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch animate-fadeIn">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="rounded-3xl p-8 bg-white border-2 border-aurea-copper/20 shadow-sm animate-pulse space-y-6 flex flex-col justify-between min-h-[500px]"
+                >
+                  <div className="space-y-4">
+                    <div className="h-7 w-36 bg-slate-200 rounded-lg" />
+                    <div className="h-3 w-4/5 bg-slate-100 rounded" />
+                    <div className="h-10 w-48 bg-aurea-champagne/40 rounded-xl" />
+                    <div className="h-32 bg-slate-50 rounded-2xl p-4 space-y-2 border border-slate-100" />
+                    <div className="space-y-2 pt-2">
+                      <div className="h-3 w-full bg-slate-100 rounded" />
+                      <div className="h-3 w-5/6 bg-slate-100 rounded" />
+                      <div className="h-3 w-4/6 bg-slate-100 rounded" />
+                    </div>
+                  </div>
+                  <div className="h-12 w-full bg-slate-200 rounded-2xl mt-8" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Catálogo real y dinámico de planes */}
+          {!cargandoPlanes && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
+              {planes.map((plan) => {
+                const precioDisplay = esAnual ? plan.precio_anual / 12 : plan.precio_mensual;
+                const costo12Meses = plan.precio_mensual * 12;
+                const ahorroSoles = costo12Meses - plan.precio_anual;
+                const tieneAhorro = ahorroSoles > 0;
+                const mesesAhorro =
+                  plan.precio_mensual > 0 ? Math.floor(ahorroSoles / plan.precio_mensual) : 0;
+                const caracteristicas = CARACTERISTICAS_POR_PLAN[plan.id] || [
+                  'Mozo POS en smartphones',
+                  'Cocina KDS en vivo',
+                  'Carta digital interactiva QR',
+                  'Cierre de caja y arqueos',
+                  'Soporte técnico',
+                ];
+
+                return (
+                  <div
+                    key={plan.id}
+                    className={`rounded-3xl p-8 flex flex-col justify-between transition-all duration-300 relative ${
+                      plan.destacado
+                        ? 'bg-aurea-navy text-aurea-ivory border-2 border-aurea-copper shadow-2xl scale-105 z-20'
+                        : 'bg-white text-aurea-navy border-2 border-aurea-copper/25 shadow-md hover:shadow-xl'
+                    }`}
+                  >
+                    {plan.destacado && (
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-aurea-copper text-aurea-navy font-bold text-xs uppercase tracking-wider shadow-md">
+                        Más Elegido por Restaurantes
+                      </div>
+                    )}
+
+                    <div className="space-y-6">
+                      <div>
+                        <h3
+                          className={`font-serif text-2xl ${
+                            plan.destacado ? 'text-aurea-champagne' : 'text-aurea-navy'
+                          }`}
+                        >
+                          {plan.nombre}
+                        </h3>
+                        <p
+                          className={`text-xs mt-1 ${
+                            plan.destacado ? 'text-white/70' : 'text-aurea-navy/70'
+                          }`}
+                        >
+                          {plan.descripcion}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col pb-4 border-b border-aurea-copper/20">
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-3xl sm:text-4xl font-bold font-sans">
+                            {formatPEN(precioDisplay)}
+                          </span>
+                          <span
+                            className={`text-xs ${
+                              plan.destacado ? 'text-white/60' : 'text-aurea-navy/60'
+                            }`}
+                          >
+                            / mes + IGV
+                          </span>
+                        </div>
+                        {esAnual && (
+                          <span
+                            className={`text-[11px] font-medium block mt-1 ${
+                              plan.destacado ? 'text-emerald-300' : 'text-emerald-700'
+                            }`}
+                          >
+                            Cobrado anualmente ({formatPEN(plan.precio_anual)} / año
+                            {tieneAhorro
+                              ? ` • Ahorras ${
+                                  mesesAhorro >= 1
+                                    ? `${mesesAhorro} ${mesesAhorro === 1 ? 'mes' : 'meses'}`
+                                    : formatPEN(ahorroSoles)
+                                }`
+                              : ''}
+                            )
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Límites de recursos clave */}
+                      <div
+                        className={`p-4 rounded-xl text-xs space-y-2 font-mono ${
+                          plan.destacado ? 'bg-white/10' : 'bg-aurea-ivory'
+                        }`}
+                      >
+                        <div className="flex justify-between">
+                          <span className="opacity-75">Locales:</span>
+                          <span className="font-bold">
+                            Hasta {plan.max_locales} {plan.max_locales === 1 ? 'Sede' : 'Sedes'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="opacity-75">Pisos:</span>
+                          <span className="font-bold">
+                            Hasta {plan.max_pisos} {plan.max_pisos === 1 ? 'Piso' : 'Pisos'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="opacity-75">Mesas:</span>
+                          <span className="font-bold">Hasta {plan.max_mesas} Mesas</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="opacity-75">Personal:</span>
+                          <span className="font-bold">Hasta {plan.max_usuarios} Usuarios</span>
+                        </div>
+                      </div>
+
+                      {/* Lista de características */}
+                      <div className="space-y-2.5 pt-2">
+                        <span
+                          className={`text-[11px] font-semibold uppercase tracking-wider block ${
+                            plan.destacado ? 'text-aurea-copper' : 'text-aurea-copper'
+                          }`}
+                        >
+                          Incluye:
+                        </span>
+                        <ul className="space-y-2 text-xs sm:text-sm">
+                          {caracteristicas.map((c, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <CheckCircle2
+                                className={`w-4 h-4 shrink-0 mt-0.5 ${
+                                  plan.destacado ? 'text-aurea-copper' : 'text-emerald-600'
+                                }`}
+                              />
+                              <span
+                                className={
+                                  plan.destacado ? 'text-white/90' : 'text-aurea-navy/80'
+                                }
+                              >
+                                {c}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="pt-8 mt-6 border-t border-aurea-copper/20">
+                      <Link
+                        to={`/registro?plan=${plan.id}&ciclo=${esAnual ? 'anual' : 'mensual'}`}
+                        className="block w-full"
+                      >
+                        <Button
+                          variant={plan.destacado ? 'secondary' : 'primary'}
+                          size="lg"
+                          className={`w-full font-semibold shadow-md ${
+                            plan.destacado
+                              ? 'bg-aurea-champagne text-aurea-navy hover:bg-white'
+                              : 'bg-aurea-navy text-aurea-ivory hover:bg-opacity-90'
+                          }`}
+                        >
+                          Elegir {plan.nombre}
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
 
@@ -536,11 +662,11 @@ export const HomePage: React.FC = () => {
           </div>
 
           <div className="pt-6">
-            <a href="#planes">
+            <Link to="/registro">
               <Button variant="secondary" size="lg" className="bg-aurea-champagne text-aurea-navy hover:bg-white font-bold px-8 shadow-xl">
                 Comenzar ahora mismo
               </Button>
-            </a>
+            </Link>
           </div>
         </div>
       </section>

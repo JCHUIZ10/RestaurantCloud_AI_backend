@@ -7,7 +7,6 @@ import {
 } from '@/types/registroEmpresa';
 import {
   registroEmpresaService,
-  PLANES_CANONICOS,
 } from '../services/registroEmpresaService';
 import { RegistroStepper } from '../components/registro/RegistroStepper';
 import { Paso1PlanSelector } from '../components/registro/Paso1PlanSelector';
@@ -29,30 +28,58 @@ export const RegistroEmpresaPage: React.FC = () => {
   const initialPlanId = planParam ? parseInt(planParam, 10) : 2;
   const validPlanId = [1, 2, 3].includes(initialPlanId) ? initialPlanId : 2;
 
+  const cicloParam = searchParams.get('ciclo') === 'anual' ? 'anual' : 'mensual';
+  const [cicloFacturacion, setCicloFacturacion] = useState<'mensual' | 'anual'>(cicloParam);
+
   const [planSeleccionadoId, setPlanSeleccionadoId] = useState<number>(validPlanId);
-  const planActual: PlanSaaSDTO = registroEmpresaService.getPlanById(planSeleccionadoId);
+  const [planes, setPlanes] = useState<PlanSaaSDTO[]>([]);
+  const [cargandoPlanes, setCargandoPlanes] = useState<boolean>(true);
+  const [errorPlanes, setErrorPlanes] = useState<string | null>(null);
+
+  const cargarPlanes = async () => {
+    setCargandoPlanes(true);
+    setErrorPlanes(null);
+    try {
+      const data = await registroEmpresaService.getPlanes();
+      setPlanes(data);
+    } catch (err: any) {
+      setErrorPlanes(err?.message || 'No se pudo conectar con el catálogo de planes en el servidor.');
+    } finally {
+      setCargandoPlanes(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarPlanes();
+  }, []);
+
+  const planActual: PlanSaaSDTO =
+    planes.find((p) => p.id === planSeleccionadoId) ??
+    registroEmpresaService.getPlanById(planSeleccionadoId);
 
   // 2. Control de Pasos (1: Plan, 2: Datos, 3: OTP, 4: Pago, 5: Éxito)
-  // Si viene con ?plan en URL, avanzamos directamente al Paso 2 para mayor fluidez
-  const [pasoActual, setPasoActual] = useState<number>(planParam ? 2 : 1);
-  const [pasoMaximoAlcanzado, setPasoMaximoAlcanzado] = useState<number>(planParam ? 2 : 1);
+  // Siempre iniciamos en Paso 1 para que el usuario pueda confirmar o cambiar de plan y periodicidad
+  const [pasoActual, setPasoActual] = useState<number>(1);
+  const [pasoMaximoAlcanzado, setPasoMaximoAlcanzado] = useState<number>(1);
 
-  // 3. Estado del Formulario
+  // 3. Estado del Formulario (Limpio por defecto para producción)
   const [formData, setFormData] = useState<IniciarRegistroRequestDTO>({
     plan_id: validPlanId,
+    ciclo_facturacion: cicloParam,
     tipo_contribuyente: 'RUC_20',
-    ruc: '20601234567',
-    razon_social: 'El Tenedor Gourmet S.A.C.',
-    telefono: '+51 987 654 321',
-    nombre_propietario: 'Manuel García Pardo',
-    correo: 'manuel.garcia@gmail.com',
-    password: 'PasswordPropietario2026!',
+    ruc: '',
+    razon_social: '',
+    telefono: '',
+    nombre_propietario: '',
+    correo: '',
+    password: '',
   });
 
   const [registroId, setRegistroId] = useState<string | null>(null);
 
   // 4. Estados de Carga y Errores UX
   const [cargando, setCargando] = useState(false);
+  const [errorFiscal, setErrorFiscal] = useState<{ titulo: string; mensaje: string } | null>(null);
   const [errorRucDuplicado, setErrorRucDuplicado] = useState<string | null>(null);
   const [errorOtp, setErrorOtp] = useState<string | null>(null);
   const [errorPago, setErrorPago] = useState<string | null>(null);
@@ -61,16 +88,33 @@ export const RegistroEmpresaPage: React.FC = () => {
   const [resultadoCompletado, setResultadoCompletado] =
     useState<CompletarRegistroResponseDTO | null>(null);
 
-  // Sincronizar query param cuando el usuario cambia el plan
+  // Sincronizar query params cuando el usuario cambia el plan o el ciclo
   const handleSelectPlan = (id: number) => {
     setPlanSeleccionadoId(id);
     setFormData((prev) => ({ ...prev, plan_id: id }));
-    setSearchParams({ plan: id.toString() });
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('plan', id.toString());
+      return next;
+    });
+  };
+
+  const handleSelectCiclo = (ciclo: 'mensual' | 'anual') => {
+    setCicloFacturacion(ciclo);
+    setFormData((prev) => ({ ...prev, ciclo_facturacion: ciclo }));
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('ciclo', ciclo);
+      return next;
+    });
   };
 
   const handleUpdateForm = (fields: Partial<IniciarRegistroRequestDTO>) => {
     setFormData((prev) => ({ ...prev, ...fields }));
-    if (fields.ruc) setErrorRucDuplicado(null);
+    if (fields.ruc) {
+      setErrorFiscal(null);
+      setErrorRucDuplicado(null);
+    }
   };
 
   // Recuperar progreso previo si existe en sessionStorage
@@ -79,9 +123,13 @@ export const RegistroEmpresaPage: React.FC = () => {
     if (progreso) {
       setRegistroId(progreso.registro_id);
       setPlanSeleccionadoId(progreso.plan_id);
+      if (progreso.ciclo_facturacion) {
+        setCicloFacturacion(progreso.ciclo_facturacion);
+      }
       setFormData((prev) => ({
         ...prev,
         plan_id: progreso.plan_id,
+        ciclo_facturacion: progreso.ciclo_facturacion || 'mensual',
         tipo_contribuyente: progreso.tipo_contribuyente,
         ruc: progreso.ruc,
         razon_social: progreso.razon_social,
@@ -108,20 +156,35 @@ export const RegistroEmpresaPage: React.FC = () => {
   const handleSubmitDatosEmpresa = async (e: React.FormEvent) => {
     e.preventDefault();
     setCargando(true);
+    setErrorFiscal(null);
     setErrorRucDuplicado(null);
 
     try {
       const res = await registroEmpresaService.iniciarRegistro({
         ...formData,
         plan_id: planSeleccionadoId,
+        ciclo_facturacion: cicloFacturacion,
       });
 
       if (!res.exito) {
         const error = res.errores?.[0];
         if (error?.codigo === 'RUC_YA_REGISTRADO') {
-          setErrorRucDuplicado(error.mensaje);
+          const msg = error.mensaje || `El RUC ${formData.ruc} ya se encuentra registrado.`;
+          setErrorFiscal({
+            titulo: 'Conflicto de Registro Fiscal (RUC Ya Existente)',
+            mensaje: msg,
+          });
+          setErrorRucDuplicado(msg);
+        } else if (error?.codigo === 'RUC_INVALIDO') {
+          setErrorFiscal({
+            titulo: 'RUC Fiscalmente Inválido (SUNAT Módulo 11)',
+            mensaje: error.mensaje || `El RUC ${formData.ruc} no cumple con el algoritmo oficial de SUNAT.`,
+          });
         } else {
-          setErrorRucDuplicado(error?.mensaje || 'Error al validar el registro fiscal');
+          setErrorFiscal({
+            titulo: 'Error en Validación de Datos',
+            mensaje: error?.mensaje || 'Error al validar los datos fiscales de registro.',
+          });
         }
         return;
       }
@@ -129,8 +192,11 @@ export const RegistroEmpresaPage: React.FC = () => {
       setRegistroId(res.datos.registro_id);
       setPasoActual(3);
       setPasoMaximoAlcanzado((prev) => Math.max(prev, 3));
-    } catch {
-      setErrorRucDuplicado('Ocurrió un error de conexión al despachar el código OTP');
+    } catch (err: any) {
+      setErrorFiscal({
+        titulo: 'Error de Conexión',
+        mensaje: err?.message || 'Ocurrió un error de conexión al comunicarse con el servidor.',
+      });
     } finally {
       setCargando(false);
     }
@@ -184,6 +250,7 @@ export const RegistroEmpresaPage: React.FC = () => {
     await registroEmpresaService.iniciarRegistro({
       ...formData,
       plan_id: planSeleccionadoId,
+      ciclo_facturacion: cicloFacturacion,
     });
   };
 
@@ -257,8 +324,13 @@ export const RegistroEmpresaPage: React.FC = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         {pasoActual === 1 && (
           <Paso1PlanSelector
-            planes={PLANES_CANONICOS}
+            planes={planes}
+            cargando={cargandoPlanes}
+            error={errorPlanes}
+            onReintentar={cargarPlanes}
             planSeleccionadoId={planSeleccionadoId}
+            cicloFacturacion={cicloFacturacion}
+            onChangeCiclo={handleSelectCiclo}
             onSelectPlan={handleSelectPlan}
             onContinuar={() => {
               setPasoActual(2);
@@ -270,10 +342,12 @@ export const RegistroEmpresaPage: React.FC = () => {
         {pasoActual === 2 && (
           <Paso2DatosEmpresa
             plan={planActual}
+            cicloFacturacion={cicloFacturacion}
             formData={formData}
             onChangeForm={handleUpdateForm}
             onSubmit={handleSubmitDatosEmpresa}
             cargando={cargando}
+            errorFiscal={errorFiscal}
             errorRucDuplicado={errorRucDuplicado}
             onVolverAPlan={() => setPasoActual(1)}
           />
@@ -282,6 +356,7 @@ export const RegistroEmpresaPage: React.FC = () => {
         {pasoActual === 3 && (
           <Paso3VerificacionOtp
             correo={formData.correo}
+            otpSugerido={registroEmpresaService.getRegistroEnProgreso()?.otp_valido || null}
             onVerificarOtp={handleVerificarOtp}
             onReenviarOtp={handleReenviarOtp}
             onModificarCorreo={handleModificarCorreo}
@@ -293,6 +368,7 @@ export const RegistroEmpresaPage: React.FC = () => {
         {pasoActual === 4 && (
           <Paso4PagoStripe
             plan={planActual}
+            cicloFacturacion={cicloFacturacion}
             nombrePropietario={formData.nombre_propietario}
             onConfirmarPago={handleConfirmarPago}
             cargando={cargando}
@@ -309,29 +385,12 @@ export const RegistroEmpresaPage: React.FC = () => {
         )}
       </main>
 
-      {/* 3. Widget Interactivo de Pruebas (Demo CU-PROP-01) */}
-      <DemoRegistroWidget
-        pasoActual={pasoActual}
-        onSetPaso={(p) => {
-          setPasoActual(p);
-          setPasoMaximoAlcanzado((prev) => Math.max(prev, p));
-        }}
-        onSelectPlan={handleSelectPlan}
-        planIdActual={planSeleccionadoId}
-        onAutoLlenarForm={(data) => handleUpdateForm(data)}
-        onSimularRucDuplicado={() => {
-          handleUpdateForm({ ruc: '20100000001' });
-          setErrorRucDuplicado(
-            'El RUC 20100000001 ya cuenta con una empresa activa en RestaurantCloud. Si eres el dueño, inicia sesión.'
-          );
-        }}
-        onAutoLlenarOtp={() => handleVerificarOtp('529148')}
-        onSimularErrorPago={() =>
-          setErrorPago(
-            'Tu tarjeta fue rechazada por el banco emisor (Fondos insuficientes o límite de crédito alcanzado).'
-          )
-        }
-      />
+      {/* 3. Widget Interactivo de Pruebas (Demo CU-PROP-01) - Visible exclusivamente en Paso 2 */}
+      {pasoActual === 2 && (
+        <DemoRegistroWidget
+          onAutoLlenarForm={(data) => handleUpdateForm(data)}
+        />
+      )}
     </div>
   );
 };

@@ -13,6 +13,7 @@ import {
 
 interface Paso4PagoStripeProps {
   plan: PlanSaaSDTO;
+  cicloFacturacion?: 'mensual' | 'anual';
   nombrePropietario: string;
   onConfirmarPago: (paymentMethodId: string) => Promise<void>;
   cargando: boolean;
@@ -21,11 +22,15 @@ interface Paso4PagoStripeProps {
 
 export const Paso4PagoStripe: React.FC<Paso4PagoStripeProps> = ({
   plan,
+  cicloFacturacion = 'mensual',
   nombrePropietario,
   onConfirmarPago,
   cargando,
   errorPago,
 }) => {
+  const esAnual = cicloFacturacion === 'anual';
+  const montoCobro = esAnual ? plan.precio_anual : plan.precio_mensual;
+  const [metodoPagoSeleccionado, setMetodoPagoSeleccionado] = useState<'visa' | 'mastercard' | 'declinada'>('visa');
   const [numeroTarjeta, setNumeroTarjeta] = useState('4242 •••• •••• 4242');
   const [vencimiento, setVencimiento] = useState('12/28');
   const [cvc, setCvc] = useState('123');
@@ -33,9 +38,14 @@ export const Paso4PagoStripe: React.FC<Paso4PagoStripeProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Generar un ID de método de pago simulado tipo Stripe
-    const mockPaymentMethodId = `pm_${crypto.randomUUID().slice(0, 16)}`;
-    onConfirmarPago(mockPaymentMethodId);
+    let stripePaymentMethodId = 'pm_card_visa';
+    const cleanNumber = numeroTarjeta.replace(/\D/g, '');
+    if (cleanNumber.startsWith('5555') || metodoPagoSeleccionado === 'mastercard') {
+      stripePaymentMethodId = 'pm_card_mastercard';
+    } else if (cleanNumber.startsWith('4000') || metodoPagoSeleccionado === 'declinada') {
+      stripePaymentMethodId = 'pm_card_chargeCustomerFail';
+    }
+    onConfirmarPago(stripePaymentMethodId);
   };
 
   return (
@@ -70,6 +80,73 @@ export const Paso4PagoStripe: React.FC<Paso4PagoStripeProps> = ({
               </div>
             </div>
           )}
+
+          {/* Selector de Tarjetas Oficiales de Prueba Stripe */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                Tarjetas Oficiales de Prueba Stripe:
+              </span>
+              <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100/80 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                Stripe Test Mode Activo
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMetodoPagoSeleccionado('visa');
+                  setNumeroTarjeta('4242 •••• •••• 4242');
+                  setVencimiento('12/28');
+                  setCvc('123');
+                }}
+                className={`p-2.5 rounded-xl text-left border transition-all ${
+                  metodoPagoSeleccionado === 'visa'
+                    ? 'border-aurea-navy bg-white shadow-sm ring-2 ring-aurea-copper/30 font-bold text-aurea-navy'
+                    : 'border-slate-200 bg-white/70 text-slate-600 hover:border-slate-300'
+                }`}
+              >
+                <span className="block text-xs font-bold text-emerald-700">✓ Visa Exitosa</span>
+                <span className="text-[10px] text-slate-500 font-mono">4242 •••• 4242</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMetodoPagoSeleccionado('mastercard');
+                  setNumeroTarjeta('5555 •••• •••• 4444');
+                  setVencimiento('12/28');
+                  setCvc('123');
+                }}
+                className={`p-2.5 rounded-xl text-left border transition-all ${
+                  metodoPagoSeleccionado === 'mastercard'
+                    ? 'border-aurea-navy bg-white shadow-sm ring-2 ring-aurea-copper/30 font-bold text-aurea-navy'
+                    : 'border-slate-200 bg-white/70 text-slate-600 hover:border-slate-300'
+                }`}
+              >
+                <span className="block text-xs font-bold text-blue-700">✓ Mastercard</span>
+                <span className="text-[10px] text-slate-500 font-mono">5555 •••• 4444</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMetodoPagoSeleccionado('declinada');
+                  setNumeroTarjeta('4000 •••• •••• 0002');
+                  setVencimiento('12/28');
+                  setCvc('123');
+                }}
+                className={`p-2.5 rounded-xl text-left border transition-all ${
+                  metodoPagoSeleccionado === 'declinada'
+                    ? 'border-rose-400 bg-rose-50 shadow-sm ring-2 ring-rose-200 font-bold text-rose-800'
+                    : 'border-slate-200 bg-white/70 text-slate-600 hover:border-slate-300'
+                }`}
+              >
+                <span className="block text-xs font-bold text-rose-600">✗ Declinada (402)</span>
+                <span className="text-[10px] text-rose-500 font-mono">4000 •••• 0002</span>
+              </button>
+            </div>
+          </div>
 
           <div className="space-y-4">
             {/* Campo: Número de Tarjeta */}
@@ -166,7 +243,7 @@ export const Paso4PagoStripe: React.FC<Paso4PagoStripeProps> = ({
                 ) : (
                   <>
                     <ShieldCheck className="w-5 h-5" />
-                    <span>PAGAR Y ACTIVAR EMPRESA ({formatPEN(plan.precio_mensual)})</span>
+                    <span>PAGAR Y ACTIVAR EMPRESA ({formatPEN(montoCobro)})</span>
                   </>
                 )}
               </Button>
@@ -184,7 +261,7 @@ export const Paso4PagoStripe: React.FC<Paso4PagoStripeProps> = ({
                 Resumen de Compra
               </span>
               <h3 className="font-serif text-xl font-bold text-white mt-1">
-                Suscripción Mensual SaaS
+                Suscripción {esAnual ? 'Anual' : 'Mensual'} SaaS
               </h3>
             </div>
 
@@ -197,14 +274,25 @@ export const Paso4PagoStripe: React.FC<Paso4PagoStripeProps> = ({
                     {plan.nombre}
                   </span>
                   <span className="text-xs text-white/70 block mt-0.5">
-                    Ciclo de renovación mensual recurrente
+                    {esAnual
+                      ? plan.precio_mensual * 12 > plan.precio_anual
+                        ? 'Ciclo de renovación anual (12 meses con tarifa reducida)'
+                        : 'Ciclo de renovación anual (12 meses)'
+                      : 'Ciclo de renovación mensual recurrente'}
                   </span>
+                  {esAnual && (
+                    <span className="text-[11px] text-emerald-400 font-semibold block mt-1">
+                      Equiv. {formatPEN(plan.precio_anual / 12)}/mes
+                    </span>
+                  )}
                 </div>
                 <div className="text-right">
                   <span className="text-xl font-bold font-sans">
-                    {formatPEN(plan.precio_mensual)}
+                    {formatPEN(montoCobro)}
                   </span>
-                  <span className="text-[10px] text-white/60 block">/ mes</span>
+                  <span className="text-[10px] text-white/60 block">
+                    {esAnual ? '/ año + IGV' : '/ mes + IGV'}
+                  </span>
                 </div>
               </div>
 

@@ -39,6 +39,7 @@ export interface IniciarRegistroRequestDTO {
   nombre_propietario: string;
   correo: string;
   password: string;
+  ciclo_facturacion?: 'mensual' | 'anual';
 }
 
 export interface IniciarRegistroResponseDTO {
