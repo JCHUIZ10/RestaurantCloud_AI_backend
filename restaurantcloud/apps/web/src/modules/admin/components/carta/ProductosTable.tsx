@@ -27,6 +27,7 @@ interface ProductosTableProps {
   onEditarProducto: (producto: ProductoAdminDTO) => void;
   onArchivarProducto: (producto: ProductoAdminDTO) => void;
   onConmutarDisponibilidad: (producto: ProductoAdminDTO) => void;
+  mostrarDatosReceta?: boolean;
 }
 
 export const ProductosTable: React.FC<ProductosTableProps> = ({
@@ -42,9 +43,11 @@ export const ProductosTable: React.FC<ProductosTableProps> = ({
   onEditarProducto,
   onArchivarProducto,
   onConmutarDisponibilidad,
+  mostrarDatosReceta = true,
 }) => {
   const inicioRango = totalRegistros > 0 ? (paginaActual - 1) * limitePorPagina + 1 : 0;
   const finRango = Math.min(paginaActual * limitePorPagina, totalRegistros);
+  const totalColumnas = mostrarDatosReceta ? 8 : 6;
 
   const getMargenColor = (margen: number) => {
     if (margen >= 65) return 'text-emerald-700 bg-emerald-50 border-emerald-200';
@@ -69,8 +72,8 @@ export const ProductosTable: React.FC<ProductosTableProps> = ({
               <th className="py-3.5 px-4">Categoría</th>
               <th className="py-3.5 px-4 text-center">Destino</th>
               <th className="py-3.5 px-4 text-right">Precio Venta</th>
-              <th className="py-3.5 px-4 text-right">Costo Receta</th>
-              <th className="py-3.5 px-4 text-center">Margen Bruto</th>
+              {mostrarDatosReceta && <th className="py-3.5 px-4 text-right">Costo Receta</th>}
+              {mostrarDatosReceta && <th className="py-3.5 px-4 text-center">Margen Bruto</th>}
               <th className="py-3.5 px-4 text-center">Disponibilidad</th>
               <th className="py-3.5 px-4 text-right">Acciones</th>
             </tr>
@@ -78,14 +81,14 @@ export const ProductosTable: React.FC<ProductosTableProps> = ({
           <tbody className="divide-y divide-aurea-champagne/30 text-aurea-navy/90">
             {cargando ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-aurea-navy/60">
+                <td colSpan={totalColumnas} className="py-12 text-center text-aurea-navy/60">
                   <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-aurea-copper border-t-transparent mb-2" />
                   <p className="text-sm font-medium">Cargando catálogo de carta...</p>
                 </td>
               </tr>
             ) : productos.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-aurea-navy/60">
+                <td colSpan={totalColumnas} className="py-12 text-center text-aurea-navy/60">
                   <UtensilsCrossed className="w-10 h-10 mx-auto text-aurea-navy/30 mb-2" />
                   <p className="text-base font-semibold text-aurea-navy">No se encontraron productos</p>
                   <p className="text-xs text-aurea-navy/60 mt-0.5">
@@ -162,17 +165,17 @@ export const ProductosTable: React.FC<ProductosTableProps> = ({
                   </td>
 
                   {/* 5. Costo Receta */}
-                  <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                  {mostrarDatosReceta && (<td className="py-3.5 px-4 text-right whitespace-nowrap">
                     <div className="font-medium text-aurea-navy text-sm">
                       S/ {prod.costo_teorico.toFixed(2)}
                     </div>
                     <span className="text-[11px] text-aurea-navy/60">
                       ({prod.total_ingredientes} {prod.total_ingredientes === 1 ? 'insumo' : 'insumos'})
                     </span>
-                  </td>
+                  </td>)}
 
                   {/* 6. Margen Bruto */}
-                  <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                  {mostrarDatosReceta && (<td className="py-3.5 px-4 text-center whitespace-nowrap">
                     <div className="inline-flex flex-col items-center">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${getMargenColor(prod.margen_bruto_pct)}`}>
                         {prod.margen_bruto_pct}%
@@ -184,7 +187,7 @@ export const ProductosTable: React.FC<ProductosTableProps> = ({
                         />
                       </div>
                     </div>
-                  </td>
+                  </td>)}
 
                   {/* 7. Disponibilidad Intercativa */}
                   <td className="py-3.5 px-4 text-center whitespace-nowrap">
@@ -215,7 +218,7 @@ export const ProductosTable: React.FC<ProductosTableProps> = ({
                   {/* 8. Acciones */}
                   <td className="py-3.5 px-4 text-right whitespace-nowrap">
                     <div className="flex items-center justify-end gap-1.5">
-                      <button
+                      {mostrarDatosReceta && (<button
                         type="button"
                         onClick={() => onVerReceta(prod)}
                         className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-aurea-copper bg-aurea-champagne/30 hover:bg-aurea-champagne/50 transition-colors border border-aurea-copper/20"
@@ -223,7 +226,7 @@ export const ProductosTable: React.FC<ProductosTableProps> = ({
                       >
                         <BookOpen className="w-3.5 h-3.5" />
                         <span>Receta</span>
-                      </button>
+                      </button>)}
                       <button
                         type="button"
                         onClick={() => onEditarProducto(prod)}
@@ -253,7 +256,10 @@ export const ProductosTable: React.FC<ProductosTableProps> = ({
       <div className="px-4 py-2.5 bg-aurea-champagne/15 border-t border-aurea-champagne/40 flex items-center gap-2 text-xs text-aurea-navy/70">
         <ShieldCheck className="w-4 h-4 text-aurea-copper shrink-0" />
         <span>
-          <strong>Protección activa:</strong> Todo plato descuenta automáticamente insumos de su receta al completarse en cocina. Borrado físico prohibido para preservar auditoría de comandas históricas.
+          <strong>{mostrarDatosReceta ? 'Protección activa:' : 'Carta comercial:'}</strong>{' '}
+          {mostrarDatosReceta
+            ? 'Todo plato descuenta automáticamente insumos de su receta al completarse en cocina. Borrado físico prohibido para preservar auditoría de comandas históricas.'
+            : 'La receta, costos y control de insumos se integrarán cuando el módulo de stock esté disponible. El archivado conserva el historial de ventas.'}
         </span>
       </div>
 

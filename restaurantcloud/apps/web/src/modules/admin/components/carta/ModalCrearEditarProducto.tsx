@@ -28,6 +28,7 @@ interface ModalCrearEditarProductoProps {
   onCerrar: () => void;
   onGuardar: (req: CrearProductoRequest) => Promise<boolean>;
   onIrACategorias?: () => void;
+  habilitarReceta?: boolean;
 }
 
 interface ItemRecetaForm {
@@ -45,6 +46,7 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
   onCerrar,
   onGuardar,
   onIrACategorias,
+  habilitarReceta = true,
 }) => {
   const [pasoActual, setPasoActual] = useState<1 | 2>(1);
   const [guardando, setGuardando] = useState(false);
@@ -79,7 +81,7 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
           rendimiento_platos: r.rendimiento_platos || 100,
           cantidad_descuenta: r.cantidad_descuenta,
         }));
-        setRecetaItems(itemsMapeados);
+        setRecetaItems(habilitarReceta ? itemsMapeados : []);
       } else {
         // Valores por defecto para nuevo producto
         setCategoriaId(categorias.length > 0 ? categorias[0].id : '');
@@ -89,7 +91,7 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
         setRequierePreparacion(true);
 
         // Si hay insumos, precargar 1 para conveniencia
-        if (insumosDisponibles.length > 0) {
+        if (habilitarReceta && insumosDisponibles.length > 0) {
           setRecetaItems([
             {
               insumo_id: insumosDisponibles[0].id,
@@ -170,17 +172,17 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
     setPasoActual(2);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.SyntheticEvent) => {
+    e?.preventDefault();
     setErrorValidacion(null);
 
-    if (recetaItems.length === 0) {
+    if (habilitarReceta && recetaItems.length === 0) {
       setErrorValidacion('Todo plato en carta debe tener al menos un insumo en su receta para control de stock.');
       return;
     }
 
     // Validar dosis válidas
-    for (const it of recetaItems) {
+    for (const it of habilitarReceta ? recetaItems : []) {
       if (it.modo_calculo === 'rendimiento' && it.rendimiento_platos <= 0) {
         setErrorValidacion('El rendimiento en platos por empaque debe ser mayor a 0.');
         return;
@@ -191,7 +193,7 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
       }
     }
 
-    const payloadReceta: CrearItemRecetaRequest[] = recetaItems.map((r) => {
+    const payloadReceta: CrearItemRecetaRequest[] = (habilitarReceta ? recetaItems : []).map((r) => {
       let dosis = r.cantidad_descuenta;
       if (r.modo_calculo === 'rendimiento') {
         dosis = Number((1 / r.rendimiento_platos).toFixed(5));
@@ -239,7 +241,9 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
                 {productoEditar ? 'Editar Plato en Carta' : 'Registrar Nuevo Plato en Carta'}
               </h2>
               <p className="text-xs text-aurea-navy/60">
-                Configura datos comerciales y vincula insumos de inventario
+                {habilitarReceta
+                  ? 'Configura datos comerciales y vincula insumos de inventario'
+                  : 'Configura los datos comerciales del producto'}
               </p>
             </div>
           </div>
@@ -253,6 +257,7 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
         </div>
 
         {/* Selector de Pasos */}
+        {habilitarReceta && (
         <div className="px-6 pt-4 pb-2 border-b border-aurea-champagne/30 bg-white flex items-center justify-between text-xs">
           <button
             type="button"
@@ -288,6 +293,7 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
             <span>Receta e Insumos (Motor Dual) *</span>
           </button>
         </div>
+        )}
 
         {/* Mensaje de Error Asistido */}
         {errorValidacion && (
@@ -452,7 +458,7 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
           {/* ========================================================================= */}
           {/* PASO 2: RECETA E INSUMOS (MOTOR DUAL) */}
           {/* ========================================================================= */}
-          {pasoActual === 2 && (
+          {habilitarReceta && pasoActual === 2 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -637,6 +643,7 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
         </form>
 
         {/* Barra de Rentabilidad en Vivo (LiveProfitabilityBar) */}
+        {habilitarReceta && (
         <div className="px-6 py-3 bg-aurea-champagne/20 border-t border-aurea-champagne/40 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-4">
             <div>
@@ -676,10 +683,11 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
             </span>
           </div>
         </div>
+        )}
 
         {/* Pie del Modal con Navegación de Pasos */}
         <div className="p-4 border-t border-aurea-champagne/40 bg-white flex items-center justify-between">
-          {pasoActual === 2 ? (
+          {habilitarReceta && pasoActual === 2 ? (
             <button
               type="button"
               onClick={() => setPasoActual(1)}
@@ -698,7 +706,7 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
             </button>
           )}
 
-          {pasoActual === 1 ? (
+          {pasoActual === 1 && habilitarReceta ? (
             <button
               type="button"
               onClick={handleAvanzarPaso}
@@ -722,7 +730,7 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
               ) : (
                 <>
                   <Check className="w-4 h-4 stroke-[2.5]" />
-                  <span>Guardar Plato y Receta</span>
+                  <span>{habilitarReceta ? 'Guardar Plato y Receta' : 'Guardar Producto'}</span>
                 </>
               )}
             </button>
