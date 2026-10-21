@@ -5,6 +5,7 @@ import {
   ReservaConflictoDTO,
 } from '@/types/admin';
 import { mockAdminService } from '../services/mockAdminService';
+import { adminService, IS_REAL_API } from '@/services/serviceAdapter';
 import {
   HorarioHeader,
   SemanaHorariaView,
@@ -53,8 +54,8 @@ export const AdminHorarioPage: React.FC = () => {
     try {
       setLoading(true);
       const [resHorario, resExcepciones] = await Promise.all([
-        mockAdminService.getHorarioSemana(),
-        mockAdminService.getExcepcionesHorario(),
+        adminService.getHorarioSemana(),
+        adminService.getExcepcionesHorario(),
       ]);
 
       if (resHorario.exito && resHorario.datos) {
@@ -80,7 +81,7 @@ export const AdminHorarioPage: React.FC = () => {
   const handleGuardarSemana = async (diasNuevos: DiaHorarioDTO[]) => {
     try {
       setGuardandoSemana(true);
-      const res = await mockAdminService.guardarHorarioSemana({ dias: diasNuevos });
+      const res = await adminService.guardarHorarioSemana({ dias: diasNuevos });
       if (res.exito && res.datos) {
         setDias(res.datos.dias);
         setTotalHorasSemanales(res.datos.total_horas_semanales || 0);
@@ -99,7 +100,7 @@ export const AdminHorarioPage: React.FC = () => {
   ) => {
     try {
       setGuardandoSemana(true);
-      const res = await mockAdminService.aplicarPlantillaHorario({ plantilla });
+      const res = await adminService.aplicarPlantillaHorario({ plantilla });
       if (res.exito && res.datos) {
         setDias(res.datos.dias);
         setTotalHorasSemanales(res.datos.total_horas_semanales || 0);
@@ -112,7 +113,7 @@ export const AdminHorarioPage: React.FC = () => {
 
   // Cargar Feriados de Perú 2026
   const handleCargarFeriadosPeru = async () => {
-    const res = await mockAdminService.cargarFeriadosNacionalesPeru();
+    const res = await adminService.cargarFeriadosNacionalesPeru();
     if (res.exito && res.datos) {
       await cargarDatos();
       mostrarToast(
@@ -123,7 +124,7 @@ export const AdminHorarioPage: React.FC = () => {
 
   // Eliminar Excepción
   const handleEliminarExcepcion = async (id: string) => {
-    const res = await mockAdminService.eliminarExcepcion(id);
+    const res = await adminService.eliminarExcepcion(id);
     if (res.exito) {
       setExcepciones((prev) => prev.filter((e) => e.id !== id));
       mostrarToast('Fecha de excepción eliminada del calendario.');
@@ -140,6 +141,21 @@ export const AdminHorarioPage: React.FC = () => {
   }) => {
     try {
       setProcesandoExcepcion(true);
+
+      if (IS_REAL_API) {
+        const resCrear = await adminService.crearExcepcion(data);
+
+        if (resCrear.exito) {
+          setModalCrearAbierto(false);
+          await cargarDatos();
+          mostrarToast('Excepcion programada exitosamente.');
+        } else {
+          mostrarToast(resCrear.errores?.[0]?.mensaje || 'No se pudo programar la excepcion.');
+        }
+
+        return;
+      }
+
       // Ejecutar precheck en base a reservas
       const precheck = await mockAdminService.precheckExcepcion({
         fecha: data.fecha,
@@ -183,6 +199,12 @@ export const AdminHorarioPage: React.FC = () => {
     }[]
   ) => {
     if (!conflictoData) return;
+
+    if (IS_REAL_API) {
+      mostrarToast('La cancelacion y notificacion de reservas se habilitara en el punto 5B.');
+      return;
+    }
+
     try {
       setProcesandoExcepcion(true);
       const res = await mockAdminService.crearExcepcion({
@@ -300,6 +322,7 @@ export const AdminHorarioPage: React.FC = () => {
           <ExcepcionesCalendarioView
             excepciones={excepciones}
             onNuevoCierre={() => setModalCrearAbierto(true)}
+            onCargarFeriadosPeru={handleCargarFeriadosPeru}
             onEliminarExcepcion={handleEliminarExcepcion}
           />
         )}
@@ -330,12 +353,14 @@ export const AdminHorarioPage: React.FC = () => {
       )}
 
       {/* QA Test Bench Widget Flotante */}
-      <DemoAdminHorarioWidget
-        onSimularConflictoNavidad={handleSimularConflictoNavidad}
-        onCargarFeriadosPeru={handleCargarFeriadosPeru}
-        onSimularSedeSinHorario={handleSimularSedeSinHorario}
-        onRestablecerSemillas={handleRestablecerSemillas}
-      />
+      {!IS_REAL_API && (
+        <DemoAdminHorarioWidget
+          onSimularConflictoNavidad={handleSimularConflictoNavidad}
+          onCargarFeriadosPeru={handleCargarFeriadosPeru}
+          onSimularSedeSinHorario={handleSimularSedeSinHorario}
+          onRestablecerSemillas={handleRestablecerSemillas}
+        />
+      )}
     </div>
   );
 };

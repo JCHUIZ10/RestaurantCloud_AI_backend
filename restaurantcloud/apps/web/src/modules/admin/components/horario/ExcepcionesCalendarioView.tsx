@@ -5,12 +5,14 @@ import { Plus, Trash2, Calendar, Clock, AlertTriangle, Search, ChevronLeft, Chev
 interface ExcepcionesCalendarioViewProps {
   excepciones: ExcepcionHorarioDTO[];
   onNuevoCierre: () => void;
+  onCargarFeriadosPeru?: () => void;
   onEliminarExcepcion: (id: string) => Promise<void>;
 }
 
 export const ExcepcionesCalendarioView: React.FC<ExcepcionesCalendarioViewProps> = ({
   excepciones,
   onNuevoCierre,
+  onCargarFeriadosPeru,
   onEliminarExcepcion,
 }) => {
   const [busqueda, setBusqueda] = useState('');
@@ -137,6 +139,17 @@ export const ExcepcionesCalendarioView: React.FC<ExcepcionesCalendarioViewProps>
               className="w-full text-xs pl-9 pr-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-1 focus:ring-red-500 focus:border-red-500"
             />
           </div>
+
+          {onCargarFeriadosPeru && (
+            <button
+              type="button"
+              onClick={onCargarFeriadosPeru}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition shrink-0"
+            >
+              <Calendar className="w-4 h-4" />
+              Cargar feriados 2026
+            </button>
+          )}
 
           <button
             type="button"

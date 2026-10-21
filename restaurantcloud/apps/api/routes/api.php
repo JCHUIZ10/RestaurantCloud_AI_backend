@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Admin\CategoriaController;
+use App\Http\Controllers\Api\Admin\HorarioController;
 use App\Http\Controllers\Api\Admin\ProductoController;
 use App\Http\Controllers\Api\Admin\PersonalController;
 use App\Http\Controllers\Api\CajaController;
@@ -64,6 +65,14 @@ Route::prefix('v1')->group(function (): void {
             Route::patch('/personal/{id}', [PersonalController::class, 'update']);
             Route::post('/personal/{id}/reactivar', [PersonalController::class, 'reactivar']);
             Route::post('/personal/{id}/reset-password', [PersonalController::class, 'resetPassword']);
+
+            Route::get('/horario', [HorarioController::class, 'semana']);
+            Route::put('/horario', [HorarioController::class, 'guardarSemana']);
+            Route::post('/horario/plantilla', [HorarioController::class, 'aplicarPlantilla']);
+            Route::get('/horario/excepciones', [HorarioController::class, 'excepciones']);
+            Route::post('/horario/excepciones', [HorarioController::class, 'crearExcepcion']);
+            Route::delete('/horario/excepciones/{id}', [HorarioController::class, 'eliminarExcepcion']);
+            Route::post('/horario/feriados-peru/cargar', [HorarioController::class, 'cargarFeriadosPeru']);
         });
 
 

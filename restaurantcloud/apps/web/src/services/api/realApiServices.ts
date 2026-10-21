@@ -1,4 +1,4 @@
-import { apiClient, apiGet, apiPost, apiPatch } from './client';
+import { apiClient, apiGet, apiPost, apiPatch, apiPut } from './client';
 import type { ApiResponse } from '@/types/api';
 import type {
   PlanoCompletoMozoDTO,
@@ -46,6 +46,10 @@ import type {
   ListarPersonalResponseDTO,
   RegistrarEmpleadoRequestDTO,
   ResetPasswordResponseDTO,
+  AplicarPlantillaRequest,
+  ConfigSemanaHorariaRequest,
+  ExcepcionHorarioDTO,
+  HorarioSemanaResponse,
 } from '@/types/admin';
 
 export interface LoginParams {
@@ -454,6 +458,29 @@ export const realAdminService = {
   actualizarEmpleado: (id: string, payload: ActualizarEmpleadoRequestDTO): Promise<ApiEnvelope<EmpleadoDetalleDTO>> => apiPatch(`/admin/personal/${id}`, payload),
   reactivarEmpleado: (id: string): Promise<ApiEnvelope<EmpleadoDetalleDTO>> => apiPost(`/admin/personal/${id}/reactivar`),
   resetPasswordEmpleado: (id: string): Promise<ApiEnvelope<ResetPasswordResponseDTO>> => apiPost(`/admin/personal/${id}/reset-password`),
+  getHorarioSemana: (): Promise<ApiEnvelope<HorarioSemanaResponse>> => apiGet('/admin/horario'),
+  guardarHorarioSemana: (payload: ConfigSemanaHorariaRequest): Promise<ApiEnvelope<HorarioSemanaResponse>> =>
+    apiPut('/admin/horario', payload),
+  aplicarPlantillaHorario: (payload: AplicarPlantillaRequest): Promise<ApiEnvelope<HorarioSemanaResponse>> =>
+    apiPost('/admin/horario/plantilla', payload),
+  getExcepcionesHorario: (): Promise<ApiEnvelope<ExcepcionHorarioDTO[]>> =>
+    apiGet('/admin/horario/excepciones'),
+  crearExcepcion: (payload: {
+    fecha: string;
+    cerrado: boolean;
+    hora_inicio?: string;
+    hora_fin?: string;
+    motivo: string;
+  }): Promise<ApiEnvelope<ExcepcionHorarioDTO>> => apiPost('/admin/horario/excepciones', payload),
+  async eliminarExcepcion(id: string): Promise<ApiEnvelope<{ id: string; eliminado: boolean }>> {
+    try {
+      return (await apiClient.delete(`/admin/horario/excepciones/${id}`)).data;
+    } catch (error: any) {
+      return error.response?.data ?? Promise.reject(error);
+    }
+  },
+  cargarFeriadosNacionalesPeru: (): Promise<ApiEnvelope<{ agregados: number; total: number }>> =>
+    apiPost('/admin/horario/feriados-peru/cargar'),
 };
 
 // CU-PROP-01: Onboarding y Registro de Empresa (Propietario)
