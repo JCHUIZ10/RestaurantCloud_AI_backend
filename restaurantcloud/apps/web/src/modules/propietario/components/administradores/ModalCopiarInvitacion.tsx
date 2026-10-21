@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AdministradorItemDTO } from '@/types/propietarioAdmins';
 import { Button } from '@/components/ui/Button';
+import { generarEnlaceWhatsApp } from '@/shared/utils';
+import { propietarioAdminsService } from '@/services/serviceAdapter';
 import {
   X,
   Copy,
@@ -8,6 +10,8 @@ import {
   Share2,
   Lock,
   Clock,
+  AlertTriangle,
+  Loader2,
 } from 'lucide-react';
 
 interface ModalCopiarInvitacionProps {
@@ -20,23 +24,68 @@ export const ModalCopiarInvitacion: React.FC<ModalCopiarInvitacionProps> = ({
   onCerrar,
 }) => {
   const [copiado, setCopiado] = useState(false);
+  const [cargando, setCargando] = useState(false);
+  const [errorEnlace, setErrorEnlace] = useState<string | null>(null);
+  const [urlActivacion, setUrlActivacion] = useState<string>('');
+
+  useEffect(() => {
+    if (!admin) {
+      setUrlActivacion('');
+      setErrorEnlace(null);
+      return;
+    }
+
+    // Si ya viene con token activo desde el directorio
+    if (admin.invitacion_token && !admin.invitacion_expirada) {
+      setUrlActivacion(`${window.location.origin}/activar-cuenta?token=${admin.invitacion_token}`);
+      setErrorEnlace(null);
+      return;
+    }
+
+    // Si no está disponible en memoria o figura expirado, consultar directamente a la API en Redis
+    const consultarEnlaceReal = async () => {
+      setCargando(true);
+      setErrorEnlace(null);
+      try {
+        const res = await propietarioAdminsService.obtenerEnlaceInvitacion(admin.id);
+        if (res.exito && res.datos?.invitacion_token) {
+          setUrlActivacion(
+            res.datos.invitacion_url ||
+              `${window.location.origin}/activar-cuenta?token=${res.datos.invitacion_token}`
+          );
+        } else {
+          setErrorEnlace(
+            res.errores?.[0]?.mensaje ||
+              'La invitación ha expirado o no se encuentra activa en Redis. Utiliza la opción "Reenviar" para emitir un nuevo enlace.'
+          );
+        }
+      } catch {
+        setErrorEnlace('No se pudo verificar el enlace con el servidor.');
+      } finally {
+        setCargando(false);
+      }
+    };
+
+    consultarEnlaceReal();
+  }, [admin]);
 
   if (!admin) return null;
 
-  const token = admin.invitacion_token || 'inv_tok_demo_aurea';
-  const urlActivacion = `${window.location.origin}/activar-cuenta?token=${token}`;
-
   const handleCopiar = () => {
+    if (!urlActivacion) return;
     navigator.clipboard.writeText(urlActivacion);
     setCopiado(true);
     setTimeout(() => setCopiado(false), 2500);
   };
 
   const handleCompartirWhatsapp = () => {
-    const texto = encodeURIComponent(
-      `Hola ${admin.nombre}, has sido invitado a administrar la sede "${admin.sede_asignada?.nombre || 'de Restaurante'}" en RestaurantCloud AI. Activa tu cuenta aquí (válido por 24h): ${urlActivacion}`
-    );
-    window.open(`https://api.whatsapp.com/send?text=${texto}`, '_blank');
+    if (!urlActivacion) return;
+    const texto = `Hola ${admin.nombre}, has sido invitado como Administrador de Local en RestaurantCloud AI. Activa tu cuenta personal aquí (enlace seguro válido por 24 horas): ${urlActivacion}`;
+    if (admin.telefono) {
+      window.open(generarEnlaceWhatsApp(admin.telefono, texto), '_blank');
+    } else {
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
+    }
   };
 
   return (
@@ -77,53 +126,72 @@ export const ModalCopiarInvitacion: React.FC<ModalCopiarInvitacionProps> = ({
 
         {/* Contenido */}
         <div className="p-6 space-y-4 text-xs">
-          <div className="flex items-center gap-2 text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
-            <Clock className="w-4 h-4 text-amber-600 shrink-0" />
-            <p className="text-[11px] leading-relaxed">
-              Este enlace criptográfico es efímero y expirará en <strong>24 horas</strong>. Al abrirlo, el colaborador definirá su propia clave privada.
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block font-bold text-aurea-navy text-xs">
-              URL de Activación Generada
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                readOnly
-                value={urlActivacion}
-                className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-aurea-copper/30 rounded-xl text-xs font-mono text-aurea-navy select-all focus:outline-none"
-              />
-              <Button
-                type="button"
-                onClick={handleCopiar}
-                className={`font-bold text-xs py-2.5 px-3.5 flex items-center gap-1.5 transition-all shadow-sm ${
-                  copiado
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-aurea-navy text-white hover:bg-aurea-navy/90'
-                }`}
-              >
-                {copiado ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    <span>¡Copiado!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4" />
-                    <span>Copiar</span>
-                  </>
-                )}
-              </Button>
+          {cargando ? (
+            <div className="py-8 text-center space-y-2">
+              <Loader2 className="w-6 h-6 text-aurea-copper animate-spin mx-auto" />
+              <p className="text-xs text-aurea-navy/70">Consultando token seguro en Redis...</p>
             </div>
-          </div>
+          ) : errorEnlace ? (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3 text-amber-900">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-bold text-xs">Invitación no disponible</p>
+                <p className="text-[11px] text-amber-800 leading-relaxed">{errorEnlace}</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                <p className="text-[11px] leading-relaxed">
+                  Este enlace criptográfico es efímero y expirará en <strong>24 horas</strong>. Al abrirlo, el colaborador definirá su propia clave privada.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block font-bold text-aurea-navy text-xs">
+                  URL de Activación Generada
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={urlActivacion}
+                    className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-aurea-copper/30 rounded-xl text-xs font-mono text-aurea-navy select-all focus:outline-none"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleCopiar}
+                    disabled={!urlActivacion}
+                    className={`font-bold text-xs py-2.5 px-3.5 flex items-center gap-1.5 transition-all shadow-sm ${
+                      copiado
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-aurea-navy text-white hover:bg-aurea-navy/90'
+                    }`}
+                  >
+                    {copiado ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>¡Copiado!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" />
+                        <span>Copiar</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-aurea-copper/15">
             <Button
               type="button"
               onClick={handleCompartirWhatsapp}
-              className="w-full sm:w-auto bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs py-2 px-4 rounded-xl flex items-center justify-center gap-1.5 shadow-sm"
+              disabled={!urlActivacion || cargando || !!errorEnlace}
+              className="w-full sm:w-auto bg-[#25D366] hover:bg-[#20bd5a] disabled:opacity-50 text-white font-bold text-xs py-2 px-4 rounded-xl flex items-center justify-center gap-1.5 shadow-sm"
             >
               <Share2 className="w-4 h-4" />
               <span>Enviar por WhatsApp</span>

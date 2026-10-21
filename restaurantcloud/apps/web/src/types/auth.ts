@@ -69,3 +69,40 @@ export interface AuthState {
   autenticado: boolean;
   cargando: boolean;
 }
+
+export interface ValidarTokenResponseDTO {
+  valido: boolean;
+  token: string;
+  usuario: {
+    id: string;
+    nombre: string;
+    correo: string;
+    rol: RolUsuario;
+  };
+  empresa: {
+    id: string;
+    nombre: string;
+  };
+  expira_en?: string;
+}
+
+export interface CompletarActivacionDTO {
+  token: string;
+  password: string;
+  password_confirmation: string;
+}
+
+export interface CompletarActivacionResponseDTO {
+  token: string;
+  refresh_token?: string;
+  usuario: {
+    id: string;
+    nombre: string;
+    correo: string;
+    rol: RolUsuario;
+    empresa_id: string;
+    local_id: string | null;
+    telefono?: string;
+  };
+  mensaje: string;
+}

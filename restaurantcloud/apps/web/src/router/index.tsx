@@ -8,6 +8,7 @@ import { PlaceholderView } from '@/components/ui/PlaceholderView';
 import { ROUTES } from './routes.constants';
 
 import { LoginPage } from '@/modules/auth/pages/LoginPage';
+import { ActivarCuentaPage } from '@/modules/auth/pages/ActivarCuentaPage';
 import { CartaDigitalPage } from '@/modules/cliente/pages/CartaDigitalPage';
 import { ComprobanteDigitalPage } from '@/modules/cliente/pages/ComprobanteDigitalPage';
 import { MozoMesasPage } from '@/modules/mozo/pages/MozoMesasPage';
@@ -66,6 +67,10 @@ export const router = createBrowserRouter([
       {
         path: 'registro',
         element: <RegistroEmpresaPage />,
+      },
+      {
+        path: 'activar-cuenta',
+        element: <ActivarCuentaPage />,
       },
       {
         path: 'recuperar-password',

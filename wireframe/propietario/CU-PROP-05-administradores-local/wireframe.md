@@ -43,7 +43,7 @@ sequenceDiagram
     %% 2. Invitación Segura de Administrador (Sin atar a sede)
     alt Propietario invita nuevo colaborador administrativo
         P->>FE: 2. Clic en "[ + Invitar Nuevo Administrador ]"
-        FE->>BE: GET /api/v1/propietario/administradores/formulario-datos
+        FE->>BE: GET /api/v1/propietario/administradores/cuota-personal
         BE-->>FE: 200 OK {cupos_libres: 2}
         FE->>P: Despliega Modal de Invitación Segura (Nombre, Correo, Teléfono)
         P->>FE: Ingresa datos y confirma
@@ -277,10 +277,10 @@ Todos los contratos utilizan el estándar oficial de respuesta `apiresponse.Resp
 
 ---
 
-### 5.2 Endpoint 2: Obtener Disponibilidad de Cupos para Invitación
-
+### 5.2 Endpoint 2: Obtener Disponibilidad y Cuota de Personal
+ 
 - **Método:** `GET`
-- **Ruta:** `/api/v1/propietario/administradores/formulario-datos`
+- **Ruta:** `/api/v1/propietario/administradores/cuota-personal`
 - **Headers:** `Authorization: Bearer <jwt_propietario>`
 
 #### Response 200 OK

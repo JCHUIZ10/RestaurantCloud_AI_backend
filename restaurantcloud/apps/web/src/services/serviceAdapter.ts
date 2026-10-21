@@ -10,6 +10,7 @@ import {
   realCocinaService,
   realCajaService,
   realAdminService,
+  realPropietarioAdminsService,
 } from './api/realApiServices';
 
 import {
@@ -68,6 +69,9 @@ export const adminService = new Proxy(mockAdminService as any, {
     return Reflect.get(target, prop, receiver);
   },
 });
+
+// Servicio Real para Propietario Administradores (CU-PROP-05 - 100% Backend)
+export const propietarioAdminsService = realPropietarioAdminsService;
 
 // Auth Exports
 export const loginWithCredentials = IS_REAL_API

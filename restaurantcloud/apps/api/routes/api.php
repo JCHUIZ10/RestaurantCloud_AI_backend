@@ -5,10 +5,12 @@ use App\Http\Controllers\Api\Admin\CategoriaController;
 use App\Http\Controllers\Api\Admin\HorarioController;
 use App\Http\Controllers\Api\Admin\ProductoController;
 use App\Http\Controllers\Api\Admin\PersonalController;
+use App\Http\Controllers\Api\Propietario\AdministradorController;
 use App\Http\Controllers\Api\CajaController;
 use App\Http\Controllers\Api\CocinaController;
 use App\Http\Controllers\Api\MozoController;
 use App\Http\Controllers\Api\Public\RegistroController;
+use App\Http\Controllers\Api\Public\ActivacionCuentaController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -27,6 +29,12 @@ Route::prefix('v1')->group(function (): void {
         Route::patch('/registro/modificar-correo', [RegistroController::class, 'modificarCorreo']);
         Route::post('/registro/verificar-otp', [RegistroController::class, 'verificarOtp']);
         Route::post('/registro/completar', [RegistroController::class, 'completarRegistro']);
+
+        // Activación de Cuenta de Colaboradores Invitados (CU-PROP-05)
+        Route::prefix('activar-cuenta')->group(function (): void {
+            Route::get('/validar', [ActivacionCuentaController::class, 'validar']);
+            Route::post('/completar', [ActivacionCuentaController::class, 'completar']);
+        });
     });
 
     // Webhooks de Stripe Billing
@@ -73,6 +81,19 @@ Route::prefix('v1')->group(function (): void {
             Route::post('/horario/excepciones', [HorarioController::class, 'crearExcepcion']);
             Route::delete('/horario/excepciones/{id}', [HorarioController::class, 'eliminarExcepcion']);
             Route::post('/horario/feriados-peru/cargar', [HorarioController::class, 'cargarFeriadosPeru']);
+        });
+
+        // Propietario (CU-PROP-05: Administradores de Local)
+        Route::prefix('propietario')->middleware('role:propietario,admin_saas')->group(function (): void {
+            Route::prefix('administradores')->group(function (): void {
+                Route::get('/', [AdministradorController::class, 'index']);
+                Route::get('/cuota-personal', [AdministradorController::class, 'cuotaPersonal']);
+                Route::post('/', [AdministradorController::class, 'store']);
+                Route::post('/{id}/reenviar-invitacion', [AdministradorController::class, 'reenviarInvitacion']);
+                Route::post('/{id}/cancelar-invitacion', [AdministradorController::class, 'cancelarInvitacion']);
+                Route::get('/{id}/enlace-invitacion', [AdministradorController::class, 'enlaceInvitacion']);
+                Route::patch('/{id}/cambiar-estado', [AdministradorController::class, 'cambiarEstado']);
+            });
         });
 
 

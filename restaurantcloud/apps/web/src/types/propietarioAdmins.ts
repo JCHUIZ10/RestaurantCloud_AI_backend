@@ -111,9 +111,11 @@ export type InvitarAdminApiResponse = ApiResponse<{
   correo: string;
   rol: string;
   estado: EstadoUsuarioAdmin;
-  local_id: string;
-  sede_nombre: string;
+  local_id?: string | null;
+  sede_nombre?: string;
+  sede_asignada?: { id: string; nombre: string; distrito?: string } | null;
   invitacion_token: string;
+  invitacion_url?: string;
   invitacion_expira_en: string;
   mensaje: string;
 }>;
@@ -122,6 +124,18 @@ export type ReenviarInvitacionApiResponse = ApiResponse<{
   correo: string;
   nueva_expiracion: string;
   invitacion_token: string;
+  invitacion_url?: string;
+  mensaje: string;
+}>;
+export type CancelarInvitacionApiResponse = ApiResponse<{
+  usuario_id: string;
+  mensaje: string;
+}>;
+export type EnlaceInvitacionApiResponse = ApiResponse<{
+  usuario_id: string;
+  correo?: string;
+  invitacion_token: string;
+  invitacion_url: string;
   mensaje: string;
 }>;
 export type ReasignarSedeApiResponse = ApiResponse<{

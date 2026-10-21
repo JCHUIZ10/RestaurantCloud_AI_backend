@@ -7,6 +7,7 @@ export const ROUTES = {
   HOME: '/',
   LOGIN: '/login',
   REGISTRO: '/registro',
+  ACTIVAR_CUENTA: '/activar-cuenta',
   RECUPERAR_PASSWORD: '/recuperar-password',
 
   // Experiencia Cliente QR por Slug y Comprobantes

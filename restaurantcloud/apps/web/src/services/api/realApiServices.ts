@@ -51,6 +51,18 @@ import type {
   ExcepcionHorarioDTO,
   HorarioSemanaResponse,
 } from '@/types/admin';
+import type {
+  DirectorioAdminsApiResponse,
+  DirectorioAdminsResponseDTO,
+  FormularioDatosApiResponse,
+  InvitarAdminRequestDTO,
+  InvitarAdminApiResponse,
+  ReenviarInvitacionApiResponse,
+  CancelarInvitacionApiResponse,
+  EnlaceInvitacionApiResponse,
+  CambiarEstadoAdminRequestDTO,
+  CambiarEstadoAdminApiResponse,
+} from '@/types/propietarioAdmins';
 
 export interface LoginParams {
   correo: string;
@@ -573,6 +585,134 @@ export const realRegistroEmpresaService = {
             mensaje: 'No se pudo completar el registro con la pasarela bancaria.',
           },
         ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+  },
+};
+
+// CU-PROP-05: Gestión de Administradores de Local (Propietario)
+export const realPropietarioAdminsService = {
+  async getDirectorioAdministradores(filtros?: {
+    estado?: string;
+    busqueda?: string;
+  }): Promise<DirectorioAdminsApiResponse> {
+    try {
+      return await apiGet<DirectorioAdminsResponseDTO>(
+        '/propietario/administradores',
+        filtros as Record<string, unknown>
+      );
+    } catch (err: any) {
+      return (
+        err.response?.data || {
+          exito: false,
+          datos: { cuota_usuarios: {} as any, administradores: [] },
+          errores: [{ codigo: 'ERROR_CONEXION', mensaje: 'Error al consultar administradores.' }],
+          meta: { timestamp: new Date().toISOString() },
+        }
+      );
+    }
+  },
+
+  async getFormularioDatos(): Promise<FormularioDatosApiResponse> {
+    try {
+      const res = await apiGet<any>('/propietario/administradores/cuota-personal');
+      return {
+        exito: res.exito,
+        datos: {
+          puede_invitar: res.datos?.puede_invitar ?? true,
+          cupos_libres: res.datos?.cupos_libres ?? 1,
+          sedes_disponibles: [],
+          sedes_ocupadas: [],
+        },
+        meta: res.meta,
+      };
+    } catch (err: any) {
+      return (
+        err.response?.data || {
+          exito: false,
+          datos: { puede_invitar: false, cupos_libres: 0, sedes_disponibles: [], sedes_ocupadas: [] },
+          errores: [{ codigo: 'ERROR_CONEXION', mensaje: 'Error al consultar cuota de personal.' }],
+          meta: { timestamp: new Date().toISOString() },
+        }
+      );
+    }
+  },
+
+  async invitarAdministrador(dto: InvitarAdminRequestDTO): Promise<InvitarAdminApiResponse> {
+    try {
+      return await apiPost<any>('/propietario/administradores', {
+        nombre: dto.nombre,
+        correo: dto.correo,
+        telefono: dto.telefono,
+      });
+    } catch (err: any) {
+      if (err.response?.data) return err.response.data;
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERROR_CONEXION', mensaje: 'No se pudo conectar con el servidor para enviar la invitación.' }],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+  },
+
+  async reenviarInvitacion(adminId: string): Promise<ReenviarInvitacionApiResponse> {
+    try {
+      return await apiPost<any>(`/propietario/administradores/${adminId}/reenviar-invitacion`);
+    } catch (err: any) {
+      if (err.response?.data) return err.response.data;
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERROR_CONEXION', mensaje: 'Error al reenviar la invitación.' }],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+  },
+
+  async cancelarInvitacion(adminId: string): Promise<CancelarInvitacionApiResponse> {
+    try {
+      return await apiPost<any>(`/propietario/administradores/${adminId}/cancelar-invitacion`);
+    } catch (err: any) {
+      if (err.response?.data) return err.response.data;
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERROR_CONEXION', mensaje: 'Error al cancelar la invitación.' }],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+  },
+
+  async obtenerEnlaceInvitacion(adminId: string): Promise<EnlaceInvitacionApiResponse> {
+    try {
+      return await apiGet<any>(`/propietario/administradores/${adminId}/enlace-invitacion`);
+    } catch (err: any) {
+      if (err.response?.data) return err.response.data;
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERROR_CONEXION', mensaje: 'Error al obtener el enlace de invitación.' }],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+  },
+
+  async cambiarEstado(
+    adminId: string,
+    req: CambiarEstadoAdminRequestDTO
+  ): Promise<CambiarEstadoAdminApiResponse> {
+    try {
+      return await apiPatch<any>(`/propietario/administradores/${adminId}/cambiar-estado`, {
+        nuevo_estado: req.nuevo_estado,
+      });
+    } catch (err: any) {
+      if (err.response?.data) return err.response.data;
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERROR_CONEXION', mensaje: 'Error al actualizar el estado del administrador.' }],
         meta: { timestamp: new Date().toISOString() },
       };
     }

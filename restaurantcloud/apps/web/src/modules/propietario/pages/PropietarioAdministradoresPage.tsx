@@ -5,7 +5,7 @@ import {
   FormularioDatosInvitacionDTO,
   InvitarAdminRequestDTO,
 } from '@/types/propietarioAdmins';
-import { propietarioAdminsService } from '../services/propietarioAdminsService';
+import { propietarioAdminsService } from '@/services/serviceAdapter';
 import { AdminsHeader } from '../components/administradores/AdminsHeader';
 import { AdminsTabla } from '../components/administradores/AdminsTabla';
 import {
@@ -15,7 +15,6 @@ import {
 import { ModalInvitarAdmin } from '../components/administradores/ModalInvitarAdmin';
 import { ModalDesactivarAdmin } from '../components/administradores/ModalDesactivarAdmin';
 import { ModalCopiarInvitacion } from '../components/administradores/ModalCopiarInvitacion';
-import { DemoAdminsWidget } from '../components/administradores/DemoAdminsWidget';
 import {
   CheckCircle2,
   AlertCircle,
@@ -304,9 +303,6 @@ export const PropietarioAdministradoresPage: React.FC = () => {
         admin={adminAVerEnlace}
         onCerrar={() => setAdminAVerEnlace(null)}
       />
-
-      {/* Widget Sandbox QA Flotante */}
-      <DemoAdminsWidget onRecargar={cargarDatos} />
     </div>
   );
 };
