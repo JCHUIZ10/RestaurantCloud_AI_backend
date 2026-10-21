@@ -50,6 +50,8 @@ import type {
   ConfigSemanaHorariaRequest,
   ExcepcionHorarioDTO,
   HorarioSemanaResponse,
+  ActualizarConfiguracionKdsRequest,
+  ConfiguracionKdsDTO,
 } from '@/types/admin';
 import type {
   DirectorioAdminsApiResponse,
@@ -493,6 +495,14 @@ export const realAdminService = {
   },
   cargarFeriadosNacionalesPeru: (): Promise<ApiEnvelope<{ agregados: number; total: number }>> =>
     apiPost('/admin/horario/feriados-peru/cargar'),
+  getConfiguracionKds: (): Promise<ApiEnvelope<ConfiguracionKdsDTO>> =>
+    apiGet('/admin/configuracion-kds'),
+  actualizarConfiguracionKds: (
+    payload: ActualizarConfiguracionKdsRequest,
+  ): Promise<ApiEnvelope<ConfiguracionKdsDTO>> =>
+    apiPut('/admin/configuracion-kds', payload),
+  restaurarDefaultsConfiguracionKds: (): Promise<ApiEnvelope<ConfiguracionKdsDTO>> =>
+    apiPost('/admin/configuracion-kds/restaurar-valores-recomendados'),
 };
 
 // CU-PROP-01: Onboarding y Registro de Empresa (Propietario)

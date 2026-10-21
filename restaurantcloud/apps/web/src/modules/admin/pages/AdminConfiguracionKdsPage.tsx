@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ConfiguracionKdsDTO } from '@/types/admin';
-import { mockAdminService } from '@/modules/admin/services/mockAdminService';
+import { adminService, IS_REAL_API } from '@/services/serviceAdapter';
 import { KdsConfigHeader } from '../components/kds_config/KdsConfigHeader';
 import { KdsParametrosForm } from '../components/kds_config/KdsParametrosForm';
 import { KdsSimuladorSemaforo } from '../components/kds_config/KdsSimuladorSemaforo';
@@ -10,7 +10,7 @@ import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 export const AdminConfiguracionKdsPage: React.FC = () => {
   const [cargando, setCargando] = useState(true);
   const [isGuardando, setIsGuardando] = useState(false);
-  const [sseConectado] = useState(true);
+  const sseConectado = !IS_REAL_API;
 
   // Estados de datos (Original persistido vs Borrador reactivo)
   const [configOriginal, setConfigOriginal] = useState<ConfiguracionKdsDTO | null>(null);
@@ -36,7 +36,7 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
   const cargarDatos = useCallback(async () => {
     setCargando(true);
     try {
-      const resp = await mockAdminService.getConfiguracionKds();
+      const resp = await adminService.getConfiguracionKds();
       if (resp.exito && resp.datos) {
         setConfigOriginal(JSON.parse(JSON.stringify(resp.datos)));
         setConfigBorrador(JSON.parse(JSON.stringify(resp.datos)));
@@ -128,7 +128,7 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
 
     setIsGuardando(true);
     try {
-      const resp = await mockAdminService.actualizarConfiguracionKds({
+      const resp = await adminService.actualizarConfiguracionKds({
         tiempo_optimo_verde_min: configBorrador.tiempo_optimo_verde_min,
         tiempo_alerta_ambar_min: configBorrador.tiempo_alerta_ambar_min,
         tiempo_maximo_pase_min: configBorrador.tiempo_maximo_pase_min,
@@ -141,7 +141,12 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
       if (resp.exito && resp.datos) {
         setConfigOriginal(JSON.parse(JSON.stringify(resp.datos)));
         setConfigBorrador(JSON.parse(JSON.stringify(resp.datos)));
-        mostrarToast('✓ Configuración de KDS sincronizada con cocina y salón en < 30ms', 'exito');
+        mostrarToast(
+          IS_REAL_API
+            ? 'Configuracion KDS guardada. La sincronizacion en tiempo real se habilitara con SSE.'
+            : 'Configuracion de KDS sincronizada con cocina y salon en menos de 30 ms.',
+          'exito'
+        );
       } else {
         mostrarToast(resp.errores?.[0]?.mensaje || 'Error al persistir parámetros', 'error');
       }
@@ -156,7 +161,7 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
   const handleRestaurarDefaults = async () => {
     setIsGuardando(true);
     try {
-      const resp = await mockAdminService.restaurarDefaultsConfiguracionKds();
+      const resp = await adminService.restaurarDefaultsConfiguracionKds();
       if (resp.exito && resp.datos) {
         setConfigOriginal(JSON.parse(JSON.stringify(resp.datos)));
         setConfigBorrador(JSON.parse(JSON.stringify(resp.datos)));
@@ -236,10 +241,12 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
       </main>
 
       {/* Widget QA Sandbox flotante */}
-      <DemoKdsConfigWidget
-        onAplicarPreset={handleAplicarPreset}
-        onResetCanonica={handleRestaurarDefaults}
-      />
+      {!IS_REAL_API && (
+        <DemoKdsConfigWidget
+          onAplicarPreset={handleAplicarPreset}
+          onResetCanonica={handleRestaurarDefaults}
+        />
+      )}
     </div>
   );
 };
