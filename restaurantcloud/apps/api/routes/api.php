@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Admin\CategoriaController;
 use App\Http\Controllers\Api\Admin\ProductoController;
+use App\Http\Controllers\Api\Admin\PersonalController;
 use App\Http\Controllers\Api\CajaController;
 use App\Http\Controllers\Api\CocinaController;
 use App\Http\Controllers\Api\MozoController;
@@ -57,6 +58,12 @@ Route::prefix('v1')->group(function (): void {
             Route::patch('/productos/{id}', [ProductoController::class, 'update']);
             Route::patch('/productos/{id}/disponibilidad', [ProductoController::class, 'disponibilidad']);
             Route::delete('/productos/{id}', [ProductoController::class, 'destroy']);
+
+            Route::get('/personal', [PersonalController::class, 'index']);
+            Route::post('/personal', [PersonalController::class, 'store']);
+            Route::patch('/personal/{id}', [PersonalController::class, 'update']);
+            Route::post('/personal/{id}/reactivar', [PersonalController::class, 'reactivar']);
+            Route::post('/personal/{id}/reset-password', [PersonalController::class, 'resetPassword']);
         });
 
 

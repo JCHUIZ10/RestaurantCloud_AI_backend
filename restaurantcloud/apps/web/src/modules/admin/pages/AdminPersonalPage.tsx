@@ -22,6 +22,7 @@ import {
   mockAdminService,
   CANONICAL_LOCAL_NOMBRE,
 } from '../services/mockAdminService';
+import { adminService, IS_REAL_API } from '@/services/serviceAdapter';
 import { CheckCircle2, AlertTriangle, X } from 'lucide-react';
 
 export const AdminPersonalPage: React.FC = () => {
@@ -59,7 +60,7 @@ export const AdminPersonalPage: React.FC = () => {
 
   const cargarDatos = useCallback(async () => {
     try {
-      const res = await mockAdminService.getPersonal({
+      const res = await adminService.getPersonal({
         busqueda,
         rol: rolSeleccionado,
         estado: estadoSeleccionado,
@@ -86,7 +87,7 @@ export const AdminPersonalPage: React.FC = () => {
   const handleGuardarNuevo = async (
     req: RegistrarEmpleadoRequestDTO
   ): Promise<EmpleadoDetalleDTO | null> => {
-    const res = await mockAdminService.registrarEmpleado(req);
+    const res = await adminService.registrarEmpleado(req);
     if (res.exito && res.datos) {
       mostrarToast('exito', `Colaborador ${res.datos.nombre} registrado con éxito.`);
       await cargarDatos();
@@ -102,7 +103,7 @@ export const AdminPersonalPage: React.FC = () => {
     id: string,
     req: ActualizarEmpleadoRequestDTO
   ): Promise<boolean> => {
-    const res = await mockAdminService.actualizarEmpleado(id, req);
+    const res = await adminService.actualizarEmpleado(id, req);
     if (res.exito && res.datos) {
       mostrarToast('exito', `Datos de ${res.datos.nombre} actualizados correctamente.`);
       await cargarDatos();
@@ -136,7 +137,7 @@ export const AdminPersonalPage: React.FC = () => {
 
   // Manejo de Reactivación
   const handleReactivar = async (emp: EmpleadoResumenDTO) => {
-    const res = await mockAdminService.reactivarEmpleado(emp.id);
+    const res = await adminService.reactivarEmpleado(emp.id);
     if (res.exito && res.datos) {
       mostrarToast('exito', `Colaborador ${emp.nombre} reactivado correctamente.`);
       await cargarDatos();
@@ -149,7 +150,7 @@ export const AdminPersonalPage: React.FC = () => {
   const handleConfirmarReset = async (
     id: string
   ): Promise<ResetPasswordResponseDTO | null> => {
-    const res = await mockAdminService.resetPasswordEmpleado(id);
+    const res = await adminService.resetPasswordEmpleado(id);
     if (res.exito && res.datos) {
       mostrarToast('exito', `Nueva clave provisional generada para ${res.datos.nombre}.`);
       await cargarDatos();
@@ -257,6 +258,10 @@ export const AdminPersonalPage: React.FC = () => {
             setModalResetAbierto(true);
           }}
           onSolicitarDesactivar={(emp) => {
+            if (IS_REAL_API) {
+              mostrarToast('error', 'La desactivación con reasignación operativa se habilitará en el punto 4B.');
+              return;
+            }
             setEmpleadoADesactivar(emp);
             setModalDesactivarAbierto(true);
           }}
@@ -292,7 +297,7 @@ export const AdminPersonalPage: React.FC = () => {
       />
 
       {/* Widget QA Test Bench flotante */}
-      <DemoAdminPersonalWidget
+      {!IS_REAL_API && <DemoAdminPersonalWidget
         onSimularCuotaLlena={async () => {
           mockAdminService.simularLimiteCuotaPersonal();
           await cargarDatos();
@@ -316,7 +321,7 @@ export const AdminPersonalPage: React.FC = () => {
           setRolSeleccionado('mozo');
           mostrarToast('exito', 'Mozo Carlos Huamán filtrado. Pulsa en el icono de desactivar para ver la reasignación de sus 3 mesas.');
         }}
-      />
+      />}
     </div>
   );
 };
