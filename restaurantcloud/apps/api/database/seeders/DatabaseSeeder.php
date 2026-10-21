@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             PlanSeeder::class,
+            UbigeoSeeder::class,
             AdminSaaSSeeder::class,
         ]);
     }

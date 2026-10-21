@@ -11,6 +11,7 @@ import {
   realCajaService,
   realAdminService,
   realPropietarioAdminsService,
+  realPropietarioLocalesService,
 } from './api/realApiServices';
 
 import {
@@ -73,6 +74,9 @@ export const adminService = new Proxy(mockAdminService as any, {
 // Servicio Real para Propietario Administradores (CU-PROP-05 - 100% Backend)
 export const propietarioAdminsService = realPropietarioAdminsService;
 
+// Servicio Real para Propietario Locales (CU-PROP-04 - 100% Backend Directo)
+export const propietarioLocalesService = realPropietarioLocalesService;
+
 // Auth Exports
 export const loginWithCredentials = IS_REAL_API
   ? realAuthService.loginWithCredentials
@@ -84,4 +88,3 @@ export const seleccionarCuenta = IS_REAL_API
 
 export { BETA_CREDENTIALS };
 export { registroEmpresaService } from '@/modules/propietario/services/registroEmpresaService';
-

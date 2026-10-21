@@ -84,9 +84,9 @@ class ActivacionCuentaTest extends TestCase
     }
 
     /**
-     * Test 4: Completar activación actualiza contraseña, activa usuario y genera sesión
+     * Test 4: Completar activación sin local asignado configura clave y deja usuario inactivo
      */
-    public function test_completar_activacion_actualiza_password_y_genera_sesion(): void
+    public function test_completar_activacion_sin_local_deja_usuario_inactivo_sin_sesion(): void
     {
         $usuarioId = (string) Str::uuid();
         $correo = 'carlos.activa.' . Str::random(5) . '@aurea.pe';
@@ -96,7 +96,7 @@ class ActivacionCuentaTest extends TestCase
             'id' => $usuarioId,
             'empresa_id' => $this->empresaId,
             'local_id' => null,
-            'nombre' => 'Carlos Activado',
+            'nombre' => 'Carlos Sin Sede',
             'correo' => $correo,
             'password_hash' => Hash::make(Str::random(30)),
             'telefono' => '+51 987 654 321',
@@ -110,7 +110,7 @@ class ActivacionCuentaTest extends TestCase
             'usuario_id' => $usuarioId,
             'empresa_id' => $this->empresaId,
             'correo' => $correo,
-            'nombre' => 'Carlos Activado',
+            'nombre' => 'Carlos Sin Sede',
             'rol' => 'admin_local',
             'token' => $token,
             'expira_en' => now()->addHours(24)->toIso8601String(),
@@ -130,20 +130,82 @@ class ActivacionCuentaTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertJsonPath('exito', true);
-        $this->assertNotEmpty($response->json('datos.token'));
-        $this->assertNotEmpty($response->json('datos.refresh_token'));
+        $response->assertJsonPath('datos.requiere_asignacion_sede', true);
+        $this->assertNull($response->json('datos.token'));
         $this->assertEquals($usuarioId, $response->json('datos.usuario.id'));
+        $this->assertEquals('inactivo', $response->json('datos.usuario.estado'));
 
-        // 1. Verificar estado en PostgreSQL
+        // 1. Verificar estado en PostgreSQL (debe ser inactivo para evitar accesos no autorizados sin sede)
         $usuarioActualizado = DB::table('usuario')->where('id', $usuarioId)->first();
-        $this->assertEquals('activo', $usuarioActualizado->estado);
+        $this->assertEquals('inactivo', $usuarioActualizado->estado);
         $this->assertTrue(password_verify('PasswordSegura2026!', $usuarioActualizado->password_hash));
 
         // 2. Verificar que el token en Redis fue eliminado
         $this->assertNull(Redis::get("invitacion:admin:{$token}"));
         $this->assertNull(Redis::get("usuario:invitacion:{$usuarioId}"));
 
-        // 3. Verificar sesión en Redis
+        // Limpiar
+        DB::table('usuario')->where('id', $usuarioId)->delete();
+    }
+
+    /**
+     * Test 4B: Completar activación con local asignado activa usuario y genera sesión
+     */
+    public function test_completar_activacion_con_local_activa_usuario_y_genera_sesion(): void
+    {
+        $usuarioId = (string) Str::uuid();
+        $correo = 'admin.consede.' . Str::random(5) . '@aurea.pe';
+        $token = 'inv_activa_con_sede_' . Str::random(32);
+        $localId = '00000000-0000-4000-8000-000000000010';
+
+        DB::table('usuario')->insert([
+            'id' => $usuarioId,
+            'empresa_id' => $this->empresaId,
+            'local_id' => $localId,
+            'nombre' => 'Admin Con Sede',
+            'correo' => $correo,
+            'password_hash' => Hash::make(Str::random(30)),
+            'telefono' => '+51 987 654 321',
+            'rol' => 'admin_local',
+            'estado' => 'pendiente_activacion',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Redis::setex("invitacion:admin:{$token}", 86400, json_encode([
+            'usuario_id' => $usuarioId,
+            'empresa_id' => $this->empresaId,
+            'correo' => $correo,
+            'nombre' => 'Admin Con Sede',
+            'rol' => 'admin_local',
+            'token' => $token,
+            'expira_en' => now()->addHours(24)->toIso8601String(),
+        ]));
+        Redis::setex("usuario:invitacion:{$usuarioId}", 86400, json_encode([
+            'token' => $token,
+            'expira_en' => now()->addHours(24)->toIso8601String(),
+        ]));
+
+        $payload = [
+            'token' => $token,
+            'password' => 'PasswordSegura2026!',
+            'password_confirmation' => 'PasswordSegura2026!',
+        ];
+
+        $response = $this->postJson('/api/v1/public/activar-cuenta/completar', $payload);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('exito', true);
+        $response->assertJsonPath('datos.requiere_asignacion_sede', false);
+        $this->assertNotEmpty($response->json('datos.token'));
+        $this->assertNotEmpty($response->json('datos.refresh_token'));
+        $this->assertEquals('activo', $response->json('datos.usuario.estado'));
+
+        // Verificar estado en PostgreSQL
+        $usuarioActualizado = DB::table('usuario')->where('id', $usuarioId)->first();
+        $this->assertEquals('activo', $usuarioActualizado->estado);
+
+        // Verificar sesión en Redis
         $sessionToken = $response->json('datos.token');
         $sessionHash = hash('sha256', $sessionToken);
         $this->assertNotNull(Redis::get("auth:session:{$sessionHash}"));

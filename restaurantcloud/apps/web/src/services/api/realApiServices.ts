@@ -66,6 +66,25 @@ import type {
   CambiarEstadoAdminApiResponse,
 } from '@/types/propietarioAdmins';
 
+import type {
+  DirectorioLocalesApiResponse,
+  DirectorioLocalesResponseDTO,
+  VerificarDisponibilidadApiResponse,
+  VerificarDisponibilidadResponseDTO,
+  VerificarSlugApiResponse,
+  VerificarSlugResponseDTO,
+  CrearLocalRequestDTO,
+  CrearLocalApiResponse,
+  CrearLocalResponseDTO,
+  ActualizarLocalRequestDTO,
+  ActualizarLocalApiResponse,
+  LocalItemDTO,
+  ValidarBajaApiResponse,
+  ValidarBajaResponseDTO,
+  CambiarEstadoLocalRequestDTO,
+  CambiarEstadoApiResponse,
+} from '@/types/propietarioLocales';
+
 export interface LoginParams {
   correo: string;
   password: string;
@@ -723,6 +742,115 @@ export const realPropietarioAdminsService = {
         exito: false,
         datos: null as any,
         errores: [{ codigo: 'ERROR_CONEXION', mensaje: 'Error al actualizar el estado del administrador.' }],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+  },
+};
+
+/**
+ * Servicio Real para Propietario Locales y Sedes (CU-PROP-04 - 100% Backend)
+ */
+export const realPropietarioLocalesService = {
+  async getDirectorioLocales(): Promise<DirectorioLocalesApiResponse> {
+    try {
+      return await apiGet<DirectorioLocalesResponseDTO>('/propietario/locales');
+    } catch (err: any) {
+      if (err.response?.data) return err.response.data;
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERROR_CONEXION', mensaje: 'Error al consultar el directorio de sedes.' }],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+  },
+
+  async verificarDisponibilidad(): Promise<VerificarDisponibilidadApiResponse> {
+    try {
+      return await apiGet<VerificarDisponibilidadResponseDTO>('/propietario/locales/verificar-disponibilidad');
+    } catch (err: any) {
+      if (err.response?.data) return err.response.data;
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERROR_CONEXION', mensaje: 'Error al comprobar disponibilidad de cupos.' }],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+  },
+
+  async verificarSlug(slug: string, excluirLocalId?: string): Promise<VerificarSlugApiResponse> {
+    try {
+      const params: Record<string, string> = { slug };
+      if (excluirLocalId) {
+        params.excluir_id = excluirLocalId;
+      }
+      return await apiGet<VerificarSlugResponseDTO>('/propietario/locales/verificar-slug', params);
+    } catch (err: any) {
+      if (err.response?.data) return err.response.data;
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERROR_CONEXION', mensaje: 'Error al verificar la dirección web de la carta.' }],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+  },
+
+  async crearLocal(req: CrearLocalRequestDTO): Promise<CrearLocalApiResponse> {
+    try {
+      return await apiPost<CrearLocalResponseDTO>('/propietario/locales', req);
+    } catch (err: any) {
+      if (err.response?.data) return err.response.data;
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERROR_CONEXION', mensaje: 'No se pudo conectar con el servidor para registrar el local.' }],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+  },
+
+  async actualizarLocal(id: string, req: ActualizarLocalRequestDTO): Promise<ActualizarLocalApiResponse> {
+    try {
+      return await apiPut<LocalItemDTO>(`/propietario/locales/${id}`, req);
+    } catch (err: any) {
+      if (err.response?.data) return err.response.data;
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERROR_CONEXION', mensaje: 'Error al actualizar los datos de la sede.' }],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+  },
+
+  async validarBajaLocal(id: string): Promise<ValidarBajaApiResponse> {
+    try {
+      return await apiGet<ValidarBajaResponseDTO>(`/propietario/locales/${id}/validar-baja`);
+    } catch (err: any) {
+      if (err.response?.data) return err.response.data;
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERROR_CONEXION', mensaje: 'Error al auditar el estado operativo de la sede.' }],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+  },
+
+  async cambiarEstadoLocal(id: string, req: CambiarEstadoLocalRequestDTO): Promise<CambiarEstadoApiResponse> {
+    try {
+      return await apiPatch<any>(`/propietario/locales/${id}/cambiar-estado`, {
+        nuevo_estado: req.nuevo_estado,
+      });
+    } catch (err: any) {
+      if (err.response?.data) return err.response.data;
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERROR_CONEXION', mensaje: 'Error al cambiar el estado del local.' }],
         meta: { timestamp: new Date().toISOString() },
       };
     }

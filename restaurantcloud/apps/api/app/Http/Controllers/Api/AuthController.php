@@ -252,8 +252,16 @@ class AuthController extends Controller
      * Genera token y refresh_token en Redis (Cero consultas a personal_access_tokens).
      */
     private function generarRespuestaSesionExitosa(Usuario $user, ?string $existingRefreshToken = null): JsonResponse
-
     {
+        // Regla de seguridad: Un administrador de local debe tener una sede asignada para operar
+        if ($user->rol === 'admin_local' && empty($user->local_id)) {
+            return ApiResponse::error(
+                'ADMIN_SIN_LOCAL_ASIGNADO',
+                'No tienes una sede asignada. Contacta al propietario de tu restaurante para habilitar tu acceso.',
+                403
+            );
+        }
+
         $user->update(['ultimo_login' => now()]);
 
         // Generar tokens opacos

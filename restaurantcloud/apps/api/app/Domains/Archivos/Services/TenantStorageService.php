@@ -80,6 +80,88 @@ class TenantStorageService
     }
 
     /**
+     * Comprueba si el espacio y manifiesto del local ya ha sido inicializado.
+     */
+    public function estaLocalInicializado(string $empresaId, string $localId): bool
+    {
+        $manifestKey = "tenants/{$empresaId}/locales/{$localId}/manifest.json";
+
+        return Storage::disk($this->disk)->exists($manifestKey)
+            || Archivo::where('empresa_id', $empresaId)
+                ->where('local_id', $localId)
+                ->where('object_key', $manifestKey)
+                ->exists();
+    }
+
+    /**
+     * Inicializa el espacio y estructura de carpetas virtuales del local en MinIO.
+     * Crea un manifiesto json inmutable para certificar el alta de almacenamiento del local.
+     */
+    public function inicializarEspacioLocal(string $empresaId, string $localId, array $metadata = []): bool
+    {
+        $manifestKey = "tenants/{$empresaId}/locales/{$localId}/manifest.json";
+
+        $manifestContent = json_encode([
+            'empresa_id' => $empresaId,
+            'local_id' => $localId,
+            'fecha_alta' => now()->toIso8601String(),
+            'bucket' => $this->bucket,
+            'prefijos_asignados' => [
+                'catalogo_productos' => "catalogo/empresas/{$empresaId}/locales/{$localId}/productos/",
+                'privado_incidentes' => "privado/empresas/{$empresaId}/locales/{$localId}/incidentes/",
+                'privado_comprobantes' => "privado/empresas/{$empresaId}/locales/{$localId}/comprobantes/",
+                'privado_reportes_z' => "privado/empresas/{$empresaId}/locales/{$localId}/reportes-z/",
+            ],
+            'metadata' => $metadata,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        $saved = Storage::disk($this->disk)->put($manifestKey, $manifestContent, [
+            'visibility' => 'private',
+            'ContentType' => 'application/json',
+        ]);
+
+        if ($saved) {
+            // Registrar metadatos en la tabla archivo
+            Archivo::updateOrCreate(
+                [
+                    'empresa_id' => $empresaId,
+                    'object_key' => $manifestKey,
+                ],
+                [
+                    'id' => (string) Str::uuid(),
+                    'local_id' => $localId,
+                    'bucket' => $this->bucket,
+                    'nombre_original' => 'manifest.json',
+                    'mime_type' => 'application/json',
+                    'tamanio_bytes' => strlen($manifestContent),
+                    'sha256' => hash('sha256', $manifestContent),
+                    'visibilidad' => 'privado',
+                    'entidad_tipo' => 'local_manifest',
+                    'entidad_id' => $localId,
+                    'estado' => 'disponible',
+                ]
+            );
+        }
+
+        return $saved;
+    }
+
+    /**
+     * Obtiene el manifiesto de inicialización de un local específico.
+     */
+    public function obtenerManifiestoLocal(string $empresaId, string $localId): ?array
+    {
+        $manifestKey = "tenants/{$empresaId}/locales/{$localId}/manifest.json";
+
+        if (! Storage::disk($this->disk)->exists($manifestKey)) {
+            return null;
+        }
+
+        $content = Storage::disk($this->disk)->get($manifestKey);
+        return json_decode($content, true);
+    }
+
+    /**
      * Genera la ruta canónica para archivos públicos de catálogo (platos, cartas, etc.)
      */
     public function generarKeyCatalogo(

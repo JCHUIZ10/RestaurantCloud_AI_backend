@@ -63,6 +63,19 @@ class InitTenantStorageCommand extends Command
         }
 
         if (! $forzar && $storageService->estaInicializado($testId)) {
+            // Verificar e inicializar sedes registradas que falten
+            $locales = DB::table('local')->where('empresa_id', $testId)->get();
+            foreach ($locales as $local) {
+                if ($forzar || ! $storageService->estaLocalInicializado($testId, $local->id)) {
+                    $storageService->inicializarEspacioLocal($testId, $local->id, [
+                        'nombre' => $local->nombre,
+                        'slug' => $local->slug,
+                        'giro_negocio' => $local->giro_negocio,
+                    ]);
+                    $this->info("✓ Sede '{$local->nombre}' inicializada en MinIO.");
+                }
+            }
+
             $this->warn("La empresa de prueba '{$empresa->razon_social}' (RUC: {$empresa->ruc}) ya cuenta con su espacio MinIO inicializado.");
             $this->info("Omitiendo para evitar duplicidad. (Usa --force si deseas regenerar el manifiesto).");
             return self::SUCCESS;
@@ -145,6 +158,17 @@ class InitTenantStorageCommand extends Command
 
         $manifestKey = "tenants/{$empresa->id}/manifest.json";
         $archivo = DB::table('archivo')->where('object_key', $manifestKey)->first();
+
+        // Inicializar también las sedes físicas existentes de la empresa
+        $locales = DB::table('local')->where('empresa_id', $empresa->id)->get();
+        foreach ($locales as $local) {
+            $storageService->inicializarEspacioLocal($empresa->id, $local->id, [
+                'nombre' => $local->nombre,
+                'slug' => $local->slug,
+                'giro_negocio' => $local->giro_negocio,
+            ]);
+            $this->line("  ↳ Sede '{$local->nombre}' ({$local->id}) inicializada en MinIO.");
+        }
 
         $this->newLine();
         $this->info("✓ Espacio de almacenamiento MinIO registrado exitosamente:");

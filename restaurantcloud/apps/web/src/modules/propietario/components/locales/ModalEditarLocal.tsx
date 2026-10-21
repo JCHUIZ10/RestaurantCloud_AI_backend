@@ -38,6 +38,7 @@ import {
   getDistritosByProvincia,
   getUbigeoCompleto,
 } from '../../services/propietarioLocalesService';
+import { extraerDigitosMovilPeru, formatearTelefonoPeru } from '@/shared/utils';
 
 function slugify(text: string): string {
   return text
@@ -178,13 +179,16 @@ export const ModalEditarLocal: React.FC<ModalEditarLocalProps> = ({
     }
   };
 
+  const digitosTelefono = extraerDigitosMovilPeru(telefono);
+  const telefonoValido = digitosTelefono.length === 9 && digitosTelefono.startsWith('9');
+
   const puedeGuardar =
     nombre.trim().length >= 3 &&
     slug.trim().length >= 3 &&
     slugDisponible === true &&
     direccion.trim().length >= 5 &&
     distritoNombre.trim().length > 0 &&
-    telefono.trim().length >= 7 &&
+    telefonoValido &&
     (modoAdmin === 'propietario' || (modoAdmin === 'asignar_admin' && !!adminId));
 
   const handleGuardar = async () => {
@@ -200,7 +204,7 @@ export const ModalEditarLocal: React.FC<ModalEditarLocalProps> = ({
         provincia: provinciaNombre,
         distrito: distritoNombre,
         ciudad: provinciaNombre === 'Santa' ? 'Chimbote' : distritoNombre,
-        telefono: telefono.trim(),
+        telefono: `+51 ${formatearTelefonoPeru(digitosTelefono)}`,
         modo_administracion: modoAdmin,
         administrador_usuario_id: modoAdmin === 'asignar_admin' ? adminId : null,
       };
@@ -428,20 +432,38 @@ export const ModalEditarLocal: React.FC<ModalEditarLocalProps> = ({
             </p>
           </div>
 
-          {/* Teléfono */}
-          <div>
-            <label className="block text-xs font-bold text-aurea-navy uppercase tracking-wider mb-1.5">
-              Teléfono de Contacto <span className="text-rose-500">*</span>
+          {/* Teléfono de Contacto (Estándar WhatsApp Móvil Perú) */}
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-1.5 text-xs font-bold text-aurea-navy uppercase tracking-wider">
+              <Phone className="w-3.5 h-3.5 text-aurea-copper" />
+              <span>Teléfono / WhatsApp de la Sede</span>
+              <span className="text-rose-500">*</span>
             </label>
-            <div className="relative">
-              <Phone className="w-4 h-4 text-aurea-navy/40 absolute left-3.5 top-3" />
+            <div className="flex rounded-xl border border-aurea-copper/30 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-aurea-gold/50 focus-within:border-aurea-copper transition-all">
+              {/* Prefijo Fijo No Editable */}
+              <div className="inline-flex items-center gap-1.5 px-3 bg-aurea-ivory border-r border-aurea-copper/20 text-aurea-navy font-semibold text-xs select-none">
+                <span>🇵🇪</span>
+                <span className="font-mono text-xs">+51</span>
+              </div>
+
+              {/* Input de Dígitos */}
               <input
-                type="text"
-                value={telefono}
-                onChange={(e) => setTelefono(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-aurea-copper/30 bg-white focus:outline-none focus:ring-2 focus:ring-aurea-gold/50 focus:border-aurea-copper transition-all"
+                type="tel"
+                inputMode="numeric"
+                maxLength={11}
+                value={formatearTelefonoPeru(telefono)}
+                onChange={(e) => {
+                  const digits = extraerDigitosMovilPeru(e.target.value);
+                  const formatted = formatearTelefonoPeru(digits);
+                  setTelefono(digits ? `+51 ${formatted}` : '');
+                }}
+                placeholder="987 654 321"
+                className="w-full px-3.5 py-2.5 text-xs font-mono text-aurea-navy bg-transparent focus:outline-none placeholder:text-slate-400"
               />
             </div>
+            <p className="text-[10px] text-aurea-navy/60">
+              Número móvil peruano de 9 dígitos. Utilizado para la carta digital, pedidos por WhatsApp y llamadas de comensales.
+            </p>
           </div>
 
           {/* Modo de Supervisión */}

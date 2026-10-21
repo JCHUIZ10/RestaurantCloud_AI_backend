@@ -142,10 +142,13 @@ class ActivacionCuentaController extends Controller
                 throw new \DomainException('CUENTA_YA_ACTIVADA');
             }
 
+            // Un administrador sin sede asignada debe permanecer inactivo para prevenir accesos no autorizados
+            $nuevoEstado = ($u->rol === 'admin_local' && empty($u->local_id)) ? 'inactivo' : 'activo';
+
             DB::table('usuario')->where('id', $usuarioId)->update([
                 'password_hash' => Hash::make($validated['password']),
-                'estado' => 'activo',
-                'ultimo_login' => now(),
+                'estado' => $nuevoEstado,
+                'ultimo_login' => ($nuevoEstado === 'activo') ? now() : null,
                 'updated_at' => now(),
             ]);
 
@@ -169,36 +172,47 @@ class ActivacionCuentaController extends Controller
             // Silencioso
         }
 
-        // Generar sesión autenticada en Redis
-        $sessionToken = Str::random(60);
-        $tokenHash = hash('sha256', $sessionToken);
-        $refreshToken = Str::random(60);
+        $esAdminSinLocal = ($usuario->rol === 'admin_local' && empty($usuario->local_id));
+        $sessionToken = null;
+        $refreshToken = null;
 
-        $sessionPayload = [
-            'id' => $usuario->id,
-            'nombre' => $usuario->nombre,
-            'correo' => $usuario->correo,
-            'rol' => $usuario->rol,
-            'telefono' => $usuario->telefono,
-            'empresa_id' => $usuario->empresa_id,
-            'local_id' => $usuario->local_id,
-            'estado' => 'activo',
-            'refresh_token' => $refreshToken,
-        ];
+        if (! $esAdminSinLocal) {
+            // Generar sesión autenticada en Redis solo si tiene sede activa
+            $sessionToken = Str::random(60);
+            $tokenHash = hash('sha256', $sessionToken);
+            $refreshToken = Str::random(60);
 
-        try {
-            Redis::setex("auth:session:{$tokenHash}", 86400, json_encode($sessionPayload));
-            Redis::setex("auth:refresh:{$refreshToken}", 604800, json_encode([
-                'usuario_id' => $usuario->id,
-                'token_hash' => $tokenHash,
-            ]));
-        } catch (\Throwable $e) {
-            // Silencioso si Redis falla en emitir sesión automática
+            $sessionPayload = [
+                'id' => $usuario->id,
+                'nombre' => $usuario->nombre,
+                'correo' => $usuario->correo,
+                'rol' => $usuario->rol,
+                'telefono' => $usuario->telefono,
+                'empresa_id' => $usuario->empresa_id,
+                'local_id' => $usuario->local_id,
+                'estado' => 'activo',
+                'refresh_token' => $refreshToken,
+            ];
+
+            try {
+                Redis::setex("auth:session:{$tokenHash}", 86400, json_encode($sessionPayload));
+                Redis::setex("auth:refresh:{$refreshToken}", 604800, json_encode([
+                    'usuario_id' => $usuario->id,
+                    'token_hash' => $tokenHash,
+                ]));
+            } catch (\Throwable $e) {
+                // Silencioso si Redis falla en emitir sesión automática
+            }
         }
+
+        $mensaje = $esAdminSinLocal
+            ? 'Cuenta activada exitosamente. Tu contraseña personal ha sido configurada. Tu acceso operativo se habilitará en cuanto el propietario te asigne una sede física.'
+            : 'Cuenta activada exitosamente. Tu contraseña personal ha sido configurada.';
 
         return ApiResponse::ok([
             'token' => $sessionToken,
             'refresh_token' => $refreshToken,
+            'requiere_asignacion_sede' => $esAdminSinLocal,
             'usuario' => [
                 'id' => $usuario->id,
                 'nombre' => $usuario->nombre,
@@ -207,8 +221,9 @@ class ActivacionCuentaController extends Controller
                 'empresa_id' => $usuario->empresa_id,
                 'local_id' => $usuario->local_id,
                 'telefono' => $usuario->telefono,
+                'estado' => $usuario->estado,
             ],
-            'mensaje' => 'Cuenta activada exitosamente. Tu contraseña personal ha sido configurada.',
+            'mensaje' => $mensaje,
         ]);
     }
 }

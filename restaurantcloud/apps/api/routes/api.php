@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Admin\HorarioController;
 use App\Http\Controllers\Api\Admin\ProductoController;
 use App\Http\Controllers\Api\Admin\PersonalController;
 use App\Http\Controllers\Api\Propietario\AdministradorController;
+use App\Http\Controllers\Api\Propietario\LocalController;
 use App\Http\Controllers\Api\CajaController;
 use App\Http\Controllers\Api\CocinaController;
 use App\Http\Controllers\Api\MozoController;
@@ -90,8 +91,20 @@ Route::prefix('v1')->group(function (): void {
             });
         });
 
-        // Propietario (CU-PROP-05: Administradores de Local)
+        // Propietario (CU-PROP-04: Gestión de Locales / CU-PROP-05: Administradores de Local)
         Route::prefix('propietario')->middleware('role:propietario,admin_saas')->group(function (): void {
+            // CU-PROP-04: Registrar y Administrar Locales
+            Route::prefix('locales')->group(function (): void {
+                Route::get('/', [LocalController::class, 'index']);
+                Route::get('/verificar-disponibilidad', [LocalController::class, 'verificarDisponibilidad']);
+                Route::get('/verificar-slug', [LocalController::class, 'verificarSlug']);
+                Route::post('/', [LocalController::class, 'store']);
+                Route::put('/{id}', [LocalController::class, 'update']);
+                Route::get('/{id}/validar-baja', [LocalController::class, 'validarBaja']);
+                Route::patch('/{id}/cambiar-estado', [LocalController::class, 'cambiarEstado']);
+            });
+
+            // CU-PROP-05: Administradores de Local
             Route::prefix('administradores')->group(function (): void {
                 Route::get('/', [AdministradorController::class, 'index']);
                 Route::get('/cuota-personal', [AdministradorController::class, 'cuotaPersonal']);

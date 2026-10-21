@@ -22,6 +22,18 @@ class TenantStorageSeeder extends Seeder
         }
 
         if ($storageService->estaInicializado($testId)) {
+            // Inicializar sedes que falten
+            $locales = DB::table('local')->where('empresa_id', $testId)->get();
+            foreach ($locales as $local) {
+                if (! $storageService->estaLocalInicializado($testId, $local->id)) {
+                    $storageService->inicializarEspacioLocal($testId, $local->id, [
+                        'nombre' => $local->nombre,
+                        'slug' => $local->slug,
+                        'giro_negocio' => $local->giro_negocio,
+                    ]);
+                }
+            }
+
             if (isset($this->command)) {
                 $this->command->info("Empresa de prueba '{$empresa->razon_social}' ya tiene espacio MinIO inicializado. Omitiendo.");
             }
@@ -35,6 +47,15 @@ class TenantStorageSeeder extends Seeder
             'propietario_correo' => $empresa->correo_contacto,
             'origen' => 'TenantStorageSeeder',
         ]);
+
+        $locales = DB::table('local')->where('empresa_id', $testId)->get();
+        foreach ($locales as $local) {
+            $storageService->inicializarEspacioLocal($testId, $local->id, [
+                'nombre' => $local->nombre,
+                'slug' => $local->slug,
+                'giro_negocio' => $local->giro_negocio,
+            ]);
+        }
 
         if (isset($this->command)) {
             $this->command->info("Espacio MinIO inicializado con éxito para {$empresa->razon_social}.");

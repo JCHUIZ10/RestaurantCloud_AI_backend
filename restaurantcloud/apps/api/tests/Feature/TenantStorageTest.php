@@ -129,4 +129,59 @@ class TenantStorageTest extends TestCase
             ->expectsOutputToContain("Omitiendo para evitar duplicidad")
             ->assertExitCode(0);
     }
+
+    /**
+     * Test 5: Inicialización de espacio de local en MinIO genera manifiesto y registro en archivo
+     */
+    public function test_inicializar_espacio_local_genera_manifiesto_minio_y_registro_archivo(): void
+    {
+        $manifestKey = "tenants/{$this->empresaId}/locales/{$this->localId}/manifest.json";
+
+        // Limpieza previa
+        Storage::disk('s3')->delete($manifestKey);
+        DB::table('archivo')
+            ->where('empresa_id', $this->empresaId)
+            ->where('object_key', $manifestKey)
+            ->delete();
+
+        $this->assertFalse($this->service->estaLocalInicializado($this->empresaId, $this->localId));
+
+        $metadata = [
+            'nombre' => 'ÁUREA Miraflores',
+            'slug' => 'aurea-miraflores',
+            'giro_negocio' => 'cevicheria',
+        ];
+
+        $resultado = $this->service->inicializarEspacioLocal($this->empresaId, $this->localId, $metadata);
+        $this->assertTrue($resultado);
+
+        // 1. Validar en MinIO S3
+        $this->assertTrue(Storage::disk('s3')->exists($manifestKey));
+        $this->assertTrue($this->service->estaLocalInicializado($this->empresaId, $this->localId));
+
+        // 2. Validar contenido del manifiesto
+        $manifiesto = $this->service->obtenerManifiestoLocal($this->empresaId, $this->localId);
+        $this->assertNotNull($manifiesto);
+        $this->assertEquals($this->empresaId, $manifiesto['empresa_id']);
+        $this->assertEquals($this->localId, $manifiesto['local_id']);
+        $this->assertEquals('ÁUREA Miraflores', $manifiesto['metadata']['nombre']);
+        $this->assertEquals('cevicheria', $manifiesto['metadata']['giro_negocio']);
+        $this->assertArrayHasKey('prefijos_asignados', $manifiesto);
+        $this->assertStringContainsString("locales/{$this->localId}/productos/", $manifiesto['prefijos_asignados']['catalogo_productos']);
+
+        // 3. Validar en PostgreSQL (tabla archivo)
+        $archivoBd = DB::table('archivo')
+            ->where('empresa_id', $this->empresaId)
+            ->where('object_key', $manifestKey)
+            ->first();
+
+        $this->assertNotNull($archivoBd);
+        $this->assertEquals($this->localId, $archivoBd->local_id);
+        $this->assertEquals('privado', $archivoBd->visibilidad);
+        $this->assertEquals('local_manifest', $archivoBd->entidad_tipo);
+        $this->assertEquals($this->localId, $archivoBd->entidad_id);
+        $this->assertEquals('manifest.json', $archivoBd->nombre_original);
+        $this->assertEquals('application/json', $archivoBd->mime_type);
+        $this->assertEquals('disponible', $archivoBd->estado);
+    }
 }
