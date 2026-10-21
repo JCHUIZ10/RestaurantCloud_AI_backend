@@ -41,6 +41,11 @@ import type {
   ReasignarYEliminarCategoriaRequest,
   ReordenarCategoriasRequest,
   ResultadoReasignacionCategoriaDTO,
+  ActualizarEmpleadoRequestDTO,
+  EmpleadoDetalleDTO,
+  ListarPersonalResponseDTO,
+  RegistrarEmpleadoRequestDTO,
+  ResetPasswordResponseDTO,
 } from '@/types/admin';
 
 export interface LoginParams {
@@ -444,6 +449,11 @@ export const realAdminService = {
       return error.response?.data ?? Promise.reject(error);
     }
   },
+  getPersonal: (filtros: Record<string, unknown>): Promise<ApiEnvelope<ListarPersonalResponseDTO>> => apiGet('/admin/personal', filtros),
+  registrarEmpleado: (payload: RegistrarEmpleadoRequestDTO): Promise<ApiEnvelope<EmpleadoDetalleDTO>> => apiPost('/admin/personal', payload),
+  actualizarEmpleado: (id: string, payload: ActualizarEmpleadoRequestDTO): Promise<ApiEnvelope<EmpleadoDetalleDTO>> => apiPatch(`/admin/personal/${id}`, payload),
+  reactivarEmpleado: (id: string): Promise<ApiEnvelope<EmpleadoDetalleDTO>> => apiPost(`/admin/personal/${id}/reactivar`),
+  resetPasswordEmpleado: (id: string): Promise<ApiEnvelope<ResetPasswordResponseDTO>> => apiPost(`/admin/personal/${id}/reset-password`),
 };
 
 // CU-PROP-01: Onboarding y Registro de Empresa (Propietario)
@@ -541,4 +551,3 @@ export const realRegistroEmpresaService = {
     }
   },
 };
-
