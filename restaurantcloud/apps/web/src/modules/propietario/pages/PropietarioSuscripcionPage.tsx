@@ -158,7 +158,6 @@ export const PropietarioSuscripcionPage: React.FC = () => {
         plan={dashboard.plan}
         estadoSuscripcion={dashboard.suscripcion_estado}
         estadoCobro={dashboard.estado_cobro}
-        onAbrirActualizarTarjeta={() => setModalTarjetaAbierto(true)}
         onAbrirCambiarPlan={() => navigate(ROUTES.PROPIETARIO_CAMBIAR_PLAN)}
       />
 

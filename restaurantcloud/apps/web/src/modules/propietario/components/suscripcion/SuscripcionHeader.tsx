@@ -1,13 +1,12 @@
 import React from 'react';
 import { PlanSuscripcionDTO, EstadoSuscripcion, EstadoCobroDunningDTO } from '@/types/propietarioSuscripcion';
 import { Button } from '@/components/ui/Button';
-import { Sparkles, CreditCard, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Sparkles, ShieldCheck, AlertTriangle } from 'lucide-react';
 
 interface SuscripcionHeaderProps {
   plan: PlanSuscripcionDTO | null;
   estadoSuscripcion: EstadoSuscripcion;
   estadoCobro: EstadoCobroDunningDTO | null;
-  onAbrirActualizarTarjeta: () => void;
   onAbrirCambiarPlan: () => void;
 }
 
@@ -15,7 +14,6 @@ export const SuscripcionHeader: React.FC<SuscripcionHeaderProps> = ({
   plan,
   estadoSuscripcion,
   estadoCobro,
-  onAbrirActualizarTarjeta,
   onAbrirCambiarPlan,
 }) => {
   const renderBadgeEstado = () => {
@@ -77,21 +75,11 @@ export const SuscripcionHeader: React.FC<SuscripcionHeaderProps> = ({
         <div className="flex flex-wrap items-center gap-2.5">
           <Button
             type="button"
-            variant="outline"
             onClick={onAbrirCambiarPlan}
-            className="border-aurea-navy/20 text-aurea-navy hover:bg-aurea-navy/5 font-bold text-xs sm:text-sm py-2 px-3.5 shadow-sm flex items-center gap-1.5"
-          >
-            <Sparkles className="w-4 h-4 text-aurea-copper" />
-            <span>Cambiar de Plan</span>
-          </Button>
-
-          <Button
-            type="button"
-            onClick={onAbrirActualizarTarjeta}
             className="bg-aurea-navy text-white hover:bg-aurea-navy/90 font-bold text-xs sm:text-sm py-2 px-4 shadow-md hover:shadow-lg transition-all flex items-center gap-2"
           >
-            <CreditCard className="w-4 h-4 text-aurea-champagne" />
-            <span>Actualizar Tarjeta</span>
+            <Sparkles className="w-4 h-4 text-aurea-champagne" />
+            <span>Cambiar de Plan</span>
           </Button>
         </div>
       </div>
