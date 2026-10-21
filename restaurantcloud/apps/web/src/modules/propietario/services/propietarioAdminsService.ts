@@ -77,16 +77,22 @@ const ADMINS_SEED: AdministradorItemDTO[] = [
     created_at: '2026-09-15T12:00:00Z',
   },
   {
-    id: 'usr-adm-02-carlos',
+    id: 'usr-adm-02-diego',
+    nombre: 'Diego Salazar Castro',
+    correo: 'diego.salazar@aurea.local',
+    telefono: '+51 912 345 678',
+    estado: 'activo',
+    sede_asignada: null,
+    ultimo_login: 'Ayer 18:30',
+    created_at: '2026-09-20T14:00:00Z',
+  },
+  {
+    id: 'usr-adm-03-carlos',
     nombre: 'Carlos Rojas Pardo',
     correo: 'carlos.rojas@aurea.local',
     telefono: '+51 987 654 321',
     estado: 'pendiente_activacion',
-    sede_asignada: {
-      id: '00000000-0000-4000-8000-000000000020',
-      nombre: 'ÁUREA San Isidro (Financiero)',
-      distrito: 'San Isidro',
-    },
+    sede_asignada: null,
     ultimo_login: null,
     invitacion_token: 'inv_tok_9b2e4f71a',
     invitacion_expira_en: new Date(Date.now() + 18 * 3600 * 1000).toISOString(),
@@ -199,6 +205,36 @@ class PropietarioAdminsService {
       }
     });
 
+    // Sincronizar asignaciones con el módulo de Locales (CU-PROP-04)
+    try {
+      const localesData = localStorage.getItem(LOCALES_STORAGE_KEY);
+      if (localesData) {
+        const locales = JSON.parse(localesData);
+        if (Array.isArray(locales)) {
+          admins.forEach((admin) => {
+            if (admin.estado === 'pendiente_activacion') {
+              admin.sede_asignada = null;
+            } else {
+              const localQueTieneAdmin = locales.find(
+                (loc: any) => !loc.es_autogestionado && loc.administrador?.id === admin.id
+              );
+              if (localQueTieneAdmin) {
+                admin.sede_asignada = {
+                  id: localQueTieneAdmin.id,
+                  nombre: localQueTieneAdmin.nombre,
+                  distrito: localQueTieneAdmin.distrito,
+                };
+              } else if (admin.sede_asignada?.id && !locales.some((l: any) => l.id === admin.sede_asignada?.id)) {
+                admin.sede_asignada = null;
+              }
+            }
+          });
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     const cuota = this.calcularCuota(admins);
 
     return {
@@ -272,29 +308,6 @@ class PropietarioAdminsService {
       };
     }
 
-    // Regla de unicidad 1:1 de titular
-    const adminExistente = admins.find(
-      (a) => a.sede_asignada?.id === dto.local_id && a.estado !== 'inactivo'
-    );
-    if (adminExistente) {
-      return {
-        exito: false,
-        datos: null as unknown as InvitarAdminApiResponse['datos'],
-        errores: [
-          {
-            codigo: 'ADMIN_SEDE_YA_TIENE_TITULAR',
-            mensaje: `La sede seleccionada ya cuenta con ${adminExistente.nombre} como administrador titular.`,
-          },
-        ],
-        meta: { timestamp: new Date().toISOString() },
-      };
-    }
-
-    const todasLasSedes = this.getSedesDisponibles();
-    const sedeElegida = todasLasSedes.find((s) => s.id === dto.local_id);
-    const sedeNombre = sedeElegida ? sedeElegida.nombre : 'Sede Asignada';
-    const sedeDistrito = sedeElegida?.distrito || 'Lima';
-
     const token = 'inv_tok_' + Math.random().toString(36).substring(2, 10);
     const expiraEn = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
 
@@ -304,11 +317,7 @@ class PropietarioAdminsService {
       correo: dto.correo.trim().toLowerCase(),
       telefono: dto.telefono?.trim() || undefined,
       estado: 'pendiente_activacion',
-      sede_asignada: {
-        id: dto.local_id,
-        nombre: sedeNombre,
-        distrito: sedeDistrito,
-      },
+      sede_asignada: null,
       ultimo_login: null,
       invitacion_token: token,
       invitacion_expira_en: expiraEn,
@@ -327,8 +336,8 @@ class PropietarioAdminsService {
         correo: nuevoAdmin.correo,
         rol: 'admin_local',
         estado: 'pendiente_activacion',
-        local_id: dto.local_id,
-        sede_nombre: sedeNombre,
+        local_id: null as any,
+        sede_nombre: 'Sin Asignar',
         invitacion_token: token,
         invitacion_expira_en: expiraEn,
         mensaje:

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   AdministradorItemDTO,
   CuotaPersonalDTO,
@@ -8,8 +8,11 @@ import {
 import { propietarioAdminsService } from '../services/propietarioAdminsService';
 import { AdminsHeader } from '../components/administradores/AdminsHeader';
 import { AdminsTabla } from '../components/administradores/AdminsTabla';
+import {
+  AdminsFiltrosBar,
+  TabEstadoAdmin,
+} from '../components/administradores/AdminsFiltrosBar';
 import { ModalInvitarAdmin } from '../components/administradores/ModalInvitarAdmin';
-import { ModalReasignarSede } from '../components/administradores/ModalReasignarSede';
 import { ModalDesactivarAdmin } from '../components/administradores/ModalDesactivarAdmin';
 import { ModalCopiarInvitacion } from '../components/administradores/ModalCopiarInvitacion';
 import { DemoAdminsWidget } from '../components/administradores/DemoAdminsWidget';
@@ -26,9 +29,12 @@ export const PropietarioAdministradoresPage: React.FC = () => {
   const [formularioDatos, setFormularioDatos] = useState<FormularioDatosInvitacionDTO | null>(null);
   const [cargando, setCargando] = useState(true);
 
+  // Filtros y Segmentación por Tabs
+  const [tabActivo, setTabActivo] = useState<TabEstadoAdmin>('activos');
+  const [busqueda, setBusqueda] = useState('');
+
   // Modales
   const [modalInvitarAbierto, setModalInvitarAbierto] = useState(false);
-  const [adminAReasignar, setAdminAReasignar] = useState<AdministradorItemDTO | null>(null);
   const [adminADesactivar, setAdminADesactivar] = useState<AdministradorItemDTO | null>(null);
   const [adminAVerEnlace, setAdminAVerEnlace] = useState<AdministradorItemDTO | null>(null);
 
@@ -97,30 +103,6 @@ export const PropietarioAdministradoresPage: React.FC = () => {
       }
     } catch {
       mostrarToast('error', 'Ocurrió un error inesperado al procesar la invitación.');
-      return false;
-    }
-  };
-
-  // Handler: Reasignar Sede
-  const handleConfirmarReasignacion = async (
-    adminId: string,
-    nuevoLocalId: string
-  ): Promise<boolean> => {
-    try {
-      const res = await propietarioAdminsService.reasignarSede(adminId, {
-        nuevo_local_id: nuevoLocalId,
-      });
-
-      if (res.exito && res.datos) {
-        mostrarToast('success', res.datos.mensaje);
-        await cargarDatos();
-        return true;
-      } else {
-        mostrarToast('error', res.errores?.[0]?.mensaje || 'No se pudo reasignar la sede.');
-        return false;
-      }
-    } catch {
-      mostrarToast('error', 'Error de red al reasignar la sede titular.');
       return false;
     }
   };
@@ -205,8 +187,47 @@ export const PropietarioAdministradoresPage: React.FC = () => {
     }
   };
 
+  // Cálculo de Conteos en tiempo real por categoría
+  const conteos = useMemo(() => ({
+    activos: administradores.filter((a) => a.estado === 'activo').length,
+    pendientes: administradores.filter((a) => a.estado === 'pendiente_activacion').length,
+    desactivados: administradores.filter((a) => a.estado === 'inactivo').length,
+    todos: administradores.length,
+  }), [administradores]);
+
+  // Filtrado reactivo en memoria: por pestaña de estado y búsqueda de texto
+  const administradoresFiltrados = useMemo(() => {
+    return administradores.filter((admin) => {
+      // 1. Filtro por pestaña activa
+      if (tabActivo === 'activos' && admin.estado !== 'activo') {
+        return false;
+      }
+      if (tabActivo === 'pendientes' && admin.estado !== 'pendiente_activacion') {
+        return false;
+      }
+      if (tabActivo === 'desactivados' && admin.estado !== 'inactivo') {
+        return false;
+      }
+
+      // 2. Filtro por búsqueda de texto (nombre, correo o sede)
+      if (busqueda.trim()) {
+        const query = busqueda.toLowerCase().trim();
+        const coincideNombre = admin.nombre.toLowerCase().includes(query);
+        const coincideCorreo = admin.correo.toLowerCase().includes(query);
+        const coincideSede = admin.sede_asignada?.nombre.toLowerCase().includes(query) ?? false;
+        const coincideDistrito = admin.sede_asignada?.distrito?.toLowerCase().includes(query) ?? false;
+
+        if (!coincideNombre && !coincideCorreo && !coincideSede && !coincideDistrito) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [administradores, tabActivo, busqueda]);
+
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-300">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-in fade-in duration-300">
       {/* Toast Flotante */}
       {toast && (
         <div className="fixed top-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl text-xs font-bold border transition-all animate-in slide-in-from-top-4 duration-200 bg-white border-aurea-copper/40 text-aurea-navy">
@@ -232,6 +253,16 @@ export const PropietarioAdministradoresPage: React.FC = () => {
         onAbrirInvitar={() => setModalInvitarAbierto(true)}
       />
 
+      {/* Barra de Filtros (Segmented Pill-Tabs y Buscador Rápido) */}
+      <AdminsFiltrosBar
+        tabActivo={tabActivo}
+        onTabChange={setTabActivo}
+        conteos={conteos}
+        busqueda={busqueda}
+        onBusquedaChange={setBusqueda}
+        onLimpiarBusqueda={() => setBusqueda('')}
+      />
+
       {/* Contenido Principal: Skeleton vs Tabla */}
       {cargando ? (
         <div className="bg-white rounded-3xl border-2 border-aurea-copper/20 p-12 text-center space-y-3 shadow-sm">
@@ -242,8 +273,10 @@ export const PropietarioAdministradoresPage: React.FC = () => {
         </div>
       ) : (
         <AdminsTabla
-          administradores={administradores}
-          onReasignar={(admin) => setAdminAReasignar(admin)}
+          administradores={administradoresFiltrados}
+          tabActivo={tabActivo}
+          busqueda={busqueda}
+          onLimpiarBusqueda={() => setBusqueda('')}
           onDesactivar={(admin) => setAdminADesactivar(admin)}
           onReactivar={handleReactivarAdmin}
           onReenviar={handleReenviarInvitacion}
@@ -259,13 +292,6 @@ export const PropietarioAdministradoresPage: React.FC = () => {
         formularioDatos={formularioDatos}
         onCerrar={() => setModalInvitarAbierto(false)}
         onEnviarInvitacion={handleEnviarInvitacion}
-      />
-
-      <ModalReasignarSede
-        admin={adminAReasignar}
-        sedesDisponibles={formularioDatos?.sedes_disponibles || []}
-        onCerrar={() => setAdminAReasignar(null)}
-        onConfirmarReasignacion={handleConfirmarReasignacion}
       />
 
       <ModalDesactivarAdmin

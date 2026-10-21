@@ -1,12 +1,12 @@
 import React from 'react';
 import { AdministradorItemDTO } from '@/types/propietarioAdmins';
 import { Button } from '@/components/ui/Button';
+import type { TabEstadoAdmin } from './AdminsFiltrosBar';
 import {
   MapPin,
   Phone,
   Mail,
   Clock,
-  ArrowRightLeft,
   UserX,
   UserCheck,
   Send,
@@ -15,11 +15,14 @@ import {
   Building2,
   ShieldCheck,
   AlertTriangle,
+  Search,
 } from 'lucide-react';
 
 interface AdminsTablaProps {
   administradores: AdministradorItemDTO[];
-  onReasignar: (admin: AdministradorItemDTO) => void;
+  tabActivo?: TabEstadoAdmin;
+  busqueda?: string;
+  onLimpiarBusqueda?: () => void;
   onDesactivar: (admin: AdministradorItemDTO) => void;
   onReactivar: (admin: AdministradorItemDTO) => void;
   onReenviar: (admin: AdministradorItemDTO) => void;
@@ -29,7 +32,9 @@ interface AdminsTablaProps {
 
 export const AdminsTabla: React.FC<AdminsTablaProps> = ({
   administradores,
-  onReasignar,
+  tabActivo = 'activos',
+  busqueda = '',
+  onLimpiarBusqueda,
   onDesactivar,
   onReactivar,
   onReenviar,
@@ -60,6 +65,71 @@ export const AdminsTabla: React.FC<AdminsTablaProps> = ({
   };
 
   if (administradores.length === 0) {
+    if (busqueda.trim()) {
+      return (
+        <div className="bg-white rounded-3xl border-2 border-aurea-copper/25 p-12 text-center shadow-sm">
+          <Search className="w-12 h-12 text-aurea-copper/60 mx-auto mb-3" />
+          <h3 className="font-serif text-xl font-bold text-aurea-navy mb-1">
+            Sin resultados de búsqueda
+          </h3>
+          <p className="font-sans text-xs sm:text-sm text-aurea-navy/70 max-w-md mx-auto mb-6">
+            No se encontraron administradores que coincidan con <span className="font-semibold text-aurea-navy">"{busqueda}"</span>.
+          </p>
+          {onLimpiarBusqueda && (
+            <Button
+              type="button"
+              onClick={onLimpiarBusqueda}
+              className="bg-aurea-navy text-white hover:bg-aurea-navy/90 text-xs py-2 px-4 font-semibold shadow-sm"
+            >
+              Limpiar búsqueda
+            </Button>
+          )}
+        </div>
+      );
+    }
+
+    if (tabActivo === 'activos') {
+      return (
+        <div className="bg-white rounded-3xl border-2 border-aurea-copper/25 p-12 text-center shadow-sm">
+          <Building2 className="w-12 h-12 text-aurea-copper/60 mx-auto mb-3" />
+          <h3 className="font-serif text-xl font-bold text-aurea-navy mb-1">
+            Sin Administradores Activos
+          </h3>
+          <p className="font-sans text-xs sm:text-sm text-aurea-navy/70 max-w-md mx-auto">
+            Todas tus sedes activas se encuentran actualmente bajo supervisión directa del Propietario (Autogestionadas).
+          </p>
+        </div>
+      );
+    }
+
+    if (tabActivo === 'pendientes') {
+      return (
+        <div className="bg-white rounded-3xl border-2 border-aurea-copper/25 p-12 text-center shadow-sm">
+          <Clock className="w-12 h-12 text-amber-500/70 mx-auto mb-3" />
+          <h3 className="font-serif text-xl font-bold text-aurea-navy mb-1">
+            Sin Invitaciones Pendientes
+          </h3>
+          <p className="font-sans text-xs sm:text-sm text-aurea-navy/70 max-w-md mx-auto">
+            No tienes invitaciones pendientes ni enlaces temporales por activar en este momento.
+          </p>
+        </div>
+      );
+    }
+
+    if (tabActivo === 'desactivados') {
+      return (
+        <div className="bg-white rounded-3xl border-2 border-aurea-copper/25 p-12 text-center shadow-sm">
+          <UserX className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+          <h3 className="font-serif text-xl font-bold text-aurea-navy mb-1">
+            Sin Administradores Desactivados
+          </h3>
+          <p className="font-sans text-xs sm:text-sm text-aurea-navy/70 max-w-md mx-auto">
+            Tu historial está al día: no cuentas con administradores con acceso revocado o inactivo.
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className="bg-white rounded-3xl border-2 border-aurea-copper/25 p-12 text-center shadow-sm">
         <Building2 className="w-12 h-12 text-aurea-copper/60 mx-auto mb-3" />
@@ -150,8 +220,12 @@ export const AdminsTabla: React.FC<AdminsTablaProps> = ({
                           )}
                         </div>
                       ) : (
-                        <span className="text-slate-400 italic text-[11px]">
-                          Sin sede asignada
+                        <span
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 text-xs font-semibold"
+                          title="Colaborador sin sede física asignada (Configurable desde el módulo de Locales)"
+                        >
+                          <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span>Sin Asignar</span>
                         </span>
                       )}
                     </td>
@@ -219,25 +293,14 @@ export const AdminsTabla: React.FC<AdminsTablaProps> = ({
                     <td className="py-4 px-6 text-right">
                       <div className="inline-flex items-center justify-end gap-2">
                         {esActivo && (
-                          <>
-                            <Button
-                              type="button"
-                              onClick={() => onReasignar(admin)}
-                              className="bg-white text-aurea-navy hover:bg-aurea-ivory border border-aurea-copper/30 font-bold text-xs py-1.5 px-3 flex items-center gap-1.5 shadow-sm"
-                            >
-                              <ArrowRightLeft className="w-3.5 h-3.5 text-aurea-copper" />
-                              <span>Reasignar</span>
-                            </Button>
-
-                            <Button
-                              type="button"
-                              onClick={() => onDesactivar(admin)}
-                              className="bg-white text-rose-700 hover:bg-rose-50 border border-rose-200 font-semibold text-xs py-1.5 px-3 flex items-center gap-1.5 shadow-sm"
-                            >
-                              <UserX className="w-3.5 h-3.5 text-rose-500" />
-                              <span>Desactivar</span>
-                            </Button>
-                          </>
+                          <Button
+                            type="button"
+                            onClick={() => onDesactivar(admin)}
+                            className="bg-white text-rose-700 hover:bg-rose-50 border border-rose-200 font-semibold text-xs py-1.5 px-3 flex items-center gap-1.5 shadow-sm"
+                          >
+                            <UserX className="w-3.5 h-3.5 text-rose-500" />
+                            <span>Desactivar</span>
+                          </Button>
                         )}
 
                         {esPendiente && (
@@ -362,10 +425,17 @@ export const AdminsTabla: React.FC<AdminsTablaProps> = ({
               <div className="bg-aurea-ivory/50 rounded-xl p-3 border border-aurea-copper/15 space-y-1.5 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] text-aurea-navy/60 font-semibold">Sede Titular:</span>
-                  <div className="inline-flex items-center gap-1.5 font-bold text-aurea-navy">
-                    <Building2 className="w-3.5 h-3.5 text-aurea-copper" />
-                    <span>{admin.sede_asignada ? admin.sede_asignada.nombre : 'Sin sede'}</span>
-                  </div>
+                  {admin.sede_asignada ? (
+                    <div className="inline-flex items-center gap-1.5 font-bold text-aurea-navy">
+                      <Building2 className="w-3.5 h-3.5 text-aurea-copper" />
+                      <span>{admin.sede_asignada.nombre}</span>
+                    </div>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-semibold">
+                      <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span>Sin Asignar</span>
+                    </span>
+                  )}
                 </div>
 
                 {admin.telefono && (
@@ -390,25 +460,14 @@ export const AdminsTabla: React.FC<AdminsTablaProps> = ({
               {/* Botones de Acción Móviles (Touch Targets >= 44px) */}
               <div className="pt-1 flex flex-wrap gap-2">
                 {esActivo && (
-                  <>
-                    <Button
-                      type="button"
-                      onClick={() => onReasignar(admin)}
-                      className="flex-1 min-h-[44px] bg-white text-aurea-navy border border-aurea-copper/30 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
-                    >
-                      <ArrowRightLeft className="w-4 h-4 text-aurea-copper" />
-                      <span>Reasignar</span>
-                    </Button>
-
-                    <Button
-                      type="button"
-                      onClick={() => onDesactivar(admin)}
-                      className="min-h-[44px] px-4 bg-white text-rose-700 border border-rose-200 font-semibold text-xs flex items-center justify-center gap-1.5"
-                    >
-                      <UserX className="w-4 h-4 text-rose-500" />
-                      <span>Desactivar</span>
-                    </Button>
-                  </>
+                  <Button
+                    type="button"
+                    onClick={() => onDesactivar(admin)}
+                    className="w-full min-h-[44px] px-4 bg-white text-rose-700 border border-rose-200 font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <UserX className="w-4 h-4 text-rose-500" />
+                    <span>Desactivar Administrador</span>
+                  </Button>
                 )}
 
                 {esPendiente && (

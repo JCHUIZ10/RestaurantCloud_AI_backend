@@ -5,6 +5,7 @@ import {
   CuotaPersonalDTO,
 } from '@/types/propietarioAdmins';
 import { Button } from '@/components/ui/Button';
+import { extraerDigitosMovilPeru, formatearTelefonoPeru } from '@/shared/utils';
 import {
   X,
   Mail,
@@ -15,7 +16,6 @@ import {
   Loader2,
   AlertCircle,
   Info,
-  CheckCircle2,
 } from 'lucide-react';
 
 interface ModalInvitarAdminProps {
@@ -36,25 +36,17 @@ export const ModalInvitarAdmin: React.FC<ModalInvitarAdminProps> = ({
   const [nombre, setNombre] = useState('');
   const [correo, setCorreo] = useState('');
   const [telefono, setTelefono] = useState('');
-  const [localId, setLocalId] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
 
-  // Inicializar local seleccionado con la primera sede disponible
   useEffect(() => {
     if (abierto) {
       setNombre('');
       setCorreo('');
       setTelefono('');
       setErrorLocal(null);
-
-      if (formularioDatos?.sedes_disponibles && formularioDatos.sedes_disponibles.length > 0) {
-        setLocalId(formularioDatos.sedes_disponibles[0].id);
-      } else {
-        setLocalId('');
-      }
     }
-  }, [abierto, formularioDatos]);
+  }, [abierto]);
 
   if (!abierto) return null;
 
@@ -73,9 +65,19 @@ export const ModalInvitarAdmin: React.FC<ModalInvitarAdminProps> = ({
       return;
     }
 
-    if (!localId) {
-      setErrorLocal('Debes seleccionar una sede titular para el administrador.');
-      return;
+    // Validación opcional de teléfono (Estándar Móvil Perú E.164: 9 dígitos iniciando con 9)
+    if (telefono.trim()) {
+      const phoneDigits = extraerDigitosMovilPeru(telefono);
+      if (phoneDigits.length > 0) {
+        if (!phoneDigits.startsWith('9')) {
+          setErrorLocal('El número de celular en Perú debe iniciar con el dígito 9.');
+          return;
+        }
+        if (phoneDigits.length !== 9) {
+          setErrorLocal('El número de celular móvil debe contener exactamente 9 dígitos.');
+          return;
+        }
+      }
     }
 
     setEnviando(true);
@@ -84,7 +86,6 @@ export const ModalInvitarAdmin: React.FC<ModalInvitarAdminProps> = ({
         nombre: nombre.trim(),
         correo: correo.trim(),
         telefono: telefono.trim() || undefined,
-        local_id: localId,
       });
 
       if (exito) {
@@ -98,8 +99,6 @@ export const ModalInvitarAdmin: React.FC<ModalInvitarAdminProps> = ({
   };
 
   const cuposLibres = formularioDatos?.cupos_libres ?? cuota?.cupos_disponibles ?? 1;
-  const sedesDisponibles = formularioDatos?.sedes_disponibles || [];
-  const sedesOcupadas = formularioDatos?.sedes_ocupadas || [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-aurea-navy/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -195,65 +194,50 @@ export const ModalInvitarAdmin: React.FC<ModalInvitarAdminProps> = ({
             </p>
           </div>
 
-          {/* Campo: Teléfono */}
+          {/* Campo: Teléfono (Estándar de Teléfono Móvil Perú) */}
           <div className="space-y-1.5">
-            <label className="block font-bold text-aurea-navy text-xs">
-              Teléfono de contacto (opcional)
+            <label className="flex items-center gap-1.5 font-bold text-aurea-navy text-xs">
+              <Phone className="w-3.5 h-3.5 text-aurea-copper" />
+              <span>Teléfono de contacto (opcional)</span>
             </label>
-            <div className="relative">
-              <Phone className="w-4 h-4 text-aurea-copper absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <div className="flex rounded-xl border border-aurea-copper/30 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-aurea-copper/50">
+              {/* Prefijo Fijo No Editable */}
+              <div className="inline-flex items-center gap-1.5 px-3 bg-aurea-ivory border-r border-aurea-copper/20 text-aurea-navy font-semibold text-xs select-none">
+                <span>🇵🇪</span>
+                <span className="font-mono text-xs">+51</span>
+              </div>
+
+              {/* Input de Dígitos */}
               <input
                 type="tel"
-                value={telefono}
-                onChange={(e) => setTelefono(e.target.value)}
-                placeholder="+51 912 345 678"
-                className="w-full pl-10 pr-4 py-2.5 bg-white border border-aurea-copper/30 rounded-xl text-xs text-aurea-navy placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-aurea-copper/50"
+                inputMode="numeric"
+                maxLength={11}
+                value={formatearTelefonoPeru(telefono)}
+                onChange={(e) => {
+                  const digits = extraerDigitosMovilPeru(e.target.value);
+                  const formatted = formatearTelefonoPeru(digits);
+                  setTelefono(digits ? `+51 ${formatted}` : '');
+                }}
+                placeholder="987 654 321"
+                className="w-full px-3 py-2.5 bg-transparent text-xs font-mono text-aurea-navy placeholder:text-slate-400 focus:outline-none"
               />
             </div>
+            <p className="text-[10px] text-aurea-navy/60">
+              Número móvil peruano de 9 dígitos. Utilizado para enlaces directos a WhatsApp y contacto rápido.
+            </p>
           </div>
 
-          {/* Campo: Sede Titular a Supervisar */}
-          <div className="space-y-1.5">
-            <label className="block font-bold text-aurea-navy text-xs">
-              Sede Titular a supervisar <span className="text-rose-500">*</span>
-            </label>
-            <div className="relative">
-              <Building2 className="w-4 h-4 text-aurea-copper absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <select
-                required
-                value={localId}
-                onChange={(e) => setLocalId(e.target.value)}
-                className="w-full pl-10 pr-8 py-2.5 bg-white border border-aurea-copper/30 rounded-xl text-xs text-aurea-navy focus:outline-none focus:ring-2 focus:ring-aurea-copper/50 appearance-none font-medium"
-              >
-                {sedesDisponibles.length === 0 && sedesOcupadas.length === 0 && (
-                  <option value="">No hay sedes registradas</option>
-                )}
-
-                {sedesDisponibles.length > 0 && (
-                  <optgroup label="Sedes Disponibles (Sin Administrador Titular)">
-                    {sedesDisponibles.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.nombre} ({s.distrito}) — Disponible
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-
-                {sedesOcupadas.length > 0 && (
-                  <optgroup label="Sedes Ocupadas (Ya cuentan con titular)">
-                    {sedesOcupadas.map((s) => (
-                      <option key={s.id} value={s.id} disabled>
-                        {s.nombre} (Titular: {s.administrador_actual || 'Asignado'})
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
+          {/* Aviso: Asignación de Sede en Locales */}
+          <div className="bg-aurea-ivory/60 border border-aurea-copper/25 rounded-2xl p-3.5 flex items-start gap-2.5 text-aurea-navy">
+            <Building2 className="w-4 h-4 text-aurea-copper shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <p className="font-bold text-xs text-aurea-navy">
+                Asignación de Sede Física
+              </p>
+              <p className="text-[11px] text-aurea-navy/70 leading-relaxed">
+                Una vez que el colaborador acepte la invitación y active su contraseña personal, podrás asignarlo a cualquiera de tus sedes directamente desde el módulo de <strong>Locales</strong>.
+              </p>
             </div>
-            <p className="text-[10px] text-aurea-copper font-medium flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-              <span>Regla de negocio: Cada sede cuenta con 1 administrador titular exclusivo.</span>
-            </p>
           </div>
 
           {/* Tarjeta de Seguridad (Sin envío de contraseñas provisionales) */}
@@ -280,7 +264,7 @@ export const ModalInvitarAdmin: React.FC<ModalInvitarAdminProps> = ({
 
             <Button
               type="submit"
-              disabled={enviando || sedesDisponibles.length === 0}
+              disabled={enviando}
               className="bg-aurea-navy text-white hover:bg-aurea-navy/90 font-bold text-xs py-2 px-5 shadow-md flex items-center gap-2"
             >
               {enviando ? (

@@ -83,7 +83,7 @@ export interface InvitarAdminRequestDTO {
   nombre: string;
   correo: string;
   telefono?: string;
-  local_id: string;
+  local_id?: string | null;
 }
 
 /**
