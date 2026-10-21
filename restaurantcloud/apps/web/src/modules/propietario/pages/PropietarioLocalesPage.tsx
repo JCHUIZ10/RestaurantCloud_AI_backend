@@ -10,7 +10,6 @@ import { LocalesTabla } from '../components/locales/LocalesTabla';
 import { ModalCrearLocal } from '../components/locales/ModalCrearLocal';
 import { ModalEditarLocal } from '../components/locales/ModalEditarLocal';
 import { ModalDesactivarLocal } from '../components/locales/ModalDesactivarLocal';
-import { DemoLocalesWidget } from '../components/locales/DemoLocalesWidget';
 import { useAuthStore } from '@/stores/authStore';
 import { ROUTES } from '@/router/routes.constants';
 import {
@@ -219,12 +218,6 @@ export const PropietarioLocalesPage: React.FC = () => {
         local={localADesactivar}
         onClose={() => setLocalADesactivar(null)}
         onLocalDesactivado={cargarDirectorio}
-        mostrarToast={mostrarToast}
-      />
-
-      {/* QA Sandbox Floating Widget */}
-      <DemoLocalesWidget
-        onRefresh={cargarDirectorio}
         mostrarToast={mostrarToast}
       />
     </div>
