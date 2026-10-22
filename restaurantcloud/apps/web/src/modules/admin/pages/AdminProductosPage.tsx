@@ -6,8 +6,7 @@ import {
   CategoriaAdminDTO,
   InsumoAdminDTO,
   CrearProductoRequest,
-  ActualizarRecetaRequest,
-  SimulacionCapacidadDTO,
+    SimulacionCapacidadDTO,
 } from '@/types/admin';
 import {
   mockAdminService,
@@ -52,6 +51,7 @@ export const AdminProductosPage: React.FC = () => {
 
   // Modales y Drawers
   const [modalAbierto, setModalAbierto] = useState(false);
+  const [pasoInicialModal, setPasoInicialModal] = useState<1 | 2>(1);
   const [productoEditar, setProductoEditar] = useState<ProductoAdminDTO | null>(null);
   const [drawerAbierto, setDrawerAbierto] = useState(false);
   const [productoParaReceta, setProductoParaReceta] = useState<ProductoAdminDTO | null>(null);
@@ -73,13 +73,9 @@ export const AdminProductosPage: React.FC = () => {
         setCategorias(resCat.datos.categorias || []);
       }
 
-      if (IS_REAL_API) {
-        setInsumos([]);
-      } else {
-        const resIns = await mockAdminService.obtenerInsumos(CANONICAL_LOCAL_ID, 'todos', '', 1, 100);
-        if (resIns.exito && resIns.datos) {
-          setInsumos(resIns.datos.insumos || []);
-        }
+      const resIns = await adminService.obtenerInsumos(CANONICAL_LOCAL_ID, 'todos', '', 1, 100);
+      if (resIns.exito && resIns.datos) {
+        setInsumos(resIns.datos.insumos || []);
       }
     } catch (err) {
       console.error('Error cargando catálogos secundarios:', err);
@@ -148,11 +144,26 @@ export const AdminProductosPage: React.FC = () => {
 
   // Manejadores de Modales
   const handleAbrirNuevoProducto = () => {
+    setPasoInicialModal(1);
     setProductoEditar(null);
     setModalAbierto(true);
   };
 
-  const handleEditarProducto = (prod: ProductoAdminDTO) => {
+  const handleEditarProducto = async (prod: ProductoAdminDTO, paso: 1 | 2 = 1) => {
+    setPasoInicialModal(paso);
+    if (!prod.receta || prod.receta.length === 0) {
+      try {
+        const resReceta = await adminService.obtenerReceta(prod.id);
+        if (resReceta.exito && resReceta.datos) {
+          prod = {
+            ...prod,
+            receta: resReceta.datos.receta || resReceta.datos.items || [],
+          };
+        }
+      } catch (e) {
+        console.error('Error cargando receta para edición:', e);
+      }
+    }
     setProductoEditar(prod);
     setModalAbierto(true);
   };
@@ -196,8 +207,22 @@ export const AdminProductosPage: React.FC = () => {
     setProductoParaReceta(prod);
     setDrawerAbierto(true);
     try {
-      const resSim = await mockAdminService.simularCapacidadBodega(prod.id);
-      if (resSim.exito) {
+      const [resReceta, resSim] = await Promise.all([
+        adminService.obtenerReceta(prod.id),
+        adminService.simularCapacidadBodega(prod.id),
+      ]);
+      if (resReceta.exito && resReceta.datos) {
+        setProductoParaReceta({
+          ...prod,
+          costo_teorico: resReceta.datos.costo_teorico,
+          margen_bruto_pct: resReceta.datos.margen_bruto_pct,
+          disponibilidad: resReceta.datos.disponibilidad,
+          motivo_agotado: resReceta.datos.motivo_agotado,
+          total_ingredientes: resReceta.datos.total_ingredientes,
+          receta: resReceta.datos.receta || resReceta.datos.items || prod.receta || [],
+        });
+      }
+      if (resSim.exito && resSim.datos) {
         setSimulacionCapacidad(resSim.datos);
       }
     } catch (err) {
@@ -205,31 +230,7 @@ export const AdminProductosPage: React.FC = () => {
     }
   };
 
-  const handleGuardarReceta = async (
-    productoId: string,
-    req: ActualizarRecetaRequest
-  ): Promise<boolean> => {
-    try {
-      const res = await mockAdminService.actualizarReceta(productoId, req);
-      if (res.exito) {
-        mostrarToast(res.datos.mensaje || 'Receta calibrada correctamente.');
-        await cargarProductos();
-        // Refrescar plato seleccionado en drawer
-        const resProd = await mockAdminService.obtenerProductoPorId(productoId);
-        if (resProd.exito) {
-          setProductoParaReceta(resProd.datos);
-        }
-        return true;
-      } else {
-        mostrarToast(res.errores?.[0]?.mensaje || 'Error al actualizar receta.', 'error');
-        return false;
-      }
-    } catch (err) {
-      console.error('Error calibrando receta:', err);
-      mostrarToast('Error al calibrar receta.', 'error');
-      return false;
-    }
-  };
+  
 
   // Conmutar Disponibilidad Rápida
   const handleConmutarDisponibilidad = async (prod: ProductoAdminDTO) => {
@@ -344,7 +345,7 @@ export const AdminProductosPage: React.FC = () => {
         <OnboardingCartaVacia
           onCrearPrimerPlato={handleAbrirNuevoProducto}
           onCargarSemillasAurea={handleRestablecerAurea}
-          habilitarReceta={!IS_REAL_API}
+          habilitarReceta={true}
         />
       ) : (
         <>
@@ -374,7 +375,7 @@ export const AdminProductosPage: React.FC = () => {
             onEditarProducto={handleEditarProducto}
             onArchivarProducto={handleArchivarProducto}
             onConmutarDisponibilidad={handleConmutarDisponibilidad}
-            mostrarDatosReceta={!IS_REAL_API}
+            mostrarDatosReceta={true}
           />
         </>
       )}
@@ -385,26 +386,31 @@ export const AdminProductosPage: React.FC = () => {
         productoEditar={productoEditar}
         categorias={categorias}
         insumosDisponibles={insumos}
-        onCerrar={() => setModalAbierto(false)}
+        onCerrar={() => {
+          setModalAbierto(false);
+          setPasoInicialModal(1);
+        }}
         onGuardar={handleGuardarProducto}
         onIrACategorias={() => {
           setModalAbierto(false);
           navigate(ROUTES.ADMIN_CATEGORIAS);
         }}
-        habilitarReceta={!IS_REAL_API}
+        habilitarReceta={true}
+        pasoInicial={pasoInicialModal}
       />
 
       {/* Drawer de Calibración Rápida de Recetas y Capacidad */}
-      {!IS_REAL_API && (
-        <DrawerCalibrarReceta
-          abierto={drawerAbierto}
-          producto={productoParaReceta}
-          insumosDisponibles={insumos}
-          simulacion={simulacionCapacidad}
-          onCerrar={() => setDrawerAbierto(false)}
-          onGuardarReceta={handleGuardarReceta}
-        />
-      )}
+      <DrawerCalibrarReceta
+        abierto={drawerAbierto}
+        producto={productoParaReceta}
+        insumosDisponibles={insumos}
+        simulacion={simulacionCapacidad}
+        onCerrar={() => setDrawerAbierto(false)}
+        onEditarReceta={(prod) => {
+          setDrawerAbierto(false);
+          handleEditarProducto(prod, 2);
+        }}
+      />
 
       {/* Widget Interactivo de Pruebas */}
       {!IS_REAL_API && (

@@ -8,7 +8,6 @@ import {
   Mail,
   Clock,
   UserX,
-  UserCheck,
   Send,
   XCircle,
   Copy,
@@ -24,7 +23,6 @@ interface AdminsTablaProps {
   busqueda?: string;
   onLimpiarBusqueda?: () => void;
   onDesactivar: (admin: AdministradorItemDTO) => void;
-  onReactivar: (admin: AdministradorItemDTO) => void;
   onReenviar: (admin: AdministradorItemDTO) => void;
   onCancelarInvitacion: (admin: AdministradorItemDTO) => void;
   onVerEnlace: (admin: AdministradorItemDTO) => void;
@@ -36,7 +34,6 @@ export const AdminsTabla: React.FC<AdminsTablaProps> = ({
   busqueda = '',
   onLimpiarBusqueda,
   onDesactivar,
-  onReactivar,
   onReenviar,
   onCancelarInvitacion,
   onVerEnlace,
@@ -337,14 +334,12 @@ export const AdminsTabla: React.FC<AdminsTablaProps> = ({
                         )}
 
                         {esInactivo && (
-                          <Button
-                            type="button"
-                            onClick={() => onReactivar(admin)}
-                            className="bg-white text-emerald-700 hover:bg-emerald-50 border border-emerald-300 font-bold text-xs py-1.5 px-3 flex items-center gap-1.5 shadow-sm"
+                          <span
+                            className="inline-flex items-center text-[11px] text-slate-400 italic font-normal"
+                            title="Para activar a este colaborador, vincúlalo a una sede desde el módulo de Locales"
                           >
-                            <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Reactivar</span>
-                          </Button>
+                            Asignar en Locales
+                          </span>
                         )}
                       </div>
                     </td>
@@ -501,14 +496,9 @@ export const AdminsTabla: React.FC<AdminsTablaProps> = ({
                 )}
 
                 {esInactivo && (
-                  <Button
-                    type="button"
-                    onClick={() => onReactivar(admin)}
-                    className="w-full min-h-[44px] bg-white text-emerald-700 border border-emerald-300 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
-                  >
-                    <UserCheck className="w-4 h-4 text-emerald-600" />
-                    <span>Reactivar Administrador</span>
-                  </Button>
+                  <p className="w-full text-center text-[11px] text-slate-400 italic py-1">
+                    Vincular a una sede en Locales para activar
+                  </p>
                 )}
               </div>
             </div>

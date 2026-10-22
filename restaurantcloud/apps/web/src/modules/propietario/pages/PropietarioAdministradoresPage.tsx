@@ -127,24 +127,6 @@ export const PropietarioAdministradoresPage: React.FC = () => {
     }
   };
 
-  // Handler: Reactivar Administrador
-  const handleReactivarAdmin = async (admin: AdministradorItemDTO) => {
-    try {
-      const res = await propietarioAdminsService.cambiarEstado(admin.id, {
-        nuevo_estado: 'activo',
-      });
-
-      if (res.exito && res.datos) {
-        mostrarToast('success', res.datos.mensaje);
-        await cargarDatos();
-      } else {
-        mostrarToast('error', res.errores?.[0]?.mensaje || 'No se pudo reactivar el usuario.');
-      }
-    } catch {
-      mostrarToast('error', 'Error al reactivar administrador.');
-    }
-  };
-
   // Handler: Reenviar Invitación
   const handleReenviarInvitacion = async (admin: AdministradorItemDTO) => {
     try {
@@ -277,7 +259,6 @@ export const PropietarioAdministradoresPage: React.FC = () => {
           busqueda={busqueda}
           onLimpiarBusqueda={() => setBusqueda('')}
           onDesactivar={(admin) => setAdminADesactivar(admin)}
-          onReactivar={handleReactivarAdmin}
           onReenviar={handleReenviarInvitacion}
           onCancelarInvitacion={handleCancelarInvitacion}
           onVerEnlace={(admin) => setAdminAVerEnlace(admin)}

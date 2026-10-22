@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
+use App\Domains\Inventario\Services\StockDeduccionService;
 
 class CocinaController extends Controller
 {
@@ -216,6 +217,7 @@ class CocinaController extends Controller
             'updated_at' => $now,
         ];
 
+        $deduccionStock = null;
         if ($nuevoEstado === 'en_preparacion') {
             $updateData['fecha_inicio_coccion'] = $item->fecha_inicio_coccion ?: $now;
             $updateData['fecha_listo_cocina'] = null;
@@ -223,6 +225,8 @@ class CocinaController extends Controller
             // Cumplir con chk_cocina_tiempos_coherentes
             $updateData['fecha_inicio_coccion'] = $item->fecha_inicio_coccion ?: $now;
             $updateData['fecha_listo_cocina'] = $now;
+            // Deducción culinaria atómica de receta en bodega
+            $deduccionStock = app(StockDeduccionService::class)->descontarRecetaItem($itemId, $request->user()->id);
         } elseif ($nuevoEstado === 'en_cola') {
             $updateData['fecha_inicio_coccion'] = null;
             $updateData['fecha_listo_cocina'] = null;
@@ -238,6 +242,7 @@ class CocinaController extends Controller
             'fecha_listo_cocina' => isset($updateData['fecha_listo_cocina']) ? Carbon::parse($updateData['fecha_listo_cocina'])->toIso8601String() : null,
             'puede_deshacer' => $nuevoEstado === 'listo',
             'segundos_deshacer' => 30,
+            'deduccion_stock' => $deduccionStock,
             'mensaje' => 'Estado del plato actualizado con éxito.',
         ]);
     }
@@ -257,6 +262,8 @@ class CocinaController extends Controller
             return ApiResponse::error('NO_REVERSIBLE', 'Solo se puede deshacer un plato en estado listo.', 422);
         }
 
+        $reversion = app(StockDeduccionService::class)->revertirRecetaItem($itemId, $request->user()->id);
+
         DB::table('pedido_item')->where('id', $itemId)->update([
             'estado' => 'en_preparacion',
             'fecha_listo_cocina' => null,
@@ -266,7 +273,8 @@ class CocinaController extends Controller
         return ApiResponse::ok([
             'item_id' => $itemId,
             'estado_restaurado' => 'en_preparacion',
-            'insumos_restaurados' => 1,
+            'insumos_restaurados' => count($reversion['insumos_restituidos'] ?? []),
+            'detalles_restitucion' => $reversion,
             'mensaje' => 'Plato regresó a preparación en fogones (Deshacer exitoso).',
         ]);
     }
@@ -312,6 +320,9 @@ class CocinaController extends Controller
                 ]);
         }
 
+        // Deducción atómica de todas las recetas culinarias pendientes de la comanda
+        $deduccionBatch = app(StockDeduccionService::class)->descontarPedidoCompleto($pedidoId, $user->id);
+
         // Registrar en Redis con TTL de 30 minutos (1800 seg) para el búfer de recall no destructivo
         $despachadoKey = "kds:despachado:{$localId}:{$pedidoId}";
         try {
@@ -324,6 +335,7 @@ class CocinaController extends Controller
         return ApiResponse::ok([
             'pedido_id' => $pedidoId,
             'despachado' => true,
+            'deduccion_stock' => $deduccionBatch ?? null,
             'mensaje' => 'Comanda completa despachada al pase de salón.',
         ]);
     }

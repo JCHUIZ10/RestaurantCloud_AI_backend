@@ -133,7 +133,7 @@ Permite monitorear las cuentas administrativas activas, la sede titular asignada
 - **Acciones Rápidas de Cuenta:**
   - Activo: `[ Desactivar ]`. *(La asignación de sede física se gestiona en CU-PROP-04 Locales)*.
   - Pendiente: `[ Enlace ]` (copiar URL segura), `[ Reenviar ]`, `[ Cancelar ]`.
-  - Inactivo: `[ Reactivar ]`.
+  - Inactivo: Indicador `Asignar en Locales` *(la reactivación y asignación de sede física se realiza exclusivamente en CU-PROP-04 Locales)*.
 
 ---
 

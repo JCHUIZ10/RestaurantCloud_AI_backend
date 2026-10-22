@@ -101,7 +101,7 @@ export const ModalDesactivarAdmin: React.FC<ModalDesactivarAdminProps> = ({
           </div>
 
           <p className="text-[11px] text-slate-500 italic">
-            Podrás reactivar a este administrador en cualquier momento si dispones de cupos libres en tu suscripción.
+            Podrás reactivar y asignar a este administrador en cualquier momento desde el módulo de Locales.
           </p>
 
           {/* Footer de Acciones */}

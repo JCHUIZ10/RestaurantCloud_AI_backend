@@ -222,10 +222,10 @@ export const ProductosTable: React.FC<ProductosTableProps> = ({
                         type="button"
                         onClick={() => onVerReceta(prod)}
                         className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-aurea-copper bg-aurea-champagne/30 hover:bg-aurea-champagne/50 transition-colors border border-aurea-copper/20"
-                        title="Calibrar receta y ver capacidad en bodega"
+                        title="Ver simulación de capacidad en bodega e insumos"
                       >
                         <BookOpen className="w-3.5 h-3.5" />
-                        <span>Receta</span>
+                        <span>Capacidad</span>
                       </button>)}
                       <button
                         type="button"

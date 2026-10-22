@@ -29,6 +29,7 @@ interface ModalCrearEditarProductoProps {
   onGuardar: (req: CrearProductoRequest) => Promise<boolean>;
   onIrACategorias?: () => void;
   habilitarReceta?: boolean;
+  pasoInicial?: 1 | 2;
 }
 
 interface ItemRecetaForm {
@@ -47,6 +48,7 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
   onGuardar,
   onIrACategorias,
   habilitarReceta = true,
+  pasoInicial = 1,
 }) => {
   const [pasoActual, setPasoActual] = useState<1 | 2>(1);
   const [guardando, setGuardando] = useState(false);
@@ -66,7 +68,7 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
   useEffect(() => {
     if (abierto) {
       setErrorValidacion(null);
-      setPasoActual(1);
+      setPasoActual(pasoInicial);
 
       if (productoEditar) {
         setCategoriaId(productoEditar.categoria_id);
@@ -75,11 +77,12 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
         setPrecio(productoEditar.precio);
         setRequierePreparacion(productoEditar.requiere_preparacion);
 
-        const itemsMapeados: ItemRecetaForm[] = productoEditar.receta.map((r) => ({
+                const recetaPlato = productoEditar.receta || (productoEditar as any).items || [];
+        const itemsMapeados: ItemRecetaForm[] = recetaPlato.map((r: any) => ({
           insumo_id: r.insumo_id,
-          modo_calculo: r.modo_calculo,
-          rendimiento_platos: r.rendimiento_platos || 100,
-          cantidad_descuenta: r.cantidad_descuenta,
+          modo_calculo: r.modo_calculo || 'exacto',
+          rendimiento_platos: Number(r.rendimiento_platos) || (Number(r.cantidad_descuenta) > 0 ? Math.round(1 / Number(r.cantidad_descuenta)) : 100),
+          cantidad_descuenta: Number(r.cantidad_descuenta) || 0.1,
         }));
         setRecetaItems(habilitarReceta ? itemsMapeados : []);
       } else {

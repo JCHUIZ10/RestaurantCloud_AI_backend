@@ -47,12 +47,64 @@ class ProductoService
         $totalPaginas = max(1, (int) ceil($total / $limite));
         $pagina = min($pagina, $totalPaginas);
 
-        $productos = $consulta
+        $productosDb = $consulta
             ->orderBy('c.orden')
             ->orderBy('p.nombre')
             ->forPage($pagina, $limite)
-            ->get()
-            ->map(fn ($producto) => $this->mapearProducto($producto))
+            ->get();
+
+        $productoIds = $productosDb->pluck('id')->all();
+
+        $recetasPorProducto = [];
+        if (! empty($productoIds)) {
+            $itemsRecetas = DB::table('producto_insumo as pi')
+                ->join('insumo as i', 'i.id', '=', 'pi.insumo_id')
+                ->whereIn('pi.producto_id', $productoIds)
+                ->where('i.local_id', $localId)
+                ->select([
+                    'pi.producto_id',
+                    'pi.insumo_id',
+                    'i.nombre',
+                    'i.unidad_medida',
+                    'i.stock_actual',
+                    'i.costo_unitario',
+                    'i.estado as insumo_estado',
+                    'pi.modo_calculo',
+                    'pi.rendimiento_platos',
+                    'pi.cantidad_descuenta',
+                ])
+                ->get();
+
+            foreach ($itemsRecetas as $item) {
+                $costoUnit = (float) $item->costo_unitario;
+                $dosis = (float) $item->cantidad_descuenta;
+                $costoSubtotal = round($dosis * $costoUnit, 4);
+
+                $recetasPorProducto[$item->producto_id][] = [
+                    'insumo_id' => $item->insumo_id,
+                    'nombre' => $item->nombre,
+                    'insumo_nombre' => $item->nombre,
+                    'unidad_medida' => $item->unidad_medida,
+                    'stock_actual' => (float) $item->stock_actual,
+                    'stock_actual_insumo' => (float) $item->stock_actual,
+                    'costo_unitario' => $costoUnit,
+                    'costo_unitario_insumo' => $costoUnit,
+                    'modo_calculo' => $item->modo_calculo,
+                    'rendimiento_platos' => $item->rendimiento_platos !== null ? (float) $item->rendimiento_platos : null,
+                    'cantidad_descuenta' => $dosis,
+                    'costo_subtotal' => $costoSubtotal,
+                    'costo_plato_insumo' => $costoSubtotal,
+                    'raciones_disponibles_insumo' => $dosis > 0 ? (int) floor((float) $item->stock_actual / $dosis) : 0,
+                    'estado_insumo' => $item->insumo_estado,
+                ];
+            }
+        }
+
+        $productos = $productosDb
+            ->map(function ($producto) use ($recetasPorProducto) {
+                $producto->receta = $recetasPorProducto[$producto->id] ?? [];
+                return $this->mapearProducto($producto);
+            })
             ->all();
 
         return [
@@ -76,7 +128,52 @@ class ProductoService
     {
         $producto = $this->consultaBase($localId)->where('p.id', $id)->first();
 
-        return $producto ? $this->mapearProducto($producto) : null;
+        if (! $producto) {
+            return null;
+        }
+
+        $items = DB::table('producto_insumo as pi')
+            ->join('insumo as i', 'i.id', '=', 'pi.insumo_id')
+            ->where('pi.producto_id', $id)
+            ->where('i.local_id', $localId)
+            ->select([
+                'pi.insumo_id',
+                'i.nombre',
+                'i.unidad_medida',
+                'i.stock_actual',
+                'i.costo_unitario',
+                'pi.modo_calculo',
+                'pi.rendimiento_platos',
+                'pi.cantidad_descuenta',
+            ])
+            ->get()
+            ->map(function ($r) {
+                $costoUnit = (float) $r->costo_unitario;
+                $dosis = (float) $r->cantidad_descuenta;
+                $costoSubtotal = round($dosis * $costoUnit, 4);
+
+                return [
+                    'insumo_id' => $r->insumo_id,
+                    'nombre' => $r->nombre,
+                    'insumo_nombre' => $r->nombre,
+                    'unidad_medida' => $r->unidad_medida,
+                    'stock_actual' => (float) $r->stock_actual,
+                    'stock_actual_insumo' => (float) $r->stock_actual,
+                    'costo_unitario' => $costoUnit,
+                    'costo_unitario_insumo' => $costoUnit,
+                    'modo_calculo' => $r->modo_calculo,
+                    'rendimiento_platos' => $r->rendimiento_platos !== null ? (float) $r->rendimiento_platos : null,
+                    'cantidad_descuenta' => $dosis,
+                    'costo_subtotal' => $costoSubtotal,
+                    'costo_plato_insumo' => $costoSubtotal,
+                    'raciones_disponibles_insumo' => $dosis > 0 ? (int) floor((float) $r->stock_actual / $dosis) : 0,
+                ];
+            })
+            ->all();
+
+        $producto->receta = $items;
+
+        return $this->mapearProducto($producto);
     }
 
     public function crear(string $localId, array $data): array
@@ -102,6 +199,10 @@ class ProductoService
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
+
+                if (! empty($data['receta']) && is_array($data['receta'])) {
+                    app(RecetaService::class)->guardar($id, $localId, $data['receta']);
+                }
             } catch (QueryException $exception) {
                 $this->convertirErrorUnico($exception, $data['nombre']);
                 throw $exception;
@@ -138,6 +239,10 @@ class ProductoService
                     'requiere_preparacion' => $data['requiere_preparacion'],
                     'updated_at' => now(),
                 ]);
+
+                if (isset($data['receta']) && is_array($data['receta'])) {
+                    app(RecetaService::class)->guardar($id, $localId, $data['receta']);
+                }
             } catch (QueryException $exception) {
                 $this->convertirErrorUnico($exception, $data['nombre']);
                 throw $exception;
@@ -202,13 +307,19 @@ class ProductoService
                 'p.nombre', 'p.descripcion', 'p.precio', 'p.costo_estandar', 'p.moneda',
                 'p.foto_url', 'p.disponibilidad', 'p.motivo_agotado',
                 'p.requiere_preparacion', 'p.activo', 'p.created_at', 'p.updated_at', 'c.orden as categoria_orden',
-            ]);
+            ])
+            ->selectRaw('(SELECT COUNT(*)::int FROM producto_insumo pi WHERE pi.producto_id = p.id) as total_ingredientes')
+            ->selectRaw('(SELECT COUNT(*)::int FROM producto_insumo pi JOIN insumo i ON i.id = pi.insumo_id WHERE pi.producto_id = p.id AND (i.stock_actual <= 0 OR i.estado = \'agotado\')) as insumos_en_quiebre')
+            ->selectRaw('COALESCE((SELECT SUM(pi.cantidad_descuenta * i.costo_unitario)::numeric FROM producto_insumo pi JOIN insumo i ON i.id = pi.insumo_id WHERE pi.producto_id = p.id), p.costo_estandar) as costo_teorico');
     }
 
     private function mapearProducto(object $producto): array
     {
         $precio = (float) $producto->precio;
         $costoEstandar = (float) $producto->costo_estandar;
+        $costoTeorico = isset($producto->costo_teorico) ? (float) $producto->costo_teorico : $costoEstandar;
+        $costoParaMargen = $costoTeorico > 0 ? $costoTeorico : $costoEstandar;
+        $margenBrutoPct = $precio > 0 ? round((($precio - $costoParaMargen) / $precio) * 100, 1) : 0.0;
 
         return [
             'id' => $producto->id,
@@ -219,17 +330,17 @@ class ProductoService
             'descripcion' => $producto->descripcion,
             'precio' => $precio,
             'costo_estandar' => $costoEstandar,
-            'costo_teorico' => 0,
-            'margen_bruto_pct' => $precio > 0 ? round((($precio - $costoEstandar) / $precio) * 100, 1) : 0,
+            'costo_teorico' => round($costoTeorico, 2),
+            'margen_bruto_pct' => $margenBrutoPct,
             'moneda' => $producto->moneda,
             'foto_url' => $producto->foto_url,
             'disponibilidad' => $producto->disponibilidad,
             'motivo_agotado' => $producto->motivo_agotado,
             'requiere_preparacion' => (bool) $producto->requiere_preparacion,
             'activo' => (bool) $producto->activo,
-            'total_ingredientes' => 0,
-            'insumos_en_quiebre' => 0,
-            'receta' => [],
+            'total_ingredientes' => (int) ($producto->total_ingredientes ?? 0),
+            'insumos_en_quiebre' => (int) ($producto->insumos_en_quiebre ?? 0),
+            'receta' => $producto->receta ?? [],
             'created_at' => $producto->created_at,
             'updated_at' => $producto->updated_at,
         ];

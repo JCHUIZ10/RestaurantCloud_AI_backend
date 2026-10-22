@@ -4,7 +4,9 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Admin\CategoriaController;
 use App\Http\Controllers\Api\Admin\ConfiguracionKdsController;
 use App\Http\Controllers\Api\Admin\HorarioController;
+use App\Http\Controllers\Api\Admin\InsumoController;
 use App\Http\Controllers\Api\Admin\ProductoController;
+use App\Http\Controllers\Api\Admin\RecetaController;
 use App\Http\Controllers\Api\Admin\PersonalController;
 use App\Http\Controllers\Api\Propietario\AdministradorController;
 use App\Http\Controllers\Api\Propietario\LocalController;
@@ -69,6 +71,19 @@ Route::prefix('v1')->group(function (): void {
             Route::patch('/productos/{id}', [ProductoController::class, 'update']);
             Route::patch('/productos/{id}/disponibilidad', [ProductoController::class, 'disponibilidad']);
             Route::delete('/productos/{id}', [ProductoController::class, 'destroy']);
+            Route::get('/productos/{id}/receta', [RecetaController::class, 'show']);
+            Route::put('/productos/{id}/receta', [RecetaController::class, 'update']);
+            Route::get('/productos/{id}/capacidad', [RecetaController::class, 'capacidad']);
+
+            Route::prefix('insumos')->group(function (): void {
+                Route::get('/', [InsumoController::class, 'index']);
+                Route::post('/', [InsumoController::class, 'store']);
+                Route::get('/auditoria', [InsumoController::class, 'auditoria']);
+                Route::get('/{id}', [InsumoController::class, 'show']);
+                Route::put('/{id}', [InsumoController::class, 'update']);
+                Route::post('/{id}/ajuste', [InsumoController::class, 'ajuste']);
+                Route::patch('/{id}/estado', [InsumoController::class, 'estado']);
+            });
 
             Route::get('/personal', [PersonalController::class, 'index']);
             Route::post('/personal', [PersonalController::class, 'store']);

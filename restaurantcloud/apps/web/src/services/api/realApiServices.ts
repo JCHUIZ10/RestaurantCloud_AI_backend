@@ -52,6 +52,14 @@ import type {
   HorarioSemanaResponse,
   ActualizarConfiguracionKdsRequest,
   ConfiguracionKdsDTO,
+  InsumosAdminResponseDTO,
+  InsumoAdminDTO,
+  CrearInsumoRequest,
+  ActualizarInsumoRequest,
+  AjustarStockInsumoRequest,
+  ConmutarEstadoInsumoRequest,
+  AjusteStockResultDTO,
+  AuditoriaStockAjusteDTO,
 } from '@/types/admin';
 import type {
   DirectorioAdminsApiResponse,
@@ -522,6 +530,42 @@ export const realAdminService = {
     apiPut('/admin/configuracion-kds', payload),
   restaurarDefaultsConfiguracionKds: (): Promise<ApiEnvelope<ConfiguracionKdsDTO>> =>
     apiPost('/admin/configuracion-kds/restaurar-valores-recomendados'),
+
+  // CU-ADMIN-03: Catálogo de Insumos y Gestión de Stock
+  obtenerInsumos: (
+    _localId: string,
+    filtro: 'activo' | 'agotado' | 'inactivo' | 'todos' = 'activo',
+    busqueda = '',
+    pagina = 1,
+    limite = 10,
+  ): Promise<ApiEnvelope<InsumosAdminResponseDTO>> =>
+    apiGet('/admin/insumos', {
+      estado: filtro,
+      ...(busqueda ? { busqueda } : {}),
+      pagina,
+      limite,
+    }),
+  crearInsumo: (_localId: string, payload: CrearInsumoRequest): Promise<ApiEnvelope<InsumoAdminDTO>> =>
+    apiPost('/admin/insumos', payload),
+  actualizarInsumo: (id: string, payload: ActualizarInsumoRequest): Promise<ApiEnvelope<InsumoAdminDTO>> =>
+    apiPut(`/admin/insumos/${id}`, payload),
+  ajustarStockInsumo: (id: string, payload: AjustarStockInsumoRequest): Promise<ApiEnvelope<AjusteStockResultDTO>> =>
+    apiPost(`/admin/insumos/${id}/ajuste`, payload),
+  conmutarEstadoInsumo: (id: string, payload: ConmutarEstadoInsumoRequest): Promise<ApiEnvelope<InsumoAdminDTO>> =>
+    apiPatch(`/admin/insumos/${id}/estado`, payload),
+  obtenerAuditoriaAjustes: (insumoId?: string): Promise<ApiEnvelope<AuditoriaStockAjusteDTO[]>> =>
+    apiGet('/admin/insumos/auditoria', insumoId ? { insumo_id: insumoId } : {}),
+
+  // CU-ADMIN-04: Recetas Culinarias y Simulación de Capacidad de Bodega
+  obtenerReceta: (productoId: string): Promise<ApiEnvelope<any>> =>
+    apiGet(`/admin/productos/${productoId}/receta`),
+  actualizarReceta: (
+    productoId: string,
+    payload: any,
+  ): Promise<ApiEnvelope<any>> =>
+    apiPut(`/admin/productos/${productoId}/receta`, payload),
+  simularCapacidadBodega: (productoId: string): Promise<ApiEnvelope<any>> =>
+    apiGet(`/admin/productos/${productoId}/capacidad`),
 };
 
 // CU-PROP-01: Onboarding y Registro de Empresa (Propietario)

@@ -7,6 +7,7 @@ use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Domains\Inventario\Services\StockDeduccionService;
 use Illuminate\Support\Str;
 
 class MozoController extends Controller
@@ -896,8 +897,10 @@ class MozoController extends Controller
                 $estadoInicial = $requiereCocina ? 'en_cola' : 'listo';
                 $fechaListo = $requiereCocina ? null : now();
 
+                $itemId = (string) Str::uuid();
+
                 DB::table('pedido_item')->insert([
-                    'id' => (string) Str::uuid(),
+                    'id' => $itemId,
                     'pedido_id' => $pedidoId,
                     'producto_id' => $item['producto_id'],
                     'cantidad' => $item['cantidad'],
@@ -906,9 +909,15 @@ class MozoController extends Controller
                     'estado' => $estadoInicial,
                     'numero_ronda' => $numeroRonda,
                     'fecha_listo_cocina' => $fechaListo,
+                    'stock_descontado' => false,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
+
+                // Despacho directo de salón: si el producto no requiere preparación culinaria, descontar stock de inmediato
+                if (! $requiereCocina) {
+                    app(StockDeduccionService::class)->descontarRecetaItem($itemId, $user->id);
+                }
 
                 $itemsInsertados++;
                 if ($requiereCocina) {

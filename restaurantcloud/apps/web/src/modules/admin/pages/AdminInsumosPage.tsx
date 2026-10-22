@@ -4,6 +4,7 @@ import {
   CANONICAL_LOCAL_ID,
   CANONICAL_LOCAL_NOMBRE,
 } from '@/modules/admin/services/mockAdminService';
+import { adminService, IS_REAL_API } from '@/services/serviceAdapter';
 import {
   InsumosAdminResponseDTO,
   InsumoAdminDTO,
@@ -67,7 +68,7 @@ export const AdminInsumosPage: React.FC = () => {
     setError(null);
 
     try {
-      const res = await mockAdminService.obtenerInsumos(
+      const res = await adminService.obtenerInsumos(
         CANONICAL_LOCAL_ID,
         filtroActual,
         busqueda,
@@ -82,7 +83,7 @@ export const AdminInsumosPage: React.FC = () => {
       }
 
       // Cargar conteo de auditorías
-      const auditRes = await mockAdminService.obtenerAuditoriaAjustes();
+      const auditRes = await adminService.obtenerAuditoriaAjustes();
       if (auditRes.exito && auditRes.datos) {
         setTotalAuditorias(auditRes.datos.length);
       }
@@ -99,7 +100,15 @@ export const AdminInsumosPage: React.FC = () => {
 
   useEffect(() => {
     cargarInsumos();
-  }, [cargarInsumos]);
+    // Polling ligero cada 30 segundos si la pestaña está activa
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible' && !modalCrearEditarAbierto && !modalAjusteAbierto) {
+        cargarInsumos();
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [cargarInsumos, modalCrearEditarAbierto, modalAjusteAbierto]);
 
   // Manejadores de Filtro, Búsqueda y Paginación
   const handleCambiarFiltro = (nuevoFiltro: FiltroEstadoInsumo) => {
@@ -140,7 +149,7 @@ export const AdminInsumosPage: React.FC = () => {
   // Guardar Insumo (Crear)
   const handleGuardarCrear = async (req: CrearInsumoRequest): Promise<boolean> => {
     try {
-      const res = await mockAdminService.crearInsumo(CANONICAL_LOCAL_ID, req);
+      const res = await adminService.crearInsumo(CANONICAL_LOCAL_ID, req);
       if (res.exito && res.datos) {
         mostrarToast(`Insumo "${res.datos.nombre}" registrado correctamente (< 8s).`, 'exito');
         await cargarInsumos();
@@ -163,7 +172,7 @@ export const AdminInsumosPage: React.FC = () => {
     req: ActualizarInsumoRequest
   ): Promise<boolean> => {
     try {
-      const res = await mockAdminService.actualizarInsumo(id, req);
+      const res = await adminService.actualizarInsumo(id, req);
       if (res.exito && res.datos) {
         mostrarToast(`Insumo "${res.datos.nombre}" actualizado con éxito.`, 'exito');
         await cargarInsumos();
@@ -186,7 +195,7 @@ export const AdminInsumosPage: React.FC = () => {
     req: AjustarStockInsumoRequest
   ): Promise<AjusteStockResultDTO | null> => {
     try {
-      const res = await mockAdminService.ajustarStockInsumo(id, req);
+      const res = await adminService.ajustarStockInsumo(id, req);
       if (res.exito && res.datos) {
         mostrarToast(res.datos.mensaje, 'exito');
         await cargarInsumos();
@@ -209,7 +218,7 @@ export const AdminInsumosPage: React.FC = () => {
     nuevoEstado: EstadoInsumo
   ) => {
     try {
-      const res = await mockAdminService.conmutarEstadoInsumo(insumo.id, {
+      const res = await adminService.conmutarEstadoInsumo(insumo.id, {
         estado: nuevoEstado,
       });
       if (res.exito && res.datos) {
@@ -363,7 +372,8 @@ export const AdminInsumosPage: React.FC = () => {
       />
 
       {/* Widget QA Flotante para Evaluación de Casos de Prueba */}
-      <DemoAdminInsumosWidget
+      {!IS_REAL_API && (
+        <DemoAdminInsumosWidget
         onVaciarInsumos={handleVaciarInsumos}
         onRestablecerSemillas={handleRestablecerSemillas}
         onSimularQuiebreLimon={handleSimularQuiebreLimon}
@@ -371,6 +381,7 @@ export const AdminInsumosPage: React.FC = () => {
         onSimularReposicion={handleSimularReposicion}
         totalAuditorias={totalAuditorias}
       />
+      )}
     </div>
   );
 };
