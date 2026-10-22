@@ -164,16 +164,26 @@ Route::prefix('v1')->group(function (): void {
             Route::post('/mesas/{id}/dividir-cuenta', [MozoController::class, 'dividirCuenta']);
         });
 
-        // Cocina / KDS (CU-COCINA-01 y CU-COCINA-02)
+        // Cocina / KDS (CU-COCINA-01, CU-COCINA-02 y CU-COCINA-04)
         Route::prefix('cocina')->group(function (): void {
             Route::get('/configuracion', [CocinaController::class, 'getConfiguracion']);
             Route::get('/comandas', [CocinaController::class, 'getComandas']);
+            // CU-COCINA-01 & CU-COCINA-02: Consolidado All-Day y Acciones por Tandas
             Route::get('/consolidado-all-day', [CocinaController::class, 'getConsolidadoAllDay']);
+            Route::post('/consolidado/poner-en-fuego', [CocinaController::class, 'ponerEnFuegoTanda']);
+            Route::post('/consolidado/marcar-listo', [CocinaController::class, 'marcarListoTanda']);
             Route::patch('/items/{id}/estado', [CocinaController::class, 'cambiarEstadoItem']);
             Route::post('/items/{id}/deshacer', [CocinaController::class, 'deshacerItem']);
             Route::post('/pedidos/{id}/despachar', [CocinaController::class, 'despacharPedido']);
             Route::get('/pedidos/despachados-recientes', [CocinaController::class, 'getDespachadosRecientes']);
             Route::get('/metricas-despacho', [CocinaController::class, 'getMetricasDespacho']);
+
+            // CU-COCINA-04: Gestión de Quiebres y Disponibilidad de Carta
+            Route::get('/productos/disponibilidad', [CocinaController::class, 'getDisponibilidadProductos']);
+            Route::get('/productos/{id}/items-fuego', [CocinaController::class, 'getItemsEnFuegoProducto']);
+            Route::post('/productos/{id}/marcar-agotado', [CocinaController::class, 'marcarProductoAgotado']);
+            Route::post('/productos/{id}/resolver-fuego', [CocinaController::class, 'resolverFuegoProducto']);
+            Route::post('/productos/{id}/reactivar', [CocinaController::class, 'reactivarProducto']);
         });
 
         // Caja / POS (CU-CAJA-01, CU-CAJA-02, CU-CAJA-03, CU-CAJA-04)

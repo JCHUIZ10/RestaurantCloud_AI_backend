@@ -16,6 +16,7 @@ import { MozoComandaPage } from '@/modules/mozo/pages/MozoComandaPage';
 import { MozoPrecuentaPage } from '@/modules/mozo/pages/MozoPrecuentaPage';
 import { MozoReservasPage } from '@/modules/mozo/pages/MozoReservasPage';
 import { CocinaKdsPage } from '@/modules/cocina/pages/CocinaKdsPage';
+import { CocinaStockRapidoPage } from '@/modules/cocina/pages/CocinaStockRapidoPage';
 import { AdminPlanoMesasPage } from '@/modules/admin/pages/AdminPlanoMesasPage';
 import { AdminCategoriasPage } from '@/modules/admin/pages/AdminCategoriasPage';
 import { AdminInsumosPage } from '@/modules/admin/pages/AdminInsumosPage';
@@ -313,16 +314,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'stock-rapido',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-COCINA-04"
-            nombrePantalla="Marcar Producto Agotado en Cocina"
-            rol="cocina"
-            layoutNombre="TerminalLayout"
-            descripcion="Control de quiebre de stock en 1 toque. Al marcar un plato como 'Agotado por hoy', se atenúa inmediatamente en la carta digital QR y en el POS de los mozos."
-            viewportSugerido="fullscreen"
-          />
-        ),
+        element: <CocinaStockRapidoPage />,
       },
     ],
   },

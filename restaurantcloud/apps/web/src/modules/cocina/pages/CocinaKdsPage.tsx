@@ -10,7 +10,8 @@ import {
   AlertaStockInsuficienteSSE,
   ItemEnFuegoResolucionDTO,
 } from '@/types/cocina';
-import { cocinaService as mockCocinaService } from '@/services/serviceAdapter';
+import { cocinaService } from '@/services/serviceAdapter';
+import { mockCocinaService } from '../services/mockCocinaService';
 import { MOCK_CONFIGURACION_KDS } from '../services/mockCocinaService';
 import { KdsHeader } from '../components/kds/KdsHeader';
 import { KdsTicketCard } from '../components/kds/KdsTicketCard';
@@ -109,12 +110,12 @@ export const CocinaKdsPage: React.FC = () => {
       setCargando(true);
       setError(null);
       const [resConfig, resComandas, resConsolidado, resDespachados, resMetricas, resCatalogo] = await Promise.all([
-        mockCocinaService.obtenerConfiguracion(),
-        mockCocinaService.obtenerComandas(),
-        mockCocinaService.obtenerConsolidadoAllDay(),
-        mockCocinaService.obtenerPedidosDespachados(),
-        mockCocinaService.obtenerMetricasDespacho(),
-        mockCocinaService.obtenerCatalogoDisponibilidad(),
+        cocinaService.obtenerConfiguracion(),
+        cocinaService.obtenerComandas(),
+        cocinaService.obtenerConsolidadoAllDay(),
+        cocinaService.obtenerPedidosDespachados(),
+        cocinaService.obtenerMetricasDespacho(),
+        cocinaService.obtenerCatalogoDisponibilidad(),
       ]);
 
       if (resConfig.exito) setConfiguracion(resConfig.datos);
@@ -135,7 +136,7 @@ export const CocinaKdsPage: React.FC = () => {
 
     // Short polling cada 3 segundos para reflejar nuevas comandas desde salón
     const pollingKds = setInterval(() => {
-      mockCocinaService.obtenerComandas().then((res: any) => {
+      cocinaService.obtenerComandas().then((res: any) => {
         if (res?.exito && res.datos) {
           setComandas(res.datos);
         }
@@ -180,7 +181,7 @@ export const CocinaKdsPage: React.FC = () => {
 
   // Actualizar el consolidado cada vez que cambien las comandas
   const actualizarConsolidado = useCallback(async () => {
-    const res = await mockCocinaService.obtenerConsolidadoAllDay();
+    const res = await cocinaService.obtenerConsolidadoAllDay();
     if (res.exito) {
       setConsolidado(res.datos);
     }
@@ -191,7 +192,7 @@ export const CocinaKdsPage: React.FC = () => {
     itemId: string,
     nuevoEstado: 'en_preparacion' | 'listo'
   ) => {
-    const res = await mockCocinaService.cambiarEstadoItem(itemId, nuevoEstado);
+    const res = await cocinaService.cambiarEstadoItem(itemId, nuevoEstado);
     if (res.exito) {
       if (res.datos.alerta_stock) {
         setAlertaStockToast(res.datos.alerta_stock);
@@ -219,14 +220,14 @@ export const CocinaKdsPage: React.FC = () => {
       actualizarConsolidado();
 
       // Refrescar catálogo por si cambió la disponibilidad por stock cero
-      const resCat = await mockCocinaService.obtenerCatalogoDisponibilidad();
+      const resCat = await cocinaService.obtenerCatalogoDisponibilidad();
       if (resCat.exito) setCatalogoDisponibilidad(resCat.datos);
     }
   };
 
   // Manejador: Deshacer "Listo" dentro de los 30s
   const handleDeshacerListo = async (itemId: string) => {
-    const res = await mockCocinaService.deshacerListoItem(itemId);
+    const res = await cocinaService.deshacerListoItem(itemId);
     if (res.exito) {
       setComandas((prev) =>
         prev.map((comanda) => ({
@@ -246,7 +247,7 @@ export const CocinaKdsPage: React.FC = () => {
       actualizarConsolidado();
 
       // Refrescar catálogo tras rollback
-      const resCat = await mockCocinaService.obtenerCatalogoDisponibilidad();
+      const resCat = await cocinaService.obtenerCatalogoDisponibilidad();
       if (resCat.exito) setCatalogoDisponibilidad(resCat.datos);
     }
   };
@@ -256,12 +257,12 @@ export const CocinaKdsPage: React.FC = () => {
     productoId: string,
     nuevoEstado: 'disponible' | 'agotado'
   ) => {
-    const res = await mockCocinaService.conmutarDisponibilidadPlatoDirecto(productoId, nuevoEstado);
+    const res = await cocinaService.conmutarDisponibilidadPlatoDirecto(productoId, nuevoEstado);
     if (res.exito) {
       if (res.datos.requiere_resolucion) {
         // Tiene órdenes en fuego: abrir Diálogo de Resolución (CU-COCINA-04 Vista 2)
         const targetPlato = catalogoDisponibilidad.find((p) => p.producto_id === productoId) || null;
-        const resItems = await mockCocinaService.obtenerItemsEnFuegoDeProducto(productoId);
+        const resItems = await cocinaService.obtenerItemsEnFuegoDeProducto(productoId);
         if (resItems.exito) {
           setItemsEnFuegoResolucion(resItems.datos);
           setPlatoEnResolucion(targetPlato);
@@ -269,8 +270,8 @@ export const CocinaKdsPage: React.FC = () => {
         }
       } else {
         const [resCat, resCom] = await Promise.all([
-          mockCocinaService.obtenerCatalogoDisponibilidad(),
-          mockCocinaService.obtenerComandas(),
+          cocinaService.obtenerCatalogoDisponibilidad(),
+          cocinaService.obtenerComandas(),
         ]);
         if (resCat.exito) setCatalogoDisponibilidad(resCat.datos);
         if (resCom.exito) setComandas(resCom.datos);
@@ -287,15 +288,15 @@ export const CocinaKdsPage: React.FC = () => {
     itemsEnFuegoNoAlcanzadosIds: string[],
     motivo: string
   ) => {
-    const res = await mockCocinaService.confirmarResolucionFuego(
+    const res = await cocinaService.confirmarResolucionFuego(
       productoId,
       itemsEnFuegoNoAlcanzadosIds,
       motivo
     );
     if (res.exito) {
       const [resCat, resCom] = await Promise.all([
-        mockCocinaService.obtenerCatalogoDisponibilidad(),
-        mockCocinaService.obtenerComandas(),
+        cocinaService.obtenerCatalogoDisponibilidad(),
+        cocinaService.obtenerComandas(),
       ]);
       if (resCat.exito) setCatalogoDisponibilidad(resCat.datos);
       if (resCom.exito) setComandas(resCom.datos);
@@ -309,21 +310,21 @@ export const CocinaKdsPage: React.FC = () => {
     const alerta = mockCocinaService.simularConsumoStockCritico();
     setAlertaStockToast(alerta);
     reproducirChime('alerta_parada');
-    const resCat = await mockCocinaService.obtenerCatalogoDisponibilidad();
+    const resCat = await cocinaService.obtenerCatalogoDisponibilidad();
     if (resCat.exito) setCatalogoDisponibilidad(resCat.datos);
   };
 
   // Manejador: Despachar comanda completa (CU-COCINA-02)
   const handleDespacharTodo = async (pedidoId: string) => {
-    const res = await mockCocinaService.despacharComandaCompleta(pedidoId);
+    const res = await cocinaService.despacharComandaCompleta(pedidoId);
     if (res.exito) {
       setComandas((prev) => prev.filter((c) => c.pedido_id !== pedidoId));
       actualizarConsolidado();
 
       // Refrescar lista de despachados recientes y métricas
       const [resDesp, resMet] = await Promise.all([
-        mockCocinaService.obtenerPedidosDespachados(),
-        mockCocinaService.obtenerMetricasDespacho(),
+        cocinaService.obtenerPedidosDespachados(),
+        cocinaService.obtenerMetricasDespacho(),
       ]);
       if (resDesp.exito) setPedidosDespachados(resDesp.datos);
       if (resMet.exito) setMetricasDespacho(resMet.datos);
@@ -332,9 +333,9 @@ export const CocinaKdsPage: React.FC = () => {
 
   // Manejador: Poner en fuego por tanda acumulada en Consolidado All-Day (CU-COCINA-02 Vista 3)
   const handlePonerEnFuegoTanda = async (productoId: string) => {
-    const res = await mockCocinaService.ponerEnFuegoPorTanda(productoId);
+    const res = await cocinaService.ponerEnFuegoPorTanda(productoId);
     if (res.exito) {
-      const resCom = await mockCocinaService.obtenerComandas();
+      const resCom = await cocinaService.obtenerComandas();
       if (resCom.exito) setComandas(resCom.datos);
       actualizarConsolidado();
     }
@@ -342,9 +343,9 @@ export const CocinaKdsPage: React.FC = () => {
 
   // Manejador: Marcar listos en pase por tanda acumulada (CU-COCINA-02 Vista 3)
   const handleMarcarListoTanda = async (productoId: string, cantidad: number) => {
-    const res = await mockCocinaService.marcarListoPorTanda(productoId, cantidad);
+    const res = await cocinaService.marcarListoPorTanda(productoId, cantidad);
     if (res.exito) {
-      const resCom = await mockCocinaService.obtenerComandas();
+      const resCom = await cocinaService.obtenerComandas();
       if (resCom.exito) setComandas(resCom.datos);
       actualizarConsolidado();
     }

@@ -68,7 +68,7 @@ export const DialogoResolucionFuego: React.FC<DialogoResolucionFuegoProps> = ({
   if (!abierto || !plato) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fadeIn select-none">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fadeIn select-none">
       <div className="w-full max-w-2xl bg-slate-900 border-2 border-rose-500/80 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
         {/* Cabecera */}
         <div className="p-4 sm:p-5 bg-rose-950/60 border-b border-rose-900/60 flex items-start justify-between gap-3">

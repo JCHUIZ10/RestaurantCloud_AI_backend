@@ -17,6 +17,8 @@ import type {
   ConsolidadoAllDayDTO,
   MetricasDespachoDTO,
   KDSPedidoDespachadoDTO,
+  PlatoDisponibilidadDTO,
+  ItemEnFuegoResolucionDTO,
 } from '@/types/cocina';
 import type {
   CajaTurnoDTO,
@@ -393,6 +395,58 @@ export const realCocinaService = {
 
   async obtenerPedidosDespachados(): Promise<ApiResponse<KDSPedidoDespachadoDTO[]>> {
     return apiGet<KDSPedidoDespachadoDTO[]>('/cocina/pedidos/despachados-recientes');
+  },
+
+  // CU-COCINA-04: Gestión Táctil de Disponibilidad y Quiebres
+  async obtenerCatalogoDisponibilidad(): Promise<ApiResponse<PlatoDisponibilidadDTO[]>> {
+    return apiGet<PlatoDisponibilidadDTO[]>('/cocina/productos/disponibilidad');
+  },
+
+  async obtenerItemsEnFuegoDeProducto(productoId: string): Promise<ApiResponse<ItemEnFuegoResolucionDTO[]>> {
+    return apiGet<ItemEnFuegoResolucionDTO[]>(`/cocina/productos/${productoId}/items-fuego`);
+  },
+
+  async conmutarDisponibilidadPlatoDirecto(
+    productoId: string,
+    nuevoEstado: 'disponible' | 'agotado',
+    motivo?: string
+  ): Promise<ApiResponse<any>> {
+    if (nuevoEstado === 'disponible') {
+      return apiPost<any>(`/cocina/productos/${productoId}/reactivar`);
+    }
+    return apiPost<any>(`/cocina/productos/${productoId}/marcar-agotado`, { motivo });
+  },
+
+  async confirmarResolucionFuego(
+    productoId: string,
+    itemsEnFuegoNoAlcanzadosIds: string[],
+    motivo?: string
+  ): Promise<ApiResponse<any>> {
+    return apiPost<any>(`/cocina/productos/${productoId}/resolver-fuego`, {
+      items_no_alcanzados_ids: itemsEnFuegoNoAlcanzadosIds,
+      motivo,
+    });
+  },
+
+  // CU-COCINA-02: Acciones por Tandas All-Day
+  async ponerEnFuegoPorTanda(
+    productoId: string,
+    cantidad?: number
+  ): Promise<ApiResponse<{ producto_id: string; actualizados: number; items_afectados: string[] }>> {
+    return apiPost<{ producto_id: string; actualizados: number; items_afectados: string[] }>(
+      '/cocina/consolidado/poner-en-fuego',
+      { producto_id: productoId, cantidad }
+    );
+  },
+
+  async marcarListoPorTanda(
+    productoId: string,
+    cantidad: number
+  ): Promise<ApiResponse<{ producto_id: string; listos: number; items_afectados: string[] }>> {
+    return apiPost<{ producto_id: string; listos: number; items_afectados: string[] }>(
+      '/cocina/consolidado/marcar-listo',
+      { producto_id: productoId, cantidad }
+    );
   },
 };
 
