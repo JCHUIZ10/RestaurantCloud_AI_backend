@@ -28,6 +28,8 @@ import type {
   CajaMetricasPosDTO,
   PrecuentaResponseDTO,
   ClienteFiscalLookupDTO,
+  ProcesarCobroFiscalRequest,
+  ProcesarCobroFiscalResponseDTO,
 } from '@/types/caja';
 import type { ApiResponse as ApiEnvelope } from '@/types/api';
 import type {
@@ -492,6 +494,57 @@ export const realCajaService = {
     subcuenta_id?: string;
   }): Promise<ApiResponse<any>> {
     return apiPost<any>('/caja/cobrar', datos);
+  },
+
+  async emitirComprobanteFiscal(
+    datos: ProcesarCobroFiscalRequest,
+  ): Promise<ApiResponse<ProcesarCobroFiscalResponseDTO>> {
+    const response = await apiPost<any>('/caja/cobrar', {
+      pedido_id: datos.pedido_id,
+      subcuenta_id: datos.subcuenta_id,
+      tipo_comprobante: datos.tipo_comprobante,
+      medio_pago: datos.metodo_pago_codigo,
+      monto_recibido: datos.monto_recibido,
+      documento_cliente: datos.cliente_num_doc,
+      nombre_cliente: datos.cliente_nombre,
+      telefono_envio: datos.telefono_envio,
+      email_envio: datos.email_envio,
+    });
+
+    if (!response.exito || !response.datos) {
+      return response;
+    }
+
+    const comprobante = response.datos;
+
+    return {
+      ...response,
+      datos: {
+        comprobante_id: comprobante.comprobante_id,
+        tipo_comprobante: comprobante.tipo_comprobante,
+        serie: comprobante.serie,
+        correlativo: comprobante.correlativo,
+        serie_numero: comprobante.serie_numero,
+        total_cobrado: Number(comprobante.total_cobrado),
+        base_imponible: Number(comprobante.base_imponible),
+        igv: Number(comprobante.igv),
+        monto_recibido: Number(comprobante.monto_recibido),
+        vuelto: Number(comprobante.vuelto),
+        cliente_nombre: comprobante.cliente_nombre,
+        cliente_documento: comprobante.cliente_documento ?? undefined,
+        telefono_registrado: comprobante.telefono_registrado ?? undefined,
+        email_registrado: comprobante.email_registrado ?? undefined,
+        token_digital: comprobante.token_digital,
+        // La URL se habilitará al almacenar PDF/XML durante CU-CAJA-03B.
+        url_publica_qr: '',
+        mesa_id: comprobante.mesa_id,
+        mesa_numero: comprobante.mesa_numero,
+        mesa_liberada: comprobante.mesa_liberada,
+        subcuenta_id: comprobante.subcuenta_id ?? undefined,
+        subcuentas_pendientes: comprobante.subcuentas_pendientes,
+        emitido_at: comprobante.emitido_at,
+      },
+    };
   },
 
   async consultarClienteFiscal(tipoDoc: 'DNI' | 'RUC', numeroDoc: string): Promise<ApiResponse<ClienteFiscalLookupDTO>> {

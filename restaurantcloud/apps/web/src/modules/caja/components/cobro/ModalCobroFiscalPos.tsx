@@ -18,7 +18,7 @@ import {
   SubcuentaComandaDTO,
   ProcesarCobroFiscalResponseDTO,
 } from '@/types/caja';
-import { mockCajaService } from '../../services/mockCajaService';
+import { cajaService, IS_REAL_API } from '@/services/serviceAdapter';
 
 interface ModalCobroFiscalPosProps {
   isOpen: boolean;
@@ -128,7 +128,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
 
         const titular = s.titular_referencia || (idx === 0 ? 'Carlos Mendoza Quispe' : 'Inversiones Gastronómicas S.A.C.');
         const tipoDoc = isFactura ? 'RUC' : 'DNI';
-        const numDoc = isFactura ? '20601234567' : (idx === 0 ? '72819201' : '45892134');
+        const numDoc = s.documento_identidad || (isFactura ? '20601234567' : (idx === 0 ? '72819201' : '45892134'));
         const medio = (s.medio_pago_tentativo as any) || (idx === 0 ? 'billetera_digital' : 'tarjeta');
 
         // Subcuenta 1 viene con teléfono para demostrar [ Guardado ] [ Modificar ]
@@ -148,7 +148,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
           base_imponible: base,
           igv,
           medio_pago: medio,
-          numero_operacion: '581902',
+          numero_operacion: '',
           monto_recibido: totalNeto,
           vuelto: 0,
           token_digital: token,
@@ -171,9 +171,9 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
       }
     } else {
       // Caso 2: Mesa con cuenta consolidada única (Mesa completa)
-      const totalNeto = precuenta?.tributacion_sunat.total_neto || mesa.total_consumo || 100.0;
-      const isFactura = precuenta?.promocion_activa_id?.includes('factura');
-      const tipoComp = isFactura ? 'factura' : 'boleta';
+      const totalNeto = precuenta?.total_cobro_tentativo || precuenta?.tributacion_sunat.total_neto || mesa.total_consumo || 100.0;
+      const tipoComp = precuenta?.tipo_comprobante_sugerido || 'boleta';
+      const isFactura = tipoComp === 'factura';
       const serie = isFactura ? 'F001' : 'B001';
       const corr = isFactura ? baseCorrelativoFactura + 1 : baseCorrelativoBoleta + 1;
       const serieNum = `${serie}-${String(corr).padStart(8, '0')}`;
@@ -185,16 +185,16 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
       const itemUnico: CuentaFiscalItem = {
         id: `cta-unica-${mesa.id}`,
         numero_subcuenta: 1,
-        titular: 'Carlos Mendoza Quispe',
-        tipo_documento: 'DNI',
-        numero_documento: '72819201',
+        titular: precuenta?.nombre_cliente_sugerido || 'CONSUMIDOR FINAL',
+        tipo_documento: isFactura ? 'RUC' : 'DNI',
+        numero_documento: precuenta?.documento_cliente_sugerido || '00000000',
         tipo_comprobante: tipoComp,
         serie_numero: serieNum,
         total_neto: totalNeto,
         base_imponible: base,
         igv,
-        medio_pago: 'billetera_digital',
-        numero_operacion: '581902',
+        medio_pago: (precuenta?.metodo_pago_tentativo as CuentaFiscalItem['medio_pago']) || 'efectivo',
+        numero_operacion: precuenta?.numero_operacion_tentativo || '',
         monto_recibido: totalNeto,
         vuelto: 0,
         token_digital: token,
@@ -217,9 +217,15 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
   const totalMesa = cuentas.reduce((acc, c) => acc + c.total_neto, 0);
   const numPagadas = cuentas.filter((c) => c.pagado).length;
   const todasPagadas = cuentas.length > 0 && numPagadas === cuentas.length;
+  const entregaDigitalDisponible = !IS_REAL_API;
 
   // Manejador para copiar URL del comprobante
   const handleCopiarUrl = async () => {
+    if (!entregaDigitalDisponible) {
+      setNotificacionFeedback('El PDF/XML y el enlace QR estarán disponibles al implementar CU-CAJA-03B.');
+      return;
+    }
+
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(cuentaActiva.url_publica);
@@ -271,6 +277,11 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
 
   // Enviar WhatsApp asistido
   const handleEnviarWhatsApp = (cuentaId: string) => {
+    if (!entregaDigitalDisponible) {
+      setNotificacionFeedback('El envío por WhatsApp se habilitará cuando el comprobante digital esté generado.');
+      return;
+    }
+
     setWhatsappEnviado((prev) => ({ ...prev, [cuentaId]: true }));
     setNotificacionFeedback('Comprobante enviado por WhatsApp al comensal exitosamente.');
     setTimeout(() => setNotificacionFeedback(null), 3000);
@@ -278,6 +289,11 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
 
   // Enviar Email asistido
   const handleEnviarEmail = (cuentaId: string) => {
+    if (!entregaDigitalDisponible) {
+      setNotificacionFeedback('El envío por correo se habilitará cuando el comprobante digital esté generado.');
+      return;
+    }
+
     setEmailEnviado((prev) => ({ ...prev, [cuentaId]: true }));
     setNotificacionFeedback('Comprobante enviado por Correo Electrónico exitosamente.');
     setTimeout(() => setNotificacionFeedback(null), 3000);
@@ -297,7 +313,33 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
       return;
     }
 
-    // Marcar la cuenta activa como pagada
+    let res;
+    try {
+      res = await cajaService.emitirComprobanteFiscal({
+        mesa_id: mesa.id,
+        pedido_id: mesa.pedido_id || 'ped-caja-default',
+        subcuenta_id: cuentas.length > 1 ? cuentaActiva.id : undefined,
+        tipo_comprobante: cuentaActiva.tipo_comprobante,
+        serie: cuentaActiva.tipo_comprobante === 'factura' ? 'F001' : cuentaActiva.tipo_comprobante === 'nota_venta' ? 'NV01' : 'B001',
+        cliente_nombre: cuentaActiva.titular,
+        cliente_num_doc: cuentaActiva.numero_documento,
+        metodo_pago_codigo: cuentaActiva.medio_pago,
+        monto_recibido: cuentaActiva.monto_recibido,
+        telefono_envio: cuentaActiva.telefono_whatsapp,
+        email_envio: cuentaActiva.correo,
+      });
+    } catch (error: any) {
+      setNotificacionFeedback(
+        error.response?.data?.errores?.[0]?.mensaje ?? 'No se pudo emitir el comprobante. Intenta nuevamente.'
+      );
+      return;
+    }
+
+    if (!res.exito || !res.datos) {
+      setNotificacionFeedback(res.errores?.[0]?.mensaje ?? 'No se pudo emitir el comprobante.');
+      return;
+    }
+
     const cuentasActualizadas = cuentas.map((c, idx) => {
       if (idx === indexCuentaActiva || c.id === cuentaActiva.id) {
         return { ...c, pagado: true };
@@ -307,21 +349,6 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
     setCuentas(cuentasActualizadas);
 
     const quedanPendientes = cuentasActualizadas.filter((c) => !c.pagado).length;
-
-    // Llamar al servicio fiscal para asentar en caja_movimiento y correlativos
-    const res = await mockCajaService.emitirComprobanteFiscal({
-      mesa_id: mesa.id,
-      pedido_id: mesa.pedido_id || 'ped-caja-default',
-      subcuenta_id: cuentas.length > 1 ? cuentaActiva.id : undefined,
-      tipo_comprobante: cuentaActiva.tipo_comprobante,
-      serie: cuentaActiva.tipo_comprobante === 'factura' ? 'F001' : cuentaActiva.tipo_comprobante === 'nota_venta' ? 'NV01' : 'B001',
-      cliente_nombre: cuentaActiva.titular,
-      cliente_num_doc: cuentaActiva.numero_documento,
-      metodo_pago_codigo: cuentaActiva.medio_pago,
-      monto_recibido: cuentaActiva.monto_recibido,
-      telefono_envio: cuentaActiva.telefono_whatsapp,
-      email_envio: cuentaActiva.correo,
-    });
 
     if (quedanPendientes === 0) {
       // Toda la mesa liquidada y liberada
@@ -589,7 +616,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
                 TOKEN DIGITAL QR • CERO PAPEL
               </span>
               <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                Escaneo Directo por el Comensal
+                {entregaDigitalDisponible ? 'Escaneo Directo por el Comensal' : 'Documento digital pendiente'}
               </h4>
               <p className="text-xs text-slate-500 leading-relaxed">
                 El cliente puede escanear este código con la cámara de su smartphone para ver, verificar y descargar su comprobante oficial en formato PDF.
@@ -620,14 +647,18 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
                   )}
                 </button>
 
-                <a
-                  href={cuentaActiva.url_publica}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs font-mono text-amber-600 dark:text-amber-400 underline font-semibold truncate max-w-xs hover:text-amber-700"
-                >
-                  {cuentaActiva.url_publica}
-                </a>
+                {entregaDigitalDisponible ? (
+                  <a
+                    href={cuentaActiva.url_publica}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-mono text-amber-600 dark:text-amber-400 underline font-semibold truncate max-w-xs hover:text-amber-700"
+                  >
+                    {cuentaActiva.url_publica}
+                  </a>
+                ) : (
+                  <span className="text-xs font-medium text-slate-500">Pendiente de generación</span>
+                )}
               </div>
             </div>
           </div>
@@ -821,15 +852,21 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
         {/* ========================================================================= */}
         <div className="px-5 sm:px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-950 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2 text-xs">
-            <a
-              href={cuentaActiva.url_publica}
-              target="_blank"
-              rel="noreferrer"
-              className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5"
-            >
-              <ExternalLink className="w-3.5 h-3.5 text-amber-500" />
-              <span>Ver Comprobante PDF</span>
-            </a>
+            {entregaDigitalDisponible ? (
+              <a
+                href={cuentaActiva.url_publica}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-amber-500" />
+                <span>Ver Comprobante PDF</span>
+              </a>
+            ) : (
+              <span className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-400 text-xs font-bold">
+                PDF pendiente (CU-CAJA-03B)
+              </span>
+            )}
 
             <button
               type="button"

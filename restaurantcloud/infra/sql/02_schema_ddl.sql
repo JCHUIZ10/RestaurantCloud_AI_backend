@@ -506,6 +506,8 @@ CREATE TABLE IF NOT EXISTS pedido (
     tipo_comprobante_sugerido VARCHAR(20) DEFAULT NULL CHECK (tipo_comprobante_sugerido IN ('boleta', 'factura', 'nota_venta')),
     documento_cliente_sugerido VARCHAR(20) DEFAULT NULL,
     nombre_cliente_sugerido VARCHAR(255) DEFAULT NULL,
+    medio_pago_sugerido VARCHAR(30) DEFAULT NULL CHECK (medio_pago_sugerido IN ('efectivo', 'tarjeta', 'billetera_digital')),
+    numero_operacion_sugerido VARCHAR(100) DEFAULT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

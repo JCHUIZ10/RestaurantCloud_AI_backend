@@ -519,6 +519,13 @@ class MozoController extends Controller
     {
         $user = $request->user();
         $localId = $user->local_id;
+        $preferencias = $request->validate([
+            'medio_pago' => ['nullable', 'in:efectivo,tarjeta,billetera_digital'],
+            'numero_operacion' => ['nullable', 'string', 'max:100'],
+            'tipo_comprobante' => ['nullable', 'in:boleta,factura,nota_venta'],
+            'documento_cliente' => ['nullable', 'string', 'max:20'],
+            'nombre_cliente' => ['nullable', 'string', 'max:255'],
+        ]);
 
         $pedido = DB::table('pedido')
             ->where('mesa_id', $id)
@@ -536,6 +543,11 @@ class MozoController extends Controller
             ->update([
                 'precuenta_generada_at' => now(),
                 'estado' => 'cuenta_pedida',
+                'medio_pago_sugerido' => $preferencias['medio_pago'] ?? $pedido->medio_pago_sugerido,
+                'numero_operacion_sugerido' => $preferencias['numero_operacion'] ?? $pedido->numero_operacion_sugerido,
+                'tipo_comprobante_sugerido' => $preferencias['tipo_comprobante'] ?? $pedido->tipo_comprobante_sugerido,
+                'documento_cliente_sugerido' => $preferencias['documento_cliente'] ?? $pedido->documento_cliente_sugerido,
+                'nombre_cliente_sugerido' => $preferencias['nombre_cliente'] ?? $pedido->nombre_cliente_sugerido,
                 'updated_at' => now(),
             ]);
 

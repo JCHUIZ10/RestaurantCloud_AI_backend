@@ -204,8 +204,12 @@ export interface PrecuentaResponseDTO {
   tributacion_sunat: DesgloseTributarioSUNATDTO;
   opciones_cobro: OpcionCobroPrecuentaDTO[];
   subcuentas?: SubcuentaComandaDTO[];
+  tipo_comprobante_sugerido?: 'boleta' | 'factura' | 'nota_venta';
+  documento_cliente_sugerido?: string | null;
+  nombre_cliente_sugerido?: string | null;
   metodo_pago_tentativo?: string;
   numero_operacion_tentativo?: string;
+  total_cobro_tentativo?: number;
   generada_at: string;
 }
 
@@ -369,4 +373,3 @@ export interface EmitirNotaCreditoResponseDTO {
   email_registrado?: string;
   emitido_at: string;
 }
-

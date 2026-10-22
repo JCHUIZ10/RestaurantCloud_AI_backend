@@ -415,6 +415,11 @@ class CajaController extends Controller
                 'p.estado as pedido_estado',
                 'p.created_at',
                 'p.precuenta_generada_at',
+                'p.tipo_comprobante_sugerido',
+                'p.documento_cliente_sugerido',
+                'p.nombre_cliente_sugerido',
+                'p.medio_pago_sugerido',
+                'p.numero_operacion_sugerido',
             ])
             ->orderBy('p.created_at', 'desc')
             ->first();
@@ -511,6 +516,9 @@ class CajaController extends Controller
             ];
         });
 
+        $opcionTentativa = $opcionesCobro->firstWhere('codigo', $pedido->medio_pago_sugerido);
+        $totalCobroTentativo = $opcionTentativa['total_estimado'] ?? $totalNeto;
+
         // Promociones comerciales disponibles
         $promociones = DB::table('promocion')
             ->where('local_id', $localId)
@@ -545,6 +553,8 @@ class CajaController extends Controller
                 'nombre_titular' => $s->nombre_cliente,
                 'titular_referencia' => $s->nombre_cliente,
                 'tipo_comprobante' => $s->tipo_comprobante,
+                'documento_identidad' => $s->documento_cliente,
+                'medio_pago_tentativo' => $s->medio_pago,
                 'total_neto' => (float) $s->total,
                 'estado' => $s->estado,
                 'estado_pago' => $s->estado,
@@ -582,6 +592,12 @@ class CajaController extends Controller
             ],
             'opciones_cobro' => $opcionesCobro,
             'opciones_pago' => $opcionesCobro,
+            'tipo_comprobante_sugerido' => $pedido->tipo_comprobante_sugerido ?? 'boleta',
+            'documento_cliente_sugerido' => $pedido->documento_cliente_sugerido,
+            'nombre_cliente_sugerido' => $pedido->nombre_cliente_sugerido ?? 'CONSUMIDOR FINAL',
+            'metodo_pago_tentativo' => $pedido->medio_pago_sugerido ?? 'efectivo',
+            'numero_operacion_tentativo' => $pedido->numero_operacion_sugerido,
+            'total_cobro_tentativo' => (float) $totalCobroTentativo,
             'subcuentas' => $subcuentas->isNotEmpty() ? $subcuentas : null,
             'generada_at' => now()->toIso8601String(),
         ]);
@@ -643,11 +659,19 @@ class CajaController extends Controller
             'monto_recibido' => ['nullable', 'numeric', 'min:0'],
             'documento_cliente' => ['nullable', 'string', 'max:20'],
             'nombre_cliente' => ['nullable', 'string', 'max:150'],
+            'telefono_envio' => ['nullable', 'string', 'max:20'],
+            'email_envio' => ['nullable', 'email', 'max:100'],
             'subcuenta_id' => ['nullable', 'uuid'],
         ]);
 
         return DB::transaction(function () use ($validated, $user, $localId) {
-            $pedido = DB::table('pedido')->where('id', $validated['pedido_id'])->lockForUpdate()->first();
+            $pedido = DB::table('pedido as p')
+                ->join('mesa as m', 'm.id', '=', 'p.mesa_id')
+                ->where('p.id', $validated['pedido_id'])
+                ->where('m.local_id', $localId)
+                ->select('p.*')
+                ->lockForUpdate()
+                ->first();
 
             if (! $pedido) {
                 return ApiResponse::error('PEDIDO_NO_ENCONTRADO', 'El pedido no existe.', 404);
@@ -655,6 +679,19 @@ class CajaController extends Controller
 
             if ($pedido->estado === 'cobrado') {
                 return ApiResponse::error('PEDIDO_YA_COBRADO', 'El pedido ya fue cobrado al 100%.', 409);
+            }
+
+            // En una cuenta consolidada, Mozo define la configuración de cobro.
+            // Caja la confirma y no debe sustituirla con valores enviados por el navegador.
+            if (empty($validated['subcuenta_id'])) {
+                $validated['tipo_comprobante'] = $pedido->tipo_comprobante_sugerido
+                    ?? $validated['tipo_comprobante'];
+                $validated['medio_pago'] = $pedido->medio_pago_sugerido
+                    ?? $validated['medio_pago'];
+                $validated['documento_cliente'] = $pedido->documento_cliente_sugerido
+                    ?? $validated['documento_cliente'];
+                $validated['nombre_cliente'] = $pedido->nombre_cliente_sugerido
+                    ?? $validated['nombre_cliente'];
             }
 
             // Validar turno de caja activo en el local
@@ -700,7 +737,16 @@ class CajaController extends Controller
             $subcuentaId = $validated['subcuenta_id'] ?? null;
             $subcuenta = null;
             if ($subcuentaId) {
-                $subcuenta = DB::table('pedido_subcuenta')->where('id', $subcuentaId)->first();
+                $subcuenta = DB::table('pedido_subcuenta')
+                    ->where('id', $subcuentaId)
+                    ->where('pedido_id', $pedido->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $subcuenta) {
+                    return ApiResponse::error('SUBCUENTA_NO_ENCONTRADA', 'La subcuenta no pertenece al pedido.', 404);
+                }
+
                 $subcuentaItemIds = DB::table('pedido_subcuenta_item')
                     ->where('subcuenta_id', $subcuentaId)
                     ->pluck('pedido_item_id');
@@ -723,22 +769,96 @@ class CajaController extends Controller
             $baseImponible = round($totalCobro / 1.18, 2);
             $igv = round($totalCobro - $baseImponible, 2);
 
-            $montoRecibido = isset($validated['monto_recibido']) ? (float) $validated['monto_recibido'] : $totalCobro;
-            $vuelto = max(0, round($montoRecibido - $totalCobro, 2));
+            $documentoCliente = trim((string) ($validated['documento_cliente'] ?? $subcuenta?->documento_cliente ?? ''));
+            $nombreCliente = trim((string) ($validated['nombre_cliente'] ?? $subcuenta?->nombre_cliente ?? ''));
+            $tipoCliente = null;
 
-            // Serie y correlativo
+            if ($validated['tipo_comprobante'] === 'factura') {
+                if (! preg_match('/^(10|20)\d{9}$/', $documentoCliente) || $nombreCliente === '') {
+                    return ApiResponse::error(
+                        'DATOS_FISCALES_INVALIDOS',
+                        'La factura requiere RUC válido de 11 dígitos y razón social.',
+                        422,
+                    );
+                }
+
+                $tipoCliente = 'RUC';
+            }
+
+            if ($validated['tipo_comprobante'] === 'boleta') {
+                if ($totalCobro >= 700 && (! preg_match('/^\d{8}$/', $documentoCliente) || $nombreCliente === '')) {
+                    return ApiResponse::error(
+                        'DATOS_FISCALES_INVALIDOS',
+                        'La boleta desde S/ 700.00 requiere DNI válido y nombre del cliente.',
+                        422,
+                    );
+                }
+
+                if ($documentoCliente !== '' && ! preg_match('/^\d{8}$/', $documentoCliente)) {
+                    return ApiResponse::error('DNI_INVALIDO', 'El DNI debe tener 8 dígitos.', 422);
+                }
+
+                $tipoCliente = $documentoCliente === '' ? null : 'DNI';
+            }
+
+            if ($validated['tipo_comprobante'] === 'nota_venta' && $nombreCliente === '') {
+                return ApiResponse::error('NOMBRE_CLIENTE_REQUERIDO', 'La nota de venta requiere el nombre del cliente.', 422);
+            }
+
+            $nombreCliente = $nombreCliente !== '' ? $nombreCliente : 'Cliente General';
+
+            $montoRecibido = $validated['medio_pago'] === 'efectivo'
+                ? (float) ($validated['monto_recibido'] ?? $totalCobro)
+                : $totalCobro;
+
+            if ($validated['medio_pago'] === 'efectivo' && $montoRecibido < $totalCobro) {
+                return ApiResponse::error(
+                    'MONTO_RECIBIDO_INSUFICIENTE',
+                    'El efectivo recibido no cubre el total del comprobante.',
+                    422,
+                );
+            }
+
+            $vuelto = round($montoRecibido - $totalCobro, 2);
+
+            $clienteId = null;
+            if ($tipoCliente !== null) {
+                DB::table('cliente')->updateOrInsert(
+                    [
+                        'empresa_id' => $user->empresa_id,
+                        'tipo_documento' => $tipoCliente,
+                        'numero_documento' => $documentoCliente,
+                    ],
+                    [
+                        'nombre_identificativo' => $nombreCliente,
+                        'telefono' => $validated['telefono_envio'] ?? null,
+                        'email' => $validated['email_envio'] ?? null,
+                        'updated_at' => now(),
+                    ],
+                );
+
+                $clienteId = DB::table('cliente')
+                    ->where('empresa_id', $user->empresa_id)
+                    ->where('tipo_documento', $tipoCliente)
+                    ->where('numero_documento', $documentoCliente)
+                    ->value('id');
+            }
+
+            // La serie se bloquea en PostgreSQL para no duplicar correlativos bajo concurrencia.
             $serie = match ($validated['tipo_comprobante']) {
                 'factura' => 'F001',
                 'nota_venta' => 'NV01',
                 default => 'B001',
             };
 
-            $ultimoCorrelativo = (int) DB::table('comprobante')
-                ->where('serie', $serie)
-                ->max('correlativo');
-            $correlativo = $ultimoCorrelativo + 1;
+            $siguienteSerie = DB::selectOne(
+                'SELECT fn_obtener_siguiente_correlativo(CAST(? AS uuid), ?, ?) AS correlativo',
+                [$localId, $validated['tipo_comprobante'], $serie],
+            );
+            $correlativo = (int) $siguienteSerie->correlativo;
 
             $comprobanteId = (string) Str::uuid();
+            $tokenQr = (string) Str::uuid();
 
             // 1. Insertar comprobante fiscal
             DB::table('comprobante')->insert([
@@ -746,11 +866,14 @@ class CajaController extends Controller
                 'pedido_id' => $pedido->id,
                 'subcuenta_id' => $subcuentaId,
                 'caja_id' => $caja->id,
+                'cliente_id' => $clienteId,
                 'tipo' => $validated['tipo_comprobante'],
                 'serie' => $serie,
                 'correlativo' => $correlativo,
-                'documento_cliente' => $validated['documento_cliente'] ?? ($subcuenta?->documento_cliente ?? null),
-                'nombre_cliente' => $validated['nombre_cliente'] ?? ($subcuenta?->nombre_cliente ?? 'Cliente General'),
+                'documento_cliente' => $documentoCliente !== '' ? $documentoCliente : null,
+                'nombre_cliente' => $nombreCliente,
+                'telefono_envio' => $validated['telefono_envio'] ?? null,
+                'email_envio' => $validated['email_envio'] ?? null,
                 'metodo_pago_id' => $metodoPago->id,
                 'medio_pago' => $validated['medio_pago'],
                 'subtotal_consumo' => $totalConsumo,
@@ -762,7 +885,7 @@ class CajaController extends Controller
                 'monto_recibido' => $montoRecibido,
                 'vuelto' => $vuelto,
                 'estado' => 'emitido',
-                'token_qr' => (string) Str::uuid(),
+                'token_qr' => $tokenQr,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -837,17 +960,44 @@ class CajaController extends Controller
             }
 
             $quedanPendientes = ! $pedidoCerrado;
+            $subcuentasPendientes = $tieneSubcuentas
+                ? DB::table('pedido_subcuenta')
+                    ->where('pedido_id', $pedido->id)
+                    ->where('estado', 'pendiente')
+                    ->count()
+                : ($quedanPendientes ? 1 : 0);
 
             return ApiResponse::ok([
                 'comprobante_id' => $comprobanteId,
+                'tipo_comprobante' => $validated['tipo_comprobante'],
                 'serie' => $serie,
                 'correlativo' => $correlativo,
+                'serie_numero' => $serie . '-' . str_pad((string) $correlativo, 8, '0', STR_PAD_LEFT),
                 'subtotal_consumo' => $totalConsumo,
                 'porcentaje_recargo' => $porcentajeRecargo,
                 'monto_recargo' => $montoRecargo,
                 'total' => $totalCobro,
+                'total_cobrado' => $totalCobro,
+                'base_imponible' => $baseImponible,
+                'igv' => $igv,
+                'monto_recibido' => $montoRecibido,
                 'vuelto' => $vuelto,
+                'cliente_nombre' => $nombreCliente,
+                'cliente_documento' => $documentoCliente !== '' ? $documentoCliente : null,
+                'telefono_registrado' => $validated['telefono_envio'] ?? null,
+                'email_registrado' => $validated['email_envio'] ?? null,
+                'token_digital' => $tokenQr,
+                'mesa_id' => $pedido->mesa_id,
+                'mesa_numero' => (string) DB::table('mesa')->where('id', $pedido->mesa_id)->value('numero'),
                 'pedido_cerrado' => ! $quedanPendientes,
+                'mesa_liberada' => ! $quedanPendientes,
+                'subcuenta_id' => $subcuentaId,
+                'subcuentas_pendientes' => $subcuentasPendientes,
+                'emitido_at' => now()->toIso8601String(),
+                'documento_digital' => [
+                    'estado' => 'pendiente_generacion',
+                    'mensaje' => 'El PDF/XML y el QR público se generarán en la fase 03B.',
+                ],
                 'mensaje' => "Comprobante {$serie}-{$correlativo} emitido exitosamente.",
             ]);
         });
