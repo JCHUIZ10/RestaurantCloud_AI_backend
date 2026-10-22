@@ -187,6 +187,10 @@ INSERT INTO promocion (id, local_id, nombre, descripcion, tipo_descuento, valor,
  'Válida de lunes a viernes para consumos de almuerzo.','porcentaje',15.00,50.00,'{1,2,3,4,5}','12:00','16:00',CURRENT_DATE-INTERVAL '10 days',CURRENT_DATE+INTERVAL '60 days',500,12,true)
 ON CONFLICT (id) DO UPDATE SET valor = EXCLUDED.valor, usos_actuales = EXCLUDED.usos_actuales, activa = EXCLUDED.activa, updated_at = NOW();
 
+-- El catálogo de ventas POS solo admite efectivo, tarjeta y billetera digital.
+-- Elimina un registro heredado de transferencia antes de sembrar los métodos vigentes.
+DELETE FROM metodo_pago_local WHERE codigo = 'transferencia';
+
 INSERT INTO metodo_pago_local (id, local_id, codigo, nombre, activo, comision_porcentaje, datos_adicionales, icono, orden) VALUES
 ('00000000-0000-4000-8000-000000000451','00000000-0000-4000-8000-000000000010','efectivo','Efectivo',true,0.00,'{}','banknote',1),
 ('00000000-0000-4000-8000-000000000452','00000000-0000-4000-8000-000000000010','tarjeta','Tarjeta POS',true,3.50,'{"operador":"Niubiz"}','credit-card',2),

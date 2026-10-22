@@ -201,10 +201,11 @@ export const MetodosPagoCatalogo: React.FC<MetodosPagoCatalogoProps> = ({
                     step="0.1"
                     min="0"
                     max="50"
+                    inputMode="decimal"
                     disabled={!tarjeta.activo}
                     value={tarjeta.comision_porcentaje}
                     onChange={(e) => handleInputComision('tarjeta', e.target.value)}
-                    className="w-20 text-center text-sm font-mono font-bold py-2 bg-white rounded-xl border border-slate-300 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100"
+                    className="w-20 appearance-none [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none text-center text-sm font-mono font-bold py-2 bg-white rounded-xl border border-slate-300 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100"
                   />
                   <span className="text-[11px] text-slate-400 absolute right-2 top-2.5 pointer-events-none">%</span>
                 </div>

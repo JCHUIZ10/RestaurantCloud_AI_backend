@@ -9,6 +9,7 @@ import {
   mockAdminService,
   CANONICAL_LOCAL_ID,
 } from '@/modules/admin/services/mockAdminService';
+import { adminService, IS_REAL_API } from '@/services/serviceAdapter';
 import { MetodosPagoHeader } from '../components/metodos_pago/MetodosPagoHeader';
 import { MetodosPagoKPIs } from '../components/metodos_pago/MetodosPagoKPIs';
 import { MetodosPagoCatalogo } from '../components/metodos_pago/MetodosPagoCatalogo';
@@ -23,7 +24,7 @@ import { CheckCircle2, AlertCircle, Info, Loader2 } from 'lucide-react';
 export const AdminMetodosPagoPage: React.FC = () => {
   const [cargando, setCargando] = useState(true);
   const [isGuardando, setIsGuardando] = useState(false);
-  const [sseConectado] = useState(true);
+  const sseConectado = !IS_REAL_API;
 
   // Estados del catálogo
   const [metodosOriginales, setMetodosOriginales] = useState<MetodoPagoLocalDTO[]>([]);
@@ -64,7 +65,7 @@ export const AdminMetodosPagoPage: React.FC = () => {
   const cargarDatos = useCallback(async () => {
     setCargando(true);
     try {
-      const resp = await mockAdminService.getMetodosPago();
+      const resp = await adminService.getMetodosPago();
       if (resp.exito && resp.datos) {
         setMetodosOriginales(JSON.parse(JSON.stringify(resp.datos.metodos)));
         setMetodosBorrador(JSON.parse(JSON.stringify(resp.datos.metodos)));
@@ -97,6 +98,11 @@ export const AdminMetodosPagoPage: React.FC = () => {
       setMetodosBorrador((prev) => {
         const metodoActual = prev.find((m) => m.codigo === codigo);
         if (!metodoActual) return prev;
+
+        if (IS_REAL_API && codigo === 'efectivo') {
+          mostrarToast('Efectivo es obligatorio y debe permanecer activo.', 'info');
+          return prev;
+        }
 
         const nuevoActivo = !metodoActual.activo;
 
@@ -157,7 +163,12 @@ export const AdminMetodosPagoPage: React.FC = () => {
         prev.map((m) => {
           if (m.codigo !== codigo) return m;
           // Efectivo siempre 0.00%
-          const finalComision = codigo === 'efectivo' ? 0.0 : Math.min(50.0, Math.max(0.0, comision));
+          const finalComision =
+            IS_REAL_API && codigo !== 'tarjeta'
+              ? 0.0
+              : codigo === 'efectivo'
+              ? 0.0
+              : Math.min(50.0, Math.max(0.0, comision));
           return { ...m, comision_porcentaje: finalComision };
         })
       );
@@ -211,7 +222,7 @@ export const AdminMetodosPagoPage: React.FC = () => {
   const handleGuardar = useCallback(async () => {
     setIsGuardando(true);
     try {
-      const resp = await mockAdminService.actualizarMetodosPago({
+      const resp = await adminService.actualizarMetodosPago({
         metodos: metodosBorrador.map((m) => ({
           codigo: m.codigo,
           activo: m.activo,
@@ -225,7 +236,9 @@ export const AdminMetodosPagoPage: React.FC = () => {
         setMetodosBorrador(JSON.parse(JSON.stringify(resp.datos.metodos)));
         setKpis(resp.datos.kpis);
         mostrarToast(
-          'Configuración de métodos de pago y comisiones guardada con éxito. Actualizado en caja y salón.',
+          IS_REAL_API
+            ? 'Configuración guardada. Se aplicará a los siguientes cobros de Caja.'
+            : 'Configuración de métodos de pago y comisiones guardada con éxito. Actualizado en caja y salón.',
           'exito'
         );
       } else {
@@ -469,11 +482,13 @@ export const AdminMetodosPagoPage: React.FC = () => {
       />
 
       {/* QA Floating Widget */}
-      <DemoAdminMetodosPagoWidget
-        onAplicarPreset={handleAplicarPresetQA}
-        onSimularOnboarding={handleSimularOnboardingQA}
-        onRestablecerSemillas={handleRestablecerSemillasQA}
-      />
+      {!IS_REAL_API && (
+        <DemoAdminMetodosPagoWidget
+          onAplicarPreset={handleAplicarPresetQA}
+          onSimularOnboarding={handleSimularOnboardingQA}
+          onRestablecerSemillas={handleRestablecerSemillasQA}
+        />
+      )}
     </div>
   );
 };

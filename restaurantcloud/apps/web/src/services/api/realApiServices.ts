@@ -60,6 +60,8 @@ import type {
   ConmutarEstadoInsumoRequest,
   AjusteStockResultDTO,
   AuditoriaStockAjusteDTO,
+  ActualizarCatalogoMetodosRequest,
+  CatalogoMetodosPagoResponseDTO,
 } from '@/types/admin';
 import type {
   DirectorioAdminsApiResponse,
@@ -566,6 +568,12 @@ export const realAdminService = {
     apiPut(`/admin/productos/${productoId}/receta`, payload),
   simularCapacidadBodega: (productoId: string): Promise<ApiEnvelope<any>> =>
     apiGet(`/admin/productos/${productoId}/capacidad`),
+  getMetodosPago: (): Promise<ApiEnvelope<CatalogoMetodosPagoResponseDTO>> =>
+    apiGet('/admin/metodos-pago'),
+  actualizarMetodosPago: (
+    payload: ActualizarCatalogoMetodosRequest,
+  ): Promise<ApiEnvelope<CatalogoMetodosPagoResponseDTO>> =>
+    apiPut('/admin/metodos-pago', payload),
 };
 
 // CU-PROP-01: Onboarding y Registro de Empresa (Propietario)

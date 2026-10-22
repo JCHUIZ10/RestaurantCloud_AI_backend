@@ -57,7 +57,7 @@ export const MetodosPagoHeader: React.FC<MetodosPagoHeaderProps> = ({
             }`}
           >
             <Radio className={`w-3.5 h-3.5 ${sseConectado ? 'text-emerald-500 animate-pulse' : 'text-amber-500'}`} />
-            <span>{sseConectado ? 'SSE: Sincronizado (< 30ms)' : 'Reconectando canal...'}</span>
+            <span>{sseConectado ? 'SSE: Sincronizado (< 30ms)' : 'SSE: pendiente de implementación'}</span>
           </div>
 
           {/* Indicador de cambios sin guardar */}

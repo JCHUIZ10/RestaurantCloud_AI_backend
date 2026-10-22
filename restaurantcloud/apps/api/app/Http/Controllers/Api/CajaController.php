@@ -476,11 +476,15 @@ class CajaController extends Controller
         $metodosPago = DB::table('metodo_pago_local')
             ->where('local_id', $localId)
             ->where('activo', true)
+            ->whereIn('codigo', ['efectivo', 'tarjeta', 'billetera_digital'])
             ->orderBy('orden')
             ->get();
 
         $opcionesCobro = $metodosPago->map(function ($mp) use ($totalNeto) {
-            $comision = round($totalNeto * ((float) $mp->comision_porcentaje / 100), 2);
+            $porcentajeRecargo = $mp->codigo === 'tarjeta'
+                ? (float) $mp->comision_porcentaje
+                : 0.0;
+            $comision = round($totalNeto * ($porcentajeRecargo / 100), 2);
             $datosAdicionales = is_string($mp->datos_adicionales)
                 ? json_decode($mp->datos_adicionales, true)
                 : (array) ($mp->datos_adicionales ?? []);
@@ -494,7 +498,7 @@ class CajaController extends Controller
                 'nombre' => $mp->nombre,
                 'metodo_pago_nombre' => $mp->nombre,
                 'icono' => $mp->icono ?? 'wallet',
-                'comision_porcentaje' => (float) $mp->comision_porcentaje,
+                'comision_porcentaje' => $porcentajeRecargo,
                 'monto_comision' => $comision,
                 'total_estimado' => round($totalNeto + $comision, 2),
                 'detalle_billetera' => $esBilletera ? [
@@ -663,6 +667,21 @@ class CajaController extends Controller
                 return ApiResponse::error('ERR_CAJA_CERRADA', 'No existe un turno de caja abierto en esta sede.', 409);
             }
 
+            $metodoPago = DB::table('metodo_pago_local')
+                ->where('local_id', $localId)
+                ->where('codigo', $validated['medio_pago'])
+                ->where('activo', true)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $metodoPago) {
+                return ApiResponse::error(
+                    'ERR_METODO_PAGO_NO_DISPONIBLE',
+                    'El metodo de pago seleccionado no esta habilitado en esta sede.',
+                    409,
+                );
+            }
+
             // Consultar ítems a cobrar con filtro anti-sobrecobro
             $itemsQuery = DB::table('pedido_item as pi')
                 ->join('producto as pr', 'pr.id', '=', 'pi.producto_id')
@@ -696,11 +715,16 @@ class CajaController extends Controller
             }
 
             $totalConsumo = $subcuenta ? (float) $subcuenta->total : (float) $itemsToCharge->sum('subtotal');
-            $baseImponible = round($totalConsumo / 1.18, 2);
-            $igv = round($totalConsumo - $baseImponible, 2);
+            $porcentajeRecargo = $metodoPago->codigo === 'tarjeta'
+                ? (float) $metodoPago->comision_porcentaje
+                : 0.0;
+            $montoRecargo = round($totalConsumo * ($porcentajeRecargo / 100), 2);
+            $totalCobro = round($totalConsumo + $montoRecargo, 2);
+            $baseImponible = round($totalCobro / 1.18, 2);
+            $igv = round($totalCobro - $baseImponible, 2);
 
-            $montoRecibido = isset($validated['monto_recibido']) ? (float) $validated['monto_recibido'] : $totalConsumo;
-            $vuelto = max(0, round($montoRecibido - $totalConsumo, 2));
+            $montoRecibido = isset($validated['monto_recibido']) ? (float) $validated['monto_recibido'] : $totalCobro;
+            $vuelto = max(0, round($montoRecibido - $totalCobro, 2));
 
             // Serie y correlativo
             $serie = match ($validated['tipo_comprobante']) {
@@ -727,11 +751,14 @@ class CajaController extends Controller
                 'correlativo' => $correlativo,
                 'documento_cliente' => $validated['documento_cliente'] ?? ($subcuenta?->documento_cliente ?? null),
                 'nombre_cliente' => $validated['nombre_cliente'] ?? ($subcuenta?->nombre_cliente ?? 'Cliente General'),
+                'metodo_pago_id' => $metodoPago->id,
                 'medio_pago' => $validated['medio_pago'],
-                'subtotal_consumo' => $baseImponible,
+                'subtotal_consumo' => $totalConsumo,
+                'porcentaje_recargo' => $porcentajeRecargo,
+                'monto_recargo' => $montoRecargo,
                 'base_imponible' => $baseImponible,
                 'igv' => $igv,
-                'total' => $totalConsumo,
+                'total' => $totalCobro,
                 'monto_recibido' => $montoRecibido,
                 'vuelto' => $vuelto,
                 'estado' => 'emitido',
@@ -784,7 +811,7 @@ class CajaController extends Controller
                 'caja_id' => $caja->id,
                 'local_id' => $localId,
                 'tipo' => 'ingreso_venta',
-                'monto' => $totalConsumo,
+                'monto' => $totalCobro,
                 'metodo_pago' => $validated['medio_pago'],
                 'comprobante_id' => $comprobanteId,
                 'descripcion' => strtoupper($validated['tipo_comprobante']) . " {$serie}-{$correlativo}",
@@ -809,11 +836,16 @@ class CajaController extends Controller
                 ]);
             }
 
+            $quedanPendientes = ! $pedidoCerrado;
+
             return ApiResponse::ok([
                 'comprobante_id' => $comprobanteId,
                 'serie' => $serie,
                 'correlativo' => $correlativo,
-                'total' => $totalConsumo,
+                'subtotal_consumo' => $totalConsumo,
+                'porcentaje_recargo' => $porcentajeRecargo,
+                'monto_recargo' => $montoRecargo,
+                'total' => $totalCobro,
                 'vuelto' => $vuelto,
                 'pedido_cerrado' => ! $quedanPendientes,
                 'mensaje' => "Comprobante {$serie}-{$correlativo} emitido exitosamente.",

@@ -1011,11 +1011,15 @@ class MozoController extends Controller
         $metodosPagoRaw = DB::table('metodo_pago_local')
             ->where('local_id', $localId)
             ->where('activo', true)
+            ->whereIn('codigo', ['efectivo', 'tarjeta', 'billetera_digital'])
             ->orderBy('orden')
             ->get();
 
         $opcionesPago = $metodosPagoRaw->map(function ($mp) use ($total) {
-            $comision = round($total * ((float) $mp->comision_porcentaje / 100), 2);
+            $porcentajeRecargo = $mp->codigo === 'tarjeta'
+                ? (float) $mp->comision_porcentaje
+                : 0.0;
+            $comision = round($total * ($porcentajeRecargo / 100), 2);
             $datosAdicionales = is_string($mp->datos_adicionales)
                 ? json_decode($mp->datos_adicionales, true)
                 : (array) ($mp->datos_adicionales ?? []);
@@ -1027,7 +1031,7 @@ class MozoController extends Controller
                 'codigo' => $mp->codigo,
                 'nombre' => $mp->nombre,
                 'icono' => $mp->icono ?? 'wallet',
-                'comision_porcentaje' => (float) $mp->comision_porcentaje,
+                'comision_porcentaje' => $porcentajeRecargo,
                 'monto_comision' => $comision,
                 'total_estimado' => round($total + $comision, 2),
                 'detalle_billetera' => $esBilletera ? [

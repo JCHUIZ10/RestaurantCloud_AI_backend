@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Admin\CategoriaController;
 use App\Http\Controllers\Api\Admin\ConfiguracionKdsController;
 use App\Http\Controllers\Api\Admin\HorarioController;
 use App\Http\Controllers\Api\Admin\InsumoController;
+use App\Http\Controllers\Api\Admin\MetodoPagoController;
 use App\Http\Controllers\Api\Admin\ProductoController;
 use App\Http\Controllers\Api\Admin\RecetaController;
 use App\Http\Controllers\Api\Admin\PersonalController;
@@ -103,6 +104,11 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/', [ConfiguracionKdsController::class, 'show']);
                 Route::put('/', [ConfiguracionKdsController::class, 'update']);
                 Route::post('/restaurar-valores-recomendados', [ConfiguracionKdsController::class, 'restaurarValoresRecomendados']);
+            });
+
+            Route::prefix('metodos-pago')->middleware('role:admin_local')->group(function (): void {
+                Route::get('/', [MetodoPagoController::class, 'index']);
+                Route::put('/', [MetodoPagoController::class, 'update']);
             });
         });
 

@@ -479,7 +479,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_promocion_local_nombre
 CREATE TABLE IF NOT EXISTS metodo_pago_local (
     id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
     local_id UUID NOT NULL REFERENCES local(id) ON DELETE CASCADE,
-    codigo VARCHAR(30) NOT NULL, -- efectivo, tarjeta, billetera_digital, transferencia
+    codigo VARCHAR(30) NOT NULL CONSTRAINT chk_metodo_pago_local_codigo_operativo
+        CHECK (codigo IN ('efectivo', 'tarjeta', 'billetera_digital')),
     nombre VARCHAR(60) NOT NULL,
     activo BOOL NOT NULL DEFAULT true,
     comision_porcentaje DECIMAL(5, 2) NOT NULL DEFAULT 0.00 CHECK (comision_porcentaje >= 0 AND comision_porcentaje <= 50.00),
