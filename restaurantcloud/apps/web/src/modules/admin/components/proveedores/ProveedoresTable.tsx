@@ -6,6 +6,7 @@ import {
   History,
   Edit2,
   Trash2,
+  RotateCcw,
   ChevronLeft,
   ChevronRight,
   Package,
@@ -26,7 +27,8 @@ interface ProveedoresTableProps {
   onCambiarLimite: (nuevoLimite: number) => void;
   onAbrirHistorial: (proveedor: ProveedorResumenDTO) => void;
   onEditar: (proveedor: ProveedorResumenDTO) => void;
-  onToggleEstado: (proveedor: ProveedorResumenDTO) => void;
+  onToggleEstado?: (proveedor: ProveedorResumenDTO) => void;
+  onReactivar?: (proveedor: ProveedorResumenDTO) => void;
   onEliminar: (proveedor: ProveedorResumenDTO) => void;
 }
 
@@ -42,6 +44,7 @@ export const ProveedoresTable: React.FC<ProveedoresTableProps> = ({
   onAbrirHistorial,
   onEditar,
   onToggleEstado,
+  onReactivar,
   onEliminar,
 }) => {
   // Limpia el número telefónico para enlace universal de WhatsApp
@@ -239,21 +242,14 @@ export const ProveedoresTable: React.FC<ProveedoresTableProps> = ({
                       )}
                     </td>
 
-                    {/* Estado con Toggle interactivo */}
+                    {/* Estado: Etiqueta visual estática clara */}
                     <td className="py-3 px-4 text-center">
-                      <button
-                        type="button"
-                        onClick={() => onToggleEstado(p)}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
                           p.activo
-                            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                            : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                            : 'bg-zinc-100 text-zinc-600 border border-zinc-200'
                         }`}
-                        title={
-                          p.activo
-                            ? 'Proveedor activo para compras. Clic para desactivar'
-                            : 'Proveedor inactivo. Clic para reactivar'
-                        }
                       >
                         <span
                           className={`w-1.5 h-1.5 rounded-full ${
@@ -261,7 +257,7 @@ export const ProveedoresTable: React.FC<ProveedoresTableProps> = ({
                           }`}
                         />
                         <span>{p.activo ? 'Activo' : 'Inactivo'}</span>
-                      </button>
+                      </span>
                     </td>
 
                     {/* Acciones */}
@@ -286,18 +282,33 @@ export const ProveedoresTable: React.FC<ProveedoresTableProps> = ({
                           <Edit2 className="w-3.5 h-3.5 text-aurea-copper" />
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={() => onEliminar(p)}
-                          className="p-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 transition-colors"
-                          title={
-                            p.total_compras > 0
-                              ? 'Tiene compras asociadas (ON DELETE RESTRICT): sugerirá desactivación'
-                              : 'Eliminar proveedor del directorio'
-                          }
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {/* Si está activo, muestra la opción de eliminar/desactivar */}
+                        {p.activo ? (
+                          <button
+                            type="button"
+                            onClick={() => onEliminar(p)}
+                            className="p-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 transition-colors"
+                            title={
+                              p.total_compras > 0
+                                ? 'Desactivar proveedor'
+                                : 'Eliminar proveedor del directorio'
+                            }
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          /* Si está inactivo, muestra la acción de Reactivar */
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => (onReactivar ? onReactivar(p) : onToggleEstado?.(p))}
+                              className="p-1.5 rounded-lg border border-emerald-300 hover:bg-emerald-50 text-emerald-700 transition-colors"
+                              title="Reactivar proveedor para nuevas compras"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>

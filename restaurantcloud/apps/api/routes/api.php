@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Admin\MetodoPagoController;
 use App\Http\Controllers\Api\Admin\ProductoController;
 use App\Http\Controllers\Api\Admin\RecetaController;
 use App\Http\Controllers\Api\Admin\PersonalController;
+use App\Http\Controllers\Api\Admin\ProveedorController;
 use App\Http\Controllers\Api\Propietario\AdministradorController;
 use App\Http\Controllers\Api\Propietario\LocalController;
 use App\Http\Controllers\Api\CajaController;
@@ -84,6 +85,16 @@ Route::prefix('v1')->group(function (): void {
                 Route::put('/{id}', [InsumoController::class, 'update']);
                 Route::post('/{id}/ajuste', [InsumoController::class, 'ajuste']);
                 Route::patch('/{id}/estado', [InsumoController::class, 'estado']);
+            });
+
+            Route::prefix('proveedores')->group(function (): void {
+                Route::get('/', [ProveedorController::class, 'index']);
+                Route::post('/', [ProveedorController::class, 'store']);
+                Route::get('/{id}', [ProveedorController::class, 'show']);
+                Route::put('/{id}', [ProveedorController::class, 'update']);
+                Route::patch('/{id}/estado', [ProveedorController::class, 'estado']);
+                Route::delete('/{id}', [ProveedorController::class, 'destroy']);
+                Route::get('/{id}/historial', [ProveedorController::class, 'historial']);
             });
 
             Route::get('/personal', [PersonalController::class, 'index']);

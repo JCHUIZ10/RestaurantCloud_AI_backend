@@ -88,6 +88,11 @@ import type {
   AuditoriaStockAjusteDTO,
   ActualizarCatalogoMetodosRequest,
   CatalogoMetodosPagoResponseDTO,
+  ProveedorResumenDTO,
+  ProveedoresListDTO,
+  CrearProveedorRequestDTO,
+  ActualizarProveedorRequestDTO,
+  ProveedorHistorialComprasDTO,
 } from '@/types/admin';
 import type {
   DirectorioAdminsApiResponse,
@@ -832,6 +837,49 @@ export const realAdminService = {
     payload: ActualizarCatalogoMetodosRequest,
   ): Promise<ApiEnvelope<CatalogoMetodosPagoResponseDTO>> =>
     apiPut('/admin/metodos-pago', payload),
+
+  // CU-ADMIN-05: Directorio y Catálogo de Proveedores de Insumos
+  getProveedores: (
+    _localId: string,
+    params?: {
+      estado?: 'activos' | 'inactivos' | 'todos';
+      query?: string;
+      pagina?: number;
+      limite?: number;
+    }
+  ): Promise<ApiEnvelope<ProveedoresListDTO>> =>
+    apiGet('/admin/proveedores', {
+      estado: params?.estado ?? 'activos',
+      ...(params?.query ? { query: params.query } : {}),
+      pagina: params?.pagina ?? 1,
+      limite: params?.limite ?? 10,
+    }),
+  crearProveedor: (
+    _localId: string,
+    payload: CrearProveedorRequestDTO
+  ): Promise<ApiEnvelope<ProveedorResumenDTO>> =>
+    apiPost('/admin/proveedores', payload),
+  actualizarProveedor: (
+    id: string,
+    payload: ActualizarProveedorRequestDTO
+  ): Promise<ApiEnvelope<ProveedorResumenDTO>> =>
+    apiPut(`/admin/proveedores/${id}`, payload),
+  conmutarEstadoProveedor: (
+    id: string,
+    activo: boolean
+  ): Promise<ApiEnvelope<ProveedorResumenDTO>> =>
+    apiPatch(`/admin/proveedores/${id}/estado`, { activo }),
+  async eliminarProveedor(id: string): Promise<ApiEnvelope<{ id: string; mensaje: string } | null>> {
+    try {
+      return (await apiClient.delete(`/admin/proveedores/${id}`)).data;
+    } catch (error: any) {
+      return error.response?.data ?? Promise.reject(error);
+    }
+  },
+  getHistorialComprasProveedor: (
+    id: string
+  ): Promise<ApiEnvelope<ProveedorHistorialComprasDTO>> =>
+    apiGet(`/admin/proveedores/${id}/historial`),
 };
 
 // CU-PROP-01: Onboarding y Registro de Empresa (Propietario)

@@ -7,26 +7,28 @@ import {
   InsumoAdminDTO,
   ProveedorHistorialComprasDTO,
 } from '@/types/admin';
-import {
-  mockAdminService,
-  CANONICAL_LOCAL_ID,
-  CANONICAL_LOCAL_NOMBRE,
-  PROV_SAN_FERNANDO_ID,
-} from '../services/mockAdminService';
+import { adminService } from '@/services/serviceAdapter';
+import { useAuthStore } from '@/stores/authStore';
 import { ProveedoresHeader } from '../components/proveedores/ProveedoresHeader';
 import { ProveedoresKpis } from '../components/proveedores/ProveedoresKpis';
 import { ProveedoresToolbar } from '../components/proveedores/ProveedoresToolbar';
 import { ProveedoresTable } from '../components/proveedores/ProveedoresTable';
 import { ModalCrearEditarProveedor } from '../components/proveedores/ModalCrearEditarProveedor';
+import { ModalConfirmarEliminarProveedor } from '../components/proveedores/ModalConfirmarEliminarProveedor';
 import { DrawerHistorialCompras } from '../components/proveedores/DrawerHistorialCompras';
 import { OnboardingProveedoresVacio } from '../components/proveedores/OnboardingProveedoresVacio';
-import { DemoAdminProveedoresWidget } from '../components/proveedores/DemoAdminProveedoresWidget';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/router/routes.constants';
 import { CheckCircle2, AlertCircle, AlertTriangle, X } from 'lucide-react';
 
+const FALLBACK_LOCAL_ID = '00000000-0000-4000-8000-000000000010';
+
 export const AdminProveedoresPage: React.FC = () => {
   const navigate = useNavigate();
+  const usuario = useAuthStore((s) => s.usuario);
+  const localId = usuario?.local?.id ?? FALLBACK_LOCAL_ID;
+  const localNombre = usuario?.local?.nombre ?? 'Sede Principal';
+
   // Estados de datos
   const [proveedores, setProveedores] = useState<ProveedorResumenDTO[]>([]);
   const [kpis, setKpis] = useState<ProveedoresKPIsDTO>({
@@ -50,6 +52,9 @@ export const AdminProveedoresPage: React.FC = () => {
   // Estados de modales y drawers
   const [modalAbierto, setModalAbierto] = useState(false);
   const [proveedorParaEditar, setProveedorParaEditar] = useState<ProveedorResumenDTO | null>(null);
+
+  const [modalEliminarAbierto, setModalEliminarAbierto] = useState(false);
+  const [proveedorParaEliminar, setProveedorParaEliminar] = useState<ProveedorResumenDTO | null>(null);
 
   const [drawerAbierto, setDrawerAbierto] = useState(false);
   const [proveedorParaHistorial, setProveedorParaHistorial] = useState<ProveedorResumenDTO | null>(null);
@@ -75,20 +80,20 @@ export const AdminProveedoresPage: React.FC = () => {
   // Cargar catálogo de insumos de bodega
   const cargarInsumos = useCallback(async () => {
     try {
-      const res = await mockAdminService.obtenerInsumos(CANONICAL_LOCAL_ID, 'todos', '', 1, 100);
+      const res = await adminService.obtenerInsumos(localId, 'todos', '', 1, 100);
       if (res.exito && res.datos) {
         setCatalogoInsumos(res.datos.insumos);
       }
     } catch {
-      // Silenciar error secundario
+      // Silenciar error secundario de catálogo
     }
-  }, []);
+  }, [localId]);
 
   // Cargar proveedores según filtros y paginación
   const cargarProveedores = useCallback(async () => {
     setCargando(true);
     try {
-      const res = await mockAdminService.getProveedores(CANONICAL_LOCAL_ID, {
+      const res = await adminService.getProveedores(localId, {
         estado: estadoFiltro,
         query: busqueda,
         pagina: paginaActual,
@@ -101,11 +106,11 @@ export const AdminProveedoresPage: React.FC = () => {
         setTotalItems(res.datos.total_items);
         setTotalPaginas(res.datos.total_paginas);
 
-        // Actualizar conteos para los tabs
+        // Actualizar conteos para las pestañas de estado
         const [resActivos, resInactivos, resTodos] = await Promise.all([
-          mockAdminService.getProveedores(CANONICAL_LOCAL_ID, { estado: 'activos', query: busqueda, limite: 1 }),
-          mockAdminService.getProveedores(CANONICAL_LOCAL_ID, { estado: 'inactivos', query: busqueda, limite: 1 }),
-          mockAdminService.getProveedores(CANONICAL_LOCAL_ID, { estado: 'todos', query: busqueda, limite: 1 }),
+          adminService.getProveedores(localId, { estado: 'activos', query: busqueda, limite: 1 }),
+          adminService.getProveedores(localId, { estado: 'inactivos', query: busqueda, limite: 1 }),
+          adminService.getProveedores(localId, { estado: 'todos', query: busqueda, limite: 1 }),
         ]);
 
         setConteos({
@@ -113,13 +118,16 @@ export const AdminProveedoresPage: React.FC = () => {
           inactivos: resInactivos.datos?.total_items ?? 0,
           todos: resTodos.datos?.total_items ?? 0,
         });
+      } else {
+        const errorMsg = res.errores?.[0]?.mensaje || 'No se pudo obtener el directorio de proveedores.';
+        mostrarToast(errorMsg, 'error');
       }
     } catch (err: any) {
       mostrarToast('Error al cargar proveedores: ' + (err.message || 'Error de red'), 'error');
     } finally {
       setCargando(false);
     }
-  }, [estadoFiltro, busqueda, paginaActual, limitePorPagina, mostrarToast]);
+  }, [localId, estadoFiltro, busqueda, paginaActual, limitePorPagina, mostrarToast]);
 
   useEffect(() => {
     cargarProveedores();
@@ -129,7 +137,7 @@ export const AdminProveedoresPage: React.FC = () => {
     cargarInsumos();
   }, [cargarInsumos]);
 
-  // Manejadores de acciones
+  // Manejadores de filtros
   const handleBuscar = (texto: string) => {
     setBusqueda(texto);
     setPaginaActual(1);
@@ -155,7 +163,7 @@ export const AdminProveedoresPage: React.FC = () => {
   ): Promise<{ success: boolean; mensajeError?: string }> => {
     try {
       if (proveedorParaEditar) {
-        const res = await mockAdminService.actualizarProveedor(
+        const res = await adminService.actualizarProveedor(
           proveedorParaEditar.id,
           datos as ActualizarProveedorRequestDTO
         );
@@ -170,8 +178,8 @@ export const AdminProveedoresPage: React.FC = () => {
           };
         }
       } else {
-        const res = await mockAdminService.crearProveedor(
-          CANONICAL_LOCAL_ID,
+        const res = await adminService.crearProveedor(
+          localId,
           datos as CrearProveedorRequestDTO
         );
         if (res.exito) {
@@ -193,43 +201,45 @@ export const AdminProveedoresPage: React.FC = () => {
     }
   };
 
-  const handleToggleEstado = async (p: ProveedorResumenDTO) => {
-    const nuevoEstado = !p.activo;
-    try {
-      const res = await mockAdminService.conmutarEstadoProveedor(p.id, nuevoEstado);
+  // Abre el modal contextual de confirmación
+  const handleEliminarProveedor = (p: ProveedorResumenDTO) => {
+    setProveedorParaEliminar(p);
+    setModalEliminarAbierto(true);
+  };
+
+  // Procesa la acción confirmada dentro del modal (desactivación amigable si tiene compras o borrado físico si no tiene)
+  const handleConfirmarAccionModal = async (p: ProveedorResumenDTO) => {
+    if (p.total_compras > 0) {
+      const res = await adminService.conmutarEstadoProveedor(p.id, false);
       if (res.exito) {
-        mostrarToast(
-          nuevoEstado
-            ? `Proveedor "${p.nombre}" reactivado en agenda comercial.`
-            : `Proveedor "${p.nombre}" desactivado para compras.`
-        );
+        mostrarToast(`Proveedor "${p.nombre}" desactivado para futuras compras.`);
         await cargarProveedores();
+      } else {
+        mostrarToast(res.errores?.[0]?.mensaje || 'No se pudo desactivar el proveedor.', 'error');
       }
-    } catch {
-      mostrarToast('Error al cambiar estado del proveedor.', 'error');
+    } else {
+      const res = await adminService.eliminarProveedor(p.id);
+      if (res.exito) {
+        mostrarToast(`Proveedor "${p.nombre}" eliminado definitivamente de tu directorio.`);
+        await cargarProveedores();
+      } else {
+        mostrarToast(res.errores?.[0]?.mensaje || 'No se pudo eliminar el proveedor.', 'error');
+      }
     }
   };
 
-  const handleEliminarProveedor = async (p: ProveedorResumenDTO) => {
+  // Reactivar un proveedor inactivo
+  const handleReactivarProveedor = async (p: ProveedorResumenDTO) => {
     try {
-      const res = await mockAdminService.eliminarProveedor(p.id);
+      const res = await adminService.conmutarEstadoProveedor(p.id, true);
       if (res.exito) {
-        mostrarToast(`Proveedor "${p.nombre}" eliminado del directorio.`);
+        mostrarToast(`Proveedor "${p.nombre}" reactivado para compras exitosamente.`);
         await cargarProveedores();
       } else {
-        // Bloqueo por integridad contable ON DELETE RESTRICT
-        const err = res.errores?.[0];
-        if (err?.codigo === 'ERR_PROVEEDOR_TIENE_COMPRAS') {
-          mostrarToast(
-            `⚠️ Integridad Contable (ON DELETE RESTRICT): ${err.mensaje}`,
-            'advertencia'
-          );
-        } else {
-          mostrarToast(err?.mensaje || 'No se pudo eliminar el proveedor.', 'error');
-        }
+        mostrarToast(res.errores?.[0]?.mensaje || 'No se pudo reactivar el proveedor.', 'error');
       }
     } catch {
-      mostrarToast('Error al procesar la solicitud.', 'error');
+      mostrarToast('Error al reactivar el proveedor.', 'error');
     }
   };
 
@@ -238,9 +248,11 @@ export const AdminProveedoresPage: React.FC = () => {
     setDrawerAbierto(true);
     setCargandoHistorial(true);
     try {
-      const res = await mockAdminService.getHistorialComprasProveedor(p.id);
+      const res = await adminService.getHistorialComprasProveedor(p.id);
       if (res.exito && res.datos) {
         setHistorialCompras(res.datos);
+      } else {
+        mostrarToast(res.errores?.[0]?.mensaje || 'No se pudo cargar el historial de compras.', 'error');
       }
     } catch {
       mostrarToast('Error al cargar historial de compras.', 'error');
@@ -252,36 +264,6 @@ export const AdminProveedoresPage: React.FC = () => {
   const handleNuevaCompraDesdeDrawer = (_p: ProveedorResumenDTO) => {
     setDrawerAbierto(false);
     navigate(ROUTES.ADMIN_COMPRAS);
-  };
-
-  // Escenarios del widget QA
-  const handleSimularDirectorioVacio = () => {
-    mockAdminService.simularDirectorioVacio(CANONICAL_LOCAL_ID);
-    cargarProveedores();
-    mostrarToast('Directorio vaciado: se despliega la pantalla de bienvenida asistida.', 'advertencia');
-  };
-
-  const handleProbarDuplicidad = async () => {
-    const res = await mockAdminService.crearProveedor(CANONICAL_LOCAL_ID, {
-      nombre: 'Distribuidora San Fernando',
-      telefono: '+51 999 888 777',
-    });
-    if (!res.exito) {
-      mostrarToast(`Validación de Duplicidad Atómica: ${res.errores?.[0]?.mensaje}`, 'advertencia');
-    }
-  };
-
-  const handleProbarBloqueoEliminacion = async () => {
-    const res = await mockAdminService.eliminarProveedor(PROV_SAN_FERNANDO_ID);
-    if (!res.exito && res.errores?.[0]?.codigo === 'ERR_PROVEEDOR_TIENE_COMPRAS') {
-      mostrarToast(`Bloqueo Referencial (ON DELETE RESTRICT): ${res.errores?.[0]?.mensaje}`, 'advertencia');
-    }
-  };
-
-  const handleRestablecerSemillas = () => {
-    mockAdminService.restablecerSemillasProveedores();
-    cargarProveedores();
-    mostrarToast('Semillas de proveedores canónicos restablecidas.', 'exito');
   };
 
   const directorioCompletamenteVacio =
@@ -314,9 +296,9 @@ export const AdminProveedoresPage: React.FC = () => {
         </div>
       )}
 
-      {/* Cabecera del Caso de Uso */}
+      {/* Cabecera del Directorio de Proveedores */}
       <ProveedoresHeader
-        localNombre={CANONICAL_LOCAL_NOMBRE}
+        localNombre={localNombre}
         onAbrirNuevoProveedor={handleAbrirNuevoProveedor}
       />
 
@@ -327,7 +309,7 @@ export const AdminProveedoresPage: React.FC = () => {
           {/* Tarjetas KPI de Abastecimiento */}
           <ProveedoresKpis kpis={kpis} />
 
-          {/* Barra de Filtros, Búsqueda y Estados */}
+          {/* Barra de Filtros, Búsqueda y Pestañas de Estado */}
           <ProveedoresToolbar
             busqueda={busqueda}
             onBuscar={handleBuscar}
@@ -351,13 +333,13 @@ export const AdminProveedoresPage: React.FC = () => {
             }}
             onAbrirHistorial={handleAbrirHistorial}
             onEditar={handleEditarProveedor}
-            onToggleEstado={handleToggleEstado}
+            onReactivar={handleReactivarProveedor}
             onEliminar={handleEliminarProveedor}
           />
         </>
       )}
 
-      {/* Modal de Alta / Edición Ágil sin RUC */}
+      {/* Modal de Alta / Edición Ágil de Proveedor */}
       <ModalCrearEditarProveedor
         abierto={modalAbierto}
         onCerrar={() => setModalAbierto(false)}
@@ -366,7 +348,15 @@ export const AdminProveedoresPage: React.FC = () => {
         onGuardar={handleGuardarProveedor}
       />
 
-      {/* Quick-Drawer Lateral de Historial de Compras */}
+      {/* Modal Inteligente y Amigable de Confirmación para Eliminar / Desactivar */}
+      <ModalConfirmarEliminarProveedor
+        abierto={modalEliminarAbierto}
+        onCerrar={() => setModalEliminarAbierto(false)}
+        proveedor={proveedorParaEliminar}
+        onConfirmarAccion={handleConfirmarAccionModal}
+      />
+
+      {/* Quick-Drawer Lateral de Historial de Compras y Precios */}
       <DrawerHistorialCompras
         abierto={drawerAbierto}
         onCerrar={() => setDrawerAbierto(false)}
@@ -374,14 +364,6 @@ export const AdminProveedoresPage: React.FC = () => {
         historial={historialCompras}
         cargando={cargandoHistorial}
         onNuevaCompra={handleNuevaCompraDesdeDrawer}
-      />
-
-      {/* Laboratorio QA Flotante */}
-      <DemoAdminProveedoresWidget
-        onSimularDirectorioVacio={handleSimularDirectorioVacio}
-        onProbarDuplicidad={handleProbarDuplicidad}
-        onProbarBloqueoEliminacion={handleProbarBloqueoEliminacion}
-        onRestablecerSemillas={handleRestablecerSemillas}
       />
     </div>
   );
