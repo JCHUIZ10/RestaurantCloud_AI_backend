@@ -1,36 +1,60 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ReservaCardDTO, CrearReservaRequestDTO } from '@/types/mozo';
-import { mockMozoService } from '../services/mockMozoService';
+import { mozoService } from '@/services/serviceAdapter';
 import { ReservasHeader } from '../components/reservas/ReservasHeader';
 import { ReservasKPICards } from '../components/reservas/ReservasKPICards';
 import { ReservasFiltrosPills, FiltroReservaEstado } from '../components/reservas/ReservasFiltrosPills';
 import { ReservasTable } from '../components/reservas/ReservasTable';
 import { ModalNuevaReserva } from '../components/reservas/ModalNuevaReserva';
 import { ModalFichaReserva } from '../components/reservas/ModalFichaReserva';
-import { ModalSobreasignacionAlerta } from '../components/reservas/ModalSobreasignacionAlerta';
-import { ModalPaywallReservas } from '../components/reservas/ModalPaywallReservas';
-import { DemoReservasWidget } from '../components/reservas/DemoReservasWidget';
-import { Check, Info } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/router/routes.constants';
+import { generarEnlaceWhatsApp } from '@/shared/utils/whatsapp';
+
+const getHoyFechaStr = () => new Date().toISOString().split('T')[0];
+
+const formatearFechaDisplay = (dateStr: string) => {
+  try {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    const hoyStr = getHoyFechaStr();
+
+    const ayer = new Date();
+    ayer.setDate(ayer.getDate() - 1);
+    const ayerStr = ayer.toISOString().split('T')[0];
+
+    const manana = new Date();
+    manana.setDate(manana.getDate() + 1);
+    const mananaStr = manana.toISOString().split('T')[0];
+
+    const options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'long', year: 'numeric' };
+    const textoFecha = date.toLocaleDateString('es-PE', options);
+
+    if (dateStr === hoyStr) return `Hoy, ${textoFecha}`;
+    if (dateStr === ayerStr) return `Ayer, ${textoFecha}`;
+    if (dateStr === mananaStr) return `Mañana, ${textoFecha}`;
+    return textoFecha;
+  } catch {
+    return dateStr;
+  }
+};
 
 export const MozoReservasPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [cargando, setCargando] = useState(true);
   const [reservas, setReservas] = useState<ReservaCardDTO[]>([]);
-  const [fechaStr, setFechaStr] = useState('2026-10-09');
-  const [fechaDisplay, setFechaDisplay] = useState('Hoy, 09 Octubre 2026');
+  const [fechaStr, setFechaStr] = useState(getHoyFechaStr());
+  const [fechaDisplay, setFechaDisplay] = useState(() => formatearFechaDisplay(getHoyFechaStr()));
   const [turnoActivo, setTurnoActivo] = useState<'almuerzo' | 'cena'>('almuerzo');
+  const [horarioTurnoTexto, setHorarioTurnoTexto] = useState<string>('12:00 a 17:00');
   const [filtroActivo, setFiltroActivo] = useState<FiltroReservaEstado>('todas');
 
   // Modales
   const [modalNuevaAbierto, setModalNuevaAbierto] = useState(false);
   const [modalFichaAbierto, setModalFichaAbierto] = useState(false);
   const [reservaFichaSeleccionada, setReservaFichaSeleccionada] = useState<ReservaCardDTO | null>(null);
-  const [modalSobreasignacionAbierto, setModalSobreasignacionAbierto] = useState(false);
-  const [modalPaywallAbierto, setModalPaywallAbierto] = useState(false);
-  const [esPlanStarter, setEsPlanStarter] = useState(false);
 
   // Toast
   const [toastMensaje, setToastMensaje] = useState<string | null>(null);
@@ -44,16 +68,47 @@ export const MozoReservasPage: React.FC = () => {
     cargarReservas();
   }, [fechaStr, turnoActivo]);
 
+  // Consultar horarios dinámicos de turnos desde BD
+  useEffect(() => {
+    mozoService.obtenerPoliticasReserva().then((res: any) => {
+      if (res?.exito && res.datos?.turnos_operativos) {
+        const t = res.datos.turnos_operativos[turnoActivo];
+        if (t?.inicio && t?.fin) {
+          setHorarioTurnoTexto(`${t.inicio.slice(0, 5)} a ${t.fin.slice(0, 5)}`);
+        }
+      }
+    });
+  }, [turnoActivo]);
+
   const cargarReservas = async () => {
     setCargando(true);
     try {
-      const res = await mockMozoService.obtenerReservas(fechaStr, turnoActivo);
-      if (res.exito) {
+      const res = await mozoService.obtenerReservas(fechaStr, turnoActivo);
+      if (res.exito && res.datos) {
         setReservas(res.datos);
       }
     } finally {
       setCargando(false);
     }
+  };
+
+  const cambiarDia = (offset: number) => {
+    try {
+      const [year, month, day] = fechaStr.split('-').map(Number);
+      const d = new Date(year, month - 1, day);
+      d.setDate(d.getDate() + offset);
+      const nuevaStr = d.toISOString().split('T')[0];
+      setFechaStr(nuevaStr);
+      setFechaDisplay(formatearFechaDisplay(nuevaStr));
+    } catch {
+      // no-op
+    }
+  };
+
+  const irAHoy = () => {
+    const hoy = getHoyFechaStr();
+    setFechaStr(hoy);
+    setFechaDisplay(formatearFechaDisplay(hoy));
   };
 
   // Filtrado reactivo de reservas
@@ -91,7 +146,7 @@ export const MozoReservasPage: React.FC = () => {
 
   // Acciones sobre Reservas
   const handleSentarReserva = async (reserva: ReservaCardDTO) => {
-    const res = await mockMozoService.sentarReserva(reserva.id);
+    const res = await mozoService.sentarReserva(reserva.id);
     if (res.exito) {
       setReservas((prev) =>
         prev.map((r) =>
@@ -102,14 +157,15 @@ export const MozoReservasPage: React.FC = () => {
         `✓ ${reserva.cliente_nombre} sentados en ${reserva.mesas_etiqueta}. Comanda abierta exitosamente.`
       );
       if (reserva.mesa_ids.length > 0) {
-        // Opción de redirigir a toma de comanda en salón
         navigate(ROUTES.MOZO_COMANDA(reserva.mesa_ids[0]));
       }
+    } else {
+      mostrarToast(res.errores?.[0]?.mensaje || 'Error al sentar comensales');
     }
   };
 
   const handleRegistrarNoShow = async (reservaId: string, motivo: string) => {
-    const res = await mockMozoService.registrarNoShow(reservaId, motivo);
+    const res = await mozoService.registrarNoShow(reservaId, motivo);
     if (res.exito) {
       setReservas((prev) =>
         prev.map((r) =>
@@ -123,11 +179,13 @@ export const MozoReservasPage: React.FC = () => {
         )
       );
       mostrarToast(`⚠️ Inasistencia registrada. Mesa liberada inmediatamente a verde LIBRE.`);
+    } else {
+      mostrarToast(res.errores?.[0]?.mensaje || 'Error al registrar inasistencia');
     }
   };
 
   const handleCancelarReserva = async (reservaId: string, motivo: string) => {
-    const res = await mockMozoService.cancelarReserva(reservaId, motivo);
+    const res = await mozoService.cancelarReserva(reservaId, motivo);
     if (res.exito) {
       setReservas((prev) =>
         prev.map((r) =>
@@ -137,76 +195,27 @@ export const MozoReservasPage: React.FC = () => {
         )
       );
       mostrarToast(`Reserva cancelada correctamente. Mesa liberada.`);
+    } else {
+      mostrarToast(res.errores?.[0]?.mensaje || 'Error al cancelar reserva');
     }
   };
 
   const handleCrearNuevaReserva = async (payload: CrearReservaRequestDTO) => {
-    const res = await mockMozoService.crearReserva(payload);
-    if (res.exito) {
+    const res = await mozoService.crearReserva(payload);
+    if (res.exito && res.datos) {
       setReservas((prev) => [res.datos, ...prev]);
       mostrarToast(
         `📅 Reserva confirmada para ${res.datos.cliente_nombre} a las ${res.datos.hora_texto} en ${res.datos.mesas_etiqueta}`
       );
+    } else {
+      mostrarToast(res.errores?.[0]?.mensaje || 'No se pudo crear la reserva');
     }
   };
 
   const handleAbrirWhatsApp = (reserva: ReservaCardDTO) => {
-    const telefonoLimpio = reserva.cliente_telefono.replace(/\D/g, '');
-    const mensaje = encodeURIComponent(
-      `Hola ${reserva.cliente_nombre}, le saludamos de RestaurantCloud AI para confirmar su reserva de hoy a las ${reserva.hora_texto} para ${reserva.num_personas} personas en ${reserva.mesas_etiqueta}. ¿Desea confirmar su asistencia?`
-    );
-    window.open(`https://wa.me/${telefonoLimpio}?text=${mensaje}`, '_blank');
-  };
-
-  // Simulación SSE
-  const handleSimularNuevaReservaSSE = () => {
-    const nuevaMock: ReservaCardDTO = {
-      id: `res-sse-${Date.now()}`,
-      cliente_nombre: 'Ing. Fernando Soto',
-      cliente_telefono: '+51 922 887 766',
-      fecha_hora: '2026-10-09T14:45:00Z',
-      hora_texto: '14:45',
-      minutos_restantes: 65,
-      num_personas: 4,
-      mesas_etiqueta: 'Mesa 10',
-      mesa_ids: ['mesa-10'],
-      estado: 'confirmada',
-      notas: 'Reserva agendada online vía Carta QR',
-      en_tolerancia: false,
-      tolerancia_expiro: false,
-      created_at: new Date().toISOString(),
-    };
-    setReservas((prev) => [nuevaMock, ...prev]);
-    mostrarToast("📡 SSE: Nueva reserva recibida en tiempo real para Ing. Fernando Soto (14:45 • Mesa 10)");
-  };
-
-  const handleSimularBloqueoPreventivoSSE = () => {
-    setReservas((prev) =>
-      prev.map((r) =>
-        r.id === 'res-005'
-          ? { ...r, estado: 'bloqueada' as const, minutos_restantes: 20 }
-          : r
-      )
-    );
-    mostrarToast("📡 SSE: Mesa 08 conmutó a contorno punteado [BLOQUEADA RESERVA • Fam. Gómez]");
-  };
-
-  const handleReasignarSobreasignacion = async () => {
-    const res = await mockMozoService.reasignarMesaReserva(
-      'res-005',
-      'mesa-05',
-      'Reasignada para permitir ocupación casual en Mesa 08'
-    );
-    if (res.exito) {
-      setReservas((prev) =>
-        prev.map((r) => (r.id === 'res-005' ? res.datos : r))
-      );
-      mostrarToast('🔄 Reserva de Fam. Gómez reasignada con éxito a Mesa 05. Mesa 08 disponible para comensales en sala.');
-    }
-  };
-
-  const handleForzarOcupacionRapida = async () => {
-    mostrarToast('⚠️ Mesa 08 ocupada en modalidad consumo express (< 20 min). Alerta emitida al salón.');
+    const mensaje = `Hola ${reserva.cliente_nombre}, le saludamos de RestaurantCloud AI para confirmar su reserva de hoy a las ${reserva.hora_texto} para ${reserva.num_personas} personas en ${reserva.mesas_etiqueta}. ¿Desea confirmar su asistencia?`;
+    const url = generarEnlaceWhatsApp(reserva.cliente_telefono, mensaje);
+    window.open(url, '_blank');
   };
 
   return (
@@ -224,47 +233,14 @@ export const MozoReservasPage: React.FC = () => {
         fechaTexto={fechaDisplay}
         turnoActivo={turnoActivo}
         onCambiarTurno={(turno) => setTurnoActivo(turno)}
-        onFechaAnterior={() => {
-          setFechaStr('2026-10-08');
-          setFechaDisplay('Ayer, 08 Octubre 2026');
-        }}
-        onFechaSiguiente={() => {
-          setFechaStr('2026-10-10');
-          setFechaDisplay('Mañana, 10 Octubre 2026');
-        }}
-        onFechaHoy={() => {
-          setFechaStr('2026-10-09');
-          setFechaDisplay('Hoy, 09 Octubre 2026');
-        }}
-        onNuevaReserva={() => {
-          if (esPlanStarter) {
-            setModalPaywallAbierto(true);
-          } else {
-            setModalNuevaAbierto(true);
-          }
-        }}
-        esPlanStarter={esPlanStarter}
+        onFechaAnterior={() => cambiarDia(-1)}
+        onFechaSiguiente={() => cambiarDia(1)}
+        onFechaHoy={irAHoy}
+        onNuevaReserva={() => setModalNuevaAbierto(true)}
       />
 
       {/* Contenido Central */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-5">
-        {/* Banner Didáctico de Plan Starter si está activo */}
-        {esPlanStarter && (
-          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 flex items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2">
-              <Info className="w-4 h-4 text-amber-700 shrink-0" />
-              <span>
-                <strong>Modo Simulación Plan Starter Activo:</strong> Puedes consultar este paywall didáctico simulando una cuenta en plan básico.
-              </span>
-            </div>
-            <button
-              onClick={() => setModalPaywallAbierto(true)}
-              className="px-3 py-1 rounded-lg bg-amber-200 hover:bg-amber-300 font-bold text-amber-950 text-xs shrink-0"
-            >
-              Ver Paywall Completo
-            </button>
-          </div>
-        )}
 
         {/* 4 KPIs de Resumen de Turno */}
         <ReservasKPICards
@@ -288,7 +264,7 @@ export const MozoReservasPage: React.FC = () => {
           />
 
           <span className="text-[11px] text-slate-500 font-medium hidden md:inline">
-            Horario activo: <strong>12:00 a 16:30</strong> (Turno Almuerzo)
+            Horario activo: <strong>{horarioTurnoTexto}</strong> (Turno {turnoActivo === 'almuerzo' ? 'Almuerzo' : 'Cena'})
           </span>
         </div>
 
@@ -329,46 +305,6 @@ export const MozoReservasPage: React.FC = () => {
         onRegistrarNoShow={handleRegistrarNoShow}
         onCancelarReserva={handleCancelarReserva}
         onEnviarWhatsApp={handleAbrirWhatsApp}
-      />
-
-      {/* Modal Sobreasignación Preventiva (Vista 4 Izquierda) */}
-      <ModalSobreasignacionAlerta
-        abierto={modalSobreasignacionAbierto}
-        mesaNumero="08"
-        clienteReservaNombre="Fam. Gómez (4 personas)"
-        horaReserva="14:00"
-        minutosRestantes={20}
-        mesaAlternativaNumero="05"
-        onCerrar={() => setModalSobreasignacionAbierto(false)}
-        onReasignarReserva={handleReasignarSobreasignacion}
-        onForzarOcupacionRapida={handleForzarOcupacionRapida}
-      />
-
-      {/* Modal Paywall Starter (Vista 4 Derecha) */}
-      <ModalPaywallReservas
-        abierto={modalPaywallAbierto}
-        onCerrar={() => setModalPaywallAbierto(false)}
-      />
-
-      {/* Widget de Simulación y Pruebas CU-MOZO-05 */}
-      <DemoReservasWidget
-        onSimularNuevaReservaSSE={handleSimularNuevaReservaSSE}
-        onSimularBloqueoPreventivoSSE={handleSimularBloqueoPreventivoSSE}
-        onAbrirSobreasignacion={() => setModalSobreasignacionAbierto(true)}
-        onAlternarPlanStarter={() => setEsPlanStarter(!esPlanStarter)}
-        esPlanStarter={esPlanStarter}
-        onAbrirNuevaReserva={() => {
-          if (esPlanStarter) {
-            setModalPaywallAbierto(true);
-          } else {
-            setModalNuevaAbierto(true);
-          }
-        }}
-        onAbrirFichaDemo={() => {
-          const famGomez = reservas.find((r) => r.id === 'res-005') || reservas[0];
-          setReservaFichaSeleccionada(famGomez);
-          setModalFichaAbierto(true);
-        }}
       />
     </div>
   );

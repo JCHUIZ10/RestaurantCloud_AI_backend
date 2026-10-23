@@ -8,13 +8,12 @@ import {
   ProductoCatalogoMozoDTO,
   ConflictoStockDTO,
 } from '@/types/mozo';
-import { mozoService as mockMozoService } from '@/services/serviceAdapter';
+import { mozoService } from '@/services/serviceAdapter';
 import { ComandaHeader } from '../components/comanda/ComandaHeader';
 import { CatalogoCartaGrid } from '../components/comanda/CatalogoCartaGrid';
 import { TicketComandaPanel } from '../components/comanda/TicketComandaPanel';
 import { ModalNotaCocina } from '../components/comanda/ModalNotaCocina';
 import { ModalConflictoStock } from '../components/comanda/ModalConflictoStock';
-import { DemoComandaWidget } from '../components/comanda/DemoComandaWidget';
 import { ROUTES } from '@/router/routes.constants';
 
 export const MozoComandaPage: React.FC = () => {
@@ -38,8 +37,7 @@ export const MozoComandaPage: React.FC = () => {
   const [conflictoStock, setConflictoStock] = useState<ConflictoStockDTO | null>(null);
   const [modalConflictoAbierto, setModalConflictoAbierto] = useState<boolean>(false);
 
-  // Estados de Simulación
-  const [forzarConflicto409, setForzarConflicto409] = useState<boolean>(false);
+  // Estados interactivos
   const [ticketMovilAbierto, setTicketMovilAbierto] = useState<boolean>(false);
   const [toastExito, setToastExito] = useState<string | null>(null);
 
@@ -48,8 +46,8 @@ export const MozoComandaPage: React.FC = () => {
     setCargando(true);
     try {
       const [resCat, resHist] = await Promise.all([
-        mockMozoService.obtenerCatalogoCarta(mesaId),
-        mockMozoService.obtenerHistorialMesa(mesaId),
+        mozoService.obtenerCatalogoCarta(mesaId),
+        mozoService.obtenerHistorialMesa(mesaId),
       ]);
 
       if (resCat.exito) setCatalogo(resCat.datos);
@@ -148,7 +146,7 @@ export const MozoComandaPage: React.FC = () => {
         })),
       };
 
-      const res = await mockMozoService.enviarPedidoCocina(payload, forzarConflicto409);
+      const res = await mozoService.enviarPedidoCocina(payload);
 
       if (!res.exito) {
         // Manejo de Error 409 Conflict (Vista 4)
@@ -177,7 +175,6 @@ export const MozoComandaPage: React.FC = () => {
   // 5. Resolución de Conflicto 409
   const handleQuitarYEnviarRestantes = async (productoIdAgotado: string) => {
     setModalConflictoAbierto(false);
-    setForzarConflicto409(false); // Resetea flag de simulación
 
     // Quitamos el producto en conflicto del borrador
     const itemsLimpios = itemsBorrador.filter((it) => it.producto_id !== productoIdAgotado);
@@ -196,7 +193,7 @@ export const MozoComandaPage: React.FC = () => {
             nota_cocina: it.nota_cocina,
           })),
         };
-        const res = await mockMozoService.enviarPedidoCocina(payload, false);
+        const res = await mozoService.enviarPedidoCocina(payload);
         if (res.exito) {
           setToastExito('Platos restantes enviados a cocina exitosamente.');
           setTimeout(() => navigate(ROUTES.MOZO_MESAS), 1200);
@@ -212,106 +209,6 @@ export const MozoComandaPage: React.FC = () => {
     if (window.confirm('¿Seguro que deseas vaciar todos los platos de este borrador?')) {
       setItemsBorrador([]);
     }
-  };
-
-  // 7. Acciones del Simulador Demo
-  const handleCargarPedidoDemo = () => {
-    setItemsBorrador([
-      {
-        id: `demo-1-${Date.now()}`,
-        producto_id: 'prod-criollo-01',
-        nombre: 'Lomo Saltado Criollo',
-        precio_unitario: 38.0,
-        cantidad: 2,
-        nota_cocina: 'Término 3/4, sin cebolla',
-        requiere_preparacion: true,
-      },
-      {
-        id: `demo-2-${Date.now()}`,
-        producto_id: 'prod-ent-01',
-        nombre: 'Causa Limeña de Pollo',
-        precio_unitario: 24.0,
-        cantidad: 1,
-        nota_cocina: null,
-        requiere_preparacion: true,
-      },
-      {
-        id: `demo-3-${Date.now()}`,
-        producto_id: 'prod-beb-01',
-        nombre: 'Inca Kola 500ml Helada en Botella',
-        precio_unitario: 7.0,
-        cantidad: 1,
-        nota_cocina: 'Helada con vaso',
-        requiere_preparacion: false,
-      },
-    ]);
-  };
-
-  const handleAlternarRondaAdicional = () => {
-    if (rondaActual === 1) {
-      setRondaActual(2);
-      // Precarga historial simulado si no lo tiene
-      if (!historial || historial.ronda_previa_items.length === 0) {
-        setHistorial({
-          mesa_id: mesaId,
-          mesa_numero: '04',
-          ambiente: 'Salón Principal',
-          comensales: 4,
-          minutos_en_mesa: 45,
-          mozo_nombre: 'Carlos Mendoza',
-          ronda_actual: 2,
-          ronda_previa_items: [
-            {
-              id: 'prev-1',
-              producto_id: 'prod-criollo-01',
-              producto_nombre: 'Lomo Saltado Criollo',
-              cantidad: 2,
-              precio_unitario: 38.0,
-              subtotal: 76.0,
-              nota_cocina: 'Término 3/4',
-              requiere_preparacion: true,
-              tipo_despacho: 'cocina',
-              estado: 'entregado',
-              minutos_en_estado: 15,
-              numero_ronda: 1,
-            },
-            {
-              id: 'prev-2',
-              producto_id: 'prod-ent-01',
-              producto_nombre: 'Causa Limeña de Pollo',
-              cantidad: 1,
-              precio_unitario: 24.0,
-              subtotal: 24.0,
-              nota_cocina: null,
-              requiere_preparacion: true,
-              tipo_despacho: 'cocina',
-              estado: 'entregado',
-              minutos_en_estado: 15,
-              numero_ronda: 1,
-            },
-          ],
-          total_previo: 100.0,
-        });
-      }
-    } else {
-      setRondaActual(1);
-      setHistorial((prev) => (prev ? { ...prev, ronda_previa_items: [], total_previo: 0 } : null));
-    }
-  };
-
-  const handleAlternarAgotadoTiradito = () => {
-    const estado = mockMozoService.alternarDisponibilidadProducto('prod-mar-02');
-    setCatalogo((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        productos: prev.productos.map((p) =>
-          p.id === 'prod-mar-02'
-            ? { ...p, disponibilidad: estado ? 'disponible' : 'agotado' }
-            : p
-        ),
-      };
-    });
   };
 
   // Cálculos para la barra móvil inferior
@@ -466,16 +363,6 @@ export const MozoComandaPage: React.FC = () => {
         onCerrar={() => setModalConflictoAbierto(false)}
         onQuitarYEnviarRestantes={handleQuitarYEnviarRestantes}
         onVolverACatalogo={() => setModalConflictoAbierto(false)}
-      />
-
-      {/* 5. Widget de Simulación en 1 Clic */}
-      <DemoComandaWidget
-        onCargarPedidoDemo={handleCargarPedidoDemo}
-        onAlternarRondaAdicional={handleAlternarRondaAdicional}
-        esRondaAdicional={rondaActual === 2}
-        onActivarConflicto409={() => setForzarConflicto409(!forzarConflicto409)}
-        conflictoActivo={forzarConflicto409}
-        onAlternarAgotadoTiradito={handleAlternarAgotadoTiradito}
       />
     </div>
   );

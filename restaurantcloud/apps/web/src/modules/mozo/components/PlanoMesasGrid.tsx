@@ -1,5 +1,5 @@
 import React from 'react';
-import { Utensils, PlusCircle } from 'lucide-react';
+import { Utensils } from 'lucide-react';
 import { MesaCardDTO } from '@/types/mozo';
 import { MesaCard } from './MesaCard';
 
@@ -7,50 +7,30 @@ interface PlanoMesasGridProps {
   mesas: MesaCardDTO[];
   onSeleccionarMesa: (mesa: MesaCardDTO) => void;
   onAbrirMesaRapido: (mesa: MesaCardDTO) => void;
+  onAtenderQuiebre?: (mesa: MesaCardDTO) => void;
   mesaSeleccionadaId?: string | null;
-  esTurnoVacio?: boolean;
 }
 
 export const PlanoMesasGrid: React.FC<PlanoMesasGridProps> = ({
   mesas,
   onSeleccionarMesa,
   onAbrirMesaRapido,
+  onAtenderQuiebre,
   mesaSeleccionadaId,
-  esTurnoVacio = false,
 }) => {
-  // Vista 4: Estado Inicial / Turno Listo y Vacío
-  if (esTurnoVacio || mesas.length === 0) {
+  // Estado cuando el piso no registra mesas o no hay resultados con el filtro activo
+  if (mesas.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50/70">
-        <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 mb-4 shadow-sm">
-          <Utensils className="w-8 h-8 text-emerald-600" />
+        <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-300 flex items-center justify-center text-slate-500 mb-4 shadow-sm">
+          <Utensils className="w-8 h-8 text-slate-400" />
         </div>
-        <h3 className="font-serif text-2xl font-bold text-slate-800 mb-2">
-          Salón listo para el servicio
+        <h3 className="font-serif text-xl font-bold text-slate-800 mb-2">
+          No hay mesas en este ambiente o filtro
         </h3>
-        <p className="text-slate-600 text-sm max-w-md mb-6 leading-relaxed">
-          Todas las mesas se encuentran libres y preparadas. Cuando ingresen los primeros
-          comensales, selecciona una mesa para sentarlos y abrir su comanda.
+        <p className="text-slate-600 text-sm max-w-md leading-relaxed">
+          Selecciona otro piso en el menú superior o ajusta los filtros para visualizar las mesas del salón.
         </p>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-xl w-full">
-          {mesas.slice(0, 4).map((m) => (
-            <button
-              key={m.id}
-              onClick={() => onAbrirMesaRapido(m)}
-              className="p-3 rounded-xl border border-dashed border-emerald-300 bg-white hover:bg-emerald-50 text-left transition-all group"
-            >
-              <div className="text-xs font-semibold text-slate-400">Mesa</div>
-              <div className="font-serif text-xl font-bold text-slate-800 group-hover:text-emerald-700">
-                {m.numero}
-              </div>
-              <div className="text-[11px] text-emerald-600 font-medium mt-1 flex items-center gap-1">
-                <PlusCircle className="w-3 h-3" />
-                <span>Sentar</span>
-              </div>
-            </button>
-          ))}
-        </div>
       </div>
     );
   }
@@ -65,6 +45,7 @@ export const PlanoMesasGrid: React.FC<PlanoMesasGridProps> = ({
             mesa={mesa}
             onSeleccionar={onSeleccionarMesa}
             onAbrirMesaRapido={onAbrirMesaRapido}
+            onAtenderQuiebre={onAtenderQuiebre}
             esSeleccionada={mesaSeleccionadaId === mesa.id}
           />
         ))}

@@ -14,7 +14,7 @@ import {
   CatalogoSustitucionResponseDTO,
   PlatoSustitutoSugeridoDTO,
 } from '@/types/mozo';
-import { mockMozoService } from '../../services/mockMozoService';
+import { mozoService } from '@/services/serviceAdapter';
 
 interface ModalSustitucionCartaProps {
   abierto: boolean;
@@ -45,22 +45,25 @@ export const ModalSustitucionCarta: React.FC<ModalSustitucionCartaProps> = ({
   const [notasCocina, setNotasCocina] = useState<string>('');
   const [procesandoEnvio, setProcesandoEnvio] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
+  const [errorCargaCatalogo, setErrorCargaCatalogo] = useState<string | null>(null);
 
   // Cargar catálogo y sugerencias
   useEffect(() => {
-    if (!abierto) {
+    if (!abierto || !mesaId || !itemId) {
       setPlatoSeleccionado(null);
       setNotasCocina('');
       setBusqueda('');
       setCategoriaSeleccionada('todas');
       setErrorEnvio(null);
+      setErrorCargaCatalogo(null);
       return;
     }
 
     const cargarDatos = async () => {
       try {
         setCargando(true);
-        const res = await mockMozoService.obtenerCatalogoSustitucion(
+        setErrorCargaCatalogo(null);
+        const res = await mozoService.obtenerCatalogoSustitucion(
           mesaId,
           itemId,
           categoriaSeleccionada,
@@ -68,9 +71,16 @@ export const ModalSustitucionCarta: React.FC<ModalSustitucionCartaProps> = ({
         );
         if (res.exito) {
           setCatalogo(res.datos);
+        } else {
+          setErrorCargaCatalogo(res.errores?.[0]?.mensaje || 'No se pudo cargar el catálogo de sustitución.');
         }
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Error al cargar catálogo de sustitución:', err);
+        const msg =
+          (err as any)?.response?.data?.errores?.[0]?.mensaje ||
+          (err as any)?.response?.data?.mensaje ||
+          (err instanceof Error ? err.message : 'Error al cargar catálogo de sustitución.');
+        setErrorCargaCatalogo(msg);
       } finally {
         setCargando(false);
       }
@@ -95,8 +105,12 @@ export const ModalSustitucionCarta: React.FC<ModalSustitucionCartaProps> = ({
       setErrorEnvio(null);
       await onConfirmarSustitucion(platoSeleccionado.producto_id, notasCocina);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al confirmar sustitución.';
+      const msg =
+        (err as any)?.response?.data?.errores?.[0]?.mensaje ||
+        (err as any)?.response?.data?.mensaje ||
+        (err instanceof Error ? err.message : 'Error al confirmar sustitución.');
       setErrorEnvio(msg);
+    } finally {
       setProcesandoEnvio(false);
     }
   };
@@ -197,6 +211,24 @@ export const ModalSustitucionCarta: React.FC<ModalSustitucionCartaProps> = ({
             <div className="py-12 flex flex-col items-center justify-center text-slate-400 space-y-2">
               <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
               <p className="text-xs">Cargando opciones de sustitución...</p>
+            </div>
+          ) : errorCargaCatalogo ? (
+            <div className="py-10 flex flex-col items-center justify-center text-center space-y-3 px-4">
+              <div className="p-3 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <p className="text-sm font-semibold text-slate-200">No se pudo cargar la carta para sustitución</p>
+              <p className="text-xs text-red-300 max-w-md">{errorCargaCatalogo}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setCategoriaSeleccionada('todas');
+                  setBusqueda('');
+                }}
+                className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 font-semibold border border-slate-700"
+              >
+                Reintentar Carga
+              </button>
             </div>
           ) : (
             <>

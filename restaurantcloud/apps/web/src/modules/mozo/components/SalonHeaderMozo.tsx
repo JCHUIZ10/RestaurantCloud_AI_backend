@@ -16,6 +16,7 @@ interface SalonHeaderMozoProps {
   totalMesasCount: number;
   libresCount: number;
   ocupadasCount: number;
+  reservasCount?: number;
   mozoNombre: string;
 }
 
@@ -29,6 +30,7 @@ export const SalonHeaderMozo: React.FC<SalonHeaderMozoProps> = ({
   totalMesasCount,
   libresCount,
   ocupadasCount,
+  reservasCount,
   mozoNombre,
 }) => {
   return (
@@ -97,7 +99,7 @@ export const SalonHeaderMozo: React.FC<SalonHeaderMozoProps> = ({
             title="Ver bandeja de reservas del turno (CU-MOZO-05)"
           >
             <Calendar className="w-3.5 h-3.5 text-sky-600" />
-            <span>📅 Reservas (8)</span>
+            <span>📅 Reservas {typeof reservasCount === 'number' ? `(${reservasCount})` : ''}</span>
           </Link>
         </div>
       </div>

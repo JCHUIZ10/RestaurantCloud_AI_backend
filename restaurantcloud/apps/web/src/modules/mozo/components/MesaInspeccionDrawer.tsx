@@ -437,6 +437,31 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
                 <span>＋ Tomar Pedido (CU-MOZO-02)</span>
               </button>
 
+              {/* Fila: Operación de Salón para mesa recién abierta / sin consumo (Unir o Separar Mesas) */}
+              <div className="pt-0.5">
+                {detalle?.es_mesa_unida ? (
+                  <button
+                    onClick={() =>
+                      detalle?.mesa_id && onAbrirModalSeparar && onAbrirModalSeparar(detalle.mesa_id)
+                    }
+                    className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 transition-all flex items-center justify-center gap-1.5 active:scale-98"
+                  >
+                    <Scissors className="w-3.5 h-3.5 text-rose-600" />
+                    <span>✂️ Separar Mesas</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() =>
+                      detalle?.mesa_id && onAbrirModalUnir && onAbrirModalUnir(detalle.mesa_id)
+                    }
+                    className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition-all flex items-center justify-center gap-1.5 active:scale-98"
+                  >
+                    <Link2 className="w-3.5 h-3.5 text-slate-700" />
+                    <span>🔗 Unir Mesas Contiguas</span>
+                  </button>
+                )}
+              </div>
+
               {/* Botón Liberar Mesa (Cliente se retiró sin consumo) */}
               <button
                 onClick={() => setModalConfirmarLiberar(true)}
@@ -543,9 +568,18 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
             <h3 className="text-base font-bold text-slate-800 text-center font-serif">
               ¿Liberar Mesa {detalle?.numero}?
             </h3>
-            <p className="text-xs text-slate-600 text-center mt-2 leading-relaxed">
-              El cliente se retiró sin ordenar ningún producto. La mesa volverá al estado <strong>LIBRE</strong> de inmediato y la comanda vacía se anulará sin penalización.
-            </p>
+            {detalle?.es_mesa_unida ? (
+              <div className="mt-2.5 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 leading-relaxed text-left flex gap-2 items-start">
+                <Link2 className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Mesa Unificada:</strong> El cliente se retiró sin consumir. Al liberar esta mesa, <strong>todas las mesas unidas del grupo se separarán automáticamente</strong> y volverán a estar libres e independientes como nuevas.
+                </span>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-600 text-center mt-2 leading-relaxed">
+                El cliente se retiró sin ordenar ningún producto. La mesa volverá al estado <strong>LIBRE</strong> de inmediato y la comanda vacía se anulará sin penalización.
+              </p>
+            )}
             <div className="mt-5 flex gap-2">
               <button
                 type="button"

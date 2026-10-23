@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Link2, Check, AlertCircle, Users, RefreshCw } from 'lucide-react';
 import { CandidataUnionMesaDTO, CandidatasUnionResponseDTO } from '@/types/mozo';
-import { mockMozoService } from '../../services/mockMozoService';
+import { mozoService } from '@/services/serviceAdapter';
 
 interface ModalUnirMesasProps {
   isOpen: boolean;
@@ -33,14 +33,9 @@ export const ModalUnirMesas: React.FC<ModalUnirMesasProps> = ({
     setErrorMsg(null);
     setSeleccionadasIds([]);
     try {
-      const res = await mockMozoService.obtenerCandidatasUnion(mesaTitularId);
+      const res = await mozoService.obtenerCandidatasUnion(mesaTitularId);
       if (res.exito && res.datos) {
         setDatosCandidatas(res.datos);
-        // Preseleccionar por defecto la contigua recomendada si existe (ej. Mesa 03)
-        const contiguaLibre = res.datos.candidatas.find((c) => c.elegible && c.numero === '03');
-        if (contiguaLibre) {
-          setSeleccionadasIds([contiguaLibre.id]);
-        }
       } else {
         setErrorMsg('No se pudieron obtener las mesas del salón.');
       }
@@ -77,9 +72,46 @@ export const ModalUnirMesas: React.FC<ModalUnirMesasProps> = ({
   const numerosAgrupados = [
     numeroTitular,
     ...secundariasSeleccionadas.map((c) => c.numero),
-  ].sort((a, b) => Number(a) - Number(b));
+  ].sort((a, b) => {
+    const nA = parseInt(a.replace(/\D/g, ''), 10);
+    const nB = parseInt(b.replace(/\D/g, ''), 10);
+    if (!isNaN(nA) && !isNaN(nB)) return nA - nB;
+    return a.localeCompare(b, undefined, { numeric: true });
+  });
 
   const labelOficial = `Mesa [ ${numerosAgrupados.join(' ; ')} ]`;
+
+  // Construcción de la lista completa del piso (titular + candidatas ordenadas)
+  const todasLasMesasDelPiso = useMemo(() => {
+    if (!datosCandidatas) return [];
+
+    const titularItem: CandidataUnionMesaDTO & { es_titular: boolean } = {
+      id: datosCandidatas.mesa_origen_id,
+      numero: datosCandidatas.numero_origen,
+      capacidad: datosCandidatas.capacidad_origen,
+      posicion_x: 0,
+      posicion_y: 0,
+      estado: 'ocupada' as const,
+      permite_union: true,
+      elegible: false,
+      motivo_bloqueo: 'Mesa titular seleccionada',
+      es_titular: true,
+    };
+
+    const candidatasItems = (datosCandidatas.candidatas || []).map((c) => ({
+      ...c,
+      es_titular: false,
+    }));
+
+    return [titularItem, ...candidatasItems].sort((a, b) => {
+      const numA = parseInt(a.numero.replace(/\D/g, ''), 10);
+      const numB = parseInt(b.numero.replace(/\D/g, ''), 10);
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return numA - numB;
+      }
+      return a.numero.localeCompare(b.numero, undefined, { numeric: true });
+    });
+  }, [datosCandidatas]);
 
   const handleConfirmar = async () => {
     if (seleccionadasIds.length === 0) return;
@@ -108,7 +140,7 @@ export const ModalUnirMesas: React.FC<ModalUnirMesasProps> = ({
                 <span>🔗 Unir Mesas con Mesa {numeroTitular}</span>
               </h2>
               <p className="text-xs text-slate-300">
-                Mesa Titular: <strong className="text-aurea-champagne">Mesa {numeroTitular}</strong> (Capacidad: 👤 x {capTitular}) • Salón Principal
+                Mesa Titular: <strong className="text-aurea-champagne">Mesa {numeroTitular}</strong> (Capacidad: 👤 x {capTitular}) • Ambiente Salón
               </p>
             </div>
           </div>
@@ -142,34 +174,17 @@ export const ModalUnirMesas: React.FC<ModalUnirMesasProps> = ({
             <>
               {/* Barra de Distribución Física */}
               <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                <span>DISTRIBUCIÓN FÍSICA DEL SALÓN (10 MESAS)</span>
+                <span>DISTRIBUCIÓN DEL PISO ({todasLasMesasDelPiso.length} MESAS)</span>
                 <span className="text-aurea-copper normal-case font-normal text-xs">
-                  Toca una mesa para unir
+                  Toca una mesa libre para unir
                 </span>
               </div>
 
-              {/* Mini-Plano de Salón: Cuadrícula interactiva 5 columnas x 2 filas */}
-              <div className="grid grid-cols-5 gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200 select-none">
-                {/* 1. M-01 */}
-                {renderCardCandidata('01', datosCandidatas?.candidatas, numeroTitular, capTitular, seleccionadasIds, toggleSeleccion)}
-                {/* 2. M-02 (Titular) */}
-                {renderCardCandidata('02', datosCandidatas?.candidatas, numeroTitular, capTitular, seleccionadasIds, toggleSeleccion)}
-                {/* 3. M-03 */}
-                {renderCardCandidata('03', datosCandidatas?.candidatas, numeroTitular, capTitular, seleccionadasIds, toggleSeleccion)}
-                {/* 4. M-04 */}
-                {renderCardCandidata('04', datosCandidatas?.candidatas, numeroTitular, capTitular, seleccionadasIds, toggleSeleccion)}
-                {/* 5. M-05 */}
-                {renderCardCandidata('05', datosCandidatas?.candidatas, numeroTitular, capTitular, seleccionadasIds, toggleSeleccion)}
-                {/* 6. M-06 */}
-                {renderCardCandidata('06', datosCandidatas?.candidatas, numeroTitular, capTitular, seleccionadasIds, toggleSeleccion)}
-                {/* 7. M-07 */}
-                {renderCardCandidata('07', datosCandidatas?.candidatas, numeroTitular, capTitular, seleccionadasIds, toggleSeleccion)}
-                {/* 8. M-08 */}
-                {renderCardCandidata('08', datosCandidatas?.candidatas, numeroTitular, capTitular, seleccionadasIds, toggleSeleccion)}
-                {/* 9. M-09 */}
-                {renderCardCandidata('09', datosCandidatas?.candidatas, numeroTitular, capTitular, seleccionadasIds, toggleSeleccion)}
-                {/* 10. M-10 */}
-                {renderCardCandidata('10', datosCandidatas?.candidatas, numeroTitular, capTitular, seleccionadasIds, toggleSeleccion)}
+              {/* Plano de Salón: Cuadrícula interactiva dinámica */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200 select-none">
+                {todasLasMesasDelPiso.map((mesa) =>
+                  renderCardItem(mesa, seleccionadasIds, toggleSeleccion)
+                )}
               </div>
 
               {/* Leyenda Visual */}
@@ -267,24 +282,21 @@ export const ModalUnirMesas: React.FC<ModalUnirMesasProps> = ({
   );
 };
 
-// Función auxiliar de renderizado de tarjeta en el Mini-Mapa 5x2
-function renderCardCandidata(
-  num: string,
-  candidatas: CandidataUnionMesaDTO[] | undefined,
-  numeroTitular: string,
-  capTitular: number,
+// Función auxiliar de renderizado dinámico de tarjetas
+function renderCardItem(
+  mesa: CandidataUnionMesaDTO & { es_titular?: boolean },
   seleccionadas: string[],
   onToggle: (c: CandidataUnionMesaDTO) => void
 ) {
   // Caso 1: Es la mesa titular
-  if (num === numeroTitular) {
+  if (mesa.es_titular) {
     return (
       <div
-        key={`titular-${num}`}
+        key={`titular-${mesa.id}`}
         className="flex flex-col items-center justify-between p-2 rounded-xl bg-slate-900 border-2 border-slate-700 text-white min-h-[76px] shadow-sm relative ring-2 ring-aurea-copper/40"
       >
-        <span className="text-[10px] font-mono font-bold text-aurea-champagne">M-{num} ★</span>
-        <span className="text-[9px] text-slate-300">{capTitular}p</span>
+        <span className="text-[10px] font-mono font-bold text-aurea-champagne">M-{mesa.numero} ★</span>
+        <span className="text-[9px] text-slate-300">{mesa.capacidad}p</span>
         <span className="px-1.5 py-0.2 rounded text-[8px] font-black bg-aurea-copper text-slate-950 uppercase">
           TITULAR
         </span>
@@ -292,34 +304,21 @@ function renderCardCandidata(
     );
   }
 
-  // Buscar la candidata en la lista
-  const candidata = candidatas?.find((c) => c.numero === num);
-  if (!candidata) {
-    return (
-      <div
-        key={`empty-${num}`}
-        className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 min-h-[76px] text-xs"
-      >
-        <span>M-{num}</span>
-      </div>
-    );
-  }
-
-  const estaSeleccionada = seleccionadas.includes(candidata.id);
+  const estaSeleccionada = seleccionadas.includes(mesa.id);
 
   if (estaSeleccionada) {
     return (
       <button
-        key={candidata.id}
+        key={mesa.id}
         type="button"
-        onClick={() => onToggle(candidata)}
-        className="flex flex-col items-center justify-between p-2 rounded-xl bg-amber-500/15 border-2 border-amber-500 text-slate-950 min-h-[76px] shadow-md transition-all active:scale-95"
+        onClick={() => onToggle(mesa)}
+        className="flex flex-col items-center justify-between p-2 rounded-xl bg-amber-500/15 border-2 border-amber-500 text-slate-950 min-h-[76px] shadow-md transition-all active:scale-95 cursor-pointer"
       >
         <div className="flex items-center gap-1 text-[10px] font-mono font-bold text-amber-900">
-          <span>M-{num}</span>
+          <span>M-{mesa.numero}</span>
           <Check className="w-3 h-3 text-amber-700" />
         </div>
-        <span className="text-[9px] text-slate-600 font-semibold">{candidata.capacidad}p</span>
+        <span className="text-[9px] text-slate-600 font-semibold">{mesa.capacidad}p</span>
         <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-amber-500 text-slate-950">
           ✓ UNIR
         </span>
@@ -327,16 +326,16 @@ function renderCardCandidata(
     );
   }
 
-  if (candidata.elegible) {
+  if (mesa.elegible) {
     return (
       <button
-        key={candidata.id}
+        key={mesa.id}
         type="button"
-        onClick={() => onToggle(candidata)}
+        onClick={() => onToggle(mesa)}
         className="flex flex-col items-center justify-between p-2 rounded-xl bg-white border-2 border-dashed border-emerald-500 hover:border-emerald-600 hover:bg-emerald-50/50 text-slate-800 min-h-[76px] shadow-2xs transition-all cursor-pointer active:scale-95"
       >
-        <span className="text-[10px] font-mono font-bold text-emerald-800">M-{num}</span>
-        <span className="text-[9px] text-slate-500">{candidata.capacidad}p</span>
+        <span className="text-[10px] font-mono font-bold text-emerald-800">M-{mesa.numero}</span>
+        <span className="text-[9px] text-slate-500">{mesa.capacidad}p</span>
         <span className="px-1.5 py-0.2 rounded text-[8px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
           LIBRE
         </span>
@@ -345,20 +344,20 @@ function renderCardCandidata(
   }
 
   // No elegible / Bloqueada
-  const badgeText = !candidata.permite_union
+  const badgeText = !mesa.permite_union
     ? 'FIJA'
-    : candidata.estado === 'bloqueada'
+    : mesa.estado === 'bloqueada'
     ? 'RSV'
     : 'OCUP';
 
   return (
     <div
-      key={candidata.id}
-      title={candidata.motivo_bloqueo || 'No disponible para unión'}
+      key={mesa.id}
+      title={mesa.motivo_bloqueo || 'No disponible para unión'}
       className="flex flex-col items-center justify-between p-2 rounded-xl bg-slate-200/70 border border-slate-300 text-slate-400 min-h-[76px] opacity-70 cursor-not-allowed"
     >
-      <span className="text-[10px] font-mono font-bold text-slate-500">M-{num}</span>
-      <span className="text-[9px] text-slate-400">{candidata.capacidad}p</span>
+      <span className="text-[10px] font-mono font-bold text-slate-500">M-{mesa.numero}</span>
+      <span className="text-[9px] text-slate-400">{mesa.capacidad}p</span>
       <span className="px-1.5 py-0.2 rounded text-[8px] font-semibold bg-slate-300 text-slate-600">
         [{badgeText}]
       </span>

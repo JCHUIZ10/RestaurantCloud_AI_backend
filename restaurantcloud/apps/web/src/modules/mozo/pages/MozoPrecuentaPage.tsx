@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
-import { mozoService as mockMozoService } from '@/services/serviceAdapter';
+import { mozoService } from '@/services/serviceAdapter';
 import type {
   PrecuentaMozoResponseDTO,
   PromocionSedeDTO,
@@ -15,7 +15,6 @@ import { PromocionComercialSelector } from '../components/precuenta/PromocionCom
 import { DesgloseSUNATCard } from '../components/precuenta/DesgloseSUNATCard';
 import { MetodosPagoSelector } from '../components/precuenta/MetodosPagoSelector';
 import { ModalQRBilletera } from '../components/precuenta/ModalQRBilletera';
-import { DemoPrecuentaWidget } from '../components/precuenta/DemoPrecuentaWidget';
 
 export const MozoPrecuentaPage: React.FC = () => {
   const { mesaId = 'mesa-04' } = useParams<{ mesaId: string }>();
@@ -33,23 +32,19 @@ export const MozoPrecuentaPage: React.FC = () => {
   const [enviandoNotificacion, setEnviandoNotificacion] = useState(false);
   const [cuentaPedidaExitosa, setCuentaPedidaExitosa] = useState(false);
 
-  // Overrides de demo
-  const [alertaCocinaActiva, setAlertaCocinaActiva] = useState(true);
-
   // Carga inicial
   useEffect(() => {
     let montado = true;
     setCargando(true);
     setError(null);
 
-    mockMozoService
+    mozoService
       .obtenerPrecuentaMesa(mesaId)
       .then((res: any) => {
         if (!montado) return;
         if (res.exito && res.datos) {
           setDataOriginal(res.datos);
           setPromocionSeleccionada(res.datos.promocion_activa || null);
-          setAlertaCocinaActiva(res.datos.tiene_cocina_pendiente);
         } else {
           setError(res.errores?.[0]?.mensaje || 'No se pudo cargar la precuenta de la mesa.');
         }
@@ -135,7 +130,7 @@ export const MozoPrecuentaPage: React.FC = () => {
 
     setEnviandoNotificacion(true);
     try {
-      const res = await mockMozoService.solicitarCuentaMesaConDetalle({
+      const res = await mozoService.solicitarCuentaMesaConDetalle({
         mesa_id: mesaId,
         metodo_pago: metodoSeleccionado,
         numero_operacion: opToUse,
@@ -155,25 +150,6 @@ export const MozoPrecuentaPage: React.FC = () => {
     setNumeroOperacion(numOp);
     setModalQRAbierto(false);
     handleNotificarCaja(numOp);
-  };
-
-  // Manejadores del widget demo
-  const handleTogglePromoWidget = (activar: boolean) => {
-    if (activar && dataOriginal?.promociones_disponibles.length) {
-      setPromocionSeleccionada(dataOriginal.promociones_disponibles[0]);
-    } else {
-      setPromocionSeleccionada(null);
-    }
-  };
-
-  const handleResetMesaOcupada = () => {
-    mockMozoService.abrirMesa(mesaId, dataOriginal?.comensales || 4);
-    setCuentaPedidaExitosa(false);
-  };
-
-  const handleForzarCuentaPedida = () => {
-    mockMozoService.solicitarCuentaMesa(mesaId);
-    setCuentaPedidaExitosa(true);
   };
 
   if (cargando) {
@@ -218,7 +194,7 @@ export const MozoPrecuentaPage: React.FC = () => {
         mozoNombre={dataOriginal.mozo_nombre}
         comensales={dataOriginal.comensales}
         minutosEnMesa={dataOriginal.minutos_en_mesa}
-        tieneCocinaPendiente={alertaCocinaActiva}
+        tieneCocinaPendiente={Boolean(dataOriginal.tiene_cocina_pendiente)}
         alertaCocina={dataOriginal.alerta_cocina}
       />
 
@@ -281,17 +257,6 @@ export const MozoPrecuentaPage: React.FC = () => {
         detalle={calculos.opcionesPago.find((o) => o.codigo === 'billetera_digital')?.detalle_billetera}
         monto={calculos.totalNeto}
         onConfirmarPago={handleConfirmarQRPago}
-      />
-
-      {/* 4. Widget Flotante de Testing de Escenarios */}
-      <DemoPrecuentaWidget
-        onTogglePromo={handleTogglePromoWidget}
-        tienePromo={promocionSeleccionada !== null}
-        onToggleAlertaCocina={() => setAlertaCocinaActiva(!alertaCocinaActiva)}
-        tieneAlertaCocina={alertaCocinaActiva}
-        onResetMesaOcupada={handleResetMesaOcupada}
-        onForzarCuentaPedida={handleForzarCuentaPedida}
-        esCuentaPedida={cuentaPedidaExitosa}
       />
     </div>
   );

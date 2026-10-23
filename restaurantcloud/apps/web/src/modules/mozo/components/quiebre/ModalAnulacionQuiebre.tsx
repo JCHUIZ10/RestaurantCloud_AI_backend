@@ -52,8 +52,12 @@ export const ModalAnulacionQuiebre: React.FC<ModalAnulacionQuiebreProps> = ({
         motivo_detalle: motivoCompleto,
       });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al anular plato.';
+      const msg =
+        (err as any)?.response?.data?.errores?.[0]?.mensaje ||
+        (err as any)?.response?.data?.mensaje ||
+        (err instanceof Error ? err.message : 'Error al anular plato.');
       setError(msg);
+    } finally {
       setProcesando(false);
     }
   };

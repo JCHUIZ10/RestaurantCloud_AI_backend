@@ -148,6 +148,21 @@ Route::prefix('v1')->group(function (): void {
             Route::post('/mesas/{id}/solicitar-cuenta', [MozoController::class, 'solicitarCuenta']);
             Route::post('/mesas/{id}/liberar', [MozoController::class, 'liberarMesa']);
 
+            // CU-MOZO-04: Unión y Separación de Mesas
+            Route::get('/mesas/{id}/candidatas-union', [MozoController::class, 'getCandidatasUnion']);
+            Route::post('/mesas/unir', [MozoController::class, 'unirMesas']);
+            Route::get('/mesas/{id}/validar-separacion', [MozoController::class, 'validarSeparacionMesa']);
+            Route::post('/mesas/{id}/separar', [MozoController::class, 'separarMesas']);
+
+            // CU-MOZO-06: Anulación de Ítems y Comandas con Auditoría y Merma
+            Route::post('/mesas/{id}/items/{itemId}/anular', [MozoController::class, 'anularItem']);
+            Route::post('/mesas/{id}/anular-comanda', [MozoController::class, 'anularComanda']);
+
+            // CU-MOZO-07: Quiebres de Cocina y Sustitución de Carta
+            Route::get('/mesas/{id}/items/{itemId}/catalogo-sustitucion', [MozoController::class, 'getCatalogoSustitucion']);
+            Route::post('/mesas/{id}/items/{itemId}/sustituir', [MozoController::class, 'sustituirPlato']);
+            Route::post('/mesas/{id}/items/{itemId}/anular-quiebre', [MozoController::class, 'anularPorQuiebreCocina']);
+
             // CU-MOZO-02: Catálogo de Carta, Historial y Despacho de Comandas
             Route::get('/carta', [MozoController::class, 'getCarta']);
             Route::get('/mesas/{id}/carta', [MozoController::class, 'getCartaMesa']);
@@ -162,6 +177,18 @@ Route::prefix('v1')->group(function (): void {
             // CU-MOZO-09: Dividir Cuenta en Mesa (Subcuentas)
             Route::get('/mesas/{id}/items-dividir', [MozoController::class, 'getItemsDividir']);
             Route::post('/mesas/{id}/dividir-cuenta', [MozoController::class, 'dividirCuenta']);
+
+            // CU-MOZO-05: Gestión de Reservas y Recepción en Salón
+            Route::prefix('reservas')->group(function (): void {
+                Route::get('/', [MozoController::class, 'getReservas']);
+                Route::get('/politicas', [MozoController::class, 'getPoliticasReserva']);
+                Route::get('/mesas-disponibles', [MozoController::class, 'getMesasDisponiblesReserva']);
+                Route::post('/', [MozoController::class, 'crearReserva']);
+                Route::post('/{id}/sentar', [MozoController::class, 'sentarReserva']);
+                Route::post('/{id}/no-show', [MozoController::class, 'registrarNoShow']);
+                Route::post('/{id}/cancelar', [MozoController::class, 'cancelarReserva']);
+                Route::patch('/{id}/reasignar-mesa', [MozoController::class, 'reasignarMesaReserva']);
+            });
         });
 
         // Cocina / KDS (CU-COCINA-01, CU-COCINA-02 y CU-COCINA-04)

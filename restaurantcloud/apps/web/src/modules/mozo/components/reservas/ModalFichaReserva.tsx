@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Clock, Phone, MessageSquare, Users, AlertTriangle, CheckCircle2, UserX, RefreshCw } from 'lucide-react';
+import { X, Clock, Phone, MessageSquare, Users, AlertTriangle, CheckCircle2, UserX } from 'lucide-react';
 import { ReservaCardDTO } from '@/types/mozo';
 
 interface ModalFichaReservaProps {
@@ -21,8 +21,6 @@ export const ModalFichaReserva: React.FC<ModalFichaReservaProps> = ({
   onCancelarReserva,
   onEnviarWhatsApp,
 }) => {
-  // Simulador de reloj de tolerancia para demostración
-  const [toleranciaExpiradaSimulada, setToleranciaExpiradaSimulada] = useState(false);
   const [modoCancelar, setModoCancelar] = useState(false);
   const [motivoCancelacion, setMotivoCancelacion] = useState('Cliente solicitó reprogramar por emergencia familiar');
   const [modoNoShowConfirm, setModoNoShowConfirm] = useState(false);
@@ -31,7 +29,10 @@ export const ModalFichaReserva: React.FC<ModalFichaReservaProps> = ({
 
   if (!abierto || !reserva) return null;
 
-  const esExpirado = toleranciaExpiradaSimulada || reserva.tolerancia_expiro;
+  const esExpirado = Boolean(
+    reserva.tolerancia_expiro ||
+    (typeof reserva.minutos_restantes === 'number' && reserva.minutos_restantes < -15)
+  );
 
   const handleSentar = async () => {
     setProcesando(true);
@@ -174,17 +175,6 @@ export const ModalFichaReserva: React.FC<ModalFichaReservaProps> = ({
                 <Clock className="w-4 h-4 text-aurea-navy" />
                 <span>Tiempo y Cortesía de Espera</span>
               </h3>
-
-              {/* Conmutador de Prueba de Tolerancia */}
-              <button
-                type="button"
-                onClick={() => setToleranciaExpiradaSimulada(!toleranciaExpiradaSimulada)}
-                className="text-[10px] font-semibold text-slate-600 hover:text-aurea-navy bg-white px-2 py-0.5 rounded border border-slate-300 shadow-2xs flex items-center gap-1"
-                title="Alterna entre tiempo de cortesía y tolerancia expirada"
-              >
-                <RefreshCw className="w-3 h-3 text-aurea-copper" />
-                <span>Simular: {toleranciaExpiradaSimulada ? 'En Cortesía' : 'Expirada'}</span>
-              </button>
             </div>
 
             <div className="space-y-1.5 text-xs">

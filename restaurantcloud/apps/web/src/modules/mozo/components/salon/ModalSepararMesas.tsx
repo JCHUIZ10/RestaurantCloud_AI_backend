@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Scissors, CheckCircle2, Info, Users, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Scissors, Check, Users, RefreshCw, Receipt, Anchor, AlertCircle } from 'lucide-react';
 import { ValidacionSeparacionMesaDTO } from '@/types/mozo';
 
 interface ModalSepararMesasProps {
@@ -7,7 +7,7 @@ interface ModalSepararMesasProps {
   onClose: () => void;
   mesaId: string;
   validacion: ValidacionSeparacionMesaDTO | null;
-  onConfirmarSeparacion: (mesaId: string) => Promise<void>;
+  onConfirmarSeparacion: (mesaId: string, secundariasIds?: string[]) => Promise<void>;
 }
 
 export const ModalSepararMesas: React.FC<ModalSepararMesasProps> = ({
@@ -17,16 +17,53 @@ export const ModalSepararMesas: React.FC<ModalSepararMesasProps> = ({
   validacion,
   onConfirmarSeparacion,
 }) => {
+  const [seleccionadasIds, setSeleccionadasIds] = useState<string[]>([]);
   const [separando, setSeparando] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Obtener titular y secundarias del DTO
+  const mesaTitular =
+    validacion?.mesa_titular ||
+    validacion?.mesas_a_restaurar.find((m) => m.rol === 'titular') || {
+      id: mesaId,
+      numero: 'Titular',
+      capacidad: 4,
+    };
+
+  const secundarias =
+    validacion?.mesas_secundarias ||
+    validacion?.mesas_a_restaurar.filter((m) => m.rol === 'secundaria') ||
+    [];
+
+  // Por defecto, preseleccionar todas las secundarias
+  useEffect(() => {
+    if (validacion && secundarias.length > 0) {
+      setSeleccionadasIds(secundarias.map((s) => s.id));
+    }
+  }, [validacion]);
+
   if (!isOpen || !validacion) return null;
 
+  const toggleSeleccion = (id: string) => {
+    setSeleccionadasIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const seleccionarTodas = () => {
+    setSeleccionadasIds(secundarias.map((s) => s.id));
+  };
+
+  const deseleccionarTodas = () => {
+    setSeleccionadasIds([]);
+  };
+
   const handleConfirmar = async () => {
+    if (seleccionadasIds.length === 0) return;
     setSeparando(true);
     setErrorMsg(null);
     try {
-      await onConfirmarSeparacion(mesaId);
+      await onConfirmarSeparacion(mesaId, seleccionadasIds);
       onClose();
     } catch (err: any) {
       setErrorMsg(err?.message || 'Error al desvincular las mesas');
@@ -35,11 +72,19 @@ export const ModalSepararMesas: React.FC<ModalSepararMesasProps> = ({
     }
   };
 
-  const mesas = validacion.mesas_a_restaurar || [];
+  // Cálculos predictivos de las mesas que quedan y las que se van
+  const secundariasADesvincular = secundarias.filter((s) => seleccionadasIds.includes(s.id));
+  const secundariasQuePermanecen = secundarias.filter((s) => !seleccionadasIds.includes(s.id));
+  const grupoQuedaraDisuelto = secundariasQuePermanecen.length === 0;
+
+  const numerosRestantes = [mesaTitular.numero, ...secundariasQuePermanecen.map((s) => s.numero)].sort();
+  const labelFuturo = grupoQuedaraDisuelto
+    ? `Mesa ${mesaTitular.numero} (Individual)`
+    : `Mesa [ ${numerosRestantes.join(' ; ')} ]`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
-      <div className="relative w-full max-w-[540px] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+      <div className="relative w-full max-w-[580px] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
         {/* Cabecera */}
         <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
           <div className="flex items-center gap-3">
@@ -51,7 +96,7 @@ export const ModalSepararMesas: React.FC<ModalSepararMesasProps> = ({
                 ✂️ Separar {validacion.mesa_label}
               </h2>
               <p className="text-xs text-slate-300">
-                Salón Principal • Desvinculación de Grupo Físico
+                Gestión Física de Salón • Desvinculación Selectiva de Mesas
               </p>
             </div>
           </div>
@@ -64,58 +109,162 @@ export const ModalSepararMesas: React.FC<ModalSepararMesasProps> = ({
         </div>
 
         {/* Contenido */}
-        <div className="p-5 space-y-4">
-          {/* Mensaje de validación positiva */}
-          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-start gap-2.5">
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 mt-0.5" />
-            <div>
-              <div className="font-bold">✓ Cuenta liquidada y mesas desocupadas.</div>
-              <div className="text-emerald-700 mt-0.5">
-                No existen platos pendientes de cobro en esta mesa. Al confirmar, cada mesa retornará a su estado individual en el plano de salón recuperando su capacidad original:
+        <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+          {/* Banner de Consumo Activo: Reasegura que el pedido se conserva */}
+          {validacion.tiene_consumo_activo && (
+            <div className="p-3 rounded-xl bg-sky-50 border border-sky-200 text-sky-950 text-xs flex items-start gap-2.5">
+              <Receipt className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold">Comanda y Consumos Activos Protegidos:</span>
+                <p className="text-sky-800 mt-0.5 leading-relaxed">
+                  El pedido actual de <strong className="font-mono">S/ {validacion.total_consumo?.toFixed(2) || '0.00'}</strong> ({validacion.items_activos || 0} platos) <strong>permanecerá activo e intacto</strong> en la <strong>Mesa Titular {mesaTitular.numero}</strong>. Las mesas que desvincules quedarán disponibles como libres.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Bloque A: Mesa Titular (Fija) */}
+          <div className="space-y-1.5">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              1. Mesa Principal (Ancla del pedido)
+            </span>
+            <div className="p-3 rounded-xl border-2 border-aurea-copper/40 bg-[#0B2340] text-white flex items-center justify-between shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-aurea-copper/20 flex items-center justify-center text-aurea-champagne">
+                  <Anchor className="w-4 h-4 text-aurea-copper" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-serif font-bold text-white text-base">
+                      MESA {mesaTitular.numero}
+                    </span>
+                    <span className="px-2 py-0.2 rounded text-[10px] font-bold bg-aurea-copper/30 text-aurea-champagne border border-aurea-copper/40">
+                      TITULAR
+                    </span>
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-800 text-slate-300">
+                      OCUPADA
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 mt-0.5">
+                    Conserva la comanda y comensales sentados (No se libera).
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1 font-mono text-xs font-bold text-aurea-champagne px-2 py-1 rounded-lg bg-white/10 border border-white/10">
+                <Users className="w-3.5 h-3.5 text-aurea-copper" />
+                <span>Cap: {mesaTitular.capacidad}p</span>
               </div>
             </div>
           </div>
 
-          {/* Tarjetas comparativas de mesas a restaurar */}
-          <div className="space-y-2.5">
-            {mesas.map((m) => (
-              <div
-                key={m.id}
-                className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between shadow-2xs hover:border-slate-300 transition-colors"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-serif font-bold text-slate-900 text-sm">
-                      MESA {m.numero}
-                    </span>
-                    <span className="px-2 py-0.2 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                      LIBRE
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    {m.rol === 'titular' ? 'Ex-titular' : 'Ex-secundaria'} • Mesa individual activa en salón
-                  </p>
+          {/* Bloque B: Mesas Secundarias a Desvincular (Interactivas) */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                2. Elige las mesas secundarias a desvincular
+              </span>
+              {secundarias.length > 1 && (
+                <div className="flex gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={seleccionarTodas}
+                    className="text-aurea-copper hover:underline font-semibold"
+                  >
+                    Marcar todas
+                  </button>
+                  <span>•</span>
+                  <button
+                    type="button"
+                    onClick={deseleccionarTodas}
+                    className="text-slate-500 hover:underline"
+                  >
+                    Desmarcar
+                  </button>
                 </div>
+              )}
+            </div>
 
-                <div className="flex items-center gap-1 font-mono text-xs font-bold text-slate-700 px-2.5 py-1 rounded-lg bg-white border border-slate-200">
-                  <Users className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Cap: {m.capacidad}p</span>
-                </div>
-              </div>
-            ))}
+            <div className="space-y-2">
+              {secundarias.map((s) => {
+                const seleccionada = seleccionadasIds.includes(s.id);
+                return (
+                  <div
+                    key={s.id}
+                    onClick={() => toggleSeleccion(s.id)}
+                    className={`p-3 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between select-none ${
+                      seleccionada
+                        ? 'border-rose-500 bg-rose-50/70 shadow-xs'
+                        : 'border-slate-200 bg-slate-50 hover:bg-slate-100/80 text-slate-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${
+                          seleccionada
+                            ? 'bg-rose-600 border-rose-600 text-white'
+                            : 'border-slate-300 bg-white'
+                        }`}
+                      >
+                        {seleccionada && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-serif font-bold text-slate-900 text-sm">
+                            MESA {s.numero}
+                          </span>
+                          <span
+                            className={`px-2 py-0.2 rounded text-[10px] font-bold ${
+                              seleccionada
+                                ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                : 'bg-slate-200 text-slate-700'
+                            }`}
+                          >
+                            {seleccionada ? 'SEPARAR Y LIBERAR' : 'MANTENER UNIDA'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          {seleccionada
+                            ? 'Volverá al salón en estado LIBRE e independiente.'
+                            : 'Continuará anexa al grupo de la mesa titular.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 font-mono text-xs font-bold text-slate-700 px-2 py-1 rounded-lg bg-white border border-slate-200">
+                      <Users className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{s.capacidad}p</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Nota informativa */}
-          <div className="flex items-start gap-2 text-slate-500 text-xs bg-slate-100/70 p-3 rounded-xl border border-slate-200/60">
-            <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-            <span>
-              Ambas mesas quedarán disponibles de inmediato en el plano para recibir nuevos comensales o para conformar nuevas uniones grupales.
-            </span>
+          {/* Resumen de Impacto */}
+          <div className="p-3.5 rounded-xl bg-slate-100 border border-slate-200 text-xs space-y-1.5 text-slate-700">
+            <div className="font-bold text-slate-800 flex items-center gap-1.5">
+              <span>Resultado tras confirmar:</span>
+            </div>
+            <div className="text-[11px] space-y-1">
+              <p>
+                🟢 <strong>Mesas que pasan a LIBRE:</strong>{' '}
+                {secundariasADesvincular.length > 0
+                  ? secundariasADesvincular.map((s) => `Mesa ${s.numero}`).join(', ')
+                  : 'Ninguna (selecciona al menos una mesa)'}
+              </p>
+              <p>
+                🔵 <strong>Mesa(s) que continúan OCUPADAS con el pedido:</strong>{' '}
+                <strong className="text-slate-900">{labelFuturo}</strong>
+              </p>
+            </div>
           </div>
 
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs">
-              {errorMsg}
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+              <span>{errorMsg}</span>
             </div>
           )}
         </div>
@@ -128,14 +277,14 @@ export const ModalSepararMesas: React.FC<ModalSepararMesasProps> = ({
             disabled={separando}
             className="py-2.5 px-4 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-200 border border-slate-300 transition-colors min-h-[44px]"
           >
-            Mantener Unidas
+            Cancelar
           </button>
 
           <button
             type="button"
             onClick={handleConfirmar}
-            disabled={separando}
-            className="py-2.5 px-5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-all flex items-center justify-center gap-2 min-h-[46px] shadow-sm active:scale-98"
+            disabled={separando || seleccionadasIds.length === 0}
+            className="py-2.5 px-5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-all flex items-center justify-center gap-2 min-h-[46px] shadow-sm active:scale-98"
           >
             {separando ? (
               <>
@@ -145,7 +294,10 @@ export const ModalSepararMesas: React.FC<ModalSepararMesasProps> = ({
             ) : (
               <>
                 <Scissors className="w-4 h-4" />
-                <span>✂️ Confirmar Separación</span>
+                <span>
+                  ✂️ Separar {seleccionadasIds.length}{' '}
+                  {seleccionadasIds.length === 1 ? 'Mesa' : 'Mesas'}
+                </span>
               </>
             )}
           </button>

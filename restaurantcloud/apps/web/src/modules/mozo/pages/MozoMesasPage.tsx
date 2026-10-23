@@ -3,7 +3,6 @@ import {
   PlanoCompletoMozoDTO,
   MesaCardDTO,
   MesaDetalleMozoDTO,
-  AlertaCocinaModalDTO,
   ItemDetalleComandaDTO,
   ValidacionSeparacionMesaDTO,
   DividirCuentaResponseDTO,
@@ -12,13 +11,11 @@ import {
   ReservaCardDTO,
   AnularPorQuiebreRequestDTO,
 } from '@/types/mozo';
-import { mozoService as mockMozoService } from '@/services/serviceAdapter';
+import { mozoService } from '@/services/serviceAdapter';
 import { SalonHeaderMozo, FiltroMesaTipo } from '../components/SalonHeaderMozo';
 import { PlanoMesasGrid } from '../components/PlanoMesasGrid';
 import { SidebarDespachoVivo } from '../components/SidebarDespachoVivo';
 import { MesaInspeccionDrawer } from '../components/MesaInspeccionDrawer';
-import { AlertaCocinaModal } from '../components/AlertaCocinaModal';
-import { DemoMozoWidget } from '../components/DemoMozoWidget';
 import { ModalPrecuentaCompleta } from '../components/precuenta/ModalPrecuentaCompleta';
 import { ModalUnirMesas } from '../components/salon/ModalUnirMesas';
 import { ModalSepararMesas } from '../components/salon/ModalSepararMesas';
@@ -28,6 +25,7 @@ import { ModalAnularItem } from '../components/anulacion/ModalAnularItem';
 import { ModalAnularComandaTotal } from '../components/anulacion/ModalAnularComandaTotal';
 import { ModalFichaReserva } from '../components/reservas/ModalFichaReserva';
 import { BannerIncidenciaCocina } from '../components/quiebre/BannerIncidenciaCocina';
+import { generarEnlaceWhatsApp } from '@/shared/utils/whatsapp';
 import { ModalResolucionIncidencia } from '../components/quiebre/ModalResolucionIncidencia';
 import { ModalSustitucionCarta } from '../components/quiebre/ModalSustitucionCarta';
 import { ModalAnulacionQuiebre } from '../components/quiebre/ModalAnulacionQuiebre';
@@ -38,7 +36,6 @@ export const MozoMesasPage: React.FC = () => {
   const [planoData, setPlanoData] = useState<PlanoCompletoMozoDTO | null>(null);
   const [pisoActivoId, setPisoActivoId] = useState('piso-01-salon');
   const [filtroActivo, setFiltroActivo] = useState<FiltroMesaTipo>('todas');
-  const [esTurnoVacio, setEsTurnoVacio] = useState(false);
 
   // Estado para el Quick-Drawer
   const [drawerAbierto, setDrawerAbierto] = useState(false);
@@ -73,14 +70,22 @@ export const MozoMesasPage: React.FC = () => {
   const [modalFichaReservaAbierto, setModalFichaReservaAbierto] = useState(false);
   const [reservaFichaSeleccionada, setReservaFichaSeleccionada] = useState<ReservaCardDTO | null>(null);
 
-  // Estado para el Modal de Alerta de Cocina
-  const [alertaModalAbierta, setAlertaModalAbierta] = useState(false);
-  const [alertaData, setAlertaData] = useState<AlertaCocinaModalDTO | null>(null);
-
   // Estado para Drawer de Despacho en Móvil (< 1024px)
   const [sidebarMovilAbierto, setSidebarMovilAbierto] = useState(false);
 
   // Estados para Incidencia de Plato No Disponible en Cocina (CU-MOZO-07)
+  interface IncidenciaQuiebreActiva {
+    mesaId: string;
+    mesaNumero: string;
+    comandaNumero: number | string;
+    itemId: string;
+    productoNombre: string;
+    precioUnitario: number;
+    subtotalActual?: number;
+    motivoCocina?: string;
+  }
+
+  const [incidenciaActiva, setIncidenciaActiva] = useState<IncidenciaQuiebreActiva | null>(null);
   const [bannerQuiebreOculto, setBannerQuiebreOculto] = useState(false);
   const [modalResolucionQuiebreAbierto, setModalResolucionQuiebreAbierto] = useState(false);
   const [modalSustitucionCartaAbierto, setModalSustitucionCartaAbierto] = useState(false);
@@ -97,7 +102,7 @@ export const MozoMesasPage: React.FC = () => {
     cargarPlano(pisoActivoId);
 
     const polling = setInterval(() => {
-      mockMozoService.obtenerPlanoCompleto(pisoActivoId).then((res: any) => {
+      mozoService.obtenerPlanoCompleto(pisoActivoId).then((res: any) => {
         if (res?.exito && res.datos) {
           setPlanoData(res.datos);
         }
@@ -107,10 +112,10 @@ export const MozoMesasPage: React.FC = () => {
     return () => clearInterval(polling);
   }, [pisoActivoId]);
 
-  const cargarPlano = async (pisoId: string) => {
-    setCargando(true);
+  const cargarPlano = async (pisoId: string, silencioso = false) => {
+    if (!silencioso) setCargando(true);
     try {
-      const res = await mockMozoService.obtenerPlanoCompleto(pisoId);
+      const res = await mozoService.obtenerPlanoCompleto(pisoId);
       if (res.exito && res.datos) {
         setPlanoData(res.datos);
         if (
@@ -122,7 +127,7 @@ export const MozoMesasPage: React.FC = () => {
         }
       }
     } finally {
-      setCargando(false);
+      if (!silencioso) setCargando(false);
     }
   };
 
@@ -175,7 +180,7 @@ export const MozoMesasPage: React.FC = () => {
     setDrawerAbierto(true);
     setCargandoDetalle(true);
     try {
-      const res = await mockMozoService.obtenerDetalleMesa(mesa.id);
+      const res = await mozoService.obtenerDetalleMesa(mesa.id);
       if (res.exito) {
         setDetalleMesa(res.datos);
       }
@@ -186,25 +191,26 @@ export const MozoMesasPage: React.FC = () => {
 
   // Abrir Ficha de Reserva para mesa bloqueada (CU-MOZO-05)
   const handleAbrirFichaReserva = async (mesa: MesaCardDTO) => {
-    const res = await mockMozoService.obtenerReservas();
+    const hoyStr = new Date().toISOString().split('T')[0];
+    const res = await mozoService.obtenerReservas(hoyStr, 'todos');
     let encontrada: ReservaCardDTO | undefined;
-    if (res.exito) {
-      encontrada = (res.datos as any[]).find((r: any) => r.mesa_ids.includes(mesa.id));
+    if (res.exito && res.datos) {
+      encontrada = (res.datos as ReservaCardDTO[]).find((r) => r.mesa_ids.includes(mesa.id));
     }
 
     if (!encontrada) {
       encontrada = {
-        id: 'res-005',
+        id: 'res-mesa-' + mesa.id,
         cliente_nombre: mesa.reserva_cliente || 'Familia Gómez',
         cliente_telefono: '+51 987 654 321',
-        fecha_hora: '2026-10-09T14:00:00Z',
+        fecha_hora: new Date().toISOString(),
         hora_texto: mesa.reserva_hora || '14:00',
         minutos_restantes: mesa.minutos_para_reserva || 20,
         num_personas: mesa.capacidad || 4,
         mesas_etiqueta: `Mesa ${mesa.numero}`,
         mesa_ids: [mesa.id],
         estado: 'bloqueada',
-        notas: 'Viene con niño pequeño, requiere silla alta',
+        notas: 'Reserva activa en salón',
         en_tolerancia: true,
         tolerancia_expiro: false,
         created_at: new Date().toISOString(),
@@ -216,95 +222,46 @@ export const MozoMesasPage: React.FC = () => {
   };
 
   const handleSentarDesdeFicha = async (reserva: ReservaCardDTO) => {
-    const res = await mockMozoService.sentarReserva(reserva.id);
+    const res = await mozoService.sentarReserva(reserva.id);
     if (res.exito) {
-      setPlanoData((prev) => {
-        if (!prev) return prev;
-        const actualizadas = prev.mesas.map((m) =>
-          reserva.mesa_ids.includes(m.id)
-            ? {
-                ...m,
-                estado: 'ocupada' as const,
-                pedido_id: res.datos.pedido_id,
-                comensales_sentados: reserva.num_personas,
-                minutos_ocupada: 1,
-                total_consumo: 0,
-                reserva_cliente: null,
-                reserva_hora: null,
-                minutos_para_reserva: null,
-                mozo_nombre: prev.mozo_actual.nombre,
-                es_mi_mesa: true,
-              }
-            : m
-        );
-        return {
-          ...prev,
-          mesas: actualizadas,
-          mesas_ocupadas: prev.mesas_ocupadas + 1,
-        };
-      });
+      await cargarPlano(pisoActivoId, true);
+      mostrarToast(`✓ ${reserva.cliente_nombre} sentados. Comanda abierta.`);
+    } else {
+      mostrarToast(res.errores?.[0]?.mensaje || 'Error al sentar comensales');
     }
   };
 
   const handleNoShowDesdeFicha = async (reservaId: string, motivo: string) => {
-    const res = await mockMozoService.registrarNoShow(reservaId, motivo);
+    const res = await mozoService.registrarNoShow(reservaId, motivo);
     if (res.exito) {
-      setPlanoData((prev) => {
-        if (!prev) return prev;
-        const actualizadas = prev.mesas.map((m) =>
-          m.id === 'mesa-08'
-            ? {
-                ...m,
-                estado: 'libre' as const,
-                reserva_cliente: null,
-                reserva_hora: null,
-                minutos_para_reserva: null,
-              }
-            : m
-        );
-        return {
-          ...prev,
-          mesas: actualizadas,
-          mesas_libres: prev.mesas_libres + 1,
-        };
-      });
+      await cargarPlano(pisoActivoId, true);
+      mostrarToast('⚠️ Inasistencia registrada. Mesa liberada inmediatamente a LIBRE.');
+    } else {
+      mostrarToast(res.errores?.[0]?.mensaje || 'Error al registrar inasistencia');
     }
   };
 
   const handleCancelarReservaDesdeFicha = async (reservaId: string, motivo: string) => {
-    await mockMozoService.cancelarReserva(reservaId, motivo);
-    setPlanoData((prev) => {
-      if (!prev) return prev;
-      const actualizadas = prev.mesas.map((m) =>
-        m.id === 'mesa-08'
-          ? {
-              ...m,
-              estado: 'libre' as const,
-              reserva_cliente: null,
-              reserva_hora: null,
-              minutos_para_reserva: null,
-            }
-          : m
-      );
-      return {
-        ...prev,
-        mesas: actualizadas,
-        mesas_libres: prev.mesas_libres + 1,
-      };
-    });
+    const res = await mozoService.cancelarReserva(reservaId, motivo);
+    if (res.exito) {
+      await cargarPlano(pisoActivoId, true);
+      mostrarToast('Reserva cancelada correctamente. Mesa liberada.');
+    } else {
+      mostrarToast(res.errores?.[0]?.mensaje || 'Error al cancelar reserva');
+    }
   };
 
   // Sentar comensales y abrir comanda
   const handleAbrirMesa = async (mesa: MesaCardDTO) => {
     const comensales = mesa.capacidad || 2;
-    const res = await mockMozoService.abrirMesa(mesa.id, comensales);
+    const res = await mozoService.abrirMesa(mesa.id, comensales);
     if (res.exito) {
       await cargarPlano(pisoActivoId);
       setMesaSeleccionada({ ...mesa, estado: 'ocupada' });
       setDrawerAbierto(true);
       setCargandoDetalle(true);
       try {
-        const detRes = await mockMozoService.obtenerDetalleMesa(mesa.id);
+        const detRes = await mozoService.obtenerDetalleMesa(mesa.id);
         if (detRes.exito) {
           setDetalleMesa(detRes.datos);
         }
@@ -316,7 +273,7 @@ export const MozoMesasPage: React.FC = () => {
 
   // Marcar ítem servido
   const handleMarcarServido = async (itemId: string) => {
-    await mockMozoService.marcarItemServido(itemId);
+    await mozoService.marcarItemServido(itemId);
 
     // Actualizamos lista de despacho en vivo
     setPlanoData((prev) => {
@@ -377,28 +334,36 @@ export const MozoMesasPage: React.FC = () => {
   };
 
   const handleConfirmarUnion = async (titularId: string, secundariasIds: string[]) => {
-    const res = await mockMozoService.unirMesas({
+    const res = await mozoService.unirMesas({
       mesa_titular_id: titularId,
       mesas_secundarias_ids: secundariasIds,
     });
 
     if (res.exito) {
-      await cargarPlano(pisoActivoId);
-      if (
-        detalleMesa &&
-        (detalleMesa.mesa_id === titularId || secundariasIds.includes(detalleMesa.mesa_id))
-      ) {
-        const detRes = await mockMozoService.obtenerDetalleMesa(titularId);
-        if (detRes.exito) {
-          setDetalleMesa(detRes.datos);
-        }
+      await cargarPlano(pisoActivoId, true);
+      // Actualizar detalle de la mesa titular
+      const detRes = await mozoService.obtenerDetalleMesa(titularId);
+      if (detRes.exito) {
+        setDetalleMesa(detRes.datos);
       }
+      // Actualizar mesaSeleccionada reactivamente para mantener coherencia en drawer y selección
+      setMesaSeleccionada((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          etiqueta_union: res.datos?.label_unificado || prev.etiqueta_union,
+          capacidad: res.datos?.capacidad_total || prev.capacidad,
+        };
+      });
+      mostrarToast(`✓ Mesas unidas exitosamente: ${res.datos?.label_unificado || 'Grupo unificado'}`);
+    } else {
+      mostrarToast(`⚠️ Error al unir mesas: ${res.errores?.[0]?.mensaje || 'No se pudo completar la unión'}`);
     }
   };
 
   const handleAbrirModalSeparar = async (mesaId: string) => {
     setMesaParaSepararId(mesaId);
-    const res = await mockMozoService.validarSeparacionMesa(mesaId);
+    const res = await mozoService.validarSeparacionMesa(mesaId);
     if (res.exito && res.datos) {
       setValidacionSeparacion(res.datos);
       if (res.datos.puede_separar) {
@@ -409,12 +374,26 @@ export const MozoMesasPage: React.FC = () => {
     }
   };
 
-  const handleConfirmarSeparacion = async (mesaId: string) => {
-    const res = await mockMozoService.dividirMesas(mesaId, true);
+  const handleConfirmarSeparacion = async (mesaId: string, secundariasIds?: string[]) => {
+    const res = await mozoService.dividirMesas(mesaId, secundariasIds);
     if (res.exito) {
-      await cargarPlano(pisoActivoId);
-      setDrawerAbierto(false);
-      setDetalleMesa(null);
+      await cargarPlano(pisoActivoId, true);
+      // Si la mesa abierta en el drawer era una secundaria que fue desvinculada, cerrar drawer
+      if (secundariasIds && mesaSeleccionada && secundariasIds.includes(mesaSeleccionada.id)) {
+        setDrawerAbierto(false);
+        setMesaSeleccionada(null);
+        setDetalleMesa(null);
+      } else if (mesaSeleccionada) {
+        // Refrescar comanda de la mesa titular que continúa ocupada
+        const titularId = res.datos?.mesa_principal_id || mesaId;
+        const detRes = await mozoService.obtenerDetalleMesa(titularId);
+        if (detRes.exito) {
+          setDetalleMesa(detRes.datos);
+        }
+      }
+      mostrarToast(res.datos?.mensaje || '✓ Mesas desvinculadas exitosamente.');
+    } else {
+      mostrarToast(`⚠️ Error al separar mesas: ${res.errores?.[0]?.mensaje || 'No se pudo separar'}`);
     }
   };
 
@@ -431,11 +410,11 @@ export const MozoMesasPage: React.FC = () => {
 
   const handleDivisionConfirmada = async (resultado: DividirCuentaResponseDTO) => {
     // 1. Recargar datos del plano para reflejar estado cuenta_pedida dividida
-    await cargarPlano(pisoActivoId);
+    await cargarPlano(pisoActivoId, true);
 
     // 2. Si el drawer está abierto para esta mesa, refrescar su detalle
     if (detalleMesa && detalleMesa.mesa_id === resultado.mesa_id) {
-      const resDetalle = await mockMozoService.obtenerDetalleMesa(resultado.mesa_id);
+      const resDetalle = await mozoService.obtenerDetalleMesa(resultado.mesa_id);
       if (resDetalle.exito) {
         setDetalleMesa(resDetalle.datos);
       }
@@ -451,18 +430,28 @@ export const MozoMesasPage: React.FC = () => {
   const handleConfirmarAnulacionItem = async (request: AnularItemRequestDTO) => {
     if (!itemParaAnular || !detalleMesa) return;
 
-    const res = await mockMozoService.anularItemComanda(
+    const res = await mozoService.anularItemComanda(
       detalleMesa.mesa_id,
       itemParaAnular.id,
       request
     );
 
     if (res.exito) {
-      await cargarPlano(pisoActivoId);
-      const detRes = await mockMozoService.obtenerDetalleMesa(detalleMesa.mesa_id);
-      if (detRes.exito) {
-        setDetalleMesa(detRes.datos);
+      await cargarPlano(pisoActivoId, true);
+      if (res.datos?.mesa_liberada) {
+        setDrawerAbierto(false);
+        setMesaSeleccionada(null);
+        setDetalleMesa(null);
+        mostrarToast('✓ Plato anulado. La mesa quedó sin consumos activos y ha sido liberada.');
+      } else {
+        const detRes = await mozoService.obtenerDetalleMesa(detalleMesa.mesa_id);
+        if (detRes.exito) {
+          setDetalleMesa(detRes.datos);
+        }
+        mostrarToast(res.datos?.mensaje || '✓ Plato anulado exitosamente.');
       }
+    } else {
+      mostrarToast(`⚠️ No se pudo anular el plato: ${res.errores?.[0]?.mensaje || 'Error desconocido'}`);
     }
   };
 
@@ -474,27 +463,32 @@ export const MozoMesasPage: React.FC = () => {
   const handleConfirmarAnulacionComanda = async (request: AnularPedidoCompletoRequestDTO) => {
     if (!mesaParaAnularComandaId) return;
 
-    const res = await mockMozoService.anularComandaCompleta(
+    const res = await mozoService.anularComandaCompleta(
       mesaParaAnularComandaId,
       request
     );
 
     if (res.exito) {
-      await cargarPlano(pisoActivoId);
+      await cargarPlano(pisoActivoId, true);
       setDrawerAbierto(false);
+      setMesaSeleccionada(null);
       setDetalleMesa(null);
+      mostrarToast(res.datos?.mensaje || '✓ Comanda completa anulada y mesa liberada con éxito.');
+    } else {
+      mostrarToast(`⚠️ No se pudo anular la comanda: ${res.errores?.[0]?.mensaje || 'Error desconocido'}`);
     }
   };
 
   const handleLiberarMesaSinConsumo = async (mesaId: string) => {
-    const res = await mockMozoService.liberarMesaSinConsumo(mesaId);
+    const res = await mozoService.liberarMesaSinConsumo(mesaId);
     if (res.exito) {
-      await cargarPlano(pisoActivoId);
+      await cargarPlano(pisoActivoId, true);
       setDrawerAbierto(false);
+      setMesaSeleccionada(null);
       setDetalleMesa(null);
-      mostrarToast('✓ Mesa liberada con éxito (cliente se retiró sin consumo).');
+      mostrarToast(res.datos?.mensaje || '✓ Mesa(s) liberada(s) con éxito (cliente se retiró sin consumo).');
     } else {
-      mostrarToast(`⚠️ No se pudo liberar la mesa: ${res.mensaje || 'Error desconocido'}`);
+      mostrarToast(`⚠️ No se pudo liberar la mesa: ${res.errores?.[0]?.mensaje || 'Error desconocido'}`);
     }
   };
 
@@ -504,7 +498,80 @@ export const MozoMesasPage: React.FC = () => {
   }, [planoData]);
 
   // Handlers para CU-MOZO-07: Quiebre de Plato en Cocina
-  const handleAtenderQuiebre = () => {
+  const handleAtenderQuiebreDesdeBanner = () => {
+    if (!mesaConQuiebre || !mesaConQuiebre.quiebre_item_id) return;
+    setIncidenciaActiva({
+      mesaId: mesaConQuiebre.id,
+      mesaNumero: mesaConQuiebre.numero,
+      comandaNumero: mesaConQuiebre.numero,
+      itemId: mesaConQuiebre.quiebre_item_id,
+      productoNombre: mesaConQuiebre.quiebre_producto_nombre || 'Plato en Quiebre',
+      precioUnitario: 38.0,
+      subtotalActual: mesaConQuiebre.total_consumo || 0,
+      motivoCocina: 'Agotamiento imprevisto de insumo en estación caliente.',
+    });
+    setModalResolucionQuiebreAbierto(true);
+  };
+
+  const handleAtenderQuiebreMesaCard = (mesa: MesaCardDTO) => {
+    if (!mesa.quiebre_item_id) return;
+    setIncidenciaActiva({
+      mesaId: mesa.id,
+      mesaNumero: mesa.numero,
+      comandaNumero: mesa.numero,
+      itemId: mesa.quiebre_item_id,
+      productoNombre: mesa.quiebre_producto_nombre || 'Plato en Quiebre',
+      precioUnitario: 38.0,
+      subtotalActual: mesa.total_consumo || 0,
+      motivoCocina: 'Agotamiento imprevisto de insumo en cocina.',
+    });
+    setModalResolucionQuiebreAbierto(true);
+  };
+
+  const handleSustituirPlatoDesdeDrawer = (item: ItemDetalleComandaDTO) => {
+    if (!detalleMesa) return;
+    setIncidenciaActiva({
+      mesaId: detalleMesa.mesa_id,
+      mesaNumero: detalleMesa.numero,
+      comandaNumero: detalleMesa.numero_comanda || '149',
+      itemId: item.id,
+      productoNombre: item.producto_nombre,
+      precioUnitario: item.precio_unitario,
+      subtotalActual: detalleMesa.total_subtotal,
+      motivoCocina: 'Agotamiento imprevisto de insumo en cocina.',
+    });
+    setDrawerAbierto(false);
+    setModalSustitucionCartaAbierto(true);
+  };
+
+  const handleAnularQuiebreDesdeDrawer = (item: ItemDetalleComandaDTO) => {
+    if (!detalleMesa) return;
+    setIncidenciaActiva({
+      mesaId: detalleMesa.mesa_id,
+      mesaNumero: detalleMesa.numero,
+      comandaNumero: detalleMesa.numero_comanda || '149',
+      itemId: item.id,
+      productoNombre: item.producto_nombre,
+      precioUnitario: item.precio_unitario,
+      subtotalActual: detalleMesa.total_subtotal,
+      motivoCocina: 'Agotamiento imprevisto de insumo en cocina.',
+    });
+    setDrawerAbierto(false);
+    setModalAnulacionQuiebreAbierto(true);
+  };
+
+  const handleAtenderQuiebreDesdeDrawer = (item: ItemDetalleComandaDTO) => {
+    if (!detalleMesa) return;
+    setIncidenciaActiva({
+      mesaId: detalleMesa.mesa_id,
+      mesaNumero: detalleMesa.numero,
+      comandaNumero: detalleMesa.numero_comanda || '149',
+      itemId: item.id,
+      productoNombre: item.producto_nombre,
+      precioUnitario: item.precio_unitario,
+      subtotalActual: detalleMesa.total_subtotal,
+      motivoCocina: 'Agotamiento imprevisto de insumo informado por cocina.',
+    });
     setModalResolucionQuiebreAbierto(true);
   };
 
@@ -519,136 +586,70 @@ export const MozoMesasPage: React.FC = () => {
   };
 
   const handleConfirmarSustitucionPlato = async (nuevoProductoId: string, notasCocina: string) => {
-    const mesaId = mesaConQuiebre?.id || detalleMesa?.mesa_id || 'mesa-04';
-    const itemId = mesaConQuiebre?.quiebre_item_id || 'it-01';
+    if (!incidenciaActiva) {
+      throw new Error('No hay una incidencia activa para sustitución.');
+    }
+    const { mesaId, itemId } = incidenciaActiva;
 
-    const res = await mockMozoService.sustituirPlato(mesaId, itemId, {
+    const res = await mozoService.sustituirPlato(mesaId, itemId, {
       item_anulado_id: itemId,
       nuevo_producto_id: nuevoProductoId,
       cantidad: 1,
       notas_cocina: notasCocina,
     });
 
-    if (res.exito) {
-      setModalSustitucionCartaAbierto(false);
-      setPlanoData((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          mesas: prev.mesas.map((m) =>
-            m.id === mesaId
-              ? {
-                  ...m,
-                  tiene_quiebre_cocina: false,
-                  quiebre_producto_nombre: undefined,
-                  quiebre_item_id: undefined,
-                  total_consumo: res.datos.nuevo_subtotal,
-                }
-              : m
-          ),
-        };
-      });
-
-      if (drawerAbierto && detalleMesa?.mesa_id === mesaId) {
-        const detRes = await mockMozoService.obtenerDetalleMesa(mesaId);
-        if (detRes.exito) setDetalleMesa(detRes.datos);
-      }
-
-      mostrarToast(`✓ Sustituido por "${res.datos.nuevo_producto}". Enviado a Cocina con prioridad.`);
+    if (!res.exito) {
+      const errorMsg = res.errores?.[0]?.mensaje || 'No se pudo sustituir el plato en cocina.';
+      mostrarToast(`⚠️ Error: ${errorMsg}`);
+      throw new Error(errorMsg);
     }
+
+    setModalSustitucionCartaAbierto(false);
+    setIncidenciaActiva(null);
+
+    // Sincronizar plano con backend de inmediato
+    await cargarPlano(pisoActivoId, true);
+
+    if (drawerAbierto && detalleMesa?.mesa_id === mesaId) {
+      const detRes = await mozoService.obtenerDetalleMesa(mesaId);
+      if (detRes.exito) setDetalleMesa(detRes.datos);
+    }
+
+    mostrarToast(`✓ Sustituido por "${res.datos.nuevo_producto}". Enviado a Cocina con prioridad.`);
   };
 
   const handleConfirmarAnulacionQuiebre = async (payload: AnularPorQuiebreRequestDTO) => {
-    const mesaId = mesaConQuiebre?.id || detalleMesa?.mesa_id || 'mesa-04';
-    const itemId = mesaConQuiebre?.quiebre_item_id || 'it-01';
-
-    const res = await mockMozoService.anularPorQuiebreCocina(mesaId, itemId, payload);
-    if (res.exito) {
-      setModalAnulacionQuiebreAbierto(false);
-      setPlanoData((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          mesas: prev.mesas.map((m) =>
-            m.id === mesaId
-              ? {
-                  ...m,
-                  tiene_quiebre_cocina: false,
-                  quiebre_producto_nombre: undefined,
-                  quiebre_item_id: undefined,
-                  total_consumo: res.datos.nuevo_subtotal,
-                }
-              : m
-          ),
-        };
-      });
-
-      if (drawerAbierto && detalleMesa?.mesa_id === mesaId) {
-        const detRes = await mockMozoService.obtenerDetalleMesa(mesaId);
-        if (detRes.exito) setDetalleMesa(detRes.datos);
-      }
-
-      mostrarToast(`✓ Plato anulado (S/ ${res.datos.monto_anulado.toFixed(2)} descontados). Sin merma imputada.`);
+    if (!incidenciaActiva) {
+      throw new Error('No hay una incidencia activa para anulación.');
     }
-  };
+    const { mesaId, itemId } = incidenciaActiva;
 
-  const handleSimularQuiebreCocina = async () => {
-    const nuevoEstado = !mesaConQuiebre;
-    const res = await mockMozoService.simularQuiebreCocinaMesa04(nuevoEstado);
-    if (res.exito) {
-      setBannerQuiebreOculto(false);
-      setPlanoData((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          mesas: prev.mesas.map((m) => (m.id === 'mesa-04' ? { ...res.datos.mesa } : m)),
-        };
-      });
-      if (drawerAbierto && (detalleMesa?.mesa_id === 'mesa-04' || mesaSeleccionada?.id === 'mesa-04')) {
-        const detRes = await mockMozoService.obtenerDetalleMesa('mesa-04');
+    const res = await mozoService.anularPorQuiebreCocina(mesaId, itemId, payload);
+
+    if (!res.exito) {
+      const errorMsg = res.errores?.[0]?.mensaje || 'No se pudo anular el plato por quiebre.';
+      mostrarToast(`⚠️ Error: ${errorMsg}`);
+      throw new Error(errorMsg);
+    }
+
+    setModalAnulacionQuiebreAbierto(false);
+    setIncidenciaActiva(null);
+
+    // Sincronizar plano con backend de inmediato
+    await cargarPlano(pisoActivoId, true);
+
+    if (drawerAbierto && detalleMesa?.mesa_id === mesaId) {
+      if (res.datos?.mesa_liberada) {
+        setDrawerAbierto(false);
+        setMesaSeleccionada(null);
+        setDetalleMesa(null);
+      } else {
+        const detRes = await mozoService.obtenerDetalleMesa(mesaId);
         if (detRes.exito) setDetalleMesa(detRes.datos);
       }
     }
-  };
 
-  // Handlers para el widget de simulación
-  const simularPlatoListo = () => {
-    const nuevo = mockMozoService.simularPlatoListoCocina();
-    setPlanoData((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        items_despacho: [nuevo, ...prev.items_despacho],
-      };
-    });
-  };
-
-  const simularBebida = () => {
-    const nuevo = mockMozoService.simularProductoDespachoDirecto();
-    setPlanoData((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        items_despacho: [nuevo, ...prev.items_despacho],
-      };
-    });
-  };
-
-  const simularAlertaModal = () => {
-    const alerta = mockMozoService.obtenerAlertaModalDemo();
-    setAlertaData(alerta);
-    setAlertaModalAbierta(true);
-  };
-
-  const alternarTurnoVacio = () => {
-    if (esTurnoVacio) {
-      setEsTurnoVacio(false);
-      cargarPlano(pisoActivoId);
-    } else {
-      setEsTurnoVacio(true);
-      const vacio = mockMozoService.obtenerPlanoTurnoVacio();
-      setPlanoData(vacio);
-    }
+    mostrarToast(`✓ Plato anulado (S/ ${res.datos.monto_anulado.toFixed(2)} descontados). Sin merma imputada.`);
   };
 
   const totalListos = planoData?.items_despacho.length || 0;
@@ -666,6 +667,7 @@ export const MozoMesasPage: React.FC = () => {
         totalMesasCount={conteos.total}
         libresCount={conteos.libres}
         ocupadasCount={conteos.ocupadas}
+        reservasCount={(planoData as any)?.reservas_activas_count}
         mozoNombre={planoData?.mozo_actual.nombre || 'Carlos Mendoza'}
       />
 
@@ -684,7 +686,7 @@ export const MozoMesasPage: React.FC = () => {
             mesaNumero={mesaConQuiebre.numero}
             productoNombre={mesaConQuiebre.quiebre_producto_nombre || 'Lomo Saltado Criollo'}
             minutosDesdeAlerta={2}
-            onAtender={handleAtenderQuiebre}
+            onAtender={handleAtenderQuiebreDesdeBanner}
             onCerrar={() => setBannerQuiebreOculto(true)}
           />
         </div>
@@ -719,8 +721,8 @@ export const MozoMesasPage: React.FC = () => {
             mesas={mesasFiltradas}
             onSeleccionarMesa={handleSeleccionarMesa}
             onAbrirMesaRapido={handleAbrirMesa}
+            onAtenderQuiebre={handleAtenderQuiebreMesaCard}
             mesaSeleccionadaId={mesaSeleccionada?.id}
-            esTurnoVacio={esTurnoVacio}
           />
         )}
 
@@ -733,7 +735,6 @@ export const MozoMesasPage: React.FC = () => {
             onMarcarServido={handleMarcarServido}
             misMesasActivas={planoData?.mis_mesas_activas || conteos.misMesas}
             totalVentaTurno={planoData?.total_venta_turno || 0}
-            onVerAlertaModal={simularAlertaModal}
           />
         </div>
       </div>
@@ -762,7 +763,6 @@ export const MozoMesasPage: React.FC = () => {
               onMarcarServido={handleMarcarServido}
               misMesasActivas={planoData?.mis_mesas_activas || conteos.misMesas}
               totalVentaTurno={planoData?.total_venta_turno || 0}
-              onVerAlertaModal={simularAlertaModal}
             />
           </div>
         </div>
@@ -782,15 +782,9 @@ export const MozoMesasPage: React.FC = () => {
         onAbrirModalDividir={handleAbrirModalDividir}
         onAbrirModalAnular={handleAbrirModalAnularItem}
         onAbrirModalAnularComanda={handleAbrirModalAnularComanda}
-        onAtenderQuiebre={handleAtenderQuiebre}
-        onSustituirPlato={() => {
-          setDrawerAbierto(false);
-          setModalSustitucionCartaAbierto(true);
-        }}
-        onAnularPorQuiebre={() => {
-          setDrawerAbierto(false);
-          setModalAnulacionQuiebreAbierto(true);
-        }}
+        onAtenderQuiebre={handleAtenderQuiebreDesdeDrawer}
+        onSustituirPlato={handleSustituirPlatoDesdeDrawer}
+        onAnularPorQuiebre={handleAnularQuiebreDesdeDrawer}
       />
 
       {/* 4. Modal Completo de Precuenta Digital en Salón (CU-MOZO-08) */}
@@ -879,55 +873,7 @@ export const MozoMesasPage: React.FC = () => {
         />
       )}
 
-      {/* 11. Modal de Alerta Prioritaria de Cocina (560px) */}
-      <AlertaCocinaModal
-        abierto={alertaModalAbierta}
-        onCerrar={() => setAlertaModalAbierta(false)}
-        alerta={alertaData}
-        onAceptar={() => setAlertaModalAbierta(false)}
-      />
-
-      {/* 12. Widget Flotante de Simulación / Demostración */}
-      <DemoMozoWidget
-        onSimularPlatoListo={simularPlatoListo}
-        onSimularBebida={simularBebida}
-        onSimularAlertaModal={simularAlertaModal}
-        onAlternarTurnoVacio={alternarTurnoVacio}
-        esTurnoVacio={esTurnoVacio}
-        onAlternarMisMesas={() =>
-          setFiltroActivo(filtroActivo === 'mis_mesas' ? 'todas' : 'mis_mesas')
-        }
-        filtroActivo={filtroActivo}
-        onAbrirUnionMesaDemo={() => handleAbrirModalUnir('mesa-02')}
-        onAbrirSepararMesaDemo={() => handleAbrirModalSeparar('mesa-02')}
-        onAbrirDividirCuentaDemo={() => handleAbrirModalDividir('mesa-04')}
-        onAbrirAnularComandaDemo={() => handleAbrirModalAnularComanda('mesa-04')}
-        onAbrirFichaReservaDemo={() => {
-          const m08 = planoData?.mesas.find((m) => m.id === 'mesa-08') || {
-            id: 'mesa-08',
-            piso_id: 'piso-01-salon',
-            numero: '08',
-            capacidad: 4,
-            forma: 'cuadrada' as const,
-            posicion_x: 3,
-            posicion_y: 1,
-            permite_union: true,
-            estado: 'bloqueada' as const,
-            reserva_cliente: 'Familia Gómez',
-            reserva_hora: '14:00',
-            minutos_para_reserva: 20,
-            es_mi_mesa: false,
-            platos_listos: 0,
-            platos_en_cocina: 0,
-            despacho_directo_pendiente: 0,
-          };
-          handleAbrirFichaReserva(m08);
-        }}
-        onSimularQuiebreCocina={handleSimularQuiebreCocina}
-        quiebreActivo={Boolean(mesaConQuiebre)}
-      />
-
-      {/* 13. Modal Ficha de Reserva y Recepción en Salón (CU-MOZO-05 Vista 3) */}
+      {/* 11. Modal Ficha de Reserva y Recepción en Salón (CU-MOZO-05 Vista 3) */}
       <ModalFichaReserva
         abierto={modalFichaReservaAbierto}
         reserva={reservaFichaSeleccionada}
@@ -939,61 +885,69 @@ export const MozoMesasPage: React.FC = () => {
         onRegistrarNoShow={handleNoShowDesdeFicha}
         onCancelarReserva={handleCancelarReservaDesdeFicha}
         onEnviarWhatsApp={(res) => {
-          const tel = res.cliente_telefono.replace(/\D/g, '');
-          window.open(
-            `https://wa.me/${tel}?text=${encodeURIComponent(
-              `Hola ${res.cliente_nombre}, le saludamos de RestaurantCloud AI para confirmar su reserva de hoy a las ${res.hora_texto}.`
-            )}`,
-            '_blank'
-          );
+          const mensaje = `Hola ${res.cliente_nombre}, le saludamos de RestaurantCloud AI para confirmar su reserva de hoy a las ${res.hora_texto}.`;
+          window.open(generarEnlaceWhatsApp(res.cliente_telefono, mensaje), '_blank');
         }}
       />
 
       {/* 14. Modal de Decisión Asistida en Mesa (CU-MOZO-07 Vista 2 - 620px) */}
-      <ModalResolucionIncidencia
-        abierto={modalResolucionQuiebreAbierto}
-        mesaNumero={mesaConQuiebre?.numero || detalleMesa?.numero || '04'}
-        comandaNumero={detalleMesa?.numero_comanda || 149}
-        productoNombre={mesaConQuiebre?.quiebre_producto_nombre || 'Lomo Saltado Criollo'}
-        precioUnitario={38.0}
-        onCerrar={() => setModalResolucionQuiebreAbierto(false)}
-        onElegirSustitucion={handleElegirSustitucionQuiebre}
-        onElegirAnulacion={handleElegirAnulacionQuiebre}
-      />
+      {incidenciaActiva && (
+        <ModalResolucionIncidencia
+          abierto={modalResolucionQuiebreAbierto}
+          mesaNumero={incidenciaActiva.mesaNumero}
+          comandaNumero={incidenciaActiva.comandaNumero}
+          productoNombre={incidenciaActiva.productoNombre}
+          precioUnitario={incidenciaActiva.precioUnitario}
+          motivoCocina={incidenciaActiva.motivoCocina}
+          onCerrar={() => setModalResolucionQuiebreAbierto(false)}
+          onElegirSustitucion={handleElegirSustitucionQuiebre}
+          onElegirAnulacion={handleElegirAnulacionQuiebre}
+        />
+      )}
 
       {/* 15. Modal de Sustitución Universal en Carta (CU-MOZO-07 Vista 3 - 760px) */}
-      <ModalSustitucionCarta
-        abierto={modalSustitucionCartaAbierto}
-        mesaId={mesaConQuiebre?.id || detalleMesa?.mesa_id || 'mesa-04'}
-        mesaNumero={mesaConQuiebre?.numero || detalleMesa?.numero || '04'}
-        itemId={mesaConQuiebre?.quiebre_item_id || 'it-01'}
-        onVolverAOpciones={() => {
-          setModalSustitucionCartaAbierto(false);
-          setModalResolucionQuiebreAbierto(true);
-        }}
-        onCerrar={() => setModalSustitucionCartaAbierto(false)}
-        onConfirmarSustitucion={handleConfirmarSustitucionPlato}
-        onIrAnulacion={() => {
-          setModalSustitucionCartaAbierto(false);
-          setModalAnulacionQuiebreAbierto(true);
-        }}
-      />
+      {incidenciaActiva && (
+        <ModalSustitucionCarta
+          abierto={modalSustitucionCartaAbierto}
+          mesaId={incidenciaActiva.mesaId}
+          mesaNumero={incidenciaActiva.mesaNumero}
+          itemId={incidenciaActiva.itemId}
+          onVolverAOpciones={() => {
+            setModalSustitucionCartaAbierto(false);
+            setModalResolucionQuiebreAbierto(true);
+          }}
+          onCerrar={() => {
+            setModalSustitucionCartaAbierto(false);
+            setIncidenciaActiva(null);
+          }}
+          onConfirmarSustitucion={handleConfirmarSustitucionPlato}
+          onIrAnulacion={() => {
+            setModalSustitucionCartaAbierto(false);
+            setModalAnulacionQuiebreAbierto(true);
+          }}
+        />
+      )}
 
       {/* 16. Modal de Confirmación de Anulación por Quiebre (CU-MOZO-07 Vista 4 - 580px) */}
-      <ModalAnulacionQuiebre
-        abierto={modalAnulacionQuiebreAbierto}
-        mesaNumero={mesaConQuiebre?.numero || detalleMesa?.numero || '04'}
-        comandaNumero={detalleMesa?.numero_comanda || 149}
-        productoNombre={mesaConQuiebre?.quiebre_producto_nombre || 'Lomo Saltado Criollo'}
-        precioUnitario={38.0}
-        subtotalActual={detalleMesa?.total_subtotal || 158.0}
-        onVolver={() => {
-          setModalAnulacionQuiebreAbierto(false);
-          setModalResolucionQuiebreAbierto(true);
-        }}
-        onCerrar={() => setModalAnulacionQuiebreAbierto(false)}
-        onConfirmarAnulacion={handleConfirmarAnulacionQuiebre}
-      />
+      {incidenciaActiva && (
+        <ModalAnulacionQuiebre
+          abierto={modalAnulacionQuiebreAbierto}
+          mesaNumero={incidenciaActiva.mesaNumero}
+          comandaNumero={incidenciaActiva.comandaNumero}
+          productoNombre={incidenciaActiva.productoNombre}
+          precioUnitario={incidenciaActiva.precioUnitario}
+          subtotalActual={incidenciaActiva.subtotalActual || 0}
+          onVolver={() => {
+            setModalAnulacionQuiebreAbierto(false);
+            setModalResolucionQuiebreAbierto(true);
+          }}
+          onCerrar={() => {
+            setModalAnulacionQuiebreAbierto(false);
+            setIncidenciaActiva(null);
+          }}
+          onConfirmarAnulacion={handleConfirmarAnulacionQuiebre}
+        />
+      )}
     </div>
   );
 };

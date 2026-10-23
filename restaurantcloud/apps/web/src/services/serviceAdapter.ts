@@ -20,24 +20,14 @@ import {
   BETA_CREDENTIALS,
 } from '@/modules/auth/services/mockAuthService';
 
-import { mockMozoService } from '@/modules/mozo/services/mockMozoService';
 import { mockCocinaService } from '@/modules/cocina/services/mockCocinaService';
 import { mockCajaService } from '@/modules/caja/services/mockCajaService';
 import { mockAdminService } from '@/modules/admin/services/mockAdminService';
 
 export const IS_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 
-// Proxy / Fallback para Mozo: usa la API real para el flujo núcleo (plano, carta, pedidos),
-// y delega a mock si se llama a una función secundaria de UI todavía no conectada.
-export const mozoService = new Proxy(mockMozoService as any, {
-  get(target, prop, receiver) {
-    if (IS_REAL_API && prop in realMozoService) {
-      const val = (realMozoService as any)[prop];
-      return typeof val === 'function' ? val.bind(realMozoService) : val;
-    }
-    return Reflect.get(target, prop, receiver);
-  },
-});
+// Módulo Mozo: 100% conectado directamente a la API de Laravel
+export const mozoService = realMozoService;
 
 // Proxy / Fallback para Cocina KDS
 export const cocinaService = new Proxy(mockCocinaService as any, {

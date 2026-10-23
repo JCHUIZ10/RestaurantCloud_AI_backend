@@ -6,6 +6,7 @@ interface MesaCardProps {
   mesa: MesaCardDTO;
   onSeleccionar: (mesa: MesaCardDTO) => void;
   onAbrirMesaRapido?: (mesa: MesaCardDTO) => void;
+  onAtenderQuiebre?: (mesa: MesaCardDTO) => void;
   esSeleccionada?: boolean;
 }
 
@@ -13,6 +14,7 @@ export const MesaCard: React.FC<MesaCardProps> = ({
   mesa,
   onSeleccionar,
   onAbrirMesaRapido,
+  onAtenderQuiebre,
   esSeleccionada = false,
 }) => {
   const {
@@ -174,6 +176,10 @@ export const MesaCard: React.FC<MesaCardProps> = ({
       className={`group relative flex flex-col justify-between p-4 rounded-xl border-2 transition-all cursor-pointer select-none min-h-[156px] text-white ${
         mesa.tiene_quiebre_cocina
           ? 'bg-[#1a140d] border-amber-500 ring-2 ring-amber-500/50 shadow-lg shadow-amber-950/60'
+          : mesa.mesa_principal_id
+          ? esSeleccionada
+            ? 'bg-[#0B223D] border-amber-500 ring-2 ring-amber-500/40 shadow-lg'
+            : 'bg-[#091E36] hover:bg-[#0c2747] border-amber-500/40 hover:border-amber-400 shadow-md'
           : esSeleccionada
           ? 'bg-aurea-navy border-aurea-copper ring-2 ring-aurea-copper/40 shadow-lg'
           : 'bg-[#0B2340] hover:bg-[#0f2c52] border-slate-700/60 hover:border-aurea-copper/60 shadow-md'
@@ -189,25 +195,55 @@ export const MesaCard: React.FC<MesaCardProps> = ({
             {mesa.mesa_principal_id ? (
               <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-0.5">
                 <Link2 className="w-2.5 h-2.5" />
-                Anexa
+                Anexa ({capacidad}p)
               </span>
             ) : etiqueta_union ? (
               <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-aurea-copper/30 text-aurea-champagne border border-aurea-copper/40 flex items-center gap-0.5">
                 <Link2 className="w-2.5 h-2.5" />
-                Unida ({capacidad}p)
+                Total: {capacidad}p
               </span>
             ) : null}
           </div>
-          <h3 className="font-serif text-xl sm:text-2xl font-bold text-white tracking-wide">
-            {mesa.mesa_principal_id ? `M-${numero} ↳ Vinculada` : (etiqueta_union || numero)}
-          </h3>
+          {mesa.mesa_principal_id ? (
+            <div>
+              <h3 className="font-serif text-xl sm:text-2xl font-bold text-white tracking-wide">
+                M-{numero}
+              </h3>
+              <span className="text-[10px] text-amber-300/80 font-medium flex items-center gap-1 mt-0.5">
+                <Link2 className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+                <span className="truncate max-w-[130px]">{etiqueta_union || 'Anexa al grupo'}</span>
+              </span>
+            </div>
+          ) : (
+            <h3 className="font-serif text-xl sm:text-2xl font-bold text-white tracking-wide">
+              {etiqueta_union || numero}
+            </h3>
+          )}
         </div>
 
         <div className="flex flex-col items-end gap-1">
           {mesa.tiene_quiebre_cocina ? (
-            <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-500 text-slate-950 flex items-center gap-1 shadow-sm border border-amber-400 animate-pulse">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAtenderQuiebre ? onAtenderQuiebre(mesa) : onSeleccionar(mesa);
+              }}
+              className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-1 shadow-sm border border-amber-400 animate-pulse transition-all active:scale-95 cursor-pointer"
+              title="Resolver quiebre de stock en esta mesa"
+            >
               <AlertTriangle className="w-3 h-3" />
               QUIEBRE COCINA
+            </button>
+          ) : mesa.mesa_principal_id ? (
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 flex items-center gap-1 shadow-xs">
+              <Link2 className="w-3 h-3 text-amber-400" />
+              VINCULADA
+            </span>
+          ) : etiqueta_union ? (
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-aurea-copper/25 text-aurea-champagne border border-aurea-copper/40 flex items-center gap-1 shadow-xs">
+              <Link2 className="w-3 h-3 text-aurea-copper" />
+              UNIFICADA
             </span>
           ) : (
             <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800/80 text-slate-300 border border-slate-700">
@@ -247,6 +283,10 @@ export const MesaCard: React.FC<MesaCardProps> = ({
         ) : platos_en_cocina > 0 ? (
           <span className="text-[10px] font-mono text-slate-400">
             ⏳ {platos_en_cocina} en prep
+          </span>
+        ) : mesa.mesa_principal_id ? (
+          <span className="text-[10px] text-amber-300 flex items-center gap-0.5 font-medium">
+            <CheckCircle2 className="w-3 h-3 text-amber-400" /> Grupo activo
           </span>
         ) : (
           <span className="text-[10px] text-emerald-400 flex items-center gap-0.5">

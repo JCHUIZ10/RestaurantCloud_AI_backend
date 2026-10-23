@@ -449,20 +449,37 @@ export interface UnirMesasResponseDTO {
 export interface DividirMesasRequestDTO {
   mesa_id: string;
   mesa_secundaria_id?: string | null; // null = separar todas
+  mesas_secundarias_ids?: string[];
+  forzar?: boolean;
 }
 
 export interface DividirMesasResponseDTO {
   mesa_principal_id: string;
   mesas_separadas: string[];
+  mesas_separadas_numeros?: string[];
+  mesas_restantes_numeros?: string[];
+  grupo_disuelto?: boolean;
+  nueva_etiqueta?: string | null;
   mensaje: string;
 }
 
 export interface ValidacionSeparacionMesaDTO {
   puede_separar: boolean;
+  tiene_consumo_activo?: boolean;
   motivo_bloqueo?: string;
   total_consumo?: number;
   items_activos?: number;
   mesa_label: string;
+  mesa_titular?: {
+    id: string;
+    numero: string;
+    capacidad: number;
+  };
+  mesas_secundarias?: {
+    id: string;
+    numero: string;
+    capacidad: number;
+  }[];
   mesas_a_restaurar: {
     id: string;
     numero: string;
@@ -765,6 +782,7 @@ export interface AnularPorQuiebreResponseDTO {
   mesa_numero: string;
   monto_anulado: number;
   nuevo_subtotal: number;
+  mesa_liberada?: boolean;
   mensaje: string;
   anulado_at: string;
 }

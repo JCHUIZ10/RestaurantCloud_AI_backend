@@ -10,6 +10,28 @@ import type {
   ItemsParaDividirResponseDTO,
   DividirCuentaRequestDTO,
   DividirCuentaResponseDTO,
+  CandidatasUnionResponseDTO,
+  UnirMesasRequestDTO,
+  UnirMesasResponseDTO,
+  ValidacionSeparacionMesaDTO,
+  DividirMesasResponseDTO,
+  AnularItemRequestDTO,
+  AnularPedidoCompletoRequestDTO,
+  ItemAnuladoResponseDTO,
+  PedidoAnuladoResponseDTO,
+  PoliticasReservaDTO,
+  ReservaCardDTO,
+  MesasDisponiblesResponseDTO,
+  CrearReservaRequestDTO,
+  SentarReservaResponseDTO,
+  RegistrarNoShowRequestDTO,
+  CancelarReservaRequestDTO,
+  ReasignarMesaReservaRequestDTO,
+  CatalogoSustitucionResponseDTO,
+  SustituirPlatoRequestDTO,
+  SustituirPlatoResponseDTO,
+  AnularPorQuiebreRequestDTO,
+  AnularPorQuiebreResponseDTO,
 } from '@/types/mozo';
 import type {
   KDSComandaDTO,
@@ -285,6 +307,30 @@ export const realMozoService = {
     return apiPost<{ mesa_id: string; numero?: string; mensaje: string }>(`/mozo/mesas/${mesaId}/liberar`);
   },
 
+  // CU-MOZO-04: Unión y Separación de Mesas en Salón
+  async obtenerCandidatasUnion(mesaId: string): Promise<ApiResponse<CandidatasUnionResponseDTO>> {
+    return apiGet<CandidatasUnionResponseDTO>(`/mozo/mesas/${mesaId}/candidatas-union`);
+  },
+
+  async unirMesas(request: UnirMesasRequestDTO): Promise<ApiResponse<UnirMesasResponseDTO>> {
+    return apiPost<UnirMesasResponseDTO>('/mozo/mesas/unir', request);
+  },
+
+  async validarSeparacionMesa(mesaId: string): Promise<ApiResponse<ValidacionSeparacionMesaDTO>> {
+    return apiGet<ValidacionSeparacionMesaDTO>(`/mozo/mesas/${mesaId}/validar-separacion`);
+  },
+
+  async dividirMesas(
+    mesaId: string,
+    secundariasIds?: string[],
+    forzar = false
+  ): Promise<ApiResponse<DividirMesasResponseDTO>> {
+    return apiPost<DividirMesasResponseDTO>(`/mozo/mesas/${mesaId}/separar`, {
+      mesas_secundarias_ids: secundariasIds,
+      forzar,
+    });
+  },
+
   // CU-MOZO-02: Carta, historial y comanda táctil
   async obtenerCarta(): Promise<ApiResponse<{ categorias: any[]; productos: any[] }>> {
     return apiGet<{ categorias: any[]; productos: any[] }>('/mozo/carta');
@@ -298,31 +344,16 @@ export const realMozoService = {
     return apiGet<HistorialMesaComandaDTO>(`/mozo/mesas/${mesaId}/historial`);
   },
 
-  async enviarPedidoCocina(
-    payload: {
-      mesa_id: string;
-      comensales: number;
-      numero_ronda?: number;
-      items: Array<{
-        producto_id: string;
-        cantidad: number;
-        nota_cocina?: string | null;
-      }>;
-    },
-    forzarConflicto409?: boolean
-  ): Promise<ApiResponse<any>> {
-    if (forzarConflicto409) {
-      return {
-        exito: false,
-        datos: null,
-        errores: [
-          {
-            codigo: 'ERR_PRODUCTO_AGOTADO',
-            mensaje: 'El insumo crítico se agotó en cocina hace segundos. La preparación no es posible.',
-          },
-        ],
-      };
-    }
+  async enviarPedidoCocina(payload: {
+    mesa_id: string;
+    comensales: number;
+    numero_ronda?: number;
+    items: Array<{
+      producto_id: string;
+      cantidad: number;
+      nota_cocina?: string | null;
+    }>;
+  }): Promise<ApiResponse<any>> {
     try {
       return await apiPost<any>(`/mozo/mesas/${payload.mesa_id}/pedidos`, payload);
     } catch (err: any) {
@@ -357,6 +388,126 @@ export const realMozoService = {
 
   async dividirCuentaMesa(payload: DividirCuentaRequestDTO): Promise<ApiResponse<DividirCuentaResponseDTO>> {
     return apiPost<DividirCuentaResponseDTO>(`/mozo/mesas/${payload.mesa_id}/dividir-cuenta`, payload);
+  },
+
+  // CU-MOZO-06: Anulación de Ítems y Comandas con Auditoría Inmutable y Control de Merma
+  async anularItemComanda(
+    mesaId: string,
+    itemId: string,
+    request: AnularItemRequestDTO
+  ): Promise<ApiResponse<ItemAnuladoResponseDTO>> {
+    return apiPost<ItemAnuladoResponseDTO>(`/mozo/mesas/${mesaId}/items/${itemId}/anular`, request);
+  },
+
+  async anularComandaCompleta(
+    mesaId: string,
+    request: AnularPedidoCompletoRequestDTO
+  ): Promise<ApiResponse<PedidoAnuladoResponseDTO>> {
+    return apiPost<PedidoAnuladoResponseDTO>(`/mozo/mesas/${mesaId}/anular-comanda`, request);
+  },
+
+  // CU-MOZO-05: Gestión Integral de Reservas y Recepción en Salón
+  async obtenerPoliticasReserva(): Promise<ApiResponse<PoliticasReservaDTO>> {
+    return apiGet<PoliticasReservaDTO>('/mozo/reservas/politicas');
+  },
+
+  async obtenerReservas(
+    fecha?: string,
+    turno: 'almuerzo' | 'cena' | 'todos' = 'todos'
+  ): Promise<ApiResponse<ReservaCardDTO[]>> {
+    const params = fecha ? { fecha, turno } : { turno };
+    return apiGet<ReservaCardDTO[]>('/mozo/reservas', params);
+  },
+
+  async obtenerMesasDisponiblesReserva(
+    fecha: string,
+    hora: string,
+    comensales: number
+  ): Promise<ApiResponse<MesasDisponiblesResponseDTO>> {
+    return apiGet<MesasDisponiblesResponseDTO>('/mozo/reservas/mesas-disponibles', {
+      fecha,
+      hora,
+      comensales,
+    });
+  },
+
+  async crearReserva(payload: CrearReservaRequestDTO): Promise<ApiResponse<ReservaCardDTO>> {
+    return apiPost<ReservaCardDTO>('/mozo/reservas', payload);
+  },
+
+  async sentarReserva(reservaId: string): Promise<ApiResponse<SentarReservaResponseDTO>> {
+    return apiPost<SentarReservaResponseDTO>(`/mozo/reservas/${reservaId}/sentar`);
+  },
+
+  async registrarNoShow(
+    reservaId: string,
+    request?: RegistrarNoShowRequestDTO | string
+  ): Promise<ApiResponse<{ reservaId: string; mesaLiberada: boolean; mensaje: string }>> {
+    const payload = typeof request === 'string' ? { motivo_inasistencia: request } : request;
+    return apiPost<{ reservaId: string; mesaLiberada: boolean; mensaje: string }>(
+      `/mozo/reservas/${reservaId}/no-show`,
+      payload
+    );
+  },
+
+  async cancelarReserva(
+    reservaId: string,
+    request: CancelarReservaRequestDTO | string
+  ): Promise<ApiResponse<{ reservaId: string; mensaje: string }>> {
+    const payload = typeof request === 'string' ? { motivo_cancelacion: request } : request;
+    return apiPost<{ reservaId: string; mensaje: string }>(
+      `/mozo/reservas/${reservaId}/cancelar`,
+      payload
+    );
+  },
+
+  async reasignarMesaReserva(
+    reservaId: string,
+    request: ReasignarMesaReservaRequestDTO | string,
+    motivoOpcional?: string
+  ): Promise<ApiResponse<ReservaCardDTO>> {
+    const payload = typeof request === 'string'
+      ? { nueva_mesa_id: request, motivo: motivoOpcional }
+      : request;
+    return apiPatch<ReservaCardDTO>(`/mozo/reservas/${reservaId}/reasignar-mesa`, payload);
+  },
+
+  // CU-MOZO-07: Quiebres de Cocina y Sustitución de Carta
+  async obtenerCatalogoSustitucion(
+    mesaId: string,
+    itemId: string,
+    categoriaId?: string,
+    query?: string
+  ): Promise<ApiResponse<CatalogoSustitucionResponseDTO>> {
+    const params: Record<string, string> = {};
+    if (categoriaId && categoriaId !== 'todas') params.categoria_id = categoriaId;
+    if (query && query.trim()) params.query = query.trim();
+    return apiGet<CatalogoSustitucionResponseDTO>(
+      `/mozo/mesas/${mesaId}/items/${itemId}/catalogo-sustitucion`,
+      Object.keys(params).length > 0 ? params : undefined
+    );
+  },
+
+  async sustituirPlato(
+    mesaId: string,
+    itemId: string,
+    payload: SustituirPlatoRequestDTO
+  ): Promise<ApiResponse<SustituirPlatoResponseDTO>> {
+    return apiPost<SustituirPlatoResponseDTO>(
+      `/mozo/mesas/${mesaId}/items/${itemId}/sustituir`,
+      payload
+    );
+  },
+
+  async anularPorQuiebreCocina(
+    mesaId: string,
+    itemId: string,
+    payload: AnularPorQuiebreRequestDTO
+  ): Promise<ApiResponse<AnularPorQuiebreResponseDTO>> {
+    return apiPost<AnularPorQuiebreResponseDTO>(
+      `/mozo/mesas/${mesaId}/items/${itemId}/anular-quiebre`,
+      payload
+    );
   },
 };
 

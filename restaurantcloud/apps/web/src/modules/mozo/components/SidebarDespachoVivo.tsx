@@ -21,7 +21,6 @@ interface SidebarDespachoVivoProps {
   onMarcarServido: (itemId: string) => void;
   misMesasActivas: number;
   totalVentaTurno: number;
-  onVerAlertaModal?: () => void;
 }
 
 export const SidebarDespachoVivo: React.FC<SidebarDespachoVivoProps> = ({
@@ -31,7 +30,6 @@ export const SidebarDespachoVivo: React.FC<SidebarDespachoVivoProps> = ({
   onMarcarServido,
   misMesasActivas,
   totalVentaTurno,
-  onVerAlertaModal,
 }) => {
   // Estado para acordeones interactivos colapsables
   const [seccionesAbiertas, setSeccionesAbiertas] = useState({
@@ -368,14 +366,6 @@ export const SidebarDespachoVivo: React.FC<SidebarDespachoVivoProps> = ({
                   <div key={a.id} className="p-2.5 rounded-lg bg-rose-950/50 border border-rose-900/50 text-xs">
                     <div className="flex items-center justify-between text-rose-200 font-semibold mb-1">
                       <span>{a.titulo}</span>
-                      {onVerAlertaModal && (
-                        <button
-                          onClick={onVerAlertaModal}
-                          className="text-[10px] text-rose-300 underline hover:text-white"
-                        >
-                          Ver modal
-                        </button>
-                      )}
                     </div>
                     <p className="text-slate-300 text-[11px] leading-relaxed">
                       {a.descripcion}

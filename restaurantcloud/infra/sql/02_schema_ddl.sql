@@ -434,6 +434,7 @@ CREATE TABLE IF NOT EXISTS reserva (
     creado_por UUID REFERENCES usuario(id) ON DELETE SET NULL,
     excepcion_id UUID REFERENCES horario_excepcion(id) ON DELETE SET NULL,
     motivo_cancelacion TEXT,
+    notas TEXT,
     notificado_cliente BOOL NOT NULL DEFAULT false,
     metodo_notificacion VARCHAR(20) NOT NULL DEFAULT 'ninguno' CHECK (metodo_notificacion IN ('ninguno', 'whatsapp', 'llamada', 'presencial')),
     notificado_por UUID REFERENCES usuario(id) ON DELETE SET NULL,

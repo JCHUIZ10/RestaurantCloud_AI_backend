@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
 import { MesaDisponibleReservaDTO, CrearReservaRequestDTO } from '@/types/mozo';
-import { mockMozoService } from '../../services/mockMozoService';
+import { mozoService } from '@/services/serviceAdapter';
+import { formatearTelefonoPeru, extraerDigitosMovilPeru } from '@/shared/utils/whatsapp';
+
+const getHoyStr = () => new Date().toISOString().split('T')[0];
+const getMananaStr = () => {
+  const m = new Date();
+  m.setDate(m.getDate() + 1);
+  return m.toISOString().split('T')[0];
+};
 
 interface ModalNuevaReservaProps {
   abierto: boolean;
@@ -15,18 +23,18 @@ export const ModalNuevaReserva: React.FC<ModalNuevaReservaProps> = ({
   onConfirmar,
 }) => {
   // Parámetros de Cita (Paso 1)
-  const [fecha, setFecha] = useState('2026-10-09');
+  const [fecha, setFecha] = useState(getHoyStr);
   const [hora, setHora] = useState('14:00');
   const [numPersonas, setNumPersonas] = useState(4);
 
   // Mini-Mapa (Paso 2)
   const [mesasMapa, setMesasMapa] = useState<MesaDisponibleReservaDTO[]>([]);
   const [cargandoMesas, setCargandoMesas] = useState(false);
-  const [mesasSeleccionadasIds, setMesasSeleccionadasIds] = useState<string[]>(['mesa-08']);
+  const [mesasSeleccionadasIds, setMesasSeleccionadasIds] = useState<string[]>([]);
 
   // Datos del Cliente (Paso 3)
   const [clienteNombre, setClienteNombre] = useState('Fam. Gómez');
-  const [clienteTelefono, setClienteTelefono] = useState('+51 987 654 321');
+  const [clienteTelefono, setClienteTelefono] = useState('987 654 321');
   const [notas, setNotas] = useState('Viene con niño pequeño, requiere silla alta');
   const [guardando, setGuardando] = useState(false);
   const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
@@ -43,9 +51,16 @@ export const ModalNuevaReserva: React.FC<ModalNuevaReservaProps> = ({
   const cargarDisponibilidad = async () => {
     setCargandoMesas(true);
     try {
-      const res = await mockMozoService.obtenerMesasDisponiblesReserva(fecha, hora, numPersonas);
-      if (res.exito) {
-        setMesasMapa(res.datos.mesas);
+      const res = await mozoService.obtenerMesasDisponiblesReserva(fecha, hora, numPersonas);
+      if (res.exito && res.datos) {
+        const mesas: MesaDisponibleReservaDTO[] = res.datos.mesas;
+        setMesasMapa(mesas);
+        setMesasSeleccionadasIds((prev) => {
+          const aunValida = prev.some((id) => mesas.some((m: MesaDisponibleReservaDTO) => m.mesa_id === id && m.disponible));
+          if (aunValida) return prev;
+          const primeraLibre = mesas.find((m: MesaDisponibleReservaDTO) => m.disponible && m.capacidad >= numPersonas) || mesas.find((m: MesaDisponibleReservaDTO) => m.disponible);
+          return primeraLibre ? [primeraLibre.mesa_id] : [];
+        });
       }
     } finally {
       setCargandoMesas(false);
@@ -79,10 +94,17 @@ export const ModalNuevaReserva: React.FC<ModalNuevaReservaProps> = ({
       setErrorValidacion('Por favor ingresa el nombre completo del cliente (mínimo 3 caracteres).');
       return;
     }
-    if (!clienteTelefono.trim() || clienteTelefono.length < 8) {
-      setErrorValidacion('Por favor ingresa un teléfono móvil de contacto válido (+51 ...).');
+
+    const digitosMovil = extraerDigitosMovilPeru(clienteTelefono);
+    if (!digitosMovil || digitosMovil.length !== 9) {
+      setErrorValidacion('Por favor ingresa un teléfono móvil de Perú válido (9 dígitos, ej. 987 654 321).');
       return;
     }
+    if (!digitosMovil.startsWith('9')) {
+      setErrorValidacion('El número celular debe iniciar con el dígito 9 (formato móvil Perú).');
+      return;
+    }
+
     if (mesasSeleccionadasIds.length === 0) {
       setErrorValidacion('Debes seleccionar al menos una mesa en el mini-mapa de salón.');
       return;
@@ -92,7 +114,7 @@ export const ModalNuevaReserva: React.FC<ModalNuevaReservaProps> = ({
     try {
       const payload: CrearReservaRequestDTO = {
         cliente_nombre: clienteNombre.trim(),
-        cliente_telefono: clienteTelefono.trim(),
+        cliente_telefono: `+51 ${formatearTelefonoPeru(digitosMovil)}`,
         fecha_hora: `${fecha}T${hora}:00Z`,
         num_personas: numPersonas,
         mesa_ids: mesasSeleccionadasIds,
@@ -173,9 +195,9 @@ export const ModalNuevaReserva: React.FC<ModalNuevaReservaProps> = ({
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={() => setFecha('2026-10-09')}
+                    onClick={() => setFecha(getHoyStr())}
                     className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                      fecha === '2026-10-09'
+                      fecha === getHoyStr()
                         ? 'bg-aurea-navy text-white border-aurea-navy'
                         : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
                     }`}
@@ -184,9 +206,9 @@ export const ModalNuevaReserva: React.FC<ModalNuevaReservaProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setFecha('2026-10-10')}
+                    onClick={() => setFecha(getMananaStr())}
                     className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                      fecha === '2026-10-10'
+                      fecha === getMananaStr()
                         ? 'bg-aurea-navy text-white border-aurea-navy'
                         : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
                     }`}
@@ -390,15 +412,25 @@ export const ModalNuevaReserva: React.FC<ModalNuevaReservaProps> = ({
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Teléfono Móvil (+51 Perú): <span className="text-rose-500">*</span>
+                  Teléfono Móvil (WhatsApp Perú): <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  type="tel"
-                  value={clienteTelefono}
-                  onChange={(e) => setClienteTelefono(e.target.value)}
-                  placeholder="+51 987 654 321"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono bg-white text-slate-800 focus:ring-2 focus:ring-aurea-copper focus:border-transparent"
-                />
+                <div className="relative flex rounded-lg shadow-2xs">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-2 rounded-l-lg border border-r-0 border-slate-300 bg-slate-50 text-slate-600 text-xs font-mono font-semibold select-none">
+                    <span>🇵🇪</span>
+                    <span>+51</span>
+                  </span>
+                  <input
+                    type="tel"
+                    value={clienteTelefono}
+                    onChange={(e) => setClienteTelefono(formatearTelefonoPeru(e.target.value))}
+                    placeholder="987 654 321"
+                    maxLength={11}
+                    className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-lg border border-slate-300 text-xs font-mono bg-white text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-aurea-copper focus:border-transparent"
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  9 dígitos móviles (inician con 9). Se usará para confirmación de cortesía vía WhatsApp.
+                </p>
               </div>
 
               <div className="sm:col-span-2">
