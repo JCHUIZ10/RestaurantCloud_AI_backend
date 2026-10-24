@@ -29,7 +29,7 @@ export const PisosTabs: React.FC<PisosTabsProps> = ({
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 md:pb-0">
         {pisos.map((piso) => {
           const activo = piso.id === pisoActivoId;
-          const mesasActivas = piso.mesas.filter((m) => m.estado === 'activa').length;
+          const mesasActivas = piso.mesas.filter((m) => m.estado !== 'inactiva').length;
 
           return (
             <div

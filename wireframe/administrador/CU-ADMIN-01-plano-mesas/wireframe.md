@@ -2,6 +2,38 @@
 
 Especificación técnica de interfaz de usuario, arquitectura de información, estados UX y contratos de API para la organización física de ambientes, configuración de mesas y control de capacidad en **RestaurantCloud AI**.
 
+## Contrato vigente de implementación (Laravel)
+
+La implementación usa Laravel, autenticación Bearer con sesión Redis y el middleware `TenantContext`. Esta sección prevalece sobre los ejemplos históricos de Go de la sección 6. La sede y empresa se obtienen de la sesión, nunca del cuerpo enviado por el cliente.
+
+| Método | Ruta bajo `/api/v1/admin` | Operación |
+| :--- | :--- | :--- |
+| GET | `/pisos` | Plano, mesas no inactivas y cuota empresarial |
+| POST | `/pisos` | Crear ambiente con `nombre`, `columnas`, `filas` |
+| PATCH | `/pisos/{id}/nombre` | Renombrar ambiente |
+| PATCH | `/pisos/{id}/dimensiones` | Modificar columnas y filas |
+| PATCH | `/pisos/{id}/desactivar` | Baja lógica del ambiente |
+| POST | `/pisos/{id}/mesas` | Crear mesa individual |
+| POST | `/pisos/{id}/mesas/lote` | Generación atómica en ambiente vacío |
+| PUT | `/mesas/{id}` | Editar o reubicar; admite `piso_id` de la misma sede |
+| PATCH | `/mesas/{id}/desactivar` | Baja lógica de mesa sin comanda ni unión |
+
+Respuesta exitosa: `{ "exito": true, "datos": { ... }, "meta": { "timestamp": "..." } }`. Las altas responden 201 y las demás operaciones 200. Los errores usan `{ "exito": false, "errores": [{ "codigo": "...", "mensaje": "...", "detalles": { ... } }], "meta": { "timestamp": "..." } }`; `detalles` es opcional. Validación: 422; cuota o rol: 403; recurso fuera de sede: 404; conflicto operativo: 409.
+
+`datos` del plano contiene `local_id`, `local_nombre`, `pisos` y `cuota_mesas`. Cada piso incluye sus campos SQL, `mesas`, `total_mesas` y `capacidad_total_personas`. Las mesas incluyen campos SQL y ocupación derivada de pedidos. `cuota_mesas` contiene `plan_nombre`, `mesas_activas_empresa`, `max_mesas_plan`, `mesas_disponibles`, `pisos_activos_empresa`, `max_pisos_plan`. Los KPI de sede se calculan exclusivamente con sus pisos; la cuota suma todas las sedes de la empresa.
+
+Reglas vigentes:
+
+- Nombre de piso: 1–60 caracteres; único entre ambientes activos de la sede, sin distinguir mayúsculas. Columnas: 1–12; filas: 1–10.
+- Código de mesa: 1–10 caracteres incluyendo prefijo; sin espacios externos. Se rechaza duplicidad, incluso histórica y sin distinguir mayúsculas. Capacidad: 1–20; formas: `cuadrada`, `redonda`, `rectangular`.
+- Una mesa `bloqueada` sigue ocupando casilla y cupo, aparece en el plano e impide recortar o desactivar su ambiente. Las mesas inactivas no consumen cupo ni casilla.
+- Coordenadas enteras desde cero, dentro del ambiente y sin superposición. Se permite mover una mesa a otro ambiente activo de la misma sede si su número y casilla están disponibles. Las mesas con comanda o unión no se reubican.
+- Pedidos abiertos: `borrador`, `enviado`, `cuenta_pedida`. Los estados de cocina pertenecen a `pedido_item`. La baja consulta también el grupo unido y devuelve detalles reales de comanda, mozo y consumo.
+- Lote exclusivamente sobre un ambiente sin mesas activas ni bloqueadas; no reemplaza registros. Cualquier fallo revierte el lote y sus dimensiones. Responde con `{ "piso": { ... }, "mesas_creadas": N }` en `datos`.
+- Las bajas responden con `{ "mensaje": "...", "mesa_id": "..." }` o `{ "mensaje": "...", "piso_id": "..." }` en `datos`; nunca se borra físicamente.
+- Se serializan las escrituras con el bloqueo de empresa y la apertura/envío de comanda con el bloqueo de mesa. Los agregados empresariales restauran el contexto RLS de sede al terminar.
+- Los formularios permanecen abiertos ante un fallo; el simulador solo aparece cuando `VITE_USE_REAL_API` no es `true`.
+
 ---
 
 ## 1. Ficha Técnica del Caso de Uso
@@ -24,7 +56,7 @@ sequenceDiagram
     autonumber
     actor A as Administrador del Local
     participant FE as Frontend Dashboard
-    participant BE as Backend (Go Core API)
+    participant BE as Backend (Laravel API)
     participant DB as PostgreSQL (RLS)
 
     %% 1. Consulta del Plano de Mesas
@@ -63,7 +95,7 @@ sequenceDiagram
     alt Administrador intenta dar de baja una mesa
         A->>FE: 4. Clic en "[ Desactivar Mesa ]" en el panel lateral
         FE->>BE: PATCH /api/v1/admin/mesas/{id}/desactivar
-        BE->>DB: Audita pedidos activos: SELECT COUNT(*) FROM pedido WHERE mesa_id = :id AND estado IN ('pendiente','en_preparacion','servido','cuenta_pedida')
+        BE->>DB: Bloquea mesa y audita pedidos de mesa/grupo con estado IN ('borrador','enviado','cuenta_pedida')
         alt Mesa con comensales o comanda abierta
             DB-->>BE: Conteo = 1 (Comanda #104 activa)
             BE-->>FE: 409 Conflict (ERR_MESA_CON_PEDIDOS_ACTIVOS)
@@ -438,7 +470,9 @@ sequenceDiagram
 
 ---
 
-## 6. Contratos de API Backend Go (`pkg/apiresponse`)
+## 6. Ejemplos históricos de API Backend Go (no normativos)
+
+Estos ejemplos se conservan como antecedentes del diseño. Sus envoltorios `success/data/error`, identificadores ilustrativos y respuestas no representan el contrato Laravel vigente, documentado al inicio.
 
 ### 6.1. Listar Pisos y Mesas del Local
 - **Endpoint:** `GET /api/v1/admin/pisos`
@@ -898,17 +932,18 @@ sequenceDiagram
 ## 7. Reglas de Negocio y Seguridad Multi-Tenant
 
 1. **Aislamiento Multi-Tenant y Restricción por Sede Titular:**
-   - Cada administrador de local solo puede gestionar los pisos y mesas del `local_id` que tiene asignado en su JWT:
+   - Cada administrador de local solo puede gestionar los pisos y mesas del `local_id` de su sesión Redis. `TenantContext` instala los parámetros dentro de una transacción:
      ```sql
-     SET LOCAL app.tenant_id = '<empresa_id>';
+     SET LOCAL app.current_empresa_id = '<empresa_id>';
+     SET LOCAL app.current_local_id = '<local_id>';
      ```
    - Las consultas a `piso` y `mesa` siempre filtran obligatoriamente por `piso.local_id = :admin_local_id`.
 2. **Prohibición de `DELETE` Físico (Soft Archival):**
    - Las mesas y pisos nunca se eliminan mediante `DELETE`. Conmutan a `estado = 'inactiva'` o `estado = 'inactivo'`. Esto garantiza que los reportes de ventas, historiales de comandas y auditorías de caja sigan vinculando la mesa real donde se sentó el comensal.
 3. **Bloqueo Duro de Desactivación de Mesa:**
-   - La desactivación de una mesa queda estrictamente bloqueada si existe al menos un registro en la tabla `pedido` con `mesa_id = :id` y `estado` en (`'pendiente'`, `'en_preparacion'`, `'servido'`, `'cuenta_pedida'`). Código de error: `ERR_MESA_CON_PEDIDOS_ACTIVOS`.
+   - La baja se bloquea si la mesa o su grupo tiene un `pedido` en `borrador`, `enviado` o `cuenta_pedida`. Código: `ERR_MESA_CON_PEDIDOS_ACTIVOS`. Una unión sin comanda también debe separarse antes de la baja (`ERR_MESA_UNIDA`).
 4. **Unicidad de Numeración por Ambiente:**
-   - Dentro de un mismo `piso_id`, no pueden existir dos mesas activas con el mismo `numero`. Código de error: `ERR_MESA_NUMERO_DUPLICADO`.
+   - Dentro del mismo local y piso no se repiten números, incluyendo mesas inactivas. El servicio también normaliza espacios externos y rechaza equivalencias sin distinguir mayúsculas. Código: `ERR_MESA_NUMERO_DUPLICADO`.
 5. **Unicidad de Nombre de Ambiente por Sede:**
    - No pueden coexistir dos ambientes activos con el mismo nombre en la misma sede. Código de error: `ERR_NOMBRE_PISO_DUPLICADO`.
 6. **Protección de Sede (Piso Mínimo Obligatorio):**

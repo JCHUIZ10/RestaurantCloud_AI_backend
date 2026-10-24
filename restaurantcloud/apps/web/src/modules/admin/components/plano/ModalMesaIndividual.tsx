@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PisoAdminDTO, CuotaMesasPlanDTO, FormaMesa, CrearMesaIndividualRequest } from '@/types/admin';
 import { X, Plus, Minus, Grid, Check } from 'lucide-react';
 
@@ -32,12 +32,22 @@ export const ModalMesaIndividual: React.FC<ModalMesaIndividualProps> = ({
   const [posX, setPosX] = useState(posicionInicial?.x ?? 0);
   const [posY, setPosY] = useState(posicionInicial?.y ?? 0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorLocal, setErrorLocal] = useState<string | null>(null);
+  const aperturaInicializada = useRef('');
 
 
   // Sugerir correlativo automático al abrir o cambiar de piso
   useEffect(() => {
+    if (!isOpen) {
+      aperturaInicializada.current = '';
+      return;
+    }
+    const clave = `${pisoActivo?.id}:${posicionInicial?.x}:${posicionInicial?.y}`;
+    if (aperturaInicializada.current === clave) return;
+    aperturaInicializada.current = clave;
     if (pisoActivo) {
-      const mesasActivas = pisoActivo.mesas.filter((m) => m.estado === 'activa');
+      setErrorLocal(null);
+      const mesasActivas = pisoActivo.mesas.filter((m) => m.estado !== 'inactiva');
       const numerosNum = mesasActivas
         .map((m) => parseInt(m.numero.replace(/\D/g, '')))
         .filter((n) => !isNaN(n));
@@ -70,7 +80,10 @@ export const ModalMesaIndividual: React.FC<ModalMesaIndividualProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!numero.trim() || cuota.mesas_disponibles <= 0 || mapaMesas.has(`${posX}-${posY}`)
+      || posX >= pisoActivo.columnas || posY >= pisoActivo.filas) return;
     try {
+      setErrorLocal(null);
       setIsSubmitting(true);
       await onSubmit(pisoId, {
         numero: numero.trim(),
@@ -81,6 +94,8 @@ export const ModalMesaIndividual: React.FC<ModalMesaIndividualProps> = ({
         permite_union: permiteUnion,
       });
       onClose();
+    } catch (error) {
+      setErrorLocal(error instanceof Error ? error.message : 'No se pudo guardar la mesa.');
     } finally {
       setIsSubmitting(false);
     }
@@ -89,7 +104,7 @@ export const ModalMesaIndividual: React.FC<ModalMesaIndividualProps> = ({
   // Matriz de mini-mapa
   const mapaMesas = new Map<string, string>();
   pisoActivo.mesas
-    .filter((m) => m.estado === 'activa')
+    .filter((m) => m.estado !== 'inactiva')
     .forEach((m) => {
       mapaMesas.set(`${m.posicion_x}-${m.posicion_y}`, m.numero);
     });
@@ -135,7 +150,8 @@ export const ModalMesaIndividual: React.FC<ModalMesaIndividualProps> = ({
         {/* Cuerpo Dual: Formulario Izquierda + Mini-Mapa Derecha */}
         <div className="p-6 overflow-y-auto flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Lado Izquierdo: Formulario */}
-          <form onSubmit={handleSubmit} className="lg:col-span-6 space-y-4">
+          <form id="crear-mesa-form" onSubmit={handleSubmit} className="lg:col-span-6 space-y-4">
+            {errorLocal && <p role="alert" className="text-sm text-rose-700">{errorLocal}</p>}
             {/* Banner de Ambiente Activo */}
             <div className="p-3 rounded-2xl bg-aurea-champagne/20 border border-aurea-copper/30 flex items-center justify-between text-xs text-aurea-navy">
               <div className="flex items-center gap-2">
@@ -158,6 +174,7 @@ export const ModalMesaIndividual: React.FC<ModalMesaIndividualProps> = ({
                 <input
                   type="text"
                   required
+                  maxLength={10}
                   value={numero}
                   onChange={(e) => setNumero(e.target.value)}
                   placeholder="Ej. 11"
@@ -419,8 +436,8 @@ export const ModalMesaIndividual: React.FC<ModalMesaIndividualProps> = ({
 
             {/* Aviso de impacto en cupo */}
             <div className="p-3 rounded-xl bg-aurea-champagne/20 border border-aurea-copper/25 text-xs text-aurea-navy/80">
-              <span className="font-bold">Cupo del Plan Pro:</span> Quedarán{' '}
-              {cuota.mesas_disponibles - 1} mesas disponibles de {cuota.max_mesas_plan}.
+              <span className="font-bold">Cupo del plan {cuota.plan_nombre || 'actual'}:</span> Quedarán{' '}
+              {Math.max(0, cuota.mesas_disponibles - 1)} mesas disponibles de {cuota.max_mesas_plan}.
             </div>
           </div>
         </div>
@@ -436,9 +453,10 @@ export const ModalMesaIndividual: React.FC<ModalMesaIndividualProps> = ({
             Cancelar
           </button>
           <button
-            type="button"
-            disabled={isSubmitting}
-            onClick={handleSubmit}
+            type="submit"
+            form="crear-mesa-form"
+            disabled={isSubmitting || !numero.trim() || cuota.mesas_disponibles <= 0
+              || mapaMesas.has(`${posX}-${posY}`) || posX >= pisoActivo.columnas || posY >= pisoActivo.filas}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-aurea-navy text-white hover:bg-aurea-navy/90 text-xs sm:text-sm font-semibold transition-all shadow-md active:scale-95 disabled:opacity-50"
           >
             <Check className="w-4 h-4 text-aurea-champagne" />

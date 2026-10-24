@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { MesaAdminDTO, FormaMesa, ActualizarMesaRequest } from '@/types/admin';
+import { MesaAdminDTO, PisoAdminDTO, FormaMesa, ActualizarMesaRequest } from '@/types/admin';
 import { X, Trash2, AlertTriangle, Check } from 'lucide-react';
 
 interface DrawerEditarMesaProps {
   mesa: MesaAdminDTO | null;
+  pisos: PisoAdminDTO[];
   pisoNombre: string;
   isOpen: boolean;
   onClose: () => void;
@@ -13,6 +14,7 @@ interface DrawerEditarMesaProps {
 
 export const DrawerEditarMesa: React.FC<DrawerEditarMesaProps> = ({
   mesa,
+  pisos,
   pisoNombre,
   isOpen,
   onClose,
@@ -25,6 +27,10 @@ export const DrawerEditarMesa: React.FC<DrawerEditarMesaProps> = ({
   const [permiteUnion, setPermiteUnion] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [errorLocal, setErrorLocal] = useState<string | null>(null);
+  const [pisoId, setPisoId] = useState('');
+  const [posX, setPosX] = useState(0);
+  const [posY, setPosY] = useState(0);
 
   useEffect(() => {
     if (mesa) {
@@ -32,24 +38,39 @@ export const DrawerEditarMesa: React.FC<DrawerEditarMesaProps> = ({
       setCapacidad(mesa.capacidad);
       setForma(mesa.forma);
       setPermiteUnion(mesa.permite_union);
+      setPisoId(mesa.piso_id);
+      setPosX(mesa.posicion_x);
+      setPosY(mesa.posicion_y);
+      setErrorLocal(null);
     }
   }, [mesa]);
 
   if (!isOpen || !mesa) return null;
+  const pisoDestino = pisos.find((p) => p.id === pisoId);
+  const casillaOcupada = pisoDestino?.mesas.some((m) => m.id !== mesa.id && m.estado !== 'inactiva'
+    && m.posicion_x === posX && m.posicion_y === posY);
+  const posicionValida = pisoDestino && posX < pisoDestino.columnas && posY < pisoDestino.filas && !casillaOcupada;
+  const puedeMover = !mesa.tiene_pedido_activo && !mesa.mesa_principal_id
+    && !pisos.some((p) => p.mesas.some((m) => m.mesa_principal_id === mesa.id));
 
   const handleGuardar = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!numero.trim() || !posicionValida) return;
     try {
+      setErrorLocal(null);
       setIsSubmitting(true);
       await onGuardar(mesa.id, {
         numero,
         capacidad,
         forma,
-        posicion_x: mesa.posicion_x,
-        posicion_y: mesa.posicion_y,
+        piso_id: pisoId,
+        posicion_x: posX,
+        posicion_y: posY,
         permite_union: permiteUnion,
       });
       onClose();
+    } catch (error) {
+      setErrorLocal(error instanceof Error ? error.message : 'No se pudieron guardar los cambios.');
     } finally {
       setIsSubmitting(false);
     }
@@ -57,8 +78,11 @@ export const DrawerEditarMesa: React.FC<DrawerEditarMesaProps> = ({
 
   const handleDesactivar = async () => {
     try {
+      setErrorLocal(null);
       setIsDeleting(true);
       await onDesactivar(mesa.id);
+    } catch (error) {
+      setErrorLocal(error instanceof Error ? error.message : 'No se pudo desactivar la mesa.');
     } finally {
       setIsDeleting(false);
     }
@@ -104,7 +128,32 @@ export const DrawerEditarMesa: React.FC<DrawerEditarMesaProps> = ({
         </div>
 
         {/* Contenido del Formulario */}
-        <form onSubmit={handleGuardar} className="p-6 space-y-6 overflow-y-auto flex-1">
+        <form id="editar-mesa-form" onSubmit={handleGuardar} className="p-6 space-y-6 overflow-y-auto flex-1">
+          {errorLocal && <p role="alert" className="text-sm text-rose-700">{errorLocal}</p>}
+          <fieldset disabled={!puedeMover || isSubmitting} className="space-y-3">
+            <legend className="text-xs font-bold text-aurea-navy">Ubicación de la mesa</legend>
+            <label className="block text-xs">Ambiente
+              <select aria-label="Ambiente destino" value={pisoId} onChange={(e) => {
+                setPisoId(e.target.value); setPosX(0); setPosY(0);
+              }} className="block w-full border rounded-lg p-2 mt-1">
+                {pisos.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+              </select>
+            </label>
+            {pisoDestino && <div className="grid grid-cols-2 gap-3">
+              <label className="text-xs">Columna
+                <select aria-label="Columna destino" value={posX} onChange={(e) => setPosX(Number(e.target.value))} className="block w-full border rounded-lg p-2">
+                  {Array.from({ length: pisoDestino.columnas }, (_, x) => <option key={x} value={x}>{x + 1}</option>)}
+                </select>
+              </label>
+              <label className="text-xs">Fila
+                <select aria-label="Fila destino" value={posY} onChange={(e) => setPosY(Number(e.target.value))} className="block w-full border rounded-lg p-2">
+                  {Array.from({ length: pisoDestino.filas }, (_, y) => <option key={y} value={y}>{y + 1}</option>)}
+                </select>
+              </label>
+            </div>}
+          </fieldset>
+          {!puedeMover && <p className="text-xs text-amber-800">Cierra la comanda y separa el grupo antes de reubicar.</p>}
+          {casillaOcupada && <p role="alert" className="text-xs text-rose-700">La casilla seleccionada ya está ocupada.</p>}
           {/* Número / Código de Mesa */}
           <div>
             <label className="block text-xs font-bold text-aurea-navy uppercase tracking-wider mb-1.5">
@@ -116,6 +165,7 @@ export const DrawerEditarMesa: React.FC<DrawerEditarMesaProps> = ({
             <input
               type="text"
               required
+              maxLength={10}
               value={numero}
               onChange={(e) => setNumero(e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl border border-aurea-copper/40 text-base font-bold text-aurea-navy focus:outline-none focus:ring-2 focus:ring-aurea-copper"
@@ -234,9 +284,9 @@ export const DrawerEditarMesa: React.FC<DrawerEditarMesaProps> = ({
             Cancelar
           </button>
           <button
-            type="button"
-            disabled={isSubmitting}
-            onClick={handleGuardar}
+            type="submit"
+            form="editar-mesa-form"
+            disabled={isSubmitting || isDeleting || !numero.trim() || !posicionValida}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-aurea-navy text-white hover:bg-aurea-navy/90 text-xs sm:text-sm font-semibold transition-all shadow-md active:scale-95 disabled:opacity-50"
           >
             <Check className="w-4 h-4 text-aurea-champagne" />

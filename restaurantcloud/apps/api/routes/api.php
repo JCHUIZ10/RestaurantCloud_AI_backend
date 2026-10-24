@@ -1,25 +1,34 @@
 <?php
 
-use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Admin\CategoriaController;
 use App\Http\Controllers\Api\Admin\ConfiguracionKdsController;
 use App\Http\Controllers\Api\Admin\HorarioController;
 use App\Http\Controllers\Api\Admin\InsumoController;
 use App\Http\Controllers\Api\Admin\MetodoPagoController;
+use App\Http\Controllers\Api\Admin\PersonalController;
+use App\Http\Controllers\Api\Admin\PlanoController;
 use App\Http\Controllers\Api\Admin\ProductoController;
 use App\Http\Controllers\Api\Admin\RecetaController;
+<<<<<<< Updated upstream
 use App\Http\Controllers\Api\Admin\PersonalController;
 use App\Http\Controllers\Api\Admin\ProveedorController;
 use App\Http\Controllers\Api\Propietario\AdministradorController;
 use App\Http\Controllers\Api\Propietario\LocalController;
+=======
+use App\Http\Controllers\Api\AuthController;
+>>>>>>> Stashed changes
 use App\Http\Controllers\Api\CajaController;
 use App\Http\Controllers\Api\CocinaController;
 use App\Http\Controllers\Api\MozoController;
-use App\Http\Controllers\Api\Public\RegistroController;
+use App\Http\Controllers\Api\Propietario\AdministradorController;
+use App\Http\Controllers\Api\Propietario\LocalController;
 use App\Http\Controllers\Api\Public\ActivacionCuentaController;
+<<<<<<< Updated upstream
 use App\Http\Controllers\Api\Public\ComprobantePublicoController;
+=======
+use App\Http\Controllers\Api\Public\RegistroController;
+>>>>>>> Stashed changes
 use Illuminate\Support\Facades\Route;
-
 
 Route::prefix('v1')->group(function (): void {
     // Healthcheck
@@ -60,13 +69,24 @@ Route::prefix('v1')->group(function (): void {
     Route::post('/auth/seleccionar-cuenta', [AuthController::class, 'seleccionarCuenta']);
     Route::post('/auth/refresh', [AuthController::class, 'refresh']);
 
-
     // Rutas protegidas con Caché de Sesión en Redis (Alta Velocidad)
     Route::middleware(['auth.redis', 'tenant.context'])->group(function (): void {
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
 
         Route::prefix('admin')->middleware('role:admin_local,propietario,admin_saas')->group(function (): void {
+            Route::middleware('role:admin_local')->group(function (): void {
+                Route::get('/pisos', [PlanoController::class, 'index']);
+                Route::post('/pisos', [PlanoController::class, 'crearPiso']);
+                Route::patch('/pisos/{id}/nombre', [PlanoController::class, 'nombre'])->whereUuid('id');
+                Route::patch('/pisos/{id}/dimensiones', [PlanoController::class, 'dimensiones'])->whereUuid('id');
+                Route::patch('/pisos/{id}/desactivar', [PlanoController::class, 'desactivarPiso'])->whereUuid('id');
+                Route::post('/pisos/{id}/mesas', [PlanoController::class, 'crearMesa'])->whereUuid('id');
+                Route::post('/pisos/{id}/mesas/lote', [PlanoController::class, 'lote'])->whereUuid('id');
+                Route::put('/mesas/{id}', [PlanoController::class, 'actualizarMesa'])->whereUuid('id');
+                Route::patch('/mesas/{id}/desactivar', [PlanoController::class, 'desactivarMesa'])->whereUuid('id');
+            });
+
             Route::get('/categorias', [CategoriaController::class, 'index']);
             Route::post('/categorias', [CategoriaController::class, 'store']);
             Route::patch('/categorias/reordenar', [CategoriaController::class, 'reordenar']);
@@ -156,7 +176,6 @@ Route::prefix('v1')->group(function (): void {
                 Route::patch('/{id}/cambiar-estado', [AdministradorController::class, 'cambiarEstado']);
             });
         });
-
 
         // Salón / Mozo (CU-MOZO-01, CU-MOZO-02, CU-MOZO-08)
         Route::prefix('mozo')->group(function (): void {

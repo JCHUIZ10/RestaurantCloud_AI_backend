@@ -60,6 +60,7 @@ export interface PisoAdminDTO {
  * Mapea a la tabla `plan` y agregados de `mesa` y `piso`.
  */
 export interface CuotaMesasPlanDTO {
+  plan_nombre?: string;
   mesas_activas_empresa: number;
   max_mesas_plan: number;
   mesas_disponibles: number;
@@ -106,6 +107,7 @@ export interface CrearMesaIndividualRequest {
  * Request para actualizar mesa existente (PUT /api/v1/admin/mesas/{id})
  */
 export interface ActualizarMesaRequest {
+  piso_id?: string;
   numero: string;
   capacidad: number;
   forma: FormaMesa;

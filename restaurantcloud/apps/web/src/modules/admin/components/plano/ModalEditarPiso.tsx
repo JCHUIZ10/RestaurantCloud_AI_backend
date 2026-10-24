@@ -35,7 +35,7 @@ export const ModalEditarPiso: React.FC<ModalEditarPisoProps> = ({
 
   if (!isOpen || !piso) return null;
 
-  const mesasActivas = piso.mesas.filter((m) => m.estado === 'activa');
+  const mesasActivas = piso.mesas.filter((m) => m.estado !== 'inactiva');
   const tieneMesasActivas = mesasActivas.length > 0;
   const esUnicoPiso = totalPisosActivos <= 1;
 
@@ -148,6 +148,7 @@ export const ModalEditarPiso: React.FC<ModalEditarPisoProps> = ({
                 type="text"
                 required
                 value={nombre}
+                maxLength={60}
                 onChange={(e) => setNombre(e.target.value)}
                 placeholder="Ej. Salón Principal, Terraza Lounge..."
                 className="w-full px-3.5 py-2.5 rounded-xl border border-aurea-copper/40 text-sm font-semibold text-aurea-navy focus:outline-none focus:ring-2 focus:ring-aurea-copper"

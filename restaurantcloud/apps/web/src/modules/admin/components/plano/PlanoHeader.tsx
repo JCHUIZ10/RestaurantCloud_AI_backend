@@ -5,6 +5,8 @@ import { LayoutGrid, Users, Plus, Building2, Utensils } from 'lucide-react';
 interface PlanoHeaderProps {
   cuota: CuotaMesasPlanDTO;
   totalCapacidadSentados: number;
+  totalMesasLocal: number;
+  totalPisosLocal: number;
   localNombre: string;
   onAbrirMesaIndividual: () => void;
   onAbrirNuevoPiso: () => void;
@@ -13,6 +15,8 @@ interface PlanoHeaderProps {
 export const PlanoHeader: React.FC<PlanoHeaderProps> = ({
   cuota,
   totalCapacidadSentados,
+  totalMesasLocal,
+  totalPisosLocal,
   localNombre,
   onAbrirMesaIndividual,
   onAbrirNuevoPiso,
@@ -44,6 +48,7 @@ export const PlanoHeader: React.FC<PlanoHeaderProps> = ({
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             onClick={onAbrirMesaIndividual}
+            disabled={cuota.mesas_disponibles <= 0 || totalPisosLocal === 0}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-aurea-navy text-white hover:bg-aurea-navy/90 text-xs sm:text-sm font-semibold transition-all shadow-sm active:scale-95"
           >
             <Utensils className="w-4 h-4 text-aurea-champagne" />
@@ -52,6 +57,7 @@ export const PlanoHeader: React.FC<PlanoHeaderProps> = ({
 
           <button
             onClick={onAbrirNuevoPiso}
+            disabled={cuota.pisos_activos_empresa >= cuota.max_pisos_plan}
             className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-aurea-copper/40 text-aurea-navy hover:bg-aurea-champagne/20 text-xs sm:text-sm font-semibold transition-all active:scale-95"
           >
             <Plus className="w-4 h-4 text-aurea-copper" />
@@ -74,12 +80,12 @@ export const PlanoHeader: React.FC<PlanoHeaderProps> = ({
             </span>
             <div className="flex items-baseline gap-2 mt-0.5">
               <span className="font-serif text-2xl sm:text-3xl font-bold text-aurea-navy">
-                {cuota.mesas_activas_empresa}
+                {totalMesasLocal}
               </span>
               <span className="text-xs text-aurea-navy/70">mesas activas</span>
             </div>
             <p className="text-[11px] text-aurea-navy/60 mt-1 truncate">
-              Distribuidas en {cuota.pisos_activos_empresa} ambientes físicos
+              Distribuidas en {totalPisosLocal} ambientes físicos
             </p>
           </div>
         </div>
@@ -101,8 +107,8 @@ export const PlanoHeader: React.FC<PlanoHeaderProps> = ({
             </div>
             <p className="text-[11px] text-aurea-navy/60 mt-1 truncate">
               Promedio:{' '}
-              {cuota.mesas_activas_empresa > 0
-                ? (totalCapacidadSentados / cuota.mesas_activas_empresa).toFixed(1)
+              {totalMesasLocal > 0
+                ? (totalCapacidadSentados / totalMesasLocal).toFixed(1)
                 : 0}{' '}
               personas por mesa
             </p>
@@ -113,7 +119,7 @@ export const PlanoHeader: React.FC<PlanoHeaderProps> = ({
         <div className="p-4 sm:p-5 rounded-2xl bg-white border border-aurea-copper/30 shadow-sm sm:col-span-2 lg:col-span-1">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-aurea-navy/60 uppercase tracking-wider">
-              Cupo de Mesas (Plan Pro)
+              Cupo de Mesas (Plan {cuota.plan_nombre || 'actual'})
             </span>
             <span className="text-xs font-bold text-aurea-copper">
               {cuota.mesas_disponibles} disponibles

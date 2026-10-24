@@ -1,4 +1,5 @@
 import { apiClient, apiGet, apiPost, apiPatch, apiPut } from './client';
+import { realPlanoService } from './planoService';
 import type { ApiResponse } from '@/types/api';
 import type {
   PlanoCompletoMozoDTO,
@@ -718,6 +719,7 @@ export const realCajaService = {
 };
 
 export const realAdminService = {
+  ...realPlanoService,
   obtenerCategorias: (): Promise<ApiEnvelope<CategoriasAdminResponseDTO>> => apiGet('/admin/categorias'),
   crearCategoria: (payload: CrearCategoriaRequest): Promise<ApiEnvelope<CategoriaAdminDTO>> => apiPost('/admin/categorias', payload),
   actualizarCategoria: (id: string, payload: ActualizarCategoriaRequest): Promise<ApiEnvelope<CategoriaAdminDTO>> => apiPatch(`/admin/categorias/${id}`, payload),

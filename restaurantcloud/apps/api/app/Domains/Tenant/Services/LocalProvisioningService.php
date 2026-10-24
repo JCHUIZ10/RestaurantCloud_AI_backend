@@ -3,6 +3,7 @@
 namespace App\Domains\Tenant\Services;
 
 use App\Domains\Archivos\Services\TenantStorageService;
+use App\Domains\Mesas\Services\CuotaSalonService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -121,6 +122,8 @@ class LocalProvisioningService
             if ($localesActivos >= $empresa->max_locales) {
                 throw new \OverflowException("Has alcanzado el límite máximo de locales de tu Plan {$empresa->plan_nombre} ({$empresa->max_locales} locales).");
             }
+
+            app(CuotaSalonService::class)->asegurar($empresaId, 1, $giro === 'en_blanco' ? 0 : 15);
 
             // 2. Validar unicidad global del slug
             $existeSlug = DB::table('local')->whereRaw('LOWER(slug) = ?', [$slug])->exists();
@@ -280,7 +283,7 @@ class LocalProvisioningService
                     'categorias_creadas' => $categoriasCreadas,
                     'insumos_creados' => $insumosCreados,
                 ],
-                'mensaje' => "Sede \"" . trim($datos['nombre']) . "\" registrada exitosamente. Salón Principal y carta inicial aprovisionados.",
+                'mensaje' => 'Sede "'.trim($datos['nombre']).'" registrada exitosamente. Salón Principal y carta inicial aprovisionados.',
             ];
         });
     }
@@ -445,6 +448,6 @@ class LocalProvisioningService
             throw new \InvalidArgumentException('El teléfono de contacto debe ser un número celular peruano de 9 dígitos que inicie con 9.');
         }
 
-        return '+51 ' . substr($soloDigitos, 0, 3) . ' ' . substr($soloDigitos, 3, 3) . ' ' . substr($soloDigitos, 6, 3);
+        return '+51 '.substr($soloDigitos, 0, 3).' '.substr($soloDigitos, 3, 3).' '.substr($soloDigitos, 6, 3);
     }
 }

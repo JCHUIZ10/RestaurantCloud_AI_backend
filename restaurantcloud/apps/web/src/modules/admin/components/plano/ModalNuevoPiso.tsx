@@ -19,6 +19,7 @@ export const ModalNuevoPiso: React.FC<ModalNuevoPisoProps> = ({
   const [columnas, setColumnas] = useState(4);
   const [filas, setFilas] = useState(3);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorLocal, setErrorLocal] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -29,6 +30,7 @@ export const ModalNuevoPiso: React.FC<ModalNuevoPisoProps> = ({
     if (!nombre.trim() || excedePisos) return;
 
     try {
+      setErrorLocal(null);
       setIsSubmitting(true);
       await onSubmit({
         nombre: nombre.trim(),
@@ -37,6 +39,8 @@ export const ModalNuevoPiso: React.FC<ModalNuevoPisoProps> = ({
       });
       setNombre('');
       onClose();
+    } catch (error) {
+      setErrorLocal(error instanceof Error ? error.message : 'No se pudo guardar el ambiente.');
     } finally {
       setIsSubmitting(false);
     }
@@ -68,6 +72,7 @@ export const ModalNuevoPiso: React.FC<ModalNuevoPisoProps> = ({
 
         {/* Formulario */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {errorLocal && <p role="alert" className="text-sm text-rose-700">{errorLocal}</p>}
           {excedePisos ? (
             <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-300 text-xs text-rose-800 flex items-start gap-2.5">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
@@ -95,6 +100,7 @@ export const ModalNuevoPiso: React.FC<ModalNuevoPisoProps> = ({
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
               placeholder="Ej. Mezzanine VIP, Terraza 2do Piso"
+              maxLength={60}
               className="w-full px-3.5 py-2.5 rounded-xl border border-aurea-copper/40 text-sm text-aurea-navy focus:outline-none focus:ring-2 focus:ring-aurea-copper disabled:opacity-50"
             />
           </div>

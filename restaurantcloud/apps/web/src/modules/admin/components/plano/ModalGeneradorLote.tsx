@@ -30,19 +30,23 @@ export const ModalGeneradorLote: React.FC<ModalGeneradorLoteProps> = ({
   const [forma, setForma] = useState<FormaMesa>('cuadrada');
   const [permiteUnion, setPermiteUnion] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorLocal, setErrorLocal] = useState<string | null>(null);
 
   if (!isOpen || !pisoActivo) return null;
 
   const totalMesasNuevas = columnas * filas;
-  const excedeCuota = totalMesasNuevas > cuota.mesas_disponibles;
+  const excedeCuota = totalMesasNuevas > cuota.mesas_disponibles
+    || pisoActivo.mesas.some((m) => m.estado !== 'inactiva');
   const cuotaRestante = cuota.mesas_disponibles - totalMesasNuevas;
   const numeroFin = numeroInicio + totalMesasNuevas - 1;
+  const codigoInvalido = `${prefijo}${String(numeroFin).padStart(2, '0')}`.trim().length > 10;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (excedeCuota) return;
+    if (excedeCuota || codigoInvalido) return;
 
     try {
+      setErrorLocal(null);
       setIsSubmitting(true);
       await onSubmit(pisoId, {
         columnas,
@@ -54,6 +58,8 @@ export const ModalGeneradorLote: React.FC<ModalGeneradorLoteProps> = ({
         permite_union: permiteUnion,
       });
       onClose();
+    } catch (error) {
+      setErrorLocal(error instanceof Error ? error.message : 'No se pudo generar el lote.');
     } finally {
       setIsSubmitting(false);
     }
@@ -85,6 +91,8 @@ export const ModalGeneradorLote: React.FC<ModalGeneradorLoteProps> = ({
 
         {/* Formulario */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
+          {errorLocal && <p role="alert" className="text-sm text-rose-700">{errorLocal}</p>}
+          {codigoInvalido && <p role="alert" className="text-sm text-rose-700">El prefijo y el número deben sumar como máximo 10 caracteres.</p>}
           {/* Banner de Ambiente Activo */}
           <div className="p-3.5 rounded-2xl bg-aurea-champagne/20 border border-aurea-copper/30 flex items-center justify-between text-xs text-aurea-navy">
             <div className="flex items-center gap-2">
@@ -268,7 +276,7 @@ export const ModalGeneradorLote: React.FC<ModalGeneradorLoteProps> = ({
             )}
             <div>
               <span className="font-bold">
-                {excedeCuota ? 'Cuota del Plan Excedida:' : 'Impacto en tu Plan Pro:'}
+                {excedeCuota ? 'Cuota o ambiente no disponible:' : `Impacto en tu plan ${cuota.plan_nombre || 'actual'}:`}
               </span>{' '}
               {excedeCuota
                 ? `Esta acción crearía ${totalMesasNuevas} mesas, pero solo tienes ${cuota.mesas_disponibles} disponibles de tu cupo contratado (${cuota.max_mesas_plan} mesas). Reduce las columnas/filas o solicita una ampliación de plan.`
@@ -288,7 +296,7 @@ export const ModalGeneradorLote: React.FC<ModalGeneradorLoteProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || excedeCuota}
+              disabled={isSubmitting || excedeCuota || codigoInvalido}
               className="px-5 py-2.5 rounded-xl bg-aurea-navy text-white hover:bg-aurea-navy/90 text-xs sm:text-sm font-semibold transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
             >
               {isSubmitting

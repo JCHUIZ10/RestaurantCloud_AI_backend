@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { mockAdminService } from '../services/mockAdminService';
+import { adminService, IS_REAL_API } from '@/services/serviceAdapter';
 import {
   PlanoMesasResponseDTO,
   PisoAdminDTO,
@@ -54,12 +55,11 @@ export const AdminPlanoMesasPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await mockAdminService.obtenerPlanoMesas();
+      const res = await adminService.obtenerPlanoMesas();
       if (res.exito && res.datos) {
         setData(res.datos);
-        if (!pisoActivoId && res.datos.pisos.length > 0) {
-          setPisoActivoId(res.datos.pisos[0].id);
-        }
+        setPisoActivoId((actual) => res.datos.pisos.some((p: PisoAdminDTO) => p.id === actual)
+          ? actual : res.datos.pisos[0]?.id || '');
       } else {
         setError(res.errores?.[0]?.mensaje || 'No se pudo cargar el plano de mesas.');
       }
@@ -69,7 +69,7 @@ export const AdminPlanoMesasPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [pisoActivoId]);
+  }, []);
 
   useEffect(() => {
     cargarDatos();
@@ -83,73 +83,71 @@ export const AdminPlanoMesasPage: React.FC = () => {
 
   // Handlers de Acciones
   const handleGenerarLote = async (pisoId: string, payload: CrearMesaLoteRequest) => {
-    const res = await mockAdminService.generarMesasEnLote(pisoId, payload);
+    const res = await adminService.generarMesasEnLote(pisoId, payload);
     if (res.exito && res.datos) {
       showToast(`${res.datos.mesas_creadas} mesas generadas y distribuidas exitosamente en el salón.`);
       await cargarDatos();
     } else {
       showToast(res.errores?.[0]?.mensaje || 'Error al generar mesas.', 'error');
+      throw new Error(res.errores?.[0]?.mensaje || 'Error al generar mesas.');
     }
   };
 
   const handleCrearIndividual = async (pisoId: string, payload: CrearMesaIndividualRequest) => {
-    const res = await mockAdminService.crearMesaIndividual(pisoId, payload);
+    const res = await adminService.crearMesaIndividual(pisoId, payload);
     if (res.exito && res.datos) {
       showToast(`Mesa ${res.datos.numero} creada exitosamente.`);
       await cargarDatos();
     } else {
       showToast(res.errores?.[0]?.mensaje || 'Error al crear mesa.', 'error');
+      throw new Error(res.errores?.[0]?.mensaje || 'Error al crear mesa.');
     }
   };
 
   const handleGuardarMesa = async (mesaId: string, payload: ActualizarMesaRequest) => {
-    const res = await mockAdminService.actualizarMesa(mesaId, payload);
+    const res = await adminService.actualizarMesa(mesaId, payload);
     if (res.exito && res.datos) {
       showToast(`Mesa ${res.datos.numero} actualizada exitosamente.`);
       await cargarDatos();
     } else {
       showToast(res.errores?.[0]?.mensaje || 'Error al actualizar mesa.', 'error');
+      throw new Error(res.errores?.[0]?.mensaje || 'Error al actualizar mesa.');
     }
   };
 
   const handleDesactivarMesa = async (mesaId: string) => {
-    const res = await mockAdminService.desactivarMesa(mesaId);
+    const res = await adminService.desactivarMesa(mesaId);
     if (res.exito) {
       setMesaEnEdicion(null);
       showToast('Mesa desactivada exitosamente del salón.');
       await cargarDatos();
     } else {
       const err = res.errores?.[0];
-      if (err?.codigo === 'ERR_MESA_CON_PEDIDOS_ACTIVOS') {
+      if (err?.codigo === 'ERR_MESA_CON_PEDIDOS_ACTIVOS' && err.detalles) {
         // Disparar Modal de Bloqueo Duro 409
         setMesaEnEdicion(null);
-        setConflictoDesactivacion({
-          mesa_id: mesaId,
-          pedido_id: 'ped-88129-001',
-          codigo_comanda: 'COM-0104',
-          estado_pedido: 'en_preparacion (cocina y salón)',
-          total_cuenta: 142.5,
-          mozo_nombre: 'Luis Mozo',
-        });
+        setConflictoDesactivacion(err.detalles as ConflictoDesactivacionMesaDTO);
       } else {
         showToast(err?.mensaje || 'Error al desactivar mesa.', 'error');
+        throw new Error(err?.mensaje || 'Error al desactivar mesa.');
       }
     }
   };
 
   const handleCrearPiso = async (payload: CrearPisoRequest) => {
-    const res = await mockAdminService.crearPiso(data?.local_id || '', payload);
+    const res = await adminService.crearPiso(data?.local_id || '', payload);
     if (res.exito && res.datos) {
       showToast(`Ambiente "${res.datos.nombre}" creado exitosamente.`);
       setPisoActivoId(res.datos.id);
       await cargarDatos();
     } else {
       showToast(res.errores?.[0]?.mensaje || 'Error al crear ambiente.', 'error');
+      throw new Error(res.errores?.[0]?.mensaje || 'Error al crear ambiente.');
     }
   };
 
   const handleRenombrarPiso = async (pisoId: string, nuevoNombre: string) => {
-    const res = await mockAdminService.actualizarNombrePiso(pisoId, nuevoNombre);
+    const res = await adminService.actualizarNombrePiso(pisoId, nuevoNombre);
     if (res.exito && res.datos) {
       showToast(`Ambiente renombrado a "${res.datos.nombre}" exitosamente.`);
       await cargarDatos();
@@ -161,7 +159,7 @@ export const AdminPlanoMesasPage: React.FC = () => {
   };
 
   const handleDesactivarPiso = async (pisoId: string) => {
-    const res = await mockAdminService.desactivarPiso(pisoId);
+    const res = await adminService.desactivarPiso(pisoId);
     if (res.exito && res.datos) {
       showToast(res.datos.mensaje);
       const pisosRestantes = data?.pisos.filter((p) => p.id !== pisoId) || [];
@@ -183,7 +181,7 @@ export const AdminPlanoMesasPage: React.FC = () => {
 
     try {
       setIsUpdatingDimensions(true);
-      const res = await mockAdminService.actualizarDimensionesPiso(pisoActivo.id, {
+      const res = await adminService.actualizarDimensionesPiso(pisoActivo.id, {
         columnas: nuevasCols,
         filas: nuevasFilas,
       });
@@ -194,6 +192,8 @@ export const AdminPlanoMesasPage: React.FC = () => {
       } else {
         showToast(res.errores?.[0]?.mensaje || 'No se pudo recortar la cuadrícula.', 'error');
       }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'No se pudo actualizar el salón.', 'error');
     } finally {
       setIsUpdatingDimensions(false);
     }
@@ -300,6 +300,8 @@ export const AdminPlanoMesasPage: React.FC = () => {
           <PlanoHeader
             cuota={data.cuota_mesas}
             totalCapacidadSentados={totalCapacidadSentados}
+            totalMesasLocal={data.pisos.reduce((sum, p) => sum + p.total_mesas, 0)}
+            totalPisosLocal={data.pisos.length}
             localNombre={data.local_nombre}
             onAbrirMesaIndividual={() => {
               setPosicionNuevaMesa(null);
@@ -320,7 +322,7 @@ export const AdminPlanoMesasPage: React.FC = () => {
           />
 
           {/* Cuadrícula o Onboarding si está vacío */}
-          {pisoActivo && pisoActivo.mesas.filter((m) => m.estado === 'activa').length === 0 ? (
+          {pisoActivo && pisoActivo.mesas.filter((m) => m.estado !== 'inactiva').length === 0 ? (
             <OnboardingPisoVacio
               pisoNombre={pisoActivo.nombre}
               onAbrirAsistenteLote={() => setModalLoteOpen(true)}
@@ -375,6 +377,7 @@ export const AdminPlanoMesasPage: React.FC = () => {
       {/* DRAWER: Edición Rápida de Mesa */}
       <DrawerEditarMesa
         mesa={mesaEnEdicion}
+        pisos={data?.pisos || []}
         pisoNombre={pisoActivo?.nombre || 'Salón'}
         isOpen={Boolean(mesaEnEdicion)}
         onClose={() => setMesaEnEdicion(null)}
@@ -412,13 +415,13 @@ export const AdminPlanoMesasPage: React.FC = () => {
       )}
 
       {/* WIDGET FLOTANTE DEMO (CU-ADMIN-01) */}
-      <DemoAdminPlanoWidget
+      {!IS_REAL_API && <DemoAdminPlanoWidget
         onRestablecerSemillas={handleRestablecerSemillas}
         onSimularCuotaLlena={handleSimularCuotaLlena}
         onSimularPisoVacio={handleSimularPisoVacio}
         onProbarBloqueoMesa04={handleProbarBloqueoMesa04}
         onSimularErrorRed={handleSimularErrorRed}
-      />
+      />}
     </div>
   );
 };

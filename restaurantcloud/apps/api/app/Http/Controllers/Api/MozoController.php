@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Domains\Inventario\Services\StockDeduccionService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+<<<<<<< Updated upstream
 use App\Domains\Inventario\Services\StockDeduccionService;
 use Carbon\Carbon;
+=======
+>>>>>>> Stashed changes
 use Illuminate\Support\Str;
 
 class MozoController extends Controller
@@ -348,6 +352,7 @@ class MozoController extends Controller
 
         $comandasPreparacion = $comandasPrepRaw->map(function ($cp) {
             $minutos = (int) max(0, round((now()->timestamp - strtotime($cp->created_at)) / 60));
+
             return [
                 'pedido_id' => $cp->pedido_id,
                 'mesa_numero' => $cp->mesa_numero,
@@ -369,7 +374,7 @@ class MozoController extends Controller
 
         foreach ($productosAgotados as $pa) {
             $alertasOperativas[] = [
-                'id' => 'alerta-agotado-' . $pa->id,
+                'id' => 'alerta-agotado-'.$pa->id,
                 'tipo' => 'quiebre_insumo',
                 'titulo' => 'Plato Agotado en Cocina',
                 'descripcion' => "{$pa->nombre} no disponible para comandar.",
@@ -428,6 +433,13 @@ class MozoController extends Controller
         $comensales = (int) $request->input('comensales', $mesa->capacidad ?: 2);
 
         return DB::transaction(function () use ($mesa, $comensales, $user, $localId) {
+            $mesa = DB::table('mesa')->where('id', $mesa->id)->where('local_id', $localId)->lockForUpdate()->first();
+            if (! $mesa || $mesa->estado !== 'activa'
+                || ! DB::table('piso')->where('id', $mesa->piso_id)->where('local_id', $localId)->where('estado', 'activo')->exists()
+                || ! DB::table('local')->where('id', $localId)->where('estado', 'activo')->exists()) {
+                return ApiResponse::error('ERR_MESA_NO_DISPONIBLE', 'La mesa o su ambiente no están disponibles.', 409);
+            }
+
             // Verificar si ya tiene pedido activo
             $pedidoExistente = DB::table('pedido')
                 ->where('mesa_id', $mesa->id)
@@ -1455,6 +1467,7 @@ class MozoController extends Controller
     public function enviarPedidoMesa(string $id, Request $request): JsonResponse
     {
         $request->merge(['mesa_id' => $id]);
+
         return $this->crearPedido($request);
     }
 
@@ -1513,6 +1526,13 @@ class MozoController extends Controller
 
         // 2. Transacción de inserción
         return DB::transaction(function () use ($validated, $user, $localId, $productosDB, $mesa) {
+            $mesa = DB::table('mesa')->where('id', $mesa->id)->where('local_id', $localId)->lockForUpdate()->first();
+            if (! $mesa || $mesa->estado !== 'activa'
+                || ! DB::table('piso')->where('id', $mesa->piso_id)->where('local_id', $localId)->where('estado', 'activo')->exists()
+                || ! DB::table('local')->where('id', $localId)->where('estado', 'activo')->exists()) {
+                return ApiResponse::error('ERR_MESA_NO_DISPONIBLE', 'La mesa o su ambiente no están disponibles.', 409);
+            }
+
             $pedidoExistente = DB::table('pedido')
                 ->where('mesa_id', $validated['mesa_id'])
                 ->whereIn('estado', ['enviado', 'cuenta_pedida', 'borrador'])
@@ -1558,7 +1578,9 @@ class MozoController extends Controller
 
             foreach ($validated['items'] as $item) {
                 $prod = $productosDB->get($item['producto_id']);
-                if (! $prod) continue;
+                if (! $prod) {
+                    continue;
+                }
 
                 $requiereCocina = (bool) $prod->requiere_preparacion;
                 // Si requiere preparación va a la cola KDS, si es bebida/postre de salón nace listo de inmediato
@@ -1657,6 +1679,7 @@ class MozoController extends Controller
 
         $items = $itemsRaw->map(function ($it) {
             $subtotal = round((float) $it->cantidad * (float) $it->precio_unitario, 2);
+
             return [
                 'id' => $it->id,
                 'producto_id' => $it->producto_id,
@@ -1850,6 +1873,7 @@ class MozoController extends Controller
 
         $items = $itemsRaw->map(function ($it) use ($subcuentaItemsMap) {
             $subcuentaAsignadaId = $subcuentaItemsMap->get($it->id)?->subcuenta_id;
+
             return [
                 'id' => $it->id,
                 'pedido_item_id' => $it->id,

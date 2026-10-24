@@ -26,7 +26,7 @@ class ApiResponse
      * - ApiResponse::error('Mensaje de error', 404)
      * - ApiResponse::error('CODIGO_ERROR', 'Mensaje de error', 422)
      */
-    public static function error(string $codigoOMensaje, string|int $mensajeOStatus = 400, int $status = 400): JsonResponse
+    public static function error(string $codigoOMensaje, string|int $mensajeOStatus = 400, int $status = 400, ?array $detalles = null): JsonResponse
     {
         if (is_int($mensajeOStatus)) {
             $status = $mensajeOStatus;
@@ -51,6 +51,7 @@ class ApiResponse
                 [
                     'codigo' => $codigo,
                     'mensaje' => $mensaje,
+                    ...($detalles !== null ? ['detalles' => $detalles] : []),
                 ],
             ],
             'meta' => [

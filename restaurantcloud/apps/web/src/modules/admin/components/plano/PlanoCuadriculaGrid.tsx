@@ -20,7 +20,7 @@ export const PlanoCuadriculaGrid: React.FC<PlanoCuadriculaGridProps> = ({
   // Mapa de mesas activas por clave "x-y"
   const mapaMesas = new Map<string, MesaAdminDTO>();
   piso.mesas
-    .filter((m) => m.estado === 'activa')
+    .filter((m) => m.estado !== 'inactiva')
     .forEach((m) => {
       mapaMesas.set(`${m.posicion_x}-${m.posicion_y}`, m);
     });
@@ -62,6 +62,7 @@ export const PlanoCuadriculaGrid: React.FC<PlanoCuadriculaGridProps> = ({
         </div>
 
         {/* Grilla CSS adaptativa por número de columnas */}
+        <div className="overflow-x-auto pb-2">
         <div
           className="grid gap-3 sm:gap-4.5"
           style={{
@@ -101,6 +102,7 @@ export const PlanoCuadriculaGrid: React.FC<PlanoCuadriculaGridProps> = ({
               </button>
             );
           })}
+        </div>
         </div>
       </div>
 

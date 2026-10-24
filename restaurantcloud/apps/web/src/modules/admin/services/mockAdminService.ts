@@ -3793,6 +3793,7 @@ class MockAdminService {
       local_id: localId,
       local_nombre: CANONICAL_LOCAL_NOMBRE,
       cuota_mesas: {
+        plan_nombre: 'Pro',
         mesas_activas_empresa: mesasActivas,
         max_mesas_plan: this.maxMesasPlan,
         mesas_disponibles: Math.max(0, this.maxMesasPlan - mesasActivas),
@@ -3849,8 +3850,9 @@ class MockAdminService {
     piso.columnas = Math.max(piso.columnas, req.columnas);
     piso.filas = Math.max(piso.filas, req.filas);
 
-    // Limpiar mesas activas anteriores si se regenera el layout
-    piso.mesas = piso.mesas.filter((m) => m.estado !== 'activa');
+    if (piso.mesas.some((m) => m.estado !== 'inactiva')) {
+      throw new Error('El asistente requiere un ambiente vacío.');
+    }
 
     const nuevasMesas: MesaAdminDTO[] = [];
     let correlativo = req.numero_inicio;
@@ -3922,7 +3924,7 @@ class MockAdminService {
 
     // Validar unicidad de número en piso
     const duplicada = piso.mesas.find(
-      (m) => m.numero.toLowerCase() === req.numero.trim().toLowerCase() && m.estado === 'activa'
+      (m) => m.numero.toLowerCase() === req.numero.trim().toLowerCase()
     );
     if (duplicada) {
       return {
@@ -3982,12 +3984,24 @@ class MockAdminService {
     for (const piso of this.pisos) {
       const index = piso.mesas.findIndex((m) => m.id === mesaId);
       if (index !== -1) {
+        const mesaActual = piso.mesas[index];
+        const destino = this.pisos.find((p) => p.id === (req.piso_id || piso.id) && p.estado === 'activo');
+        if (!destino) throw new Error('Ambiente destino no disponible.');
+        const moviendo = destino.id !== piso.id || req.posicion_x !== mesaActual.posicion_x || req.posicion_y !== mesaActual.posicion_y;
+        if (moviendo && (mesaActual.tiene_pedido_activo || mesaActual.mesa_principal_id
+          || this.pisos.some((p) => p.mesas.some((m) => m.mesa_principal_id === mesaId)))) {
+          throw new Error('Cierra la comanda y separa el grupo antes de reubicar.');
+        }
+        if (req.posicion_x < 0 || req.posicion_y < 0 || req.posicion_x >= destino.columnas || req.posicion_y >= destino.filas
+          || destino.mesas.some((m) => m.id !== mesaId && m.estado !== 'inactiva'
+            && m.posicion_x === req.posicion_x && m.posicion_y === req.posicion_y)) {
+          throw new Error('La casilla no está disponible.');
+        }
         // Validar unicidad de número
-        const otraConMismoNumero = piso.mesas.find(
+        const otraConMismoNumero = destino.mesas.find(
           (m) =>
             m.id !== mesaId &&
-            m.numero.toLowerCase() === req.numero.trim().toLowerCase() &&
-            m.estado === 'activa'
+            m.numero.toLowerCase() === req.numero.trim().toLowerCase()
         );
         if (otraConMismoNumero) {
           return {
@@ -4012,6 +4026,12 @@ class MockAdminService {
         mesa.posicion_y = req.posicion_y;
         mesa.permite_union = req.permite_union;
         mesa.updated_at = new Date().toISOString();
+        if (destino.id !== piso.id) {
+          piso.mesas.splice(index, 1);
+          mesa.piso_id = destino.id;
+          destino.mesas.push(mesa);
+          this.calcularMetricasPiso(destino);
+        }
 
         this.calcularMetricasPiso(piso);
         return {
@@ -4046,6 +4066,14 @@ class MockAdminService {
               {
                 codigo: 'ERR_MESA_CON_PEDIDOS_ACTIVOS',
                 mensaje: `No se puede desactivar la Mesa ${mesa.numero} porque tiene la comanda activa ${mesa.comanda_activa_codigo || '#104'} en salón.`,
+                detalles: {
+                  mesa_id: mesa.id,
+                  pedido_id: '',
+                  codigo_comanda: mesa.comanda_activa_codigo || 'Comanda abierta',
+                  estado_pedido: 'enviado',
+                  total_cuenta: mesa.total_cuenta_activa || 0,
+                  mozo_nombre: mesa.mozo_a_cargo || 'Sin asignar',
+                },
                 campo: 'mesa_id',
               },
             ],
@@ -4079,7 +4107,7 @@ class MockAdminService {
   async crearPiso(localId: string, req: CrearPisoRequest): Promise<ApiResponse<PisoAdminDTO>> {
     await new Promise((r) => setTimeout(r, 120));
 
-    if (this.pisos.length >= this.maxPisosPlan) {
+    if (this.pisos.filter((p) => p.estado === 'activo').length >= this.maxPisosPlan) {
       return {
         exito: false,
         datos: null as unknown as PisoAdminDTO,

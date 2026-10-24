@@ -37,7 +37,7 @@ export const MesaAdminCard: React.FC<MesaAdminCardProps> = ({ mesa, onEditarMesa
       <div className="flex items-center justify-between gap-1 w-full">
         <div className="flex items-center gap-1.5">
           <span className="font-serif font-bold text-base sm:text-lg text-aurea-navy">
-            Mesa {mesa.numero}
+            {/^(mesa\b)/i.test(mesa.numero) ? mesa.numero : `Mesa ${mesa.numero}`}
           </span>
           {mesa.permite_union && (
             <span title="Permite unión de grupos" className="text-aurea-copper">
@@ -47,7 +47,9 @@ export const MesaAdminCard: React.FC<MesaAdminCardProps> = ({ mesa, onEditarMesa
         </div>
 
         {/* Indicador de Estado Operativo */}
-        {isOcupada ? (
+        {mesa.estado === 'bloqueada' ? (
+          <span className="text-xs font-bold text-amber-800">Bloqueada</span>
+        ) : isOcupada ? (
           <span
             title="Mesa con comanda activa en salón"
             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-300 animate-pulse"

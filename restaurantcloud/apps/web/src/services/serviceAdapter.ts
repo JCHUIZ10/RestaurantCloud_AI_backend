@@ -23,6 +23,7 @@ import {
 import { mockCocinaService } from '@/modules/cocina/services/mockCocinaService';
 import { mockCajaService } from '@/modules/caja/services/mockCajaService';
 import { mockAdminService } from '@/modules/admin/services/mockAdminService';
+import { realPlanoService } from './api/planoService';
 
 export const IS_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 
@@ -53,6 +54,10 @@ export const cajaService = new Proxy(mockCajaService as any, {
 
 export const adminService = new Proxy(mockAdminService as any, {
   get(target, prop, receiver) {
+    if (IS_REAL_API && prop in realPlanoService) {
+      const metodo = realPlanoService[prop as keyof typeof realPlanoService];
+      return metodo.bind(realPlanoService);
+    }
     if (IS_REAL_API && prop in realAdminService) {
       const val = (realAdminService as any)[prop];
       return typeof val === 'function' ? val.bind(realAdminService) : val;
