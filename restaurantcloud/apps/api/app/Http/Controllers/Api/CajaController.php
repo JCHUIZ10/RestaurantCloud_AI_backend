@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Domains\Caja\Jobs\GenerarComprobanteDigitalJob;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -941,7 +942,35 @@ class CajaController extends Controller
                 'created_at' => now(),
             ]);
 
-            // 6. Verificar si el pedido madre queda saldado al 100%
+            // 6. Persistir la solicitud de documento en la misma transaccion
+            // financiera. El scheduler la enviara al worker de Redis.
+            DB::table('outbox_event')->insert([
+                'id' => (string) Str::uuid(),
+                'empresa_id' => $user->empresa_id,
+                'local_id' => $localId,
+                'agregado_tipo' => 'comprobante',
+                'agregado_id' => $comprobanteId,
+                'tipo_evento' => 'comprobante.digital.solicitado',
+                'payload' => json_encode([
+                    'comprobante_id' => $comprobanteId,
+                    'creado_por' => $user->id,
+                ]),
+                'estado' => 'pendiente',
+                'disponible_desde' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $outboxEventId = DB::table('outbox_event')
+                ->where('agregado_id', $comprobanteId)
+                ->where('tipo_evento', 'comprobante.digital.solicitado')
+                ->value('id');
+
+            // Intenta iniciar la generacion al confirmar la transaccion. El
+            // scheduler conserva la recuperacion si Redis o el worker caen.
+            DB::afterCommit(fn () => GenerarComprobanteDigitalJob::dispatch($outboxEventId));
+
+            // 7. Verificar si el pedido madre queda saldado al 100%
             $tieneSubcuentas = DB::table('pedido_subcuenta')->where('pedido_id', $pedido->id)->where('estado', '!=', 'anulado')->exists();
             $pedidoCerrado = $tieneSubcuentas
                 ? ! DB::table('pedido_subcuenta')->where('pedido_id', $pedido->id)->where('estado', 'pendiente')->exists()
@@ -995,8 +1024,8 @@ class CajaController extends Controller
                 'subcuentas_pendientes' => $subcuentasPendientes,
                 'emitido_at' => now()->toIso8601String(),
                 'documento_digital' => [
-                    'estado' => 'pendiente_generacion',
-                    'mensaje' => 'El PDF/XML y el QR público se generarán en la fase 03B.',
+                    'estado' => 'generando',
+                    'mensaje' => 'El PDF se está generando y estará disponible mediante el token QR.',
                 ],
                 'mensaje' => "Comprobante {$serie}-{$correlativo} emitido exitosamente.",
             ]);

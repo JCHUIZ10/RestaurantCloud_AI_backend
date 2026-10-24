@@ -840,6 +840,34 @@ CREATE TABLE IF NOT EXISTS snapshot_stock_diario (
 );
 
 -- 7.6 Almacenamiento Centralizado de Archivos y Metadatos de MinIO (CU-SAAS-02, CU-ADMIN-04, CU-ADMIN-11, CU-CAJA-03, CU-CAJA-05)
+-- 7.7 Outbox transaccional para eventos operativos asincronos (CU-CAJA-03B)
+CREATE TABLE IF NOT EXISTS outbox_event (
+    id UUID PRIMARY KEY,
+    empresa_id UUID NOT NULL REFERENCES empresa(id) ON DELETE CASCADE,
+    local_id UUID REFERENCES local(id) ON DELETE CASCADE,
+    agregado_tipo VARCHAR(50) NOT NULL,
+    agregado_id UUID NOT NULL,
+    tipo_evento VARCHAR(100) NOT NULL,
+    payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    estado VARCHAR(20) NOT NULL DEFAULT 'pendiente'
+        CHECK (estado IN ('pendiente', 'procesando', 'procesado', 'fallido')),
+    intentos SMALLINT NOT NULL DEFAULT 0 CHECK (intentos >= 0),
+    disponible_desde TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    procesado_at TIMESTAMPTZ,
+    ultimo_error TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_event_pendientes
+    ON outbox_event (estado, disponible_desde, created_at)
+    WHERE estado IN ('pendiente', 'fallido');
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_outbox_comprobante_documento
+    ON outbox_event (agregado_id, tipo_evento)
+    WHERE tipo_evento = 'comprobante.digital.solicitado';
+
+-- 7.8 Almacenamiento Centralizado de Archivos y Metadatos de MinIO (CU-SAAS-02, CU-ADMIN-04, CU-ADMIN-11, CU-CAJA-03, CU-CAJA-05)
 CREATE TABLE IF NOT EXISTS archivo (
     id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
     empresa_id UUID NOT NULL REFERENCES empresa(id) ON DELETE CASCADE,

@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\CocinaController;
 use App\Http\Controllers\Api\MozoController;
 use App\Http\Controllers\Api\Public\RegistroController;
 use App\Http\Controllers\Api\Public\ActivacionCuentaController;
+use App\Http\Controllers\Api\Public\ComprobantePublicoController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -40,6 +41,14 @@ Route::prefix('v1')->group(function (): void {
         Route::prefix('activar-cuenta')->group(function (): void {
             Route::get('/validar', [ActivacionCuentaController::class, 'validar']);
             Route::post('/completar', [ActivacionCuentaController::class, 'completar']);
+        });
+
+        // CU-CLIENTE-02: solo el token QR permite consultar o descargar.
+        Route::middleware('throttle:30,1')->prefix('comprobantes')->group(function (): void {
+            Route::get('/{token}', [ComprobantePublicoController::class, 'show'])
+                ->name('public.comprobantes.show');
+            Route::get('/{token}/pdf', [ComprobantePublicoController::class, 'descargarPdf'])
+                ->name('public.comprobantes.pdf');
         });
     });
 

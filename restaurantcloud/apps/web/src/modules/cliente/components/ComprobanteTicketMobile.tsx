@@ -16,9 +16,22 @@ export const ComprobanteTicketMobile: React.FC<ComprobanteTicketMobileProps> = (
   enlaceCopiado,
 }) => {
   const isAnulado = comprobante.estado === 'anulado';
+  const pdfDisponible = comprobante.documento_digital?.pdf_disponible ?? true;
+  const urlPdf = comprobante.documento_digital?.url_descarga_pdf;
   const whatsappUrl = `https://wa.me/51${comprobante.emisor.telefono}?text=Hola%20${encodeURIComponent(
     comprobante.emisor.razon_social
   )},%20tengo%20una%20consulta%20sobre%20mi%20comprobante%20${comprobante.serie_numero}.`;
+
+  const handleDownloadPdf = () => {
+    if (urlPdf) {
+      window.open(urlPdf, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    if (!comprobante.documento_digital) {
+      window.print();
+    }
+  };
 
   return (
     <div className="w-full max-w-md mx-auto space-y-4">
@@ -184,11 +197,12 @@ export const ComprobanteTicketMobile: React.FC<ComprobanteTicketMobileProps> = (
       <div className="space-y-2.5">
         <motion.button
           whileTap={{ scale: 0.98 }}
-          onClick={() => window.print()}
-          className="w-full py-3 px-4 rounded-xl bg-aurea-navy hover:bg-aurea-navy/95 text-white font-sans text-xs font-bold flex items-center justify-center gap-2 shadow-md cursor-pointer"
+          onClick={handleDownloadPdf}
+          disabled={!pdfDisponible}
+          className="w-full py-3 px-4 rounded-xl bg-aurea-navy hover:bg-aurea-navy/95 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-sans text-xs font-bold flex items-center justify-center gap-2 shadow-md cursor-pointer"
         >
           <Download className="w-4 h-4 text-aurea-copper" />
-          <span>Descargar Comprobante PDF Oficial</span>
+          <span>{pdfDisponible ? 'Descargar Comprobante PDF Oficial' : 'PDF en generación'}</span>
         </motion.button>
 
         <div className="grid grid-cols-2 gap-2">

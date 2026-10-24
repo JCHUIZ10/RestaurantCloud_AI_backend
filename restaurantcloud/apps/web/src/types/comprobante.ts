@@ -80,6 +80,11 @@ export interface ComprobantePublicoDTO {
   pago: PagoComprobanteDTO;
   nota_credito?: NotaCreditoReferenciaDTO;
   url_carta_digital: string;
+  documento_digital?: {
+    estado: 'generando' | 'disponible' | 'fallido';
+    pdf_disponible: boolean;
+    url_descarga_pdf?: string | null;
+  };
 }
 
 export interface DemoComprobantePreset {

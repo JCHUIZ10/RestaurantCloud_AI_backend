@@ -1,5 +1,14 @@
 # Pendiente CU-CAJA-03B: comprobantes digitales en MinIO
 
+> Actualización: la infraestructura base de CU-CAJA-03B ya está implementada:
+> Outbox, servicios Docker `queue` y `scheduler`, job idempotente, PDF privado
+> en MinIO, metadatos `archivo` y consulta pública por token QR. La descarga
+> pública/streaming del PDF continúa pendiente de corrección y validación
+> integral. El modal de Caja aún debe integrar el `token_digital` real para
+> mostrar QR/enlace después del cobro. Por ello CU-CAJA-03B aún no se considera
+> cerrado. La guía para entornos existentes o nuevos está en
+> `implementacion/GUIA_PRUEBA_COMPROBANTES_DIGITALES.md`.
+
 ## Estado al terminar CU-CAJA-03A
 
 La emisión fiscal ya es transaccional: valida los datos del cliente, bloquea la

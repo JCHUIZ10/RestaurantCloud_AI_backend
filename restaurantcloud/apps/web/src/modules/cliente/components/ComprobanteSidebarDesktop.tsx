@@ -15,11 +15,17 @@ export const ComprobanteSidebarDesktop: React.FC<ComprobanteSidebarDesktopProps>
   enlaceCopiado,
 }) => {
   const isAnulado = comprobante.estado === 'anulado';
+  const pdfDisponible = comprobante.documento_digital?.pdf_disponible ?? true;
+  const urlPdf = comprobante.documento_digital?.url_descarga_pdf;
   const whatsappUrl = `https://wa.me/51${comprobante.emisor.telefono}?text=Hola%20${encodeURIComponent(
     comprobante.emisor.razon_social
   )},%20tengo%20una%20consulta%20sobre%20mi%20comprobante%20${comprobante.serie_numero}.`;
 
   const handleDownloadXML = () => {
+    if (comprobante.documento_digital) {
+      return;
+    }
+
     // Generar y descargar string mock de XML UBL 2.1
     const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2">
@@ -42,6 +48,17 @@ export const ComprobanteSidebarDesktop: React.FC<ComprobanteSidebarDesktopProps>
     a.download = `${comprobante.emisor.ruc}-${comprobante.tipo === 'factura' ? '01' : '03'}-${comprobante.serie_numero}.xml`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadPdf = () => {
+    if (urlPdf) {
+      window.open(urlPdf, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    if (!comprobante.documento_digital) {
+      window.print();
+    }
   };
 
   return (
@@ -85,17 +102,19 @@ export const ComprobanteSidebarDesktop: React.FC<ComprobanteSidebarDesktopProps>
           {/* Botón Descargar PDF */}
           <motion.button
             whileTap={{ scale: 0.98 }}
-            onClick={() => window.print()}
-            className="w-full py-3 px-4 rounded-xl bg-aurea-navy hover:bg-aurea-navy/95 text-white font-sans text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+            onClick={handleDownloadPdf}
+            disabled={!pdfDisponible}
+            className="w-full py-3 px-4 rounded-xl bg-aurea-navy hover:bg-aurea-navy/95 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-sans text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
           >
             <Download className="w-4 h-4 text-aurea-copper" />
-            <span>Descargar PDF Oficial</span>
+            <span>{pdfDisponible ? 'Descargar PDF Oficial' : 'PDF en generación'}</span>
           </motion.button>
 
           {/* Botón Descargar XML (UBL 2.1) */}
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={handleDownloadXML}
+            disabled={Boolean(comprobante.documento_digital)}
             className="w-full py-2.5 px-4 rounded-xl bg-[#FFF9F0] hover:bg-aurea-champagne/30 text-aurea-navy border border-aurea-copper/30 font-sans text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
           >
             <FileCode className="w-4 h-4 text-aurea-copper" />

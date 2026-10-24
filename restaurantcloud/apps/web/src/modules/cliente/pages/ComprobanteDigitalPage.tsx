@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getComprobantePorToken } from '../services/mockComprobanteService';
+import { apiGet } from '@/services/api/client';
+import { IS_REAL_API } from '@/services/serviceAdapter';
 import { ComprobanteTicketMobile } from '../components/ComprobanteTicketMobile';
 import { ComprobanteFacturaA4 } from '../components/ComprobanteFacturaA4';
 import { ComprobanteSidebarDesktop } from '../components/ComprobanteSidebarDesktop';
@@ -35,7 +37,11 @@ export const ComprobanteDigitalPage: React.FC = () => {
     setCargando(true);
     setErrorMensaje(null);
 
-    getComprobantePorToken(tokenParam)
+    const consulta = IS_REAL_API
+      ? apiGet<ComprobantePublicoDTO>(`/public/comprobantes/${tokenParam}`)
+      : getComprobantePorToken(tokenParam);
+
+    consulta
       .then((res) => {
         if (!isMounted) return;
         if (res.exito && res.datos) {
@@ -96,10 +102,12 @@ export const ComprobanteDigitalPage: React.FC = () => {
           mensajeError={errorMensaje}
           modoInicial={!tokenParam}
         />
-        <DemoComprobantesWidget
-          onSelectToken={handleSelectDemoToken}
-          tokenActual={tokenParam || ''}
-        />
+        {!IS_REAL_API && (
+          <DemoComprobantesWidget
+            onSelectToken={handleSelectDemoToken}
+            tokenActual={tokenParam || ''}
+          />
+        )}
       </div>
     );
   }
@@ -148,10 +156,12 @@ export const ComprobanteDigitalPage: React.FC = () => {
       </div>
 
       {/* Widget Flotante de Demostración para Alternar Comprobantes en 1 Clic */}
-      <DemoComprobantesWidget
-        onSelectToken={handleSelectDemoToken}
-        tokenActual={tokenParam || ''}
-      />
+      {!IS_REAL_API && (
+        <DemoComprobantesWidget
+          onSelectToken={handleSelectDemoToken}
+          tokenActual={tokenParam || ''}
+        />
+      )}
     </div>
   );
 };

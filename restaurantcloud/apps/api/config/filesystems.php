@@ -56,7 +56,10 @@ return [
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => filter_var(env('AWS_USE_PATH_STYLE_ENDPOINT', false), FILTER_VALIDATE_BOOLEAN),
-            'throw' => false,
+            // Los documentos privados son críticos: los servicios que los
+            // consumen gestionan la excepción y pueden informar/reintentar.
+            // Devolver `false` oculta el detalle real de MinIO/S3.
+            'throw' => true,
 
             'report' => false,
         ],
