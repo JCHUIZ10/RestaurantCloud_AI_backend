@@ -8,4 +8,4 @@ export * from './ModalDetalleAuditoriaCompra';
 export * from './ModalAdvertenciaImpactoAnulacion';
 export * from './ModalReactivacionPlatos';
 export * from './OnboardingComprasVacio';
-export * from './DemoAdminComprasWidget';
+export * from './SelectorInsumoSearchable';

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Receipt, Ban, TrendingUp, TrendingDown, Clock, User, Building, Printer, Loader2 } from 'lucide-react';
 import { FichaCompraDetalleCompletoDTO } from '@/types/admin';
-import { mockAdminService } from '@/modules/admin/services/mockAdminService';
+import { adminService } from '@/services/serviceAdapter';
 
 interface ModalDetalleAuditoriaCompraProps {
   fichaId: string | null;
@@ -26,7 +26,7 @@ export const ModalDetalleAuditoriaCompra: React.FC<ModalDetalleAuditoriaCompraPr
   const cargarDetalle = async (id: string) => {
     try {
       setCargando(true);
-      const res = await mockAdminService.getFichaCompraDetalle(id);
+      const res = await adminService.getFichaCompraDetalle(id);
       if (res.exito && res.datos) {
         setDetalle(res.datos);
       }
@@ -164,19 +164,25 @@ export const ModalDetalleAuditoriaCompra: React.FC<ModalDetalleAuditoriaCompraPr
                             S/ {it.precio_unitario.toFixed(2)}
                           </td>
                           <td className="py-2.5 px-3 text-center">
-                            {it.variacion_porcentaje === 0 ? (
-                              <span className="text-[11px] text-gray-400 font-mono">0.0%</span>
-                            ) : it.variacion_porcentaje > 0 ? (
-                              <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">
-                                <TrendingUp className="w-3 h-3" />
-                                +{it.variacion_porcentaje.toFixed(1)}%
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                                <TrendingDown className="w-3 h-3" />
-                                {it.variacion_porcentaje.toFixed(1)}%
-                              </span>
-                            )}
+                            {(() => {
+                              const variacion = typeof it.variacion_porcentaje === 'number'
+                                ? it.variacion_porcentaje
+                                : (it.costo_anterior > 0 ? ((it.precio_unitario - it.costo_anterior) / it.costo_anterior) * 100 : 0);
+                              if (Math.abs(variacion) < 0.01) {
+                                return <span className="text-[11px] text-gray-400 font-mono">0.0%</span>;
+                              }
+                              return variacion > 0 ? (
+                                <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                                  <TrendingUp className="w-3 h-3" />
+                                  +{variacion.toFixed(1)}%
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                  <TrendingDown className="w-3 h-3" />
+                                  {variacion.toFixed(1)}%
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono font-bold text-gray-900">
                             S/ {it.subtotal.toFixed(2)}

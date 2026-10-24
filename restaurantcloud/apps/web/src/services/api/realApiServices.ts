@@ -93,7 +93,14 @@ import type {
   ProveedoresListDTO,
   CrearProveedorRequestDTO,
   ActualizarProveedorRequestDTO,
-  ProveedorHistorialComprasDTO,
+  ProveedorHistorialComprasDTO,
+  FichaCompraResumenDTO,
+  RegistrarFichaCompraRequestDTO,
+  ListarFichasCompraResponseDTO,
+  FichaCompraDetalleCompletoDTO,
+  ImpactoAnulacionDTO,
+  AnularFichaCompraRequestDTO,
+  PlatoReactivableDTO,
   PromocionesBandejaResponseDTO,
   BuscarPromocionesResponseDTO,
   PromocionAdminDTO,
@@ -851,20 +858,32 @@ export const realAdminService = {
 
   // CU-ADMIN-05: Directorio y Catálogo de Proveedores de Insumos
   getProveedores: (
-    _localId: string,
-    params?: {
+    localIdOrParams?:
+      | string
+      | {
+          estado?: 'activos' | 'inactivos' | 'todos';
+          query?: string;
+          pagina?: number;
+          limite?: number;
+        },
+    paramsMaybe?: {
       estado?: 'activos' | 'inactivos' | 'todos';
       query?: string;
       pagina?: number;
       limite?: number;
     }
-  ): Promise<ApiEnvelope<ProveedoresListDTO>> =>
-    apiGet('/admin/proveedores', {
+  ): Promise<ApiEnvelope<ProveedoresListDTO>> => {
+    const params =
+      typeof localIdOrParams === 'object' && localIdOrParams !== null
+        ? localIdOrParams
+        : paramsMaybe;
+    return apiGet('/admin/proveedores', {
       estado: params?.estado ?? 'activos',
       ...(params?.query ? { query: params.query } : {}),
       pagina: params?.pagina ?? 1,
       limite: params?.limite ?? 10,
-    }),
+    });
+  },
   crearProveedor: (
     _localId: string,
     payload: CrearProveedorRequestDTO
@@ -895,6 +914,7 @@ export const realAdminService = {
   // CU-ADMIN-06: Abastecimiento, Fichas de Compra y Reposición de Inventario
   getFichasCompra: (filtros?: {
     busqueda?: string;
+    criterioBusqueda?: string;
     tipoComprobante?: string;
     estado?: string;
     fechaDesde?: string;

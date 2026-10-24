@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, AlertTriangle, Ban, ChefHat, Utensils, Loader2 } from 'lucide-react';
 import { FichaCompraResumenDTO, ImpactoAnulacionDTO } from '@/types/admin';
-import { mockAdminService } from '@/modules/admin/services/mockAdminService';
+import { adminService } from '@/services/serviceAdapter';
 
 interface ModalAdvertenciaImpactoAnulacionProps {
   ficha: FichaCompraResumenDTO | null;
@@ -35,7 +35,7 @@ export const ModalAdvertenciaImpactoAnulacion: React.FC<ModalAdvertenciaImpactoA
   const evaluarImpacto = async (id: string) => {
     try {
       setCargandoImpacto(true);
-      const res = await mockAdminService.obtenerImpactoAnulacion(id);
+      const res = await adminService.obtenerImpactoAnulacion(id);
       if (res.exito && res.datos) {
         setImpacto(res.datos);
       }
@@ -61,7 +61,7 @@ export const ModalAdvertenciaImpactoAnulacion: React.FC<ModalAdvertenciaImpactoA
     try {
       setAnulando(true);
       setError(null);
-      const res = await mockAdminService.anularFichaCompra({
+      const res = await adminService.anularFichaCompra({
         ficha_id: ficha.id,
         motivo: motivo.trim(),
       });

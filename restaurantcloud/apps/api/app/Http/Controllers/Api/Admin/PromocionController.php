@@ -207,7 +207,6 @@ class PromocionController extends Controller
     private function resolverLocalId(Request $request): ?string
     {
         return $request->user()->local_id
-            ?? $request->header('X-Local-ID')
             ?? $request->query('local_id');
     }
 }

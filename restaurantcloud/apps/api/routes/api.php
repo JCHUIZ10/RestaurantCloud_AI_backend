@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\Admin\PlanoController;
 use App\Http\Controllers\Api\Admin\ProductoController;
 use App\Http\Controllers\Api\Admin\RecetaController;
 use App\Http\Controllers\Api\Admin\ProveedorController;
+use App\Http\Controllers\Api\Admin\FichaCompraController;
 use App\Http\Controllers\Api\Admin\PromocionController;
 use App\Http\Controllers\Api\Propietario\AdministradorController;
 use App\Http\Controllers\Api\Propietario\LocalController;
@@ -116,6 +117,16 @@ Route::prefix('v1')->group(function (): void {
                 Route::patch('/{id}/estado', [ProveedorController::class, 'estado']);
                 Route::delete('/{id}', [ProveedorController::class, 'destroy']);
                 Route::get('/{id}/historial', [ProveedorController::class, 'historial']);
+            });
+
+            Route::prefix('compras')->group(function (): void {
+                Route::get('/', [FichaCompraController::class, 'index']);
+                Route::post('/', [FichaCompraController::class, 'store']);
+                Route::post('/reactivar-platos', [FichaCompraController::class, 'reactivarPlatos']);
+                Route::post('/anular', [FichaCompraController::class, 'anular']);
+                Route::get('/{id}', [FichaCompraController::class, 'show']);
+                Route::get('/{id}/impacto-anulacion', [FichaCompraController::class, 'impactoAnulacion']);
+                Route::post('/{id}/anular', [FichaCompraController::class, 'anular']);
             });
 
             Route::get('/personal', [PersonalController::class, 'index']);

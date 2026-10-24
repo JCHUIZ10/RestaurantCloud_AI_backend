@@ -9,14 +9,14 @@ import {
   ModalAdvertenciaImpactoAnulacion,
   ModalReactivacionPlatos,
   OnboardingComprasVacio,
-  DemoAdminComprasWidget,
+  CriterioBusquedaCompra,
 } from '../components/compras';
 import {
   FichaCompraResumenDTO,
   FichasCompraKPIsDTO,
   PlatoReactivableDTO,
 } from '@/types/admin';
-import { mockAdminService } from '../services/mockAdminService';
+import { adminService } from '@/services/serviceAdapter';
 import { CheckCircle2, X } from 'lucide-react';
 
 const KPIS_INICIALES: FichasCompraKPIsDTO = {
@@ -34,6 +34,7 @@ export const AdminComprasPage: React.FC = () => {
 
   // Filtros y paginación
   const [busqueda, setBusqueda] = useState('');
+  const [criterioBusqueda, setCriterioBusqueda] = useState<CriterioBusquedaCompra>('TODOS');
   const [tipoComprobante, setTipoComprobante] = useState('TODOS');
   const [estado, setEstado] = useState('TODOS');
   const [fechaDesde, setFechaDesde] = useState('');
@@ -62,8 +63,9 @@ export const AdminComprasPage: React.FC = () => {
   const cargarFichas = useCallback(async () => {
     try {
       setCargando(true);
-      const res = await mockAdminService.getFichasCompra({
+      const res = await adminService.getFichasCompra({
         busqueda,
+        criterioBusqueda,
         tipoComprobante,
         estado,
         fechaDesde: fechaDesde || undefined,
@@ -81,14 +83,21 @@ export const AdminComprasPage: React.FC = () => {
     } finally {
       setCargando(false);
     }
-  }, [busqueda, tipoComprobante, estado, fechaDesde, fechaHasta, paginaActual, tamanoPagina]);
+  }, [busqueda, criterioBusqueda, tipoComprobante, estado, fechaDesde, fechaHasta, paginaActual, tamanoPagina]);
 
   useEffect(() => {
     cargarFichas();
   }, [cargarFichas]);
 
+  const handleEjecutarBusqueda = (termino: string, criterio: CriterioBusquedaCompra) => {
+    setBusqueda(termino);
+    setCriterioBusqueda(criterio);
+    setPaginaActual(1);
+  };
+
   const handleLimpiarFiltros = () => {
     setBusqueda('');
+    setCriterioBusqueda('TODOS');
     setTipoComprobante('TODOS');
     setEstado('TODOS');
     setFechaDesde('');
@@ -123,6 +132,7 @@ export const AdminComprasPage: React.FC = () => {
 
   const esFiltroActivo =
     busqueda.trim() !== '' ||
+    criterioBusqueda !== 'TODOS' ||
     tipoComprobante !== 'TODOS' ||
     estado !== 'TODOS' ||
     fechaDesde !== '' ||
@@ -154,10 +164,9 @@ export const AdminComprasPage: React.FC = () => {
       {/* Toolbar de Filtros */}
       <ComprasToolbar
         busqueda={busqueda}
-        onBusquedaChange={(val) => {
-          setBusqueda(val);
-          setPaginaActual(1);
-        }}
+        criterioBusqueda={criterioBusqueda}
+        onEjecutarBusqueda={handleEjecutarBusqueda}
+        cargando={cargando}
         tipoComprobante={tipoComprobante}
         onTipoComprobanteChange={(val) => {
           setTipoComprobante(val);
@@ -187,11 +196,6 @@ export const AdminComprasPage: React.FC = () => {
           esFiltroSinResultados={esFiltroActivo}
           onLimpiarFiltros={handleLimpiarFiltros}
           onNuevaCompra={() => setModalRegistroAbierto(true)}
-          onRestablecerSemillas={() => {
-            mockAdminService.restablecerSemillasCompras();
-            cargarFichas();
-            mostrarExito('Semillas de compras restablecidas.');
-          }}
         />
       ) : (
         <ComprasTable
@@ -237,11 +241,7 @@ export const AdminComprasPage: React.FC = () => {
         onReactivados={handlePlatosReactivados}
       />
 
-      {/* Demo QA Widget */}
-      <DemoAdminComprasWidget
-        onRecargarDatos={cargarFichas}
-        onAbrirModalRegistro={() => setModalRegistroAbierto(true)}
-      />
+      
     </div>
   );
 };

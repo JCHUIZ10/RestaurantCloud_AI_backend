@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Sparkles, Check, Loader2, Utensils } from 'lucide-react';
 import { PlatoReactivableDTO } from '@/types/admin';
-import { mockAdminService } from '@/modules/admin/services/mockAdminService';
+import { adminService } from '@/services/serviceAdapter';
 
 interface ModalReactivacionPlatosProps {
   platos: PlatoReactivableDTO[];
@@ -37,7 +37,7 @@ export const ModalReactivacionPlatos: React.FC<ModalReactivacionPlatosProps> = (
 
     try {
       setProcesando(true);
-      const res = await mockAdminService.reactivarPlatosCompra(seleccionados);
+      const res = await adminService.reactivarPlatosCompra(seleccionados);
       if (res.exito && res.datos) {
         onReactivados(res.datos.actualizados);
         onCerrar();

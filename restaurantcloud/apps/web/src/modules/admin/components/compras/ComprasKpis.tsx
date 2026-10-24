@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingBag, TrendingUp, Receipt, ShieldCheck, Clock } from 'lucide-react';
+import { ShoppingBag, TrendingUp, TrendingDown, Receipt, ShieldCheck, Clock } from 'lucide-react';
 import { FichasCompraKPIsDTO } from '@/types/admin';
 
 interface ComprasKpisProps {
@@ -18,20 +18,35 @@ export const ComprasKpis: React.FC<ComprasKpisProps> = ({ kpis, cargando = false
     );
   }
 
+  const nombreMes = new Intl.DateTimeFormat('es-PE', { month: 'long' }).format(new Date());
+  const mesCapitalizado = nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1);
+  const esVariacionPositiva = kpis.variacion_gasto_mes_pct >= 0;
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {/* 1. Gasto Total del Mes */}
       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-start justify-between">
         <div>
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Gasto Total Mes (Octubre)
+            Gasto Total Mes ({mesCapitalizado})
           </p>
           <p className="mt-1.5 text-2xl font-bold text-gray-900">
             S/ {kpis.gasto_mes_total.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-emerald-700">
-            <TrendingUp className="w-3.5 h-3.5" />
-            <span>+{kpis.variacion_gasto_mes_pct}% vs mes anterior</span>
+          <div
+            className={`mt-2 flex items-center gap-1.5 text-xs font-medium ${
+              esVariacionPositiva ? 'text-emerald-700' : 'text-blue-700'
+            }`}
+          >
+            {esVariacionPositiva ? (
+              <TrendingUp className="w-3.5 h-3.5" />
+            ) : (
+              <TrendingDown className="w-3.5 h-3.5" />
+            )}
+            <span>
+              {kpis.variacion_gasto_mes_pct > 0 ? '+' : ''}
+              {kpis.variacion_gasto_mes_pct}% vs mes anterior
+            </span>
           </div>
         </div>
         <div className="p-2.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100">

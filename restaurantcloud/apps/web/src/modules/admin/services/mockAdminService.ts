@@ -6358,6 +6358,7 @@ class MockAdminService {
    */
   async getFichasCompra(filtros?: {
     busqueda?: string;
+    criterioBusqueda?: string;
     tipoComprobante?: string;
     estado?: string;
     fechaDesde?: string;
@@ -6369,16 +6370,27 @@ class MockAdminService {
 
     let lista = [...this.fichasCompra];
 
-    // Filtro por búsqueda
+    // Filtro por búsqueda y criterio específico
     if (filtros?.busqueda && filtros.busqueda.trim()) {
       const q = filtros.busqueda.toLowerCase().trim();
-      lista = lista.filter(
-        (f) =>
+      const crit = filtros.criterioBusqueda || 'TODOS';
+      lista = lista.filter((f) => {
+        if (crit === 'COMPROBANTE') {
+          return f.numero_comprobante.toLowerCase().includes(q);
+        }
+        if (crit === 'PROVEEDOR') {
+          return f.proveedor_nombre.toLowerCase().includes(q);
+        }
+        if (crit === 'CODIGO') {
+          return f.codigo_correlativo.toLowerCase().includes(q);
+        }
+        return (
           f.numero_comprobante.toLowerCase().includes(q) ||
           f.proveedor_nombre.toLowerCase().includes(q) ||
           f.codigo_correlativo.toLowerCase().includes(q) ||
           (f.observaciones && f.observaciones.toLowerCase().includes(q))
-      );
+        );
+      });
     }
 
     // Filtro por tipo comprobante

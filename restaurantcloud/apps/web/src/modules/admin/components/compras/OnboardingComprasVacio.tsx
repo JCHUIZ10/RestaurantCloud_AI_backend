@@ -1,16 +1,14 @@
 import React from 'react';
-import { Receipt, Plus, RefreshCw, Sparkles } from 'lucide-react';
+import { Receipt, Plus } from 'lucide-react';
 
 interface OnboardingComprasVacioProps {
   onNuevaCompra: () => void;
-  onRestablecerSemillas: () => void;
   esFiltroSinResultados?: boolean;
   onLimpiarFiltros?: () => void;
 }
 
 export const OnboardingComprasVacio: React.FC<OnboardingComprasVacioProps> = ({
   onNuevaCompra,
-  onRestablecerSemillas,
   esFiltroSinResultados = false,
   onLimpiarFiltros,
 }) => {
@@ -30,7 +28,7 @@ export const OnboardingComprasVacio: React.FC<OnboardingComprasVacioProps> = ({
           <button
             type="button"
             onClick={onLimpiarFiltros}
-            className="mt-4 px-4 py-2 text-xs font-semibold text-primary-700 bg-primary-50 rounded-lg border border-primary-200 hover:bg-primary-100 transition-colors"
+            className="mt-4 px-4 py-2 text-xs font-semibold text-primary-700 bg-primary-50 rounded-lg border border-primary-200 hover:bg-primary-100 transition-colors cursor-pointer"
           >
             Limpiar todos los filtros
           </button>
@@ -45,11 +43,6 @@ export const OnboardingComprasVacio: React.FC<OnboardingComprasVacioProps> = ({
         <Receipt className="w-10 h-10" />
       </div>
 
-      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 mb-3">
-        <Sparkles className="w-3.5 h-3.5" />
-        <span>Historial de Compras Inicializado</span>
-      </div>
-
       <h3 className="text-lg font-bold text-gray-900">
         Aún no hay fichas de compra registradas
       </h3>
@@ -57,23 +50,14 @@ export const OnboardingComprasVacio: React.FC<OnboardingComprasVacioProps> = ({
         El registro de fichas de compra permite ingresar insumos al inventario, calcular costos reales con o sin IGV y reactivar platos agotados en el salón.
       </p>
 
-      <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+      <div className="mt-6 flex items-center justify-center">
         <button
           type="button"
           onClick={onNuevaCompra}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary-600 text-white rounded-xl text-xs font-bold hover:bg-primary-700 transition-colors shadow-sm"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary-600 text-white rounded-xl text-xs font-bold hover:bg-primary-700 transition-colors shadow-sm cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Registrar Primera Compra</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={onRestablecerSemillas}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl text-xs font-semibold hover:bg-gray-50 transition-colors"
-        >
-          <RefreshCw className="w-4 h-4" />
-          <span>Cargar Semillas de Prueba</span>
         </button>
       </div>
     </div>
