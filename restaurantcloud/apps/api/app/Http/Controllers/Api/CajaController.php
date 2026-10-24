@@ -403,9 +403,11 @@ class CajaController extends Controller
             return ApiResponse::error('MESA_NO_ENCONTRADA', 'La mesa no existe.', 404);
         }
 
+        $mesaEfectivaId = $mesa->mesa_principal_id ?? $mesa->id;
+
         $pedido = DB::table('pedido as p')
             ->leftJoin('usuario as u', 'u.id', '=', 'p.mozo_id')
-            ->where('p.mesa_id', $mesaId)
+            ->where('p.mesa_id', $mesaEfectivaId)
             ->whereIn('p.estado', ['enviado', 'cuenta_pedida', 'borrador'])
             ->select([
                 'p.id',
@@ -416,6 +418,7 @@ class CajaController extends Controller
                 'p.estado as pedido_estado',
                 'p.created_at',
                 'p.precuenta_generada_at',
+                'p.promocion_id',
                 'p.tipo_comprobante_sugerido',
                 'p.documento_cliente_sugerido',
                 'p.nombre_cliente_sugerido',
@@ -450,13 +453,16 @@ class CajaController extends Controller
         $items = $itemsRaw->map(function ($it) {
             $subtotal = round((float) $it->cantidad * (float) $it->precio_unitario, 2);
             return [
+                'id' => $it->id,
                 'producto_id' => $it->producto_id,
                 'nombre' => $it->producto_nombre,
+                'producto_nombre' => $it->producto_nombre,
                 'nota_cocina' => $it->nota_cocina,
                 'cantidad' => (int) $it->cantidad,
                 'precio_unitario' => (float) $it->precio_unitario,
                 'subtotal' => $subtotal,
                 'estado_cocina' => $it->estado_cocina,
+                'requiere_preparacion' => (bool) $it->requiere_preparacion,
             ];
         });
 
@@ -568,11 +574,30 @@ class CajaController extends Controller
             $minutosEsperaCuenta = (int) max(0, round((now()->timestamp - strtotime($fechaCuenta)) / 60));
         }
 
+        $minutosEnMesa = (int) max(0, round((now()->timestamp - strtotime($pedido->created_at)) / 60));
+
+        $promocionActiva = null;
+        if (! empty($pedido->promocion_id)) {
+            $prActiva = DB::table('promocion')->where('id', $pedido->promocion_id)->first();
+            if ($prActiva) {
+                $promocionActiva = [
+                    'id' => (string) $prActiva->id,
+                    'codigo' => (string) $prActiva->codigo,
+                    'nombre' => (string) $prActiva->nombre,
+                    'tipo_descuento' => (string) $prActiva->tipo_descuento,
+                    'porcentaje_descuento' => $prActiva->tipo_descuento === 'porcentaje' ? (float) $prActiva->valor : 0.0,
+                    'valor' => (float) $prActiva->valor,
+                    'descripcion' => $prActiva->descripcion,
+                ];
+            }
+        }
+
         return ApiResponse::ok([
             'mesa_id' => $mesa->id,
             'mesa_numero' => $mesa->numero,
             'mesa_estado' => $pedido->pedido_estado,
             'minutos_espera_cuenta' => $minutosEsperaCuenta,
+            'minutos_en_mesa' => $minutosEnMesa,
             'es_mesa_unida' => str_contains($mesa->numero, ';'),
             'mozo_nombre' => $pedido->mozo_nombre ?? 'Mozo General',
             'comensales' => (int) $pedido->comensales,
@@ -582,7 +607,8 @@ class CajaController extends Controller
             'tiene_cocina_pendiente' => $tieneCocinaPendiente,
             'alerta_cocina' => $alertaCocina,
             'promociones_disponibles' => $promociones,
-            'promocion_activa_id' => null,
+            'promocion_activa' => $promocionActiva,
+            'promocion_activa_id' => $pedido->promocion_id,
             'tributacion_sunat' => [
                 'consumo_bruto' => $consumoBruto,
                 'descuento_aplicado' => $descuentoAplicado,

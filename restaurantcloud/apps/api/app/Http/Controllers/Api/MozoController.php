@@ -8,11 +8,8 @@ use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-<<<<<<< Updated upstream
-use App\Domains\Inventario\Services\StockDeduccionService;
+use App\Domains\Promociones\Services\PromocionService;
 use Carbon\Carbon;
-=======
->>>>>>> Stashed changes
 use Illuminate\Support\Str;
 
 class MozoController extends Controller
@@ -712,8 +709,11 @@ class MozoController extends Controller
             'promocion_id' => ['nullable', 'uuid'],
         ]);
 
+        $mesa = DB::table('mesa')->where('id', $id)->where('local_id', $localId)->first();
+        $mesaEfectivaId = $mesa ? ($mesa->mesa_principal_id ?? $mesa->id) : $id;
+
         $pedido = DB::table('pedido')
-            ->where('mesa_id', $id)
+            ->where('mesa_id', $mesaEfectivaId)
             ->where('local_id', $localId)
             ->whereIn('estado', ['enviado', 'borrador', 'cuenta_pedida'])
             ->orderBy('created_at', 'desc')
@@ -737,17 +737,35 @@ class MozoController extends Controller
 
         $promocionId = $preferencias['promocion_id'] ?? $pedido->promocion_id;
 
+        $medioPagoRaw = $preferencias['metodo_pago'] ?? $preferencias['medio_pago'] ?? null;
+        $medioPago = null;
+        if ($medioPagoRaw !== null) {
+            $medioPago = in_array($medioPagoRaw, ['yape', 'plin', 'billetera_digital'], true)
+                ? 'billetera_digital'
+                : (in_array($medioPagoRaw, ['efectivo', 'tarjeta'], true) ? $medioPagoRaw : null);
+        }
+        $numeroOperacion = $preferencias['numero_operacion'] ?? null;
+
+        $updateData = [
+            'precuenta_generada_at' => now(),
+            'estado' => 'cuenta_pedida',
+            'promocion_id' => $promocionId,
+            'tipo_comprobante_sugerido' => $tipoComprobante,
+            'documento_cliente_sugerido' => $docCliente,
+            'nombre_cliente_sugerido' => $nomCliente,
+            'updated_at' => now(),
+        ];
+
+        if ($medioPago !== null) {
+            $updateData['medio_pago_sugerido'] = $medioPago;
+        }
+        if ($numeroOperacion !== null) {
+            $updateData['numero_operacion_sugerido'] = $numeroOperacion;
+        }
+
         DB::table('pedido')
             ->where('id', $pedido->id)
-            ->update([
-                'precuenta_generada_at' => now(),
-                'estado' => 'cuenta_pedida',
-                'promocion_id' => $promocionId,
-                'tipo_comprobante_sugerido' => $tipoComprobante,
-                'documento_cliente_sugerido' => $docCliente,
-                'nombre_cliente_sugerido' => $nomCliente,
-                'updated_at' => now(),
-            ]);
+            ->update($updateData);
 
         return ApiResponse::ok([
             'mesa_id' => $id,
@@ -1737,19 +1755,35 @@ class MozoController extends Controller
             ];
         });
 
-        $promociones = DB::table('promocion')
-            ->where('local_id', $localId)
-            ->where('activa', true)
-            ->get()
-            ->map(fn ($pr) => [
-                'id' => $pr->id,
-                'nombre' => $pr->nombre,
-                'tipo_descuento' => 'porcentaje',
-                'porcentaje_descuento' => (float) $pr->valor,
-                'valor' => (float) $pr->valor,
-                'descripcion' => $pr->descripcion,
-                'descripcion_condicion' => $pr->descripcion,
-            ]);
+        $promocionService = app(PromocionService::class);
+        $vigentes = $promocionService->promocionesVigentesCaja($localId, $total);
+        $promociones = collect($vigentes['elegibles'] ?? [])->map(fn ($pr) => [
+            'id' => $pr['id'],
+            'codigo' => $pr['codigo'] ?? null,
+            'nombre' => $pr['nombre'],
+            'tipo_descuento' => $pr['tipo_descuento'] ?? 'porcentaje',
+            'porcentaje_descuento' => ($pr['tipo_descuento'] ?? 'porcentaje') === 'porcentaje' ? (float) $pr['valor'] : 0.0,
+            'valor' => (float) $pr['valor'],
+            'descuento_calculado' => (float) ($pr['descuento_calculado'] ?? 0),
+            'descripcion' => $pr['nombre'],
+            'descripcion_condicion' => $pr['nombre'],
+        ]);
+
+        $promocionActiva = null;
+        if (! empty($pedido->promocion_id)) {
+            $prActiva = DB::table('promocion')->where('id', $pedido->promocion_id)->first();
+            if ($prActiva) {
+                $promocionActiva = [
+                    'id' => (string) $prActiva->id,
+                    'codigo' => (string) $prActiva->codigo,
+                    'nombre' => (string) $prActiva->nombre,
+                    'tipo_descuento' => (string) $prActiva->tipo_descuento,
+                    'porcentaje_descuento' => $prActiva->tipo_descuento === 'porcentaje' ? (float) $prActiva->valor : 0.0,
+                    'valor' => (float) $prActiva->valor,
+                    'descripcion' => $prActiva->descripcion,
+                ];
+            }
+        }
 
         $minutosEnMesa = (int) max(0, round((now()->timestamp - strtotime($pedido->created_at)) / 60));
 
@@ -1789,7 +1823,7 @@ class MozoController extends Controller
             'tiene_cocina_pendiente' => $tieneCocinaPendiente,
             'alerta_cocina' => $tieneCocinaPendiente ? 'Existen platos pendientes de salida en cocina.' : null,
             'promociones_disponibles' => $promociones,
-            'promocion_activa' => null,
+            'promocion_activa' => $promocionActiva,
             'tributacion_sunat' => [
                 'consumo_bruto' => round($total, 2),
                 'descuento_comercial' => 0.0,

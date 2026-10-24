@@ -284,6 +284,38 @@ class MozoCoreOperativoTest extends TestCase
         $this->assertEquals('factura', $pedidoDB->tipo_comprobante_sugerido);
         $this->assertEquals('20601234567', $pedidoDB->documento_cliente_sugerido);
         $this->assertEquals('INVERSIONES GASTRONOMICAS S.A.C.', $pedidoDB->nombre_cliente_sugerido);
+        $this->assertEquals('billetera_digital', $pedidoDB->medio_pago_sugerido);
+        $this->assertEquals('894712', $pedidoDB->numero_operacion_sugerido);
         $this->assertNotNull($pedidoDB->precuenta_generada_at);
+    }
+
+    public function test_get_precuenta_mesa_retorna_estructura_completa_con_promociones_y_items(): void
+    {
+        $mesaId = $this->crearMesa('97');
+        $pedidoId = $this->crearPedido($mesaId);
+        $prodId = $this->crearProducto('Lomo Saltado Clásico', 45.0);
+        $this->crearPedidoItem($pedidoId, $prodId, 2, 45.0);
+
+        $res = $this->getJson("/api/v1/mozo/mesas/{$mesaId}/precuenta", $this->headers());
+
+        $res->assertStatus(200)
+            ->assertJsonPath('exito', true)
+            ->assertJsonPath('datos.mesa_id', $mesaId)
+            ->assertJsonPath('datos.mesa_numero', '97')
+            ->assertJsonPath('datos.tributacion_sunat.consumo_bruto', 90)
+            ->assertJsonPath('datos.tributacion_sunat.total_neto', 90);
+
+        $this->assertNotEmpty($res->json('datos.items'));
+        $this->assertNotEmpty($res->json('datos.opciones_pago'));
+        $this->assertArrayHasKey('promociones_disponibles', $res->json('datos'));
+        $this->assertArrayHasKey('minutos_en_mesa', $res->json('datos'));
+    }
+
+    public function test_mozo_puede_consultar_cliente_fiscal_sin_error_403(): void
+    {
+        $res = $this->getJson('/api/v1/mozo/clientes/buscar?tipo=DNI&documento=72819201', $this->headers());
+
+        $res->assertStatus(200)
+            ->assertJsonPath('exito', true);
     }
 }

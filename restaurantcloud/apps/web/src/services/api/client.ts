@@ -1,4 +1,4 @@
-import axios, { type AxiosRequestConfig } from 'axios';
+﻿import axios, { type AxiosRequestConfig } from 'axios';
 import type { ApiResponse } from '@/types/api';
 
 export const apiClient = axios.create({
@@ -91,5 +91,13 @@ export async function apiPatch<T>(
   config?: AxiosRequestConfig
 ): Promise<ApiResponse<T>> {
   const response = await apiClient.patch<ApiResponse<T>>(url, data, config);
+  return response.data;
+}
+
+export async function apiDelete<T>(
+  url: string,
+  config?: AxiosRequestConfig
+): Promise<ApiResponse<T>> {
+  const response = await apiClient.delete<ApiResponse<T>>(url, config);
   return response.data;
 }

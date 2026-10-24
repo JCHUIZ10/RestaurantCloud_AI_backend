@@ -103,7 +103,10 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
         }
       })
       .catch((err: any) => {
-        if (montado) setError(err.message || 'Error de conexión');
+        if (montado) {
+          const mensaje = err.response?.data?.errores?.[0]?.mensaje || err.response?.data?.mensaje || err.message || 'Error de conexión';
+          setError(mensaje);
+        }
       })
       .finally(() => {
         if (montado) setCargando(false);
@@ -272,7 +275,8 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
 
     try {
       const tipo = tipoComprobante === 'factura' ? 'RUC' : 'DNI';
-      const res = await cajaService.consultarClienteFiscal(tipo, docLimpio);
+      const servicioFiscal = actorFinal === 'mozo' ? mozoService : cajaService;
+      const res = await servicioFiscal.consultarClienteFiscal(tipo, docLimpio);
       if (res.exito && res.datos) {
         setNombreCliente(res.datos.nombre_identificativo);
         setDocOrigen(res.datos.origen);
@@ -283,7 +287,8 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
         setErrorDoc(res.errores?.[0]?.mensaje || 'No se encontró el documento en el padrón.');
       }
     } catch (err: any) {
-      setErrorDoc(err.message || 'Error de conexión al consultar documento.');
+      const msg = err.response?.data?.errores?.[0]?.mensaje || err.response?.data?.mensaje || err.message || 'Error de conexión al consultar documento.';
+      setErrorDoc(msg);
     } finally {
       setBuscandoDoc(false);
     }
@@ -373,7 +378,7 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
                 </span>
                 <span className="flex items-center gap-1 px-2.5 py-1 rounded bg-white/5 border border-white/10">
                   <Clock className="w-3.5 h-3.5 text-[#D5A06F]" />
-                  <span>{dataOriginal.minutos_en_mesa} min</span>
+                  <span>{(dataOriginal as any).minutos_en_mesa ?? (dataOriginal as any).minutos_espera_cuenta ?? 0} min</span>
                 </span>
               </div>
             )}

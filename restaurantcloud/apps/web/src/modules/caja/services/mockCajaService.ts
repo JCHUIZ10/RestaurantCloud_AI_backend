@@ -1073,6 +1073,10 @@ class MockCajaService {
    * Obtiene la precuenta digital consolidada de una mesa (GET /api/v1/caja/mesas/{mesa_id}/precuenta)
    * RN-CAJA-02-01: Consolida consumos, calcula desglose SUNAT y proyecta medios de pago
    */
+  async obtenerPrecuentaMesa(mesaId: string): Promise<ApiResponse<PrecuentaResponseDTO>> {
+    return this.getPrecuentaMesa(mesaId);
+  }
+
   async getPrecuentaMesa(mesaId: string): Promise<ApiResponse<PrecuentaResponseDTO>> {
     await new Promise((r) => setTimeout(r, 60));
 
