@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import {
   Tag,
   Plus,
@@ -11,11 +11,13 @@ import { PromocionKPIsDTO } from '@/types/admin';
 
 interface PromocionesHeaderProps {
   kpis: PromocionKPIsDTO;
+  localNombre?: string;
   onNuevaPromocion: () => void;
 }
 
 export const PromocionesHeader: React.FC<PromocionesHeaderProps> = ({
   kpis,
+  localNombre,
   onNuevaPromocion,
 }) => {
   return (
@@ -28,7 +30,7 @@ export const PromocionesHeader: React.FC<PromocionesHeaderProps> = ({
               Carta & Ventas
             </span>
             <span className="text-xs font-semibold text-slate-500">
-              Sede Miraflores
+              {localNombre ?? 'Sede Principal'}
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1.5 flex items-center gap-2.5">

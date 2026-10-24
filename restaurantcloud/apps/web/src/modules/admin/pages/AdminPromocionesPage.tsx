@@ -14,16 +14,18 @@ import {
   CrearPromocionRequest,
   PromocionRendimientoDTO,
 } from '@/types/admin';
-import { mockAdminService } from '../services/mockAdminService';
+import { adminService } from '@/services/serviceAdapter';
+import { useAuthStore } from '@/stores/authStore';
 import { PromocionesHeader } from '../components/promociones/PromocionesHeader';
 import { PromocionesFiltros } from '../components/promociones/PromocionesFiltros';
 import { PromocionesTabla } from '../components/promociones/PromocionesTabla';
 import { ModalConfigurarPromocion } from '../components/promociones/ModalConfigurarPromocion';
 import { ModalRendimientoPromocion } from '../components/promociones/ModalRendimientoPromocion';
 import { PromocionesOnboardingVacio } from '../components/promociones/PromocionesOnboardingVacio';
-import { DemoAdminPromocionesWidget } from '../components/promociones/DemoAdminPromocionesWidget';
 
 export const AdminPromocionesPage: React.FC = () => {
+  const usuario = useAuthStore((s) => s.usuario);
+  const localNombre = usuario?.local?.nombre ?? 'Sede Principal';
   const [cargando, setCargando] = useState(true);
   const [promociones, setPromociones] = useState<PromocionAdminDTO[]>([]);
   const [todasPromociones, setTodasPromociones] = useState<PromocionAdminDTO[]>([]);
@@ -70,7 +72,7 @@ export const AdminPromocionesPage: React.FC = () => {
     setCargando(true);
     try {
       // 1. Obtener todas sin filtros para conteos de píldoras y KPIs
-      const respTotal = await mockAdminService.getBandejaPromociones({});
+      const respTotal = await adminService.getBandejaPromociones({});
       if (respTotal.exito) {
         setTodasPromociones(respTotal.datos.promociones);
         setKpis(respTotal.datos.kpis);
@@ -78,7 +80,7 @@ export const AdminPromocionesPage: React.FC = () => {
 
       // 2. Si hay búsqueda activa, consumir nuevo endpoint optimizado GET /api/v1/admin/promociones/buscar
       if (busqActual.trim()) {
-        const respBusqueda = await mockAdminService.buscarPromociones(
+        const respBusqueda = await adminService.buscarPromociones(
           busqActual.trim(),
           filtroEstado,
           filtroTipo
@@ -90,7 +92,7 @@ export const AdminPromocionesPage: React.FC = () => {
         }
       } else {
         // Obtener lista con filtros activos
-        const respFiltrada = await mockAdminService.getBandejaPromociones({
+        const respFiltrada = await adminService.getBandejaPromociones({
           estado: filtroEstado,
           tipo_descuento: filtroTipo,
         });
@@ -146,7 +148,7 @@ export const AdminPromocionesPage: React.FC = () => {
   const handleGuardarPromocion = async (req: CrearPromocionRequest): Promise<boolean> => {
     try {
       if (promoParaEditar) {
-        const resp = await mockAdminService.actualizarPromocion(promoParaEditar.id, req);
+        const resp = await adminService.actualizarPromocion(promoParaEditar.id, req);
         if (resp.exito) {
           mostrarToast(`Promoción "${req.nombre}" actualizada con éxito`);
           setModalConfigAbierto(false);
@@ -159,7 +161,7 @@ export const AdminPromocionesPage: React.FC = () => {
           return false;
         }
       } else {
-        const resp = await mockAdminService.crearPromocion(req);
+        const resp = await adminService.crearPromocion(req);
         if (resp.exito) {
           mostrarToast(`Promoción "${req.nombre}" creada y disponible en caja`);
           setModalConfigAbierto(false);
@@ -179,7 +181,7 @@ export const AdminPromocionesPage: React.FC = () => {
 
   const handleVerRendimiento = async (id: string) => {
     try {
-      const resp = await mockAdminService.getRendimientoPromocion(id);
+      const resp = await adminService.getRendimientoPromocion(id);
       if (resp.exito) {
         setRendimientoActual(resp.datos);
         setModalRendimientoAbierto(true);
@@ -193,7 +195,7 @@ export const AdminPromocionesPage: React.FC = () => {
 
   const handleToggleEstado = async (id: string, nuevoEstado: boolean) => {
     try {
-      const resp = await mockAdminService.toggleEstadoPromocion(id, nuevoEstado);
+      const resp = await adminService.toggleEstadoPromocion(id, nuevoEstado);
       if (resp.exito) {
         const mensaje = nuevoEstado
           ? `Promoción activada en caja (${resp.datos.codigo})`
@@ -203,7 +205,7 @@ export const AdminPromocionesPage: React.FC = () => {
 
         // Si el modal de rendimiento estaba abierto, actualizarlo
         if (rendimientoActual && rendimientoActual.promocion.id === id) {
-          const respRend = await mockAdminService.getRendimientoPromocion(id);
+          const respRend = await adminService.getRendimientoPromocion(id);
           if (respRend.exito) {
             setRendimientoActual(respRend.datos);
           }
@@ -235,7 +237,7 @@ export const AdminPromocionesPage: React.FC = () => {
   const handleConfirmarEliminar = async () => {
     if (!modalEliminar.promo) return;
     try {
-      const resp = await mockAdminService.eliminarPromocion(modalEliminar.promo.id);
+      const resp = await adminService.eliminarPromocion(modalEliminar.promo.id);
       if (resp.exito) {
         mostrarToast(`Promoción "${modalEliminar.promo.nombre}" eliminada del local`);
         setModalEliminar({ abierto: false, promo: null });
@@ -255,7 +257,7 @@ export const AdminPromocionesPage: React.FC = () => {
       const fin = new Date();
       fin.setDate(fin.getDate() + 30);
 
-      const resp = await mockAdminService.crearPromocion({
+      const resp = await adminService.crearPromocion({
         nombre: '🎉 Descuento Inaugural - Gran Apertura',
         descripcion:
           'Promoción de apertura del local: 15% de descuento en el total de la cuenta durante los primeros 30 días de atención.',
@@ -334,7 +336,7 @@ export const AdminPromocionesPage: React.FC = () => {
       )}
 
       {/* Cabecera y KPIs (Vista 1) */}
-      <PromocionesHeader kpis={kpis} onNuevaPromocion={handleNuevaPromocion} />
+      <PromocionesHeader kpis={kpis} localNombre={localNombre} onNuevaPromocion={handleNuevaPromocion} />
 
       {/* Si la sede no tiene ninguna promoción registrada, mostramos Onboarding de Bienvenida (Vista 4) */}
       {sinPromocionesEnSede ? (
@@ -456,8 +458,6 @@ export const AdminPromocionesPage: React.FC = () => {
         </div>
       )}
 
-      {/* Widget Interactivo de Pruebas QA */}
-      <DemoAdminPromocionesWidget onRecargar={cargarDatos} />
     </div>
   );
 };

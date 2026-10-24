@@ -24,6 +24,13 @@ interface ModalConfigurarPromocionProps {
   onGuardar: (req: CrearPromocionRequest) => Promise<boolean>;
 }
 
+const getFechaHoy = () => new Date().toISOString().split('T')[0];
+const getFechaFinDefault = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 30);
+  return d.toISOString().split('T')[0];
+};
+
 export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> = ({
   isOpen,
   onClose,
@@ -33,19 +40,19 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [tipoDescuento, setTipoDescuento] = useState<TipoDescuentoPromocion>('porcentaje');
-  const [valor, setValor] = useState<number>(15);
+  const [valor, setValor] = useState<number | string>(15);
   const [tieneTope, setTieneTope] = useState(false);
-  const [topeMaximo, setTopeMaximo] = useState<number | null>(40);
-  const [fechaInicio, setFechaInicio] = useState('2026-10-01');
-  const [fechaFin, setFechaFin] = useState('2026-10-31');
+  const [topeMaximo, setTopeMaximo] = useState<number | string>(40);
+  const [fechaInicio, setFechaInicio] = useState(getFechaHoy());
+  const [fechaFin, setFechaFin] = useState(getFechaFinDefault());
 
   // Toggles limpios
   const [exigeMinimo, setExigeMinimo] = useState(false);
-  const [montoMinimo, setMontoMinimo] = useState<number>(60);
+  const [montoMinimo, setMontoMinimo] = useState<number | string>(60);
 
   const [limitaUsos, setLimitaUsos] = useState(false);
   const [tipoLimiteUsos, setTipoLimiteUsos] = useState<TipoLimiteUsosPromocion>('global');
-  const [limiteUsos, setLimiteUsos] = useState<number>(50);
+  const [limiteUsos, setLimiteUsos] = useState<number | string>(50);
 
   const [restringeHorario, setRestringeHorario] = useState(false);
   const [diasSemana, setDiasSemana] = useState<number[]>([1, 2, 3, 4, 5, 6, 7]);
@@ -53,7 +60,7 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
   const [horaFin, setHoraFin] = useState('21:00');
 
   // Simulador de Caja en Vivo
-  const [consumoPrueba, setConsumoPrueba] = useState<number>(120);
+  const [consumoPrueba, setConsumoPrueba] = useState<number | string>(120);
 
   const [guardando, setGuardando] = useState(false);
   const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
@@ -65,7 +72,7 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
       setTipoDescuento(promocionParaEditar.tipo_descuento);
       setValor(promocionParaEditar.valor);
       setTieneTope(promocionParaEditar.tope_maximo_descuento != null);
-      setTopeMaximo(promocionParaEditar.tope_maximo_descuento || 40);
+      setTopeMaximo(promocionParaEditar.tope_maximo_descuento ?? 40);
       setFechaInicio(promocionParaEditar.fecha_inicio);
       setFechaFin(promocionParaEditar.fecha_fin);
 
@@ -92,8 +99,8 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
       setValor(15);
       setTieneTope(false);
       setTopeMaximo(40);
-      setFechaInicio('2026-10-01');
-      setFechaFin('2026-10-31');
+      setFechaInicio(getFechaHoy());
+      setFechaFin(getFechaFinDefault());
       setExigeMinimo(false);
       setMontoMinimo(60);
       setLimitaUsos(false);
@@ -130,26 +137,31 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
   };
 
   // Cálculo en tiempo real del simulador
-  const cumpleMinimo = !exigeMinimo || consumoPrueba >= (montoMinimo || 0);
+  const consumoNum = Number(consumoPrueba) || 0;
+  const montoMinimoNum = Number(montoMinimo) || 0;
+  const valorNum = Number(valor) || 0;
+  const topeMaximoNum = Number(topeMaximo) || 0;
+
+  const cumpleMinimo = !exigeMinimo || consumoNum >= montoMinimoNum;
 
   let descuentoSimulado = 0;
   let topeAplicado = false;
 
   if (cumpleMinimo) {
     if (tipoDescuento === 'porcentaje') {
-      const calculo = (consumoPrueba * (valor || 0)) / 100;
-      if (tieneTope && topeMaximo && calculo > topeMaximo) {
-        descuentoSimulado = topeMaximo;
+      const calculo = (consumoNum * valorNum) / 100;
+      if (tieneTope && topeMaximoNum > 0 && calculo > topeMaximoNum) {
+        descuentoSimulado = topeMaximoNum;
         topeAplicado = true;
       } else {
         descuentoSimulado = calculo;
       }
     } else {
-      descuentoSimulado = Math.min(valor || 0, consumoPrueba);
+      descuentoSimulado = Math.min(valorNum, consumoNum);
     }
   }
 
-  const totalNetoSimulado = Math.max(0, consumoPrueba - descuentoSimulado);
+  const totalNetoSimulado = Math.max(0, consumoNum - descuentoSimulado);
   const baseImponibleSimulada = Math.round((totalNetoSimulado / 1.18) * 100) / 100;
   const igvSimulado = Math.round((totalNetoSimulado - baseImponibleSimulada) * 100) / 100;
 
@@ -167,14 +179,39 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
       return;
     }
 
-    if (valor <= 0) {
+    const valorParsed = Number(valor);
+    if (valor === '' || isNaN(valorParsed) || valorParsed <= 0) {
       setErrorValidacion('El valor del descuento debe ser mayor a 0.');
       return;
     }
 
-    if (tipoDescuento === 'porcentaje' && valor > 100) {
+    if (tipoDescuento === 'porcentaje' && valorParsed > 100) {
       setErrorValidacion('El porcentaje de descuento no puede ser superior a 100%.');
       return;
+    }
+
+    if (tipoDescuento === 'porcentaje' && tieneTope) {
+      const topeParsed = Number(topeMaximo);
+      if (topeMaximo === '' || isNaN(topeParsed) || topeParsed <= 0) {
+        setErrorValidacion('El tope máximo de descuento debe ser mayor a S/ 0.00.');
+        return;
+      }
+    }
+
+    if (exigeMinimo) {
+      const minParsed = Number(montoMinimo);
+      if (montoMinimo === '' || isNaN(minParsed) || minParsed < 0) {
+        setErrorValidacion('El monto mínimo de consumo debe ser un número válido.');
+        return;
+      }
+    }
+
+    if (limitaUsos) {
+      const limParsed = Number(limiteUsos);
+      if (limiteUsos === '' || isNaN(limParsed) || limParsed < 1) {
+        setErrorValidacion('El límite de usos debe ser al menos 1.');
+        return;
+      }
     }
 
     if (restringeHorario && diasSemana.length === 0) {
@@ -186,16 +223,16 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
       nombre: nombre.trim(),
       descripcion: descripcion.trim() || undefined,
       tipo_descuento: tipoDescuento,
-      valor: Number(valor),
-      tope_maximo_descuento: tipoDescuento === 'porcentaje' && tieneTope ? Number(topeMaximo) : null,
-      monto_minimo_consumo: exigeMinimo ? Number(montoMinimo) : 0,
+      valor: valorParsed,
+      tope_maximo_descuento: tipoDescuento === 'porcentaje' && tieneTope && topeMaximo !== '' ? Number(topeMaximo) : null,
+      monto_minimo_consumo: exigeMinimo && montoMinimo !== '' ? Number(montoMinimo) : 0,
       dias_semana: restringeHorario ? diasSemana : [1, 2, 3, 4, 5, 6, 7],
       hora_inicio: restringeHorario ? horaInicio : null,
       hora_fin: restringeHorario ? horaFin : null,
       fecha_inicio: fechaInicio,
       fecha_fin: fechaFin,
       tipo_limite_usos: limitaUsos ? tipoLimiteUsos : 'sin_limite',
-      limite_usos: limitaUsos ? Number(limiteUsos) : null,
+      limite_usos: limitaUsos && limiteUsos !== '' ? Math.round(Number(limiteUsos)) : null,
       activa: promocionParaEditar ? promocionParaEditar.activa : true,
     };
 
@@ -341,11 +378,11 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
               </label>
               <input
                 type="number"
-                min={tipoDescuento === 'porcentaje' ? 1 : 0.5}
-                max={tipoDescuento === 'porcentaje' ? 100 : 9999}
-                step={tipoDescuento === 'porcentaje' ? 1 : 0.5}
+                min={tipoDescuento === 'porcentaje' ? 0.1 : 0.01}
+                max={tipoDescuento === 'porcentaje' ? 100 : 99999}
+                step="any"
                 value={valor}
-                onChange={(e) => setValor(Number(e.target.value))}
+                onChange={(e) => setValor(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500 font-bold text-slate-900 text-xs sm:text-sm"
                 required
               />
@@ -371,10 +408,10 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
                 tieneTope ? (
                   <input
                     type="number"
-                    min={1}
-                    step={1}
-                    value={topeMaximo || ''}
-                    onChange={(e) => setTopeMaximo(Number(e.target.value))}
+                    min={0.1}
+                    step="any"
+                    value={topeMaximo}
+                    onChange={(e) => setTopeMaximo(e.target.value)}
                     placeholder="Ej. S/ 40.00"
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500 font-bold text-slate-900 text-xs sm:text-sm"
                   />
@@ -446,10 +483,11 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
                     </span>
                     <input
                       type="number"
-                      min={1}
-                      step={5}
+                      min={0}
+                      step="any"
                       value={montoMinimo}
-                      onChange={(e) => setMontoMinimo(Number(e.target.value))}
+                      onChange={(e) => setMontoMinimo(e.target.value)}
+                      placeholder="0.00"
                       className="w-full pl-7 pr-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-900"
                     />
                   </div>
@@ -516,9 +554,10 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
                       <input
                         type="number"
                         min={1}
-                        step={5}
+                        step="1"
                         value={limiteUsos}
-                        onChange={(e) => setLimiteUsos(Math.max(1, Number(e.target.value)))}
+                        onChange={(e) => setLimiteUsos(e.target.value)}
+                        placeholder="50"
                         className="w-24 px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-900 text-right"
                       />
                       <span className="text-xs text-slate-400">mesas</span>
@@ -528,7 +567,7 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
                   <div className="p-2.5 rounded-lg bg-amber-50/80 border border-amber-200 text-[11px] text-amber-900 leading-relaxed flex items-start gap-2">
                     <span className="text-amber-600 font-bold shrink-0">💡 Regla en Caja:</span>
                     <span>
-                      Al completarse los <strong>{limiteUsos} canjes</strong>, la promoción se desactivará automáticamente en el POS y figurará como{' '}
+                      Al completarse los <strong>{limiteUsos || 0} canjes</strong>, la promoción se desactivará automáticamente en el POS y figurará como{' '}
                       <strong>{tipoLimiteUsos === 'diario' ? 'NO DISPONIBLE HOY (se renovará mañana en 0)' : 'AGOTADA DEFINITIVAMENTE'}</strong>.
                       {tieneTope && (
                         <span className="block mt-0.5 text-slate-600">
@@ -627,10 +666,11 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
                   </span>
                   <input
                     type="number"
-                    min={1}
-                    step={10}
+                    min={0}
+                    step="any"
                     value={consumoPrueba}
-                    onChange={(e) => setConsumoPrueba(Math.max(0, Number(e.target.value)))}
+                    onChange={(e) => setConsumoPrueba(e.target.value)}
+                    placeholder="100.00"
                     className="w-full pl-7 pr-2.5 py-1.5 text-xs font-bold rounded-lg border border-amber-300 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-900"
                   />
                 </div>
@@ -641,12 +681,12 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
                   {cumpleMinimo ? (
                     <span className="inline-flex items-center gap-1 text-emerald-700 font-bold bg-emerald-100/80 px-2.5 py-1 rounded-md">
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      Cumple mínimo de S/ {montoMinimo.toFixed(2)}
+                      Cumple mínimo de S/ {montoMinimoNum.toFixed(2)}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 text-rose-700 font-bold bg-rose-100/80 px-2.5 py-1 rounded-md">
                       <AlertTriangle className="w-3.5 h-3.5" />
-                      No alcanza consumo mínimo (S/ {montoMinimo.toFixed(2)})
+                      No alcanza consumo mínimo (S/ {montoMinimoNum.toFixed(2)})
                     </span>
                   )}
                 </div>
@@ -664,7 +704,7 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
                 </span>
                 <span className="text-[10px] text-slate-500 block">
                   {tipoDescuento === 'porcentaje'
-                    ? `${valor}% sobre S/ ${consumoPrueba.toFixed(2)}`
+                    ? `${valorNum}% sobre S/ ${consumoNum.toFixed(2)}`
                     : 'Deducción fija'}
                   {topeAplicado && ' (Limitado al tope)'}
                 </span>

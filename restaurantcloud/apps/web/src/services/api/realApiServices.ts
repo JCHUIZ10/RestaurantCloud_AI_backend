@@ -1,4 +1,4 @@
-import { apiClient, apiGet, apiPost, apiPatch, apiPut } from './client';
+import { apiClient, apiGet, apiPost, apiPatch, apiPut, apiDelete } from './client';
 import { realPlanoService } from './planoService';
 import type { ApiResponse } from '@/types/api';
 import type {
@@ -93,7 +93,16 @@ import type {
   ProveedoresListDTO,
   CrearProveedorRequestDTO,
   ActualizarProveedorRequestDTO,
-  ProveedorHistorialComprasDTO,
+  ProveedorHistorialComprasDTO,
+  PromocionesBandejaResponseDTO,
+  BuscarPromocionesResponseDTO,
+  PromocionAdminDTO,
+  CrearPromocionRequest,
+  ActualizarPromocionRequest,
+  PromocionRendimientoDTO,
+  FiltrosPromocionesRequest,
+  FiltroEstadoPromocion,
+  FiltroTipoPromocion,
 } from '@/types/admin';
 import type {
   DirectorioAdminsApiResponse,
@@ -384,7 +393,7 @@ export const realMozoService = {
   },
 
   async consultarClienteFiscal(tipoDoc: 'DNI' | 'RUC', numeroDoc: string): Promise<ApiResponse<ClienteFiscalLookupDTO>> {
-    return apiGet<ClienteFiscalLookupDTO>(`/caja/clientes/buscar?tipo=${tipoDoc}&documento=${numeroDoc}`);
+    return apiGet<ClienteFiscalLookupDTO>(`/mozo/clientes/buscar?tipo=${tipoDoc}&documento=${numeroDoc}`);
   },
 
   // CU-MOZO-09: Dividir Cuenta en Mesa (Subcuentas)
@@ -882,6 +891,149 @@ export const realAdminService = {
     id: string
   ): Promise<ApiEnvelope<ProveedorHistorialComprasDTO>> =>
     apiGet(`/admin/proveedores/${id}/historial`),
+
+  // CU-ADMIN-06: Abastecimiento, Fichas de Compra y Reposición de Inventario
+  getFichasCompra: (filtros?: {
+    busqueda?: string;
+    tipoComprobante?: string;
+    estado?: string;
+    fechaDesde?: string;
+    fechaHasta?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<ApiEnvelope<ListarFichasCompraResponseDTO>> =>
+    apiGet('/admin/compras', filtros),
+
+  registrarFichaCompra: (
+    payload: RegistrarFichaCompraRequestDTO
+  ): Promise<ApiEnvelope<{ ficha: FichaCompraResumenDTO; platosReactivables: PlatoReactivableDTO[] }>> =>
+    apiPost('/admin/compras', payload),
+
+  getFichaCompraDetalle: (id: string): Promise<ApiEnvelope<FichaCompraDetalleCompletoDTO>> =>
+    apiGet(`/admin/compras/${id}`),
+
+  obtenerImpactoAnulacion: (id: string): Promise<ApiEnvelope<ImpactoAnulacionDTO>> =>
+    apiGet(`/admin/compras/${id}/impacto-anulacion`),
+
+  anularFichaCompra: (
+    request: AnularFichaCompraRequestDTO
+  ): Promise<ApiEnvelope<FichaCompraResumenDTO>> =>
+    apiPost(`/admin/compras/${request.ficha_id}/anular`, { motivo: request.motivo }),
+
+  reactivarPlatosCompra: (
+    platoIds: string[]
+  ): Promise<ApiEnvelope<{ actualizados: number }>> =>
+    apiPost('/admin/compras/reactivar-platos', { plato_ids: platoIds }),
+  // CU-ADMIN-17: Gestión de Promociones del Local
+  async getBandejaPromociones(
+    filtros: FiltrosPromocionesRequest = {}
+  ): Promise<ApiEnvelope<PromocionesBandejaResponseDTO>> {
+    try {
+      const params: Record<string, unknown> = {};
+      if (filtros.estado && filtros.estado !== 'todas') params.estado = filtros.estado;
+      if (filtros.tipo_descuento && filtros.tipo_descuento !== 'todos') params.tipo_descuento = filtros.tipo_descuento;
+      if (filtros.busqueda) params.busqueda = filtros.busqueda;
+      if (filtros.mes) params.mes = filtros.mes;
+      return await apiGet<PromocionesBandejaResponseDTO>('/admin/promociones', params);
+    } catch (err: any) {
+      return err.response?.data ?? {
+        exito: false,
+        datos: { kpis: { vigentes_hoy: 0, campanas_programadas: 0, descuentos_mes: 0, cuentas_beneficiadas: 0 }, promociones: [], total: 0 },
+        errores: [{ codigo: 'ERR_CONEXION', mensaje: 'Error al consultar la bandeja de promociones.' }],
+      };
+    }
+  },
+
+  async buscarPromociones(
+    busqueda: string,
+    estado?: FiltroEstadoPromocion,
+    tipo?: FiltroTipoPromocion
+  ): Promise<ApiEnvelope<BuscarPromocionesResponseDTO>> {
+    try {
+      const params: Record<string, unknown> = { q: busqueda };
+      if (estado && estado !== 'todas') params.estado = estado;
+      if (tipo && tipo !== 'todos') params.tipo = tipo;
+      return await apiGet<BuscarPromocionesResponseDTO>('/admin/promociones/buscar', params);
+    } catch (err: any) {
+      return err.response?.data ?? {
+        exito: false,
+        datos: { resultados: [], total: 0 },
+        errores: [{ codigo: 'ERR_CONEXION', mensaje: 'Error al buscar promociones.' }],
+      };
+    }
+  },
+
+  async getPromocionDetalle(id: string): Promise<ApiEnvelope<PromocionAdminDTO>> {
+    try {
+      return await apiGet<PromocionAdminDTO>(`/admin/promociones/${id}`);
+    } catch (err: any) {
+      return err.response?.data ?? {
+        exito: false,
+        datos: null,
+        errores: [{ codigo: 'ERR_CONEXION', mensaje: 'Error al obtener detalle de la promoción.' }],
+      };
+    }
+  },
+
+  async crearPromocion(payload: CrearPromocionRequest): Promise<ApiEnvelope<PromocionAdminDTO>> {
+    try {
+      return await apiPost<PromocionAdminDTO>('/admin/promociones', payload);
+    } catch (err: any) {
+      return err.response?.data ?? {
+        exito: false,
+        datos: null,
+        errores: [{ codigo: 'ERR_CONEXION', mensaje: 'Error al crear la promoción.' }],
+      };
+    }
+  },
+
+  async actualizarPromocion(id: string, payload: ActualizarPromocionRequest): Promise<ApiEnvelope<PromocionAdminDTO>> {
+    try {
+      return await apiPut<PromocionAdminDTO>(`/admin/promociones/${id}`, payload);
+    } catch (err: any) {
+      return err.response?.data ?? {
+        exito: false,
+        datos: null,
+        errores: [{ codigo: 'ERR_CONEXION', mensaje: 'Error al actualizar la promoción.' }],
+      };
+    }
+  },
+
+  async toggleEstadoPromocion(id: string, activa: boolean): Promise<ApiEnvelope<PromocionAdminDTO>> {
+    try {
+      return await apiPatch<PromocionAdminDTO>(`/admin/promociones/${id}/estado`, { activa });
+    } catch (err: any) {
+      return err.response?.data ?? {
+        exito: false,
+        datos: null,
+        errores: [{ codigo: 'ERR_CONEXION', mensaje: 'Error al modificar el estado de la promoción.' }],
+      };
+    }
+  },
+
+  async eliminarPromocion(id: string): Promise<ApiEnvelope<{ id: string; mensaje: string }>> {
+    try {
+      return await apiDelete<{ id: string; mensaje: string }>(`/admin/promociones/${id}`);
+    } catch (err: any) {
+      return err.response?.data ?? {
+        exito: false,
+        datos: null,
+        errores: [{ codigo: 'ERR_CONEXION', mensaje: 'Error al eliminar la promoción.' }],
+      };
+    }
+  },
+
+  async getRendimientoPromocion(id: string): Promise<ApiEnvelope<PromocionRendimientoDTO>> {
+    try {
+      return await apiGet<PromocionRendimientoDTO>(`/admin/promociones/${id}/rendimiento`);
+    } catch (err: any) {
+      return err.response?.data ?? {
+        exito: false,
+        datos: null,
+        errores: [{ codigo: 'ERR_CONEXION', mensaje: 'Error al obtener rendimiento de la promoción.' }],
+      };
+    }
+  },
 };
 
 // CU-PROP-01: Onboarding y Registro de Empresa (Propietario)

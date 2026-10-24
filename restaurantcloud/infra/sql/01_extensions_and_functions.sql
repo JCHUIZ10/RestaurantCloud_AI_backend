@@ -96,3 +96,33 @@ BEGIN
     RETURN current_setting('app.current_user_role', true) = 'admin_saas';
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
+-- 6. AUTOGENERADOR DE CÓDIGO PROMOCIONAL POR SEDE (CU-ADMIN-17)
+CREATE OR REPLACE FUNCTION fn_generar_codigo_promocion(p_local_id UUID)
+RETURNS VARCHAR AS $$
+DECLARE
+    v_year VARCHAR(4);
+    v_seq INT;
+    v_codigo VARCHAR(20);
+BEGIN
+    v_year := TO_CHAR(CURRENT_DATE, 'YYYY');
+    SELECT COALESCE(MAX(NULLIF(regexp_replace(codigo, '^PROMO-' || v_year || '-', ''), '')::INT), 0) + 1
+    INTO v_seq
+    FROM promocion
+    WHERE local_id = p_local_id AND codigo LIKE 'PROMO-' || v_year || '-%';
+
+    v_codigo := 'PROMO-' || v_year || '-' || LPAD(v_seq::TEXT, 3, '0');
+    RETURN v_codigo;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION trg_fn_asignar_codigo_promocion()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.codigo IS NULL OR TRIM(NEW.codigo) = '' THEN
+        NEW.codigo := fn_generar_codigo_promocion(NEW.local_id);
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+

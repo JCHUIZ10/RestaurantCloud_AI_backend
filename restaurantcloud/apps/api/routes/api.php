@@ -1,5 +1,6 @@
-<?php
+﻿<?php
 
+use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Admin\CategoriaController;
 use App\Http\Controllers\Api\Admin\ConfiguracionKdsController;
 use App\Http\Controllers\Api\Admin\HorarioController;
@@ -9,25 +10,16 @@ use App\Http\Controllers\Api\Admin\PersonalController;
 use App\Http\Controllers\Api\Admin\PlanoController;
 use App\Http\Controllers\Api\Admin\ProductoController;
 use App\Http\Controllers\Api\Admin\RecetaController;
-<<<<<<< Updated upstream
-use App\Http\Controllers\Api\Admin\PersonalController;
 use App\Http\Controllers\Api\Admin\ProveedorController;
+use App\Http\Controllers\Api\Admin\PromocionController;
 use App\Http\Controllers\Api\Propietario\AdministradorController;
 use App\Http\Controllers\Api\Propietario\LocalController;
-=======
-use App\Http\Controllers\Api\AuthController;
->>>>>>> Stashed changes
 use App\Http\Controllers\Api\CajaController;
 use App\Http\Controllers\Api\CocinaController;
 use App\Http\Controllers\Api\MozoController;
-use App\Http\Controllers\Api\Propietario\AdministradorController;
-use App\Http\Controllers\Api\Propietario\LocalController;
 use App\Http\Controllers\Api\Public\ActivacionCuentaController;
-<<<<<<< Updated upstream
 use App\Http\Controllers\Api\Public\ComprobantePublicoController;
-=======
 use App\Http\Controllers\Api\Public\RegistroController;
->>>>>>> Stashed changes
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
@@ -38,7 +30,7 @@ Route::prefix('v1')->group(function (): void {
         'meta' => ['timestamp' => now()->toIso8601String()],
     ]));
 
-    // Onboarding y Registro de Empresa (CU-PROP-01) - Rutas Públicas
+    // Onboarding y Registro de Empresa (CU-PROP-01) - Rutas PÃºblicas
     Route::prefix('public')->group(function (): void {
         Route::get('/planes', [RegistroController::class, 'getPlanes']);
         Route::post('/registro/iniciar', [RegistroController::class, 'iniciarRegistro']);
@@ -46,7 +38,7 @@ Route::prefix('v1')->group(function (): void {
         Route::post('/registro/verificar-otp', [RegistroController::class, 'verificarOtp']);
         Route::post('/registro/completar', [RegistroController::class, 'completarRegistro']);
 
-        // Activación de Cuenta de Colaboradores Invitados (CU-PROP-05)
+        // ActivaciÃ³n de Cuenta de Colaboradores Invitados (CU-PROP-05)
         Route::prefix('activar-cuenta')->group(function (): void {
             Route::get('/validar', [ActivacionCuentaController::class, 'validar']);
             Route::post('/completar', [ActivacionCuentaController::class, 'completar']);
@@ -64,7 +56,7 @@ Route::prefix('v1')->group(function (): void {
     // Webhooks de Stripe Billing
     Route::post('/webhooks/stripe', [RegistroController::class, 'stripeWebhook']);
 
-    // Autenticación pública
+    // AutenticaciÃ³n pÃºblica
     Route::post('/auth/login', [AuthController::class, 'login'])->name('login');
     Route::post('/auth/seleccionar-cuenta', [AuthController::class, 'seleccionarCuenta']);
     Route::post('/auth/refresh', [AuthController::class, 'refresh']);
@@ -150,9 +142,21 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/', [MetodoPagoController::class, 'index']);
                 Route::put('/', [MetodoPagoController::class, 'update']);
             });
+
+            // CU-ADMIN-17: Gestión de Promociones del Local
+            Route::prefix('promociones')->group(function (): void {
+                Route::get('/', [PromocionController::class, 'index']);
+                Route::get('/buscar', [PromocionController::class, 'buscar']);
+                Route::post('/', [PromocionController::class, 'store']);
+                Route::get('/{id}', [PromocionController::class, 'show']);
+                Route::put('/{id}', [PromocionController::class, 'update']);
+                Route::patch('/{id}/estado', [PromocionController::class, 'estado']);
+                Route::delete('/{id}', [PromocionController::class, 'destroy']);
+                Route::get('/{id}/rendimiento', [PromocionController::class, 'rendimiento']);
+            });
         });
 
-        // Propietario (CU-PROP-04: Gestión de Locales / CU-PROP-05: Administradores de Local)
+        // Propietario (CU-PROP-04: GestiÃ³n de Locales / CU-PROP-05: Administradores de Local)
         Route::prefix('propietario')->middleware('role:propietario,admin_saas')->group(function (): void {
             // CU-PROP-04: Registrar y Administrar Locales
             Route::prefix('locales')->group(function (): void {
@@ -179,7 +183,7 @@ Route::prefix('v1')->group(function (): void {
 
         // Salón / Mozo (CU-MOZO-01, CU-MOZO-02, CU-MOZO-08)
         Route::prefix('mozo')->group(function (): void {
-            // CU-MOZO-01: Centro de Salón y Mesas en Vivo
+            // CU-MOZO-01: Centro de SalÃ³n y Mesas en Vivo
             Route::get('/plano', [MozoController::class, 'getPlano']);
             Route::post('/mesas/{id}/abrir', [MozoController::class, 'abrirMesa']);
             Route::get('/mesas/{id}/detalle', [MozoController::class, 'getDetalleMesa']);
@@ -187,37 +191,40 @@ Route::prefix('v1')->group(function (): void {
             Route::post('/mesas/{id}/solicitar-cuenta', [MozoController::class, 'solicitarCuenta']);
             Route::post('/mesas/{id}/liberar', [MozoController::class, 'liberarMesa']);
 
-            // CU-MOZO-04: Unión y Separación de Mesas
+            // CU-MOZO-04: UniÃ³n y SeparaciÃ³n de Mesas
             Route::get('/mesas/{id}/candidatas-union', [MozoController::class, 'getCandidatasUnion']);
             Route::post('/mesas/unir', [MozoController::class, 'unirMesas']);
             Route::get('/mesas/{id}/validar-separacion', [MozoController::class, 'validarSeparacionMesa']);
             Route::post('/mesas/{id}/separar', [MozoController::class, 'separarMesas']);
 
-            // CU-MOZO-06: Anulación de Ítems y Comandas con Auditoría y Merma
+            // CU-MOZO-06: AnulaciÃ³n de Ãtems y Comandas con AuditorÃ­a y Merma
             Route::post('/mesas/{id}/items/{itemId}/anular', [MozoController::class, 'anularItem']);
             Route::post('/mesas/{id}/anular-comanda', [MozoController::class, 'anularComanda']);
 
-            // CU-MOZO-07: Quiebres de Cocina y Sustitución de Carta
+            // CU-MOZO-07: Quiebres de Cocina y SustituciÃ³n de Carta
             Route::get('/mesas/{id}/items/{itemId}/catalogo-sustitucion', [MozoController::class, 'getCatalogoSustitucion']);
             Route::post('/mesas/{id}/items/{itemId}/sustituir', [MozoController::class, 'sustituirPlato']);
             Route::post('/mesas/{id}/items/{itemId}/anular-quiebre', [MozoController::class, 'anularPorQuiebreCocina']);
 
-            // CU-MOZO-02: Catálogo de Carta, Historial y Despacho de Comandas
+            // CU-MOZO-02: CatÃ¡logo de Carta, Historial y Despacho de Comandas
             Route::get('/carta', [MozoController::class, 'getCarta']);
             Route::get('/mesas/{id}/carta', [MozoController::class, 'getCartaMesa']);
             Route::get('/mesas/{id}/historial', [MozoController::class, 'getHistorialMesa']);
             Route::post('/pedidos', [MozoController::class, 'crearPedido']);
             Route::post('/mesas/{id}/pedidos', [MozoController::class, 'enviarPedidoMesa']);
 
-            // CU-MOZO-08: Precuenta Digital en Salón
+            // CU-MOZO-08: Precuenta Digital en SalÃ³n
             Route::get('/mesas/{id}/precuenta', [MozoController::class, 'getPrecuentaMesa']);
             Route::get('/clientes/buscar', [CajaController::class, 'buscarCliente']);
+
+            // CU-CAJA-02: Promociones Vigentes Predictivas en Comanda
+            Route::get('/promociones-vigentes', [PromocionController::class, 'cajaElegibles']);
 
             // CU-MOZO-09: Dividir Cuenta en Mesa (Subcuentas)
             Route::get('/mesas/{id}/items-dividir', [MozoController::class, 'getItemsDividir']);
             Route::post('/mesas/{id}/dividir-cuenta', [MozoController::class, 'dividirCuenta']);
 
-            // CU-MOZO-05: Gestión de Reservas y Recepción en Salón
+            // CU-MOZO-05: GestiÃ³n de Reservas y RecepciÃ³n en SalÃ³n
             Route::prefix('reservas')->group(function (): void {
                 Route::get('/', [MozoController::class, 'getReservas']);
                 Route::get('/politicas', [MozoController::class, 'getPoliticasReserva']);
@@ -244,7 +251,7 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/pedidos/despachados-recientes', [CocinaController::class, 'getDespachadosRecientes']);
             Route::get('/metricas-despacho', [CocinaController::class, 'getMetricasDespacho']);
 
-            // CU-COCINA-04: Gestión de Quiebres y Disponibilidad de Carta
+            // CU-COCINA-04: GestiÃ³n de Quiebres y Disponibilidad de Carta
             Route::get('/productos/disponibilidad', [CocinaController::class, 'getDisponibilidadProductos']);
             Route::get('/productos/{id}/items-fuego', [CocinaController::class, 'getItemsEnFuegoProducto']);
             Route::post('/productos/{id}/marcar-agotado', [CocinaController::class, 'marcarProductoAgotado']);
@@ -254,7 +261,7 @@ Route::prefix('v1')->group(function (): void {
 
         // Caja / POS (CU-CAJA-01, CU-CAJA-02, CU-CAJA-03, CU-CAJA-04)
         Route::prefix('caja')->middleware('role:cajero,admin_local')->group(function (): void {
-            // CU-CAJA-01: Apertura de Turno y Estado de Sesión
+            // CU-CAJA-01: Apertura de Turno y Estado de SesiÃ³n
             Route::get('/estado-sesion', [CajaController::class, 'getEstadoSesion']);
             Route::post('/apertura', [CajaController::class, 'apertura']);
 
@@ -262,13 +269,14 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/mesas-monitor', [CajaController::class, 'getMesasMonitor']);
             Route::get('/metricas-pos', [CajaController::class, 'getMetricasPos']);
             Route::get('/mesas/{id}/cuenta', [CajaController::class, 'getPrecuentaMesa']);
+            Route::get('/promociones-vigentes', [PromocionController::class, 'cajaElegibles']);
             Route::post('/mesas/{id}/conmutar-cuenta-pedida', [CajaController::class, 'conmutarCuentaPedida']);
 
             // CU-CAJA-04: Dividir Cuenta en Monitor POS (Subcuentas)
             Route::get('/mesas/{id}/items-dividir', [MozoController::class, 'getItemsDividir']);
             Route::post('/mesas/{id}/dividir-cuenta', [MozoController::class, 'dividirCuenta']);
 
-            // CU-CAJA-03: Cobro y Facturación Fiscal SUNAT
+            // CU-CAJA-03: Cobro y FacturaciÃ³n Fiscal SUNAT
             Route::post('/cobrar', [CajaController::class, 'cobrar']);
             Route::get('/clientes/buscar', [CajaController::class, 'buscarCliente']);
         });
