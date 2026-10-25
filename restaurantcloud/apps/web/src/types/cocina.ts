@@ -101,9 +101,9 @@ export interface KDSCambiarEstadoItemRequest {
 }
 
 /**
- * Evento SSE de alerta de Parada de Fogones (item_pedido_anulado desde CU-MOZO-06 / CU-MOZO-07)
+ * Evento de alerta de Parada de Fogones (item_pedido_anulado desde CU-MOZO-06 / CU-MOZO-07)
  */
-export interface ItemAnuladoSSEEvent {
+export interface ItemAnuladoEvent {
   item_id: string;
   pedido_id: string;
   nombre_producto: string;
@@ -114,6 +114,7 @@ export interface ItemAnuladoSSEEvent {
   minutos_transcurridos: number;
   timestamp: string;
 }
+export type ItemAnuladoSSEEvent = ItemAnuladoEvent;
 
 /**
  * Resumen de ítem culinario despachado para la bandeja de histórico/recall (CU-COCINA-02)
@@ -150,9 +151,9 @@ export interface MetricasDespachoDTO {
 }
 
 /**
- * Evento SSE de alerta por consumo con stock insuficiente (CU-COCINA-03)
+ * Evento de alerta por consumo con stock insuficiente (CU-COCINA-03)
  */
-export interface AlertaStockInsuficienteSSE {
+export interface AlertaStockInsuficienteEvent {
   insumo_id: string;
   insumo_nombre: string;
   unidad_medida: string;
@@ -165,6 +166,7 @@ export interface AlertaStockInsuficienteSSE {
   faltante_teorico: number;
   timestamp: string;
 }
+export type AlertaStockInsuficienteSSE = AlertaStockInsuficienteEvent;
 
 /**
  * Plato culinario para el modal de gestión de disponibilidad de carta (CU-COCINA-04)

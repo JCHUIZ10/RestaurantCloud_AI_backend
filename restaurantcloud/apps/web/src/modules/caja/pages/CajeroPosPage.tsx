@@ -94,6 +94,54 @@ export const CajeroPosPage: React.FC = () => {
 
   useEffect(() => {
     cargarDatos();
+
+    // Short Polling silencioso de mesas y métricas cada 3.5 segundos
+    const pollingMesasInterval = setInterval(async () => {
+      try {
+        const [resMesas, resMetricas] = await Promise.all([
+          cajaService.getMesasMonitor(),
+          cajaService.getMetricasPos(),
+        ]);
+        if (resMesas?.exito && resMesas.datos) {
+          setMesas(resMesas.datos);
+        }
+        if (resMetricas?.exito && resMetricas.datos) {
+          setMetricas(resMetricas.datos);
+        }
+      } catch {
+        // Silencioso: no interrumpe la UI del cajero
+      }
+    }, 3500);
+
+    // Polling de sincronización de estado de sesión/turno cada 10 segundos
+    const pollingSessionInterval = setInterval(async () => {
+      try {
+        const resSession = await cajaService.getEstadoSesion();
+        if (resSession?.exito && resSession.datos) {
+          setSession((prev) => {
+            if (!prev) return resSession.datos;
+            if (
+              prev.estado_caja !== resSession.datos.estado_caja ||
+              prev.turno_activo?.id !== resSession.datos.turno_activo?.id ||
+              (prev.turno_activo &&
+                resSession.datos.turno_activo &&
+                (prev.turno_activo.total_ventas !== resSession.datos.turno_activo.total_ventas ||
+                  prev.turno_activo.efectivo_actual !== resSession.datos.turno_activo.efectivo_actual))
+            ) {
+              return resSession.datos;
+            }
+            return prev;
+          });
+        }
+      } catch {
+        // Silencioso
+      }
+    }, 10000);
+
+    return () => {
+      clearInterval(pollingMesasInterval);
+      clearInterval(pollingSessionInterval);
+    };
   }, [cargarDatos]);
 
   // Atajo de teclado global F4 para alternar Historial de Comprobantes (CU-CAJA-04)
@@ -147,9 +195,11 @@ export const CajeroPosPage: React.FC = () => {
 
   // 3. Abrir Emisión de Comprobante Fiscal (CU-CAJA-03)
   const handleAbrirEmitirComprobante = async (mesa: MesaCajaMonitorDTO, subcuenta?: SubcuentaComandaDTO) => {
+    let precuentaData: PrecuentaResponseDTO | null = null;
     try {
       const res = await cajaService.getPrecuentaMesa(mesa.id);
       if (res.exito && res.datos) {
+        precuentaData = res.datos;
         setPrecuentaFiscalActiva(res.datos);
       } else {
         setPrecuentaFiscalActiva(null);
@@ -157,7 +207,11 @@ export const CajeroPosPage: React.FC = () => {
     } catch {
       setPrecuentaFiscalActiva(null);
     }
-    setMesaCobroFiscalActiva(mesa);
+    const mesaConPedido: MesaCajaMonitorDTO = {
+      ...mesa,
+      pedido_id: mesa.pedido_id || precuentaData?.pedido_id,
+    };
+    setMesaCobroFiscalActiva(mesaConPedido);
     setSubcuentaCobroFiscalActiva(subcuenta || null);
   };
 
@@ -250,9 +304,9 @@ export const CajeroPosPage: React.FC = () => {
   };
 
   const handleVerQRDesdeHistorial = (comp: ComprobanteHistorialItemDTO) => {
-    // Si tiene token_digital, abrimos la URL en nueva pestaña o mostramos modal
-    if (comp.url_publica_qr) {
-      window.open(comp.url_publica_qr, '_blank');
+    const url = comp.url_publica_qr || (comp.token_digital ? `${window.location.origin}/c/${comp.token_digital}` : null);
+    if (url) {
+      window.open(url, '_blank');
     }
   };
 

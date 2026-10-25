@@ -83,7 +83,7 @@ export const DemoKdsWidget: React.FC<DemoKdsWidgetProps> = ({
                   <span className="w-3.5 h-3.5 text-center leading-none">⚠️</span>
                   <span>Simular Quiebre Insumo (CU-03)</span>
                 </span>
-                <span className="text-[10px] font-mono text-amber-400">Toast SSE</span>
+                <span className="text-[10px] font-mono text-amber-400">Alerta</span>
               </button>
             )}
 
@@ -101,14 +101,14 @@ export const DemoKdsWidget: React.FC<DemoKdsWidgetProps> = ({
               </button>
             )}
 
-            {/* Simular Parada de Fogones SSE */}
+            {/* Simular Parada de Fogones */}
             <button
               onClick={onSimularParadaFogones}
               className="w-full min-h-[36px] px-2.5 py-1.5 rounded-xl font-bold bg-rose-950/60 hover:bg-rose-900/60 text-rose-200 border border-rose-800/80 transition-colors flex items-center justify-between text-left"
             >
               <span className="flex items-center gap-2">
                 <AlertOctagon className="w-3.5 h-3.5 text-rose-400" />
-                <span>Simular Parada Fogones (SSE)</span>
+                <span>Simular Parada Fogones</span>
               </span>
               <span className="text-[10px] font-mono text-rose-400">Modal 620px</span>
             </button>
@@ -142,14 +142,14 @@ export const DemoKdsWidget: React.FC<DemoKdsWidgetProps> = ({
               </span>
             </button>
 
-            {/* Alternar SSE Conexión */}
+            {/* Alternar Conexión */}
             <button
               onClick={onAlternarSse}
               className="w-full min-h-[32px] px-2.5 py-1 rounded-lg text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:bg-slate-850 flex items-center justify-between"
             >
               <span className="flex items-center gap-1.5">
                 <WifiOff className="w-3 h-3 text-slate-400" />
-                <span>{sseConectado ? 'Simular Offline SSE' : 'Reconectar SSE'}</span>
+                <span>{sseConectado ? 'Simular Desconexión' : 'Reconectar'}</span>
               </span>
               <span
                 className={`w-2 h-2 rounded-full ${

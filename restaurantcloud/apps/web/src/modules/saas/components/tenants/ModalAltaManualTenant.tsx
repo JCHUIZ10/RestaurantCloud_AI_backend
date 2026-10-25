@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle2, AlertCircle, Building2, User, CreditCard, ShieldCheck } from 'lucide-react';
-import { validarRucModulo11 } from '@/modules/saas/services/mockSaasTenantsService';
+import { validarRucModulo11 } from '@/shared/utils';
 import type { AltaManualTenantRequestDTO, OrigenPagoSaaS } from '@/types/saasTenants';
 
 interface ModalAltaManualTenantProps {
@@ -21,7 +21,7 @@ export const ModalAltaManualTenant: React.FC<ModalAltaManualTenantProps> = ({
   const hoy = new Date().toISOString().split('T')[0];
   const proximoAno = new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().split('T')[0];
 
-  const [ruc, setRuc] = useState('20603849201');
+  const [ruc, setRuc] = useState('20603849206');
   const [razonSocial, setRazonSocial] = useState('Cevichería Puerto Marino S.A.C.');
   const [direccionSede, setDireccionSede] = useState('Av. Primavera 450, Surco, Lima');
 
@@ -184,7 +184,7 @@ export const ModalAltaManualTenant: React.FC<ModalAltaManualTenantProps> = ({
                   maxLength={11}
                   value={ruc}
                   onChange={(e) => setRuc(e.target.value.replace(/\D/g, ''))}
-                  placeholder="ej. 20603849201"
+                  placeholder="ej. 20603849206"
                   required
                   className={`w-full px-3 py-2 rounded-xl bg-white border text-sm font-mono focus:outline-none focus:ring-2 ${
                     rucFeedback.valido

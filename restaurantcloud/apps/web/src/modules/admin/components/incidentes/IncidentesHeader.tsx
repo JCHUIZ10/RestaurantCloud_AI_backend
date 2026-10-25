@@ -106,7 +106,7 @@ export const IncidentesHeader: React.FC<IncidentesHeaderProps> = ({
           </p>
         </div>
 
-        {/* KPI 3: Gravedad Alta (Alerta SSE) */}
+        {/* KPI 3: Gravedad Alta (Alerta Crítica) */}
         <div className="bg-white rounded-2xl border border-red-200 p-4 shadow-sm space-y-1 bg-gradient-to-br from-red-50/50 to-white">
           <div className="flex items-center justify-between text-red-700">
             <span className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1">
@@ -121,7 +121,7 @@ export const IncidentesHeader: React.FC<IncidentesHeaderProps> = ({
             {kpis.gravedad_alta}
           </div>
           <p className="text-[11px] text-red-700 font-medium">
-            Notificado a Dueño vía SSE
+            Notificado a Dueño
           </p>
         </div>
 

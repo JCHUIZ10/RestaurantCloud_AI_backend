@@ -89,7 +89,7 @@ export const IncidentesFiltros: React.FC<IncidentesFiltrosProps> = ({
             <option value="todas">Todas las gravedades</option>
             <option value="baja">Baja (Menor)</option>
             <option value="media">Media (Intermedia)</option>
-            <option value="alta">Alta (Crítica / SSE)</option>
+            <option value="alta">Alta (Crítica)</option>
           </select>
         </div>
 

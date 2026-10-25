@@ -9,7 +9,7 @@ import {
   EstadoIncidente,
   IncidenteDetalleDTO,
   PasarARevisionRequest,
-  SseIncidenteCriticoEvent,
+  IncidenteCriticoEvent,
 } from '@/types/propietario';
 import { PropietarioIncidentesHeader } from '../components/incidentes/PropietarioIncidentesHeader';
 import { PropietarioIncidentesFiltros } from '../components/incidentes/PropietarioIncidentesFiltros';
@@ -59,8 +59,8 @@ export const PropietarioIncidentesPage: React.FC = () => {
   const [incidenteSeleccionado, setIncidenteSeleccionado] = useState<IncidenteDetalleDTO | null>(null);
   const [guardandoDirectiva, setGuardandoDirectiva] = useState(false);
 
-  // Alerta SSE en tiempo real
-  const [alertaSse, setAlertaSse] = useState<SseIncidenteCriticoEvent | null>(null);
+  // Alerta en tiempo real
+  const [alertaSse, setAlertaSse] = useState<IncidenteCriticoEvent | null>(null);
 
   // Toast feedback
   const [toast, setToast] = useState<{ tipo: 'exito' | 'error'; mensaje: string } | null>(null);
@@ -105,16 +105,13 @@ export const PropietarioIncidentesPage: React.FC = () => {
     cargarIncidentes();
   }, [cargarIncidentes]);
 
-  // Suscripción al canal de eventos en vivo SSE
+  // Polling de sincronización periódica en vivo (cada 10s)
   useEffect(() => {
-    const desuscribir = propietarioIncidentesService.subscribirSSE((evento) => {
-      setAlertaSse(evento);
+    const interval = setInterval(() => {
       cargarIncidentes();
-    });
+    }, 10000);
 
-    return () => {
-      desuscribir();
-    };
+    return () => clearInterval(interval);
   }, [cargarIncidentes]);
 
   // Manejo de Inspección de Incidente (Acuse Automático de Lectura)
@@ -200,7 +197,7 @@ export const PropietarioIncidentesPage: React.FC = () => {
         </div>
       )}
 
-      {/* Banner de Alerta Crítica en Tiempo Real (SSE Hub) */}
+      {/* Banner de Alerta Crítica en Tiempo Real */}
       <BannerAlertaCriticaSSE
         alerta={alertaSse}
         onInspeccionar={(id) => {
@@ -287,13 +284,13 @@ export const PropietarioIncidentesPage: React.FC = () => {
           propietarioIncidentesService.simularLlegadaIncidenteCritico(
             '00000000-0000-4000-8000-000000000010'
           );
-          mostrarToast('Incidente crítico emitido desde Sede Miraflores vía canal SSE', 'exito');
+          mostrarToast('Incidente crítico simulado desde Sede Miraflores', 'exito');
         }}
         onSimularSseSanIsidro={() => {
           propietarioIncidentesService.simularLlegadaIncidenteCritico(
             '00000000-0000-4000-8000-000000000020'
           );
-          mostrarToast('Incidente crítico emitido desde Sede San Isidro vía canal SSE', 'exito');
+          mostrarToast('Incidente crítico simulado desde Sede San Isidro', 'exito');
         }}
         onRestablecer={() => {
           propietarioIncidentesService.restablecerSemillas();

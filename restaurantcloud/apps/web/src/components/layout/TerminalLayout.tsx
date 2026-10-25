@@ -50,12 +50,12 @@ export const TerminalLayout: React.FC = () => {
           </span>
         </div>
 
-        {/* Indicadores en Vivo (SSE Conectado, Hora y Usuario de Turno) */}
+        {/* Indicadores en Vivo (Conectado / Polling, Hora y Usuario de Turno) */}
         <div className="flex items-center gap-3 text-xs">
           <div className="flex items-center gap-1.5 text-emerald-500 font-mono text-[11px]">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
             <Wifi className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">SSE En Vivo</span>
+            <span className="hidden sm:inline">En Línea</span>
           </div>
 
           <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">

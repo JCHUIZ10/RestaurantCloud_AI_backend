@@ -61,11 +61,12 @@ CREATE OR REPLACE FUNCTION fn_obtener_siguiente_correlativo(
     p_tipo_comprobante VARCHAR,
     p_serie VARCHAR
 )
-RETURNS INT AS $$
+RETURNS INT AS $
 DECLARE
     v_siguiente INT;
+    v_max_existente INT;
 BEGIN
-    SELECT correlativo_actual + 1
+    SELECT correlativo_actual
     INTO v_siguiente
     FROM comprobante_serie
     WHERE local_id = p_local_id
@@ -78,6 +79,15 @@ BEGIN
         RAISE EXCEPTION 'ERR_SERIE_NO_ENCONTRADA: Serie % de tipo % no activa para sede %', p_serie, p_tipo_comprobante, p_local_id;
     END IF;
 
+    -- Verificar el mayor correlativo físico ya emitido en la tabla comprobante para esta serie
+    SELECT COALESCE(MAX(correlativo), 0)
+    INTO v_max_existente
+    FROM comprobante
+    WHERE serie = p_serie;
+
+    -- El siguiente correlativo es estrictamente mayor tanto al acumulador de la serie como al máximo emitido
+    v_siguiente := GREATEST(v_siguiente, v_max_existente) + 1;
+
     UPDATE comprobante_serie
     SET correlativo_actual = v_siguiente,
         updated_at = NOW()
@@ -87,7 +97,7 @@ BEGIN
 
     RETURN v_siguiente;
 END;
-$$ LANGUAGE plpgsql;
+$ LANGUAGE plpgsql;
 
 -- 5. FUNCIÓN DE SEGURIDAD PARA BYPASS RLS DE ADMINISTRADOR SAAS (CU-SAAS-01)
 CREATE OR REPLACE FUNCTION fn_es_admin_saas()

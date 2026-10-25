@@ -127,9 +127,32 @@ export const ActivarCuentaPage: React.FC = () => {
 
         setUsuario(usuarioSesion, res.datos.token);
 
-        // Redirigir suavemente tras 1.2 segundos
+        // Redirigir según el rol del usuario activado tras 1.2 segundos
         setTimeout(() => {
-          navigate(ROUTES.ADMIN_DASHBOARD);
+          const rol = res.datos.usuario.rol;
+          switch (rol) {
+            case 'propietario':
+              navigate(ROUTES.PROPIETARIO_SEDES);
+              break;
+            case 'admin_local':
+              navigate(ROUTES.ADMIN_DASHBOARD);
+              break;
+            case 'mozo':
+              navigate(ROUTES.MOZO_MESAS);
+              break;
+            case 'cocina':
+              navigate(ROUTES.COCINA_KDS);
+              break;
+            case 'cajero':
+              navigate(ROUTES.CAJERO_POS);
+              break;
+            case 'admin_saas':
+              navigate(ROUTES.SAAS_TENANTS);
+              break;
+            default:
+              navigate(ROUTES.PROPIETARIO_SEDES);
+              break;
+          }
         }, 1200);
       } else {
         setErrorEnvio(
@@ -155,7 +178,9 @@ export const ActivarCuentaPage: React.FC = () => {
           RestaurantCloud <span className="text-aurea-copper">AI</span>
         </h1>
         <p className="mt-1 text-xs sm:text-sm text-slate-400">
-          Activación de Credenciales de Personal Administrativo
+          {datosInvitacion?.usuario.rol === 'propietario'
+            ? 'Activación de Cuenta de Propietario Titular'
+            : 'Activación de Credenciales de Personal Administrativo'}
         </p>
       </div>
 
@@ -223,7 +248,11 @@ export const ActivarCuentaPage: React.FC = () => {
               </div>
               <div className="pt-2 flex items-center justify-center gap-2 text-aurea-copper text-xs font-semibold">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Redirigiendo a tu Dashboard...</span>
+                <span>
+                  {datosInvitacion?.usuario.rol === 'propietario'
+                    ? 'Ingresando a tu Consola de Propietario...'
+                    : 'Redirigiendo a tu Dashboard...'}
+                </span>
               </div>
             </div>
           )}
@@ -284,7 +313,7 @@ export const ActivarCuentaPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setMostrarPassword(!mostrarPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-aurea-navy/50 hover:text-aurea-navy transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-aurea-navy/50 hover:text-aurea-navy transition-colors cursor-pointer"
                   >
                     {mostrarPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -309,7 +338,7 @@ export const ActivarCuentaPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setMostrarConfirmacion(!mostrarConfirmacion)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-aurea-navy/50 hover:text-aurea-navy transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-aurea-navy/50 hover:text-aurea-navy transition-colors cursor-pointer"
                   >
                     {mostrarConfirmacion ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -373,7 +402,7 @@ export const ActivarCuentaPage: React.FC = () => {
                 <Button
                   type="submit"
                   disabled={!formularioValido || enviando}
-                  className="w-full bg-aurea-navy text-white hover:bg-aurea-navy/90 py-3 font-bold text-xs shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full bg-aurea-navy text-white hover:bg-aurea-navy/90 py-3 font-bold text-xs shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
                   {enviando ? (
                     <>

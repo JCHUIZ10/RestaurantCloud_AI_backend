@@ -143,7 +143,7 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
         setConfigBorrador(JSON.parse(JSON.stringify(resp.datos)));
         mostrarToast(
           IS_REAL_API
-            ? 'Configuracion KDS guardada. La sincronizacion en tiempo real se habilitara con SSE.'
+            ? 'Configuración KDS guardada exitosamente.'
             : 'Configuracion de KDS sincronizada con cocina y salon en menos de 30 ms.',
           'exito'
         );

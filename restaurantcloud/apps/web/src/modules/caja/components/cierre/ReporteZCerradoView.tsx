@@ -32,11 +32,12 @@ export const ReporteZCerradoView: React.FC<ReporteZCerradoViewProps> = ({
 
   const handleDescargarPdf = () => {
     setDescargando(true);
+    setDescargadoExito(true);
+    window.print();
     setTimeout(() => {
       setDescargando(false);
-      setDescargadoExito(true);
-      setTimeout(() => setDescargadoExito(false), 3500);
-    }, 1000);
+      setDescargadoExito(false);
+    }, 2500);
   };
 
   const fechaAperturaStr = new Date(reporte.fecha_apertura).toLocaleString('es-PE', {
@@ -59,8 +60,8 @@ export const ReporteZCerradoView: React.FC<ReporteZCerradoViewProps> = ({
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto animate-in fade-in duration-300">
-      {/* Banner Superior de Confirmación y Notificación SSE */}
-      <div className="p-4 rounded-3xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+      {/* Banner Superior de Confirmación y Notificación */}
+      <div className="p-4 rounded-3xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm print:hidden">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-2xl bg-emerald-200 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200">
             <CheckCircle2 className="w-6 h-6" />
@@ -70,7 +71,7 @@ export const ReporteZCerradoView: React.FC<ReporteZCerradoViewProps> = ({
               ¡Turno #{String(reporte.turno_correlativo).padStart(3, '0')} Cerrado con Éxito!
             </span>
             <span className="text-xs text-emerald-700 dark:text-emerald-300">
-              Reporte Z Digital emitido inmutablemente • Broadcast SSE enviado a CU-ADMIN-14 • Terminal cerrada.
+              Reporte Z Digital emitido inmutablemente • Notificación enviada a CU-ADMIN-14 • Terminal cerrada.
             </span>
           </div>
         </div>
@@ -287,7 +288,7 @@ export const ReporteZCerradoView: React.FC<ReporteZCerradoViewProps> = ({
         </div>
 
         {/* Pie con Acciones */}
-        <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 flex flex-col sm:flex-row items-center justify-between gap-3 print:hidden">
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               type="button"

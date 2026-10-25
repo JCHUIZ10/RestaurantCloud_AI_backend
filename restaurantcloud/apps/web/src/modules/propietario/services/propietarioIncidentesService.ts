@@ -56,7 +56,7 @@ class PropietarioIncidentesService {
   }
 
   /**
-   * Suscripción reactiva al canal SSE en tiempo real
+   * Suscripción reactiva a eventos en memoria
    */
   subscribirSSE(listener: SseListener): () => void {
     this.sseListeners.add(listener);
@@ -66,20 +66,20 @@ class PropietarioIncidentesService {
   }
 
   /**
-   * Dispara un evento en tiempo real a todos los suscriptores SSE activos
+   * Dispara un evento en tiempo real a todos los suscriptores activos
    */
   emitirAlertaSse(evento: SseIncidenteCriticoEvent) {
     this.sseListeners.forEach((listener) => {
       try {
         listener(evento);
       } catch (err) {
-        console.error('Error al emitir evento SSE a oyente:', err);
+        console.error('Error al emitir evento a oyente:', err);
       }
     });
   }
 
   /**
-   * Simula la creación concurrente de un incidente crítico en una sede y emite el evento SSE
+   * Simula la creación concurrente de un incidente crítico en una sede
    */
   simularLlegadaIncidenteCritico(sedeId?: string): IncidenteDetalleDTO {
     const inc = mockAdminService.simularNuevoIncidenteCriticoSse(sedeId);

@@ -40,12 +40,12 @@ export const DropdownCampanaNotificaciones: React.FC<DropdownCampanaNotificacion
   useEffect(() => {
     cargarNotificaciones();
 
-    // Escuchar SSE para refrescar campana en vivo
-    const unsub = adminService.subscribirNotificacionesSse(() => {
+    // Polling periódico para refrescar campana de notificaciones (cada 10s)
+    const interval = setInterval(() => {
       cargarNotificaciones();
-    });
+    }, 10000);
 
-    return () => unsub();
+    return () => clearInterval(interval);
   }, []);
 
   // Cerrar al hacer clic fuera

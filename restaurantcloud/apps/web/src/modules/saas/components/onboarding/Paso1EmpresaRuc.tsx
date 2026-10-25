@@ -1,19 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { Building2, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
-import { validarRucModulo11 } from '@/modules/saas/services/mockSaasTenantsService';
+import { validarRucModulo11 } from '@/shared/utils';
 
 interface Paso1EmpresaRucProps {
   ruc: string;
   razonSocial: string;
-  direccionSede: string;
-  onChange: (fields: { ruc?: string; razonSocial?: string; direccionSede?: string }) => void;
+  onChange: (fields: { ruc?: string; razonSocial?: string }) => void;
   onSiguiente: () => void;
 }
 
 export const Paso1EmpresaRuc: React.FC<Paso1EmpresaRucProps> = ({
   ruc,
   razonSocial,
-  direccionSede,
   onChange,
   onSiguiente,
 }) => {
@@ -35,8 +33,7 @@ export const Paso1EmpresaRuc: React.FC<Paso1EmpresaRucProps> = ({
     }
   }, [ruc]);
 
-  const esValido =
-    rucFeedback.valido && razonSocial.trim().length >= 3 && direccionSede.trim().length >= 5;
+  const esValido = rucFeedback.valido && razonSocial.trim().length >= 3;
 
   return (
     <div className="bg-white rounded-3xl border border-aurea-copper/25 p-6 sm:p-8 shadow-sm space-y-6">
@@ -65,7 +62,7 @@ export const Paso1EmpresaRuc: React.FC<Paso1EmpresaRucProps> = ({
             maxLength={11}
             value={ruc}
             onChange={(e) => onChange({ ruc: e.target.value.replace(/\D/g, '') })}
-            placeholder="ej. 20603849201"
+            placeholder="ej. 20603849206"
             className={`w-full px-4 py-3 rounded-xl bg-white border text-base font-mono focus:outline-none focus:ring-2 transition-all ${
               rucFeedback.valido
                 ? 'border-emerald-400 focus:ring-emerald-200 text-emerald-950 font-bold bg-emerald-50/20'
@@ -107,23 +104,14 @@ export const Paso1EmpresaRuc: React.FC<Paso1EmpresaRucProps> = ({
             Nombre legal que figurará en el expediente y contratos
           </span>
         </div>
+      </div>
 
-        {/* Sede Principal y Dirección */}
-        <div className="sm:col-span-2 space-y-1.5">
-          <label className="block text-xs font-bold text-aurea-navy uppercase tracking-wider">
-            Dirección Física de la Primera Sede (Local Principal): *
-          </label>
-          <input
-            type="text"
-            value={direccionSede}
-            onChange={(e) => onChange({ direccionSede: e.target.value })}
-            placeholder="ej. Av. Primavera 450, Santiago de Surco, Lima"
-            className="w-full px-4 py-3 rounded-xl bg-white border border-aurea-copper/30 text-sm text-aurea-navy focus:outline-none focus:ring-2 focus:ring-aurea-copper/40"
-          />
-          <span className="text-aurea-navy/50 text-[11px] block">
-            Se registrará atómicamente en la tabla <code className="text-aurea-navy font-mono font-bold">local</code> de PostgreSQL 16
-          </span>
-        </div>
+      {/* Nota de Aprovisionamiento Limpio */}
+      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700 flex items-start gap-2.5">
+        <Building2 className="w-4 h-4 text-aurea-copper shrink-0 mt-0.5" />
+        <p className="leading-relaxed">
+          <strong className="text-slate-900">Nota de Tenancy:</strong> El titular propietario registrará su primera sede física con su ubicación exacta, ubigeo y giro comercial directamente desde la <span className="font-semibold text-aurea-navy">Consola de Sedes</span> tras activar su cuenta.
+        </p>
       </div>
 
       {/* Botón de Siguiente */}
@@ -132,7 +120,7 @@ export const Paso1EmpresaRuc: React.FC<Paso1EmpresaRucProps> = ({
           type="button"
           disabled={!esValido}
           onClick={onSiguiente}
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm bg-aurea-navy text-white hover:bg-opacity-95 shadow-md border border-aurea-copper/40 transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm bg-aurea-navy text-white hover:bg-opacity-95 shadow-md border border-aurea-copper/40 transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
         >
           <span>Continuar a Datos del Propietario</span>
           <ArrowRight className="w-4 h-4 text-aurea-copper" />

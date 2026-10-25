@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\Propietario\LocalController;
 use App\Http\Controllers\Api\Public\ActivacionCuentaController;
 use App\Http\Controllers\Api\Public\ComprobantePublicoController;
 use App\Http\Controllers\Api\Public\RegistroController;
+use App\Http\Controllers\Api\Saas\SaasTenantController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
@@ -175,6 +176,19 @@ Route::prefix('v1')->group(function (): void {
             });
         });
 
+        // Administración SaaS (CU-SAAS-01: Supervisión de Tenants y Altas Manuales B2B)
+        Route::prefix('saas')->middleware('role:admin_saas')->group(function (): void {
+            Route::prefix('tenants')->group(function (): void {
+                Route::get('/', [SaasTenantController::class, 'index']);
+                Route::post('/', [SaasTenantController::class, 'altaManual']);
+                Route::post('/alta-manual', [SaasTenantController::class, 'altaManual']);
+                Route::get('/planes', [SaasTenantController::class, 'planes']);
+                Route::get('/{id}', [SaasTenantController::class, 'show']);
+                Route::post('/{id}/suspender', [SaasTenantController::class, 'suspender']);
+                Route::post('/{id}/notificar-cobro', [SaasTenantController::class, 'notificarCobro']);
+            });
+            Route::get('/planes', [SaasTenantController::class, 'planes']);
+        });
         // Propietario (CU-PROP-04: GestiÃ³n de Locales / CU-PROP-05: Administradores de Local)
         Route::prefix('propietario')->middleware('role:propietario,admin_saas')->group(function (): void {
             // CU-PROP-04: Registrar y Administrar Locales
@@ -304,6 +318,11 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/comprobantes/{id}/preparar-anulacion', [CajaController::class, 'prepararAnulacionComprobante']);
             Route::post('/comprobantes/{id}/nota-credito', [CajaController::class, 'emitirNotaCredito']);
             Route::patch('/comprobantes/{id}/contacto', [CajaController::class, 'actualizarContactoComprobante']);
+
+            // CU-CAJA-05: Cierre de Turno y Arqueo (Balance Pre-Arqueo, Cierre Z y Consulta)
+            Route::get('/balance-pre-arqueo', [CajaController::class, 'getBalancePreArqueo']);
+            Route::post('/cierre', [CajaController::class, 'cerrarTurno']);
+            Route::get('/ultimo-reporte-z', [CajaController::class, 'getUltimoReporteZ']);
         });
     });
 });

@@ -25,7 +25,7 @@ export const DemoPropietarioIncidentesWidget: React.FC<DemoPropietarioIncidentes
             </span>
           </div>
           <p className="text-xs text-white/70 mt-1 max-w-xl">
-            Simula eventos concurrentes en tiempo real del canal Server-Sent Events (SSE) y verifica
+            Simula eventos concurrentes de incidentes en tiempo real y verifica
             la sincronización multi-sede con el portal de Administrador de Local.
           </p>
         </div>
@@ -36,7 +36,7 @@ export const DemoPropietarioIncidentesWidget: React.FC<DemoPropietarioIncidentes
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600/90 hover:bg-rose-600 text-white text-xs font-bold transition-all shadow-sm active:scale-95"
           >
             <BellRing className="w-3.5 h-3.5" />
-            <span>Simular SSE (Miraflores)</span>
+            <span>Simular Incidente (Miraflores)</span>
           </button>
 
           <button
@@ -44,7 +44,7 @@ export const DemoPropietarioIncidentesWidget: React.FC<DemoPropietarioIncidentes
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600/90 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-sm active:scale-95"
           >
             <Building2 className="w-3.5 h-3.5" />
-            <span>Simular SSE (San Isidro)</span>
+            <span>Simular Incidente (San Isidro)</span>
           </button>
 
           <button

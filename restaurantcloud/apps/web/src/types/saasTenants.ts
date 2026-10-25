@@ -151,7 +151,7 @@ export interface TenantDetailResponseDTO {
 export interface AltaManualTenantRequestDTO {
   ruc: string; // 11 dígitos, validado con Módulo 11
   razon_social: string;
-  direccion_sede: string;
+  direccion_sede?: string;
   propietario_nombre: string;
   propietario_email: string;
   propietario_telefono: string;

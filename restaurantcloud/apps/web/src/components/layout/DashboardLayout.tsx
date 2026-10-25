@@ -140,7 +140,7 @@ export const DashboardLayout: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Campana de Notificaciones Reactiva SSE */}
+            {/* Campana de Notificaciones Reactiva (Polling) */}
             <DropdownCampanaNotificaciones />
 
             {/* Avatar del usuario */}

@@ -254,7 +254,7 @@ export const ModalRegistrarIncidente: React.FC<ModalRegistrarIncidenteProps> = (
             </div>
           </div>
 
-          {/* Alerta Reactiva SSE si es Alta */}
+          {/* Alerta Reactiva si es Alta */}
           {gravedad === 'alta' && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-red-900 text-xs">
               <Zap className="w-4 h-4 text-red-600 shrink-0 mt-0.5 animate-bounce" />

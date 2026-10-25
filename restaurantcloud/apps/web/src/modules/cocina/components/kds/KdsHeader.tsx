@@ -45,7 +45,7 @@ export const KdsHeader: React.FC<KdsHeaderProps> = ({
 }) => {
   return (
     <header className="bg-slate-900 border-b border-slate-800 shrink-0 text-slate-100 select-none shadow-md">
-      {/* Fila 1: Título, Reloj, Conectividad SSE y Chef de Turno */}
+      {/* Fila 1: Título, Reloj, Conectividad y Chef de Turno */}
       <div className="px-4 py-2 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
@@ -105,9 +105,9 @@ export const KdsHeader: React.FC<KdsHeaderProps> = ({
           )}
         </div>
 
-        {/* Estado SSE, Sonido y Chef */}
+        {/* Estado de Conectividad, Sonido y Chef */}
         <div className="flex items-center gap-3 text-xs">
-          {/* Indicador SSE */}
+          {/* Indicador de Conectividad */}
           <div
             className={`flex items-center gap-1.5 font-mono px-2.5 py-1 rounded-md border ${
               sseConectado
@@ -122,7 +122,7 @@ export const KdsHeader: React.FC<KdsHeaderProps> = ({
             />
             <Wifi className="w-3.5 h-3.5" />
             <span className="font-semibold hidden sm:inline">
-              {sseConectado ? 'KDS En Vivo (SSE)' : 'Reconectando SSE...'}
+              {sseConectado ? 'KDS En Vivo' : 'Reconectando...'}
             </span>
           </div>
 

@@ -1,9 +1,9 @@
 import React from 'react';
 import { AlertOctagon, X, ArrowRight, BellRing } from 'lucide-react';
-import { SseIncidenteCriticoEvent } from '@/types/propietario';
+import { IncidenteCriticoEvent } from '@/types/propietario';
 
 interface BannerAlertaCriticaSSEProps {
-  alerta: SseIncidenteCriticoEvent | null;
+  alerta: IncidenteCriticoEvent | null;
   onInspeccionar: (id: string) => void;
   onDescartar: () => void;
 }
@@ -29,7 +29,7 @@ export const BannerAlertaCriticaSSE: React.FC<BannerAlertaCriticaSSEProps> = ({
             <div className="flex items-center gap-2 flex-wrap">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-white text-red-700 tracking-wide uppercase shadow-sm">
                 <AlertOctagon className="w-3.5 h-3.5" />
-                Alerta Crítica en Vivo (SSE)
+                Alerta Crítica en Vivo
               </span>
               <span className="text-xs text-white/90 font-medium">
                 {alerta.local_nombre} • {new Date(alerta.created_at).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}

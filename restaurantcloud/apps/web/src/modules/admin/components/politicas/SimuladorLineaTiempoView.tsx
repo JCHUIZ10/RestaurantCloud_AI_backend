@@ -386,7 +386,7 @@ export const SimuladorLineaTiempoView: React.FC<SimuladorLineaTiempoViewProps> =
             </span>
             <div className="text-sm font-bold text-emerald-700 flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4" />
-              <span>Tiempo Real vía SSE en Mozo</span>
+              <span>Tiempo Real en Mozo</span>
             </div>
             <p className="text-xs text-stone-600">
               El plano táctil de <strong className="text-stone-800">CU-MOZO-01</strong> bloquea la mesa exactamente a las <strong>{horaInicioBloqueoStr}</strong>.

@@ -8759,7 +8759,7 @@ class MockAdminService {
   }
 
   /**
-   * Simular la llegada concurrente de un incidente crítico en tiempo real (SSE)
+   * Simular la llegada concurrente de un incidente crítico en tiempo real
    */
   simularNuevoIncidenteCriticoSse(sedeId: string = CANONICAL_LOCAL_ID): IncidenteDetalleDTO {
     const codigo = `INC-2026-${String(this.seqIncidente++).padStart(3, '0')}`;
@@ -9139,7 +9139,7 @@ class MockAdminService {
   }
 
   /**
-   * Suscripción reactiva al canal SSE de notificaciones de sede
+   * Suscripción reactiva a notificaciones de sede (simulación mock)
    */
   subscribirNotificacionesSse(listener: (notif: NotificacionCampanaDTO) => void): () => void {
     this.notificacionesSseListeners.add(listener);
@@ -9149,7 +9149,7 @@ class MockAdminService {
   }
 
   /**
-   * Simula la llegada concurrente de una anulación en salón vía SSE
+   * Simula la llegada concurrente de una anulación en salón
    */
   simularNuevaAnulacionSse(tipo: 'item' | 'comanda' = 'item'): NotificacionCampanaDTO {
     const now = new Date().toISOString();
@@ -9212,12 +9212,12 @@ class MockAdminService {
 
     this.notificacionesCampana.unshift(nuevaNotif);
 
-    // Notificar a todos los suscriptores SSE activos
+    // Notificar a todos los suscriptores activos
     this.notificacionesSseListeners.forEach((listener) => {
       try {
         listener(nuevaNotif);
       } catch (err) {
-        console.error('Error al emitir notificación SSE:', err);
+        console.error('Error al emitir notificación:', err);
       }
     });
 

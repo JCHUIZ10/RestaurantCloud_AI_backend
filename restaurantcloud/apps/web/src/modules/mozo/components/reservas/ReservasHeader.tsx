@@ -59,7 +59,7 @@ export const ReservasHeader: React.FC<ReservasHeaderProps> = ({
           </div>
         </div>
 
-        {/* Lado derecho: Selector de fecha, turno, SSE y botón de acción */}
+        {/* Lado derecho: Selector de fecha, turno, estado y botón de acción */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {/* Navegador de Fecha */}
           <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg p-0.5 shadow-2xs">
@@ -110,11 +110,11 @@ export const ReservasHeader: React.FC<ReservasHeaderProps> = ({
             </button>
           </div>
 
-          {/* Badge SSE */}
+          {/* Badge de Conectividad */}
           <div className="hidden sm:flex items-center gap-1.5 text-emerald-600 font-mono text-[11px] bg-emerald-50 px-2.5 py-1.5 rounded-md border border-emerald-200/60">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
             <Wifi className="w-3 h-3" />
-            <span>SSE Conectado</span>
+            <span>En Línea</span>
           </div>
 
           {/* Botón de Acción Principal */}

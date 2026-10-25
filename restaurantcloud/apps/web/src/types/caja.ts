@@ -187,6 +187,7 @@ export interface SubcuentaComandaDTO {
 }
 
 export interface PrecuentaResponseDTO {
+  pedido_id?: string;
   mesa_id: string;
   mesa_numero: string;
   mesa_estado?: 'ocupada' | 'cuenta_pedida' | 'libre';
@@ -207,6 +208,8 @@ export interface PrecuentaResponseDTO {
   tipo_comprobante_sugerido?: 'boleta' | 'factura' | 'nota_venta';
   documento_cliente_sugerido?: string | null;
   nombre_cliente_sugerido?: string | null;
+  telefono_cliente_sugerido?: string | null;
+  email_cliente_sugerido?: string | null;
   metodo_pago_tentativo?: string;
   numero_operacion_tentativo?: string;
   total_cobro_tentativo?: number;

@@ -342,7 +342,7 @@ export const ModalArqueoConteo: React.FC<ModalArqueoConteoProps> = ({
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:border-aurea-copper"
                 />
                 <span className="text-[10px] text-slate-400 block">
-                  🔔 Se emitirá un evento reactivo SSE a Administración (CU-ADMIN-14).
+                  🔔 Se emitirá una notificación a Administración (CU-ADMIN-14).
                 </span>
               </div>
             </div>

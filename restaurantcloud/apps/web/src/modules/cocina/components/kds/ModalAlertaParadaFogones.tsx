@@ -26,7 +26,7 @@ export const ModalAlertaParadaFogones: React.FC<ModalAlertaParadaFogonesProps> =
               🛑 ATENCIÓN COCINA • PARADA DE FOGONES
             </h3>
             <p className="text-xs font-mono text-rose-300">
-              Evento SSE: item_pedido_anulado • Salón revocó preparación
+              Alerta en Salón: item anulado • Salón revocó preparación
             </p>
           </div>
         </div>

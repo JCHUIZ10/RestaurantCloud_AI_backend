@@ -158,7 +158,7 @@ export const MetodosPagoSelector: React.FC<MetodosPagoSelectorProps> = ({
             {actor === 'cajero' ? (
               <>Al confirmar, se generará la cuenta de la mesa y se mantendrá en estado <strong>[CUENTA PEDIDA]</strong> para control de cobro.</>
             ) : (
-              <>Al notificar a Caja, la mesa cambiará a estado <strong>[CUENTA PEDIDA]</strong> (color ámbar) y emitirá una alerta SSE al cajero.</>
+              <>Al notificar a Caja, la mesa cambiará a estado <strong>[CUENTA PEDIDA]</strong> (color ámbar) y notificará la solicitud al cajero.</>
             )}
           </span>
         </div>
@@ -189,7 +189,7 @@ export const MetodosPagoSelector: React.FC<MetodosPagoSelectorProps> = ({
               <span>
                 {actor === 'cajero'
                   ? 'Generando precuenta y bloqueando mesa...'
-                  : 'Transmitiendo solicitud a terminal de Caja vía SSE...'}
+                  : 'Transmitiendo solicitud a terminal de Caja...'}
               </span>
             </>
           ) : cuentaPedidaExitosa ? (

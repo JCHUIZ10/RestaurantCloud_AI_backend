@@ -82,7 +82,7 @@ export interface PasarARevisionRequest {
   nota_propietario: string;
 }
 
-export interface SseIncidenteCriticoEvent {
+export interface IncidenteCriticoEvent {
   id: string;
   codigo: string;
   local_id: string;
@@ -92,6 +92,7 @@ export interface SseIncidenteCriticoEvent {
   titulo: string;
   created_at: string;
 }
+export type SseIncidenteCriticoEvent = IncidenteCriticoEvent;
 
 // Re-exportar tipos complementarios de admin para uso directo en módulos de propietario
 export type {

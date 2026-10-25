@@ -493,7 +493,7 @@ export const KdsParametrosForm: React.FC<KdsParametrosFormProps> = ({
           {isGuardando ? (
             <>
               <span className="w-4 h-4 border-2 border-aurea-navy border-t-transparent rounded-full animate-spin"></span>
-              <span>Guardando y transmitiendo SSE...</span>
+              <span>Guardando configuración...</span>
             </>
           ) : (
             <>

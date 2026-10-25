@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { ArrowLeft, Sparkles, AlertCircle, Building2 } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { ArrowLeft, AlertCircle, Building2 } from 'lucide-react';
 import { ROUTES } from '@/router/routes.constants';
-import { mockSaasTenantsService } from '@/modules/saas/services/mockSaasTenantsService';
+import { saasTenantsService } from '@/services/serviceAdapter';
 import { OnboardingStepper } from '../components/onboarding/OnboardingStepper';
 import { Paso1EmpresaRuc } from '../components/onboarding/Paso1EmpresaRuc';
 import { Paso2TitularPropietario } from '../components/onboarding/Paso2TitularPropietario';
@@ -39,7 +39,6 @@ const DRAFT_STORAGE_KEY = 'restaurantcloud_onboarding_draft_v1';
 
 export const SaasTenantOnboardingPage: React.FC = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
 
   const [pasoActual, setPasoActual] = useState<number>(1);
   const [pasoMaximoAlcanzado, setPasoMaximoAlcanzado] = useState<number>(1);
@@ -47,29 +46,6 @@ export const SaasTenantOnboardingPage: React.FC = () => {
   const { fechaInicio: initInicio, fechaFinPeriodo: initFin } = getFechasIniciales('anual');
 
   const [formData, setFormData] = useState<AltaManualTenantRequestDTO>(() => {
-    // Si viene de demo, iniciamos con datos de prueba
-    if (searchParams.get('demo') === 'true') {
-      return {
-        ruc: '20603849201',
-        razon_social: 'Cevichería Puerto Marino S.A.C.',
-        direccion_sede: 'Av. Primavera 450, Santiago de Surco, Lima',
-        propietario_nombre: 'Jorge Medina Castro',
-        propietario_email: 'admin@puertomarino.pe',
-        propietario_telefono: '+51 991 882 334',
-        plan_id: 2,
-        ciclo_facturacion: 'anual',
-        fecha_inicio: initInicio,
-        fecha_fin_periodo: initFin,
-        monto_cobrado_pen: 800.0,
-        origen_pago: 'transferencia_bancaria',
-        numero_operacion: 'OP-90481239-BCP',
-        fecha_operacion: initInicio,
-        nota_administrativa:
-          'Abono anual confirmado por tesorería en cuenta corriente BCP. Comprobante archivado.',
-        enviar_email_bienvenida: true,
-      };
-    }
-
     // Intentar recuperar borrador de sessionStorage
     try {
       const guardado = sessionStorage.getItem(DRAFT_STORAGE_KEY);
@@ -83,7 +59,6 @@ export const SaasTenantOnboardingPage: React.FC = () => {
     return {
       ruc: '',
       razon_social: '',
-      direccion_sede: '',
       propietario_nombre: '',
       propietario_email: '',
       propietario_telefono: '',
@@ -153,36 +128,11 @@ export const SaasTenantOnboardingPage: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleCargarDemo = () => {
-    const { fechaInicio, fechaFinPeriodo } = getFechasIniciales('anual');
-    const demoData: AltaManualTenantRequestDTO = {
-      ruc: '20603849201',
-      razon_social: 'Cevichería Puerto Marino S.A.C.',
-      direccion_sede: 'Av. Primavera 450, Santiago de Surco, Lima',
-      propietario_nombre: 'Jorge Medina Castro',
-      propietario_email: 'admin@puertomarino.pe',
-      propietario_telefono: '+51 991 882 334',
-      plan_id: 2,
-      ciclo_facturacion: 'anual',
-      fecha_inicio: fechaInicio,
-      fecha_fin_periodo: fechaFinPeriodo,
-      monto_cobrado_pen: 800.0,
-      origen_pago: 'transferencia_bancaria',
-      numero_operacion: 'OP-90481239-BCP',
-      fecha_operacion: fechaInicio,
-      nota_administrativa:
-        'Abono anual confirmado por tesorería en cuenta corriente BCP. Comprobante archivado.',
-      enviar_email_bienvenida: true,
-    };
-    setFormData(demoData);
-    setPasoMaximoAlcanzado(4);
-  };
-
   const handleSubmitFinal = async () => {
     setCargando(true);
     setErrorSubmit(null);
     try {
-      const res = await mockSaasTenantsService.registrarAltaManualB2B(formData);
+      const res = await saasTenantsService.registrarAltaManualB2B(formData);
       if (res.exito) {
         setResultado(res.datos);
         setPasoActual(5);
@@ -193,8 +143,13 @@ export const SaasTenantOnboardingPage: React.FC = () => {
           res.errores?.[0]?.mensaje || 'No se pudo completar el asentamiento del nuevo tenant.'
         );
       }
-    } catch {
-      setErrorSubmit('Error de red o conexión al registrar el expediente en PostgreSQL 16.');
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.errores?.[0]?.mensaje ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Error de red o conexión al registrar el expediente en PostgreSQL 16.';
+      setErrorSubmit(msg);
     } finally {
       setCargando(false);
     }
@@ -234,28 +189,16 @@ export const SaasTenantOnboardingPage: React.FC = () => {
               Alta Manual y Onboarding de Tenant SaaS
             </h1>
             <p className="text-xs sm:text-sm text-aurea-navy/70 mt-0.5 max-w-2xl">
-              Formalización contractual B2B: Validación matemática de RUC (Módulo 11), sede física, titular y asentamiento inmutable en la tabla <code className="font-mono text-aurea-navy font-bold">pago</code>.
+              Formalización contractual B2B: Validación matemática de RUC (Módulo 11), titular propietario y asentamiento inmutable en la tabla <code className="font-mono text-aurea-navy font-bold">pago</code>.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2.5 self-start sm:self-auto">
-          {pasoActual < 5 && (
-            <button
-              type="button"
-              onClick={handleCargarDemo}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-aurea-champagne/40 text-aurea-navy border border-aurea-copper/30 hover:bg-aurea-champagne/60 transition-colors shadow-sm"
-              title="Prellenar con datos válidos de prueba (RUC 20603849201)"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-aurea-copper" />
-              <span>Cargar Demo QA</span>
-            </button>
-          )}
-
           <button
             type="button"
             onClick={handleVolverBandeja}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white text-aurea-navy border border-aurea-copper/30 hover:bg-slate-50 transition-colors shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white text-aurea-navy border border-aurea-copper/30 hover:bg-slate-50 transition-colors shadow-sm cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5 text-aurea-copper" />
             <span>Volver a la Bandeja</span>
@@ -285,7 +228,7 @@ export const SaasTenantOnboardingPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setErrorSubmit(null)}
-            className="text-rose-700 hover:text-rose-900 font-bold px-2 py-1"
+            className="text-rose-700 hover:text-rose-900 font-bold px-2 py-1 cursor-pointer"
           >
             Cerrar
           </button>
@@ -308,12 +251,10 @@ export const SaasTenantOnboardingPage: React.FC = () => {
               <Paso1EmpresaRuc
                 ruc={formData.ruc}
                 razonSocial={formData.razon_social}
-                direccionSede={formData.direccion_sede}
-                onChange={({ ruc, razonSocial, direccionSede }) => {
+                onChange={({ ruc, razonSocial }) => {
                   actualizarCampos({
                     ...(ruc !== undefined && { ruc }),
                     ...(razonSocial !== undefined && { razon_social: razonSocial }),
-                    ...(direccionSede !== undefined && { direccion_sede: direccionSede }),
                   });
                 }}
                 onSiguiente={() => avanzarPaso(2)}

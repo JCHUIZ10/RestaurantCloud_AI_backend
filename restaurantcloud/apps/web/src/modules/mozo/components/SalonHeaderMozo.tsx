@@ -90,7 +90,7 @@ export const SalonHeaderMozo: React.FC<SalonHeaderMozoProps> = ({
           <div className="hidden sm:flex items-center gap-1.5 text-emerald-600 font-mono text-[11px] bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200/60">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
             <Wifi className="w-3 h-3" />
-            <span>SSE Activo</span>
+            <span>En Línea</span>
           </div>
 
           <Link

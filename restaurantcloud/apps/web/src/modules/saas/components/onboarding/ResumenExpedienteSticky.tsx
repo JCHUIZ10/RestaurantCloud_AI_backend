@@ -69,8 +69,8 @@ export const ResumenExpedienteSticky: React.FC<ResumenExpedienteStickyProps> = (
                 <p className="font-medium text-slate-800 truncate" title={formData.razon_social}>
                   {formData.razon_social || 'Razón social pendiente...'}
                 </p>
-                <p className="text-slate-500 truncate" title={formData.direccion_sede}>
-                  📍 {formData.direccion_sede || 'Sede principal pendiente'}
+                <p className="text-slate-500 text-[11px]">
+                  📍 Sedes: Se registrará tras la activación del propietario
                 </p>
               </div>
             ) : (
@@ -183,10 +183,10 @@ export const ResumenExpedienteSticky: React.FC<ResumenExpedienteStickyProps> = (
             </div>
           </li>
           <li className="flex items-start gap-2">
-            <CheckCircle2 className={`w-4 h-4 flex-shrink-0 mt-0.5 ${formData.direccion_sede.length >= 5 ? 'text-emerald-600' : 'text-slate-300'}`} />
+            <CheckCircle2 className={`w-4 h-4 flex-shrink-0 mt-0.5 ${formData.propietario_email.includes('@') ? 'text-emerald-600' : 'text-slate-300'}`} />
             <div>
-              <span className="font-mono font-bold text-aurea-navy">local</span>
-              <p className="text-slate-500">Sede Principal con dirección física obligatoria.</p>
+              <span className="font-mono font-bold text-aurea-navy">usuario</span>
+              <p className="text-slate-500">Titular propietario con capability token de activación (72h).</p>
             </div>
           </li>
           <li className="flex items-start gap-2">

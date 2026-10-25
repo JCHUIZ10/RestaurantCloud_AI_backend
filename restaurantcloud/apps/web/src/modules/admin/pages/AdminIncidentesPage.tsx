@@ -155,7 +155,7 @@ export const AdminIncidentesPage: React.FC = () => {
       if (resp.exito) {
         mostrarToast(
           `Incidente ${resp.datos.codigo} registrado correctamente${
-            req.gravedad === 'alta' ? ' (Notificado al Propietario vía SSE)' : ''
+            req.gravedad === 'alta' ? ' (Notificado al Propietario)' : ''
           }`,
           'exito'
         );

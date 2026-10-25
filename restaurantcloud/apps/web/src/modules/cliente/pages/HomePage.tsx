@@ -42,7 +42,7 @@ const MODULOS_SISTEMA: ModuloSaaS[] = [
     id: 'kds',
     titulo: 'Sistema KDS Cocina',
     subtitulo: 'Cero Comandas en Papel',
-    descripcion: 'Pantalla de preparación en tiempo real sincronizada mediante Server-Sent Events (SSE). Tiempos por plato, alertas sonoras y control de agotados.',
+    descripcion: 'Pantalla de preparación en tiempo real sincronizada mediante polling continuo. Tiempos por plato, alertas sonoras y control de agotados.',
     beneficio: 'Elimina el 100% de errores de comanda',
     icono: ChefHat,
   },
@@ -193,7 +193,7 @@ export const HomePage: React.FC = () => {
               </div>
               <div>
                 <span className="text-sm sm:text-base font-bold text-aurea-navy block">Tiempo Real</span>
-                <span className="text-xs text-aurea-navy/70">SSE sin lag</span>
+                <span className="text-xs text-aurea-navy/70">Sin lag</span>
               </div>
               <div>
                 <span className="text-sm sm:text-base font-bold text-aurea-navy block">Multi-Dispositivo</span>

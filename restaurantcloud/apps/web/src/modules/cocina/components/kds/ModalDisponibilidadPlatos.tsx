@@ -98,7 +98,7 @@ export const ModalDisponibilidadPlatos: React.FC<ModalDisponibilidadPlatosProps>
                   GESTIÓN TÁCTIL DE DISPONIBILIDAD DE PLATOS
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5 font-mono">
-                  Sincronización en tiempo real (SSE) con cartas de mozos y QR digital • CU-COCINA-04
+                  Sincronización en tiempo real con cartas de mozos y QR digital • CU-COCINA-04
                 </p>
               </div>
             </div>
@@ -310,11 +310,11 @@ export const ModalDisponibilidadPlatos: React.FC<ModalDisponibilidadPlatosProps>
           </div>
         </div>
 
-        {/* Pie de Control y Sincronización SSE */}
+        {/* Pie de Control y Sincronización */}
         <div className="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2 text-slate-400 font-mono text-[11px]">
             <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
-            <span>Sincronización SSE en tiempo real activa: Los cambios bloquean o liberan la carta en &lt; 30ms</span>
+            <span>Sincronización en tiempo real activa: Los cambios bloquean o liberan la carta de inmediato</span>
           </div>
 
           <button

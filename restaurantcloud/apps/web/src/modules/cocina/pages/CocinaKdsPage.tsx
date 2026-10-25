@@ -473,12 +473,12 @@ export const CocinaKdsPage: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full space-y-3 font-sans select-none">
-      {/* Banner de Estado Offline / Reconectando SSE */}
+      {/* Banner de Estado Offline / Reconectando */}
       {!sseConectado && (
         <div className="p-2.5 rounded-xl bg-amber-950/80 border border-amber-600/70 text-amber-200 text-xs flex items-center justify-between font-mono animate-pulse">
           <div className="flex items-center gap-2">
             <WifiOff className="w-4 h-4 text-amber-400" />
-            <span>⚠️ Conexión SSE interrumpida. Reintentando reconexión en 3s... (Modo local activo)</span>
+            <span>⚠️ Sincronización interrumpida. Reintentando en 3s... (Modo local activo)</span>
           </div>
           <button
             onClick={() => setSseConectado(true)}
@@ -620,7 +620,7 @@ export const CocinaKdsPage: React.FC = () => {
         onConfirmar={handleConfirmarResolucionFuego}
       />
 
-      {/* Alerta Flotante de Inconsistencia de Inventario Culinario (CU-COCINA-03 Toast SSE) */}
+      {/* Alerta Flotante de Inconsistencia de Inventario Culinario (CU-COCINA-03 Alerta) */}
       <ToastAlertaStock
         alerta={alertaStockToast}
         onCerrar={() => setAlertaStockToast(null)}

@@ -48,6 +48,9 @@ import type {
   EstadoCajaSesionDTO,
   AbrirCajaRequest,
   MesaCajaMonitorDTO,
+  BalancePreArqueoDTO,
+  CerrarCajaRequest,
+  ReporteZDTO,
   CajaMetricasPosDTO,
   PrecuentaResponseDTO,
   ClienteFiscalLookupDTO,
@@ -720,8 +723,7 @@ export const realCajaService = {
         telefono_registrado: comprobante.telefono_registrado ?? undefined,
         email_registrado: comprobante.email_registrado ?? undefined,
         token_digital: comprobante.token_digital,
-        // La URL se habilitará al almacenar PDF/XML durante CU-CAJA-03B.
-        url_publica_qr: '',
+        url_publica_qr: comprobante.token_digital ? `${typeof window !== 'undefined' ? window.location.origin : ''}/c/${comprobante.token_digital}` : '',
         mesa_id: comprobante.mesa_id,
         mesa_numero: comprobante.mesa_numero,
         mesa_liberada: comprobante.mesa_liberada,
@@ -773,6 +775,19 @@ export const realCajaService = {
     req: { telefono_envio?: string; email_envio?: string }
   ): Promise<ApiResponse<{ id: string; telefono_envio?: string; email_envio?: string }>> {
     return apiPatch<{ id: string; telefono_envio?: string; email_envio?: string }>(`/caja/comprobantes/${id}/contacto`, req);
+  },
+
+  // CU-CAJA-05: Cierre de Turno y Arqueo
+  async getBalancePreArqueo(): Promise<ApiResponse<BalancePreArqueoDTO>> {
+    return apiGet<BalancePreArqueoDTO>('/caja/balance-pre-arqueo');
+  },
+
+  async cerrarTurno(datos: CerrarCajaRequest): Promise<ApiResponse<ReporteZDTO>> {
+    return apiPost<ReporteZDTO>('/caja/cierre', datos);
+  },
+
+  async getUltimoReporteZ(): Promise<ApiResponse<ReporteZDTO | null>> {
+    return apiGet<ReporteZDTO | null>('/caja/ultimo-reporte-z');
   },
 };
 
@@ -1112,6 +1127,9 @@ export const realAdminService = {
   ): Promise<ApiEnvelope<{ anulacion: PedidoAnulacionItemDTO; incidente: IncidenteDetalleDTO }>> =>
     apiPost(`/admin/anulaciones/${id}/escalar-incidente`, req),
 
+  /**
+   * @deprecated SSE no está habilitado; el frontend utiliza polling HTTP regular.
+   */
   subscribirNotificacionesSse: (_callback: (notif: any) => void) => {
     return () => {};
   },

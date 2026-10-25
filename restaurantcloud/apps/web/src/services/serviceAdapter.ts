@@ -24,6 +24,7 @@ import { mockCocinaService } from '@/modules/cocina/services/mockCocinaService';
 import { mockCajaService } from '@/modules/caja/services/mockCajaService';
 import { mockAdminService } from '@/modules/admin/services/mockAdminService';
 import { realPlanoService } from './api/planoService';
+import { realSaasTenantsService, type SaasTenantsService } from './api/realSaasTenantsService';
 
 export const IS_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 
@@ -86,3 +87,6 @@ export const seleccionarCuenta = IS_REAL_API
 
 export { BETA_CREDENTIALS };
 export { registroEmpresaService } from '@/modules/propietario/services/registroEmpresaService';
+
+// Servicio Real para Supervisión de Tenants y Onboarding SaaS (CU-SAAS-01 / CU-SAAS-02 - 100% Conexión Backend Producción)
+export const saasTenantsService: SaasTenantsService = realSaasTenantsService;

@@ -234,7 +234,7 @@ export const ModalDetalleResolucion: React.FC<ModalDetalleResolucionProps> = ({
               </div>
               {incidente.gravedad === 'alta' && (
                 <span className="text-[10px] font-bold text-red-900 uppercase px-2 py-0.5 bg-red-100 rounded-md border border-red-300 shrink-0 animate-pulse">
-                  Alerta SSE Push
+                  Alerta Push
                 </span>
               )}
             </div>

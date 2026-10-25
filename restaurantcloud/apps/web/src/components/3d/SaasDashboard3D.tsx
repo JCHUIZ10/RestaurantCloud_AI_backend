@@ -109,7 +109,7 @@ export const SaasDashboard3D: React.FC = () => {
 
           <div className="flex items-center gap-2 text-[11px] text-white/60">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            <span className="font-mono">SSE: Sincronizado</span>
+            <span className="font-mono">Sincronizado</span>
           </div>
         </div>
 

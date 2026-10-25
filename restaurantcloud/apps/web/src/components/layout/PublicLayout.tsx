@@ -48,7 +48,7 @@ export const PublicLayout: React.FC = () => {
                 </li>
                 <li>
                   <a href="/#modulos" className="hover:text-aurea-copper transition-colors">
-                    Cocina KDS en Tiempo Real (SSE)
+                    Cocina KDS en Tiempo Real
                   </a>
                 </li>
                 <li>

@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { RefreshCw, AlertCircle, CheckCircle2, ShieldAlert, Sparkles } from 'lucide-react';
 import { ROUTES } from '@/router/routes.constants';
-import { mockSaasTenantsService } from '@/modules/saas/services/mockSaasTenantsService';
+import { saasTenantsService, loginWithCredentials } from '@/services/serviceAdapter';
+import { useAuthStore } from '@/stores/authStore';
 import { KpisSupervisionSaas } from '@/modules/saas/components/tenants/KpisSupervisionSaas';
 import { FiltrosTenantsBar } from '@/modules/saas/components/tenants/FiltrosTenantsBar';
 import { TenantsTablaDesktop } from '@/modules/saas/components/tenants/TenantsTablaDesktop';
 import { TenantCardMobile } from '@/modules/saas/components/tenants/TenantCardMobile';
 import { ModalExpedienteTenant } from '@/modules/saas/components/tenants/ModalExpedienteTenant';
 import { EstadoVacioTenants } from '@/modules/saas/components/tenants/EstadoVacioTenants';
-import { DemoSaasTenantsWidget } from '@/modules/saas/components/tenants/DemoSaasTenantsWidget';
 import type {
   TenantItemDTO,
   TenantDetailResponseDTO,
@@ -20,6 +20,14 @@ import type {
 export const SaasTenantsPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Estado de Autenticación y Rol
+  const usuario = useAuthStore((s) => s.usuario);
+  const autenticado = useAuthStore((s) => s.autenticado);
+  const setUsuario = useAuthStore((s) => s.setUsuario);
+  const [conectandoSuperAdmin, setConectandoSuperAdmin] = useState(false);
+
+  const esAdminSaas = autenticado && usuario?.rol === 'admin_saas';
 
   // Estado de Filtros
   const [filtros, setFiltros] = useState<ParametrosFiltroTenants>({
@@ -55,15 +63,21 @@ export const SaasTenantsPage: React.FC = () => {
     setCargando(true);
     setErrorRed(null);
     try {
-      const res = await mockSaasTenantsService.listarTenants(filtros);
+      const res = await saasTenantsService.listarTenants(filtros);
       if (res.exito) {
         setTenants(res.datos.tenants);
         setMetricas(res.datos.metricas);
       } else {
-        setErrorRed(res.errores?.[0]?.mensaje || 'Error al obtener la lista de tenants.');
+        const errorMsg = res.errores?.[0]?.mensaje || 'Error al obtener la lista de tenants.';
+        setErrorRed(errorMsg);
       }
-    } catch {
-      setErrorRed('Fallo en la comunicación con el servicio SaaS Hub.');
+    } catch (err: any) {
+      const errorMsg =
+        err?.response?.data?.errores?.[0]?.mensaje ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Fallo en la comunicación con el servicio SaaS Hub.';
+      setErrorRed(errorMsg);
     } finally {
       setCargando(false);
     }
@@ -73,19 +87,42 @@ export const SaasTenantsPage: React.FC = () => {
     cargarDatos();
   }, [cargarDatos]);
 
+  // Conexión rápida como SuperAdmin SaaS
+  const handleConectarSuperAdmin = async () => {
+    setConectandoSuperAdmin(true);
+    try {
+      const res = await loginWithCredentials({
+        correo: 'admin@restaurantcloud.pe',
+        password: 'admin-saas2026',
+      });
+      if (res.exito && res.datos?.usuario && res.datos?.token) {
+        setUsuario(res.datos.usuario, res.datos.token);
+        mostrarToast('✓ Conectado exitosamente como SuperAdmin SaaS');
+        await cargarDatos();
+      } else {
+        mostrarToast(res.errores?.[0]?.mensaje || 'No se pudo iniciar sesión como SuperAdmin SaaS', 'alerta');
+      }
+    } catch {
+      mostrarToast('Error al autenticar con el servidor de credenciales.', 'alerta');
+    } finally {
+      setConectandoSuperAdmin(false);
+    }
+  };
+
   // Manejador de apertura de Expediente 360° (Vista 2)
   const handleVerExpediente = async (empresaId: string) => {
     setEmpresaSeleccionadaId(empresaId);
     setCargandoExpediente(true);
     try {
-      const res = await mockSaasTenantsService.obtenerExpedienteTenant(empresaId);
+      const res = await saasTenantsService.obtenerExpedienteTenant(empresaId);
       if (res.exito) {
         setExpedienteDetalle(res.datos);
       } else {
-        mostrarToast('No se pudo cargar el expediente de la empresa.', 'alerta');
+        mostrarToast(res.errores?.[0]?.mensaje || 'No se pudo cargar el expediente de la empresa.', 'alerta');
       }
-    } catch {
-      mostrarToast('Error al conectar con la base de datos de auditoría.', 'alerta');
+    } catch (err: any) {
+      const msg = err?.response?.data?.errores?.[0]?.mensaje || 'Error al conectar con la base de datos de auditoría.';
+      mostrarToast(msg, 'alerta');
     } finally {
       setCargandoExpediente(false);
     }
@@ -111,11 +148,11 @@ export const SaasTenantsPage: React.FC = () => {
 
   // Acciones operativas dentro del Expediente
   const handleReenviarNotificacion = async (empresaId: string) => {
-    const res = await mockSaasTenantsService.reenviarNotificacionCobro(empresaId);
+    const res = await saasTenantsService.reenviarNotificacionCobro(empresaId);
     if (res.exito) {
       mostrarToast(`✓ ${res.datos.mensaje}`);
     } else {
-      mostrarToast('Error al despachar el correo de recordatorio.', 'alerta');
+      mostrarToast(res.errores?.[0]?.mensaje || 'Error al despachar el correo de recordatorio.', 'alerta');
     }
   };
 
@@ -125,7 +162,7 @@ export const SaasTenantsPage: React.FC = () => {
         '¿Confirmas la suspensión preventiva inmediata de este restaurante por riesgo de impago / fraude?'
       )
     ) {
-      const res = await mockSaasTenantsService.suspenderEmpresaPreventiva(
+      const res = await saasTenantsService.suspenderEmpresaPreventiva(
         empresaId,
         'Suspensión administrativa preventiva ejecutada por el Administrador SaaS.'
       );
@@ -133,44 +170,10 @@ export const SaasTenantsPage: React.FC = () => {
         mostrarToast('✓ Empresa suspendida preventivamente. Sesiones revocadas.');
         handleCerrarExpediente();
         cargarDatos();
+      } else {
+        mostrarToast(res.errores?.[0]?.mensaje || 'No se pudo suspender la empresa.', 'alerta');
       }
     }
-  };
-
-  // Controles QA Sandbox
-  const handleVaciarGracia = async () => {
-    mockSaasTenantsService.vaciarPeriodoGracia();
-    setFiltros((prev) => ({ ...prev, tab_estado: 'periodo_gracia' }));
-    mostrarToast('Escenario conmutado: 0 empresas en período de gracia (Vista 4).');
-  };
-
-  const handleForzarDia5 = async () => {
-    mockSaasTenantsService.forzarCasoDia5Gracia();
-    setFiltros((prev) => ({ ...prev, tab_estado: 'periodo_gracia' }));
-    mostrarToast('⚠️ Forzado caso límite: Empresa en Día 5 de 5 con corte hoy a medianoche.');
-    await cargarDatos();
-  };
-
-  const handleRegularizarElTenedor = async () => {
-    mockSaasTenantsService.regularizarCobroElTenedor();
-    mostrarToast('✓ El Tenedor Gourmet regularizado. Estado cambiado a Activo.');
-    await cargarDatos();
-  };
-
-  const handlePrellenarAlta = () => {
-    navigate(`${ROUTES.SAAS_TENANT_NUEVO}?demo=true`);
-  };
-
-  const handleRestablecerSemillas = async () => {
-    mockSaasTenantsService.restablecerSemillas();
-    setFiltros({
-      tab_estado: 'todos',
-      plan_id: 'todos',
-      buscar: '',
-      pagina: 1,
-      por_pagina: 15,
-    });
-    mostrarToast('Semillas canónicas restauradas.');
   };
 
   return (
@@ -216,12 +219,36 @@ export const SaasTenantsPage: React.FC = () => {
 
         <button
           onClick={cargarDatos}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white text-aurea-navy border border-aurea-copper/30 hover:bg-aurea-champagne/30 transition-colors shadow-sm self-start sm:self-auto"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white text-aurea-navy border border-aurea-copper/30 hover:bg-aurea-champagne/30 transition-colors shadow-sm self-start sm:self-auto cursor-pointer"
         >
           <RefreshCw className={`w-3.5 h-3.5 text-aurea-copper ${cargando ? 'animate-spin' : ''}`} />
           <span>Actualizar</span>
         </button>
       </div>
+
+      {/* Banner de Verificación de Rol SaaS */}
+      {!esAdminSaas && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm">
+          <div className="flex items-start gap-2.5">
+            <ShieldAlert className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-bold text-amber-950">Acceso restringido a Administrador Global SaaS</p>
+              <p className="text-amber-800/90 mt-0.5">
+                Sesión actual: <span className="font-semibold">{usuario ? `${usuario.nombre} (${usuario.rol})` : 'Invitado sin sesión'}</span>. 
+                Las políticas de seguridad en PostgreSQL y Redis exigen el rol <code className="bg-amber-100 px-1 py-0.5 rounded font-mono">admin_saas</code> para consultar la telemetría consolidada.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleConectarSuperAdmin}
+            disabled={conectandoSuperAdmin}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-aurea-navy text-white hover:bg-slate-800 transition-colors shadow-sm shrink-0 self-start sm:self-auto cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-aurea-champagne" />
+            <span>{conectandoSuperAdmin ? 'Conectando...' : 'Conectar como SuperAdmin SaaS'}</span>
+          </button>
+        </div>
+      )}
 
       {/* 4 KPIs Superiores de Plataforma */}
       <KpisSupervisionSaas metricas={metricas} cargando={cargando} />
@@ -243,7 +270,7 @@ export const SaasTenantsPage: React.FC = () => {
           </div>
           <button
             onClick={cargarDatos}
-            className="px-3 py-1 rounded-lg bg-rose-600 text-white font-semibold hover:bg-rose-700"
+            className="px-3 py-1 rounded-lg bg-rose-600 text-white font-semibold hover:bg-rose-700 cursor-pointer"
           >
             Reintentar
           </button>
@@ -277,16 +304,6 @@ export const SaasTenantsPage: React.FC = () => {
           cargandoAccion={cargandoExpediente}
         />
       )}
-
-
-      {/* Widget Sandbox QA Flotante */}
-      <DemoSaasTenantsWidget
-        onVaciarGracia={handleVaciarGracia}
-        onForzarDia5={handleForzarDia5}
-        onRegularizarElTenedor={handleRegularizarElTenedor}
-        onPrellenarAlta={handlePrellenarAlta}
-        onRestablecerSemillas={handleRestablecerSemillas}
-      />
     </div>
   );
 };

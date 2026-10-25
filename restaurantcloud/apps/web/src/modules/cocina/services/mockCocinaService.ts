@@ -855,7 +855,7 @@ export const mockCocinaService = {
   },
 
   /**
-   * Simula el evento reactivo SSE de Parada de Fogones (item_pedido_anulado desde CU-MOZO-06)
+   * Simula el evento reactivo de Parada de Fogones (item_pedido_anulado desde CU-MOZO-06)
    */
   simularAnulacionSSE(): ItemAnuladoSSEEvent {
     // Tomar un plato de Mesa 04 para anularlo

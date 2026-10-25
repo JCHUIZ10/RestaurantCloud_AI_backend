@@ -70,7 +70,7 @@ export const ComandaHeader: React.FC<ComandaHeaderProps> = ({
           </div>
         </div>
 
-        {/* Derecha: SSE y Mozo en turno */}
+        {/* Derecha: Estado y Mozo en turno */}
         <div className="flex items-center gap-3 text-xs">
           <div className="hidden sm:flex items-center gap-1.5 text-emerald-600 font-mono text-[11px] bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200/60">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />

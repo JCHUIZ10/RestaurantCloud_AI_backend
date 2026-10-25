@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 import { ROUTES } from '@/router/routes.constants';
 import { BalancePreArqueoDTO, CerrarCajaRequest, ReporteZDTO } from '@/types/caja';
+import { cajaService } from '@/services/serviceAdapter';
 import { mockCajaService } from '../services/mockCajaService';
 import { BalancePreArqueoView } from '../components/cierre/BalancePreArqueoView';
 import { ModalArqueoConteo } from '../components/cierre/ModalArqueoConteo';
@@ -35,8 +36,8 @@ export const CajeroTurnoCierrePage: React.FC = () => {
   const cargarDatos = useCallback(async () => {
     try {
       const [resBalance, resUltimoZ] = await Promise.all([
-        mockCajaService.getBalancePreArqueo(),
-        mockCajaService.getUltimoReporteZ(),
+        cajaService.getBalancePreArqueo(),
+        cajaService.getUltimoReporteZ(),
       ]);
 
       if (resBalance.exito && resBalance.datos) {
@@ -57,6 +58,24 @@ export const CajeroTurnoCierrePage: React.FC = () => {
   useEffect(() => {
     cargarDatos();
   }, [cargarDatos]);
+
+  // Short Polling de balance y estado del salón (cada 4.0s) mientras no esté cerrado el turno
+  useEffect(() => {
+    if (reporteEmitido || isModalArqueoOpen) return;
+
+    const pollingCierreInterval = setInterval(async () => {
+      try {
+        const resBalance = await cajaService.getBalancePreArqueo();
+        if (resBalance?.exito && resBalance.datos) {
+          setBalance(resBalance.datos);
+        }
+      } catch {
+        // Silencioso
+      }
+    }, 4000);
+
+    return () => clearInterval(pollingCierreInterval);
+  }, [reporteEmitido, isModalArqueoOpen]);
 
   // Manejo de atajos de teclado (F8 para conteo, Escape para cancelar modal)
   useEffect(() => {
@@ -101,7 +120,7 @@ export const CajeroTurnoCierrePage: React.FC = () => {
   const handleConfirmarCierre = async (req: CerrarCajaRequest) => {
     setIsSubmittingCierre(true);
     try {
-      const resp = await mockCajaService.cerrarTurno(req);
+      const resp = await cajaService.cerrarTurno(req);
 
       if (resp.exito && resp.datos) {
         setReporteEmitido(resp.datos);

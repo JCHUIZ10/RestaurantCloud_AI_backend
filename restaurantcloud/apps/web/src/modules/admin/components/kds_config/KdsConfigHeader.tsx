@@ -48,7 +48,7 @@ export const KdsConfigHeader: React.FC<KdsConfigHeaderProps> = ({
             <span>Sede: {sedeNombre}</span>
           </div>
 
-          {/* Badge de SSE en Vivo */}
+          {/* Badge de Estado en Vivo */}
           <div
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${
               sseConectado
@@ -57,7 +57,7 @@ export const KdsConfigHeader: React.FC<KdsConfigHeaderProps> = ({
             }`}
           >
             <Radio className={`w-3.5 h-3.5 ${sseConectado ? 'text-emerald-500 animate-pulse' : 'text-amber-500'}`} />
-            <span>{sseConectado ? 'SSE: Sincronizado (< 30ms)' : 'Reconectando canal...'}</span>
+            <span>{sseConectado ? 'Sincronizado' : 'Sincronizando...'}</span>
           </div>
 
           {/* Indicador de cambios sin guardar */}
