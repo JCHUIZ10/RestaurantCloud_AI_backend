@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { mockAdminService } from '../services/mockAdminService';
-import { adminService, IS_REAL_API } from '@/services/serviceAdapter';
+import { planoService } from '@/services/serviceAdapter';
 import {
   PlanoMesasResponseDTO,
   PisoAdminDTO,
@@ -21,7 +20,6 @@ import { ModalNuevoPiso } from '../components/plano/ModalNuevoPiso';
 import { ModalEditarPiso } from '../components/plano/ModalEditarPiso';
 import { ModalBloqueoDesactivacion } from '../components/plano/ModalBloqueoDesactivacion';
 import { OnboardingPisoVacio } from '../components/plano/OnboardingPisoVacio';
-import { DemoAdminPlanoWidget } from '../components/plano/DemoAdminPlanoWidget';
 import { AlertCircle, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 export const AdminPlanoMesasPage: React.FC = () => {
@@ -55,11 +53,14 @@ export const AdminPlanoMesasPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await adminService.obtenerPlanoMesas();
+      const res = await planoService.obtenerPlanoMesas();
       if (res.exito && res.datos) {
         setData(res.datos);
-        setPisoActivoId((actual) => res.datos.pisos.some((p: PisoAdminDTO) => p.id === actual)
-          ? actual : res.datos.pisos[0]?.id || '');
+        setPisoActivoId((actual) =>
+          res.datos.pisos.some((p: PisoAdminDTO) => p.id === actual)
+            ? actual
+            : res.datos.pisos[0]?.id || ''
+        );
       } else {
         setError(res.errores?.[0]?.mensaje || 'No se pudo cargar el plano de mesas.');
       }
@@ -81,9 +82,9 @@ export const AdminPlanoMesasPage: React.FC = () => {
   const totalCapacidadSentados =
     data?.pisos.reduce((acc, p) => acc + p.capacidad_total_personas, 0) || 0;
 
-  // Handlers de Acciones
+  // Handlers de Acciones (100% Backend Directo)
   const handleGenerarLote = async (pisoId: string, payload: CrearMesaLoteRequest) => {
-    const res = await adminService.generarMesasEnLote(pisoId, payload);
+    const res = await planoService.generarMesasEnLote(pisoId, payload);
     if (res.exito && res.datos) {
       showToast(`${res.datos.mesas_creadas} mesas generadas y distribuidas exitosamente en el salón.`);
       await cargarDatos();
@@ -94,7 +95,7 @@ export const AdminPlanoMesasPage: React.FC = () => {
   };
 
   const handleCrearIndividual = async (pisoId: string, payload: CrearMesaIndividualRequest) => {
-    const res = await adminService.crearMesaIndividual(pisoId, payload);
+    const res = await planoService.crearMesaIndividual(pisoId, payload);
     if (res.exito && res.datos) {
       showToast(`Mesa ${res.datos.numero} creada exitosamente.`);
       await cargarDatos();
@@ -105,7 +106,7 @@ export const AdminPlanoMesasPage: React.FC = () => {
   };
 
   const handleGuardarMesa = async (mesaId: string, payload: ActualizarMesaRequest) => {
-    const res = await adminService.actualizarMesa(mesaId, payload);
+    const res = await planoService.actualizarMesa(mesaId, payload);
     if (res.exito && res.datos) {
       showToast(`Mesa ${res.datos.numero} actualizada exitosamente.`);
       await cargarDatos();
@@ -116,7 +117,7 @@ export const AdminPlanoMesasPage: React.FC = () => {
   };
 
   const handleDesactivarMesa = async (mesaId: string) => {
-    const res = await adminService.desactivarMesa(mesaId);
+    const res = await planoService.desactivarMesa(mesaId);
     if (res.exito) {
       setMesaEnEdicion(null);
       showToast('Mesa desactivada exitosamente del salón.');
@@ -135,7 +136,7 @@ export const AdminPlanoMesasPage: React.FC = () => {
   };
 
   const handleCrearPiso = async (payload: CrearPisoRequest) => {
-    const res = await adminService.crearPiso(data?.local_id || '', payload);
+    const res = await planoService.crearPiso(data?.local_id || '', payload);
     if (res.exito && res.datos) {
       showToast(`Ambiente "${res.datos.nombre}" creado exitosamente.`);
       setPisoActivoId(res.datos.id);
@@ -147,7 +148,7 @@ export const AdminPlanoMesasPage: React.FC = () => {
   };
 
   const handleRenombrarPiso = async (pisoId: string, nuevoNombre: string) => {
-    const res = await adminService.actualizarNombrePiso(pisoId, nuevoNombre);
+    const res = await planoService.actualizarNombrePiso(pisoId, nuevoNombre);
     if (res.exito && res.datos) {
       showToast(`Ambiente renombrado a "${res.datos.nombre}" exitosamente.`);
       await cargarDatos();
@@ -159,7 +160,7 @@ export const AdminPlanoMesasPage: React.FC = () => {
   };
 
   const handleDesactivarPiso = async (pisoId: string) => {
-    const res = await adminService.desactivarPiso(pisoId);
+    const res = await planoService.desactivarPiso(pisoId);
     if (res.exito && res.datos) {
       showToast(res.datos.mensaje);
       const pisosRestantes = data?.pisos.filter((p) => p.id !== pisoId) || [];
@@ -181,7 +182,7 @@ export const AdminPlanoMesasPage: React.FC = () => {
 
     try {
       setIsUpdatingDimensions(true);
-      const res = await adminService.actualizarDimensionesPiso(pisoActivo.id, {
+      const res = await planoService.actualizarDimensionesPiso(pisoActivo.id, {
         columnas: nuevasCols,
         filas: nuevasFilas,
       });
@@ -204,43 +205,6 @@ export const AdminPlanoMesasPage: React.FC = () => {
     setModalIndividualOpen(true);
   };
 
-  // Handlers del simulador DemoWidget
-  const handleRestablecerSemillas = async () => {
-    mockAdminService.restablecerSemillasAurea();
-    await cargarDatos();
-    showToast('Semillas de Sede Áurea restablecidas a su estado canónico.');
-  };
-
-  const handleSimularCuotaLlena = async () => {
-    mockAdminService.simularCuotaLlena();
-    await cargarDatos();
-    showToast('Simulación activada: Cuota llena (30 de 30 mesas).');
-  };
-
-  const handleSimularPisoVacio = async () => {
-    if (pisoActivo) {
-      mockAdminService.simularPisoVacio(pisoActivo.id);
-      await cargarDatos();
-      showToast(`Simulación activada: ${pisoActivo.nombre} vaciado a 0 mesas.`);
-    }
-  };
-
-  const handleProbarBloqueoMesa04 = async () => {
-    // Buscar Mesa 04 en salón y solicitar baja
-    const mesa04 = data?.pisos
-      .flatMap((p) => p.mesas)
-      .find((m) => m.numero === '04' && m.tiene_pedido_activo);
-    if (mesa04) {
-      await handleDesactivarMesa(mesa04.id);
-    } else {
-      showToast('La Mesa 04 no está activa o fue alterada. Restablece semillas primero.', 'error');
-    }
-  };
-
-  const handleSimularErrorRed = () => {
-    setError('Error simulado: Timeout de conexión con el servidor Go Core API (504 Gateway Timeout).');
-  };
-
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 pb-20">
       {/* Toast Notificación Flotante */}
@@ -261,7 +225,7 @@ export const AdminPlanoMesasPage: React.FC = () => {
         </div>
       )}
 
-      {/* ESTADO 1: Cargando / Skeleton (UX State 2) */}
+      {/* ESTADO 1: Cargando / Skeleton */}
       {loading && !data && (
         <div className="space-y-6 animate-pulse">
           <div className="h-20 bg-slate-200/80 rounded-2xl w-2/3" />
@@ -275,7 +239,7 @@ export const AdminPlanoMesasPage: React.FC = () => {
         </div>
       )}
 
-      {/* ESTADO 2: Error de Red / Controlado (UX State 4) */}
+      {/* ESTADO 2: Error de Red / Controlado */}
       {error && (
         <div className="p-6 rounded-3xl bg-rose-50 border-2 border-rose-200 text-rose-900 space-y-3">
           <div className="flex items-center gap-3">
@@ -293,10 +257,10 @@ export const AdminPlanoMesasPage: React.FC = () => {
         </div>
       )}
 
-      {/* ESTADO 3: Loaded Exitoso (UX State 3) */}
+      {/* ESTADO 3: Loaded Exitoso */}
       {data && (
         <>
-          {/* Cabecera y KPIs */}
+          {/* Cabecera, KPIs y Acción de Recarga */}
           <PlanoHeader
             cuota={data.cuota_mesas}
             totalCapacidadSentados={totalCapacidadSentados}
@@ -308,6 +272,8 @@ export const AdminPlanoMesasPage: React.FC = () => {
               setModalIndividualOpen(true);
             }}
             onAbrirNuevoPiso={() => setModalNuevoPisoOpen(true)}
+            onRecargar={cargarDatos}
+            isReloading={loading}
           />
 
           {/* Pestañas de Pisos y Controles de Cuadrícula */}
@@ -413,15 +379,6 @@ export const AdminPlanoMesasPage: React.FC = () => {
           onDesactivar={handleDesactivarPiso}
         />
       )}
-
-      {/* WIDGET FLOTANTE DEMO (CU-ADMIN-01) */}
-      {!IS_REAL_API && <DemoAdminPlanoWidget
-        onRestablecerSemillas={handleRestablecerSemillas}
-        onSimularCuotaLlena={handleSimularCuotaLlena}
-        onSimularPisoVacio={handleSimularPisoVacio}
-        onProbarBloqueoMesa04={handleProbarBloqueoMesa04}
-        onSimularErrorRed={handleSimularErrorRed}
-      />}
     </div>
   );
 };

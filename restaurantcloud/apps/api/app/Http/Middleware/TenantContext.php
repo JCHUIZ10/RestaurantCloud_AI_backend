@@ -44,6 +44,23 @@ class TenantContext
             $this->setConfig('app.current_user_id', (string) $user->id);
             $this->setConfig('app.current_user_role', (string) $user->rol);
             $this->setConfig('app.current_empresa_id', $user->empresa_id ? (string) $user->empresa_id : '');
+
+            // Resolver sede activa contextual para Propietario o Admin SaaS (CU-PROP-04 / Autogestión / Supervisión)
+            if (($user->rol === 'propietario' || $user->rol === 'admin_saas') && empty($user->local_id)) {
+                $requestedLocalId = $request->header('X-Local-Id') ?: $request->query('local_id');
+                if ($requestedLocalId && is_string($requestedLocalId)) {
+                    $localValido = DB::table('local')
+                        ->where('id', $requestedLocalId)
+                        ->when($user->rol === 'propietario', fn ($q) => $q->where('empresa_id', $user->empresa_id))
+                        ->where('estado', 'activo')
+                        ->exists();
+
+                    if ($localValido) {
+                        $user->local_id = $requestedLocalId;
+                    }
+                }
+            }
+
             $this->setConfig('app.current_local_id', $user->local_id ? (string) $user->local_id : '');
 
             // Evita que un valor residual de una conexión reutilizada habilite

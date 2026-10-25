@@ -30,6 +30,9 @@ export const IS_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 // Módulo Mozo: 100% conectado directamente a la API de Laravel
 export const mozoService = realMozoService;
 
+// Módulo Plano de Mesas (CU-ADMIN-01): 100% conectado directamente a la API de Laravel
+export const planoService = realPlanoService;
+
 // Proxy / Fallback para Cocina KDS
 export const cocinaService = new Proxy(mockCocinaService as any, {
   get(target, prop, receiver) {

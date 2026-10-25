@@ -27,6 +27,7 @@ export const DrawerEditarMesa: React.FC<DrawerEditarMesaProps> = ({
   const [permiteUnion, setPermiteUnion] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmandoDesactivar, setConfirmandoDesactivar] = useState(false);
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
   const [pisoId, setPisoId] = useState('');
   const [posX, setPosX] = useState(0);
@@ -41,6 +42,7 @@ export const DrawerEditarMesa: React.FC<DrawerEditarMesaProps> = ({
       setPisoId(mesa.piso_id);
       setPosX(mesa.posicion_x);
       setPosY(mesa.posicion_y);
+      setConfirmandoDesactivar(false);
       setErrorLocal(null);
     }
   }, [mesa]);
@@ -261,15 +263,41 @@ export const DrawerEditarMesa: React.FC<DrawerEditarMesaProps> = ({
               </div>
             </div>
 
-            <button
-              type="button"
-              disabled={isDeleting}
-              onClick={handleDesactivar}
-              className="w-full py-2.5 px-4 rounded-xl border border-rose-300 bg-white text-rose-700 hover:bg-rose-100/70 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>{isDeleting ? 'Procesando baja...' : 'Desactivar Mesa'}</span>
-            </button>
+            {!confirmandoDesactivar ? (
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setConfirmandoDesactivar(true)}
+                className="w-full py-2.5 px-4 rounded-xl border border-rose-300 bg-white text-rose-700 hover:bg-rose-100/70 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Desactivar Mesa</span>
+              </button>
+            ) : (
+              <div className="p-3 bg-white rounded-xl border border-rose-300 space-y-2.5 animate-fadeIn">
+                <p className="font-bold text-rose-800 text-xs text-center">
+                  ¿Confirmas desactivar la Mesa {mesa.numero}?
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={isDeleting}
+                    onClick={() => setConfirmandoDesactivar(false)}
+                    className="flex-1 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isDeleting}
+                    onClick={handleDesactivar}
+                    className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs transition-colors shadow-sm active:scale-95 disabled:opacity-50"
+                  >
+                    {isDeleting ? 'Procesando...' : 'Sí, Desactivar'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </form>
 

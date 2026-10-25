@@ -1,4 +1,4 @@
-﻿import axios, { type AxiosRequestConfig } from 'axios';
+import axios, { type AxiosRequestConfig } from 'axios';
 import type { ApiResponse } from '@/types/api';
 
 export const apiClient = axios.create({
@@ -14,6 +14,10 @@ apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('auth_token');
   if (token && config.headers && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  const activeLocalId = localStorage.getItem('active_local_id');
+  if (activeLocalId && config.headers && !config.headers['X-Local-Id']) {
+    config.headers['X-Local-Id'] = activeLocalId;
   }
   return config;
 });

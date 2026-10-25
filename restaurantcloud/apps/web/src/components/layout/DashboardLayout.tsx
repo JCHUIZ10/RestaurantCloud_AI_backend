@@ -7,9 +7,7 @@ import {
   AlertTriangle,
   Menu,
   X,
-  ChevronDown,
   LogOut,
-  MapPin,
   UtensilsCrossed,
   Layers,
   Package,
@@ -30,7 +28,6 @@ import { DropdownCampanaNotificaciones } from '@/modules/admin/components/anulac
 
 export const DashboardLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sedeActiva] = useState('Miraflores (Principal)');
   const location = useLocation();
 
   const isSaas = location.pathname.startsWith('/saas');
@@ -167,18 +164,11 @@ export const DashboardLayout: React.FC = () => {
               <Menu className="w-6 h-6" />
             </button>
 
-            {/* Selector de Sede o Consola Global SaaS */}
-            {isSaas ? (
+            {/* Consola Global SaaS */}
+            {isSaas && (
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-aurea-navy text-white text-xs sm:text-sm font-semibold border border-aurea-copper/40 shadow-sm">
                 <Building2 className="w-4 h-4 text-aurea-copper shrink-0" />
                 <span>Supervisión Global SaaS (Bypass RLS)</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-aurea-ivory border border-aurea-copper/30 text-xs sm:text-sm">
-                <MapPin className="w-4 h-4 text-aurea-copper shrink-0" />
-                <span className="text-aurea-navy/60 hidden sm:inline">Sede activa:</span>
-                <span className="font-semibold text-aurea-navy">{sedeActiva}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-aurea-copper cursor-pointer" />
               </div>
             )}
           </div>

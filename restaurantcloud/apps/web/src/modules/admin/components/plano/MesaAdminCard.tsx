@@ -11,6 +11,7 @@ export const MesaAdminCard: React.FC<MesaAdminCardProps> = ({ mesa, onEditarMesa
   const isRedonda = mesa.forma === 'redonda';
   const isRectangular = mesa.forma === 'rectangular';
   const isOcupada = mesa.tiene_pedido_activo;
+  const estaUnidaAGrupo = Boolean(mesa.mesa_principal_id);
 
   // Estilos de forma geométrica fiel a la especificación ÁUREA
   const getShapeClasses = () => {
@@ -35,7 +36,7 @@ export const MesaAdminCard: React.FC<MesaAdminCardProps> = ({ mesa, onEditarMesa
     >
       {/* Cabecera de la Tarjeta: Número y Estado */}
       <div className="flex items-center justify-between gap-1 w-full">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span className="font-serif font-bold text-base sm:text-lg text-aurea-navy">
             {/^(mesa\b)/i.test(mesa.numero) ? mesa.numero : `Mesa ${mesa.numero}`}
           </span>
@@ -52,19 +53,19 @@ export const MesaAdminCard: React.FC<MesaAdminCardProps> = ({ mesa, onEditarMesa
         ) : isOcupada ? (
           <span
             title="Mesa con comanda activa en salón"
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-300 animate-pulse"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-300 animate-pulse shrink-0"
           >
             <AlertCircle className="w-3 h-3" />
             <span>Ocupada</span>
           </span>
         ) : (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
             Libre
           </span>
         )}
       </div>
 
-      {/* Cuerpo Central: Capacidad y Forma */}
+      {/* Cuerpo Central: Capacidad, Forma y Estado de Unión */}
       <div className="my-2 flex flex-col items-start gap-1">
         <div className="flex items-center gap-1.5 text-xs text-aurea-navy/80 font-medium">
           <Users className="w-3.5 h-3.5 text-aurea-copper" />
@@ -76,6 +77,12 @@ export const MesaAdminCard: React.FC<MesaAdminCardProps> = ({ mesa, onEditarMesa
           <span>·</span>
           <span>{mesa.permite_union ? 'Unible' : 'Fija'}</span>
         </div>
+
+        {estaUnidaAGrupo && (
+          <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+            <span>🔗 En grupo</span>
+          </div>
+        )}
 
         {isOcupada && mesa.comanda_activa_codigo && (
           <div className="mt-1 text-[11px] font-mono font-semibold text-rose-700 bg-rose-100/80 px-2 py-0.5 rounded-md">

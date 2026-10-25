@@ -1,6 +1,6 @@
 import React from 'react';
 import { CuotaMesasPlanDTO } from '@/types/admin';
-import { LayoutGrid, Users, Plus, Building2, Utensils } from 'lucide-react';
+import { LayoutGrid, Users, Plus, Building2, Utensils, RefreshCw } from 'lucide-react';
 
 interface PlanoHeaderProps {
   cuota: CuotaMesasPlanDTO;
@@ -10,6 +10,8 @@ interface PlanoHeaderProps {
   localNombre: string;
   onAbrirMesaIndividual: () => void;
   onAbrirNuevoPiso: () => void;
+  onRecargar?: () => void;
+  isReloading?: boolean;
 }
 
 export const PlanoHeader: React.FC<PlanoHeaderProps> = ({
@@ -20,6 +22,8 @@ export const PlanoHeader: React.FC<PlanoHeaderProps> = ({
   localNombre,
   onAbrirMesaIndividual,
   onAbrirNuevoPiso,
+  onRecargar,
+  isReloading = false,
 }) => {
   const porcentajeUso = Math.min(
     100,
@@ -46,10 +50,22 @@ export const PlanoHeader: React.FC<PlanoHeaderProps> = ({
 
         {/* Botones de Acción */}
         <div className="flex flex-wrap items-center gap-2.5">
+          {onRecargar && (
+            <button
+              onClick={onRecargar}
+              disabled={isReloading}
+              title="Actualizar plano y estado del salón"
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-aurea-copper/40 text-aurea-navy hover:bg-aurea-champagne/20 text-xs sm:text-sm font-semibold transition-all active:scale-95 disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 text-aurea-copper ${isReloading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Actualizar</span>
+            </button>
+          )}
+
           <button
             onClick={onAbrirMesaIndividual}
             disabled={cuota.mesas_disponibles <= 0 || totalPisosLocal === 0}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-aurea-navy text-white hover:bg-aurea-navy/90 text-xs sm:text-sm font-semibold transition-all shadow-sm active:scale-95"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-aurea-navy text-white hover:bg-aurea-navy/90 text-xs sm:text-sm font-semibold transition-all shadow-sm active:scale-95 disabled:opacity-50"
           >
             <Utensils className="w-4 h-4 text-aurea-champagne" />
             <span>+ Mesa Individual</span>
@@ -58,12 +74,11 @@ export const PlanoHeader: React.FC<PlanoHeaderProps> = ({
           <button
             onClick={onAbrirNuevoPiso}
             disabled={cuota.pisos_activos_empresa >= cuota.max_pisos_plan}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-aurea-copper/40 text-aurea-navy hover:bg-aurea-champagne/20 text-xs sm:text-sm font-semibold transition-all active:scale-95"
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-aurea-copper/40 text-aurea-navy hover:bg-aurea-champagne/20 text-xs sm:text-sm font-semibold transition-all active:scale-95 disabled:opacity-50"
           >
             <Plus className="w-4 h-4 text-aurea-copper" />
             <span>+ Nuevo Ambiente</span>
           </button>
-
         </div>
       </div>
 
