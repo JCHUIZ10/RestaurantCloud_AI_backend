@@ -41,5 +41,11 @@ return [
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
     ],
 
+    'apiperu' => [
+        'base_url' => env('APIDEV_BASE_URL', 'https://api.apiperu.dev'),
+        'token' => env('APIDEV_TOKEN'),
+        'mock' => (bool) env('APIDEV_MOCK', false),
+    ],
+
 ];
 

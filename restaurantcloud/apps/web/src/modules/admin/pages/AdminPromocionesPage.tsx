@@ -15,7 +15,6 @@ import {
   PromocionRendimientoDTO,
 } from '@/types/admin';
 import { adminService } from '@/services/serviceAdapter';
-import { useAuthStore } from '@/stores/authStore';
 import { PromocionesHeader } from '../components/promociones/PromocionesHeader';
 import { PromocionesFiltros } from '../components/promociones/PromocionesFiltros';
 import { PromocionesTabla } from '../components/promociones/PromocionesTabla';
@@ -24,8 +23,6 @@ import { ModalRendimientoPromocion } from '../components/promociones/ModalRendim
 import { PromocionesOnboardingVacio } from '../components/promociones/PromocionesOnboardingVacio';
 
 export const AdminPromocionesPage: React.FC = () => {
-  const usuario = useAuthStore((s) => s.usuario);
-  const localNombre = usuario?.local?.nombre ?? 'Sede Principal';
   const [cargando, setCargando] = useState(true);
   const [promociones, setPromociones] = useState<PromocionAdminDTO[]>([]);
   const [todasPromociones, setTodasPromociones] = useState<PromocionAdminDTO[]>([]);

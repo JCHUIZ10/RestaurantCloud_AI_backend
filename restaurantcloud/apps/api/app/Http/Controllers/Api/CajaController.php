@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Domains\Caja\Jobs\GenerarComprobanteDigitalJob;
+use App\Domains\Caja\Services\ConsultaDocumentoService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -890,18 +891,24 @@ class CajaController extends Controller
 
             $clienteId = null;
             if ($tipoCliente !== null) {
+                $camposCliente = [
+                    'nombre_identificativo' => $nombreCliente,
+                    'updated_at' => now(),
+                ];
+                if (! empty($validated['telefono_envio'])) {
+                    $camposCliente['telefono'] = $validated['telefono_envio'];
+                }
+                if (! empty($validated['email_envio'])) {
+                    $camposCliente['email'] = $validated['email_envio'];
+                }
+
                 DB::table('cliente')->updateOrInsert(
                     [
                         'empresa_id' => $user->empresa_id,
                         'tipo_documento' => $tipoCliente,
                         'numero_documento' => $documentoCliente,
                     ],
-                    [
-                        'nombre_identificativo' => $nombreCliente,
-                        'telefono' => $validated['telefono_envio'] ?? null,
-                        'email' => $validated['email_envio'] ?? null,
-                        'updated_at' => now(),
-                    ],
+                    $camposCliente,
                 );
 
                 $clienteId = DB::table('cliente')
@@ -1161,58 +1168,50 @@ class CajaController extends Controller
             ]);
         }
 
-        // 2. Consulta de Padrón Externo (RENIEC / SUNAT)
-        if ($tipo === 'DNI') {
-            $nombresDni = [
-                '72819201' => 'CARLOS MENDOZA QUISPE',
-                '45678901' => 'MARÍA TORRES',
-                '10293847' => 'JUAN PÉREZ GARCÍA',
-                '48192039' => 'ANA MARÍA CHÁVEZ ROJAS',
-            ];
-            $nombre = $nombresDni[$documento] ?? ('CIUDADANO DNI ' . substr($documento, -4));
+        // 2. Consulta de Padrón Externo (APIDev / apiperu.dev)
+        $servicioConsulta = app(ConsultaDocumentoService::class);
+        $resultado = $servicioConsulta->consultar($tipo, $documento);
 
-            return ApiResponse::ok([
-                'tipo_documento' => 'DNI',
-                'numero_documento' => $documento,
-                'nombre_identificativo' => $nombre,
-                'direccion' => '',
-                'telefono' => '',
-                'email' => '',
-                'existe_en_bd' => false,
-                'origen' => 'api_peru',
-            ]);
-        } else {
-            $razonesRuc = [
-                '20601234567' => [
-                    'nombre' => 'INVERSIONES GASTRONÓMICAS S.A.C.',
-                    'direccion' => 'AV. LARCO 1045, MIRAFLORES, LIMA',
-                ],
-                '20100070970' => [
-                    'nombre' => 'SUPERMERCADOS PERUANOS S.A.',
-                    'direccion' => 'CALLE MORELLI 181, SAN BORJA, LIMA',
-                ],
-                '20603849201' => [
-                    'nombre' => 'RESTAURANT CLOUD PERÚ S.A.C.',
-                    'direccion' => 'AV. JAVIER PRADO ESTE 4200, SANTIAGO DE SURCO, LIMA',
-                ],
-            ];
+        if (! ($resultado['exito'] ?? false)) {
+            $codigoError = $resultado['codigo_error'] ?? 'DOCUMENTO_NO_ENCONTRADO';
+            $statusCode = $codigoError === 'SERVICIO_PADRON_NO_DISPONIBLE' ? 503 : 404;
 
-            $datosRuc = $razonesRuc[$documento] ?? [
-                'nombre' => 'EMPRESA CONSULTORA DEMO ' . substr($documento, -4) . ' S.A.C.',
-                'direccion' => 'CALLE LOS NEGOCIOS ' . substr($documento, -3) . ', SAN ISIDRO, LIMA',
-            ];
-
-            return ApiResponse::ok([
-                'tipo_documento' => 'RUC',
-                'numero_documento' => $documento,
-                'nombre_identificativo' => $datosRuc['nombre'],
-                'direccion' => $datosRuc['direccion'],
-                'telefono' => '',
-                'email' => '',
-                'existe_en_bd' => false,
-                'origen' => 'api_peru',
-            ]);
+            return ApiResponse::error(
+                $codigoError,
+                $resultado['mensaje'] ?? 'No se encontró el documento en los padrones oficiales.',
+                $statusCode
+            );
         }
+
+        // 3. Persistencia Inmediata en Caché Local (tabla cliente)
+        // Protege contra consumos y costos adicionales de API para la misma empresa
+        $detalleJson = json_encode($resultado['detalle'] ?? [
+            'direccion' => $resultado['direccion'] ?? '',
+        ]);
+
+        DB::table('cliente')->updateOrInsert(
+            [
+                'empresa_id' => $empresaId,
+                'tipo_documento' => $tipo,
+                'numero_documento' => $documento,
+            ],
+            [
+                'nombre_identificativo' => $resultado['nombre_identificativo'],
+                'detalle' => $detalleJson,
+                'updated_at' => now(),
+            ]
+        );
+
+        return ApiResponse::ok([
+            'tipo_documento' => $tipo,
+            'numero_documento' => $documento,
+            'nombre_identificativo' => $resultado['nombre_identificativo'],
+            'direccion' => $resultado['direccion'] ?? '',
+            'telefono' => '',
+            'email' => '',
+            'existe_en_bd' => true,
+            'origen' => $resultado['origen'] ?? 'api_peru',
+        ]);
     }
 
     /**

@@ -313,9 +313,26 @@ class MozoCoreOperativoTest extends TestCase
 
     public function test_mozo_puede_consultar_cliente_fiscal_sin_error_403(): void
     {
+        // 1. Primera consulta: se resuelve mediante padrón y se persiste en BD local
         $res = $this->getJson('/api/v1/mozo/clientes/buscar?tipo=DNI&documento=72819201', $this->headers());
 
         $res->assertStatus(200)
-            ->assertJsonPath('exito', true);
+            ->assertJsonPath('exito', true)
+            ->assertJsonPath('datos.numero_documento', '72819201')
+            ->assertJsonPath('datos.nombre_identificativo', 'CARLOS MENDOZA QUISPE');
+
+        // Verificar persistencia inmediata en la tabla cliente
+        $this->assertDatabaseHas('cliente', [
+            'tipo_documento' => 'DNI',
+            'numero_documento' => '72819201',
+            'nombre_identificativo' => 'CARLOS MENDOZA QUISPE',
+        ]);
+
+        // 2. Segunda consulta: debe provenir directamente de 'bd_local'
+        $resLocal = $this->getJson('/api/v1/mozo/clientes/buscar?tipo=DNI&documento=72819201', $this->headers());
+        $resLocal->assertStatus(200)
+            ->assertJsonPath('exito', true)
+            ->assertJsonPath('datos.origen', 'bd_local')
+            ->assertJsonPath('datos.existe_en_bd', true);
     }
 }
