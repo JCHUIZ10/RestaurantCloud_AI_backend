@@ -150,6 +150,9 @@ CREATE INDEX IF NOT EXISTS idx_comprobante_serie_correlativo
 CREATE INDEX IF NOT EXISTS idx_comprobante_subcuenta 
     ON comprobante(subcuenta_id);
 
+CREATE INDEX IF NOT EXISTS idx_pedido_subcuenta_comprobante_id 
+    ON pedido_subcuenta(comprobante_id);
+
 CREATE INDEX IF NOT EXISTS idx_comprobante_item_comprobante 
     ON comprobante_item(comprobante_id);
 

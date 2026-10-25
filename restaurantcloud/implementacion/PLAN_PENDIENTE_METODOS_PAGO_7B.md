@@ -8,14 +8,10 @@ Los endpoints de precuenta de Caja y Mozo muestran solamente estos tres medios o
 
 `transferencia` se mantiene únicamente en el mock para no alterar sus escenarios visuales. Por decisión funcional no forma parte de los cobros POS ni del catálogo real de este punto; si se requiere registrar una transferencia interna, deberá resolverse dentro del futuro flujo administrativo de Caja, no como medio de pago de una venta.
 
-El script `infra/sql/08_restringir_metodos_pago_operativos.sql` elimina los registros heredados con código `transferencia` de `metodo_pago_local` y limita la columna a los tres códigos operativos. Las transferencias de compras y gastos no forman parte de este catálogo y no se eliminan. Las bases existentes deben ejecutarlo manualmente una sola vez; las nuevas lo recibirán al inicializarse con Docker.
-
-## Aplicación en una base local ya creada
-
-El proyecto inicializa PostgreSQL mediante los archivos de `infra/sql`, no mediante el historial de migraciones de Laravel. Por ello no se debe ejecutar `php artisan migrate` para esta actualización. Desde la raíz `restaurantcloud`, con Docker iniciado, se ejecuta una sola vez:
+La restricción de códigos operativos y depuración de `transferencia` en `metodo_pago_local` se encuentra incorporada de forma canónica en `02_schema_ddl.sql` para nuevas bases y en la migración de Laravel para bases existentes:
 
 ```powershell
-docker compose exec -T db psql -v ON_ERROR_STOP=1 -U saas_admin -d restaurantcloud_db -f /docker-entrypoint-initdb.d/08_restringir_metodos_pago_operativos.sql
+docker compose exec api php artisan migrate
 ```
 
 Para comprobar el resultado:

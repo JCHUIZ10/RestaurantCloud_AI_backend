@@ -39,16 +39,11 @@ docker compose exec api composer install --no-interaction
 docker compose exec api php artisan optimize:clear
 ```
 
-Una base existente no ejecuta automáticamente los archivos nuevos de
-`infra/sql`. Ejecuta una sola vez este incremento:
+Una base existente se actualiza ejecutando las migraciones canónicas de Laravel:
 
 ```powershell
-docker compose exec -T db psql -v ON_ERROR_STOP=1 -U saas_admin -d restaurantcloud_db -f /docker-entrypoint-initdb.d/10_agregar_outbox_comprobantes.sql
+docker compose exec api php artisan migrate
 ```
-
-Si todavía no aplicaste los scripts anteriores de esta rama, ejecuta antes
-`08_restringir_metodos_pago_operativos.sql` y
-`09_agregar_preferencias_cobro_pedido.sql`.
 
 Reinicia los procesos Laravel y confirma que estén activos:
 
@@ -75,9 +70,8 @@ docker compose exec api php artisan optimize:clear
 docker compose ps
 ```
 
-Con un volumen vacío, PostgreSQL ejecuta automáticamente todos los scripts de
-`infra/sql`, incluido `10_agregar_outbox_comprobantes.sql`. No ejecutes ese
-archivo manualmente en este caso.
+Con un volumen vacío, PostgreSQL ejecuta automáticamente todos los scripts canónicos de
+`infra/sql` (del `01` al `08`).
 
 ## Inicializar MinIO de ÁUREA
 

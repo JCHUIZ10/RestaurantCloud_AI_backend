@@ -454,6 +454,7 @@ CREATE TABLE IF NOT EXISTS reserva_mesa (
 CREATE TABLE IF NOT EXISTS promocion (
     id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
     local_id UUID NOT NULL REFERENCES local(id) ON DELETE CASCADE,
+    codigo VARCHAR(20) NOT NULL,
     nombre VARCHAR(100) NOT NULL,
     descripcion TEXT,
     tipo_descuento VARCHAR(20) NOT NULL CHECK (tipo_descuento IN ('porcentaje', 'monto_fijo')),
@@ -465,16 +466,27 @@ CREATE TABLE IF NOT EXISTS promocion (
     hora_fin TIME,
     fecha_inicio DATE NOT NULL,
     fecha_fin DATE NOT NULL,
+    tipo_limite_usos VARCHAR(20) NOT NULL DEFAULT 'sin_limite' CHECK (tipo_limite_usos IN ('sin_limite', 'diario', 'global')),
     limite_usos INT CHECK (limite_usos > 0),
     usos_actuales INT NOT NULL DEFAULT 0 CHECK (usos_actuales >= 0),
+    usos_hoy INT NOT NULL DEFAULT 0 CHECK (usos_hoy >= 0),
+    fecha_ultimo_uso DATE,
     activa BOOL NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_promocion_fechas CHECK (fecha_inicio <= fecha_fin)
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_promocion_local_codigo 
+    ON promocion (local_id, codigo);
+
 CREATE UNIQUE INDEX IF NOT EXISTS uq_promocion_local_nombre 
     ON promocion (local_id, LOWER(nombre));
+
+DROP TRIGGER IF EXISTS trg_asignar_codigo_promocion ON promocion;
+CREATE TRIGGER trg_asignar_codigo_promocion
+    BEFORE INSERT ON promocion
+    FOR EACH ROW EXECUTE FUNCTION trg_fn_asignar_codigo_promocion();
 
 -- 5.4 Formas de Pago y Comisiones de Pasarela por Sede (CU-ADMIN-19)
 CREATE TABLE IF NOT EXISTS metodo_pago_local (
@@ -661,6 +673,10 @@ CREATE TABLE IF NOT EXISTS comprobante (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_comprobante_serie_correlativo UNIQUE (serie, correlativo)
 );
+
+-- Vincular subcuenta a comprobante (CU-MOZO-09, CU-CAJA-03)
+ALTER TABLE pedido_subcuenta
+    ADD COLUMN IF NOT EXISTS comprobante_id UUID REFERENCES comprobante(id) ON DELETE SET NULL;
 
 -- 6.5 Líneas de Venta Inmutables de Comprobante Fiscal (UBL 2.1 SUNAT / CU-CAJA-03)
 CREATE TABLE IF NOT EXISTS comprobante_item (
