@@ -136,6 +136,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
         const clienteSubEnBd = Boolean(s.cliente_encontrado_en_bd);
         const telDefault = s.telefono_sugerido || (clienteSubEnBd ? precuenta?.telefono_cliente_sugerido || '' : '');
         const correoDefault = s.email_sugerido || (clienteSubEnBd ? precuenta?.email_cliente_sugerido || '' : '');
+        const esCobrada = s.estado === 'cobrado' || (s as any).estado_pago === 'cobrado';
 
         return {
           id: s.id || `sub-${idx + 1}`,
@@ -144,7 +145,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
           tipo_documento: tipoDoc,
           numero_documento: numDoc,
           tipo_comprobante: tipoComp,
-          serie_numero: `Pendiente (${serie})`,
+          serie_numero: esCobrada ? 'Comprobante Emitido' : `Pendiente (${serie})`,
           total_neto: totalNeto,
           base_imponible: base,
           igv,
@@ -156,7 +157,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
           url_publica: '',
           telefono_whatsapp: telDefault,
           correo: correoDefault,
-          pagado: false,
+          pagado: esCobrada,
           cliente_encontrado_en_bd: clienteSubEnBd,
         };
       });
@@ -165,10 +166,15 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
 
       if (subcuenta) {
         const foundIdx = items.findIndex((x) => x.id === subcuenta.id);
-        if (foundIdx >= 0) setIndexCuentaActiva(foundIdx);
-        else setIndexCuentaActiva(0);
+        if (foundIdx >= 0) {
+          setIndexCuentaActiva(foundIdx);
+        } else {
+          const primerPendiente = items.findIndex((x) => !x.pagado);
+          setIndexCuentaActiva(primerPendiente >= 0 ? primerPendiente : 0);
+        }
       } else {
-        setIndexCuentaActiva(0);
+        const primerPendiente = items.findIndex((x) => !x.pagado);
+        setIndexCuentaActiva(primerPendiente >= 0 ? primerPendiente : 0);
       }
     } else {
       // Caso 2: Mesa con cuenta consolidada única (Mesa completa)
@@ -403,6 +409,32 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
     setTimeout(() => setNotificacionFeedback(null), 4000);
   };
 
+  // Avanzar a la siguiente subcuenta pendiente sin cerrar el modal
+  const handleAvanzarSiguienteSubcuenta = () => {
+    let sigIdx = cuentas.findIndex((c, i) => i > indexCuentaActiva && !c.pagado);
+    if (sigIdx === -1) {
+      sigIdx = cuentas.findIndex((c) => !c.pagado);
+    }
+    if (sigIdx >= 0) {
+      setIndexCuentaActiva(sigIdx);
+      setEditandoWhatsappId(null);
+      setEditandoEmailId(null);
+      setNotificacionFeedback(null);
+    }
+  };
+
+  // Cerrar modal notificando al POS si hubo cobros parciales
+  const handleCerrarModal = () => {
+    if (ultimoCobroResponse) {
+      onComprobanteEmitido({
+        ...ultimoCobroResponse,
+        mesa_liberada: todasPagadas || quedanPendientes === 0,
+        subcuentas_pendientes: quedanPendientes,
+      });
+    }
+    onClose();
+  };
+
   // Finalizar cobro y cerrar modal
   const handleFinalizarCobro = () => {
     if (ultimoCobroResponse) {
@@ -473,7 +505,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleCerrarModal}
               className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ml-1"
             >
               <X className="w-5 h-5" />
@@ -941,16 +973,16 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleCerrarModal}
               className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 transition-colors"
             >
-              {cuentaActiva.pagado ? 'Cerrar' : 'Cancelar'}
+              {cuentas.some((c) => c.pagado) ? 'Cerrar' : 'Cancelar'}
             </button>
 
             {cuentaActiva.pagado ? (
               <button
                 type="button"
-                onClick={handleFinalizarCobro}
+                onClick={todasPagadas || quedanPendientes === 0 ? handleFinalizarCobro : handleAvanzarSiguienteSubcuenta}
                 className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold transition-all shadow-md shadow-emerald-600/25 flex items-center justify-center gap-2"
               >
                 <Check className="w-4 h-4" />
