@@ -154,7 +154,7 @@ export const ModalUpgradeProrrateo: React.FC<ModalUpgradeProrrateoProps> = ({
                     {simulacion.plan_origen}
                   </span>
                   <span className="text-xs text-slate-500 block">
-                    S/ {simulacion.plan_origen === 'Starter' ? '99.00' : '249.00'}/mes
+                    S/ {simulacion.plan_origen === 'Starter' ? '40.00' : '80.00'}/mes
                   </span>
                 </div>
 

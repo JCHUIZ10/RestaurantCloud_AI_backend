@@ -11,7 +11,7 @@ use Stripe\Webhook;
 
 class StripeGatewayService
 {
-    private StripeClient $client;
+    private ?StripeClient $client = null;
     private string $secretKey;
     private ?string $webhookSecret;
 
@@ -19,21 +19,23 @@ class StripeGatewayService
     {
         $this->secretKey = (string) config('services.stripe.secret');
         $this->webhookSecret = config('services.stripe.webhook_secret');
-
-        if (empty($this->secretKey)) {
-            throw new \RuntimeException(
-                'STRIPE_KEY_REQUERIDA: Debes configurar STRIPE_SECRET_KEY en tu archivo .env para interactuar con la pasarela de pagos de Stripe.'
-            );
-        }
-
-        $this->client = new StripeClient($this->secretKey);
     }
 
     /**
-     * Retorna el cliente oficial de Stripe SDK para operaciones directas
+     * Retorna el cliente oficial de Stripe SDK para operaciones directas (inicialización lazy)
      */
     public function getClient(): StripeClient
     {
+        if ($this->client === null) {
+            if (empty($this->secretKey)) {
+                throw new \RuntimeException(
+                    'STRIPE_KEY_REQUERIDA: Debes configurar STRIPE_SECRET_KEY en tu archivo .env para interactuar con la pasarela de pagos de Stripe.'
+                );
+            }
+
+            $this->client = new StripeClient($this->secretKey);
+        }
+
         return $this->client;
     }
 
@@ -42,7 +44,7 @@ class StripeGatewayService
      */
     public function crearCliente(string $nombre, string $correo, string $ruc, array $metadata = []): Customer
     {
-        return $this->client->customers->create([
+        return $this->getClient()->customers->create([
             'name' => $nombre,
             'email' => $correo,
             'description' => "Restaurante RUC {$ruc} - {$nombre}",
@@ -58,14 +60,13 @@ class StripeGatewayService
      */
     public function crearSetupIntent(string $customerId): SetupIntent
     {
-        return $this->client->setupIntents->create([
+        return $this->getClient()->setupIntents->create([
             'customer' => $customerId,
             'automatic_payment_methods' => [
                 'enabled' => true,
             ],
             'usage' => 'off_session',
         ]);
-
     }
 
     /**
@@ -78,10 +79,12 @@ class StripeGatewayService
         string $moneda = 'pen',
         string $descripcion = 'RestaurantCloud SaaS - Suscripción Inicial'
     ): PaymentIntent {
+        $client = $this->getClient();
+
         // 1. Vincular el método de pago al Customer y establecerlo como predeterminado
         $finalPaymentMethodId = $paymentMethodId;
         try {
-            $pm = $this->client->paymentMethods->attach($paymentMethodId, [
+            $pm = $client->paymentMethods->attach($paymentMethodId, [
                 'customer' => $customerId,
             ]);
             $finalPaymentMethodId = $pm->id;
@@ -92,14 +95,14 @@ class StripeGatewayService
             }
         }
 
-        $this->client->customers->update($customerId, [
+        $client->customers->update($customerId, [
             'invoice_settings' => [
                 'default_payment_method' => $finalPaymentMethodId,
             ],
         ]);
 
         // 2. Ejecutar el cobro inmediato con confirmación en servidor
-        return $this->client->paymentIntents->create([
+        return $client->paymentIntents->create([
             'amount' => (int) round($monto * 100), // En céntimos
             'currency' => strtolower($moneda),
             'customer' => $customerId,

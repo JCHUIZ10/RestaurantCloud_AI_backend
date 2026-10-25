@@ -274,9 +274,9 @@ class MockSaasTenantsService {
 
     for (const t of tenants) {
       sedes_totales += t.locales_activos;
-      let precioMensual = 249; // Default Pro
-      if (t.plan_id === 1) precioMensual = 99;
-      if (t.plan_id === 3) precioMensual = 499;
+      let precioMensual = 80; // Default Pro
+      if (t.plan_id === 1) precioMensual = 40;
+      if (t.plan_id === 3) precioMensual = 160;
 
       if (t.estado_suscripcion === 'activa') {
         activas++;
@@ -376,7 +376,7 @@ class MockSaasTenantsService {
         id: 'p-01-' + t.empresa_id.slice(0, 8),
         comprobante_codigo: 'REC-RENOV-02',
         fecha: t.estado_suscripcion === 'periodo_gracia' ? '2026-10-09T22:30:00Z' : '2026-10-01T10:00:00Z',
-        monto_pen: t.plan_id === 1 ? 99.0 : t.plan_id === 2 ? 249.0 : 499.0,
+        monto_pen: t.plan_id === 1 ? 40.0 : t.plan_id === 2 ? 80.0 : 160.0,
         origen_pago: t.origen_pago_tipo,
         medio_detalle: t.metodo_pago_detalle,
         estado: t.estado_suscripcion === 'periodo_gracia' ? 'fallido' : 'exitoso',
@@ -391,7 +391,7 @@ class MockSaasTenantsService {
         id: 'p-02-' + t.empresa_id.slice(0, 8),
         comprobante_codigo: 'REC-ALTA-01',
         fecha: t.fecha_registro,
-        monto_pen: t.plan_id === 1 ? 99.0 : t.plan_id === 2 ? 249.0 : 499.0,
+        monto_pen: t.plan_id === 1 ? 40.0 : t.plan_id === 2 ? 80.0 : 160.0,
         origen_pago: t.origen_pago_tipo,
         medio_detalle: t.metodo_pago_detalle,
         estado: 'exitoso',
@@ -436,7 +436,7 @@ class MockSaasTenantsService {
       plan: {
         id: t.plan_id,
         nombre: t.plan_nombre,
-        precio_mensual: t.plan_id === 1 ? 99.0 : t.plan_id === 2 ? 249.0 : 499.0,
+        precio_mensual: t.plan_id === 1 ? 40.0 : t.plan_id === 2 ? 80.0 : 160.0,
         ciclo: 'mensual',
       },
       estado_suscripcion: t.estado_suscripcion,
@@ -587,15 +587,45 @@ class MockSaasTenantsService {
     todos.unshift(nuevoTenant);
     this.saveTenantsToStorage(todos);
 
+    const usuarioId = 'usr-' + uuid.slice(0, 6);
+    const invitacionToken = 'inv_tok_corp_' + Math.random().toString(36).substring(2, 12);
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
+    const invitacionUrl = `${baseUrl}/activar-cuenta?token=${invitacionToken}`;
+
+    try {
+      const ADMINS_STORAGE_KEY = 'restaurantcloud_propietario_admins_db';
+      const raw = localStorage.getItem(ADMINS_STORAGE_KEY);
+      let admins = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(admins)) admins = [];
+      admins.unshift({
+        id: usuarioId,
+        nombre: request.propietario_nombre,
+        correo: request.propietario_email,
+        telefono: request.propietario_telefono,
+        rol: 'propietario',
+        empresa_id: uuid,
+        empresa_nombre: request.razon_social,
+        invitacion_token: invitacionToken,
+        invitacion_url: invitacionUrl,
+        invitacion_expira_en: new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
+        estado: 'pendiente_activacion',
+      });
+      localStorage.setItem(ADMINS_STORAGE_KEY, JSON.stringify(admins));
+    } catch {
+      // ignore
+    }
+
     return {
       exito: true,
       datos: {
         empresa_id: uuid,
         codigo_display: nuevoTenant.codigo_display,
-        usuario_id: 'usr-' + uuid.slice(0, 6),
+        usuario_id: usuarioId,
         pago_id: 'pag-' + uuid.slice(0, 6),
         email_enviado: request.enviar_email_bienvenida,
         mensaje: `Empresa ${request.razon_social} registrada con éxito. Pago asentado bajo operación ${request.numero_operacion}.`,
+        invitacion_token: invitacionToken,
+        invitacion_url: invitacionUrl,
       },
     };
   }

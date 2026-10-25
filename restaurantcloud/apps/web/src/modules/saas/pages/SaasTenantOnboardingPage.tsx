@@ -17,9 +17,9 @@ import type {
 } from '@/types/saasTenants';
 
 const PRECIOS_PLANES: Record<number, { mensual: number; anual: number }> = {
-  1: { mensual: 99.0, anual: 990.0 },
-  2: { mensual: 249.0, anual: 2490.0 },
-  3: { mensual: 499.0, anual: 4990.0 },
+  1: { mensual: 40.0, anual: 400.0 },
+  2: { mensual: 80.0, anual: 800.0 },
+  3: { mensual: 160.0, anual: 1600.0 },
 };
 
 const getFechasIniciales = (ciclo: 'mensual' | 'anual') => {
@@ -60,7 +60,7 @@ export const SaasTenantOnboardingPage: React.FC = () => {
         ciclo_facturacion: 'anual',
         fecha_inicio: initInicio,
         fecha_fin_periodo: initFin,
-        monto_cobrado_pen: 2490.0,
+        monto_cobrado_pen: 800.0,
         origen_pago: 'transferencia_bancaria',
         numero_operacion: 'OP-90481239-BCP',
         fecha_operacion: initInicio,
@@ -91,7 +91,7 @@ export const SaasTenantOnboardingPage: React.FC = () => {
       ciclo_facturacion: 'anual',
       fecha_inicio: initInicio,
       fecha_fin_periodo: initFin,
-      monto_cobrado_pen: 2490.0,
+      monto_cobrado_pen: 800.0,
       origen_pago: 'transferencia_bancaria',
       numero_operacion: '',
       fecha_operacion: initInicio,
@@ -166,7 +166,7 @@ export const SaasTenantOnboardingPage: React.FC = () => {
       ciclo_facturacion: 'anual',
       fecha_inicio: fechaInicio,
       fecha_fin_periodo: fechaFinPeriodo,
-      monto_cobrado_pen: 2490.0,
+      monto_cobrado_pen: 800.0,
       origen_pago: 'transferencia_bancaria',
       numero_operacion: 'OP-90481239-BCP',
       fecha_operacion: fechaInicio,

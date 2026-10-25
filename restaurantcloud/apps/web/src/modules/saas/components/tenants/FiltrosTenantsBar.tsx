@@ -128,8 +128,8 @@ export const FiltrosTenantsBar: React.FC<FiltrosTenantsBarProps> = ({
           >
             <option value="todos">Plan: Todos</option>
             <option value="1">Starter (S/ 99)</option>
-            <option value="2">Plan Pro (S/ 249)</option>
-            <option value="3">Enterprise (S/ 499)</option>
+            <option value="2">Plan Pro (S/ 80)</option>
+            <option value="3">Enterprise (S/ 160)</option>
           </select>
         </div>
       </div>

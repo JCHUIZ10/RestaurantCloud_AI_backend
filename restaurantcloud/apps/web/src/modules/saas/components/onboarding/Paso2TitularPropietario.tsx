@@ -1,5 +1,6 @@
 import React from 'react';
-import { User, Mail, Phone, ArrowLeft, ArrowRight, KeyRound } from 'lucide-react';
+import { User, Mail, ArrowLeft, ArrowRight, KeyRound } from 'lucide-react';
+import { extraerDigitosMovilPeru, formatearTelefonoPeru } from '@/shared/utils';
 
 interface Paso2TitularPropietarioProps {
   propietarioNombre: string;
@@ -23,10 +24,13 @@ export const Paso2TitularPropietario: React.FC<Paso2TitularPropietarioProps> = (
   onSiguiente,
 }) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const digitosTelefono = extraerDigitosMovilPeru(propietarioTelefono);
+  const telefonoValido = digitosTelefono.length === 9 && digitosTelefono.startsWith('9');
+
   const esValido =
     propietarioNombre.trim().length >= 3 &&
     emailRegex.test(propietarioEmail) &&
-    propietarioTelefono.trim().length >= 9;
+    telefonoValido;
 
   return (
     <div className="bg-white rounded-3xl border border-aurea-copper/25 p-6 sm:p-8 shadow-sm space-y-6">
@@ -62,19 +66,47 @@ export const Paso2TitularPropietario: React.FC<Paso2TitularPropietarioProps> = (
           </div>
         </div>
 
-        {/* Teléfono / WhatsApp */}
+        {/* Teléfono Móvil / WhatsApp */}
         <div className="space-y-1.5">
-          <label className="block text-xs font-bold text-aurea-navy uppercase tracking-wider">
-            Teléfono Móvil / WhatsApp Corporativo: *
-          </label>
-          <div className="relative">
-            <Phone className="w-4 h-4 text-aurea-copper absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-bold text-aurea-navy uppercase tracking-wider">
+              Teléfono Móvil / WhatsApp Corporativo: *
+            </label>
+            {digitosTelefono.length > 0 && !digitosTelefono.startsWith('9') ? (
+              <span className="text-[11px] font-semibold text-rose-500">
+                Debe iniciar con 9
+              </span>
+            ) : digitosTelefono.length === 9 ? (
+              <span className="text-[11px] font-semibold text-emerald-600">
+                WhatsApp Válido
+              </span>
+            ) : digitosTelefono.length > 0 ? (
+              <span className="text-[11px] text-aurea-navy/60 font-mono">
+                {digitosTelefono.length}/9 dígitos
+              </span>
+            ) : null}
+          </div>
+          <div className="flex rounded-xl border border-aurea-copper/30 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-aurea-copper/40 transition-all">
+            {/* Prefijo Fijo No Editable */}
+            <div className="inline-flex items-center gap-1.5 px-3 bg-aurea-ivory border-r border-aurea-copper/20 text-aurea-navy font-semibold text-xs select-none shrink-0">
+              <span>🇵🇪</span>
+              <span className="font-mono font-bold">+51</span>
+            </div>
+
+            {/* Input de Dígitos */}
             <input
-              type="text"
-              value={propietarioTelefono}
-              onChange={(e) => onChange({ propietarioTelefono: e.target.value })}
-              placeholder="ej. +51 991 882 334"
-              className="w-full pl-10 pr-4 py-3 rounded-xl bg-white border border-aurea-copper/30 text-sm font-mono text-aurea-navy focus:outline-none focus:ring-2 focus:ring-aurea-copper/40"
+              type="tel"
+              inputMode="numeric"
+              required
+              maxLength={11}
+              value={formatearTelefonoPeru(propietarioTelefono)}
+              onChange={(e) => {
+                const digits = extraerDigitosMovilPeru(e.target.value);
+                const formatted = formatearTelefonoPeru(digits);
+                onChange({ propietarioTelefono: digits ? `+51 ${formatted}` : '' });
+              }}
+              placeholder="987 654 321"
+              className="w-full px-3.5 py-3 bg-transparent text-sm font-mono text-aurea-navy placeholder:text-aurea-navy/30 focus:outline-none"
             />
           </div>
           <span className="text-aurea-navy/50 text-[11px] block">

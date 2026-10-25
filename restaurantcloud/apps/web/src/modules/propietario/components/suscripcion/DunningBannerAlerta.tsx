@@ -44,7 +44,7 @@ export const DunningBannerAlerta: React.FC<DunningBannerAlertaProps> = ({
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-red-800 mt-1 max-w-2xl leading-relaxed">
-                El periodo de gracia de 5 días ha finalizado sin recibir el pago de la suscripción (S/ {estadoCobro?.monto_pendiente ? estadoCobro.monto_pendiente.toFixed(2) : '249.00'}). Las funciones de comanda, KDS y carta QR se encuentran temporalmente pausadas.
+                El periodo de gracia de 5 días ha finalizado sin recibir el pago de la suscripción (S/ {estadoCobro?.monto_pendiente ? estadoCobro.monto_pendiente.toFixed(2) : '80.00'}). Las funciones de comanda, KDS y carta QR se encuentran temporalmente pausadas.
               </p>
               {estadoCobro?.ultimo_error_cobro && (
                 <p className="text-xs font-mono text-red-700 bg-red-100/70 rounded px-2.5 py-1 mt-2 inline-block border border-red-200">
@@ -71,7 +71,7 @@ export const DunningBannerAlerta: React.FC<DunningBannerAlertaProps> = ({
 
   // Caso: Periodo de Gracia (Dunning)
   const diasRestantes = estadoCobro?.dias_gracia_restantes ?? 5;
-  const montoPendiente = estadoCobro?.monto_pendiente ?? 249.0;
+  const montoPendiente = estadoCobro?.monto_pendiente ?? 80.0;
 
   return (
     <section

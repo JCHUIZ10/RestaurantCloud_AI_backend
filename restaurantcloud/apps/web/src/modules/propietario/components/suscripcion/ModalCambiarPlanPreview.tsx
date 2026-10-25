@@ -30,7 +30,7 @@ export const ModalCambiarPlanPreview: React.FC<ModalCambiarPlanPreviewProps> = (
     {
       id: 1,
       nombre: 'Starter',
-      precio: 99.0,
+      precio: 40.0,
       descripcion: 'Para restaurantes individuales y cafeterías en etapa inicial.',
       locales: '1 Sede física',
       mesas: 'Hasta 10 mesas',
@@ -46,7 +46,7 @@ export const ModalCambiarPlanPreview: React.FC<ModalCambiarPlanPreviewProps> = (
     {
       id: 2,
       nombre: 'Pro',
-      precio: 249.0,
+      precio: 80.0,
       descripcion: 'Para restaurantes consolidados y negocios multisede en crecimiento.',
       locales: 'Hasta 3 Locales',
       mesas: 'Hasta 30 mesas activas',
@@ -63,7 +63,7 @@ export const ModalCambiarPlanPreview: React.FC<ModalCambiarPlanPreviewProps> = (
     {
       id: 3,
       nombre: 'Enterprise',
-      precio: 499.0,
+      precio: 160.0,
       descripcion: 'Para franquicias y cadenas gastronómicas de alto volumen operativo.',
       locales: 'Locales ilimitados (hasta 10)',
       mesas: 'Hasta 100 mesas activas',

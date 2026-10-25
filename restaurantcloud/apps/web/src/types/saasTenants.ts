@@ -177,6 +177,8 @@ export interface AltaManualTenantResponseDTO {
   pago_id: string;
   email_enviado: boolean;
   mensaje: string;
+  invitacion_token?: string;
+  invitacion_url?: string;
 }
 
 export type TenantListApiResponse = ApiResponse<{

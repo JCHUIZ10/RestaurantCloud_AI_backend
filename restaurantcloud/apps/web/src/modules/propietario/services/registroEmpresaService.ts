@@ -25,8 +25,8 @@ export const PLANES_CANONICOS: PlanSaaSDTO[] = [
     nombre: 'Starter',
     slug: 'plan-starter',
     descripcion: 'Ideal para cafeterías, bistrós y restaurantes independientes de 1 sede con hasta 25 mesas.',
-    precio_mensual: 99.0,
-    precio_anual: 990.0,
+    precio_mensual: 40.0,
+    precio_anual: 400.0,
     max_locales: 1,
     max_pisos: 1,
     max_mesas: 25,
@@ -44,8 +44,8 @@ export const PLANES_CANONICOS: PlanSaaSDTO[] = [
     nombre: 'Pro (Con IA)',
     slug: 'plan-pro',
     descripcion: 'Para restaurantes en expansión con múltiples ambientes, reservas de salón, KDS y asistente IA.',
-    precio_mensual: 249.0,
-    precio_anual: 2490.0,
+    precio_mensual: 80.0,
+    precio_anual: 800.0,
     max_locales: 3,
     max_pisos: 2,
     max_mesas: 30,
@@ -63,8 +63,8 @@ export const PLANES_CANONICOS: PlanSaaSDTO[] = [
     nombre: 'Enterprise',
     slug: 'plan-enterprise',
     descripcion: 'Para cadenas gastronómicas y franquicias con operaciones complejas y suite completa de IA.',
-    precio_mensual: 499.0,
-    precio_anual: 4990.0,
+    precio_mensual: 160.0,
+    precio_anual: 1600.0,
     max_locales: 10,
     max_pisos: 5,
     max_mesas: 60,
@@ -116,19 +116,14 @@ class RegistroEmpresaService {
         return datos;
       }
     } catch (err) {
-      if (this.planesCache) return this.planesCache;
-      throw err;
+      console.warn('[RegistroEmpresaService] Error al consultar API de planes, usando catálogo de respaldo:', err);
     }
 
-    if (this.planesCache) return this.planesCache;
+    if (this.planesCache && this.planesCache.length > 0) return this.planesCache;
 
-    // Si no estamos en modo API real o falló, solo usar canónicos si VITE_USE_REAL_API no está forzado
-    if (!IS_REAL_API) {
-      this.planesCache = PLANES_CANONICOS;
-      return PLANES_CANONICOS;
-    }
-
-    throw new Error('No se pudo obtener el catálogo de planes del servidor.');
+    // Degradación elegante: Usar catálogo canónico oficial para evitar bloquear al usuario
+    this.planesCache = PLANES_CANONICOS;
+    return PLANES_CANONICOS;
   }
 
   /**

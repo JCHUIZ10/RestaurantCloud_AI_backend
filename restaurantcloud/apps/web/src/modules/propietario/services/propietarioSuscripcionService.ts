@@ -82,7 +82,7 @@ const DEFAULT_STORE_DATA: SuscripcionStoreData = {
       id: 'p1a2b3c4-0001-0000-0000-000000000001',
       numero_comprobante: 'F-100456',
       fecha: '2026-10-01T10:00:00Z',
-      monto: 249.00,
+      monto: 80.00,
       moneda: 'PEN',
       estado: 'exitoso',
       origen_pago: 'stripe',
@@ -93,7 +93,7 @@ const DEFAULT_STORE_DATA: SuscripcionStoreData = {
       id: 'p1a2b3c4-0001-0000-0000-000000000002',
       numero_comprobante: 'F-100389',
       fecha: '2026-09-01T10:00:00Z',
-      monto: 249.00,
+      monto: 80.00,
       moneda: 'PEN',
       estado: 'exitoso',
       origen_pago: 'stripe',
@@ -104,7 +104,7 @@ const DEFAULT_STORE_DATA: SuscripcionStoreData = {
       id: 'p1a2b3c4-0001-0000-0000-000000000003',
       numero_comprobante: 'F-100321',
       fecha: '2026-08-01T10:00:00Z',
-      monto: 249.00,
+      monto: 80.00,
       moneda: 'PEN',
       estado: 'exitoso',
       origen_pago: 'stripe',
@@ -248,8 +248,8 @@ class PropietarioSuscripcionService {
 
     const planNombre = planId === 3 ? 'Enterprise' : planId === 1 ? 'Starter' : 'Pro';
     const planSlug = planId === 3 ? 'plan-enterprise' : planId === 1 ? 'plan-starter' : 'plan-pro';
-    const precioMensual = planId === 3 ? 499.00 : planId === 1 ? 99.00 : 249.00;
-    const precioAnual = planId === 3 ? 4990.00 : planId === 1 ? 990.00 : 2490.00;
+    const precioMensual = planId === 3 ? 160.00 : planId === 1 ? 40.00 : 80.00;
+    const precioAnual = planId === 3 ? 1600.00 : planId === 1 ? 400.00 : 800.00;
     const periodicidad = store.periodicidad ?? 'mensual';
 
     let proximoPlanInfo = null;
@@ -258,7 +258,7 @@ class PropietarioSuscripcionService {
       proximoPlanInfo = {
         id: pId,
         nombre: pId === 1 ? 'Starter' : pId === 2 ? 'Pro' : 'Enterprise',
-        precio_mensual: pId === 1 ? 99.00 : pId === 2 ? 249.00 : 499.00,
+        precio_mensual: pId === 1 ? 40.00 : pId === 2 ? 80.00 : 160.00,
         fecha_efectiva: '2026-11-01T23:59:59Z',
       };
     }
@@ -379,7 +379,7 @@ class PropietarioSuscripcionService {
         id: nuevoPagoId,
         numero_comprobante: `F-100${Math.floor(100 + Math.random() * 900)}`,
         fecha: new Date().toISOString(),
-        monto: 249.00,
+        monto: 80.00,
         moneda: 'PEN',
         estado: 'exitoso',
         origen_pago: 'stripe',
@@ -395,7 +395,7 @@ class PropietarioSuscripcionService {
       exito: true,
       datos: {
         mensaje: cobroRegularizado
-          ? 'Método de pago actualizado exitosamente. El cobro pendiente de S/ 249.00 ha sido regularizado.'
+          ? 'Método de pago actualizado exitosamente. El cobro pendiente de S/ 80.00 ha sido regularizado.'
           : 'Método de pago actualizado exitosamente. Tus próximos cobros se debitarán de esta tarjeta.',
         metodo_pago: nuevoMetodo,
         cobro_pendiente_regularizado: cobroRegularizado,
@@ -449,7 +449,7 @@ DESGLOSE TRIBUTARIO OFICIAL SUNAT:
 --------------------------------------------------------------------------------
 OPERACIÓN GRAVADA:                     S/ 211.02
 IGV (18.00%):                          S/  37.98
-TOTAL A PAGAR:                         S/ 249.00
+TOTAL A PAGAR:                         S/ 80.00
 
 SON: DOSCIENTOS CUARENTA Y NUEVE Y 00/100 SOLES
 ================================================================================
@@ -479,7 +479,7 @@ Representación impresa de la Factura Electrónica consultable en www.restaurant
     store.en_periodo_gracia = true;
     store.dias_gracia_restantes = 5;
     store.fecha_corte_gracia = fechaCorte;
-    store.monto_pendiente = 249.00;
+    store.monto_pendiente = 80.00;
     store.ultimo_error_cobro =
       'Fondos insuficientes en la cuenta bancaria (Stripe decline code: insufficient_funds).';
     store.reintentos_fallidos = 1;
@@ -489,7 +489,7 @@ Representación impresa de la Factura Electrónica consultable en www.restaurant
       id: 'p1a2b3c4-fallido-' + Date.now().toString(36),
       numero_comprobante: 'F-100499',
       fecha: new Date().toISOString(),
-      monto: 249.00,
+      monto: 80.00,
       moneda: 'PEN',
       estado: 'fallido',
       origen_pago: 'stripe',
@@ -507,7 +507,7 @@ Representación impresa de la Factura Electrónica consultable en www.restaurant
     store.al_dia = false;
     store.en_periodo_gracia = false;
     store.dias_gracia_restantes = 0;
-    store.monto_pendiente = 249.00;
+    store.monto_pendiente = 80.00;
     store.ultimo_error_cobro =
       'Periodo de gracia agotado sin regularización. Suscripción suspendida.';
     this.saveData(store);
@@ -535,8 +535,8 @@ Representación impresa de la Factura Electrónica consultable en www.restaurant
 
     const periodicidad = store.periodicidad ?? 'mensual';
     const planActualNombre = planIdActual === 3 ? 'Enterprise' : planIdActual === 1 ? 'Starter' : 'Pro';
-    const precioMensual = planIdActual === 3 ? 499.00 : planIdActual === 1 ? 99.00 : 249.00;
-    const precioAnual = planIdActual === 3 ? 4990.00 : planIdActual === 1 ? 990.00 : 2490.00;
+    const precioMensual = planIdActual === 3 ? 160.00 : planIdActual === 1 ? 40.00 : 80.00;
+    const precioAnual = planIdActual === 3 ? 1600.00 : planIdActual === 1 ? 400.00 : 800.00;
 
     const tieneDowngrade = !!store.proximo_plan_id;
     let proximoPlan = null;
@@ -545,7 +545,7 @@ Representación impresa de la Factura Electrónica consultable en www.restaurant
       proximoPlan = {
         id: pId,
         nombre: pId === 1 ? 'Starter' : pId === 2 ? 'Pro' : 'Enterprise',
-        precio_mensual: pId === 1 ? 99.00 : pId === 2 ? 249.00 : 499.00,
+        precio_mensual: pId === 1 ? 40.00 : pId === 2 ? 80.00 : 160.00,
       };
     }
 
@@ -569,8 +569,8 @@ Representación impresa de la Factura Electrónica consultable en www.restaurant
         nombre: 'Starter',
         slug: 'plan-starter',
         descripcion: 'Ideal para restaurantes pequeños y pollerías de salón único con hasta 25 mesas.',
-        precio_mensual: 99.00,
-        precio_anual: 990.00,
+        precio_mensual: 40.00,
+        precio_anual: 400.00,
         limites: {
           max_locales: 1,
           max_pisos: 1,
@@ -593,8 +593,8 @@ Representación impresa de la Factura Electrónica consultable en www.restaurant
         nombre: 'Pro',
         slug: 'plan-pro',
         descripcion: 'Para restaurantes en expansión con múltiples ambientes, reservas de salón y KDS.',
-        precio_mensual: 249.00,
-        precio_anual: 2490.00,
+        precio_mensual: 80.00,
+        precio_anual: 800.00,
         limites: {
           max_locales: 3,
           max_pisos: 2,
@@ -618,8 +618,8 @@ Representación impresa de la Factura Electrónica consultable en www.restaurant
         nombre: 'Enterprise',
         slug: 'plan-enterprise',
         descripcion: 'Para cadenas gastronómicas y franquicias con operaciones complejas y suite completa de IA.',
-        precio_mensual: 499.00,
-        precio_anual: 4990.00,
+        precio_mensual: 160.00,
+        precio_anual: 1600.00,
         limites: {
           max_locales: 10,
           max_pisos: 5,
@@ -672,8 +672,8 @@ Representación impresa de la Factura Electrónica consultable en www.restaurant
     const planDestino = dto.nuevo_plan_id === 3 ? 'Enterprise' : 'Pro';
 
     const esAnual = dto.periodicidad === 'anual';
-    const precioOrigen = esAnual ? (planIdActual === 1 ? 990 : 2490) : (planIdActual === 1 ? 99 : 249);
-    const precioDestino = esAnual ? (dto.nuevo_plan_id === 3 ? 4990 : 2490) : (dto.nuevo_plan_id === 3 ? 499 : 249);
+    const precioOrigen = esAnual ? (planIdActual === 1 ? 400 : 800) : (planIdActual === 1 ? 40 : 80);
+    const precioDestino = esAnual ? (dto.nuevo_plan_id === 3 ? 1600 : 800) : (dto.nuevo_plan_id === 3 ? 160 : 80);
 
     const diasRestantes = 15;
     const diasTotales = 30;
@@ -972,7 +972,7 @@ Representación impresa de la Factura Electrónica consultable en www.restaurant
     this.saveData(store);
 
     const planActualNombre = store.plan_id === 3 ? 'Enterprise' : 'Pro';
-    const tarifa = store.plan_id === 3 ? 499.00 : 249.00;
+    const tarifa = store.plan_id === 3 ? 160.00 : 80.00;
 
     return {
       exito: true,

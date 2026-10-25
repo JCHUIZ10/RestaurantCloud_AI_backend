@@ -34,7 +34,7 @@ export const ModalAltaManualTenant: React.FC<ModalAltaManualTenantProps> = ({
   const [fechaInicio, setFechaInicio] = useState(hoy);
   const [fechaFinPeriodo, setFechaFinPeriodo] = useState(proximoAno);
 
-  const [montoCobrado, setMontoCobrado] = useState<number>(2490.0);
+  const [montoCobrado, setMontoCobrado] = useState<number>(800.0);
   const [origenPago, setOrigenPago] = useState<OrigenPagoSaaS>('transferencia_bancaria');
   const [numeroOperacion, setNumeroOperacion] = useState('OP-90481239-BCP');
   const [fechaOperacion, setFechaOperacion] = useState(hoy);
@@ -82,9 +82,9 @@ export const ModalAltaManualTenant: React.FC<ModalAltaManualTenantProps> = ({
     setPlanId(nuevoPlanId);
     setCiclo(nuevoCiclo);
 
-    let monto = 249;
-    if (nuevoPlanId === 1) monto = 99;
-    if (nuevoPlanId === 3) monto = 499;
+    let monto = 80;
+    if (nuevoPlanId === 1) monto = 40;
+    if (nuevoPlanId === 3) monto = 160;
 
     if (nuevoCiclo === 'anual') {
       monto = monto * 10; // 10 meses (2 meses de bonificación)
@@ -309,9 +309,9 @@ export const ModalAltaManualTenant: React.FC<ModalAltaManualTenantProps> = ({
                   onChange={(e) => handleCambioPlanOCiclo(Number(e.target.value), ciclo)}
                   className="w-full px-3 py-2 rounded-xl bg-white border border-aurea-copper/25 text-sm font-semibold text-aurea-navy focus:outline-none focus:ring-2 focus:ring-aurea-copper/50"
                 >
-                  <option value={1}>Starter — S/ 99.00 / mes (Hasta 1 sede, 25 mesas)</option>
-                  <option value={2}>Plan Pro — S/ 249.00 / mes (Hasta 3 sedes, 30 mesas)</option>
-                  <option value={3}>Enterprise — S/ 499.00 / mes (Hasta 10 sedes, 60 mesas)</option>
+                  <option value={1}>Starter — S/ 40.00 / mes (Hasta 1 sede, 25 mesas)</option>
+                  <option value={2}>Plan Pro — S/ 80.00 / mes (Hasta 3 sedes, 30 mesas)</option>
+                  <option value={3}>Enterprise — S/ 160.00 / mes (Hasta 10 sedes, 60 mesas)</option>
                 </select>
               </div>
 

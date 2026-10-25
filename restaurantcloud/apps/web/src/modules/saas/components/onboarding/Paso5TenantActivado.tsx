@@ -1,6 +1,20 @@
-import React from 'react';
-import { CheckCircle2, Building2, Eye, ArrowLeft, Download, Mail } from 'lucide-react';
+import React, { useState } from 'react';
+import {
+  CheckCircle2,
+  Building2,
+  Eye,
+  ArrowLeft,
+  Download,
+  Mail,
+  Copy,
+  Check,
+  Share2,
+  ExternalLink,
+  Lock,
+  Clock,
+} from 'lucide-react';
 import type { AltaManualTenantResponseDTO, AltaManualTenantRequestDTO } from '@/types/saasTenants';
+import { generarEnlaceWhatsApp } from '@/shared/utils';
 
 interface Paso5TenantActivadoProps {
   resultado: AltaManualTenantResponseDTO;
@@ -15,7 +29,34 @@ export const Paso5TenantActivado: React.FC<Paso5TenantActivadoProps> = ({
   onVerExpediente,
   onVolverBandeja,
 }) => {
+  const [copiado, setCopiado] = useState(false);
   const planNombres: Record<number, string> = { 1: 'Starter', 2: 'Plan Pro', 3: 'Enterprise' };
+
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
+  const urlActivacion =
+    resultado.invitacion_url ||
+    `${baseUrl}/activar-cuenta?token=${resultado.invitacion_token || 'tok_corp_' + resultado.empresa_id}`;
+
+  const handleCopiar = () => {
+    if (!urlActivacion) return;
+    navigator.clipboard.writeText(urlActivacion);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2500);
+  };
+
+  const handleCompartirWhatsapp = () => {
+    if (!urlActivacion) return;
+    const texto = `Hola ${formData.propietario_nombre}, se ha completado el alta de ${formData.razon_social} en RestaurantCloud AI. Activa tu cuenta personal y define tu contraseña segura aquí (enlace válido por 72 horas): ${urlActivacion}`;
+    if (formData.propietario_telefono) {
+      window.open(generarEnlaceWhatsApp(formData.propietario_telefono, texto), '_blank');
+    } else {
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
+    }
+  };
+
+  const handleAbrirActivacion = () => {
+    window.open(urlActivacion, '_blank');
+  };
 
   const handleDescargarConstancia = () => {
     const texto = `
@@ -36,6 +77,13 @@ Nombre:           ${formData.propietario_nombre}
 Correo:           ${formData.propietario_email}
 Teléfono:         ${formData.propietario_telefono}
 Capability Token: Despachado a casilla electrónica (Vigencia: 72 horas)
+
+--------------------------------------------------------------------------------
+ACCESO Y ACTIVACIÓN DIGITAL DE CUENTA (CAPABILITY TOKEN)
+--------------------------------------------------------------------------------
+URL de Activación:  ${urlActivacion}
+Vigencia del Token: 72 horas (Expiración: Redis EX 259200)
+Protocolo:          Sin contraseñas provisionales. El titular fija su propia clave.
 
 --------------------------------------------------------------------------------
 CONTRATO SAAS Y CONDICIONES
@@ -137,6 +185,92 @@ RestaurantCloud AI — Plataforma SaaS Multitenant Gastronómica
             </span>
           </div>
         )}
+      </div>
+
+      {/* Tarjeta de Enlace Seguro de Activación para el Titular */}
+      <div className="p-5 rounded-2xl bg-gradient-to-br from-aurea-ivory/90 via-white to-amber-50/40 border-2 border-aurea-copper/35 text-left space-y-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-aurea-copper/20">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-aurea-navy text-aurea-gold flex items-center justify-center shrink-0 shadow-sm">
+              <Lock className="w-4 h-4 text-aurea-copper" />
+            </div>
+            <div>
+              <h3 className="font-serif text-sm font-bold text-aurea-navy">
+                Enlace Seguro de Activación para el Titular
+              </h3>
+              <p className="text-[11px] text-aurea-navy/70">
+                Invitación directa para {formData.propietario_nombre} ({formData.propietario_email})
+              </p>
+            </div>
+          </div>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100/90 border border-amber-300 text-amber-900 text-[10px] font-bold font-mono self-start sm:self-auto">
+            <Clock className="w-3 h-3 text-amber-700" />
+            <span>Válido por 72h (Redis EX 259200)</span>
+          </div>
+        </div>
+
+        {/* Input con enlace y botón Copiar */}
+        <div className="space-y-1.5">
+          <label className="block text-[11px] font-bold text-aurea-navy uppercase tracking-wider">
+            URL de Activación Generada:
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              readOnly
+              value={urlActivacion}
+              className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-aurea-copper/30 rounded-xl text-xs font-mono text-aurea-navy select-all focus:outline-none focus:ring-2 focus:ring-aurea-copper/40"
+            />
+            <button
+              type="button"
+              onClick={handleCopiar}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shrink-0 ${
+                copiado
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-aurea-navy text-white hover:bg-opacity-90 active:scale-[0.98]'
+              }`}
+            >
+              {copiado ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>¡Copiado!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4" />
+                  <span>Copiar</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Acciones de Despacho Rápido: WhatsApp y Abrir en pestaña nueva */}
+        <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-aurea-copper/15">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={handleCompartirWhatsapp}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#25D366] hover:bg-[#20bd5a] transition-all shadow-sm active:scale-[0.98]"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>Enviar por WhatsApp</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleAbrirActivacion}
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white text-aurea-navy border border-aurea-copper/30 hover:bg-aurea-ivory transition-colors shadow-sm active:scale-[0.98]"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-aurea-copper" />
+              <span>Abrir Enlace de Activación</span>
+            </button>
+          </div>
+
+          <span className="text-[10px] text-aurea-navy/60 font-sans text-center sm:text-right">
+            El titular definirá su propia clave privada sin contraseñas provisionales.
+          </span>
+        </div>
       </div>
 
       {/* Botones de Acción */}

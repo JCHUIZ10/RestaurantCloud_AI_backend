@@ -17,8 +17,8 @@ const PLANES_DISPONIBLES: PlanOpcion[] = [
   {
     id: 1,
     nombre: 'Starter',
-    precioMensual: 99.0,
-    precioAnual: 990.0,
+    precioMensual: 40.0,
+    precioAnual: 400.0,
     descripcion: 'Para pollerías y restaurantes de salón único.',
     locales: 1,
     mesas: 25,
@@ -27,8 +27,8 @@ const PLANES_DISPONIBLES: PlanOpcion[] = [
   {
     id: 2,
     nombre: 'Plan Pro',
-    precioMensual: 249.0,
-    precioAnual: 2490.0,
+    precioMensual: 80.0,
+    precioAnual: 800.0,
     descripcion: 'Para restaurantes en expansión con múltiples sedes, KDS y reservas.',
     locales: 3,
     mesas: 30,
@@ -38,8 +38,8 @@ const PLANES_DISPONIBLES: PlanOpcion[] = [
   {
     id: 3,
     nombre: 'Enterprise',
-    precioMensual: 499.0,
-    precioAnual: 4990.0,
+    precioMensual: 160.0,
+    precioAnual: 1600.0,
     descripcion: 'Para franquicias y cadenas con suite completa de IA.',
     locales: 10,
     mesas: 60,

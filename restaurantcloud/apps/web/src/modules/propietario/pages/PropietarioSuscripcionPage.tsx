@@ -69,7 +69,7 @@ export const PropietarioSuscripcionPage: React.FC = () => {
     if (cobroRegularizado) {
       mostrarToast(
         'success',
-        '¡Tarjeta actualizada con éxito! El saldo pendiente de S/ 249.00 ha sido cobrado y tu suscripción está al día.'
+        '¡Tarjeta actualizada con éxito! El saldo pendiente de S/ 80.00 ha sido cobrado y tu suscripción está al día.'
       );
     } else {
       mostrarToast(
