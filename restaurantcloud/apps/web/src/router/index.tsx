@@ -25,14 +25,15 @@ import { AdminProveedoresPage } from '@/modules/admin/pages/AdminProveedoresPage
 import { AdminComprasPage } from '@/modules/admin/pages/AdminComprasPage';
 import { AdminPersonalPage } from '@/modules/admin/pages/AdminPersonalPage';
 import { AdminHorarioPage } from '@/modules/admin/pages/AdminHorarioPage';
-import { AdminPoliticasReservaPage } from '@/modules/admin/pages/AdminPoliticasReservaPage';
-import { AdminIncidentesPage } from '@/modules/admin/pages/AdminIncidentesPage';
+// Vistas preservadas en repositorio para Fase 2 (Próximo Entregable):
+// import { AdminPoliticasReservaPage } from '@/modules/admin/pages/AdminPoliticasReservaPage';
+// import { AdminIncidentesPage } from '@/modules/admin/pages/AdminIncidentesPage';
 import { AdminAnulacionesPage } from '@/modules/admin/pages/AdminAnulacionesPage';
 import { AdminPromocionesPage } from '@/modules/admin/pages/AdminPromocionesPage';
 import { AdminConfiguracionKdsPage } from '@/modules/admin/pages/AdminConfiguracionKdsPage';
 import { AdminMetodosPagoPage } from '@/modules/admin/pages/AdminMetodosPagoPage';
 import { AdminFlujoCajaPage } from '@/modules/admin/pages/AdminFlujoCajaPage';
-import { PropietarioIncidentesPage } from '@/modules/propietario/pages/PropietarioIncidentesPage';
+// import { PropietarioIncidentesPage } from '@/modules/propietario/pages/PropietarioIncidentesPage';
 import { RegistroEmpresaPage } from '@/modules/propietario/pages/RegistroEmpresaPage';
 import { PropietarioLocalesPage } from '@/modules/propietario/pages/PropietarioLocalesPage';
 import { PropietarioAdministradoresPage } from '@/modules/propietario/pages/PropietarioAdministradoresPage';
@@ -138,6 +139,11 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
     element: <DashboardLayout />,
     children: [
       {
+        index: true,
+        element: <Navigate to={ROUTES.PROPIETARIO_SEDES} replace />,
+      },
+      // [PRÓXIMO ENTREGABLE - FASE 2]: Resumen general consolidado multi-sede (CU-PROP-01/04)
+      {
         path: 'dashboard',
         element: (
           <PlaceholderView
@@ -146,6 +152,7 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
             rol="propietario"
             layoutNombre="DashboardLayout"
             descripcion="Resumen ejecutivo multi-sede: ventas consolidadas en Soles, uso de recursos respecto al plan contratado y estado de suscripción Stripe."
+            proximoEntregable={true}
             enlacesRelacionados={[
               { label: 'Gestión de Sedes', to: ROUTES.PROPIETARIO_SEDES },
               { label: 'Suscripción & Stripe', to: ROUTES.PROPIETARIO_SUSCRIPCION },
@@ -169,9 +176,23 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
         path: 'cambiar-plan',
         element: <PropietarioCambiarPlanPage />,
       },
+      // [PRÓXIMO ENTREGABLE - FASE 2]: Incidentes de la Empresa (CU-PROP-06)
       {
         path: 'incidentes',
-        element: <PropietarioIncidentesPage />,
+        element: (
+          <PlaceholderView
+            codigoCu="CU-PROP-06"
+            nombrePantalla="Incidentes de la Empresa (Supervisión Corporativa Multi-Sede)"
+            rol="propietario"
+            layoutNombre="DashboardLayout"
+            descripcion="Consola ejecutiva de supervisión de incidentes y anomalías de sedes con trazabilidad de bitácora y emisión de directivas corporativas."
+            proximoEntregable={true}
+            enlacesRelacionados={[
+              { label: 'Gestión de Sedes', to: ROUTES.PROPIETARIO_SEDES },
+              { label: 'Administradores', to: ROUTES.PROPIETARIO_ADMINISTRADORES },
+            ]}
+          />
+        ),
       },
     ],
   },
@@ -231,13 +252,41 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
         path: 'horario',
         element: <AdminHorarioPage />,
       },
+      // [PRÓXIMO ENTREGABLE - FASE 2]: Políticas y Parámetros de Reservas (CU-ADMIN-10)
       {
         path: 'politicas-reserva',
-        element: <AdminPoliticasReservaPage />,
+        element: (
+          <PlaceholderView
+            codigoCu="CU-ADMIN-10"
+            nombrePantalla="Configuración de Políticas y Parámetros de Reservas"
+            rol="administrador"
+            layoutNombre="DashboardLayout"
+            descripcion="Parametrización operativa y gobernanza de reservas de salón: switch maestro, buffer de limpieza, tolerancia no-show y simulador de rotación."
+            proximoEntregable={true}
+            enlacesRelacionados={[
+              { label: 'Plano de Mesas', to: ROUTES.ADMIN_PLANO_MESAS },
+              { label: 'Horario & Feriados', to: ROUTES.ADMIN_HORARIO },
+            ]}
+          />
+        ),
       },
+      // [PRÓXIMO ENTREGABLE - FASE 2]: Incidentes Internos de Sede (CU-ADMIN-11)
       {
         path: 'incidentes',
-        element: <AdminIncidentesPage />,
+        element: (
+          <PlaceholderView
+            codigoCu="CU-ADMIN-11"
+            nombrePantalla="Historial y Registro de Incidentes Internos"
+            rol="administrador"
+            layoutNombre="DashboardLayout"
+            descripcion="Registro, control operativo y resolución inmutable de anomalías de salón, cocina y caja con bitácora cronológica y escalamiento."
+            proximoEntregable={true}
+            enlacesRelacionados={[
+              { label: 'Auditoría Anulaciones', to: ROUTES.ADMIN_ANULACIONES },
+              { label: 'Panel del Local', to: ROUTES.ADMIN_DASHBOARD },
+            ]}
+          />
+        ),
       },
       {
         path: 'anulaciones',
@@ -255,6 +304,7 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
         path: 'metodos-pago',
         element: <AdminMetodosPagoPage />,
       },
+      // [PRÓXIMO ENTREGABLE - FASE 2]: Reportes de Ventas (CU-ADMIN-13)
       {
         path: 'reportes/ventas',
         element: (
@@ -264,6 +314,11 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
             rol="administrador"
             layoutNombre="DashboardLayout"
             descripcion="Análisis analítico de ventas por rango de fechas, platos de mayor rotación y ticket promedio."
+            proximoEntregable={true}
+            enlacesRelacionados={[
+              { label: 'Flujo de Caja & Cierres Z', to: ROUTES.ADMIN_FLUJO_CAJA },
+              { label: 'Panel del Local', to: ROUTES.ADMIN_DASHBOARD },
+            ]}
           />
         ),
       },
@@ -350,6 +405,10 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
     element: <DashboardLayout />,
     children: [
       {
+        index: true,
+        element: <Navigate to={ROUTES.SAAS_TENANTS} replace />,
+      },
+      {
         path: 'tenants',
         element: <SaasTenantsPage />,
       },
@@ -357,6 +416,7 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
         path: 'tenants/nuevo',
         element: <SaasTenantOnboardingPage />,
       },
+      // [PRÓXIMO ENTREGABLE - FASE 2]: Catálogo de Planes SaaS (CU-SAAS-03)
       {
         path: 'planes',
         element: (
@@ -366,6 +426,10 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
             rol="saas_admin"
             layoutNombre="DashboardLayout"
             descripcion="Mantenimiento de planes comerciales (Starter, Pro, Enterprise), precios en PEN/USD y límites de recursos de plataforma."
+            proximoEntregable={true}
+            enlacesRelacionados={[
+              { label: 'Supervisión Tenants', to: ROUTES.SAAS_TENANTS },
+            ]}
           />
         ),
       },

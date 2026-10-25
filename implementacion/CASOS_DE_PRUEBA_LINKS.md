@@ -2,9 +2,11 @@
 ## RestaurantCloud AI — Verificación en Vivo de Pantallas
 
 > **Propósito:**  
-> Este documento permite comprobar de forma rápida y directa cada pantalla desarrollada en el frontend (`http://localhost:5173`), explicando en una sola línea qué representa cada escenario de prueba.
+> Este documento permite comprobar de forma rápida y directa cada pantalla desarrollada en el frontend (`http://localhost:5173`), explicando en una sola línea qué representa cada escenario de prueba y su alcance de entrega.
 
 ---
+
+# PARTE I: MÓDULOS ACTIVOS DEL PRIMER AVANCE (COMPLETAMENTE OPERACIONALES)
 
 (Landing Page SaaS B2B):
 - Portal comercial interactivo con métricas 3D en tiempo real, propuesta de valor y planes de suscripción: http://localhost:5173/
@@ -48,59 +50,39 @@
 (CU-MOZO-08: Emisión de Precuenta Digital en Mesa):
 - que es : Precuenta digital en mesa con desglose SUNAT Perú, promociones comerciales en 1 clic, código QR de Yape/Plin para pago asistido y notificación a caja vía SSE: http://localhost:5173/mozo/mesas/mesa-04/precuenta
 
-(CU-MOZO-04: Unir o Dividir Mesas en Salón):
-- que es : Gestión espacial y física de mesas agrupadas en salón con mini-mapa interactivo 5x2, proyección de Mesa [ 02 ; 03 ] (8 pax), bloqueo asistido 409 por comanda activa y desvinculación a libres individuales: http://localhost:5173/mozo/mesas
+(CU-MOZO-05: Recepción y Gestión Operativa de Reservas en Salón):
+- Bandeja de reservas del día en salón para mozo y anfitriona: http://localhost:5173/mozo/reservas
 
-(CU-MOZO-09: Dividir Cuenta en Mesa - Split de Comprobantes):
-- que es : Wizard de división táctil en 2 pasos: distribución de platos determinista 100% Cero Azar (con desglose de unidades [ ✂ Desglosar Unidades ]), asignación de comprobantes individuales (Factura con RUC SUNAT, Boleta con DNI RENIEC / Consumidor Final, Nota de Venta), promociones independientes y pasarela de pago hacia Caja POS: http://localhost:5173/mozo/mesas
+(CU-COCINA-01 & CU-COCINA-02: Monitor KDS de Cocina y Despacho):
+- Sistema KDS de producción gastronómica con colas de comanda FIFO y semáforo de tiempos: http://localhost:5173/cocina/kds
+- Control de quiebre rápido de stock en cocina: http://localhost:5173/cocina/stock-rapido
 
-(CU-MOZO-06: Anular Pedido o Ítem con Motivo y Control de Merma):
-- que es : Anulación táctica sin clave gerencial con motivo obligatorio (≥ 10 carac): parada inmediata en fogones KDS para platos en cocina vs calificación contable de merma (es_merma = true) sin revertir stock para platos servidos, y anulación completa con liberación automática de mesa a LIBRE: http://localhost:5173/mozo/mesas
+(CU-ADMIN-01: Diseñar y Distribuir Plano de Mesas por Pisos):
+- Diseñador visual de salón con drag & drop de mesas, numeración, capacidades y pisos de atención: http://localhost:5173/admin/plano-mesas
 
-(CU-MOZO-05: Gestionar Reservas y Recepción en Salón):
-- que es : Centro de mando y bandeja de reservas táctil con selector de turno (Almuerzo/Cena), 4 KPIs de turno, modal interactivo de nueva reserva con mini-mapa espacial 5x2 (760px), ficha de recepción y reloj de cortesía en vivo (15 min) con registro de no-show y liberación a LIBRE en <25ms, advertencia de sobreasignación preventiva (<30m) y paywall didáctico para Plan Starter: http://localhost:5173/mozo/reservas
+(CU-ADMIN-02: Gestionar Categorías del Menú):
+- Jerarquía de categorías con ordenamiento drag & drop, plantillas gastronómicas y estados de carta: http://localhost:5173/admin/categorias
 
-(CU-MOZO-07: Atender Incidencia de Plato No Disponible y Resolver en Mesa):
-- que es : Gestión y resolución asistida en mesa ante quiebres de stock en cocina KDS: Banner superior táctil y badge [ ⚠️ QUIEBRE COCINA ] en Mesa 04, Modal de Decisión Asistida en Mesa (620px) con Opción A (Sustituir) y Opción B (Anular), Modal de Sustitución Universal en Carta (760px) con 6 sugerencias inteligentes calculadas por cercanía de precio (+S/, -S/, S/ 0) y búsqueda libre, y Modal de Anulación por Quiebre (580px) con recálculo contable y auditoría inmutable (es_merma = false): http://localhost:5173/mozo/mesas
+(CU-ADMIN-03: Administrar Catálogo de Productos y Recetas con Escandallo):
+- Maestro de platos y bebidas con ficha de costeo (escandallo), insumos requeridos y cálculo de margen: http://localhost:5173/admin/carta
 
-(CU-COCINA-01: Ver Cola de Pedidos Entrantes KDS):
-- que es : Monitor KDS industrial de cocina (TerminalLayout) con rejilla 4 columnas FIFO, semáforo dinámico según configuracion_kds (🟢 <=15m, 🟡 16-25m, 🔴 >25m), badges de mesa/mozo/ronda, botones táctiles para avanzar platos ([🔥 En Fuego], [✓ Marcar Listo], [↩ Deshacer 30s]), chip de bebidas atendidas por mozo, Ficha Técnica de Comanda 680px (Vista 2) con receta culinaria e insumos descontados en almacén, Modal de Alerta Reactiva Parada de Fogones 620px (Vista 3) por anulación SSE en salón, Consolidado All-Day Summary (Vista 4) agrupado por categorías reales de la carta gastronómica, y widget flotante de pruebas para simular eventos en 1 clic: http://localhost:5173/cocina/kds
+(CU-ADMIN-05: Gestionar Inventario e Insumos Culinarios):
+- Kardex de insumos, stock mínimo, mermas, alertas de reposición y auditoría de almacén: http://localhost:5173/admin/inventario
 
-(CU-ADMIN-01: Gestionar Plano de Mesas y Ambientes):
-- que es : Gestión visual y distribución física del salón de la sede en DashboardLayout: KPIs de aforo y consumo de cuota del Plan Pro (17/30 mesas activas, 13 disponibles), selector de ambientes (Salón Principal, Terraza Exterior, Barra Bar) con controles para expandir o recortar cuadrícula, Asistente Rápido en Lote (Vista 2) con sliders interactivos de columnas/filas y cálculo automático, Modal de Creación Individual con Mini-Mapa interactivo selector de casillas (Vista 4), Quick-Drawer lateral de edición de 440px (Vista 3) con steppers táctiles y control de forma/unión, Modal de Bloqueo Duro 409 ante comanda activa en salón/cocina (Mesa 04), Onboarding de bienvenida para salones vacíos (Vista 5) y widget flotante interactivo para simular todos los estados UX en 1 clic: http://localhost:5173/admin/plano-mesas
+(CU-ADMIN-06: Gestionar Directorio de Proveedores):
+- Cartera de proveedores gastronómicos con RUC, términos de pago y evaluación de entregas: http://localhost:5173/admin/proveedores
 
-(CU-ADMIN-02: Gestionar Categorías de la Carta):
-- que es : Organización y estructuración de secciones del menú en DashboardLayout: KPIs en vivo (total secciones, visibles en salón, platos vinculados y sección líder), tabla responsive y cards móviles con reordenamiento híbrido (arrastre ≡ y botones táctiles [ ↑ / ↓ ]) para definir las pestañas de comanda de mozos (CU-MOZO-01), switches de visibilidad inmediata salón/QR, modal de creación/edición con vista previa WYSIWYG de pestaña de mozo, modal de bloqueo 409 relacional ante platos asociados con asistente de reasignación atómica sin fugas de datos, catálogo de plantillas gastronómicas peruanas preconfiguradas (Pollería, Chifa, etc.), onboarding asistido para cartas vacías y widget flotante de pruebas QA: http://localhost:5173/admin/categorias
+(CU-ADMIN-07: Registrar Fichas de Compra y Recepción de Mercadería):
+- Ingreso de comprobantes de compra que abastece el stock culinario automáticamente: http://localhost:5173/admin/compras
 
-(CU-ADMIN-03: Gestionar Catálogo de Insumos de Inventario):
-- que es : Directorio y control de existencias de almacén y bodega en DashboardLayout: KPIs superiores en tiempo real (insumos activos con filtro por defecto, insumos agotados en quiebre y valorización estimada en Soles S/), barra de filtros con píldoras de estado y buscador con debounce, semáforo cromático de 4 niveles (🟢 Óptimo, 🟡 Reposición, 🔴 Crítico, ⚫ Sin Stock) con barras porcentuales de umbral, popovers interactivos de recetas culinarias asociadas con advertencia de bloqueo de carta, modal de alta ágil (< 8s) con selector táctil del catálogo cerrado de 10 unidades universales (3 base + 7 empaques comerciales), modal de recuento físico y merma con cálculo de discrepancia en vivo y motivo auditable obligatorio (auditoria_stock_ajuste), sincronización atómica con pantalla KDS y alerta a mozo (CU-COCINA-04 <-> CU-MOZO-01) cuando el stock llega a 0, onboarding de despensa vacía para sedes nuevas y widget flotante QA para simular quiebres y reposiciones en 1 clic: http://localhost:5173/admin/inventario
-
-(CU-ADMIN-04: Gestionar Productos de la Carta y Recetas):
-- que es : Gestión comercial y técnica de la carta gastronómica en DashboardLayout: 4 KPIs superiores (Total Platos, Disponibles Salón, Agotados por Quiebre y Margen Bruto Promedio %), motor dual de recetas culinarias ([ Rinde por Lote ] vs [ Cantidad Directa ]), calculadora en vivo de rentabilidad y margen bruto %, selector de destino operativo (Cocina KDS para fogones vs Despacho Directo en salón para bebidas/vitrina), Quick-Drawer lateral de calibración rápida con Simulador de Capacidad de Bodega y detección de insumo limitante cuello de botella, switches de disponibilidad reactiva sincronizados con existencias de bodega, protección activa contra borrado físico mediante archivado lógico (activo = false), paginación interactiva (10/20/50 por pág), buscador explícito (cero over-fetching), onboarding para carta vacía y widget flotante QA para simular quiebres de limón y reposición en 1 clic: http://localhost:5173/admin/carta
-
-(CU-ADMIN-05: Gestionar Catálogo de Proveedores):
-- que es : Directorio comercial de abastecimiento de la sede en DashboardLayout: 4 KPIs superiores (Proveedores Activos, Compras del Mes en Soles, Proveedores Frecuentes y 100% Contacto Directo WhatsApp), enlace directo universal a WhatsApp (wa.me/51...) con mensaje precargado de cotización/pedidos, modal ágil de alta sin RUC (< 10 segundos) con multi-selector interactivo tipo chips sincronizado con insumos de bodega, Quick-Drawer lateral de 560px con historial cronológico de compras pasadas y desglose de insumos comprados, regla de integridad contable PostgreSQL ON DELETE RESTRICT (bloqueo asistido 409 ante borrado físico y sugerencia de desactivación lógica), buscador multidimensional (por razón social o insumo que vende) con cero sobreconsultas, onboarding para sedes nuevas y widget flotante QA para simular duplicidad, directorio vacío y bloqueo contable: http://localhost:5173/admin/proveedores
-
-(CU-ADMIN-06: Registrar Ficha de Compra de Insumos):
-- que es : Liquidación contable y registro de compras de insumos para bodega en DashboardLayout: 4 KPIs superiores (Gasto Total Mes S/, Compras Realizadas, Crédito Fiscal IGV 18% y Compras a Crédito a 30 días), tabla paginada de comprobantes con badges de tipo (Factura, Boleta, Nota de Venta, Guía, Recibo) y estados (Registrada vs Anulada), Modal de Registro de Compra (< 60s) con desglose automático de IGV 18% SUNAT (Base = Total / 1.18), correlativos autogenerados NV-YYYYMMDD-#### para notas de venta sin número, alta de proveedor al vuelo sin salir del formulario, detección automática de variación porcentual de costos unitarios vs histórico, modal de reactivación por lote de platos de carta que estaban agotados por falta de insumos, modal de anulación con contingencia e impacto proyectado en stock con piso seguro GREATEST(0, stock - cant) y advertencia de apagado de platos/comandas activas, onboarding para sedes nuevas y widget flotante QA para pruebas en 1 clic: http://localhost:5173/admin/compras
-
-(CU-ADMIN-08: Gestionar Personal del Local):
-- que es : Administración del equipo operativo de salón (mozos), cocina (KDS) y caja en DashboardLayout: Medidor visual de cuota SaaS del Plan Pro (12/15 usuarios activos, barra al 80%, cupos libres), 4 KPIs superiores segmentados por rol, selector de pestañas (Todos, Mozos, Cocina, Cajeros) y filtros por estado (Activos/Inactivos), Modal Ágil de Alta y Edición (< 15 segundos) con 3 tarjetas visuales de rol, contraseña provisional autogenerada (Rest@####) y botón de notificación directa por WhatsApp (wa.me/51...), RBAC estricto que restringe la creación de administradores exclusivamente a la consola de propietario, Modal de Desactivación Asistida con salvaguarda de cero pedidos huérfanos (precheck de seguridad: si es mozo con comandas activas como Carlos Huamán exige seleccionar un mozo sustituto y reasigna mesas atómicamente; si es cajero con turno abierto bloquea la desactivación hasta arqueo), Modal de Reset de Contraseña con enlace WhatsApp, onboarding para sedes vacías y widget flotante QA para simular cuota al 100% (15/15), reasignación forzosa y vaciado de sede en 1 clic: http://localhost:5173/admin/personal
+(CU-ADMIN-08: Administrar Personal y Roles de la Sede):
+- Gestión de mozos, cocineros y cajeros con credenciales, estados y reinicio seguro de accesos: http://localhost:5173/admin/personal
 
 (CU-ADMIN-09: Configurar Horario de Atención y Feriados del Local):
 - que es : Configuración y control de horarios operativos y feriados en DashboardLayout: Grilla semanal de 7 días (Lunes a Domingo) con soporte para turnos partidos (Almuerzo y Cena), turnos continuos y turnos trasnochadores (+1 día madrugada), botón de aceleración operativa [ Copiar horario de Lunes a toda la semana ], contador en vivo de horas semanales operativas, directorio y calendario de excepciones con soporte dual de Cierre Total vs Horario Especial acotado, botón de 1 clic para Cargar Feriados Nacionales de Perú 2026 (16 feriados oficiales), detección asistida (precheck) de reservas de salón (CU-MOZO-05) que pudieran verse afectadas ante un cierre extraordinario, Modal de Conflicto de Reservas (680px) con botón de enlace directo a WhatsApp (wa.me/51...) precargado con mensaje de cortesía para coordinar reprogramaciones, checkboxes de control de comensales notificados y cancelación atómica de reservas, onboarding asistido para sedes sin turnos con recomendación de plantilla gastronómica estándar y widget flotante QA para simular conflictos en Navidad (25/12 con 3 reservas), vaciado de horario y restablecimiento de semillas en 1 clic: http://localhost:5173/admin/horario
 
-(CU-ADMIN-10: Configurar Políticas y Parámetros de Reservas de Mesas):
-- que es : Parametrización operativa y gobernanza de reservas de salón en DashboardLayout: Switch maestro de recepción de reservas con señalética cromática activa/inactiva, 3 tarjetas operativas de salón (Tiempos de Servicio: duración estándar 30-240m con presets 60/90/120m, buffer de limpieza 0-60m, tolerancia no-show 5-60m; Operación en Salón: bloqueo preventivo de walk-in en plano del mozo CU-MOZO-01 0-120m y margen de recordatorio 15-1440m; Ventana de Anticipación: mínima 0-48h y máxima 1-90 días), botón de productividad [ Restaurar Valores Recomendados ], Simulador Visual de Línea de Tiempo interactivo con proporciones dinámicas de rotación de mesa (13:00 a 16:30) y cálculo en vivo de ocupación total bloqueada (135 min / 2h 15m) y hora exacta de liberación (15:45), Modal de Bloqueo 409 Conflict ante intento de apagar recepción con 3 reservas futuras activas (Carlos Mendoza, Lucía Benítez, Empresa Graña) con teléfonos y comensales, Paywall didáctico con candado para sedes en Plan Starter con acción para notificar al Propietario (CU-PROP-02) y widget flotante QA para alternar Plan Starter vs Pro, simular 3 reservas vs 0 reservas y restaurar semillas canónicas en 1 clic: http://localhost:5173/admin/politicas-reserva
-
-(CU-ADMIN-11: Registrar y Consultar Historial de Incidentes Internos):
-- que es : Registro, control operativo y resolución inmutable de anomalías de salón, cocina y caja en DashboardLayout (alineado 100% con 02_schema_ddl.sql líneas 678-720): 4 tarjetas KPI dinámicas (Incidentes Abiertos, En Investigación, Gravedad Alta con alerta SSE y Resueltos Este Mes), barra de filtros multidimensionales (Estado, Gravedad, Categoría, Colaborador, Búsqueda reactiva con debounce), tabla paginada con códigos correlativos inmutables (INC-2026-###), badges de gravedad y atención con días en curso, distintivo de Visto por Propietario con fecha/hora y Directiva de Dueño, Modal de Registro de Incidente (700px) con soporte para resolución inmediata en el mismo turno (resolucion_inmediata con nota obligatoria >= 10 carac), Modal de Detalle y Seguimiento (760px) con Línea de Tiempo Cronológica vertical respaldada por la tabla relacional incidente_bitacora (eventos de apertura, directiva_propietario, indagacion y resolucion con roles y marcas temporales), doble pestaña de acción: Tab 1 Cierre Definitivo Inmutable vs Tab 2 Dejar en Investigación / Agregar Avance, sincronización en vivo con la consola de supervisión de Propietario (CU-PROP-06), estado cero positivo y widget flotante QA para simular directivas y restablecer semillas en 1 clic: http://localhost:5173/admin/incidentes
-
-(CU-PROP-06: Ver Incidentes de la Empresa - Supervisión Corporativa Multi-Sede):
-- que es : Consola ejecutiva de supervisión de incidentes multi-sede en DashboardLayout (Sede Miraflores y Sede San Isidro): 3 tarjetas KPI consolidadas (No revisados por mí con badge de criticidad, Gravedad alta en curso y Total del mes con desglose de resueltos, en revisión y abiertos), barra de filtros con selector de sede (Todas las sedes, Miraflores, San Isidro), gravedad, categoría, estado y toggle interactivo [X] Solo no revisados por mí, acuse automático transparente de lectura en base de datos al abrir la inspección (visto_por_propietario = true y fecha_visto = NOW()), Modal de Detalle Ejecutivo (Vista 2) con visualización de evidencia fotográfica segura con zoom, línea de tiempo completa de incidente_bitacora y formulario de intervención para emitir directivas vinculantes (pasa a en_revision con evento directiva_propietario), Banner reactivo de Alerta Crítica en Vivo (SSE Hub) ante hechos graves, Estado Vacío Positivo (Vista 3) con desglose de incidentes resueltos por sede, sincronización bidireccional en memoria con CU-ADMIN-11 y banco de pruebas QA para simular alertas concurrentes en tiempo real: http://localhost:5173/propietario/incidentes
-
 (CU-ADMIN-12: Recibir Notificación de Anulación de Pedido y Auditoría de Sala):
-- que es : Bandeja central de auditoría de novedades y anulaciones en DashboardLayout basada estrictamente en la tabla especializada pedido_anulacion (02_schema_ddl.sql líneas 751-781): selector táctil de fechas ([ < Hoy, 09 Octubre 2026 > ]), 4 tarjetas KPI del día (Total Anulaciones, Monto Acumulado S/, Platos con Merma y Costo Perdido S/, y Mesas Afectadas), filtros rápidos en píldora (Todas, Pendientes, Con Merma, Sin Merma, Comandas Totales) y selector de mozo, tabla con soporte para mesas combinadas Mesa [ 02 ; 03 ] y semáforo de merma, Ficha de Auditoría de 680px con trazabilidad temporal fáctica (pedido_created_at vs anulado_at = minutos_espera) y control de merma contable, marcado de conformidad de supervisión (revisado = true), diálogo de escalamiento asistido prellenado hacia CU-ADMIN-11 vinculando pedido_anulacion.incidente_id (INC-2026-###), Campana interactiva [ 🔔 2 ] con menú dropdown de 390px en topbar y Toast flotante SSE en tiempo real: http://localhost:5173/admin/anulaciones
+- que es : Bandeja central de auditoría de novedades y anulaciones en DashboardLayout basada estrictamente en la tabla especializada pedido_anulacion (02_schema_ddl.sql líneas 751-781): selector táctil de fechas ([ < Hoy, 09 Octubre 2026 > ]), 4 tarjetas KPI del día (Total Anulaciones, Monto Acumulado S/, Platos con Merma y Costo Perdido S/, y Mesas Afectadas), filtros rápidos en píldora (Todas, Pendientes, Con Merma, Sin Merma, Comandas Totales) y selector de mozo, tabla con soporte para mesas combinadas Mesa [ 02 ; 03 ] y semáforo de merma, Ficha de Auditoría de 680px con trazabilidad temporal fáctica (pedido_created_at vs anulado_at = minutos_espera) y control de merma contable, marcado de conformidad de supervisión (revisado = true), diálogo de escalamiento asistido prellenado vinculando pedido_anulacion.incidente_id, Campana interactiva [ 🔔 2 ] con menú dropdown de 390px en topbar y Toast flotante SSE en tiempo real: http://localhost:5173/admin/anulaciones
 
 (CU-ADMIN-14: Gestión de Flujo de Caja, Gastos Operativos y Auditoría de Cierres Z):
 - que es : Centro de control financiero integral y supervisión de cajas de sede en DashboardLayout (alineado 100% con 02_schema_ddl.sql tablas caja, gasto_manual, caja_movimiento y auditoria_caja_cierre): Pestaña 1 (Flujo de Caja & Balance Neto con selector de períodos [Hoy, Semana, Este Mes, Rango], 4 KPIs estratégicos [Ingresos Salón S/ 28,450.00 ▲12.4% con desglose POS 54%, Efectivo 32%, Yape 14%; Egresos Totales S/ 16,820.00 ▼-3.1%; Balance Neto +S/ 11,630.00 con margen 40.8% y ratio cobertura 1.69; Conciliación Liquidez Bancos S/ 19,346 vs Gaveta S/ 9,104], gráfica de evolución periódica de entradas vs salidas y desglose de egresos en insumos culinarios directos ficha_compra S/ 11,250 vs gastos manuales de sede gasto_manual S/ 5,570); Pestaña 2 (Auditoría de Turnos & Cierres Z con barra de control interno [42 turnos, 40 cuadrados 95.2%, 2 con discrepancia subsanada, 41 auditados], banner reactivo de monitoreo de terminal que detecta turnos abiertos y botón de rescate [ ⚠️ Cierre Administrativo Forzado ], y directorio de turnos con estado de cuadratura y visado); Pestaña 3 (Directorio detallado de gastos operativos de sede con desglose de bancos vs caja chica con vínculo a turno); Vista 3 (Modal de 900px con Visor Oficial del Reporte Z Digital RUC 20609876543 con cuadratura de gaveta vs lotes POS, formulario de visado gerencial con notas de auditoría y descarga en PDF); Vista 4 (Modal de 700px para registrar gasto manual con categorías limpias sin insumos de cocina, selector de origen de fondos y callout de cuadratura automática de gaveta); Vista 5 (Modal de Cierre Forzado de 600px para liberar terminales abandonadas con justificación >= 15 carac y liberación de uq_caja_abierta_local); y Widget Sandbox QA flotante para alternar entre Superávit, Déficit Temporal, Discrepancia Pendiente y Terminal Bloqueada: http://localhost:5173/admin/finanzas/flujo-caja
@@ -126,10 +108,45 @@
 
 ---
 
-### Próximos Casos de Uso (En Desarrollo / Roadmap)
+# PARTE II: MÓDULOS PLANIFICADOS PARA EL PRÓXIMO ENTREGABLE (FASE 2)
 
-(CU-COCINA-04: Marcar Producto Agotado en Cocina):
-- Control de quiebre de stock en 1 toque desde cocina con apagado en carta QR y tablets de salón: http://localhost:5173/cocina/stock-rapido
+> **Nota de Gobernanza de Producto:**  
+> Los siguientes 6 módulos han sido retirados de los menús laterales (Sidebars) de Administrador, Propietario y SaaS Admin para focalizar la evaluación del **Primer Avance** en el núcleo transaccional.  
+> Sus rutas web se encuentran formalmente registradas en el router y protegidas con la vista institucional `[⏳ Próximo Entregable (Fase 2)]`. Sus modelos DDL, endpoints de backend y contratos DTO se encuentran completamente preservados.
+
+(CU-PROP-01/04: Resumen General / Dashboard Consolidado del Propietario):
+- **Ruta Web:** http://localhost:5173/propietario/dashboard
+- **Estado:** Oculto del sidebar de Propietario. El botón de cambio de entorno `Dueño` redirige directamente al módulo activo de Sedes (`/propietario/sedes`).
+- **Alcance Planificado:** Consolidado multi-sede de ventas en PEN, uso de cuota de recursos según plan contratado (locales, mesas, personal) y estado de facturación Stripe.
+
+(CU-PROP-06: Ver Incidentes de la Empresa — Supervisión Corporativa Multi-Sede):
+- **Ruta Web:** http://localhost:5173/propietario/incidentes
+- **Estado:** Oculto del sidebar de Propietario.
+- **Alcance Planificado:** Consola ejecutiva de supervisión de incidentes y anomalías de sedes con trazabilidad inmutable de bitácora, acuse de lectura transparente y emisión de directivas corporativas a administradores de local.
+
+(CU-ADMIN-10: Configurar Políticas y Parámetros de Reservas de Mesas):
+- **Ruta Web:** http://localhost:5173/admin/politicas-reserva
+- **Estado:** Oculto del sidebar de Administrador de Local.
+- **Alcance Planificado:** Parametrización operativa de reservas de salón: switch maestro, buffer de limpieza, tolerancia no-show, bloqueo preventivo walk-in y simulador visual de rotación de mesa.
+
+(CU-ADMIN-11: Registrar y Consultar Historial de Incidentes Internos):
+- **Ruta Web:** http://localhost:5173/admin/incidentes
+- **Estado:** Oculto del sidebar de Administrador de Local.
+- **Alcance Planificado:** Registro, control operativo y resolución inmutable de anomalías de salón, cocina y caja alineado con la tabla `incidente_bitacora` y escalamiento hacia directivas de dueño.
+
+(CU-ADMIN-13: Reportes de Venta & Productos Más Vendidos):
+- **Ruta Web:** http://localhost:5173/admin/reportes/ventas
+- **Estado:** Oculto del sidebar de Administrador de Local.
+- **Alcance Planificado:** Análisis estadístico de ventas por rango de fechas, productos de mayor rotación y ticket promedio de sede.
+
+(CU-SAAS-03: Catálogo de Planes SaaS):
+- **Ruta Web:** http://localhost:5173/saas/planes
+- **Estado:** Oculto del sidebar de Administrador SaaS Global.
+- **Alcance Planificado:** Mantenimiento de planes comerciales (Starter, Pro, Enterprise), tarifas PEN/USD y límites de recursos de plataforma.
+
+---
+
+### Casos de Uso Complementarios en Roadmap
 
 (CU-AUTH-02: Recuperar Contraseña con OTP):
 - Flujo de recuperación de acceso mediante correo y validación de código OTP: http://localhost:5173/recuperar-password

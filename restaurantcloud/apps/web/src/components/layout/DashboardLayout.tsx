@@ -4,12 +4,10 @@ import {
   Building2,
   Users,
   CreditCard,
-  AlertTriangle,
   Menu,
   X,
   LogOut,
   UtensilsCrossed,
-  Layers,
   Package,
   TrendingUp,
   LayoutGrid,
@@ -17,7 +15,6 @@ import {
   Truck,
   Receipt,
   Clock,
-  CalendarClock,
   FileX2,
   Tag,
   Flame,
@@ -33,19 +30,19 @@ export const DashboardLayout: React.FC = () => {
   const isSaas = location.pathname.startsWith('/saas');
   const isPropietario = location.pathname.startsWith('/propietario');
 
+  // Consola Global SaaS (Catálogo de Planes diferido para próximo entregable)
   const linksSaas = [
     { label: 'Supervisión Tenants', href: ROUTES.SAAS_TENANTS, icon: Building2 },
-    { label: 'Catálogo de Planes', href: ROUTES.SAAS_PLANES, icon: CreditCard },
   ];
 
+  // Consola Propietario (Resumen General e Incidentes Empresa diferidos para próximo entregable)
   const linksPropietario = [
-    { label: 'Resumen General', href: ROUTES.PROPIETARIO_DASHBOARD, icon: TrendingUp },
     { label: 'Gestión de Sedes', href: ROUTES.PROPIETARIO_SEDES, icon: Building2 },
     { label: 'Administradores', href: ROUTES.PROPIETARIO_ADMINISTRADORES, icon: Users },
     { label: 'Suscripción & Stripe', href: ROUTES.PROPIETARIO_SUSCRIPCION, icon: CreditCard },
-    { label: 'Incidentes Empresa', href: ROUTES.PROPIETARIO_INCIDENTES, icon: AlertTriangle },
   ];
 
+  // Consola Admin de Local (Políticas de Reserva, Incidentes Internos y Reportes de Venta diferidos para próximo entregable)
   const linksAdmin = [
     { label: 'Panel del Local', href: ROUTES.ADMIN_DASHBOARD, icon: TrendingUp },
     { label: 'Plano de Mesas', href: ROUTES.ADMIN_PLANO_MESAS, icon: LayoutGrid },
@@ -56,13 +53,10 @@ export const DashboardLayout: React.FC = () => {
     { label: 'Compras', href: ROUTES.ADMIN_COMPRAS, icon: Receipt },
     { label: 'Personal de Sede', href: ROUTES.ADMIN_PERSONAL, icon: Users },
     { label: 'Horario & Feriados', href: ROUTES.ADMIN_HORARIO, icon: Clock },
-    { label: 'Políticas de Reserva', href: ROUTES.ADMIN_POLITICAS_RESERVA, icon: CalendarClock },
     { label: 'Promociones de Sede', href: ROUTES.ADMIN_PROMOCIONES, icon: Tag },
     { label: 'Tiempos KDS & Cocina', href: ROUTES.ADMIN_CONFIGURACION_KDS, icon: Flame },
     { label: 'Métodos de Pago & POS', href: ROUTES.ADMIN_METODOS_PAGO, icon: Wallet },
-    { label: 'Incidentes Internos', href: ROUTES.ADMIN_INCIDENTES, icon: AlertTriangle },
     { label: 'Auditoría Anulaciones', href: ROUTES.ADMIN_ANULACIONES, icon: FileX2 },
-    { label: 'Reportes de Venta', href: ROUTES.ADMIN_REPORTES_VENTAS, icon: Layers },
     { label: 'Flujo de Caja & Cierres Z', href: ROUTES.ADMIN_FLUJO_CAJA, icon: CreditCard },
   ];
 
@@ -124,7 +118,7 @@ export const DashboardLayout: React.FC = () => {
               SaaS
             </Link>
             <Link
-              to={ROUTES.PROPIETARIO_DASHBOARD}
+              to={ROUTES.PROPIETARIO_SEDES}
               className={`flex-1 text-center py-1.5 px-1.5 rounded-lg text-[11px] font-semibold ${
                 isPropietario ? 'bg-white/20 text-white' : 'bg-white/5 text-white/70 hover:bg-white/10'
               }`}
