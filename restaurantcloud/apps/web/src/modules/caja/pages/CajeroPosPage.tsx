@@ -303,8 +303,9 @@ export const CajeroPosPage: React.FC = () => {
     await cargarDatos();
   };
 
-  const handleVerQRDesdeHistorial = (comp: ComprobanteHistorialItemDTO) => {
-    const url = comp.url_publica_qr || (comp.token_digital ? `${window.location.origin}/c/${comp.token_digital}` : null);
+  const handleVerComprobanteDesdeHistorial = (comp: ComprobanteHistorialItemDTO, esNC?: boolean) => {
+    const token = (esNC && comp.nota_credito_token) ? comp.nota_credito_token : comp.token_digital;
+    const url = token ? `${window.location.origin}/c/${token}` : comp.url_publica_qr;
     if (url) {
       window.open(url, '_blank');
     }
@@ -519,7 +520,7 @@ export const CajeroPosPage: React.FC = () => {
           onClose={() => setModalHistorialAbierto(false)}
           turnoActivo={turnoActivo}
           onAnularComprobante={handleAnularComprobanteDesdeHistorial}
-          onVerQR={handleVerQRDesdeHistorial}
+          onVerComprobante={handleVerComprobanteDesdeHistorial}
         />
       )}
 

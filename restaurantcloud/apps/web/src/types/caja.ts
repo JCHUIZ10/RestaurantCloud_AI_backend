@@ -326,6 +326,7 @@ export interface ComprobanteHistorialItemDTO {
   // Si fue anulado mediante Nota de Crédito
   nota_credito_id?: string;
   nota_credito_serie_numero?: string;
+  nota_credito_token?: string;
   motivo_codigo_sunat?: MotivoNotaCreditoSUNAT;
   sustento_motivo?: string;
   // Si este registro es una Nota de Crédito
@@ -361,6 +362,7 @@ export interface PrepararAnulacionResponseDTO {
   telefono_envio?: string;
   email_envio?: string;
   items?: ComprobanteItemAnulacionDTO[];
+  cliente_encontrado_en_bd?: boolean;
 }
 
 export interface EmitirNotaCreditoRequest {

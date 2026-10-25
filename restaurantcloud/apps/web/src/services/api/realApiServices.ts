@@ -756,7 +756,15 @@ export const realCajaService = {
     if (filtros.tipo && filtros.tipo !== 'todos') params.append('tipo', filtros.tipo);
     if (filtros.q) params.append('q', filtros.q);
     const qs = params.toString();
-    return apiGet<ComprobanteHistorialItemDTO[]>(`/caja/comprobantes${qs ? `?${qs}` : ''}`);
+    const res = await apiGet<ComprobanteHistorialItemDTO[]>(`/caja/comprobantes${qs ? `?${qs}` : ''}`);
+    if (res.exito && res.datos) {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      res.datos = res.datos.map((c) => ({
+        ...c,
+        url_publica_qr: c.token_digital ? `${origin}/c/${c.token_digital}` : c.url_publica_qr,
+      }));
+    }
+    return res;
   },
 
   async prepararAnulacionComprobante(id: string): Promise<ApiResponse<PrepararAnulacionResponseDTO>> {
@@ -767,7 +775,12 @@ export const realCajaService = {
     comprobanteId: string,
     datos: EmitirNotaCreditoRequest
   ): Promise<ApiResponse<EmitirNotaCreditoResponseDTO>> {
-    return apiPost<EmitirNotaCreditoResponseDTO>(`/caja/comprobantes/${comprobanteId}/nota-credito`, datos);
+    const res = await apiPost<EmitirNotaCreditoResponseDTO>(`/caja/comprobantes/${comprobanteId}/nota-credito`, datos);
+    if (res.exito && res.datos) {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      res.datos.url_publica_qr = res.datos.token_digital ? `${origin}/c/${res.datos.token_digital}` : res.datos.url_publica_qr;
+    }
+    return res;
   },
 
   async actualizarContactoComprobante(

@@ -220,6 +220,56 @@ export async function getComprobantePorToken(
     };
   }
 
+  // Tokens de prueba del turno en mockCajaService
+  if (cleanToken === '0192d2f8-b3a1-7c9e-9102-120938475611' || cleanToken === 'f001-0004520' || cleanToken === 'f001-4520') {
+    return {
+      exito: true,
+      datos: {
+        ...MOCK_FACTURA,
+        token: cleanToken,
+        serie_numero: 'F001-0004520',
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  if (cleanToken === '0192d2f8-b3a1-7c9e-9102-120938475613' || cleanToken === 'b001-0012890') {
+    return {
+      exito: true,
+      datos: {
+        ...MOCK_BOLETA_ANULADA,
+        token: cleanToken,
+        serie_numero: 'B001-0012890',
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  if (cleanToken === '0192d2f8-b3a1-7c9e-9102-120938475614' || cleanToken === 'bc01-0000041' || cleanToken === 'bc01-41') {
+    return {
+      exito: true,
+      datos: {
+        ...MOCK_BOLETA_ANULADA,
+        token: cleanToken,
+        tipo: 'nota_credito',
+        tipo_label: 'Nota de Crédito Electrónica',
+        serie_numero: 'BC01-0000041',
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  if (cleanToken.startsWith('0192') || cleanToken.startsWith('b001')) {
+    return {
+      exito: true,
+      datos: {
+        ...MOCK_BOLETA,
+        token: cleanToken,
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
   // Token inválido / No encontrado
   return {
     exito: false,

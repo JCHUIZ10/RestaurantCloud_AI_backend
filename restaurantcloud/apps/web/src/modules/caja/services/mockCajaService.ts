@@ -340,6 +340,7 @@ class MockCajaService {
       url_publica_qr: 'https://app.restaurantcloud.pe/c/0192d2f8-b3a1-7c9e-9102-120938475613',
       nota_credito_id: 'nc-41',
       nota_credito_serie_numero: 'BC01-0000041',
+      nota_credito_token: '0192d2f8-b3a1-7c9e-9102-120938475614',
       motivo_codigo_sunat: '01',
       sustento_motivo: 'Comensal solicita cambio a Factura con RUC',
     },
@@ -866,6 +867,7 @@ class MockCajaService {
       efectivo_gaveta_proyectado: efectivoGavetaProyectado,
       telefono_envio: comp.telefono_envio,
       email_envio: comp.email_envio,
+      cliente_encontrado_en_bd: Boolean(comp.cliente_documento),
       items: [
         {
           id: 'item-mock-1',

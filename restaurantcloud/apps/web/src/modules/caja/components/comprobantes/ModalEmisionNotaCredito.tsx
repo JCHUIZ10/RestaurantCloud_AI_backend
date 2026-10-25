@@ -8,7 +8,6 @@ import {
   Copy,
   Printer,
   Send,
-  MessageCircle,
   Mail,
   Edit2,
   Plus,
@@ -16,6 +15,8 @@ import {
   ShieldCheck,
   DollarSign,
   PackageCheck,
+  Smartphone,
+  Pencil,
 } from 'lucide-react';
 import {
   PrepararAnulacionResponseDTO,
@@ -24,6 +25,11 @@ import {
   ComprobanteItemAnulacionDTO,
 } from '@/types/caja';
 import { cajaService } from '@/services/serviceAdapter';
+import {
+  extraerDigitosMovilPeru,
+  formatearTelefonoPeru,
+  generarEnlaceWhatsApp,
+} from '@/shared/utils';
 
 interface ModalEmisionNotaCreditoProps {
   isOpen: boolean;
@@ -176,23 +182,46 @@ export const ModalEmisionNotaCredito: React.FC<ModalEmisionNotaCreditoProps> = (
     }
   };
 
+  // URL Pública Canónica de la Nota de Crédito
+  const urlPublicaNC = ncEmitida?.token_digital
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/c/${ncEmitida.token_digital}`
+    : ncEmitida?.url_publica_qr || '';
+
+  // Determinar si el cliente está registrado en BD (o si es Boleta < 700 / Consumidor Final sin cliente)
+  const clienteEncontradoEnBd = Boolean(
+    preparacion?.cliente_encontrado_en_bd ||
+    (preparacion?.cliente_numero_doc && preparacion.cliente_numero_doc.trim() !== '')
+  );
+
   // Copiar URL pública
   const handleCopiarUrl = () => {
-    if (!ncEmitida?.url_publica_qr) return;
-    navigator.clipboard.writeText(ncEmitida.url_publica_qr);
+    if (!urlPublicaNC) return;
+    navigator.clipboard.writeText(urlPublicaNC);
     setCopiadoUrl(true);
     setTimeout(() => setCopiadoUrl(false), 2500);
   };
 
-  // Guardar teléfono inline
+  // Iniciar edición de teléfono
+  const handleIniciarEdicionTelefono = () => {
+    setTempTelefono(extraerDigitosMovilPeru(telefonoEnvio));
+    setEditandoTelefono(true);
+  };
+
+  // Guardar teléfono inline con estándar Perú
   const handleGuardarTelefono = async () => {
     if (!ncEmitida) return;
-    const nuevoTel = tempTelefono.trim();
+    const digits = extraerDigitosMovilPeru(tempTelefono);
+    if (!digits || digits.length !== 9) {
+      setErrorMsg('Por favor registra un número celular válido de 9 dígitos.');
+      return;
+    }
+    const nuevoTel = `+51 ${formatearTelefonoPeru(digits)}`;
     await cajaService.actualizarContactoComprobante(ncEmitida.nota_credito_id, {
       telefono_envio: nuevoTel,
     });
     setTelefonoEnvio(nuevoTel);
     setEditandoTelefono(false);
+    setErrorMsg(null);
   };
 
   // Guardar email inline
@@ -206,12 +235,19 @@ export const ModalEmisionNotaCredito: React.FC<ModalEmisionNotaCreditoProps> = (
     setEditandoEmail(false);
   };
 
-  // Despacho WhatsApp
+  // Despacho WhatsApp con enlace oficial wa.me
   const handleEnviarWhatsApp = async () => {
     if (!ncEmitida) return;
+    const digits = extraerDigitosMovilPeru(telefonoEnvio);
+    if (!digits || digits.length !== 9) {
+      setErrorMsg('Por favor registra un número celular válido de 9 dígitos para enviar por WhatsApp.');
+      return;
+    }
     setEnviandoWhatsApp(true);
     try {
-      await new Promise((r) => setTimeout(r, 600));
+      const mensaje = `Hola ${preparacion?.cliente_nombre || 'Estimado(a)'}, aquí tienes tu Nota de Crédito oficial de ÁUREA: ${urlPublicaNC}`;
+      const urlWa = generarEnlaceWhatsApp(telefonoEnvio, mensaje);
+      window.open(urlWa, '_blank');
       setEnviadoWhatsApp(true);
     } finally {
       setEnviandoWhatsApp(false);
@@ -321,9 +357,13 @@ export const ModalEmisionNotaCredito: React.FC<ModalEmisionNotaCreditoProps> = (
                           <span className="text-slate-500">Titular / Pagador:</span>
                           <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
                             {preparacion.cliente_nombre}
-                            {preparacion.cliente_numero_doc && (
+                            {preparacion.cliente_numero_doc ? (
                               <span className="text-slate-400 block text-[10px] font-mono">
                                 DOC: {preparacion.cliente_numero_doc}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 block text-[10px] italic">
+                                Consumidor Final (&lt; S/ 700)
                               </span>
                             )}
                           </span>
@@ -722,116 +762,132 @@ export const ModalEmisionNotaCredito: React.FC<ModalEmisionNotaCreditoProps> = (
                     </button>
 
                     <div className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 font-mono text-xs text-slate-600 dark:text-slate-300 truncate flex-1 select-all">
-                      {ncEmitida.url_publica_qr}
+                      {urlPublicaNC}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Entrega Digital Asistida Directa (WhatsApp y Correo) - 3 Estados */}
-              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 space-y-3.5">
-                <span className="text-[11px] uppercase font-bold text-slate-400 tracking-wider font-mono block">
-                  Entrega Digital Asistida Directa
-                </span>
+              {/* Entrega Digital Asistida Directa (WhatsApp y Correo) - SOLO SI EL CLIENTE FUE ENCONTRADO EN LA BD */}
+              {clienteEncontradoEnBd && (
+                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 space-y-3.5 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] uppercase font-bold text-slate-400 tracking-wider font-mono block">
+                      ENTREGA DIGITAL DIRECTA (OPCIONES ASISTIDAS)
+                    </span>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold font-mono">
+                      ✓ Cliente Registrado en BD
+                    </span>
+                  </div>
 
-                {/* Fila WhatsApp */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                      <MessageCircle className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">
-                        📱 WhatsApp
-                      </span>
+                  {/* Fila WhatsApp según estandar_telefono_whatsapp.md */}
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center shrink-0">
+                        <Smartphone className="w-4 h-4" />
+                      </div>
+
                       {editandoTelefono ? (
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <input
-                            type="text"
-                            value={tempTelefono}
-                            onChange={(e) => setTempTelefono(e.target.value)}
-                            placeholder="+51 987 654 321"
-                            className="px-2 py-1 text-xs rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 w-40 font-mono"
-                          />
+                        // Modo Edición / Registro WhatsApp
+                        <div className="flex items-center gap-2 flex-1 flex-wrap">
+                          <span className="font-mono text-slate-500 text-[11px] shrink-0">📱 WhatsApp:</span>
+                          <div className="flex items-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500">
+                            {/* Prefijo Fijo No Editable */}
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs select-none">
+                              <span>🇵🇪</span>
+                              <span className="font-mono text-[11px]">+51</span>
+                            </div>
+                            {/* Input de Dígitos */}
+                            <input
+                              type="tel"
+                              inputMode="numeric"
+                              maxLength={11}
+                              value={formatearTelefonoPeru(tempTelefono)}
+                              onChange={(e) => {
+                                const digits = extraerDigitosMovilPeru(e.target.value);
+                                setTempTelefono(digits);
+                              }}
+                              placeholder="987 654 321"
+                              className="w-36 px-2.5 py-1 bg-transparent text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-hidden"
+                              autoFocus
+                            />
+                          </div>
                           <button
                             type="button"
                             onClick={handleGuardarTelefono}
-                            className="px-2 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold"
+                            className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-2xs"
                           >
                             Guardar
                           </button>
                           <button
                             type="button"
                             onClick={() => setEditandoTelefono(false)}
-                            className="px-2 py-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs"
+                            className="px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 text-[11px] font-bold"
                           >
                             Cancelar
                           </button>
                         </div>
-                      ) : telefonoEnvio ? (
-                        <span className="text-xs font-mono text-slate-600 dark:text-slate-400">
-                          {telefonoEnvio}
-                        </span>
                       ) : (
-                        <span className="text-xs text-slate-400 italic">No registrado</span>
+                        // Modo Visualización WhatsApp
+                        <div className="min-w-0">
+                          <span className="font-mono text-slate-500 text-[11px] block">📱 WhatsApp:</span>
+                          {telefonoEnvio ? (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono font-bold text-slate-900 dark:text-white text-xs">
+                                {telefonoEnvio.startsWith('+51') ? telefonoEnvio : `+51 ${formatearTelefonoPeru(telefonoEnvio)}`}
+                              </span>
+                              <span className="text-[10px] font-normal text-slate-400 font-mono">[ Registrado ]</span>
+                              <button
+                                type="button"
+                                onClick={handleIniciarEdicionTelefono}
+                                className="px-2 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1 transition-colors"
+                              >
+                                <Pencil className="w-3 h-3 text-slate-400" />
+                                <span>Modificar</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono text-xs text-slate-400 italic">No registrado</span>
+                              <button
+                                type="button"
+                                onClick={handleIniciarEdicionTelefono}
+                                className="px-2.5 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-800 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1 transition-colors"
+                              >
+                                <Plus className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                <span>Registrar</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
-                  </div>
 
-                  {!editandoTelefono && (
-                    <div className="flex items-center gap-2">
-                      {telefonoEnvio ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setTempTelefono(telefonoEnvio);
-                              setEditandoTelefono(true);
-                            }}
-                            className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 flex items-center gap-1"
-                          >
-                            <Edit2 className="w-3 h-3" />
-                            <span>Modificar</span>
-                          </button>
-                          <button
-                            type="button"
-                            disabled={enviandoWhatsApp || enviadoWhatsApp}
-                            onClick={handleEnviarWhatsApp}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
-                              enviadoWhatsApp
-                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                            }`}
-                          >
-                            {enviadoWhatsApp ? (
-                              <>
-                                <CheckCircle2 className="w-3 h-3" />
-                                <span>Enviado</span>
-                              </>
-                            ) : (
-                              <>
-                                <Send className="w-3 h-3" />
-                                <span>{enviandoWhatsApp ? 'Enviando...' : 'Confirmar y Enviar'}</span>
-                              </>
-                            )}
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setTempTelefono('+51 ');
-                            setEditandoTelefono(true);
-                          }}
-                          className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 flex items-center gap-1"
-                        >
-                          <Plus className="w-3 h-3" />
-                          <span>Registrar</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
+                    {!editandoTelefono && telefonoEnvio && (
+                      <button
+                        type="button"
+                        disabled={enviandoWhatsApp || enviadoWhatsApp}
+                        onClick={handleEnviarWhatsApp}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs shrink-0 ${
+                          enviadoWhatsApp
+                            ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        }`}
+                      >
+                        {enviadoWhatsApp ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                            <span>Enviado</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-3.5 h-3.5" />
+                            <span>{enviandoWhatsApp ? 'Abriendo...' : 'Enviar WhatsApp'}</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
 
                 {/* Fila Correo Electrónico */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
@@ -932,12 +988,13 @@ export const ModalEmisionNotaCredito: React.FC<ModalEmisionNotaCreditoProps> = (
                   )}
                 </div>
               </div>
+              )}
 
               {/* Botón Imprimir Físico (Deshabilitado - Cero Papel) */}
               <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
                 <button
                   type="button"
-                  onClick={() => window.open(ncEmitida.url_publica_qr, '_blank')}
+                  onClick={() => window.open(urlPublicaNC, '_blank')}
                   className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 flex items-center gap-2"
                 >
                   <FileText className="w-4 h-4 text-slate-500" />

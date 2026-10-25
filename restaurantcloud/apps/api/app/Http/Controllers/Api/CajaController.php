@@ -1257,6 +1257,7 @@ class CajaController extends Controller
                 'nc.correlativo as nc_correlativo',
                 'nc.motivo_codigo_sunat as nc_motivo_codigo_sunat',
                 'nc.sustento_motivo as nc_sustento_motivo',
+                'nc.token_qr as nc_token_qr',
                 'c_mod.serie as mod_serie',
                 'c_mod.correlativo as mod_correlativo',
             ]);
@@ -1316,6 +1317,7 @@ class CajaController extends Controller
                 'email_envio' => $c->email_envio,
                 'nota_credito_id' => $c->nc_id,
                 'nota_credito_serie_numero' => $ncSerieNumero,
+                'nota_credito_token' => $c->nc_token_qr ? (string) $c->nc_token_qr : null,
                 'motivo_codigo_sunat' => $c->nc_motivo_codigo_sunat,
                 'sustento_motivo' => $c->nc_sustento_motivo,
                 'comprobante_modificado_id' => $c->comprobante_modificado_id,
@@ -1438,6 +1440,7 @@ class CajaController extends Controller
             'efectivo_gaveta_proyectado' => $efectivoGavetaProyectado,
             'telefono_envio' => $comp->telefono_envio,
             'email_envio' => $comp->email_envio,
+            'cliente_encontrado_en_bd' => ! empty($comp->documento_cliente) && DB::table('cliente')->where('numero_documento', $comp->documento_cliente)->exists(),
             'items' => $items,
         ]);
     }

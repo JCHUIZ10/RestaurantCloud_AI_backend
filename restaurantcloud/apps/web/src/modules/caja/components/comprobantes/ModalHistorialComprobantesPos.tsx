@@ -4,7 +4,6 @@ import {
   Search,
   FileText,
   AlertTriangle,
-  QrCode,
   CheckCircle2,
   Ban,
   Clock,
@@ -12,6 +11,7 @@ import {
   RotateCcw,
   ChevronLeft,
   ChevronRight,
+  ExternalLink,
 } from 'lucide-react';
 import {
   CajaTurnoDTO,
@@ -24,7 +24,9 @@ interface ModalHistorialComprobantesPosProps {
   onClose: () => void;
   turnoActivo: CajaTurnoDTO;
   onAnularComprobante: (comp: ComprobanteHistorialItemDTO) => void;
-  onVerQR: (comp: ComprobanteHistorialItemDTO) => void;
+  onVerComprobante?: (comp: ComprobanteHistorialItemDTO, esNC?: boolean) => void;
+  /** @deprecated Utilizar onVerComprobante */
+  onVerQR?: (comp: ComprobanteHistorialItemDTO) => void;
 }
 
 const ITEMS_POR_PAGINA = 5;
@@ -34,8 +36,16 @@ export const ModalHistorialComprobantesPos: React.FC<ModalHistorialComprobantesP
   onClose,
   turnoActivo,
   onAnularComprobante,
+  onVerComprobante,
   onVerQR,
 }) => {
+  const handleVerClick = (comp: ComprobanteHistorialItemDTO, esNC?: boolean) => {
+    if (onVerComprobante) {
+      onVerComprobante(comp, esNC);
+    } else if (onVerQR) {
+      onVerQR(comp);
+    }
+  };
   const [comprobantes, setComprobantes] = useState<ComprobanteHistorialItemDTO[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [filtroEstado, setFiltroEstado] = useState<'vigente' | 'anulado' | 'todos'>('vigente');
@@ -493,15 +503,17 @@ export const ModalHistorialComprobantesPos: React.FC<ModalHistorialComprobantesP
                         {/* Acciones */}
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            {/* Botón QR Dinámico */}
+                            {/* Botón Ver Comprobante Digital */}
                             <button
                               type="button"
-                              onClick={() => onVerQR(c)}
-                              className="px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1 transition-colors shadow-2xs"
-                              title="Ver Token Digital QR y enlace público"
+                              onClick={() => handleVerClick(c)}
+                              className="px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+                              title={`Ver ${c.tipo_comprobante === 'factura' ? 'Factura' : c.tipo_comprobante === 'nota_credito' ? 'Nota de Crédito' : 'Boleta'} digital en nueva pestaña`}
                             >
-                              <QrCode className="w-3.5 h-3.5 text-slate-500" />
-                              <span>QR</span>
+                              <ExternalLink className="w-3.5 h-3.5 text-amber-500" />
+                              <span>
+                                Ver {c.tipo_comprobante === 'factura' ? 'Factura' : c.tipo_comprobante === 'nota_credito' ? 'NC' : 'Boleta'}
+                              </span>
                             </button>
 
                             {/* Botón Anular con NC (Solo para emitidos vigentes no-NC) */}
@@ -521,9 +533,9 @@ export const ModalHistorialComprobantesPos: React.FC<ModalHistorialComprobantesP
                             {isAnulado && c.nota_credito_id && (
                               <button
                                 type="button"
-                                onClick={() => onVerQR(c)}
-                                className="px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center gap-1 transition-colors"
-                                title="Ver comprobante de anulación"
+                                onClick={() => handleVerClick(c, true)}
+                                className="px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center gap-1 transition-colors shadow-2xs"
+                                title="Ver comprobante de anulación (Nota de Crédito)"
                               >
                                 <FileText className="w-3.5 h-3.5 text-slate-400" />
                                 <span>Ver NC</span>

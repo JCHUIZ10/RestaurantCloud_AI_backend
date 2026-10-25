@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Download, MessageCircle, Copy, Utensils, CheckCircle2, QrCode } from 'lucide-react';
+import { Download, MessageCircle, Copy, CheckCircle2, QrCode } from 'lucide-react';
 import { formatPEN } from '@/shared/utils';
 import type { ComprobantePublicoDTO } from '@/types/comprobante';
 
@@ -234,14 +234,7 @@ export const ComprobanteTicketMobile: React.FC<ComprobanteTicketMobileProps> = (
           </button>
         </div>
 
-        {/* Re-enganche Comercial Directo */}
-        <a
-          href={comprobante.url_carta_digital}
-          className="w-full py-2.5 px-4 rounded-xl bg-aurea-champagne/35 hover:bg-aurea-champagne/50 text-aurea-navy border border-aurea-copper/30 font-sans text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
-        >
-          <Utensils className="w-4 h-4 text-aurea-copper" />
-          <span>Explorar Carta Digital del Restaurante</span>
-        </a>
+
       </div>
     </div>
   );
