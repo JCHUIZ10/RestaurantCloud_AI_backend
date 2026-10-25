@@ -114,6 +114,12 @@ services:
       - "8080:8080"
     environment:
       CONTAINER_ROLE: api
+      APP_SERVER: ${APP_SERVER:-octane}
+      OCTANE_WORKERS: ${OCTANE_WORKERS:-2}
+      REDIS_CLIENT: phpredis
+      SESSION_DRIVER: redis
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
       DB_HOST: db
       DB_PORT: 5432
       DB_DATABASE: ${POSTGRES_DB}
@@ -151,6 +157,10 @@ services:
     restart: unless-stopped
     environment:
       CONTAINER_ROLE: queue
+      REDIS_CLIENT: phpredis
+      SESSION_DRIVER: redis
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
       DB_HOST: db
       DB_PORT: 5432
       DB_DATABASE: ${POSTGRES_DB}
@@ -188,6 +198,10 @@ services:
     restart: unless-stopped
     environment:
       CONTAINER_ROLE: scheduler
+      REDIS_CLIENT: phpredis
+      SESSION_DRIVER: redis
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
       DB_HOST: db
       DB_PORT: 5432
       DB_DATABASE: ${POSTGRES_DB}

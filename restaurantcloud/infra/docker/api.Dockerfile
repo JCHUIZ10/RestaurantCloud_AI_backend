@@ -5,9 +5,14 @@ RUN apk add --no-cache git curl libpq-dev postgresql-client bash libzip-dev icu-
 ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
 
 RUN chmod +x /usr/local/bin/install-php-extensions && \
-    install-php-extensions pdo_pgsql pgsql intl zip bcmath opcache pcntl
+    install-php-extensions pdo_pgsql pgsql intl zip bcmath opcache pcntl redis
+
+RUN curl -fsSL https://github.com/dunglas/frankenphp/releases/latest/download/frankenphp-linux-x86_64 -o /usr/local/bin/frankenphp && \
+    chmod +x /usr/local/bin/frankenphp
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+COPY ./infra/docker/php.ini $PHP_INI_DIR/conf.d/99-performance.ini
 
 WORKDIR /app
 

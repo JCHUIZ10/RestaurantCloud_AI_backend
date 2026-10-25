@@ -35,12 +35,21 @@ done
 
 case "$ROLE" in
     api)
-        echo "PostgreSQL listo. Iniciando API Laravel en el puerto 8080..."
-        exec php artisan serve --host=0.0.0.0 --port=8080
+        SERVER="${APP_SERVER:-octane}"
+        if [ "$SERVER" = "octane" ] && command -v frankenphp > /dev/null 2>&1; then
+            echo "PostgreSQL listo. Iniciando API Laravel con Octane (FrankenPHP) en el puerto 8080 (Workers: ${OCTANE_WORKERS:-2})..."
+            if [ ! -f public/frankenphp-worker.php ]; then
+                php artisan octane:install --server=frankenphp --no-interaction || true
+            fi
+            exec php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=8080 --workers=${OCTANE_WORKERS:-2} --max-requests=500
+        else
+            echo "PostgreSQL listo. Iniciando API Laravel con servidor embebido en el puerto 8080..."
+            exec php artisan serve --host=0.0.0.0 --port=8080
+        fi
         ;;
     queue)
-        echo "PostgreSQL listo. Iniciando worker de documentos..."
-        exec php artisan queue:work redis --queue=documentos --tries=3 --timeout=120 --sleep=1
+        echo "PostgreSQL listo. Iniciando worker de documentos con phpredis..."
+        exec php artisan queue:work redis --queue=documentos --tries=3 --timeout=120 --sleep=1 --memory=256
         ;;
     scheduler)
         echo "PostgreSQL listo. Iniciando scheduler de Laravel..."
