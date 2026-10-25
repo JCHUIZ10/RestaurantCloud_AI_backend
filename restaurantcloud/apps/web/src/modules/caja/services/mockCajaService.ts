@@ -866,6 +866,28 @@ class MockCajaService {
       efectivo_gaveta_proyectado: efectivoGavetaProyectado,
       telefono_envio: comp.telefono_envio,
       email_envio: comp.email_envio,
+      items: [
+        {
+          id: 'item-mock-1',
+          nombre: 'Plato Principal Carta',
+          cantidad: 1,
+          precio_unitario: Math.max(0, comp.total - 10),
+          subtotal: Math.max(0, comp.total - 10),
+          requiere_preparacion: true,
+          es_sellado_elegible: false,
+          stock_descontado: true,
+        },
+        {
+          id: 'item-mock-2',
+          nombre: 'Bebida Sellada / Gaseosa',
+          cantidad: 1,
+          precio_unitario: 10.0,
+          subtotal: 10.0,
+          requiere_preparacion: false,
+          es_sellado_elegible: true,
+          stock_descontado: true,
+        },
+      ],
     };
 
     return {

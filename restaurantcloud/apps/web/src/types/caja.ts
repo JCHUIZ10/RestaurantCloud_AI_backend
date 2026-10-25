@@ -281,6 +281,17 @@ export interface ClienteFiscalLookupDTO {
 
 export type MotivoNotaCreditoSUNAT = '01' | '02' | '06';
 
+export interface ComprobanteItemAnulacionDTO {
+  id: string; // pedido_item_id
+  nombre: string;
+  cantidad: number;
+  precio_unitario: number;
+  subtotal: number;
+  requiere_preparacion: boolean;
+  es_sellado_elegible: boolean; // (!requiere_preparacion && stock_descontado)
+  stock_descontado: boolean;
+}
+
 export interface ComprobanteHistorialItemDTO {
   id: string;
   tipo_comprobante: 'boleta' | 'factura' | 'nota_venta' | 'nota_credito';
@@ -342,6 +353,7 @@ export interface PrepararAnulacionResponseDTO {
   efectivo_gaveta_proyectado: number;
   telefono_envio?: string;
   email_envio?: string;
+  items?: ComprobanteItemAnulacionDTO[];
 }
 
 export interface EmitirNotaCreditoRequest {
@@ -351,6 +363,7 @@ export interface EmitirNotaCreditoRequest {
   referencia_extorno?: string;
   telefono_envio?: string;
   email_envio?: string;
+  items_reingresar_stock?: string[];
 }
 
 export interface EmitirNotaCreditoResponseDTO {

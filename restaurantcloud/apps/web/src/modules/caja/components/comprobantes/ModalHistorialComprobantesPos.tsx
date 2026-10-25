@@ -17,7 +17,7 @@ import {
   CajaTurnoDTO,
   ComprobanteHistorialItemDTO,
 } from '@/types/caja';
-import { mockCajaService } from '../../services/mockCajaService';
+import { cajaService } from '@/services/serviceAdapter';
 
 interface ModalHistorialComprobantesPosProps {
   isOpen: boolean;
@@ -51,7 +51,7 @@ export const ModalHistorialComprobantesPos: React.FC<ModalHistorialComprobantesP
   const cargarComprobantes = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await mockCajaService.getComprobantesTurno({
+      const res = await cajaService.getComprobantesTurno({
         estado: filtroEstado,
         tipo: filtroTipo,
         q: busquedaAplicada,

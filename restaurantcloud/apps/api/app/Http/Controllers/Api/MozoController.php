@@ -2218,6 +2218,15 @@ class MozoController extends Controller
             $item, $producto, $titular, $etiquetaUnion, $validated, $user, $localId,
             $estadoAnterior, $esMerma, $costoMerma, $anuladoAt, $minutosEspera
         ) {
+            // Revertir existencias a bodega si el plato no es merma culinaria (ej. en_cola)
+            // y su receta ya había sido descontada por producción o despacho
+            if (! $esMerma && (bool) ($item->stock_descontado ?? false)) {
+                DB::selectOne('SELECT fn_inventario_revertir_receta(CAST(? AS uuid), CAST(? AS uuid)) AS res', [
+                    $item->id,
+                    $user->id,
+                ]);
+            }
+
             // 1. Actualizar ítem a anulado
             DB::table('pedido_item')
                 ->where('id', $item->id)
@@ -2401,6 +2410,15 @@ class MozoController extends Controller
                     $costoMerma = $esMerma ? round((int) $item->cantidad * $costoEstandar, 2) : 0.00;
                     $montoItem = round((int) $item->cantidad * (float) $item->precio_unitario, 2);
                     $totalAnulado += $montoItem;
+
+                    // Revertir existencias a bodega si el plato no es merma culinaria (ej. en_cola)
+                    // y su receta ya había sido descontada por producción o despacho
+                    if (! $esMerma && (bool) ($item->stock_descontado ?? false)) {
+                        DB::selectOne('SELECT fn_inventario_revertir_receta(CAST(? AS uuid), CAST(? AS uuid)) AS res', [
+                            $item->id,
+                            $user->id,
+                        ]);
+                    }
 
                     // 1. Actualizar ítem a anulado
                     DB::table('pedido_item')

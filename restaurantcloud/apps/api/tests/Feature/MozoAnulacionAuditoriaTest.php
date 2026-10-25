@@ -402,4 +402,141 @@ class MozoAnulacionAuditoriaTest extends TestCase
         $response = $this->postJson("/api/v1/mozo/mesas/{$mesaId}/items/{$itemId}/anular", $payload, $this->headers());
         $response->assertStatus(422);
     }
+
+    public function test_anular_item_en_cola_con_stock_descontado_restituye_insumos_automaticamente(): void
+    {
+        $pisoId = $this->crearPiso();
+        $mesaId = $this->crearMesa($pisoId, '11');
+        $pedidoId = $this->crearPedido($mesaId);
+
+        // Crear insumo con stock inicial 9.5
+        $insumoId = (string) Str::uuid();
+        DB::table('insumo')->insert([
+            'id' => $insumoId,
+            'local_id' => $this->localId,
+            'nombre' => 'Lomo Fino Test ' . Str::random(4),
+            'unidad_medida' => 'kg',
+            'stock_actual' => 9.500,
+            'stock_minimo' => 2.000,
+            'costo_unitario' => 30.00,
+            'estado' => 'activo',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $prodId = $this->crearProducto(55.0, 18.0);
+        DB::table('producto_insumo')->insert([
+            'producto_id' => $prodId,
+            'insumo_id' => $insumoId,
+            'modo_calculo' => 'exacto',
+            'cantidad_descuenta' => 0.500,
+        ]);
+
+        // Item en cola que tenía stock_descontado = true
+        $itemId = (string) Str::uuid();
+        DB::table('pedido_item')->insert([
+            'id' => $itemId,
+            'pedido_id' => $pedidoId,
+            'producto_id' => $prodId,
+            'cantidad' => 1,
+            'precio_unitario' => 55.0,
+            'estado' => 'en_cola',
+            'numero_ronda' => 1,
+            'stock_descontado' => true,
+            'created_at' => now()->subMinutes(8),
+            'updated_at' => now()->subMinutes(8),
+        ]);
+
+        $payload = [
+            'motivo_categoria' => 'demora_cliente',
+            'motivo_detalle' => 'Comensal cancela el plato antes de que entre a cocina',
+        ];
+
+        $response = $this->postJson("/api/v1/mozo/mesas/{$mesaId}/items/{$itemId}/anular", $payload, $this->headers());
+        $response->assertStatus(200);
+
+        // Insumo debe haber aumentado en 0.500 (de 9.500 a 10.000)
+        $insumoDB = DB::table('insumo')->where('id', $insumoId)->first();
+        $this->assertEquals(10.000, (float) $insumoDB->stock_actual);
+
+        // Pedido item debe tener stock_descontado = false
+        $itemDB = DB::table('pedido_item')->where('id', $itemId)->first();
+        $this->assertEquals('anulado', $itemDB->estado);
+        $this->assertFalse((bool) $itemDB->stock_descontado);
+        $this->assertFalse((bool) $itemDB->es_merma);
+
+        // Auditoría de anulación
+        $anulacionDB = DB::table('pedido_anulacion')->where('pedido_item_id', $itemId)->first();
+        $this->assertNotNull($anulacionDB);
+        $this->assertFalse((bool) $anulacionDB->es_merma);
+        $this->assertEquals(0.00, (float) $anulacionDB->costo_merma);
+    }
+
+    public function test_anular_item_servido_con_stock_descontado_mantiene_insumos_descontados_por_merma(): void
+    {
+        $pisoId = $this->crearPiso();
+        $mesaId = $this->crearMesa($pisoId, '12');
+        $pedidoId = $this->crearPedido($mesaId);
+
+        // Crear insumo con stock 8.000
+        $insumoId = (string) Str::uuid();
+        DB::table('insumo')->insert([
+            'id' => $insumoId,
+            'local_id' => $this->localId,
+            'nombre' => 'Pollo Brasa Test ' . Str::random(4),
+            'unidad_medida' => 'und',
+            'stock_actual' => 8.000,
+            'stock_minimo' => 2.000,
+            'costo_unitario' => 20.00,
+            'estado' => 'activo',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $prodId = $this->crearProducto(40.0, 15.0);
+        DB::table('producto_insumo')->insert([
+            'producto_id' => $prodId,
+            'insumo_id' => $insumoId,
+            'modo_calculo' => 'exacto',
+            'cantidad_descuenta' => 1.000,
+        ]);
+
+        // Item entregado que tenía stock_descontado = true
+        $itemId = (string) Str::uuid();
+        DB::table('pedido_item')->insert([
+            'id' => $itemId,
+            'pedido_id' => $pedidoId,
+            'producto_id' => $prodId,
+            'cantidad' => 1,
+            'precio_unitario' => 40.0,
+            'estado' => 'entregado',
+            'numero_ronda' => 1,
+            'stock_descontado' => true,
+            'created_at' => now()->subMinutes(12),
+            'updated_at' => now()->subMinutes(12),
+        ]);
+
+        $payload = [
+            'motivo_categoria' => 'plato_caido',
+            'motivo_detalle' => 'Plato resbaló al ser servido y fue desechado',
+        ];
+
+        $response = $this->postJson("/api/v1/mozo/mesas/{$mesaId}/items/{$itemId}/anular", $payload, $this->headers());
+        $response->assertStatus(200);
+
+        // Insumo NO debe haber sido devuelto (debe seguir en 8.000)
+        $insumoDB = DB::table('insumo')->where('id', $insumoId)->first();
+        $this->assertEquals(8.000, (float) $insumoDB->stock_actual);
+
+        // Pedido item debe registrar merma
+        $itemDB = DB::table('pedido_item')->where('id', $itemId)->first();
+        $this->assertEquals('anulado', $itemDB->estado);
+        $this->assertTrue((bool) $itemDB->es_merma);
+
+        // Auditoría con costo de merma
+        $anulacionDB = DB::table('pedido_anulacion')->where('pedido_item_id', $itemId)->first();
+        $this->assertNotNull($anulacionDB);
+        $this->assertTrue((bool) $anulacionDB->es_merma);
+        $this->assertEquals(15.00, (float) $anulacionDB->costo_merma);
+    }
 }

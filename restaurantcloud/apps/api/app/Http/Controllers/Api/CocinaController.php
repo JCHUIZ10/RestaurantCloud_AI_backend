@@ -212,7 +212,7 @@ class CocinaController extends Controller
         }
 
         $nuevoEstado = $validated['estado'];
-        $now = now();
+        $now = now()->utc();
         $updateData = [
             'estado' => $nuevoEstado,
             'updated_at' => $now,
@@ -226,7 +226,7 @@ class CocinaController extends Controller
             $updateData['fecha_listo_cocina'] = null;
         } elseif ($nuevoEstado === 'listo') {
             // Cumplir con chk_cocina_tiempos_coherentes
-            $inicioCoccion = $item->fecha_inicio_coccion ? Carbon::parse($item->fecha_inicio_coccion) : $now;
+            $inicioCoccion = $item->fecha_inicio_coccion ? Carbon::parse($item->fecha_inicio_coccion)->utc() : $now;
             $listo = $inicioCoccion->gt($now) ? $inicioCoccion : $now;
             $updateData['fecha_inicio_coccion'] = $inicioCoccion;
             $updateData['fecha_listo_cocina'] = $listo;

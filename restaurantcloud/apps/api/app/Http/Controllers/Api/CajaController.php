@@ -8,6 +8,7 @@ use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 class CajaController extends Controller
@@ -62,6 +63,7 @@ class CajaController extends Controller
             $movimientosEfectivo = (float) (DB::table('caja_movimiento')
                 ->where('caja_id', $cajaAbierta->id)
                 ->where('metodo_pago', 'efectivo')
+                ->where('tipo', '!=', 'apertura')
                 ->sum('monto') ?? 0.00);
 
             $efectivoActual = round((float) $cajaAbierta->monto_apertura + $movimientosEfectivo, 2);
@@ -367,6 +369,7 @@ class CajaController extends Controller
             $movEfectivo = (float) (DB::table('caja_movimiento')
                 ->where('caja_id', $cajaAbierta->id)
                 ->where('metodo_pago', 'efectivo')
+                ->where('tipo', '!=', 'apertura')
                 ->sum('monto') ?? 0.00);
 
             $efectivoEnCaja = round((float) $cajaAbierta->monto_apertura + $movEfectivo, 2);
@@ -1161,5 +1164,528 @@ class CajaController extends Controller
                 'origen' => 'api_peru',
             ]);
         }
+    }
+
+    /**
+     * CU-CAJA-04: Listado de comprobantes y notas de crédito del turno activo.
+     */
+    public function getComprobantesTurno(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $localId = $user->local_id;
+
+        $caja = DB::table('caja')
+            ->where('local_id', $localId)
+            ->where('estado', 'abierta')
+            ->first();
+
+        if (! $caja) {
+            return ApiResponse::error('ERR_CAJA_CERRADA', 'No existe un turno de caja abierto en esta sede.', 409);
+        }
+
+        $estado = $request->query('estado', 'todos');
+        $tipo = $request->query('tipo', 'todos');
+        $q = trim((string) $request->query('q', ''));
+
+        $query = DB::table('comprobante as c')
+            ->leftJoin('pedido as p', 'p.id', '=', 'c.pedido_id')
+            ->leftJoin('mesa as m', 'm.id', '=', 'p.mesa_id')
+            ->leftJoin('pedido_subcuenta as ps', 'ps.id', '=', 'c.subcuenta_id')
+            ->leftJoin('comprobante as nc', function ($join) {
+                $join->on('nc.comprobante_modificado_id', '=', 'c.id')
+                    ->where('nc.tipo', '=', 'nota_credito');
+            })
+            ->leftJoin('comprobante as c_mod', 'c_mod.id', '=', 'c.comprobante_modificado_id')
+            ->where('c.caja_id', $caja->id)
+            ->select([
+                'c.*',
+                'm.id as mesa_id',
+                'm.numero as mesa_numero',
+                'p.numero_comanda',
+                'ps.numero_subcuenta',
+                'nc.id as nc_id',
+                'nc.serie as nc_serie',
+                'nc.correlativo as nc_correlativo',
+                'nc.motivo_codigo_sunat as nc_motivo_codigo_sunat',
+                'nc.sustento_motivo as nc_sustento_motivo',
+                'c_mod.serie as mod_serie',
+                'c_mod.correlativo as mod_correlativo',
+            ]);
+
+        if ($estado === 'vigente') {
+            $query->where('c.estado', 'emitido')->where('c.tipo', '!=', 'nota_credito');
+        } elseif ($estado === 'anulado') {
+            $query->where('c.estado', 'anulado');
+        }
+
+        if ($tipo && $tipo !== 'todos') {
+            $query->where('c.tipo', $tipo);
+        }
+
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('c.nombre_cliente', 'ILIKE', "%{$q}%")
+                    ->orWhere('c.documento_cliente', 'ILIKE', "%{$q}%")
+                    ->orWhere('c.serie', 'ILIKE', "%{$q}%")
+                    ->orWhere(DB::raw("c.serie || '-' || LPAD(c.correlativo::text, 8, '0')"), 'ILIKE', "%{$q}%")
+                    ->orWhere(DB::raw("c.correlativo::text"), 'ILIKE', "%{$q}%");
+            });
+        }
+
+        $comprobantes = $query->orderByDesc('c.created_at')->get()->map(function ($c) {
+            $serieNumero = $c->serie . '-' . str_pad((string) $c->correlativo, 8, '0', STR_PAD_LEFT);
+            $docModificado = $c->mod_serie
+                ? $c->mod_serie . '-' . str_pad((string) $c->mod_correlativo, 8, '0', STR_PAD_LEFT)
+                : null;
+            $ncSerieNumero = $c->nc_serie
+                ? $c->nc_serie . '-' . str_pad((string) $c->nc_correlativo, 8, '0', STR_PAD_LEFT)
+                : null;
+
+            return [
+                'id' => $c->id,
+                'tipo_comprobante' => $c->tipo,
+                'serie' => $c->serie,
+                'correlativo' => (int) $c->correlativo,
+                'serie_numero' => $serieNumero,
+                'hora' => date('H:i', strtotime($c->created_at)),
+                'fecha_emision' => Carbon::parse($c->created_at)->toIso8601String(),
+                'mesa_id' => $c->mesa_id,
+                'mesa_numero' => $c->mesa_numero ?? 'Barra',
+                'subcuenta_id' => $c->subcuenta_id,
+                'subcuenta_numero' => $c->numero_subcuenta ? (int) $c->numero_subcuenta : null,
+                'comanda_numero' => (int) ($c->numero_comanda ?? 0),
+                'cliente_nombre' => $c->nombre_cliente,
+                'cliente_documento' => $c->documento_cliente,
+                'medio_pago' => $c->medio_pago,
+                'total' => (float) $c->total,
+                'base_imponible' => (float) $c->base_imponible,
+                'igv' => (float) $c->igv,
+                'estado' => $c->estado,
+                'token_digital' => (string) $c->token_qr,
+                'url_publica_qr' => url("/c/{$c->token_qr}"),
+                'telefono_envio' => $c->telefono_envio,
+                'email_envio' => $c->email_envio,
+                'nota_credito_id' => $c->nc_id,
+                'nota_credito_serie_numero' => $ncSerieNumero,
+                'motivo_codigo_sunat' => $c->nc_motivo_codigo_sunat,
+                'sustento_motivo' => $c->nc_sustento_motivo,
+                'comprobante_modificado_id' => $c->comprobante_modificado_id,
+                'documento_modificado' => $docModificado,
+            ];
+        });
+
+        return ApiResponse::ok($comprobantes);
+    }
+
+    /**
+     * CU-CAJA-04: Preparar anulación de comprobante y calcular restitución asistida.
+     */
+    public function prepararAnulacionComprobante(Request $request, string $id): JsonResponse
+    {
+        $user = $request->user();
+        $localId = $user->local_id;
+
+        $caja = DB::table('caja')
+            ->where('local_id', $localId)
+            ->where('estado', 'abierta')
+            ->first();
+
+        if (! $caja) {
+            return ApiResponse::error('ERR_CAJA_CERRADA', 'No existe un turno de caja abierto en esta sede.', 409);
+        }
+
+        $comp = DB::table('comprobante as c')
+            ->leftJoin('pedido as p', 'p.id', '=', 'c.pedido_id')
+            ->leftJoin('mesa as m', 'm.id', '=', 'p.mesa_id')
+            ->leftJoin('pedido_subcuenta as ps', 'ps.id', '=', 'c.subcuenta_id')
+            ->where('c.id', $id)
+            ->where('c.caja_id', $caja->id)
+            ->select([
+                'c.*',
+                'm.numero as mesa_numero',
+                'p.numero_comanda',
+                'ps.numero_subcuenta',
+            ])
+            ->first();
+
+        if (! $comp) {
+            return ApiResponse::error('COMPROBANTE_NO_ENCONTRADO', 'Comprobante no encontrado en el turno activo.', 404);
+        }
+
+        if ($comp->estado === 'anulado') {
+            return ApiResponse::error('COMPROBANTE_YA_ANULADO', 'El comprobante ya fue anulado previamente mediante una Nota de Crédito.', 409);
+        }
+
+        if ($comp->tipo === 'nota_credito') {
+            return ApiResponse::error('OPERACION_INVALIDA', 'No se puede emitir una nota de crédito sobre otra nota de crédito.', 422);
+        }
+
+        $serieSugerida = match ($comp->tipo) {
+            'factura' => 'FC01',
+            'nota_venta' => 'NVC01',
+            default => 'BC01',
+        };
+
+        $movimientosEfectivo = (float) (DB::table('caja_movimiento')
+            ->where('caja_id', $caja->id)
+            ->where('metodo_pago', 'efectivo')
+            ->where('tipo', '!=', 'apertura')
+            ->sum('monto') ?? 0.00);
+
+        $efectivoGavetaActual = round((float) $caja->monto_apertura + $movimientosEfectivo, 2);
+        $efectivoGavetaProyectado = $comp->medio_pago === 'efectivo'
+            ? round(max(0, $efectivoGavetaActual - (float) $comp->total), 2)
+            : $efectivoGavetaActual;
+
+        $items = DB::table('comprobante_item as ci')
+            ->leftJoin('pedido_item as pi', 'pi.id', '=', 'ci.pedido_item_id')
+            ->join('producto as pr', 'pr.id', '=', 'ci.producto_id')
+            ->where('ci.comprobante_id', $comp->id)
+            ->select([
+                'ci.id as comprobante_item_id',
+                'ci.pedido_item_id',
+                'ci.descripcion',
+                'ci.cantidad',
+                'ci.precio_unitario',
+                'ci.subtotal',
+                'pr.requiere_preparacion',
+                'pi.stock_descontado',
+            ])
+            ->get()
+            ->map(function ($it) {
+                $stockDescontado = (bool) ($it->stock_descontado ?? false);
+                $requierePrep = (bool) $it->requiere_preparacion;
+
+                return [
+                    'id' => (string) ($it->pedido_item_id ?? $it->comprobante_item_id),
+                    'nombre' => $it->descripcion,
+                    'cantidad' => (int) $it->cantidad,
+                    'precio_unitario' => (float) $it->precio_unitario,
+                    'subtotal' => (float) $it->subtotal,
+                    'requiere_preparacion' => $requierePrep,
+                    'es_sellado_elegible' => (! $requierePrep && $stockDescontado),
+                    'stock_descontado' => $stockDescontado,
+                ];
+            });
+
+        return ApiResponse::ok([
+            'comprobante_id' => $comp->id,
+            'tipo_comprobante_original' => $comp->tipo,
+            'serie_original' => $comp->serie,
+            'correlativo_original' => (int) $comp->correlativo,
+            'serie_numero_original' => $comp->serie . '-' . str_pad((string) $comp->correlativo, 8, '0', STR_PAD_LEFT),
+            'mesa_numero' => $comp->mesa_numero ?? 'Barra',
+            'comanda_numero' => (int) ($comp->numero_comanda ?? 0),
+            'subcuenta_id' => $comp->subcuenta_id,
+            'subcuenta_numero' => $comp->numero_subcuenta ? (int) $comp->numero_subcuenta : null,
+            'cliente_nombre' => $comp->nombre_cliente,
+            'cliente_numero_doc' => $comp->documento_cliente,
+            'medio_pago_codigo' => $comp->medio_pago,
+            'total_original' => (float) $comp->total,
+            'base_imponible' => (float) $comp->base_imponible,
+            'igv' => (float) $comp->igv,
+            'serie_nota_credito_sugerida' => $serieSugerida,
+            'efectivo_gaveta_actual' => $efectivoGavetaActual,
+            'efectivo_gaveta_proyectado' => $efectivoGavetaProyectado,
+            'telefono_envio' => $comp->telefono_envio,
+            'email_envio' => $comp->email_envio,
+            'items' => $items,
+        ]);
+    }
+
+    /**
+     * CU-CAJA-04: Emitir Nota de Crédito Electrónica con Restitución Asistida de Stock.
+     */
+    public function emitirNotaCredito(Request $request, string $id): JsonResponse
+    {
+        $user = $request->user();
+        $localId = $user->local_id;
+
+        $validated = $request->validate([
+            'motivo_codigo_sunat' => ['required', 'string', 'in:01,02,06'],
+            'sustento_motivo' => ['required', 'string', 'min:5', 'max:500'],
+            'devolucion_metodo' => ['required', 'string', 'in:efectivo,extorno_tarjeta,transferencia'],
+            'referencia_extorno' => ['nullable', 'string', 'max:100'],
+            'telefono_envio' => ['nullable', 'string', 'max:20'],
+            'email_envio' => ['nullable', 'email', 'max:100'],
+            'items_reingresar_stock' => ['nullable', 'array'],
+            'items_reingresar_stock.*' => ['uuid'],
+        ]);
+
+        return DB::transaction(function () use ($validated, $user, $localId, $id) {
+            $caja = DB::table('caja')
+                ->where('local_id', $localId)
+                ->where('estado', 'abierta')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $caja) {
+                return ApiResponse::error('ERR_CAJA_CERRADA', 'No existe un turno de caja abierto en esta sede.', 409);
+            }
+
+            $comp = DB::table('comprobante')
+                ->where('id', $id)
+                ->where('caja_id', $caja->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $comp) {
+                return ApiResponse::error('COMPROBANTE_NO_ENCONTRADO', 'Comprobante no encontrado en el turno activo.', 404);
+            }
+
+            if ($comp->estado === 'anulado') {
+                return ApiResponse::error('COMPROBANTE_YA_ANULADO', 'El comprobante ya fue anulado previamente.', 409);
+            }
+
+            if ($comp->tipo === 'nota_credito') {
+                return ApiResponse::error('OPERACION_INVALIDA', 'No se puede emitir una nota de crédito sobre otra nota de crédito.', 422);
+            }
+
+            $serieNC = match ($comp->tipo) {
+                'factura' => 'FC01',
+                'nota_venta' => 'NVC01',
+                default => 'BC01',
+            };
+
+            // Asegurar que la serie exista para el local
+            DB::table('comprobante_serie')->updateOrInsert(
+                [
+                    'local_id' => $localId,
+                    'tipo_comprobante' => 'nota_credito',
+                    'serie' => $serieNC,
+                ],
+                [
+                    'activo' => true,
+                ]
+            );
+
+            $siguiente = DB::selectOne(
+                'SELECT fn_obtener_siguiente_correlativo(CAST(? AS uuid), ?, ?) AS correlativo',
+                [$localId, 'nota_credito', $serieNC]
+            );
+            $correlativoNC = (int) $siguiente->correlativo;
+
+            $ncId = (string) Str::uuid();
+            $tokenQr = (string) Str::uuid();
+
+            // 1. Insertar Nota de Crédito en comprobante
+            DB::table('comprobante')->insert([
+                'id' => $ncId,
+                'pedido_id' => $comp->pedido_id,
+                'subcuenta_id' => $comp->subcuenta_id,
+                'caja_id' => $caja->id,
+                'cliente_id' => $comp->cliente_id,
+                'tipo' => 'nota_credito',
+                'serie' => $serieNC,
+                'correlativo' => $correlativoNC,
+                'documento_cliente' => $comp->documento_cliente,
+                'nombre_cliente' => $comp->nombre_cliente,
+                'telefono_envio' => $validated['telefono_envio'] ?? $comp->telefono_envio,
+                'email_envio' => $validated['email_envio'] ?? $comp->email_envio,
+                'metodo_pago_id' => $comp->metodo_pago_id,
+                'medio_pago' => $comp->medio_pago,
+                'subtotal_consumo' => -((float) $comp->subtotal_consumo),
+                'descuento' => -((float) $comp->descuento),
+                'porcentaje_recargo' => (float) $comp->porcentaje_recargo,
+                'monto_recargo' => -((float) $comp->monto_recargo),
+                'base_imponible' => -((float) $comp->base_imponible),
+                'igv' => -((float) $comp->igv),
+                'total' => -((float) $comp->total),
+                'monto_recibido' => null,
+                'vuelto' => null,
+                'estado' => 'emitido',
+                'token_qr' => $tokenQr,
+                'comprobante_modificado_id' => $comp->id,
+                'motivo_codigo_sunat' => $validated['motivo_codigo_sunat'],
+                'sustento_motivo' => $validated['sustento_motivo'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // 2. Replicar ítems en comprobante_item para representación tributaria / PDF
+            $originalItems = DB::table('comprobante_item')->where('comprobante_id', $comp->id)->get();
+            foreach ($originalItems as $orig) {
+                DB::table('comprobante_item')->insert([
+                    'id' => (string) Str::uuid(),
+                    'comprobante_id' => $ncId,
+                    'pedido_item_id' => $orig->pedido_item_id,
+                    'producto_id' => $orig->producto_id,
+                    'descripcion' => $orig->descripcion,
+                    'cantidad' => $orig->cantidad,
+                    'precio_unitario' => $orig->precio_unitario,
+                    'subtotal' => $orig->subtotal,
+                    'base_imponible' => $orig->base_imponible,
+                    'igv' => $orig->igv,
+                    'created_at' => now(),
+                ]);
+            }
+
+            // 3. Marcar comprobante original como anulado
+            DB::table('comprobante')
+                ->where('id', $comp->id)
+                ->update([
+                    'estado' => 'anulado',
+                    'updated_at' => now(),
+                ]);
+
+            // 4. Registrar egreso en gaveta de caja si corresponde a efectivo
+            if ($validated['devolucion_metodo'] === 'efectivo' || $comp->medio_pago === 'efectivo') {
+                DB::table('caja_movimiento')->insert([
+                    'id' => (string) Str::uuid(),
+                    'caja_id' => $caja->id,
+                    'local_id' => $localId,
+                    'tipo' => 'egreso_devolucion',
+                    'monto' => -abs((float) $comp->total),
+                    'metodo_pago' => 'efectivo',
+                    'comprobante_id' => $ncId,
+                    'descripcion' => "DEVOLUCION NC {$serieNC}-" . str_pad((string) $correlativoNC, 8, '0', STR_PAD_LEFT) . " (Ref: {$comp->serie}-" . str_pad((string) $comp->correlativo, 8, '0', STR_PAD_LEFT) . ")",
+                    'created_at' => now(),
+                ]);
+            }
+
+            // 5. Restitución asistida de stock para ítems sellados seleccionados
+            $itemsReingresar = $validated['items_reingresar_stock'] ?? [];
+            if (! empty($itemsReingresar)) {
+                foreach ($itemsReingresar as $itemId) {
+                    $pedidoItemId = DB::table('comprobante_item')
+                        ->where('comprobante_id', $comp->id)
+                        ->where(function ($q) use ($itemId) {
+                            $q->where('pedido_item_id', $itemId)
+                                ->orWhere('id', $itemId);
+                        })
+                        ->value('pedido_item_id') ?? $itemId;
+
+                    if ($pedidoItemId) {
+                        DB::selectOne(
+                            'SELECT fn_inventario_reingresar_item_sellado(CAST(? AS uuid), CAST(? AS uuid), ?) AS res',
+                            [$pedidoItemId, $user->id, "Restitución por NC {$serieNC}-" . str_pad((string) $correlativoNC, 8, '0', STR_PAD_LEFT)]
+                        );
+                    }
+                }
+            }
+
+            // 6. Actualizar estado de Subcuenta o Pedido
+            if ($comp->subcuenta_id) {
+                DB::table('pedido_subcuenta')->where('id', $comp->subcuenta_id)->update([
+                    'estado' => 'anulado',
+                    'updated_at' => now(),
+                ]);
+            }
+
+            if ($comp->pedido_id) {
+                $tieneOtrosComprobantesVigentes = DB::table('comprobante')
+                    ->where('pedido_id', $comp->pedido_id)
+                    ->where('tipo', '!=', 'nota_credito')
+                    ->where('estado', 'emitido')
+                    ->exists();
+
+                if (! $tieneOtrosComprobantesVigentes) {
+                    DB::table('pedido')->where('id', $comp->pedido_id)->update([
+                        'estado' => 'anulado',
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+
+            // 7. Evento Outbox para generación asíncrona de PDF / XML
+            DB::table('outbox_event')->insert([
+                'id' => (string) Str::uuid(),
+                'empresa_id' => $user->empresa_id,
+                'local_id' => $localId,
+                'agregado_tipo' => 'comprobante',
+                'agregado_id' => $ncId,
+                'tipo_evento' => 'comprobante.digital.solicitado',
+                'payload' => json_encode([
+                    'comprobante_id' => $ncId,
+                    'creado_por' => $user->id,
+                ]),
+                'estado' => 'pendiente',
+                'disponible_desde' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $outboxEventId = DB::table('outbox_event')
+                ->where('agregado_id', $ncId)
+                ->where('tipo_evento', 'comprobante.digital.solicitado')
+                ->value('id');
+
+            DB::afterCommit(fn () => GenerarComprobanteDigitalJob::dispatch($outboxEventId));
+
+            // 8. Calcular nuevo efectivo en gaveta
+            $movimientosEfectivo = (float) (DB::table('caja_movimiento')
+                ->where('caja_id', $caja->id)
+                ->where('metodo_pago', 'efectivo')
+                ->where('tipo', '!=', 'apertura')
+                ->sum('monto') ?? 0.00);
+
+            $efectivoGavetaNuevo = round((float) $caja->monto_apertura + $movimientosEfectivo, 2);
+
+            $pedido = $comp->pedido_id ? DB::table('pedido')->where('id', $comp->pedido_id)->first() : null;
+            $mesa = $pedido ? DB::table('mesa')->where('id', $pedido->mesa_id)->first() : null;
+            $subcuentaNumero = $comp->subcuenta_id ? DB::table('pedido_subcuenta')->where('id', $comp->subcuenta_id)->value('numero_subcuenta') : null;
+
+            return ApiResponse::ok([
+                'nota_credito_id' => $ncId,
+                'tipo_comprobante' => 'nota_credito',
+                'serie' => $serieNC,
+                'correlativo' => $correlativoNC,
+                'serie_numero' => $serieNC . '-' . str_pad((string) $correlativoNC, 8, '0', STR_PAD_LEFT),
+                'documento_modificado' => $comp->serie . '-' . str_pad((string) $comp->correlativo, 8, '0', STR_PAD_LEFT),
+                'comprobante_modificado_id' => $comp->id,
+                'motivo_codigo_sunat' => $validated['motivo_codigo_sunat'],
+                'sustento_motivo' => $validated['sustento_motivo'],
+                'importe_rectificado' => -((float) $comp->total),
+                'efectivo_gaveta_nuevo' => $efectivoGavetaNuevo,
+                'token_digital' => $tokenQr,
+                'url_publica_qr' => url("/c/{$tokenQr}"),
+                'mesa_numero' => $mesa?->numero ?? 'Barra',
+                'subcuenta_numero' => $subcuentaNumero ? (int) $subcuentaNumero : null,
+                'telefono_registrado' => $validated['telefono_envio'] ?? $comp->telefono_envio,
+                'email_registrado' => $validated['email_envio'] ?? $comp->email_envio,
+                'emitido_at' => now()->toIso8601String(),
+            ]);
+        });
+    }
+
+    /**
+     * CU-CAJA-04: Actualización de datos de contacto (WhatsApp / Correo) de un comprobante.
+     */
+    public function actualizarContactoComprobante(Request $request, string $id): JsonResponse
+    {
+        $user = $request->user();
+        $localId = $user->local_id;
+
+        $validated = $request->validate([
+            'telefono_envio' => ['nullable', 'string', 'max:20'],
+            'email_envio' => ['nullable', 'email', 'max:100'],
+        ]);
+
+        $comp = DB::table('comprobante as c')
+            ->join('caja as k', 'k.id', '=', 'c.caja_id')
+            ->where('c.id', $id)
+            ->where('k.local_id', $localId)
+            ->select('c.id')
+            ->first();
+
+        if (! $comp) {
+            return ApiResponse::error('COMPROBANTE_NO_ENCONTRADO', 'El comprobante no pertenece a esta sede.', 404);
+        }
+
+        $updateData = ['updated_at' => now()];
+        if ($request->has('telefono_envio')) {
+            $updateData['telefono_envio'] = $validated['telefono_envio'];
+        }
+        if ($request->has('email_envio')) {
+            $updateData['email_envio'] = $validated['email_envio'];
+        }
+
+        DB::table('comprobante')->where('id', $id)->update($updateData);
+
+        return ApiResponse::ok([
+            'id' => $id,
+            'telefono_envio' => $validated['telefono_envio'] ?? null,
+            'email_envio' => $validated['email_envio'] ?? null,
+        ]);
     }
 }

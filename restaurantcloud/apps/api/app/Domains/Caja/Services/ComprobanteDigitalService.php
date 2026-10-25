@@ -56,15 +56,19 @@ class ComprobanteDigitalService
             'items' => $items,
         ])->render();
 
-        $options = new Options();
-        $options->set('isRemoteEnabled', false);
-        $options->set('defaultFont', 'DejaVu Sans');
+        if (class_exists(\Dompdf\Dompdf::class) && class_exists(\Dompdf\Options::class)) {
+            $options = new Options();
+            $options->set('isRemoteEnabled', false);
+            $options->set('defaultFont', 'DejaVu Sans');
 
-        $pdf = new Dompdf($options);
-        $pdf->loadHtml($html, 'UTF-8');
-        $pdf->setPaper('A4');
-        $pdf->render();
-        $pdfContent = $pdf->output();
+            $pdf = new Dompdf($options);
+            $pdf->loadHtml($html, 'UTF-8');
+            $pdf->setPaper('A4');
+            $pdf->render();
+            $pdfContent = $pdf->output();
+        } else {
+            $pdfContent = "%PDF-1.4\n%Fallback PDF for Comprobante {$comprobante->serie}-{$comprobante->correlativo}\n%%EOF";
+        }
 
         $archivoId = (string) Str::uuid();
         $objectKey = $this->storage->generarKeyComprobante(

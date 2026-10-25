@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Admin\CategoriaController;
@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\Admin\RecetaController;
 use App\Http\Controllers\Api\Admin\ProveedorController;
 use App\Http\Controllers\Api\Admin\FichaCompraController;
 use App\Http\Controllers\Api\Admin\PromocionController;
+use App\Http\Controllers\Api\Admin\AnulacionController;
 use App\Http\Controllers\Api\Propietario\AdministradorController;
 use App\Http\Controllers\Api\Propietario\LocalController;
 use App\Http\Controllers\Api\CajaController;
@@ -165,6 +166,14 @@ Route::prefix('v1')->group(function (): void {
                 Route::delete('/{id}', [PromocionController::class, 'destroy']);
                 Route::get('/{id}/rendimiento', [PromocionController::class, 'rendimiento']);
             });
+
+            // CU-ADMIN-04 / CU-ADMIN-11: Bandeja y Auditoría de Anulaciones y Mermas
+            Route::prefix('anulaciones')->group(function (): void {
+                Route::get('/', [AnulacionController::class, 'index']);
+                Route::get('/{id}', [AnulacionController::class, 'show'])->whereUuid('id');
+                Route::post('/{id}/revisar', [AnulacionController::class, 'revisar'])->whereUuid('id');
+                Route::post('/{id}/escalar-incidente', [AnulacionController::class, 'escalarIncidente'])->whereUuid('id');
+            });
         });
 
         // Propietario (CU-PROP-04: GestiÃ³n de Locales / CU-PROP-05: Administradores de Local)
@@ -287,9 +296,15 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/mesas/{id}/items-dividir', [MozoController::class, 'getItemsDividir']);
             Route::post('/mesas/{id}/dividir-cuenta', [MozoController::class, 'dividirCuenta']);
 
-            // CU-CAJA-03: Cobro y FacturaciÃ³n Fiscal SUNAT
+            // CU-CAJA-03: Cobro y Facturación Fiscal SUNAT
             Route::post('/cobrar', [CajaController::class, 'cobrar']);
             Route::get('/clientes/buscar', [CajaController::class, 'buscarCliente']);
+
+            // CU-CAJA-04: Gestión de Comprobantes, Anulaciones y Notas de Crédito SUNAT
+            Route::get('/comprobantes', [CajaController::class, 'getComprobantesTurno']);
+            Route::get('/comprobantes/{id}/preparar-anulacion', [CajaController::class, 'prepararAnulacionComprobante']);
+            Route::post('/comprobantes/{id}/nota-credito', [CajaController::class, 'emitirNotaCredito']);
+            Route::patch('/comprobantes/{id}/contacto', [CajaController::class, 'actualizarContactoComprobante']);
         });
     });
 });

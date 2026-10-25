@@ -53,6 +53,11 @@ import type {
   ClienteFiscalLookupDTO,
   ProcesarCobroFiscalRequest,
   ProcesarCobroFiscalResponseDTO,
+  ComprobanteHistorialItemDTO,
+  FiltrosHistorialComprobantesDTO,
+  PrepararAnulacionResponseDTO,
+  EmitirNotaCreditoRequest,
+  EmitirNotaCreditoResponseDTO,
 } from '@/types/caja';
 import type { ApiResponse as ApiEnvelope } from '@/types/api';
 import type {
@@ -110,6 +115,12 @@ import type {
   FiltrosPromocionesRequest,
   FiltroEstadoPromocion,
   FiltroTipoPromocion,
+  FiltrosAnulacionesRequest,
+  AnulacionesBandejaResponseDTO,
+  PedidoAnulacionItemDTO,
+  MarcarRevisadoRequestDTO,
+  EscalarIncidenteAnulacionRequest,
+  IncidenteDetalleDTO,
 } from '@/types/admin';
 import type {
   DirectorioAdminsApiResponse,
@@ -732,6 +743,36 @@ export const realCajaService = {
   async dividirCuentaMesa(payload: DividirCuentaRequestDTO): Promise<ApiResponse<DividirCuentaResponseDTO>> {
     return apiPost<DividirCuentaResponseDTO>(`/caja/mesas/${payload.mesa_id}/dividir-cuenta`, payload);
   },
+
+  // CU-CAJA-04: Gestión de Comprobantes, Anulaciones y Notas de Crédito
+  async getComprobantesTurno(
+    filtros: FiltrosHistorialComprobantesDTO = { estado: 'todos', tipo: 'todos' }
+  ): Promise<ApiResponse<ComprobanteHistorialItemDTO[]>> {
+    const params = new URLSearchParams();
+    if (filtros.estado) params.append('estado', filtros.estado);
+    if (filtros.tipo && filtros.tipo !== 'todos') params.append('tipo', filtros.tipo);
+    if (filtros.q) params.append('q', filtros.q);
+    const qs = params.toString();
+    return apiGet<ComprobanteHistorialItemDTO[]>(`/caja/comprobantes${qs ? `?${qs}` : ''}`);
+  },
+
+  async prepararAnulacionComprobante(id: string): Promise<ApiResponse<PrepararAnulacionResponseDTO>> {
+    return apiGet<PrepararAnulacionResponseDTO>(`/caja/comprobantes/${id}/preparar-anulacion`);
+  },
+
+  async emitirNotaCredito(
+    comprobanteId: string,
+    datos: EmitirNotaCreditoRequest
+  ): Promise<ApiResponse<EmitirNotaCreditoResponseDTO>> {
+    return apiPost<EmitirNotaCreditoResponseDTO>(`/caja/comprobantes/${comprobanteId}/nota-credito`, datos);
+  },
+
+  async actualizarContactoComprobante(
+    id: string,
+    req: { telefono_envio?: string; email_envio?: string }
+  ): Promise<ApiResponse<{ id: string; telefono_envio?: string; email_envio?: string }>> {
+    return apiPatch<{ id: string; telefono_envio?: string; email_envio?: string }>(`/caja/comprobantes/${id}/contacto`, req);
+  },
 };
 
 export const realAdminService = {
@@ -1041,6 +1082,37 @@ export const realAdminService = {
         errores: [{ codigo: 'ERR_CONEXION', mensaje: 'Error al eliminar la promoción.' }],
       };
     }
+  },
+
+  // CU-ADMIN-04 / CU-ADMIN-11: Bandeja y Auditoría de Anulaciones y Mermas
+  getBandejaAnulaciones: (
+    filtros: FiltrosAnulacionesRequest = {}
+  ): Promise<ApiEnvelope<AnulacionesBandejaResponseDTO>> => {
+    const params: Record<string, unknown> = {};
+    if (filtros.fecha) params.fecha = filtros.fecha;
+    if (filtros.filtro_rapido && filtros.filtro_rapido !== 'todas') params.filtro_rapido = filtros.filtro_rapido;
+    if (filtros.mozo_id && filtros.mozo_id !== 'todos') params.mozo_id = filtros.mozo_id;
+    if (filtros.busqueda) params.busqueda = filtros.busqueda;
+    return apiGet('/admin/anulaciones', params);
+  },
+
+  getAnulacionDetalle: (id: string): Promise<ApiEnvelope<PedidoAnulacionItemDTO>> =>
+    apiGet(`/admin/anulaciones/${id}`),
+
+  marcarAnulacionRevisada: (
+    id: string,
+    req?: MarcarRevisadoRequestDTO
+  ): Promise<ApiEnvelope<PedidoAnulacionItemDTO>> =>
+    apiPost(`/admin/anulaciones/${id}/revisar`, req ?? {}),
+
+  escalarAnulacionAIncidente: (
+    id: string,
+    req: EscalarIncidenteAnulacionRequest
+  ): Promise<ApiEnvelope<{ anulacion: PedidoAnulacionItemDTO; incidente: IncidenteDetalleDTO }>> =>
+    apiPost(`/admin/anulaciones/${id}/escalar-incidente`, req),
+
+  subscribirNotificacionesSse: (_callback: (notif: any) => void) => {
+    return () => {};
   },
 
   async getRendimientoPromocion(id: string): Promise<ApiEnvelope<PromocionRendimientoDTO>> {

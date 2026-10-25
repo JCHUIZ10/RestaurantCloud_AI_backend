@@ -15,13 +15,15 @@ import {
   RotateCcw,
   ShieldCheck,
   DollarSign,
+  PackageCheck,
 } from 'lucide-react';
 import {
   PrepararAnulacionResponseDTO,
   EmitirNotaCreditoResponseDTO,
   MotivoNotaCreditoSUNAT,
+  ComprobanteItemAnulacionDTO,
 } from '@/types/caja';
-import { mockCajaService } from '../../services/mockCajaService';
+import { cajaService } from '@/services/serviceAdapter';
 
 interface ModalEmisionNotaCreditoProps {
   isOpen: boolean;
@@ -69,6 +71,7 @@ export const ModalEmisionNotaCredito: React.FC<ModalEmisionNotaCreditoProps> = (
   const [devolucionMetodo, setDevolucionMetodo] = useState<'efectivo' | 'extorno_tarjeta' | 'transferencia'>('efectivo');
 
   // Resultado de emisión (Vista 3)
+  const [itemsAReingresar, setItemsAReingresar] = useState<string[]>([]);
   const [ncEmitida, setNcEmitida] = useState<EmitirNotaCreditoResponseDTO | null>(null);
   const [copiadoUrl, setCopiadoUrl] = useState<boolean>(false);
 
@@ -89,13 +92,18 @@ export const ModalEmisionNotaCredito: React.FC<ModalEmisionNotaCreditoProps> = (
     setLoading(true);
     setErrorMsg(null);
     try {
-      const res = await mockCajaService.prepararAnulacionComprobante(id);
+      const res = await cajaService.prepararAnulacionComprobante(id);
       if (res.exito && res.datos) {
         setPreparacion(res.datos);
         setTelefonoEnvio(res.datos.telefono_envio || '');
         setEmailEnvio(res.datos.email_envio || '');
         setDevolucionMetodo(res.datos.medio_pago_codigo === 'efectivo' ? 'efectivo' : 'extorno_tarjeta');
         setSustento('');
+        const itemsList: ComprobanteItemAnulacionDTO[] = res.datos.items || [];
+        const elegibles = itemsList
+          .filter((it: ComprobanteItemAnulacionDTO) => it.es_sellado_elegible)
+          .map((it: ComprobanteItemAnulacionDTO) => it.id);
+        setItemsAReingresar(elegibles);
       } else {
         const msg = res.errores?.[0]?.mensaje || 'No se pudo cargar la información del comprobante';
         setErrorMsg(msg);
@@ -144,12 +152,13 @@ export const ModalEmisionNotaCredito: React.FC<ModalEmisionNotaCreditoProps> = (
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
-      const res = await mockCajaService.emitirNotaCredito(comprobanteId, {
+      const res = await cajaService.emitirNotaCredito(comprobanteId, {
         motivo_codigo_sunat: motivo,
         sustento_motivo: sustento.trim(),
         devolucion_metodo: devolucionMetodo,
         telefono_envio: telefonoEnvio.trim() || undefined,
         email_envio: emailEnvio.trim() || undefined,
+        items_reingresar_stock: itemsAReingresar.length > 0 ? itemsAReingresar : undefined,
       });
 
       if (res.exito && res.datos) {
@@ -179,7 +188,7 @@ export const ModalEmisionNotaCredito: React.FC<ModalEmisionNotaCreditoProps> = (
   const handleGuardarTelefono = async () => {
     if (!ncEmitida) return;
     const nuevoTel = tempTelefono.trim();
-    await mockCajaService.actualizarContactoComprobante(ncEmitida.nota_credito_id, {
+    await cajaService.actualizarContactoComprobante(ncEmitida.nota_credito_id, {
       telefono_envio: nuevoTel,
     });
     setTelefonoEnvio(nuevoTel);
@@ -190,7 +199,7 @@ export const ModalEmisionNotaCredito: React.FC<ModalEmisionNotaCreditoProps> = (
   const handleGuardarEmail = async () => {
     if (!ncEmitida) return;
     const nuevoEmail = tempEmail.trim();
-    await mockCajaService.actualizarContactoComprobante(ncEmitida.nota_credito_id, {
+    await cajaService.actualizarContactoComprobante(ncEmitida.nota_credito_id, {
       email_envio: nuevoEmail,
     });
     setEmailEnvio(nuevoEmail);
@@ -279,6 +288,7 @@ export const ModalEmisionNotaCredito: React.FC<ModalEmisionNotaCreditoProps> = (
                   {errorMsg}
                 </div>
               ) : preparacion ? (
+                  <>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* COLUMNA 1: Comprobante Original Afectado */}
                   <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 flex flex-col justify-between">
@@ -456,6 +466,97 @@ export const ModalEmisionNotaCredito: React.FC<ModalEmisionNotaCreditoProps> = (
                     )}
                   </div>
                 </div>
+
+                {/* BLOQUE 3: Restitución Asistida a Bodega (Ítems y Bebidas Selladas) */}
+                {preparacion.items && preparacion.items.length > 0 && (
+                  <div className="mt-6 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center gap-2">
+                        <PackageCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        <span className="text-[11px] uppercase font-bold text-slate-700 dark:text-slate-300 tracking-wider font-mono">
+                          3. Restitución Asistida de Stock a Bodega
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        {itemsAReingresar.length} ítem(s) seleccionado(s) para reingreso
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 mb-3">
+                      Seleccione los productos sellados devueltos intactos (bebidas, botellas, latas) para restituir su inventario en bodega. Los platos preparados en cocina se registran como merma y no devuelven insumos para evitar descuadres.
+                    </p>
+
+                    <div className="space-y-2">
+                      {preparacion.items.map((item: ComprobanteItemAnulacionDTO) => {
+                        const estaSeleccionado = itemsAReingresar.includes(item.id);
+                        return (
+                          <div
+                            key={item.id}
+                            className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                              item.es_sellado_elegible
+                                ? estaSeleccionado
+                                  ? 'bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800'
+                                  : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700'
+                                : 'bg-slate-100/60 dark:bg-slate-800/20 border-slate-200/60 dark:border-slate-800 opacity-75'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              {item.es_sellado_elegible ? (
+                                <input
+                                  type="checkbox"
+                                  id={`item-reingreso-${item.id}`}
+                                  checked={estaSeleccionado}
+                                  onChange={() => {
+                                    setItemsAReingresar((prev) =>
+                                      prev.includes(item.id) ? prev.filter((id) => id !== item.id) : [...prev, item.id]
+                                    );
+                                  }}
+                                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-600"
+                                />
+                              ) : (
+                                <div className="w-4 h-4 flex items-center justify-center text-slate-400">
+                                  <span className="text-xs font-mono">•</span>
+                                </div>
+                              )}
+                              <div>
+                                <label
+                                  htmlFor={item.es_sellado_elegible ? `item-reingreso-${item.id}` : undefined}
+                                  className={`text-xs font-semibold block ${
+                                    item.es_sellado_elegible ? 'cursor-pointer text-slate-800 dark:text-slate-200' : 'text-slate-600 dark:text-slate-400'
+                                  }`}
+                                >
+                                  {item.cantidad}x {item.nombre}
+                                </label>
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  S/ {item.precio_unitario.toFixed(2)} c/u • Subtotal: S/ {item.subtotal.toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="text-right">
+                              {item.es_sellado_elegible ? (
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono ${
+                                    estaSeleccionado
+                                      ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
+                                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                                  }`}
+                                >
+                                  {estaSeleccionado ? '✓ Reingresa a Bodega' : 'No devolver a stock'}
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium font-mono bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50">
+                                  {item.requiere_preparacion ? 'Cocina / Merma culinaria' : 'Stock no descontado'}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                  </>
               ) : null}
             </div>
 

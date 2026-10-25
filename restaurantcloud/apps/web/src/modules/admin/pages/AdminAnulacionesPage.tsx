@@ -10,7 +10,7 @@ import {
   FiltroRapidoAnulaciones,
   EscalarIncidenteAnulacionRequest,
 } from '@/types/admin';
-import { mockAdminService } from '../services/mockAdminService';
+import { adminService } from '@/services/serviceAdapter';
 import { AnulacionesHeader } from '../components/anulaciones/AnulacionesHeader';
 import { AnulacionesFiltros } from '../components/anulaciones/AnulacionesFiltros';
 import { AnulacionesTabla } from '../components/anulaciones/AnulacionesTabla';
@@ -22,7 +22,7 @@ import { DemoAdminAnulacionesWidget } from '../components/anulaciones/DemoAdminA
 
 export const AdminAnulacionesPage: React.FC = () => {
   const [cargando, setCargando] = useState(true);
-  const [fecha, setFecha] = useState('2026-10-09');
+  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
   const [filtroRapido, setFiltroRapido] = useState<FiltroRapidoAnulaciones>('todas');
   const [mozoId, setMozoId] = useState('todos');
   const [busqueda, setBusqueda] = useState('');
@@ -62,7 +62,7 @@ export const AdminAnulacionesPage: React.FC = () => {
   const cargarDatos = useCallback(async () => {
     setCargando(true);
     try {
-      const resp = await mockAdminService.getBandejaAnulaciones({
+      const resp = await adminService.getBandejaAnulaciones({
         fecha,
         filtro_rapido: filtroRapido,
         mozo_id: mozoId,
@@ -88,9 +88,9 @@ export const AdminAnulacionesPage: React.FC = () => {
 
   // Suscripción reactiva a SSE
   useEffect(() => {
-    const desuscribir = mockAdminService.subscribirNotificacionesSse((notif) => {
+    const desuscribir = adminService.subscribirNotificacionesSse((notif: any) => {
       if (notif.anulacion_id) {
-        mockAdminService.getAnulacionDetalle(notif.anulacion_id).then((res) => {
+        adminService.getAnulacionDetalle(notif.anulacion_id).then((res: any) => {
           if (res.exito && res.datos) {
             setAlertaSse(res.datos);
           }
@@ -105,7 +105,7 @@ export const AdminAnulacionesPage: React.FC = () => {
   // Manejador para abrir modal de detalle
   const handleVerFicha = async (id: string) => {
     try {
-      const resp = await mockAdminService.getAnulacionDetalle(id);
+      const resp = await adminService.getAnulacionDetalle(id);
       if (resp.exito) {
         setAnulacionSeleccionada(resp.datos);
         setModalDetalleAbierto(true);
@@ -120,7 +120,7 @@ export const AdminAnulacionesPage: React.FC = () => {
   // Acción rápida: Marcar como Revisado
   const handleMarcarRevisado = async (id: string, notas?: string): Promise<boolean> => {
     try {
-      const resp = await mockAdminService.marcarAnulacionRevisada(id, {
+      const resp = await adminService.marcarAnulacionRevisada(id, {
         notas_supervision: notas,
       });
 
@@ -154,7 +154,7 @@ export const AdminAnulacionesPage: React.FC = () => {
     req: EscalarIncidenteAnulacionRequest
   ): Promise<boolean> => {
     try {
-      const resp = await mockAdminService.escalarAnulacionAIncidente(anulacionId, req);
+      const resp = await adminService.escalarAnulacionAIncidente(anulacionId, req);
       if (resp.exito) {
         mostrarToast(
           `Expediente ${resp.datos.incidente.codigo} generado exitosamente y vinculado con la anulación.`,
@@ -171,6 +171,16 @@ export const AdminAnulacionesPage: React.FC = () => {
       return false;
     }
   };
+
+  const mozosDisponibles = React.useMemo(() => {
+    const map = new Map<string, string>();
+    anulaciones.forEach((a) => {
+      if (a.mozo_id && a.mozo_nombre) {
+        map.set(a.mozo_id, a.mozo_nombre);
+      }
+    });
+    return Array.from(map.entries()).map(([id, nombre]) => ({ id, nombre }));
+  }, [anulaciones]);
 
   const esFiltroActivo = filtroRapido !== 'todas' || mozoId !== 'todos' || busqueda.trim().length > 0;
 
@@ -215,7 +225,7 @@ export const AdminAnulacionesPage: React.FC = () => {
         onChangeFiltroRapido={setFiltroRapido}
         mozoId={mozoId}
         onChangeMozoId={setMozoId}
-        mozos={[
+        mozos={mozosDisponibles.length > 0 ? mozosDisponibles : [
           { id: 'usr-mozo-01', nombre: 'Carlos Mendoza' },
           { id: 'usr-mozo-02', nombre: 'Ana Paredes' },
         ]}
@@ -240,7 +250,7 @@ export const AdminAnulacionesPage: React.FC = () => {
             setMozoId('todos');
             setBusqueda('');
           }}
-          onVolverAHoy={() => setFecha('2026-10-09')}
+          onVolverAHoy={() => setFecha(new Date().toISOString().slice(0, 10))}
         />
       ) : (
         <AnulacionesTabla
