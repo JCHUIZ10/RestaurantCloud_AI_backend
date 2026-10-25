@@ -58,9 +58,8 @@ class CobroFiscalComprobanteTest extends TestCase
         DB::table('caja')->insert([
             'id' => $id,
             'local_id' => $this->localId,
-            'usuario_apertura_id' => $this->cajeroId,
+            'cajero_id' => $this->cajeroId,
             'monto_apertura' => 250.00,
-            'monto_esperado_efectivo' => 250.00,
             'estado' => 'abierta',
             'fecha_apertura' => now(),
             'created_at' => now(),
@@ -100,7 +99,7 @@ class CobroFiscalComprobanteTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $producto = DB::table('producto')->where('empresa_id', $this->empresaId)->first();
+        $producto = DB::table('producto')->where('local_id', $this->localId)->first();
         $this->assertNotNull($producto, 'Debe existir un producto.');
 
         $pedidoItemId = (string) Str::uuid();
