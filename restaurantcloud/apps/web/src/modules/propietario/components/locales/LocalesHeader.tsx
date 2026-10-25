@@ -1,6 +1,6 @@
 import React from 'react';
 import { CuotaPlanLocalesDTO } from '@/types/propietarioLocales';
-import { Button } from '@/components/ui/Button';
+import { Button, PageHeader } from '@/components/ui';
 import { Plus, Building2, Sparkles, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ROUTES } from '@/router/routes.constants';
@@ -24,42 +24,28 @@ export const LocalesHeader: React.FC<LocalesHeaderProps> = ({
 
   return (
     <header className="space-y-6">
-      {/* Breadcrumb & Titular */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <nav
-            aria-label="Migas de pan"
-            className="text-[11px] font-mono uppercase tracking-wider text-aurea-navy/60 mb-1"
-          >
-            Configuración &gt;{' '}
-            <span className="text-aurea-copper font-semibold">Mis Locales</span>
-          </nav>
-          <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl text-aurea-navy font-bold tracking-tight">
-            Gestión de Locales y Sedes
-          </h1>
-          <p className="font-sans text-xs sm:text-sm text-aurea-navy/70 mt-1">
-            Administra las sucursales físicas de tu empresa, asigna administradores o gestiona cada sede directamente.
-          </p>
-        </div>
-
-        {/* Botón de Alta Condicionado */}
-        <div>
-          {limiteAlcanzado ? (
+      {/* Título Principal y Acción de Alta */}
+      <PageHeader
+        icono={Building2}
+        titulo="Locales y sedes"
+        descripcion="Administra las sucursales de tu empresa, asigna administradores o gestiona cada sede directamente."
+        acciones={
+          limiteAlcanzado ? (
             <div className="flex flex-col items-end gap-1.5">
               <Button
                 type="button"
                 disabled
-                className="bg-slate-300 text-slate-500 cursor-not-allowed font-bold text-xs sm:text-sm shadow-none flex items-center gap-2"
+                className="bg-tinta-200 text-tinta-500 cursor-not-allowed font-bold text-xs sm:text-sm shadow-none flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" />
-                <span>+ Registrar Nuevo Local</span>
+                <span>Registrar nuevo local</span>
               </Button>
               <Link
                 to={ROUTES.PROPIETARIO_SUSCRIPCION}
-                className="text-[11px] text-aurea-copper hover:text-aurea-navy font-bold flex items-center gap-1 underline"
+                className="text-xs text-aurea-copper hover:text-aurea-navy font-bold flex items-center gap-1 underline"
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                Límite de plan alcanzado ({localesActivos}/{localesPermitidos}). Mejorar a Enterprise →
+                <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+                Límite alcanzado ({localesActivos}/{localesPermitidos}). Mejorar a Enterprise →
               </Link>
             </div>
           ) : (
@@ -68,12 +54,12 @@ export const LocalesHeader: React.FC<LocalesHeaderProps> = ({
               onClick={onAbrirCrear}
               className="bg-aurea-navy text-white hover:bg-aurea-navy/90 font-bold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all flex items-center gap-2 py-2.5 px-5"
             >
-              <Plus className="w-4 h-4 text-aurea-copper" />
-              <span>+ Registrar Nuevo Local</span>
+              <Plus className="w-4 h-4 text-aurea-copper" aria-hidden="true" />
+              <span>Registrar nuevo local</span>
             </Button>
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
 
       {/* Barra de Progreso de Cuota (Plan Pro / Starter / Enterprise) */}
       <div className="bg-white rounded-2xl p-5 border-2 border-aurea-copper/25 shadow-sm space-y-3">

@@ -351,8 +351,8 @@ export const AdminsTabla: React.FC<AdminsTablaProps> = ({
         </div>
       </div>
 
-      {/* Vista Mobile (< 1024px): Tarjetas Touch Ergonómicas */}
-      <div className="block lg:hidden space-y-4">
+      {/* Vista Mobile/Tablet (< 1024px): Tarjetas Touch Ergonómicas, 2 columnas desde sm */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-4">
         {administradores.map((admin) => {
           const esActivo = admin.estado === 'activo';
           const esPendiente = admin.estado === 'pendiente_activacion';

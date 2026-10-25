@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  CreditCard,
-  Receipt,
   RefreshCw,
   CheckCircle2,
   AlertCircle,
+  Wallet,
   TrendingUp,
+  CreditCard,
+  Receipt,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   FlujoCajaResumenDTO,
@@ -26,9 +28,22 @@ import { ModalVisorReporteZAdmin } from '../components/flujo-caja/ModalVisorRepo
 import { ModalRegistroGastoManual } from '../components/flujo-caja/ModalRegistroGastoManual';
 import { ModalCierreForzadoAdmin } from '../components/flujo-caja/ModalCierreForzadoAdmin';
 import { DemoAdminFinanzasWidget } from '../components/flujo-caja/DemoAdminFinanzasWidget';
-import { SoloDemo } from '@/components/ui/SoloDemo';
+import { PageHeader, SoloDemo } from '@/components/ui';
+import { cn } from '@/shared/utils';
 
 type TabFinanzas = 'flujo' | 'turnos_z' | 'gastos';
+
+const TABS_FINANZAS: Array<{
+  valor: TabFinanzas;
+  icono: LucideIcon;
+  etiqueta: string;
+  activa: string;
+  reposo: string;
+}> = [
+  { valor: 'flujo', icono: TrendingUp, etiqueta: 'Flujo de caja', activa: 'bg-aurea-copper text-aurea-navy', reposo: 'text-aurea-copper' },
+  { valor: 'turnos_z', icono: CreditCard, etiqueta: 'Cierres Z', activa: 'bg-blue-600 text-white', reposo: 'text-blue-600' },
+  { valor: 'gastos', icono: Receipt, etiqueta: 'Gastos', activa: 'bg-red-600 text-white', reposo: 'text-red-600' },
+];
 
 export const AdminFlujoCajaPage: React.FC = () => {
   // Pestaña Activa
@@ -244,97 +259,103 @@ export const AdminFlujoCajaPage: React.FC = () => {
 
   const estadoBadgeTexto =
     resumenFlujo.balance_neto < 0
-      ? 'Déficit Temp'
+      ? 'Déficit temporal'
       : turnosData.kpis.turno_activo?.cajero_nombre === 'Juan Pérez'
-      ? 'Term. Bloqueada'
+      ? 'Terminal bloqueada'
       : turnosData.turnos.some((t) => !t.revisado && t.estado === 'cerrada')
-      ? 'Por Visar'
-      : 'Superávit Net';
+      ? 'Por visar'
+      : 'Superávit neto';
+
+  const estiloBadgeEstado =
+    estadoBadgeTexto === 'Superávit neto'
+      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+      : estadoBadgeTexto === 'Por visar'
+      ? 'bg-amber-50 text-amber-700 border-amber-200'
+      : 'bg-red-50 text-red-700 border-red-200';
+
+  const puntoBadgeEstado =
+    estadoBadgeTexto === 'Superávit neto'
+      ? 'bg-emerald-500'
+      : estadoBadgeTexto === 'Por visar'
+      ? 'bg-amber-500'
+      : 'bg-red-500';
 
   return (
     <div className="space-y-6 pb-20">
       {/* Toast Flotante */}
       {toast && (
         <div
-          className={`fixed top-16 right-6 z-50 px-4 py-3 rounded-2xl shadow-xl border text-xs font-medium flex items-center gap-2.5 animate-in slide-in-from-top-3 max-w-md ${
+          className={cn(
+            'fixed top-16 left-4 right-4 sm:left-auto sm:right-6 z-50 px-4 py-3 rounded-2xl shadow-xl border text-xs font-medium flex items-center gap-2.5 animate-in slide-in-from-top-3 sm:max-w-md',
             toast.tipo === 'success'
               ? 'bg-emerald-900/90 text-emerald-100 border-emerald-600'
               : toast.tipo === 'error'
-              ? 'bg-rose-900/90 text-rose-100 border-rose-600'
-              : 'bg-slate-900/90 text-slate-100 border-slate-700'
-          }`}
+              ? 'bg-red-900/90 text-red-100 border-red-600'
+              : 'bg-aurea-navy/95 text-white border-aurea-copper/40'
+          )}
         >
           {toast.tipo === 'success' ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
           ) : (
-            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <AlertCircle className="w-4 h-4 text-red-400 shrink-0" aria-hidden="true" />
           )}
           <span>{toast.mensaje}</span>
         </div>
       )}
 
-      {/* Cabecera Principal del Módulo */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="px-3 py-1 rounded-full bg-aurea-navy text-white text-xs font-mono font-bold tracking-wide border border-aurea-copper/40">
-              CU-ADMIN-14
+      {/* Cabecera */}
+      <div className="space-y-4">
+        <PageHeader
+          icono={Wallet}
+          titulo="Flujo de caja"
+          descripcion="Ingresos y egresos de la sede, visado de cierres Z y gastos operativos."
+          meta={
+            <span
+              className={cn(
+                'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border whitespace-nowrap',
+                estiloBadgeEstado
+              )}
+            >
+              <span className={cn('w-1.5 h-1.5 rounded-full', puntoBadgeEstado)} aria-hidden="true" />
+              {estadoBadgeTexto}
             </span>
-            <span className="text-xs text-slate-500 font-medium">
-              Sede: Miraflores • Centro de Control de Tesorería & Cierres Z
-            </span>
-          </div>
-          <h1 className="text-2xl font-bold font-serif text-slate-900 dark:text-white mt-1">
-            Gestión de Flujo de Caja, Gastos y Auditoría de Cierres Z
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Monitoreo en tiempo real de ingresos 100% de salón, egresos operativos, visado de Reportes Z y rescate de terminal.
-          </p>
-        </div>
-
-        {/* Pestañas Principales (Tablist) */}
-        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-200/80 dark:bg-slate-800 text-xs font-semibold self-start md:self-auto overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => setTabActiva('flujo')}
-            className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
-              tabActiva === 'flujo'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm font-bold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <TrendingUp className="w-4 h-4 text-aurea-copper" />
-            <span>Flujo de Caja & Balance</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setTabActiva('turnos_z')}
-            className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 relative ${
-              tabActiva === 'turnos_z'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm font-bold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <CreditCard className="w-4 h-4 text-aurea-copper" />
-            <span>Auditoría de Turnos & Cierres Z</span>
-            {turnosData.kpis.turnos_pendientes_auditoria > 0 && (
-              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setTabActiva('gastos')}
-            className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
-              tabActiva === 'gastos'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm font-bold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <Receipt className="w-4 h-4 text-aurea-copper" />
-            <span>Egresos & Gastos Sede</span>
-          </button>
+          }
+        />
+        <div
+          role="tablist"
+          aria-label="Sección de finanzas"
+          className="grid grid-cols-3 sm:inline-flex sm:w-auto w-full gap-1.5 sm:gap-2 p-1.5 rounded-2xl bg-aurea-ivory/60 border border-aurea-champagne/70 shadow-sm"
+        >
+          {TABS_FINANZAS.map(({ valor, icono: Icono, etiqueta, activa, reposo }) => {
+            const seleccionada = tabActiva === valor;
+            const pendientes = valor === 'turnos_z' ? turnosData.kpis.turnos_pendientes_auditoria : 0;
+            return (
+              <button
+                key={valor}
+                type="button"
+                role="tab"
+                aria-selected={seleccionada}
+                onClick={() => setTabActiva(valor)}
+                className={cn(
+                  'relative min-h-tactil px-2 sm:px-4 rounded-xl text-xs sm:text-sm font-semibold flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all',
+                  seleccionada ? cn(activa, 'shadow-md') : 'bg-white text-tinta-700 hover:bg-white/80'
+                )}
+              >
+                <Icono className={cn('w-4 h-4 shrink-0', seleccionada ? '' : reposo)} aria-hidden="true" />
+                <span>{etiqueta}</span>
+                {pendientes > 0 && (
+                  <span
+                    className={cn(
+                      'inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full text-xs font-bold leading-none',
+                      seleccionada ? 'bg-white/25' : 'bg-amber-500 text-white'
+                    )}
+                  >
+                    {pendientes}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 

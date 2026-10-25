@@ -208,20 +208,21 @@ export const PropietarioAdministradoresPage: React.FC = () => {
   }, [administradores, tabActivo, busqueda]);
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 pb-20 animate-in fade-in duration-300">
       {/* Toast Flotante */}
       {toast && (
-        <div className="fixed top-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl text-xs font-bold border transition-all animate-in slide-in-from-top-4 duration-200 bg-white border-aurea-copper/40 text-aurea-navy">
+        <div className="fixed top-6 left-4 right-4 sm:left-auto sm:right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl text-xs font-bold border transition-all animate-in slide-in-from-top-4 duration-200 bg-white border-aurea-copper/40 text-aurea-navy sm:max-w-md">
           {toast.tipo === 'success' ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
           ) : (
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" aria-hidden="true" />
           )}
-          <span className="max-w-md">{toast.mensaje}</span>
+          <span className="min-w-0">{toast.mensaje}</span>
           <button
             type="button"
             onClick={() => setToast(null)}
-            className="text-slate-400 hover:text-slate-700 ml-2"
+            aria-label="Cerrar notificación"
+            className="text-tinta-400 hover:text-tinta-700 ml-auto shrink-0"
           >
             <X className="w-4 h-4" />
           </button>

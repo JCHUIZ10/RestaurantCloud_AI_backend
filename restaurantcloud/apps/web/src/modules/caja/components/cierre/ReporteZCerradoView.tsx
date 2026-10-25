@@ -15,6 +15,7 @@ import {
   Building,
 } from 'lucide-react';
 import { ReporteZDTO } from '@/types/caja';
+import { apiClient } from '@/services/api/client';
 
 interface ReporteZCerradoViewProps {
   reporte: ReporteZDTO;
@@ -30,14 +31,40 @@ export const ReporteZCerradoView: React.FC<ReporteZCerradoViewProps> = ({
   const [descargando, setDescargando] = useState<boolean>(false);
   const [descargadoExito, setDescargadoExito] = useState<boolean>(false);
 
-  const handleDescargarPdf = () => {
+  const handleDescargarPdf = async () => {
     setDescargando(true);
-    setDescargadoExito(true);
-    window.print();
-    setTimeout(() => {
-      setDescargando(false);
-      setDescargadoExito(false);
-    }, 2500);
+    try {
+      const endpoint =
+        reporte.url_descarga_pdf ||
+        (reporte.caja_id ? `/caja/turnos/${reporte.caja_id}/reporte-z/pdf` : null);
+
+      if (endpoint) {
+        const response = await apiClient.get(endpoint, {
+          responseType: 'blob',
+        });
+        const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = `reporte-z-turno-${String(reporte.turno_correlativo).padStart(3, '0')}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+        setDescargadoExito(true);
+      } else {
+        window.print();
+        setDescargadoExito(true);
+      }
+    } catch (err) {
+      console.warn('Fallo al descargar PDF de MinIO, aplicando fallback de impresión:', err);
+      window.print();
+      setDescargadoExito(true);
+    } finally {
+      setTimeout(() => {
+        setDescargando(false);
+        setDescargadoExito(false);
+      }, 3000);
+    }
   };
 
   const fechaAperturaStr = new Date(reporte.fecha_apertura).toLocaleString('es-PE', {
@@ -297,7 +324,7 @@ export const ReporteZCerradoView: React.FC<ReporteZCerradoViewProps> = ({
               className="px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm"
             >
               <FileDown className="w-4 h-4 text-aurea-copper" />
-              <span>{descargando ? 'Generando PDF...' : 'Descargar PDF'}</span>
+              <span>{descargando ? 'Descargando PDF...' : 'Descargar PDF'}</span>
             </button>
 
             <button

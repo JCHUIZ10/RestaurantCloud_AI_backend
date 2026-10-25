@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -303,5 +304,31 @@ class CajaCoreOperativoTest extends TestCase
                     'discrepancia' => 20.00,
                 ],
             ]);
+
+        // Consultar Reporte Z especifico por ID
+        $resPorId = $this->getJson('/api/v1/caja/turnos/' . $cajaId . '/reporte-z', $this->headers());
+        $resPorId->assertStatus(200)
+            ->assertJson([
+                'exito' => true,
+                'datos' => [
+                    'caja_id' => $cajaId,
+                    'discrepancia' => 20.00,
+                ],
+            ]);
+
+        // Verificar que el PDF se generó y guardó en MinIO (bucket privado reportes-z) y tabla archivo
+        $archivo = DB::table('archivo')
+            ->where('entidad_tipo', 'caja_cierre')
+            ->where('entidad_id', $cajaId)
+            ->first();
+        $this->assertNotNull($archivo);
+        $this->assertEquals('disponible', $archivo->estado);
+        $this->assertStringContainsString('reportes-z', $archivo->object_key);
+        $this->assertTrue(Storage::disk('s3')->exists($archivo->object_key));
+
+        // Verificar endpoint de streaming de descarga del Reporte Z
+        $resPdf = $this->get('/api/v1/caja/turnos/' . $cajaId . '/reporte-z/pdf', $this->headers());
+        $resPdf->assertStatus(200);
+        $this->assertEquals('application/pdf', $resPdf->headers->get('content-type'));
     }
 }

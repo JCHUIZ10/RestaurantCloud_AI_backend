@@ -10,6 +10,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { AnulacionesKPIsDTO } from '@/types/admin';
+import { PageHeader } from '@/components/ui';
 
 interface AnulacionesHeaderProps {
   fecha: string;
@@ -79,24 +80,12 @@ export const AnulacionesHeader: React.FC<AnulacionesHeaderProps> = ({
   return (
     <div className="space-y-6">
       {/* Título Principal y Selector de Fecha */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-aurea-copper">
-            <span>Auditoría de Sala y Control de Mermas</span>
-            <span>•</span>
-            <span>CU-ADMIN-12</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-serif font-bold text-aurea-navy tracking-tight mt-1">
-            Auditoría de Anulaciones del Local
-          </h1>
-          <p className="text-sm text-aurea-navy/70 mt-1 max-w-2xl">
-            Supervisión inmutable de platos y comandas canceladas en salón, trazabilidad temporal
-            de espera y control contable de mermas culinarias.
-          </p>
-        </div>
-
-        {/* Selector Táctil de Fecha y Atajos Rápidos */}
-        <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
+      <PageHeader
+        icono={FileX2}
+        titulo="Auditoría de anulaciones"
+        descripcion="Platos y comandas canceladas en salón, con su tiempo de espera y el costo de merma."
+        acciones={
+          <>
           <div className="inline-flex items-center rounded-xl bg-white border border-slate-200/90 shadow-sm p-1 text-xs">
             <button
               onClick={handleRetrocederDia}
@@ -162,8 +151,9 @@ export const AnulacionesHeader: React.FC<AnulacionesHeaderProps> = ({
               <span className="hidden sm:inline">Actualizar</span>
             </button>
           )}
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* 4 Tarjetas KPI Operativas del Día */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

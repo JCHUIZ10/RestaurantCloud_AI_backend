@@ -829,6 +829,19 @@ export const realCajaService = {
       };
     }
   },
+
+  async getReporteZTurno(cajaId: string): Promise<ApiResponse<ReporteZDTO>> {
+    try {
+      return await apiGet<ReporteZDTO>(`/caja/turnos/${cajaId}/reporte-z`);
+    } catch (err: any) {
+      if (err.response?.data) return err.response.data as ApiResponse<ReporteZDTO>;
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_CONEXION', mensaje: 'Error al consultar el reporte Z del turno.' }],
+      };
+    }
+  },
 };
 
 export const realAdminService = {

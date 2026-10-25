@@ -10,7 +10,6 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
-import { CAJERO_ACTUAL_MOCK } from '../../services/mockCajaService';
 
 interface ModalAperturaTurnoProps {
   isOpen: boolean;
@@ -30,9 +29,9 @@ export const ModalAperturaTurno: React.FC<ModalAperturaTurnoProps> = ({
   isSubmitting = false,
 }) => {
   const usuario = useAuthStore((s) => s.usuario);
-  const cajeroNombre = usuario?.nombre || CAJERO_ACTUAL_MOCK.nombre;
+  const cajeroNombre = usuario?.nombre || 'Cajero(a) de Turno';
   const cajeroRol =
-    usuario?.rol === 'cajero' ? 'Cajero(a) de Turno' : usuario?.rol || CAJERO_ACTUAL_MOCK.rol;
+    usuario?.rol === 'cajero' ? 'Cajero(a) de Turno' : usuario?.rol || 'Cajero';
   const cajeroIniciales = usuario?.nombre
     ? usuario.nombre
         .split(' ')
@@ -40,7 +39,7 @@ export const ModalAperturaTurno: React.FC<ModalAperturaTurnoProps> = ({
         .slice(0, 2)
         .map((w) => w[0].toUpperCase())
         .join('')
-    : CAJERO_ACTUAL_MOCK.iniciales;
+    : 'CJ';
 
   const [monto, setMonto] = useState<string>('300.00');
   const [notas, setNotas] = useState<string>('');

@@ -4,13 +4,20 @@ namespace App\Http\Controllers\Api;
 
 use App\Domains\Caja\Jobs\GenerarComprobanteDigitalJob;
 use App\Domains\Caja\Services\ConsultaDocumentoService;
+use App\Domains\Caja\Services\ReporteZDigitalService;
 use App\Http\Controllers\Controller;
+use App\Models\Archivo;
 use App\Support\ApiResponse;
+use Illuminate\Filesystem\AwsS3V3Adapter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Psr\Http\Message\StreamInterface;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CajaController extends Controller
 {
@@ -1994,10 +2001,11 @@ class CajaController extends Controller
         $local = DB::table('local as l')
             ->join('empresa as e', 'e.id', '=', 'l.empresa_id')
             ->where('l.id', $localId)
-            ->select(['l.nombre as local_nombre', 'e.ruc as empresa_ruc'])
+            ->select(['l.nombre as local_nombre', 'e.ruc as empresa_ruc', 'e.id as empresa_id'])
             ->first();
         $localNombre = $local ? $local->local_nombre : 'Áurea';
         $empresaRuc = $local ? $local->empresa_ruc : '20609876543';
+        $empresaId = $local ? $local->empresa_id : (string) Str::uuid();
 
         $notasCierre = isset($validated['notas_cierre']) ? trim($validated['notas_cierre']) : null;
 
@@ -2032,7 +2040,7 @@ class CajaController extends Controller
             'url_descarga_pdf' => "/api/v1/caja/turnos/{$caja->id}/reporte-z/pdf",
         ];
 
-        return DB::transaction(function () use ($caja, $localId, $user, $montoRealFisico, $efectivoEsperado, $discrepancia, $comentarioDiscrepancia, $notasCierre, $reporteZ) {
+        $cierreResult = DB::transaction(function () use ($caja, $localId, $user, $montoRealFisico, $efectivoEsperado, $discrepancia, $comentarioDiscrepancia, $notasCierre, $reporteZ) {
             DB::table('caja')->where('id', $caja->id)->update([
                 'estado' => 'cerrada',
                 'fecha_cierre' => now(),
@@ -2064,8 +2072,104 @@ class CajaController extends Controller
                 'created_at' => now(),
             ]);
 
-            return ApiResponse::ok($reporteZ);
+            return $reporteZ;
         });
+
+        // Generar y persistir inmutablemente el PDF del Reporte Z en MinIO bajo reportes-z
+        try {
+            app(ReporteZDigitalService::class)->generarPdf(
+                $caja->id,
+                $reporteZ,
+                $empresaId,
+                $localId,
+                $user->id
+            );
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo guardar el PDF de Reporte Z en MinIO: ' . $e->getMessage(), [
+                'caja_id' => $caja->id,
+                'local_id' => $localId,
+            ]);
+        }
+
+        return ApiResponse::ok($cierreResult);
+    }
+
+    /**
+     * CU-CAJA-05: Descargar el PDF oficial del Reporte Z desde MinIO.
+     */
+    public function descargarReporteZPdf(string $id, Request $request): StreamedResponse|JsonResponse
+    {
+        $user = $request->user();
+        $localId = $user->local_id;
+
+        $caja = DB::table('caja')->where('id', $id)->first();
+        if (! $caja) {
+            return ApiResponse::error('CAJA_NO_ENCONTRADA', 'El turno de caja especificado no existe.', 404);
+        }
+
+        if ($user->rol !== 'admin_saas' && $caja->local_id !== $localId) {
+            return ApiResponse::error('ACCESO_DENEGADO', 'No tiene permisos para acceder al reporte de esta sede.', 403);
+        }
+
+        /** @var ReporteZDigitalService $service */
+        $service = app(ReporteZDigitalService::class);
+        $archivo = $service->obtenerArchivo($id);
+
+        if (! $archivo) {
+            $auditoria = DB::table('auditoria_caja_cierre')->where('caja_id', $id)->first();
+            if ($auditoria) {
+                $reporteData = is_string($auditoria->reporte_z_json)
+                    ? json_decode($auditoria->reporte_z_json, true)
+                    : (array) $auditoria->reporte_z_json;
+
+                $local = DB::table('local as l')
+                    ->join('empresa as e', 'e.id', '=', 'l.empresa_id')
+                    ->where('l.id', $caja->local_id)
+                    ->select(['e.id as empresa_id'])
+                    ->first();
+                $empresaId = $local ? $local->empresa_id : (string) Str::uuid();
+
+                try {
+                    $archivo = $service->generarPdf($id, $reporteData, $empresaId, $caja->local_id, $user->id);
+                } catch (\Throwable $e) {
+                    Log::error('Fallo al generar PDF de Reporte Z bajo demanda: ' . $e->getMessage());
+                }
+            }
+        }
+
+        if (! $archivo) {
+            return ApiResponse::error('REPORTE_NO_DISPONIBLE', 'El documento digital del Reporte Z no está disponible.', 404);
+        }
+
+        try {
+            $disk = Storage::disk('s3');
+
+            if ($disk instanceof AwsS3V3Adapter) {
+                $resultado = $disk->getClient()->getObject([
+                    'Bucket' => config('filesystems.disks.s3.bucket', 'restaurantcloud'),
+                    'Key' => $archivo->object_key,
+                ]);
+                $stream = $resultado['Body'];
+
+                if ($stream instanceof StreamInterface) {
+                    return response()->streamDownload(function () use ($stream): void {
+                        while (! $stream->eof()) {
+                            echo $stream->read(1024 * 1024);
+                        }
+                        $stream->close();
+                    }, $archivo->nombre_original, ['Content-Type' => $archivo->mime_type]);
+                }
+            }
+
+            return Storage::disk('s3')->download($archivo->object_key, $archivo->nombre_original);
+        } catch (\Throwable $e) {
+            Log::warning('Error al leer PDF de Reporte Z desde MinIO: ' . $e->getMessage(), [
+                'archivo_id' => $archivo->id,
+                'object_key' => $archivo->object_key,
+            ]);
+
+            return ApiResponse::error('DOCUMENTO_NO_ACCESIBLE', 'No se pudo abrir el archivo PDF desde el almacenamiento seguro.', 503);
+        }
     }
 
     /**
@@ -2083,6 +2187,34 @@ class CajaController extends Controller
 
         if (! $auditoria) {
             return ApiResponse::ok(null);
+        }
+
+        $reporte = is_string($auditoria->reporte_z_json)
+            ? json_decode($auditoria->reporte_z_json, true)
+            : $auditoria->reporte_z_json;
+
+        return ApiResponse::ok($reporte);
+    }
+
+    /**
+     * CU-CAJA-05: Obtener un Reporte Z específico por ID de caja o ID de auditoría.
+     */
+    public function getReporteZPorId(string $id, Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $localId = $user->local_id;
+
+        $auditoria = DB::table('auditoria_caja_cierre')
+            ->where('local_id', $localId)
+            ->where(function ($query) use ($id) {
+                $query->where('caja_id', $id)
+                    ->orWhere('id', $id);
+            })
+            ->orderByDesc('created_at')
+            ->first();
+
+        if (! $auditoria) {
+            return ApiResponse::error('REPORTE_NO_ENCONTRADO', 'No se encontró el reporte Z para el identificador proporcionado.', 404);
         }
 
         $reporte = is_string($auditoria->reporte_z_json)

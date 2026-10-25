@@ -323,6 +323,8 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/balance-pre-arqueo', [CajaController::class, 'getBalancePreArqueo']);
             Route::post('/cierre', [CajaController::class, 'cerrarTurno']);
             Route::get('/ultimo-reporte-z', [CajaController::class, 'getUltimoReporteZ']);
+            Route::get('/turnos/{id}/reporte-z', [CajaController::class, 'getReporteZPorId']);
+            Route::get('/turnos/{id}/reporte-z/pdf', [CajaController::class, 'descargarReporteZPdf']);
         });
     });
 });

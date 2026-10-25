@@ -3,13 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { RefreshCw, CheckCircle2, AlertCircle, Lock, ChevronRight } from 'lucide-react';
 import { ROUTES } from '@/router/routes.constants';
 import { BalancePreArqueoDTO, CerrarCajaRequest, ReporteZDTO } from '@/types/caja';
-import { cajaService, IS_REAL_API } from '@/services/serviceAdapter';
-import { mockCajaService } from '../services/mockCajaService';
+import { cajaService } from '@/services/serviceAdapter';
 import { BalancePreArqueoView } from '../components/cierre/BalancePreArqueoView';
 import { ModalArqueoConteo } from '../components/cierre/ModalArqueoConteo';
 import { ReporteZCerradoView } from '../components/cierre/ReporteZCerradoView';
-import { DemoCajaCierreWidget } from '../components/demo/DemoCajaCierreWidget';
-import { SoloDemo } from '@/components/ui/SoloDemo';
 import { useCerrarSesion } from '@/shared/hooks/useCerrarSesion';
 
 export const CajeroTurnoCierrePage: React.FC = () => {
@@ -126,7 +123,7 @@ export const CajeroTurnoCierrePage: React.FC = () => {
   };
 
   // Manejador: Confirmar y Cerrar Turno (Cierre Formal Z)
-  // Al completarse exitosamente, notifica y redirige a la página inicial POS para apertura del siguiente turno.
+  // Al completarse exitosamente, muestra la vista oficial del Reporte Z cerrado (Vista 3)
   const handleConfirmarCierre = async (req: CerrarCajaRequest) => {
     setIsSubmittingCierre(true);
     try {
@@ -134,14 +131,12 @@ export const CajeroTurnoCierrePage: React.FC = () => {
 
       if (resp.exito && resp.datos) {
         setIsModalArqueoOpen(false);
+        setBalance(null);
+        setReporteEmitido(resp.datos);
         showToast(
           'success',
-          `¡Turno #${String(resp.datos.turno_correlativo).padStart(3, '0')} cerrado con éxito! Redirigiendo a pantalla inicial...`
+          `¡Turno #${String(resp.datos.turno_correlativo).padStart(3, '0')} cerrado con éxito!`
         );
-        // Redirige a la página inicial POS donde quedará pendiente la apertura de la siguiente caja
-        setTimeout(() => {
-          navigate(ROUTES.CAJERO_POS);
-        }, 1200);
       } else {
         const errorMsg = resp.errores?.[0]?.mensaje || 'No se pudo completar el cierre de caja.';
         showToast('error', errorMsg);
@@ -153,13 +148,6 @@ export const CajeroTurnoCierrePage: React.FC = () => {
     }
   };
 
-  // Manejador: Liquidar Mesas Activas en Demo
-  const handleLiquidarMesasDemo = async () => {
-    mockCajaService.simularSalonAlDiaQA();
-    showToast('info', 'Demostración: Mesas liquidadas en salón. Salón 100% al día.');
-    await cargarDatos();
-  };
-
   // Manejador: Acciones posteriores al Reporte Z (Vista 3)
   const handleIrAperturaNuevoTurno = () => {
     navigate(ROUTES.CAJERO_POS);
@@ -169,50 +157,6 @@ export const CajeroTurnoCierrePage: React.FC = () => {
 
   const handleVolverPos = () => {
     navigate(ROUTES.CAJERO_POS);
-  };
-
-  // Manejador del Sandbox QA
-  const handleSelectEscenarioQA = async (
-    escenario: 'salon_al_dia' | 'mesas_pendientes' | 'faltante' | 'sobrante' | 'caja_cerrada' | 'restablecer'
-  ) => {
-    if (escenario === 'salon_al_dia') {
-      mockCajaService.simularSalonAlDiaQA();
-      setReporteEmitido(null);
-      setIsModalArqueoOpen(false);
-      showToast('success', 'Sandbox: Salón al día (0 mesas pendientes). Arqueo F8 habilitado.');
-    } else if (escenario === 'mesas_pendientes') {
-      mockCajaService.simularSalonConMesasPendientesQA();
-      setReporteEmitido(null);
-      setIsModalArqueoOpen(false);
-      showToast('error', 'Sandbox: Provocando mesas activas con comensales. Poka-Yoke activado.');
-    } else if (escenario === 'faltante') {
-      mockCajaService.simularSalonAlDiaQA();
-      setReporteEmitido(null);
-      setIsModalArqueoOpen(true);
-      showToast('info', 'Sandbox: Modal de Arqueo abierto. Ingrese S/ 285.00 para probar faltante (-S/ 15).');
-    } else if (escenario === 'sobrante') {
-      mockCajaService.simularSalonAlDiaQA();
-      setReporteEmitido(null);
-      setIsModalArqueoOpen(true);
-      showToast('info', 'Sandbox: Modal de Arqueo abierto. Ingrese S/ 320.00 para probar sobrante (+S/ 20).');
-    } else if (escenario === 'caja_cerrada') {
-      mockCajaService.simularSalonAlDiaQA();
-      const respZ = await mockCajaService.cerrarTurno({
-        monto_real_fisico: 300.0,
-        notas_cierre: 'Cierre demostrativo automático sin discrepancia.',
-      });
-      if (respZ.exito && respZ.datos) {
-        setReporteEmitido(respZ.datos);
-        setIsModalArqueoOpen(false);
-        showToast('success', 'Sandbox: Mostrando Vista 3 (Reporte Z Oficial SUNAT cerrado).');
-      }
-    } else if (escenario === 'restablecer') {
-      mockCajaService.restablecerSemillasCierreQA();
-      setReporteEmitido(null);
-      setIsModalArqueoOpen(false);
-      showToast('info', 'Sandbox: Semillas de cierre restablecidas al estado pre-arqueo inicial.');
-    }
-    await cargarDatos();
   };
 
   if (loading) {
@@ -249,15 +193,6 @@ export const CajeroTurnoCierrePage: React.FC = () => {
     );
   }
 
-  // Estado textual para el widget QA
-  const estadoBadgeTexto = reporteEmitido
-    ? 'Caja Cerrada (Z)'
-    : balance && !balance.salon_al_dia
-    ? 'Mesas Activas'
-    : isModalArqueoOpen
-    ? 'Arqueo en Curso'
-    : 'Listo p/ Cierre';
-
   return (
     <div className="relative min-h-full pb-20">
       {/* Toast Flotante */}
@@ -293,7 +228,6 @@ export const CajeroTurnoCierrePage: React.FC = () => {
           balance={balance}
           onIniciarArqueo={handleIniciarArqueo}
           onVolverPos={handleVolverPos}
-          onLiquidarMesasDemo={!IS_REAL_API ? handleLiquidarMesasDemo : undefined}
         />
       ) : null}
 
@@ -307,16 +241,6 @@ export const CajeroTurnoCierrePage: React.FC = () => {
           isSubmitting={isSubmittingCierre}
         />
       )}
-
-      {/* Widget Flotante de Pruebas QA (Únicamente en modo Mock) */}
-      <SoloDemo>
-        {!IS_REAL_API && (
-          <DemoCajaCierreWidget
-            onSelectEscenario={handleSelectEscenarioQA}
-            estadoActual={estadoBadgeTexto}
-          />
-        )}
-      </SoloDemo>
     </div>
   );
 };

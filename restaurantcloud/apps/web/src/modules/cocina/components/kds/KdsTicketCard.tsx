@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Flame, CheckCircle2, RotateCcw, AlertTriangle, Users, Utensils, Link2, BellRing, Eye } from 'lucide-react';
+import { Flame, CheckCircle2, RotateCcw, AlertTriangle, Users, Utensils, Link2, BellRing, Eye, Timer, NotebookPen, CupSoda } from 'lucide-react';
 import { KDSComandaDTO } from '@/types/cocina';
 
 interface KdsTicketCardProps {
@@ -115,7 +115,8 @@ export const KdsTicketCard: React.FC<KdsTicketCardProps> = ({
         {/* Temporizador Dinámico */}
         <div className="mt-2 pt-1.5 border-t border-slate-800/60 flex items-center justify-between">
           <div className="flex items-center gap-1.5 font-mono font-bold text-sm sm:text-base">
-            <span>⏱️ {tiempoFormateado} min</span>
+            <Timer className="w-4 h-4" />
+            <span>{tiempoFormateado} min</span>
             <span className="text-[11px] font-normal opacity-80">
               {esRojo
                 ? 'CRÍTICO'
@@ -202,8 +203,9 @@ export const KdsTicketCard: React.FC<KdsTicketCardProps> = ({
 
               {/* Notas de Cocina / Alérgenos */}
               {item.nota_cocina && (
-                <div className="mt-2 p-1.5 rounded-lg bg-amber-950/40 border border-amber-700/50 text-amber-200 text-xs font-medium">
-                  📝 {item.nota_cocina}
+                <div className="mt-2 p-1.5 rounded-lg bg-amber-950/40 border border-amber-700/50 text-amber-200 text-xs font-medium flex items-start gap-1.5">
+                  <NotebookPen className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>{item.nota_cocina}</span>
                 </div>
               )}
 
@@ -216,7 +218,7 @@ export const KdsTicketCard: React.FC<KdsTicketCardProps> = ({
                       className="w-full min-h-[44px] rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-slate-950 shadow"
                     >
                       <Flame className="w-4 h-4 fill-current" />
-                      <span>[ 🔥 Poner en Fuego ]</span>
+                      <span>Poner en Fuego</span>
                     </button>
                   )}
 
@@ -227,8 +229,9 @@ export const KdsTicketCard: React.FC<KdsTicketCardProps> = ({
                           <Flame className="w-4 h-4 fill-amber-400 animate-pulse" />
                           <span>En Fuego</span>
                         </span>
-                        <span>
-                          ⏱️ {(() => {
+                        <span className="flex items-center gap-1">
+                          <Timer className="w-3.5 h-3.5" />
+                          {(() => {
                             if (!item.fecha_inicio_coccion) return '00:00';
                             const diffSec = Math.max(0, Math.floor((Date.now() - new Date(item.fecha_inicio_coccion).getTime()) / 1000));
                             const m = Math.floor(diffSec / 60);
@@ -247,7 +250,7 @@ export const KdsTicketCard: React.FC<KdsTicketCardProps> = ({
                         }`}
                       >
                         <CheckCircle2 className="w-4 h-4" />
-                        <span>{esRojo ? '[ ✓ Listo Urgente ]' : '[ ✓ Listo en Pase ]'}</span>
+                        <span>{esRojo ? 'Listo Urgente' : 'Listo en Pase'}</span>
                       </button>
                     </div>
                   )}
@@ -256,7 +259,7 @@ export const KdsTicketCard: React.FC<KdsTicketCardProps> = ({
                     <div className="w-full flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 text-emerald-400 font-mono font-bold text-xs">
                         <CheckCircle2 className="w-4 h-4" />
-                        <span>✓ LISTO EN PASE</span>
+                        <span>LISTO EN PASE</span>
                       </div>
 
                       {(() => {

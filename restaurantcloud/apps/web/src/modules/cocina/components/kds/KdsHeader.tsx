@@ -1,5 +1,5 @@
 import React from 'react';
-import { Wifi, Volume2, VolumeX, LayoutGrid, Layers, Clock } from 'lucide-react';
+import { Wifi, Volume2, VolumeX, LayoutGrid, Layers, Clock, History, Ban, Settings } from 'lucide-react';
 import { ConfiguracionKDSDTO } from '@/types/cocina';
 import { useAuthStore } from '@/stores/authStore';
 import { BotonSalir } from '@/components/ui/BotonSalir';
@@ -57,7 +57,7 @@ export const KdsHeader: React.FC<KdsHeaderProps> = ({
               RESTAURANTCLOUD <span className="text-aurea-copper">AI</span>
             </span>
             <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-slate-800 text-aurea-champagne border border-slate-700">
-              KDS COCINA • CU-COCINA-01 a 04
+              PANTALLA DE COCINA
             </span>
           </div>
         </div>
@@ -78,7 +78,8 @@ export const KdsHeader: React.FC<KdsHeaderProps> = ({
               className="px-3 py-1.5 rounded-lg font-mono font-bold text-xs bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 hover:border-amber-400 transition-all flex items-center gap-2 shadow"
               title="Bandeja de pedidos despachados en los últimos 30 minutos (Auditoría de solo lectura)"
             >
-              <span>⏱️ Despachados</span>
+              <History className="w-3.5 h-3.5" />
+              <span>Despachados</span>
               <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 text-[11px]">
                 {despachadosCount}
               </span>
@@ -93,9 +94,10 @@ export const KdsHeader: React.FC<KdsHeaderProps> = ({
                   ? 'bg-rose-950/80 hover:bg-rose-900/80 text-rose-300 border-rose-800/80'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
               }`}
-              title="Gestión táctil de platos agotados y quiebres de cocina (CU-COCINA-04)"
+              title="Gestión táctil de platos agotados y quiebres de cocina"
             >
-              <span>🚫 Platos Agotados</span>
+              <Ban className="w-3.5 h-3.5" />
+              <span>Platos Agotados</span>
               <span
                 className={`px-1.5 py-0.2 rounded-full text-[11px] ${
                   platosAgotadosCount > 0
@@ -126,7 +128,7 @@ export const KdsHeader: React.FC<KdsHeaderProps> = ({
             />
             <Wifi className="w-3.5 h-3.5" />
             <span className="font-semibold hidden sm:inline">
-              {sseConectado ? 'KDS En Vivo' : 'Reconectando...'}
+              {sseConectado ? 'Conectado' : 'Reconectando...'}
             </span>
           </div>
 
@@ -142,7 +144,7 @@ export const KdsHeader: React.FC<KdsHeaderProps> = ({
           >
             {modoSonido ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             <span className="text-[11px] hidden md:inline font-mono">
-              {modoSonido ? 'Chime ON' : 'Mute'}
+              {modoSonido ? 'Sonido activado' : 'Silenciado'}
             </span>
           </button>
 
@@ -198,7 +200,7 @@ export const KdsHeader: React.FC<KdsHeaderProps> = ({
             }`}
           >
             <LayoutGrid className="w-3.5 h-3.5" />
-            <span>⊞ Comandas FIFO ({metricas.comandasActivas})</span>
+            <span>Comandas ({metricas.comandasActivas})</span>
           </button>
           <button
             onClick={() => onCambiarVista('all_day')}
@@ -209,7 +211,7 @@ export const KdsHeader: React.FC<KdsHeaderProps> = ({
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>☰ Consolidado All-Day ({metricas.platosTotal})</span>
+            <span>Consolidado por Plato ({metricas.platosTotal})</span>
           </button>
         </div>
       </div>
@@ -240,15 +242,21 @@ export const KdsHeader: React.FC<KdsHeaderProps> = ({
 
         {/* Umbrales de Sede (configuracion_kds) */}
         <div className="flex items-center gap-2 font-mono text-[10px]">
-          <span className="text-slate-500">⚙️ Umbrales Sede (CU-ADMIN-18):</span>
-          <span className="px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/50 font-bold">
-            🟢 &lt;={configuracion.tiempo_optimo_verde_min}m
+          <span className="text-slate-500 flex items-center gap-1">
+            <Settings className="w-3 h-3" />
+            Tiempos de Cocina:
           </span>
-          <span className="px-1.5 py-0.5 rounded bg-amber-950/80 text-amber-400 border border-amber-800/50 font-bold">
-            🟡 {configuracion.tiempo_optimo_verde_min + 1}-{configuracion.tiempo_alerta_ambar_min}m
+          <span className="px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/50 font-bold flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+            &lt;={configuracion.tiempo_optimo_verde_min}m
           </span>
-          <span className="px-1.5 py-0.5 rounded bg-rose-950/80 text-rose-400 border border-rose-800/50 font-bold">
-            🔴 &gt;{configuracion.tiempo_alerta_ambar_min}m
+          <span className="px-1.5 py-0.5 rounded bg-amber-950/80 text-amber-400 border border-amber-800/50 font-bold flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+            {configuracion.tiempo_optimo_verde_min + 1}-{configuracion.tiempo_alerta_ambar_min}m
+          </span>
+          <span className="px-1.5 py-0.5 rounded bg-rose-950/80 text-rose-400 border border-rose-800/50 font-bold flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
+            &gt;{configuracion.tiempo_alerta_ambar_min}m
           </span>
         </div>
       </div>

@@ -15,7 +15,8 @@ import { ModalCambiarPlanPreview } from '../components/suscripcion/ModalCambiarP
 import { DemoSuscripcionWidget } from '../components/suscripcion/DemoSuscripcionWidget';
 import { ROUTES } from '@/router/routes.constants';
 import { Loader2, CheckCircle2, AlertCircle, X, Info } from 'lucide-react';
-import { SoloDemo } from '@/components/ui/SoloDemo';
+import { SoloDemo } from '@/components/ui';
+import { cn } from '@/shared/utils';
 
 export const PropietarioSuscripcionPage: React.FC = () => {
   const navigate = useNavigate();
@@ -85,7 +86,7 @@ export const PropietarioSuscripcionPage: React.FC = () => {
     setModalPlanAbierto(false);
     mostrarToast(
       'info',
-      `Solicitud de cambio a ${nombrePlan} registrada. En CU-PROP-03 podrás formalizar la transacción con prorrateo automático.`
+      `Solicitud de cambio a ${nombrePlan} registrada. Pronto podrás formalizar la transacción con prorrateo automático.`
     );
   };
 
@@ -121,32 +122,33 @@ export const PropietarioSuscripcionPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8 pb-16">
+    <div className="space-y-6 sm:space-y-8 pb-16">
       {/* Toast Flotante */}
       {toast && (
         <div
           role="status"
           aria-live="polite"
-          className={`fixed top-5 right-5 z-50 flex items-start gap-3 p-4 rounded-xl shadow-xl border text-xs font-medium max-w-md animate-slideDown ${
+          className={cn(
+            'fixed top-5 left-4 right-4 sm:left-auto sm:right-5 z-50 flex items-start gap-3 p-4 rounded-xl shadow-xl border text-xs font-medium sm:max-w-md animate-slideDown',
             toast.tipo === 'success'
               ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
               : toast.tipo === 'info'
-              ? 'bg-sky-50 border-sky-200 text-sky-900'
+              ? 'bg-blue-50 border-blue-200 text-blue-900'
               : 'bg-red-50 border-red-200 text-red-900'
-          }`}
+          )}
         >
           {toast.tipo === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" aria-hidden="true" />
           ) : toast.tipo === 'info' ? (
-            <Info className="w-5 h-5 text-sky-600 shrink-0" />
+            <Info className="w-5 h-5 text-blue-600 shrink-0" aria-hidden="true" />
           ) : (
-            <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+            <AlertCircle className="w-5 h-5 text-red-600 shrink-0" aria-hidden="true" />
           )}
           <span className="flex-1 leading-snug">{toast.mensaje}</span>
           <button
             type="button"
             onClick={() => setToast(null)}
-            className="text-slate-400 hover:text-slate-700"
+            className="text-tinta-400 hover:text-tinta-700 shrink-0"
             aria-label="Cerrar notificación"
           >
             <X className="w-4 h-4" />

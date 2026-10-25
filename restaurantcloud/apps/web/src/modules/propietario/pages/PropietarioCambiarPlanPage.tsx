@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   PlanesComparativaResponseDTO,
   PeriodicidadFacturacion,
@@ -12,9 +11,8 @@ import { ModalUpgradeProrrateo } from '../components/cambiar-plan/ModalUpgradePr
 import { ModalAsistenteDowngrade } from '../components/cambiar-plan/ModalAsistenteDowngrade';
 import { DemoCambiarPlanWidget } from '../components/cambiar-plan/DemoCambiarPlanWidget';
 import { ROUTES } from '@/router/routes.constants';
-import { Button } from '@/components/ui/Button';
+import { Button, PageHeader, SoloDemo } from '@/components/ui';
 import {
-  ArrowLeft,
   Sparkles,
   Check,
   Building2,
@@ -27,11 +25,9 @@ import {
   Loader2,
   CheckCircle2,
 } from 'lucide-react';
-import { SoloDemo } from '@/components/ui/SoloDemo';
+import { cn } from '@/shared/utils';
 
 export const PropietarioCambiarPlanPage: React.FC = () => {
-  const navigate = useNavigate();
-
   const [comparativa, setComparativa] = useState<PlanesComparativaResponseDTO | null>(null);
   const [cargando, setCargando] = useState(true);
   const [periodicidad, setPeriodicidad] = useState<PeriodicidadFacturacion>('mensual');
@@ -159,70 +155,47 @@ export const PropietarioCambiarPlanPage: React.FC = () => {
   const { plan_actual, planes } = comparativa;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8 pb-16">
+    <div className="space-y-6 sm:space-y-8 pb-16">
       {/* Toast Alert */}
       {toast && (
         <div
           role="status"
           aria-live="polite"
-          className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-xl border flex items-center gap-3 max-w-md animate-fadeIn text-xs ${
+          className={cn(
+            'fixed top-4 left-4 right-4 sm:left-auto sm:right-4 z-50 p-4 rounded-xl shadow-xl border flex items-center gap-3 sm:max-w-md animate-fadeIn text-xs',
             toast.tipo === 'success'
               ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
               : toast.tipo === 'error'
               ? 'bg-red-50 text-red-900 border-red-200'
               : 'bg-blue-50 text-blue-900 border-blue-200'
-          }`}
+          )}
         >
           {toast.tipo === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" aria-hidden="true" />
           ) : toast.tipo === 'error' ? (
-            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" aria-hidden="true" />
           ) : (
-            <Calendar className="w-5 h-5 text-blue-600 shrink-0" />
+            <Calendar className="w-5 h-5 text-blue-600 shrink-0" aria-hidden="true" />
           )}
           <span className="flex-1 font-medium leading-relaxed">{toast.mensaje}</span>
         </div>
       )}
 
-      {/* Breadcrumbs y Cabecera */}
-      <div>
-        <nav
-          aria-label="Breadcrumb"
-          className="flex items-center gap-2 text-xs text-slate-500 mb-3"
-        >
-          <button
-            onClick={() => navigate(ROUTES.PROPIETARIO_SUSCRIPCION)}
-            className="hover:text-aurea-navy flex items-center gap-1 font-semibold transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Suscripción</span>
-          </button>
-          <span>/</span>
-          <span className="text-slate-800 font-bold">Cambiar Plan</span>
-        </nav>
-
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="font-serif text-2xl sm:text-3xl font-extrabold text-aurea-navy tracking-tight">
-              Cambiar Plan de Suscripción
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Adapta la capacidad operativa y herramientas de IA al ritmo de crecimiento de tu negocio
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-500">Plan Actual:</span>
-            <span className="px-3 py-1 rounded-full text-xs font-bold bg-aurea-navy text-white shadow-xs">
-              {plan_actual.nombre} (S/{' '}
-              {periodicidad === 'anual'
-                ? `${plan_actual.precio_anual.toFixed(2)}/año`
-                : `${plan_actual.precio_mensual.toFixed(2)}/mes`}
-              )
-            </span>
-          </div>
-        </div>
-      </div>
+      {/* Cabecera con enlace de vuelta a Suscripción */}
+      <PageHeader
+        titulo="Cambiar de plan"
+        descripcion="Adapta la capacidad operativa y las herramientas de IA al ritmo de crecimiento de tu negocio."
+        volver={{ etiqueta: 'Suscripción', to: ROUTES.PROPIETARIO_SUSCRIPCION }}
+        meta={
+          <span className="px-3 py-1 rounded-full text-xs font-bold bg-aurea-navy text-white shadow-sm whitespace-nowrap">
+            Plan actual: {plan_actual.nombre} (S/{' '}
+            {periodicidad === 'anual'
+              ? `${plan_actual.precio_anual.toFixed(2)}/año`
+              : `${plan_actual.precio_mensual.toFixed(2)}/mes`}
+            )
+          </span>
+        }
+      />
 
       {/* BANNER PERSISTENTE: Downgrade Programado */}
       {plan_actual.downgrade_programado && plan_actual.proximo_plan && (
