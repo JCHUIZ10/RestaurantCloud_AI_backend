@@ -80,11 +80,18 @@ export interface BalancePreArqueoDTO {
   tarjetas_pos_total: number;
   tarjetas_operaciones: number;
   billeteras_total: number;
+  billeteras_operaciones?: number;
+  efectivo_operaciones?: number;
   otros_cobros_total: number;
+  otros_operaciones?: number;
   total_facturado_neto: number;
+  total_ingresos_brutos?: number;
+  total_egresos?: number;
   base_imponible: number;
   igv_18: number;
   total_comprobantes: number;
+  notas_credito_count?: number;
+  comprobantes_anulados_count?: number;
   mesas_activas_pendientes: number;
   salon_al_dia: boolean;
   sede_nombre: string;
@@ -114,6 +121,7 @@ export interface ReporteZDTO {
   total_tarjetas_pos: number;
   total_billeteras_digital: number;
   otros_medios_total?: number;
+  total_devoluciones_efectivo?: number;
   total_neto_facturado: number;
   base_imponible_gravada: number;
   igv_18: number;

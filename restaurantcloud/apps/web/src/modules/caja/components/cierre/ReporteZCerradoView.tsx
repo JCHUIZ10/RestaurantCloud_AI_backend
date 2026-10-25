@@ -159,7 +159,7 @@ export const ReporteZCerradoView: React.FC<ReporteZCerradoViewProps> = ({
             </div>
 
             <p className="text-[11px] text-slate-500">
-              Fondo S/ {reporte.monto_apertura.toFixed(2)} + Ventas Efectivo S/ {reporte.total_ventas_efectivo.toFixed(2)} - Devoluciones NC S/ 85.00 = S/ {reporte.efectivo_esperado.toFixed(2)} esperado en gaveta.
+              Fondo S/ {reporte.monto_apertura.toFixed(2)} + Ventas Efectivo S/ {reporte.total_ventas_efectivo.toFixed(2)}{(reporte.total_devoluciones_efectivo ?? 0) > 0 ? ` - Devoluciones NC S/ ${(reporte.total_devoluciones_efectivo ?? 0).toFixed(2)}` : ''} = S/ {reporte.efectivo_esperado.toFixed(2)} esperado en gaveta.
             </p>
 
             {reporte.comentario_discrepancia && (
@@ -209,7 +209,7 @@ export const ReporteZCerradoView: React.FC<ReporteZCerradoViewProps> = ({
                   <Receipt className="w-3 h-3 text-amber-500" /> Otros Medios
                 </span>
                 <span className="font-bold text-slate-800 dark:text-slate-200">
-                  S/ {(reporte.otros_medios_total || 1186.0).toFixed(2)}
+                  S/ {(reporte.otros_medios_total ?? 0.0).toFixed(2)}
                 </span>
               </div>
             </div>

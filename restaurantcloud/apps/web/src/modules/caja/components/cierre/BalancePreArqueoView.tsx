@@ -162,7 +162,9 @@ export const BalancePreArqueoView: React.FC<BalancePreArqueoViewProps> = ({
                       <Coins className="w-3.5 h-3.5 text-aurea-copper" />
                       <span>Efectivo Gaveta</span>
                     </td>
-                    <td className="py-2.5 text-center text-slate-500">1 Cob / 1 NC</td>
+                    <td className="py-2.5 text-center text-slate-500">
+                      {balance.efectivo_operaciones ?? 0} Cob{(balance.notas_credito_count ?? 0) > 0 ? ` / ${balance.notas_credito_count} NC` : ''}
+                    </td>
                     <td className="py-2.5 text-right text-emerald-600">+ S/ {balance.ingresos_efectivo.toFixed(2)}</td>
                     <td className="py-2.5 text-right text-rose-500">- S/ {balance.egresos_devolucion_nc.toFixed(2)}</td>
                     <td className="py-2.5 text-right font-bold text-slate-900 dark:text-white">
@@ -175,7 +177,9 @@ export const BalancePreArqueoView: React.FC<BalancePreArqueoViewProps> = ({
                       <CreditCard className="w-3.5 h-3.5 text-sky-500" />
                       <span>Tarjetas POS (Niubiz/Izipay)</span>
                     </td>
-                    <td className="py-2.5 text-center text-slate-500">{balance.tarjetas_operaciones} Cobro</td>
+                    <td className="py-2.5 text-center text-slate-500">
+                      {balance.tarjetas_operaciones} {balance.tarjetas_operaciones === 1 ? 'Cobro' : 'Cobros'}
+                    </td>
                     <td className="py-2.5 text-right text-emerald-600">+ S/ {balance.tarjetas_pos_total.toFixed(2)}</td>
                     <td className="py-2.5 text-right text-slate-400">S/ 0.00</td>
                     <td className="py-2.5 text-right font-bold text-slate-900 dark:text-white">
@@ -188,7 +192,9 @@ export const BalancePreArqueoView: React.FC<BalancePreArqueoViewProps> = ({
                       <Smartphone className="w-3.5 h-3.5 text-purple-500" />
                       <span>Billeteras Yape / Plin</span>
                     </td>
-                    <td className="py-2.5 text-center text-slate-500">1 Cobro</td>
+                    <td className="py-2.5 text-center text-slate-500">
+                      {balance.billeteras_operaciones ?? 0} {(balance.billeteras_operaciones ?? 0) === 1 ? 'Cobro' : 'Cobros'}
+                    </td>
                     <td className="py-2.5 text-right text-emerald-600">+ S/ {balance.billeteras_total.toFixed(2)}</td>
                     <td className="py-2.5 text-right text-slate-400">S/ 0.00</td>
                     <td className="py-2.5 text-right font-bold text-slate-900 dark:text-white">
@@ -201,7 +207,9 @@ export const BalancePreArqueoView: React.FC<BalancePreArqueoViewProps> = ({
                       <Receipt className="w-3.5 h-3.5 text-amber-500" />
                       <span>Otros Cobros / Transferencias</span>
                     </td>
-                    <td className="py-2.5 text-center text-slate-500">12 Cobros</td>
+                    <td className="py-2.5 text-center text-slate-500">
+                      {balance.otros_operaciones ?? 0} {(balance.otros_operaciones ?? 0) === 1 ? 'Cobro' : 'Cobros'}
+                    </td>
                     <td className="py-2.5 text-right text-emerald-600">+ S/ {balance.otros_cobros_total.toFixed(2)}</td>
                     <td className="py-2.5 text-right text-slate-400">S/ 0.00</td>
                     <td className="py-2.5 text-right font-bold text-slate-900 dark:text-white">
@@ -214,9 +222,13 @@ export const BalancePreArqueoView: React.FC<BalancePreArqueoViewProps> = ({
                     <td className="pt-3 font-sans text-slate-900 dark:text-white uppercase tracking-wider">
                       TOTAL FACTURADO
                     </td>
-                    <td className="pt-3 text-center text-slate-500">15 Docs</td>
-                    <td className="pt-3 text-right text-emerald-600">+ S/ 1,570.00</td>
-                    <td className="pt-3 text-right text-rose-500">- S/ 85.00</td>
+                    <td className="pt-3 text-center text-slate-500">{balance.total_comprobantes} Docs</td>
+                    <td className="pt-3 text-right text-emerald-600">
+                      + S/ {(balance.total_ingresos_brutos ?? (balance.ingresos_efectivo + balance.tarjetas_pos_total + balance.billeteras_total + balance.otros_cobros_total)).toFixed(2)}
+                    </td>
+                    <td className="pt-3 text-right text-rose-500">
+                      - S/ {(balance.total_egresos ?? balance.egresos_devolucion_nc).toFixed(2)}
+                    </td>
                     <td className="pt-3 text-right text-base text-emerald-600 dark:text-emerald-400">
                       S/ {balance.total_facturado_neto.toFixed(2)}
                     </td>
@@ -288,7 +300,9 @@ export const BalancePreArqueoView: React.FC<BalancePreArqueoViewProps> = ({
                     Auditoría de Comprobantes:
                   </span>
                   <span className="text-[11px] text-slate-500">
-                    14 comprobantes vigentes / 1 anulado formalmente por Nota de Crédito BC01.
+                    {balance.total_comprobantes} comprobante{balance.total_comprobantes === 1 ? '' : 's'} emitido{balance.total_comprobantes === 1 ? '' : 's'}
+                    {(balance.comprobantes_anulados_count ?? 0) > 0 ? ` / ${balance.comprobantes_anulados_count} anulado${balance.comprobantes_anulados_count === 1 ? '' : 's'}` : ''}
+                    {(balance.notas_credito_count ?? 0) > 0 ? ` (${balance.notas_credito_count} NC)` : ''}.
                   </span>
                 </div>
               </div>

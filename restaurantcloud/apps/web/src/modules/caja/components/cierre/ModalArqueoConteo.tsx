@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   Lock,
   X,
-  RotateCcw,
 } from 'lucide-react';
 import { BalancePreArqueoDTO, CerrarCajaRequest } from '@/types/caja';
 
@@ -54,10 +53,6 @@ export const ModalArqueoConteo: React.FC<ModalArqueoConteoProps> = ({
       comentario_discrepancia: tieneDiscrepancia ? comentarioDiscrepancia.trim() : undefined,
       notas_cierre: notasCierre.trim() || undefined,
     });
-  };
-
-  const setMontoPreset = (monto: number) => {
-    setMontoContado(monto.toFixed(2));
   };
 
   return (
@@ -223,42 +218,6 @@ export const ModalArqueoConteo: React.FC<ModalArqueoConteoProps> = ({
                     required
                     autoFocus
                   />
-                </div>
-
-                {/* Presets Rápidos de Cuadre y Prueba */}
-                <div className="flex items-center gap-2 flex-wrap text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setMontoPreset(balance.efectivo_esperado)}
-                    className="px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-mono font-bold text-[11px] hover:bg-emerald-100 transition-colors"
-                  >
-                    Cuadre Exacto S/ {balance.efectivo_esperado.toFixed(2)}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setMontoPreset(balance.efectivo_esperado - 15)}
-                    className="px-2.5 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 font-mono font-bold text-[11px] hover:bg-rose-100 transition-colors"
-                  >
-                    Faltante -S/ 15.00
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setMontoPreset(balance.efectivo_esperado + 20)}
-                    className="px-2.5 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800 font-mono font-bold text-[11px] hover:bg-amber-100 transition-colors"
-                  >
-                    Sobrante +S/ 20.00
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setMontoContado('0.00')}
-                    className="p-1 text-slate-400 hover:text-slate-600 transition-colors ml-auto"
-                    title="Restablecer a cero"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  </button>
                 </div>
 
                 {/* Caja de Estado de Discrepancia Reactiva */}

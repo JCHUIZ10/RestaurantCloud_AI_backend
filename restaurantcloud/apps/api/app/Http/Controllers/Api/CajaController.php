@@ -1797,15 +1797,30 @@ class CajaController extends Controller
             ->where('tipo', '!=', 'nota_credito')
             ->count();
 
+        $efectivoOperaciones = (int) $comprobantes
+            ->where('medio_pago', 'efectivo')
+            ->where('tipo', '!=', 'nota_credito')
+            ->count();
+
         $billeterasTotal = (float) $comprobantes
             ->where('medio_pago', 'billetera_digital')
             ->where('tipo', '!=', 'nota_credito')
             ->sum('total');
 
+        $billeterasOperaciones = (int) $comprobantes
+            ->where('medio_pago', 'billetera_digital')
+            ->where('tipo', '!=', 'nota_credito')
+            ->count();
+
         $otrosCobrosTotal = (float) $comprobantes
             ->whereNotIn('medio_pago', ['efectivo', 'tarjeta', 'billetera_digital'])
             ->where('tipo', '!=', 'nota_credito')
             ->sum('total');
+
+        $otrosOperaciones = (int) $comprobantes
+            ->whereNotIn('medio_pago', ['efectivo', 'tarjeta', 'billetera_digital'])
+            ->where('tipo', '!=', 'nota_credito')
+            ->count();
 
         $egresosDevolucionNC = (float) (DB::table('caja_movimiento')
             ->where('caja_id', $caja->id)
@@ -1832,6 +1847,19 @@ class CajaController extends Controller
             ->whereIn('p.estado', ['borrador', 'enviado', 'cuenta_pedida'])
             ->count();
 
+        $notasCreditoCount = (int) DB::table('comprobante')
+            ->where('caja_id', $caja->id)
+            ->where('tipo', 'nota_credito')
+            ->count();
+
+        $comprobantesAnuladosCount = (int) DB::table('comprobante')
+            ->where('caja_id', $caja->id)
+            ->where('estado', 'anulado')
+            ->count();
+
+        $totalIngresosBrutos = round($ingresosEfectivo + $tarjetasPosTotal + $billeterasTotal + $otrosCobrosTotal, 2);
+        $totalEgresos = round($egresosDevolucionNC + $egresosGastosManuales, 2);
+
         $salonAlDia = ($mesasActivasPendientes === 0);
 
         return ApiResponse::ok([
@@ -1847,7 +1875,14 @@ class CajaController extends Controller
             'tarjetas_pos_total' => $tarjetasPosTotal,
             'tarjetas_operaciones' => $tarjetasOperaciones,
             'billeteras_total' => $billeterasTotal,
+            'efectivo_operaciones' => $efectivoOperaciones,
+            'billeteras_operaciones' => $billeterasOperaciones,
             'otros_cobros_total' => $otrosCobrosTotal,
+            'otros_operaciones' => $otrosOperaciones,
+            'total_ingresos_brutos' => $totalIngresosBrutos,
+            'total_egresos' => $totalEgresos,
+            'notas_credito_count' => $notasCreditoCount,
+            'comprobantes_anulados_count' => $comprobantesAnuladosCount,
             'total_facturado_neto' => round($totalFacturadoNeto, 2),
             'base_imponible' => round($baseImponible, 2),
             'igv_18' => round($igv18, 2),
@@ -1985,6 +2020,7 @@ class CajaController extends Controller
             'total_tarjetas_pos' => $tarjetasPosTotal,
             'total_billeteras_digital' => $billeterasTotal,
             'otros_medios_total' => $otrosCobrosTotal,
+            'total_devoluciones_efectivo' => round($egresosDevolucionNC + $egresosGastosManuales, 2),
             'total_neto_facturado' => round($totalNetoFacturado, 2),
             'base_imponible_gravada' => round($baseImponible, 2),
             'igv_18' => round($igv18, 2),

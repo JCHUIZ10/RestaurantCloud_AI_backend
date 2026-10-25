@@ -792,15 +792,42 @@ export const realCajaService = {
 
   // CU-CAJA-05: Cierre de Turno y Arqueo
   async getBalancePreArqueo(): Promise<ApiResponse<BalancePreArqueoDTO>> {
-    return apiGet<BalancePreArqueoDTO>('/caja/balance-pre-arqueo');
+    try {
+      return await apiGet<BalancePreArqueoDTO>('/caja/balance-pre-arqueo');
+    } catch (err: any) {
+      if (err.response?.data) return err.response.data as ApiResponse<BalancePreArqueoDTO>;
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_CONEXION', mensaje: 'Error al consultar el balance de caja con el servidor.' }],
+      };
+    }
   },
 
   async cerrarTurno(datos: CerrarCajaRequest): Promise<ApiResponse<ReporteZDTO>> {
-    return apiPost<ReporteZDTO>('/caja/cierre', datos);
+    try {
+      return await apiPost<ReporteZDTO>('/caja/cierre', datos);
+    } catch (err: any) {
+      if (err.response?.data) return err.response.data as ApiResponse<ReporteZDTO>;
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [{ codigo: 'ERR_CONEXION', mensaje: 'Error de comunicación al registrar el cierre de caja.' }],
+      };
+    }
   },
 
   async getUltimoReporteZ(): Promise<ApiResponse<ReporteZDTO | null>> {
-    return apiGet<ReporteZDTO | null>('/caja/ultimo-reporte-z');
+    try {
+      return await apiGet<ReporteZDTO | null>('/caja/ultimo-reporte-z');
+    } catch (err: any) {
+      if (err.response?.data) return err.response.data as ApiResponse<ReporteZDTO | null>;
+      return {
+        exito: false,
+        datos: null,
+        errores: [{ codigo: 'ERR_CONEXION', mensaje: 'Error al consultar el último reporte Z.' }],
+      };
+    }
   },
 };
 

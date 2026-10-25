@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertCircle, Lock, ChevronRight } from 'lucide-react';
 import { ROUTES } from '@/router/routes.constants';
 import { BalancePreArqueoDTO, CerrarCajaRequest, ReporteZDTO } from '@/types/caja';
-import { cajaService } from '@/services/serviceAdapter';
+import { cajaService, IS_REAL_API } from '@/services/serviceAdapter';
 import { mockCajaService } from '../services/mockCajaService';
 import { BalancePreArqueoView } from '../components/cierre/BalancePreArqueoView';
 import { ModalArqueoConteo } from '../components/cierre/ModalArqueoConteo';
@@ -32,23 +32,29 @@ export const CajeroTurnoCierrePage: React.FC = () => {
     }, 4500);
   };
 
-  // Carga de balance y verificación de si ya existe un Reporte Z emitido para este turno
+  // Carga secuencial de datos:
+  // 1. Si hay caja abierta -> cargar Balance Pre-Arqueo (Vista 1).
+  // 2. Si no hay caja abierta -> verificar si existe último Reporte Z generado (Vista 3).
+  // 3. Si ninguno -> estado limpio con redirección a POS.
   const cargarDatos = useCallback(async () => {
+    setLoading(true);
     try {
-      const [resBalance, resUltimoZ] = await Promise.all([
-        cajaService.getBalancePreArqueo(),
-        cajaService.getUltimoReporteZ(),
-      ]);
+      const resBalance = await cajaService.getBalancePreArqueo();
 
       if (resBalance.exito && resBalance.datos) {
         setBalance(resBalance.datos);
-      }
-
-      if (resUltimoZ.exito && resUltimoZ.datos) {
-        setReporteEmitido(resUltimoZ.datos);
+        setReporteEmitido(null);
+      } else {
+        setBalance(null);
+        const resUltimoZ = await cajaService.getUltimoReporteZ();
+        if (resUltimoZ.exito && resUltimoZ.datos) {
+          setReporteEmitido(resUltimoZ.datos);
+        } else {
+          setReporteEmitido(null);
+        }
       }
     } catch (err) {
-      console.error('Error al cargar balance de pre-arqueo:', err);
+      console.error('Error al sincronizar datos de caja:', err);
       showToast('error', 'Error al sincronizar el balance de caja con el servidor.');
     } finally {
       setLoading(false);
@@ -59,9 +65,9 @@ export const CajeroTurnoCierrePage: React.FC = () => {
     cargarDatos();
   }, [cargarDatos]);
 
-  // Short Polling de balance y estado del salón (cada 4.0s) mientras no esté cerrado el turno
+  // Short Polling de balance y estado del salón (cada 4.0s) mientras la caja esté abierta y no en arqueo
   useEffect(() => {
-    if (reporteEmitido || isModalArqueoOpen) return;
+    if (reporteEmitido || isModalArqueoOpen || !balance) return;
 
     const pollingCierreInterval = setInterval(async () => {
       try {
@@ -75,7 +81,7 @@ export const CajeroTurnoCierrePage: React.FC = () => {
     }, 4000);
 
     return () => clearInterval(pollingCierreInterval);
-  }, [reporteEmitido, isModalArqueoOpen]);
+  }, [reporteEmitido, isModalArqueoOpen, balance]);
 
   // Manejo de atajos de teclado (F8 para conteo, Escape para cancelar modal)
   useEffect(() => {
@@ -88,7 +94,7 @@ export const CajeroTurnoCierrePage: React.FC = () => {
               'error',
               `Bloqueo Poka-Yoke: Existen ${balance.mesas_activas_pendientes} mesas con comensales activos pendientes de cobro.`
             );
-          } else {
+          } else if (balance) {
             setIsModalArqueoOpen(true);
           }
         }
@@ -117,20 +123,22 @@ export const CajeroTurnoCierrePage: React.FC = () => {
   };
 
   // Manejador: Confirmar y Cerrar Turno (Cierre Formal Z)
+  // Al completarse exitosamente, notifica y redirige a la página inicial POS para apertura del siguiente turno.
   const handleConfirmarCierre = async (req: CerrarCajaRequest) => {
     setIsSubmittingCierre(true);
     try {
       const resp = await cajaService.cerrarTurno(req);
 
       if (resp.exito && resp.datos) {
-        setReporteEmitido(resp.datos);
         setIsModalArqueoOpen(false);
         showToast(
           'success',
-          `¡Turno #${String(resp.datos.turno_correlativo).padStart(3, '0')} cerrado con éxito! Reporte Z oficial SUNAT generado.`
+          `¡Turno #${String(resp.datos.turno_correlativo).padStart(3, '0')} cerrado con éxito! Redirigiendo a pantalla inicial...`
         );
-        // Recargar balance
-        await cargarDatos();
+        // Redirige a la página inicial POS donde quedará pendiente la apertura de la siguiente caja
+        setTimeout(() => {
+          navigate(ROUTES.CAJERO_POS);
+        }, 1200);
       } else {
         const errorMsg = resp.errores?.[0]?.mensaje || 'No se pudo completar el cierre de caja.';
         showToast('error', errorMsg);
@@ -206,7 +214,7 @@ export const CajeroTurnoCierrePage: React.FC = () => {
     await cargarDatos();
   };
 
-  if (loading || !balance) {
+  if (loading) {
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-slate-500">
         <RefreshCw className="w-8 h-8 animate-spin text-aurea-copper mb-3" />
@@ -215,10 +223,35 @@ export const CajeroTurnoCierrePage: React.FC = () => {
     );
   }
 
+  // Si no hay reporte emitido ni balance de caja abierta (caja no aperturada)
+  if (!reporteEmitido && !balance) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto animate-in fade-in">
+        <div className="w-16 h-16 rounded-3xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-4 shadow-sm border border-slate-200 dark:border-slate-700">
+          <Lock className="w-8 h-8 text-amber-500" />
+        </div>
+        <h2 className="text-lg font-bold font-serif text-slate-900 dark:text-white">
+          No hay un turno de caja abierto
+        </h2>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-5">
+          Para realizar arqueos y cierres de turno, primero debe realizar la apertura formal en el terminal POS.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate(ROUTES.CAJERO_POS)}
+          className="px-5 py-2.5 rounded-2xl bg-aurea-copper hover:bg-aurea-copper/90 active:scale-95 text-aurea-navy font-bold text-xs shadow-md transition-all flex items-center gap-2"
+        >
+          <span>Ir a Apertura en Monitor POS</span>
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
+
   // Estado textual para el widget QA
   const estadoBadgeTexto = reporteEmitido
     ? 'Caja Cerrada (Z)'
-    : !balance.salon_al_dia
+    : balance && !balance.salon_al_dia
     ? 'Mesas Activas'
     : isModalArqueoOpen
     ? 'Arqueo en Curso'
@@ -253,18 +286,18 @@ export const CajeroTurnoCierrePage: React.FC = () => {
           onIrAperturaNuevoTurno={handleIrAperturaNuevoTurno}
           onCerrarSesion={handleCerrarSesion}
         />
-      ) : (
+      ) : balance ? (
         /* VISTA 1: Pre-Arqueo y Balance Operativo del Turno */
         <BalancePreArqueoView
           balance={balance}
           onIniciarArqueo={handleIniciarArqueo}
           onVolverPos={handleVolverPos}
-          onLiquidarMesasDemo={handleLiquidarMesasDemo}
+          onLiquidarMesasDemo={!IS_REAL_API ? handleLiquidarMesasDemo : undefined}
         />
-      )}
+      ) : null}
 
       {/* VISTA 2: Modal de Conteo Físico Ciego y Conciliación (Arqueo 1040px) */}
-      {!reporteEmitido && (
+      {!reporteEmitido && balance && (
         <ModalArqueoConteo
           isOpen={isModalArqueoOpen}
           balance={balance}
@@ -274,11 +307,13 @@ export const CajeroTurnoCierrePage: React.FC = () => {
         />
       )}
 
-      {/* Widget Flotante de Pruebas QA (Esquina inferior derecha) */}
-      <DemoCajaCierreWidget
-        onSelectEscenario={handleSelectEscenarioQA}
-        estadoActual={estadoBadgeTexto}
-      />
+      {/* Widget Flotante de Pruebas QA (Únicamente en modo Mock) */}
+      {!IS_REAL_API && (
+        <DemoCajaCierreWidget
+          onSelectEscenario={handleSelectEscenarioQA}
+          estadoActual={estadoBadgeTexto}
+        />
+      )}
     </div>
   );
 };
