@@ -184,6 +184,9 @@ export interface SubcuentaComandaDTO {
   items?: PrecuentaItemDTO[];
   estado?: 'pendiente' | 'cobrado';
   estado_pago?: 'pendiente' | 'cobrado';
+  cliente_encontrado_en_bd?: boolean;
+  telefono_sugerido?: string;
+  email_sugerido?: string;
 }
 
 export interface PrecuentaResponseDTO {
@@ -210,6 +213,7 @@ export interface PrecuentaResponseDTO {
   nombre_cliente_sugerido?: string | null;
   telefono_cliente_sugerido?: string | null;
   email_cliente_sugerido?: string | null;
+  cliente_encontrado_en_bd?: boolean;
   metodo_pago_tentativo?: string;
   numero_operacion_tentativo?: string;
   total_cobro_tentativo?: number;

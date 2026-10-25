@@ -556,7 +556,21 @@ class CajaController extends Controller
             ->orderBy('numero_subcuenta')
             ->get();
 
-        $subcuentas = $subcuentasRaw->map(function ($s) {
+        $subcuentas = $subcuentasRaw->map(function ($s) use ($user) {
+            $clienteSubcuentaEnBd = false;
+            $telSubcuenta = '';
+            $emailSubcuenta = '';
+            if (! empty($s->documento_cliente) && $s->documento_cliente !== '00000000') {
+                $cRow = DB::table('cliente')
+                    ->where('empresa_id', $user->empresa_id)
+                    ->where('numero_documento', $s->documento_cliente)
+                    ->first();
+                if ($cRow) {
+                    $clienteSubcuentaEnBd = true;
+                    $telSubcuenta = $cRow->telefono ?? '';
+                    $emailSubcuenta = $cRow->email ?? '';
+                }
+            }
             return [
                 'id' => $s->id,
                 'numero_subcuenta' => (int) $s->numero_subcuenta,
@@ -568,6 +582,9 @@ class CajaController extends Controller
                 'total_neto' => (float) $s->total,
                 'estado' => $s->estado,
                 'estado_pago' => $s->estado,
+                'cliente_encontrado_en_bd' => $clienteSubcuentaEnBd,
+                'telefono_sugerido' => $telSubcuenta,
+                'email_sugerido' => $emailSubcuenta,
             ];
         });
 
@@ -595,14 +612,16 @@ class CajaController extends Controller
             }
         }
 
+        $clienteEncontradoEnBd = false;
         $telefonoClienteSugerido = '';
         $emailClienteSugerido = '';
-        if (! empty($pedido->documento_cliente_sugerido)) {
+        if (! empty($pedido->documento_cliente_sugerido) && $pedido->documento_cliente_sugerido !== '00000000') {
             $clienteRow = DB::table('cliente')
                 ->where('empresa_id', $user->empresa_id)
                 ->where('numero_documento', $pedido->documento_cliente_sugerido)
                 ->first();
             if ($clienteRow) {
+                $clienteEncontradoEnBd = true;
                 $telefonoClienteSugerido = $clienteRow->telefono ?? '';
                 $emailClienteSugerido = $clienteRow->email ?? '';
             }
@@ -641,6 +660,7 @@ class CajaController extends Controller
             'nombre_cliente_sugerido' => $pedido->nombre_cliente_sugerido ?? 'CONSUMIDOR FINAL',
             'telefono_cliente_sugerido' => $telefonoClienteSugerido,
             'email_cliente_sugerido' => $emailClienteSugerido,
+            'cliente_encontrado_en_bd' => $clienteEncontradoEnBd,
             'metodo_pago_tentativo' => $pedido->medio_pago_sugerido ?? 'efectivo',
             'numero_operacion_tentativo' => $pedido->numero_operacion_sugerido,
             'total_cobro_tentativo' => (float) $totalCobroTentativo,

@@ -20,6 +20,11 @@ import {
   SubcuentaComandaDTO,
   ProcesarCobroFiscalResponseDTO,
 } from '@/types/caja';
+import {
+  extraerDigitosMovilPeru,
+  formatearTelefonoPeru,
+  generarEnlaceWhatsApp,
+} from '@/shared/utils';
 import { cajaService } from '@/services/serviceAdapter';
 
 interface ModalCobroFiscalPosProps {
@@ -51,6 +56,7 @@ interface CuentaFiscalItem {
   telefono_whatsapp: string;
   correo: string;
   pagado: boolean;
+  cliente_encontrado_en_bd: boolean;
 }
 
 export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
@@ -127,8 +133,9 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
         const numDoc = s.documento_identidad || '';
         const medio = (s.medio_pago_tentativo as any) || 'efectivo';
 
-        const telDefault = precuenta?.telefono_cliente_sugerido || '';
-        const correoDefault = precuenta?.email_cliente_sugerido || '';
+        const clienteSubEnBd = Boolean(s.cliente_encontrado_en_bd);
+        const telDefault = s.telefono_sugerido || (clienteSubEnBd ? precuenta?.telefono_cliente_sugerido || '' : '');
+        const correoDefault = s.email_sugerido || (clienteSubEnBd ? precuenta?.email_cliente_sugerido || '' : '');
 
         return {
           id: s.id || `sub-${idx + 1}`,
@@ -150,6 +157,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
           telefono_whatsapp: telDefault,
           correo: correoDefault,
           pagado: false,
+          cliente_encontrado_en_bd: clienteSubEnBd,
         };
       });
 
@@ -172,6 +180,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
       const base = Math.round((totalNeto / 1.18) * 100) / 100;
       const igv = Math.round((totalNeto - base) * 100) / 100;
 
+      const clienteEnBd = Boolean(precuenta?.cliente_encontrado_en_bd);
       const itemUnico: CuentaFiscalItem = {
         id: `cta-unica-${mesa.id}`,
         numero_subcuenta: 1,
@@ -189,9 +198,10 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
         vuelto: 0,
         token_digital: '',
         url_publica: '',
-        telefono_whatsapp: precuenta?.telefono_cliente_sugerido || '',
-        correo: precuenta?.email_cliente_sugerido || '',
+        telefono_whatsapp: clienteEnBd ? (precuenta?.telefono_cliente_sugerido || '') : '',
+        correo: clienteEnBd ? (precuenta?.email_cliente_sugerido || '') : '',
         pagado: false,
+        cliente_encontrado_en_bd: clienteEnBd,
       };
 
       setCuentas([itemUnico]);
@@ -236,16 +246,28 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
     }
   };
 
-  // Manejadores para edición y registro de WhatsApp
+  // Manejadores para edición y registro de WhatsApp según estandar_telefono_whatsapp.md
   const handleIniciarEdicionWhatsapp = () => {
-    setInputWhatsappTemp(cuentaActiva.telefono_whatsapp || '+51 ');
+    const raw = cuentaActiva.telefono_whatsapp || '';
+    const digits = extraerDigitosMovilPeru(raw);
+    setInputWhatsappTemp(digits);
     setEditandoWhatsappId(cuentaActiva.id);
   };
 
   const handleGuardarWhatsapp = () => {
+    const digits = extraerDigitosMovilPeru(inputWhatsappTemp);
+    if (digits.length > 0 && digits.length !== 9) {
+      setNotificacionFeedback('El número celular en el Perú debe tener exactamente 9 dígitos.');
+      return;
+    }
+    if (digits.length === 9 && !digits.startsWith('9')) {
+      setNotificacionFeedback('El número celular en el Perú debe comenzar con el dígito 9.');
+      return;
+    }
+    const formatted = digits ? ('+51 ' + formatearTelefonoPeru(digits)) : '';
     setCuentas((prev) =>
       prev.map((c) =>
-        c.id === cuentaActiva.id ? { ...c, telefono_whatsapp: inputWhatsappTemp.trim() } : c
+        c.id === cuentaActiva.id ? { ...c, telefono_whatsapp: formatted } : c
       )
     );
     setEditandoWhatsappId(null);
@@ -266,21 +288,21 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
     setEditandoEmailId(null);
   };
 
-  // Enviar WhatsApp asistido con enlace oficial
+  // Enviar WhatsApp asistido con enlace canónico wa.me según estandar_telefono_whatsapp.md
   const handleEnviarWhatsApp = (cuentaId: string) => {
     if (!entregaDigitalDisponible || !cuentaActiva.url_publica) {
       setNotificacionFeedback('El envío por WhatsApp se habilitará al confirmar el comprobante.');
       return;
     }
 
-    const phoneClean = (cuentaActiva.telefono_whatsapp || '').replace(/[^0-9]/g, '');
-    if (!phoneClean) {
-      setNotificacionFeedback('Por favor registra un número telefónico para enviar.');
+    const digits = extraerDigitosMovilPeru(cuentaActiva.telefono_whatsapp || '');
+    if (!digits || digits.length !== 9) {
+      setNotificacionFeedback('Por favor registra un número celular válido de 9 dígitos para enviar.');
       return;
     }
 
     const mensaje = `Hola ${cuentaActiva.titular}, aquí tienes tu comprobante electrónico oficial de ÁUREA: ${cuentaActiva.url_publica}`;
-    const urlWa = `https://wa.me/${phoneClean}?text=${encodeURIComponent(mensaje)}`;
+    const urlWa = generarEnlaceWhatsApp(cuentaActiva.telefono_whatsapp, mensaje);
     window.open(urlWa, '_blank');
 
     setWhatsappEnviado((prev) => ({ ...prev, [cuentaId]: true }));
@@ -539,11 +561,22 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
                 <span className="font-bold text-slate-900 dark:text-white text-xs block">
                   {cuentaActiva.titular}
                 </span>
-                <span className="text-[11px] text-slate-500">
-                  {cuentaActiva.numero_documento
-                    ? `${cuentaActiva.tipo_documento}: ${cuentaActiva.numero_documento}`
-                    : 'Consumidor Final (Sin documento)'}
-                </span>
+                <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    {cuentaActiva.numero_documento
+                      ? `${cuentaActiva.tipo_documento}: ${cuentaActiva.numero_documento}`
+                      : 'Consumidor Final (Sin documento)'}
+                  </span>
+                  {cuentaActiva.cliente_encontrado_en_bd ? (
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                      ✓ Cliente en BD
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                      Boleta &lt; S/ 700 • Sin cliente en BD
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -665,47 +698,66 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
             </div>
           </div>
 
-          {/* 3. ENTREGA DIGITAL DIRECTA (OPCIONES ASISTIDAS - VISTA 2 WIREFRAME) */}
-          <div className="p-4 sm:p-5 rounded-3xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-3 text-xs">
-            <span className="text-[10px] uppercase font-bold text-slate-400 font-mono tracking-wider block">
-              ENTREGA DIGITAL DIRECTA (OPCIONES ASISTIDAS)
-            </span>
+          {/* 3. ENTREGA DIGITAL DIRECTA (OPCIONES ASISTIDAS) - SOLO SI EL CLIENTE FUE ENCONTRADO EN LA BD */}
+          {cuentaActiva.cliente_encontrado_en_bd && (
+            <div className="p-4 sm:p-5 rounded-3xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-3 text-xs animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase font-bold text-slate-400 font-mono tracking-wider block">
+                  ENTREGA DIGITAL DIRECTA (OPCIONES ASISTIDAS)
+                </span>
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold font-mono">
+                  ✓ Cliente Registrado en BD
+                </span>
+              </div>
 
-            {/* Fila WhatsApp */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center shrink-0">
-                  <Smartphone className="w-4 h-4" />
-                </div>
-
-                {editandoWhatsappId === cuentaActiva.id ? (
-                  // Modo Edición / Registro WhatsApp
-                  <div className="flex items-center gap-2 flex-1 flex-wrap">
-                    <span className="font-mono text-slate-500 text-[11px] shrink-0">📱 WhatsApp:</span>
-                    <input
-                      type="tel"
-                      value={inputWhatsappTemp}
-                      onChange={(e) => setInputWhatsappTemp(e.target.value)}
-                      placeholder="+51 987 654 321"
-                      className="px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-emerald-500 w-44"
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      onClick={handleGuardarWhatsapp}
-                      className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-2xs"
-                    >
-                      Guardar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditandoWhatsappId(null)}
-                      className="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 text-[11px] font-bold"
-                    >
-                      Cancelar
-                    </button>
+              {/* Fila WhatsApp */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center shrink-0">
+                    <Smartphone className="w-4 h-4" />
                   </div>
-                ) : (
+
+                  {editandoWhatsappId === cuentaActiva.id ? (
+                    // Modo Edición / Registro WhatsApp según estandar_telefono_whatsapp.md
+                    <div className="flex items-center gap-2 flex-1 flex-wrap">
+                      <span className="font-mono text-slate-500 text-[11px] shrink-0">📱 WhatsApp:</span>
+                      <div className="flex items-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500">
+                        {/* Prefijo Fijo No Editable */}
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs select-none">
+                          <span>🇵🇪</span>
+                          <span className="font-mono text-[11px]">+51</span>
+                        </div>
+                        {/* Input de Dígitos */}
+                        <input
+                          type="tel"
+                          inputMode="numeric"
+                          maxLength={11}
+                          value={formatearTelefonoPeru(inputWhatsappTemp)}
+                          onChange={(e) => {
+                            const digits = extraerDigitosMovilPeru(e.target.value);
+                            setInputWhatsappTemp(digits);
+                          }}
+                          placeholder="987 654 321"
+                          className="w-36 px-2.5 py-1 bg-transparent text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-hidden"
+                          autoFocus
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleGuardarWhatsapp}
+                        className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-2xs"
+                      >
+                        Guardar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditandoWhatsappId(null)}
+                        className="px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 text-[11px] font-bold"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  ) : (
                   // Modo Visualización WhatsApp
                   <div className="min-w-0">
                     <span className="font-mono text-slate-500 text-[11px] block">📱 WhatsApp:</span>
@@ -847,6 +899,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
               </button>
             </div>
           </div>
+          )}
         </div>
 
         {/* ========================================================================= */}
