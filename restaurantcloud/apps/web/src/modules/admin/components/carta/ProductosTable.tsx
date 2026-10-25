@@ -298,20 +298,27 @@ export const ProductosTable: React.FC<ProductosTableProps> = ({
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((num) => (
-            <button
-              key={num}
-              type="button"
-              onClick={() => onCambiarPagina(num)}
-              className={`w-7 h-7 rounded-lg text-xs font-semibold transition-all ${
-                paginaActual === num
-                  ? 'bg-aurea-copper text-white shadow-xs'
-                  : 'text-aurea-navy hover:bg-aurea-champagne/30'
-              }`}
-            >
-              {num}
-            </button>
-          ))}
+          <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-aurea-champagne/20 border border-aurea-champagne/40 text-xs font-medium text-aurea-navy whitespace-nowrap">
+            <span>Página</span>
+            {totalPaginas > 1 ? (
+              <select
+                value={paginaActual}
+                onChange={(e) => onCambiarPagina(Number(e.target.value))}
+                className="bg-transparent font-bold text-aurea-navy border-b border-aurea-copper/60 focus:outline-none cursor-pointer px-0.5"
+                title="Seleccionar página"
+              >
+                {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((num) => (
+                  <option key={num} value={num}>
+                    {num}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <strong className="font-bold">{paginaActual}</strong>
+            )}
+            <span>de</span>
+            <strong className="font-bold">{totalPaginas}</strong>
+          </div>
 
           <button
             type="button"

@@ -3,6 +3,8 @@ import {
   GripVertical,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Edit2,
   Trash2,
   Eye,
@@ -22,6 +24,12 @@ interface CategoriasTableProps {
   onEliminar: (categoria: CategoriaAdminDTO) => void;
   onLimpiarBusqueda?: () => void;
   filtroActivo: boolean;
+  paginaActual?: number;
+  totalPaginas?: number;
+  totalRegistros?: number;
+  limitePorPagina?: number;
+  onCambiarPagina?: (pagina: number) => void;
+  onCambiarLimite?: (limite: number) => void;
 }
 
 export const CategoriasTable: React.FC<CategoriasTableProps> = ({
@@ -34,7 +42,45 @@ export const CategoriasTable: React.FC<CategoriasTableProps> = ({
   onEliminar,
   onLimpiarBusqueda,
   filtroActivo,
+  paginaActual: paginaProp,
+  totalPaginas: totalPaginasProp,
+  totalRegistros: totalRegistrosProp,
+  limitePorPagina: limiteProp,
+  onCambiarPagina,
+  onCambiarLimite,
 }) => {
+  const [paginaInterna, setPaginaInterna] = React.useState(1);
+  const [limiteInterno, setLimiteInterno] = React.useState(10);
+
+  const paginaActual = paginaProp ?? paginaInterna;
+  const limitePorPagina = limiteProp ?? limiteInterno;
+  const totalRegistros = totalRegistrosProp ?? categorias.length;
+  const totalPaginas = totalPaginasProp ?? Math.max(1, Math.ceil(totalRegistros / limitePorPagina));
+
+  const handleCambiarPagina = (pag: number) => {
+    const paginaValida = Math.max(1, Math.min(pag, totalPaginas));
+    if (onCambiarPagina) {
+      onCambiarPagina(paginaValida);
+    } else {
+      setPaginaInterna(paginaValida);
+    }
+  };
+
+  const handleCambiarLimite = (lim: number) => {
+    if (onCambiarLimite) {
+      onCambiarLimite(lim);
+    } else {
+      setLimiteInterno(lim);
+      setPaginaInterna(1);
+    }
+  };
+
+  React.useEffect(() => {
+    if (paginaProp === undefined) {
+      setPaginaInterna(1);
+    }
+  }, [categorias.length, paginaProp]);
+
   if (categorias.length === 0) {
     return (
       <div className="p-12 text-center bg-white rounded-2xl border border-aurea-champagne/40 shadow-sm space-y-3">
@@ -58,8 +104,16 @@ export const CategoriasTable: React.FC<CategoriasTableProps> = ({
     );
   }
 
+  const inicioRango = totalRegistros > 0 ? (paginaActual - 1) * limitePorPagina + 1 : 0;
+  const finRango = Math.min(paginaActual * limitePorPagina, totalRegistros);
+  const indiceInicio = (paginaActual - 1) * limitePorPagina;
+  const categoriasPaginadas =
+    paginaProp !== undefined && categorias.length <= limitePorPagina
+      ? categorias
+      : categorias.slice(indiceInicio, indiceInicio + limitePorPagina);
+
   return (
-    <div className="bg-white rounded-2xl border border-aurea-champagne/40 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-2xl border border-aurea-champagne/40 shadow-sm overflow-hidden flex flex-col">
       {/* =====================================================================
           1. VISTA TABLA PARA DESKTOP Y TABLET (md en adelante)
           ===================================================================== */}
@@ -75,7 +129,7 @@ export const CategoriasTable: React.FC<CategoriasTableProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-aurea-champagne/30 text-sm text-aurea-navy">
-            {categorias.map((cat) => {
+            {categoriasPaginadas.map((cat) => {
               // Buscar índice en la lista general para saber si se puede subir/bajar
               const indexGeneral = todasCategoriasOrdenadas.findIndex((c) => c.id === cat.id);
               const puedeSubir = indexGeneral > 0;
@@ -240,7 +294,7 @@ export const CategoriasTable: React.FC<CategoriasTableProps> = ({
           2. VISTA DE TARJETAS PARA MÓVIL (< md)
           ===================================================================== */}
       <div className="md:hidden divide-y divide-aurea-champagne/30">
-        {categorias.map((cat) => {
+        {categoriasPaginadas.map((cat) => {
           const indexGeneral = todasCategoriasOrdenadas.findIndex((c) => c.id === cat.id);
           const puedeSubir = indexGeneral > 0;
           const puedeBajar =
@@ -365,6 +419,80 @@ export const CategoriasTable: React.FC<CategoriasTableProps> = ({
           );
         })}
       </div>
+
+      {/* =====================================================================
+          3. PAGINACIÓN COMPACTA Y RESPONSIVA
+          ===================================================================== */}
+      <div className="p-4 border-t border-aurea-champagne/30 bg-white flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-aurea-navy/70">
+        {/* Contador de rango y selector de tamaño */}
+        <div className="flex items-center gap-3">
+          <span>
+            Mostrando <strong>{inicioRango}</strong> - <strong>{finRango}</strong> de <strong>{totalRegistros}</strong> categorías
+          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-aurea-navy/50">|</span>
+            <span>Mostrar</span>
+            <select
+              value={limitePorPagina}
+              onChange={(e) => handleCambiarLimite(Number(e.target.value))}
+              className="px-2 py-1 rounded-lg border border-aurea-champagne/60 text-xs text-aurea-navy bg-white focus:border-aurea-copper outline-none"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+            <span>por pág.</span>
+          </div>
+        </div>
+
+        {/* Botones de navegación de página */}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => handleCambiarPagina(paginaActual - 1)}
+            disabled={paginaActual <= 1}
+            className="p-1.5 rounded-lg border border-aurea-champagne/60 text-aurea-navy hover:bg-aurea-champagne/20 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            title="Página anterior"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-aurea-champagne/20 border border-aurea-champagne/40 text-xs font-medium text-aurea-navy whitespace-nowrap">
+            <span>Página</span>
+            {totalPaginas > 1 ? (
+              <select
+                value={paginaActual}
+                onChange={(e) => handleCambiarPagina(Number(e.target.value))}
+                className="bg-transparent font-bold text-aurea-navy border-b border-aurea-copper/60 focus:outline-none cursor-pointer px-0.5"
+                title="Seleccionar página"
+              >
+                {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((num) => (
+                  <option key={num} value={num}>
+                    {num}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <strong className="font-bold">{paginaActual}</strong>
+            )}
+            <span>de</span>
+            <strong className="font-bold">{totalPaginas}</strong>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleCambiarPagina(paginaActual + 1)}
+            disabled={paginaActual >= totalPaginas}
+            className="p-1.5 rounded-lg border border-aurea-champagne/60 text-aurea-navy hover:bg-aurea-champagne/20 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            title="Página siguiente"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
+
+export default CategoriasTable;

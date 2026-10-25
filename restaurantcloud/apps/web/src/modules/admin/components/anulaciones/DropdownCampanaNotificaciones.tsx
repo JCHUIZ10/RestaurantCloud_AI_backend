@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { NotificacionCampanaDTO } from '@/types/admin';
-import { mockAdminService } from '../../services/mockAdminService';
+import { adminService } from '@/services/serviceAdapter';
 import { ROUTES } from '@/router/routes.constants';
 
 interface DropdownCampanaNotificacionesProps {
@@ -28,7 +28,7 @@ export const DropdownCampanaNotificaciones: React.FC<DropdownCampanaNotificacion
 
   const cargarNotificaciones = async () => {
     try {
-      const resp = await mockAdminService.getNotificacionesCampana();
+      const resp = await adminService.getNotificacionesCampana();
       if (resp.exito) {
         setNotificaciones(resp.datos);
       }
@@ -41,7 +41,7 @@ export const DropdownCampanaNotificaciones: React.FC<DropdownCampanaNotificacion
     cargarNotificaciones();
 
     // Escuchar SSE para refrescar campana en vivo
-    const unsub = mockAdminService.subscribirNotificacionesSse(() => {
+    const unsub = adminService.subscribirNotificacionesSse(() => {
       cargarNotificaciones();
     });
 
@@ -67,7 +67,7 @@ export const DropdownCampanaNotificaciones: React.FC<DropdownCampanaNotificacion
   const handleMarcarTodasLeidas = async () => {
     setCargando(true);
     try {
-      await mockAdminService.marcarTodasNotificacionesLeidas();
+      await adminService.marcarTodasNotificacionesLeidas();
       await cargarNotificaciones();
     } finally {
       setCargando(false);
@@ -76,7 +76,7 @@ export const DropdownCampanaNotificaciones: React.FC<DropdownCampanaNotificacion
 
   const handleClickItem = async (item: NotificacionCampanaDTO) => {
     if (!item.leido) {
-      await mockAdminService.marcarNotificacionLeida(item.id);
+      await adminService.marcarNotificacionLeida(item.id);
       await cargarNotificaciones();
     }
 

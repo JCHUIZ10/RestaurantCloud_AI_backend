@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   LayoutGrid,
   FileX2,
+  RefreshCw,
 } from 'lucide-react';
 import { AnulacionesKPIsDTO } from '@/types/admin';
 
@@ -14,36 +15,65 @@ interface AnulacionesHeaderProps {
   fecha: string;
   onCambiarFecha: (nuevaFecha: string) => void;
   kpis: AnulacionesKPIsDTO;
+  onRecargar?: () => void;
+  cargando?: boolean;
 }
+
+const getFechaIso = (d: Date): string => {
+  const anio = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const dia = String(d.getDate()).padStart(2, '0');
+  return `${anio}-${mes}-${dia}`;
+};
 
 export const AnulacionesHeader: React.FC<AnulacionesHeaderProps> = ({
   fecha,
   onCambiarFecha,
   kpis,
+  onRecargar,
+  cargando = false,
 }) => {
+  const hoyIso = React.useMemo(() => getFechaIso(new Date()), []);
+  const ayerIso = React.useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return getFechaIso(d);
+  }, []);
+  const hace7DiasIso = React.useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return getFechaIso(d);
+  }, []);
+
   const formatearFechaCabecera = (f: string) => {
-    // Si coincide con 2026-10-09, mostramos "Hoy, 09 de Octubre 2026"
     const partes = f.split('-');
     if (partes.length === 3) {
       const fechaObj = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
       const nombreMes = fechaObj.toLocaleString('es-PE', { month: 'long' });
       const dia = partes[2];
       const anio = partes[0];
-      return `${dia} de ${nombreMes} ${anio}`;
+      const prefijo = f === hoyIso ? 'Hoy, ' : f === ayerIso ? 'Ayer, ' : '';
+      return `${prefijo}${dia} de ${nombreMes} ${anio}`;
     }
     return f;
   };
 
   const handleRetrocederDia = () => {
-    const d = new Date(fecha);
-    d.setDate(d.getDate() - 1);
-    onCambiarFecha(d.toISOString().slice(0, 10));
+    const partes = fecha.split('-');
+    if (partes.length === 3) {
+      const d = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+      d.setDate(d.getDate() - 1);
+      onCambiarFecha(getFechaIso(d));
+    }
   };
 
   const handleAvanzarDia = () => {
-    const d = new Date(fecha);
-    d.setDate(d.getDate() + 1);
-    onCambiarFecha(d.toISOString().slice(0, 10));
+    const partes = fecha.split('-');
+    if (partes.length === 3) {
+      const d = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+      d.setDate(d.getDate() + 1);
+      onCambiarFecha(getFechaIso(d));
+    }
   };
 
   return (
@@ -90,9 +120,9 @@ export const AnulacionesHeader: React.FC<AnulacionesHeaderProps> = ({
 
           <div className="inline-flex items-center rounded-xl bg-slate-100 p-1 text-xs font-semibold text-slate-600 gap-1 border border-slate-200/60">
             <button
-              onClick={() => onCambiarFecha('2026-10-09')}
+              onClick={() => onCambiarFecha(hoyIso)}
               className={`px-2.5 py-1 rounded-lg transition-all ${
-                fecha === '2026-10-09'
+                fecha === hoyIso
                   ? 'bg-white text-aurea-navy shadow-sm'
                   : 'hover:text-aurea-navy hover:bg-white/50'
               }`}
@@ -100,9 +130,9 @@ export const AnulacionesHeader: React.FC<AnulacionesHeaderProps> = ({
               Hoy
             </button>
             <button
-              onClick={() => onCambiarFecha('2026-10-08')}
+              onClick={() => onCambiarFecha(ayerIso)}
               className={`px-2.5 py-1 rounded-lg transition-all ${
-                fecha === '2026-10-08'
+                fecha === ayerIso
                   ? 'bg-white text-aurea-navy shadow-sm'
                   : 'hover:text-aurea-navy hover:bg-white/50'
               }`}
@@ -110,9 +140,9 @@ export const AnulacionesHeader: React.FC<AnulacionesHeaderProps> = ({
               Ayer
             </button>
             <button
-              onClick={() => onCambiarFecha('2026-10-02')}
+              onClick={() => onCambiarFecha(hace7DiasIso)}
               className={`px-2.5 py-1 rounded-lg transition-all ${
-                fecha === '2026-10-02'
+                fecha === hace7DiasIso
                   ? 'bg-white text-aurea-navy shadow-sm'
                   : 'hover:text-aurea-navy hover:bg-white/50'
               }`}
@@ -120,6 +150,18 @@ export const AnulacionesHeader: React.FC<AnulacionesHeaderProps> = ({
               7 Días
             </button>
           </div>
+
+          {onRecargar && (
+            <button
+              onClick={onRecargar}
+              disabled={cargando}
+              title="Actualizar datos del servidor"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200/90 shadow-sm text-xs font-semibold text-slate-700 hover:text-aurea-navy hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-aurea-copper ${cargando ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Actualizar</span>
+            </button>
+          )}
         </div>
       </div>
 

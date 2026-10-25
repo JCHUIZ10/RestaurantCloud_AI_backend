@@ -49,7 +49,7 @@ const ShortMenuRedirect = () => {
   return <Navigate to={`/sede/${slug}/carta`} replace />;
 };
 
-export const router = createBrowserRouter([
+export const router: ReturnType<typeof createBrowserRouter> = createBrowserRouter([
   // =========================================================================
   // 1. DOMINIO PÚBLICO SAAS (Landing, Login, Registro Onboarding)
   // =========================================================================

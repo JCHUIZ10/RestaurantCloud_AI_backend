@@ -1,14 +1,12 @@
 import React from 'react';
-import { UtensilsCrossed, Plus, BookOpen, Sparkles, Smartphone, CheckCircle2 } from 'lucide-react';
+import { UtensilsCrossed, Plus, Sparkles, Smartphone, CheckCircle2 } from 'lucide-react';
 
 interface OnboardingCategoriasVaciaProps {
   onCrearPrimeraCategoria: () => void;
-  onExplorarPlantillas: () => void;
 }
 
 export const OnboardingCategoriasVacia: React.FC<OnboardingCategoriasVaciaProps> = ({
   onCrearPrimeraCategoria,
-  onExplorarPlantillas,
 }) => {
   return (
     <div className="bg-white rounded-3xl border border-aurea-champagne/50 shadow-sm p-8 sm:p-12 text-center max-w-3xl mx-auto space-y-8 animate-fade-in">
@@ -66,7 +64,7 @@ export const OnboardingCategoriasVacia: React.FC<OnboardingCategoriasVaciaProps>
       </div>
 
       {/* Acciones de Inicio */}
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+      <div className="flex items-center justify-center pt-2">
         <button
           type="button"
           onClick={onCrearPrimeraCategoria}
@@ -74,15 +72,6 @@ export const OnboardingCategoriasVacia: React.FC<OnboardingCategoriasVaciaProps>
         >
           <Plus className="w-4 h-4 text-aurea-champagne" />
           <span>Crear Primera Categoría</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={onExplorarPlantillas}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-aurea-copper/40 bg-white hover:bg-aurea-champagne/20 text-aurea-navy font-semibold text-sm transition-colors min-h-[48px]"
-        >
-          <BookOpen className="w-4 h-4 text-aurea-copper" />
-          <span>Usar Plantilla Peruana (Pollería, Chifa...)</span>
         </button>
       </div>
     </div>

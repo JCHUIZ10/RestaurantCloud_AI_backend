@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   CheckCircle2,
   AlertCircle,
@@ -17,12 +17,18 @@ import { AnulacionesTabla } from '../components/anulaciones/AnulacionesTabla';
 import { ModalDetalleAnulacion } from '../components/anulaciones/ModalDetalleAnulacion';
 import { ModalEscalarIncidente } from '../components/anulaciones/ModalEscalarIncidente';
 import { AnulacionesVacioState } from '../components/anulaciones/AnulacionesVacioState';
-import { ToastAlertaAnulacion } from '../components/anulaciones/ToastAlertaAnulacion';
-import { DemoAdminAnulacionesWidget } from '../components/anulaciones/DemoAdminAnulacionesWidget';
+
+const getFechaLocalHoy = (): string => {
+  const d = new Date();
+  const anio = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const dia = String(d.getDate()).padStart(2, '0');
+  return `${anio}-${mes}-${dia}`;
+};
 
 export const AdminAnulacionesPage: React.FC = () => {
   const [cargando, setCargando] = useState(true);
-  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
+  const [fecha, setFecha] = useState(getFechaLocalHoy);
   const [filtroRapido, setFiltroRapido] = useState<FiltroRapidoAnulaciones>('todas');
   const [mozoId, setMozoId] = useState('todos');
   const [busqueda, setBusqueda] = useState('');
@@ -37,6 +43,9 @@ export const AdminAnulacionesPage: React.FC = () => {
     pendientes_revision: 0,
   });
 
+  // Lista de personal con rol mozo traída directamente del backend
+  const [mozosPersonal, setMozosPersonal] = useState<{ id: string; nombre: string }[]>([]);
+
   // Modal de Detalle / Auditoría
   const [anulacionSeleccionada, setAnulacionSeleccionada] = useState<PedidoAnulacionItemDTO | null>(null);
   const [modalDetalleAbierto, setModalDetalleAbierto] = useState(false);
@@ -44,9 +53,6 @@ export const AdminAnulacionesPage: React.FC = () => {
   // Modal de Escalamiento a Incidente (CU-ADMIN-11)
   const [anulacionParaEscalar, setAnulacionParaEscalar] = useState<PedidoAnulacionItemDTO | null>(null);
   const [modalEscalarAbierto, setModalEscalarAbierto] = useState(false);
-
-  // Toast flotante reactivo SSE
-  const [alertaSse, setAlertaSse] = useState<PedidoAnulacionItemDTO | null>(null);
 
   // Toast de feedback administrativo
   const [toastFeedback, setToastFeedback] = useState<{ tipo: 'exito' | 'error' | 'info'; texto: string } | null>(null);
@@ -58,9 +64,34 @@ export const AdminAnulacionesPage: React.FC = () => {
     }, 4500);
   }, []);
 
-  // Cargar datos desde el servicio
-  const cargarDatos = useCallback(async () => {
-    setCargando(true);
+  // Cargar lista de mozos reales de la sede
+  useEffect(() => {
+    let activo = true;
+    adminService.getPersonal({ rol: 'mozo', limite: 50 })
+      .then((resp: any) => {
+        if (activo && resp.exito && resp.datos?.empleados) {
+          setMozosPersonal(
+            resp.datos.empleados.map((emp: any) => ({
+              id: emp.id,
+              nombre: emp.nombre || emp.usuario_nombre || 'Mozo',
+            }))
+          );
+        }
+      })
+      .catch((err: any) => {
+        console.error('Error al cargar lista de mozos:', err);
+      });
+
+    return () => {
+      activo = false;
+    };
+  }, []);
+
+  // Cargar datos desde el servicio backend
+  const cargarDatos = useCallback(async (silencioso = false) => {
+    if (!silencioso) {
+      setCargando(true);
+    }
     try {
       const resp = await adminService.getBandejaAnulaciones({
         fecha,
@@ -75,7 +106,7 @@ export const AdminAnulacionesPage: React.FC = () => {
       } else {
         mostrarToast('Error al cargar bandeja de anulaciones', 'error');
       }
-    } catch (err) {
+    } catch {
       mostrarToast('Error de comunicación con el servidor', 'error');
     } finally {
       setCargando(false);
@@ -83,23 +114,19 @@ export const AdminAnulacionesPage: React.FC = () => {
   }, [fecha, filtroRapido, mozoId, busqueda, mostrarToast]);
 
   useEffect(() => {
-    cargarDatos();
+    cargarDatos(false);
   }, [cargarDatos]);
 
-  // Suscripción reactiva a SSE
+  // Polling automático ligero cada 45s (solo si la pestaña está activa)
   useEffect(() => {
-    const desuscribir = adminService.subscribirNotificacionesSse((notif: any) => {
-      if (notif.anulacion_id) {
-        adminService.getAnulacionDetalle(notif.anulacion_id).then((res: any) => {
-          if (res.exito && res.datos) {
-            setAlertaSse(res.datos);
-          }
-        });
+    const INTERVALO_POLLING_MS = 45000;
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        cargarDatos(true);
       }
-      cargarDatos();
-    });
+    }, INTERVALO_POLLING_MS);
 
-    return () => desuscribir();
+    return () => clearInterval(intervalId);
   }, [cargarDatos]);
 
   // Manejador para abrir modal de detalle
@@ -126,7 +153,7 @@ export const AdminAnulacionesPage: React.FC = () => {
 
       if (resp.exito) {
         mostrarToast('Anulación marcada como revisada por la administración.', 'exito');
-        await cargarDatos();
+        await cargarDatos(true);
         if (anulacionSeleccionada && anulacionSeleccionada.id === id) {
           setAnulacionSeleccionada(resp.datos);
         }
@@ -160,7 +187,7 @@ export const AdminAnulacionesPage: React.FC = () => {
           `Expediente ${resp.datos.incidente.codigo} generado exitosamente y vinculado con la anulación.`,
           'exito'
         );
-        await cargarDatos();
+        await cargarDatos(true);
         return true;
       } else {
         mostrarToast('No se pudo generar el expediente de incidente.', 'error');
@@ -172,15 +199,21 @@ export const AdminAnulacionesPage: React.FC = () => {
     }
   };
 
-  const mozosDisponibles = React.useMemo(() => {
+  // Mozos disponibles: Unión de personal registrado con rol mozo + mozos que figuran en anulaciones
+  const mozosDisponibles = useMemo(() => {
     const map = new Map<string, string>();
+    mozosPersonal.forEach((m) => {
+      if (m.id && m.nombre) {
+        map.set(m.id, m.nombre);
+      }
+    });
     anulaciones.forEach((a) => {
       if (a.mozo_id && a.mozo_nombre) {
         map.set(a.mozo_id, a.mozo_nombre);
       }
     });
     return Array.from(map.entries()).map(([id, nombre]) => ({ id, nombre }));
-  }, [anulaciones]);
+  }, [mozosPersonal, anulaciones]);
 
   const esFiltroActivo = filtroRapido !== 'todas' || mozoId !== 'todos' || busqueda.trim().length > 0;
 
@@ -205,30 +238,22 @@ export const AdminAnulacionesPage: React.FC = () => {
         </aside>
       )}
 
-      {/* Alerta flotante SSE reactiva */}
-      <ToastAlertaAnulacion
-        alerta={alertaSse}
-        onVerFicha={handleVerFicha}
-        onCerrar={() => setAlertaSse(null)}
-      />
-
-      {/* Encabezado con selector de fecha táctil y 4 Tarjetas KPI */}
+      {/* Encabezado con selector de fecha, botón de actualización y Tarjetas KPI */}
       <AnulacionesHeader
         fecha={fecha}
         onCambiarFecha={setFecha}
         kpis={kpis}
+        onRecargar={() => cargarDatos(false)}
+        cargando={cargando}
       />
 
-      {/* Filtros rápidos en píldora, selector de mozo y buscador reactivo */}
+      {/* Filtros rápidos en píldora, selector de mozo real y buscador */}
       <AnulacionesFiltros
         filtroRapido={filtroRapido}
         onChangeFiltroRapido={setFiltroRapido}
         mozoId={mozoId}
         onChangeMozoId={setMozoId}
-        mozos={mozosDisponibles.length > 0 ? mozosDisponibles : [
-          { id: 'usr-mozo-01', nombre: 'Carlos Mendoza' },
-          { id: 'usr-mozo-02', nombre: 'Ana Paredes' },
-        ]}
+        mozos={mozosDisponibles}
         busqueda={busqueda}
         onChangeBusqueda={setBusqueda}
         conteoFiltros={{
@@ -250,7 +275,7 @@ export const AdminAnulacionesPage: React.FC = () => {
             setMozoId('todos');
             setBusqueda('');
           }}
-          onVolverAHoy={() => setFecha(new Date().toISOString().slice(0, 10))}
+          onVolverAHoy={() => setFecha(getFechaLocalHoy())}
         />
       ) : (
         <AnulacionesTabla
@@ -277,10 +302,8 @@ export const AdminAnulacionesPage: React.FC = () => {
         anulacion={anulacionParaEscalar}
         onEscalar={handleConfirmarEscalar}
       />
-
-      {/* QA Test Bench Widget */}
-      <DemoAdminAnulacionesWidget onRecargar={cargarDatos} />
     </div>
   );
 };
+
 export default AdminAnulacionesPage;

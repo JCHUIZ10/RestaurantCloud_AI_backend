@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { adminService as mockAdminService } from '@/services/serviceAdapter';
-import { CANONICAL_LOCAL_ID } from '@/modules/admin/services/mockAdminService';
+import { adminService } from '@/services/serviceAdapter';
 import {
   CategoriasAdminResponseDTO,
   CategoriaAdminDTO,
   CrearCategoriaRequest,
   ActualizarCategoriaRequest,
   ConflictoCategoriaConProductosDTO,
-  TipoPlantillaGastronomica,
 } from '@/types/admin';
 
 import { CategoriasHeader } from '../components/categorias/CategoriasHeader';
@@ -18,9 +16,7 @@ import {
 import { CategoriasTable } from '../components/categorias/CategoriasTable';
 import { ModalCrearEditarCategoria } from '../components/categorias/ModalCrearEditarCategoria';
 import { ModalBloqueoReasignacion } from '../components/categorias/ModalBloqueoReasignacion';
-import { ModalCargarPlantilla } from '../components/categorias/ModalCargarPlantilla';
 import { OnboardingCategoriasVacia } from '../components/categorias/OnboardingCategoriasVacia';
-import { DemoAdminCategoriasWidget } from '../components/categorias/DemoAdminCategoriasWidget';
 
 import { AlertCircle, RefreshCw, CheckCircle2 } from 'lucide-react';
 
@@ -43,13 +39,8 @@ export const AdminCategoriasPage: React.FC = () => {
   const [conflictoActual, setConflictoActual] =
     useState<ConflictoCategoriaConProductosDTO | null>(null);
 
-  const [modalPlantillaAbierto, setModalPlantillaAbierto] = useState<boolean>(false);
-
   // Notificación Toast
   const [toast, setToast] = useState<{ tipo: 'exito' | 'error'; mensaje: string } | null>(null);
-
-  // Simulación de error interactivo
-  const [simulandoError, setSimulandoError] = useState<boolean>(false);
 
   const mostrarToast = useCallback((mensaje: string, tipo: 'exito' | 'error' = 'exito') => {
     setToast({ tipo, mensaje });
@@ -63,16 +54,8 @@ export const AdminCategoriasPage: React.FC = () => {
     setCargando(true);
     setError(null);
 
-    if (simulandoError) {
-      setTimeout(() => {
-        setError('Error al conectar con el servidor de carta. Verifica tu conexión de red (Simulado).');
-        setCargando(false);
-      }, 500);
-      return;
-    }
-
     try {
-      const res = await mockAdminService.obtenerCategorias(CANONICAL_LOCAL_ID);
+      const res = await adminService.obtenerCategorias();
       if (res.exito && res.datos) {
         setDatosResponse(res.datos);
       } else {
@@ -83,7 +66,7 @@ export const AdminCategoriasPage: React.FC = () => {
     } finally {
       setCargando(false);
     }
-  }, [simulandoError]);
+  }, []);
 
   useEffect(() => {
     cargarCategorias();
@@ -144,7 +127,7 @@ export const AdminCategoriasPage: React.FC = () => {
     id?: string
   ): Promise<boolean> => {
     if (modoForm === 'crear') {
-      const res = await mockAdminService.crearCategoria(payload as CrearCategoriaRequest);
+      const res = await adminService.crearCategoria(payload as CrearCategoriaRequest);
       if (res.exito && res.datos) {
         mostrarToast(`Categoría "${res.datos.nombre}" creada exitosamente.`);
         await cargarCategorias();
@@ -153,7 +136,7 @@ export const AdminCategoriasPage: React.FC = () => {
         throw new Error(res.errores?.[0]?.mensaje || 'No se pudo crear la categoría.');
       }
     } else if (modoForm === 'editar' && id) {
-      const res = await mockAdminService.actualizarCategoria(id, payload as ActualizarCategoriaRequest);
+      const res = await adminService.actualizarCategoria(id, payload as ActualizarCategoriaRequest);
       if (res.exito && res.datos) {
         mostrarToast(`Categoría "${res.datos.nombre}" actualizada exitosamente.`);
         await cargarCategorias();
@@ -177,7 +160,7 @@ export const AdminCategoriasPage: React.FC = () => {
     });
 
     try {
-      const res = await mockAdminService.conmutarVisibilidadCategoria(id, activa);
+      const res = await adminService.conmutarVisibilidadCategoria(id, activa);
       if (res.exito && res.datos) {
         mostrarToast(
           `Categoría "${res.datos.nombre}" ahora está ${activa ? 'visible' : 'oculta'} en salón y comanda.`
@@ -213,7 +196,7 @@ export const AdminCategoriasPage: React.FC = () => {
     ];
 
     try {
-      const res = await mockAdminService.reordenarCategorias({ categorias: payloadReorden });
+      const res = await adminService.reordenarCategorias({ categorias: payloadReorden });
       if (res.exito) {
         mostrarToast('Secuencia de comanda actualizada.');
         await cargarCategorias();
@@ -243,7 +226,7 @@ export const AdminCategoriasPage: React.FC = () => {
     ];
 
     try {
-      const res = await mockAdminService.reordenarCategorias({ categorias: payloadReorden });
+      const res = await adminService.reordenarCategorias({ categorias: payloadReorden });
       if (res.exito) {
         mostrarToast('Secuencia de comanda actualizada.');
         await cargarCategorias();
@@ -263,7 +246,7 @@ export const AdminCategoriasPage: React.FC = () => {
     }
 
     try {
-      const res = await mockAdminService.eliminarCategoria(categoria.id);
+      const res = await adminService.eliminarCategoria(categoria.id);
 
       if (res.exito) {
         mostrarToast(res.datos?.mensaje || `Categoría "${categoria.nombre}" eliminada.`);
@@ -288,7 +271,7 @@ export const AdminCategoriasPage: React.FC = () => {
     nuevaCategoriaId: string,
     productoIds?: string[]
   ): Promise<{ categoria_eliminada: boolean; platos_restantes: number }> => {
-    const res = await mockAdminService.reasignarYEliminarCategoria(categoriaOrigenId, {
+    const res = await adminService.reasignarYEliminarCategoria(categoriaOrigenId, {
       nueva_categoria_id: nuevaCategoriaId,
       producto_ids: productoIds,
     });
@@ -308,49 +291,6 @@ export const AdminCategoriasPage: React.FC = () => {
     } else {
       throw new Error(res.errores?.[0]?.mensaje || 'No se pudo completar la reasignación de platos.');
     }
-  };
-
-  // Handler: Aplicar Plantilla Gastronómica
-  const handleCargarPlantilla = async (
-    tipoPlantilla: TipoPlantillaGastronomica,
-    reemplazarExistentes: boolean
-  ): Promise<boolean> => {
-    const res = await mockAdminService.cargarPlantillaGastronomica({
-      tipo_plantilla: tipoPlantilla,
-      reemplazar_existentes: reemplazarExistentes,
-    });
-
-    if (res.exito && res.datos) {
-      mostrarToast('Plantilla gastronómica aplicada exitosamente.');
-      setDatosResponse(res.datos);
-      return true;
-    } else {
-      throw new Error(res.errores?.[0]?.mensaje || 'Error al aplicar plantilla gastronómica.');
-    }
-  };
-
-  // Demostración QA: Vaciar Categorías
-  const handleQAVaciar = () => {
-    mockAdminService.simularCategoriasVacias();
-    cargarCategorias();
-    mostrarToast('Simulación: Todas las categorías fueron vaciadas (Modo Onboarding).');
-  };
-
-  // Demostración QA: Simular 409 directo
-  const handleQASimular409 = () => {
-    const catConPlatos = todasCategorias.find((c) => c.total_productos > 0);
-    if (catConPlatos) {
-      handleEliminarCategoria(catConPlatos);
-    } else {
-      mostrarToast('No hay categorías con platos para simular el bloqueo 409.', 'error');
-    }
-  };
-
-  // Demostración QA: Restablecer Semillas
-  const handleQARestablecer = () => {
-    mockAdminService.restablecerCategoriasAurea();
-    cargarCategorias();
-    mostrarToast('Semillas canónicas de Sede Miraflores restablecidas.');
   };
 
   return (
@@ -411,10 +351,7 @@ export const AdminCategoriasPage: React.FC = () => {
           </div>
           <button
             type="button"
-            onClick={() => {
-              setSimulandoError(false);
-              cargarCategorias();
-            }}
+            onClick={() => cargarCategorias()}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-aurea-navy text-white text-sm font-semibold hover:bg-aurea-navy/90 transition-all shadow-md min-h-[44px]"
           >
             <RefreshCw className="w-4 h-4 text-aurea-champagne" />
@@ -433,14 +370,12 @@ export const AdminCategoriasPage: React.FC = () => {
             localNombre={datosResponse.local_nombre}
             resumen={datosResponse.resumen}
             onAbrirNuevaCategoria={handleAbrirNueva}
-            onAbrirPlantillas={() => setModalPlantillaAbierto(true)}
           />
 
           {/* Si no hay ninguna categoría registrada (Onboarding inicial) */}
           {todasCategorias.length === 0 ? (
             <OnboardingCategoriasVacia
               onCrearPrimeraCategoria={handleAbrirNueva}
-              onExplorarPlantillas={() => setModalPlantillaAbierto(true)}
             />
           ) : (
             <div className="space-y-4">
@@ -493,23 +428,6 @@ export const AdminCategoriasPage: React.FC = () => {
           setConflictoActual(null);
         }}
         onReasignarYEliminar={handleReasignarYEliminar}
-      />
-
-      <ModalCargarPlantilla
-        abierto={modalPlantillaAbierto}
-        onCerrar={() => setModalPlantillaAbierto(false)}
-        onCargarPlantilla={handleCargarPlantilla}
-      />
-
-      {/* Floating Demo Widget */}
-      <DemoAdminCategoriasWidget
-        onVaciarCategorias={handleQAVaciar}
-        onRestablecerSemillas={handleQARestablecer}
-        onSimularConflicto409={handleQASimular409}
-        onAlternarErrorSimulado={() => {
-          setSimulandoError((prev) => !prev);
-        }}
-        simulandoError={simulandoError}
       />
     </div>
   );

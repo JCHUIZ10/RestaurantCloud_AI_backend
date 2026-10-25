@@ -6,7 +6,6 @@ import {
   UtensilsCrossed,
   Sparkles,
   Plus,
-  BookOpen,
   MapPin,
   ChevronRight,
 } from 'lucide-react';
@@ -17,14 +16,12 @@ interface CategoriasHeaderProps {
   localNombre: string;
   resumen: ResumenCategoriasDTO;
   onAbrirNuevaCategoria: () => void;
-  onAbrirPlantillas: () => void;
 }
 
 export const CategoriasHeader: React.FC<CategoriasHeaderProps> = ({
   localNombre,
   resumen,
   onAbrirNuevaCategoria,
-  onAbrirPlantillas,
 }) => {
   return (
     <div className="space-y-6">
@@ -62,15 +59,6 @@ export const CategoriasHeader: React.FC<CategoriasHeaderProps> = ({
             <UtensilsCrossed className="w-4 h-4 text-aurea-copper" />
             <span className="hidden sm:inline">Productos y Carta</span>
           </Link>
-          <button
-            type="button"
-            onClick={onAbrirPlantillas}
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-aurea-copper/40 bg-white hover:bg-aurea-champagne/20 text-aurea-navy text-sm font-medium transition-colors shadow-sm min-h-[44px]"
-            title="Explorar plantillas gastronómicas preconfiguradas"
-          >
-            <BookOpen className="w-4 h-4 text-aurea-copper" />
-            <span className="hidden sm:inline">Plantillas</span> Rápidas
-          </button>
           <button
             type="button"
             onClick={onAbrirNuevaCategoria}
