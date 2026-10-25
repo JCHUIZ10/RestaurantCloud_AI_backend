@@ -1,25 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useId } from 'react';
 import {
-  X,
   Receipt,
   Plus,
   Trash2,
-  AlertTriangle,
+  AlertCircle,
   CheckCircle2,
   Truck,
-  Loader2,
-  TrendingUp,
-  TrendingDown,
-  Info,
   User,
   Phone,
   MessageCircle,
   MapPin,
   Star,
-  PlusCircle,
   Check,
   PackageSearch,
-  RotateCcw,
+  Package,
 } from 'lucide-react';
 import {
   TipoComprobanteCompra,
@@ -34,15 +28,32 @@ import {
 } from '@/types/admin';
 import { adminService } from '@/services/serviceAdapter';
 import { useAuthStore } from '@/stores/authStore';
-import { generarEnlaceWhatsApp } from '@/shared/utils';
+import { generarEnlaceWhatsApp, cn } from '@/shared/utils';
+import { Button, EstadoError, IconButton, Modal, Skeleton } from '@/components/ui';
 import { ModalProveedorAlVuelo } from './ModalProveedorAlVuelo';
 import { SelectorInsumoSearchable, InsumoSeleccionable } from './SelectorInsumoSearchable';
+import { VariacionCosto } from './etiquetasCompra';
+import { METODOS_PAGO, TIPOS_COMPROBANTE, soles } from './formatoCompra';
 
 interface ModalRegistrarCompraProps {
   abierto: boolean;
   onCerrar: () => void;
   onCompraRegistrada: (ficha: FichaCompraResumenDTO, platosReactivables: PlatoReactivableDTO[]) => void;
 }
+
+const CLASE_CONTROL =
+  'w-full min-h-tactil px-3.5 bg-white border border-aurea-champagne/70 rounded-xl text-base md:text-sm text-aurea-navy placeholder:text-aurea-navy/40 focus:outline-none focus:border-aurea-copper';
+const CLASE_ROTULO = 'block text-sm font-semibold text-aurea-navy mb-1.5';
+const CLASE_NUMERO =
+  'w-full min-h-10 px-2.5 bg-white border border-aurea-champagne/70 rounded-lg text-right font-mono text-base md:text-sm text-aurea-navy placeholder:text-aurea-navy/40 focus:outline-none focus:border-aurea-copper';
+// Columnas de la grilla de líneas en escritorio: insumo, cantidad, precio, variación, subtotal, quitar
+const GRILLA_LINEAS = 'md:grid-cols-[minmax(0,1fr)_8.5rem_7.5rem_6rem_6.5rem_2.75rem]';
+
+const PLACEHOLDER_NUMERO: Partial<Record<TipoComprobanteCompra, string>> = {
+  FACTURA: 'Ej. F001-0004921',
+  BOLETA: 'Ej. B001-0001092',
+  GUIA_REMISION: 'Ej. T001-0000312',
+};
 
 interface LineaFormItem {
   id_temp: string;
@@ -60,6 +71,7 @@ export const ModalRegistrarCompra: React.FC<ModalRegistrarCompraProps> = ({
   onCerrar,
   onCompraRegistrada,
 }) => {
+  const idForm = useId();
   const usuario = useAuthStore((s) => s.usuario);
   const localId = usuario?.local?.id || '';
 
@@ -446,558 +458,439 @@ export const ModalRegistrarCompra: React.FC<ModalRegistrarCompraProps> = ({
     }
   };
 
-  if (!abierto) return null;
+  const motivoBloqueo =
+    lineas.length === 0
+      ? 'Agrega al menos un insumo.'
+      : !proveedorId
+        ? 'Elige un proveedor.'
+        : requiereNumeroComprobante(tipoComprobante) && !numeroComprobante.trim()
+          ? 'Falta el número de comprobante.'
+          : !todosInsumosValidos
+            ? 'Cada insumo necesita cantidad y precio mayores a cero.'
+            : '';
+
+  const listo = !cargandoCatalogos && !errorCarga;
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
-        <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-4xl my-auto overflow-hidden animate-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col">
-          {/* Header */}
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-aurea-navy text-white shadow-md shadow-aurea-navy/20">
-                <Receipt className="w-5 h-5 text-aurea-champagne" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">
-                  Registrar Ficha de Compra de Insumos
-                </h2>
-                <p className="text-xs text-gray-500">
-                  Ingreso de insumos al inventario y liquidación contable de comprobante
-                </p>
-              </div>
+      <Modal
+        abierto={abierto}
+        onCerrar={onCerrar}
+        cerrable={!guardando}
+        tamano="xl"
+        icono={Receipt}
+        titulo="Registrar compra"
+        descripcion="Los insumos entran al inventario y su costo se actualiza al guardar."
+        barra={
+          listo && (
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 sm:px-6 py-2.5 bg-aurea-champagne/20">
+              <span className="inline-flex items-center gap-1.5 text-sm text-aurea-navy/70">
+                <Package className="w-4 h-4 text-aurea-copper" aria-hidden="true" />
+                {lineas.length === 1 ? '1 insumo' : `${lineas.length} insumos`}
+              </span>
+              <span className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-0.5">
+                {tipoComprobante === 'FACTURA' && totalCalculado > 0 && (
+                  <span className="text-xs text-aurea-navy/60 tabular-nums">
+                    Base {soles(subtotalNeto)} · <span className="font-semibold text-estado-ok-700">IGV {soles(igvMonto)}</span>
+                  </span>
+                )}
+                <span className="text-sm font-semibold text-aurea-navy">
+                  Total <span className="font-serif font-bold text-xl tabular-nums">{soles(totalCalculado)}</span>
+                </span>
+              </span>
             </div>
-            <button
-              type="button"
-              onClick={onCerrar}
-              disabled={guardando}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-50"
+          )
+        }
+        pie={
+          <>
+            {listo && motivoBloqueo && !guardando && (
+              <p className="text-xs text-aurea-navy/60 text-center sm:text-left sm:mr-auto">{motivoBloqueo}</p>
+            )}
+            <Button variant="outline" onClick={onCerrar} disabled={guardando}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              form={idForm}
+              loading={guardando}
+              disabled={!puedeGuardar}
+              leftIcon={<CheckCircle2 className="w-4 h-4 text-aurea-champagne" aria-hidden="true" />}
             >
-              <X className="w-5 h-5" />
-            </button>
+              Guardar y reponer stock
+            </Button>
+          </>
+        }
+      >
+        {cargandoCatalogos ? (
+          <div className="space-y-4" aria-busy="true" aria-label="Cargando proveedores">
+            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-12 rounded-xl" />
+            <Skeleton className="h-32 rounded-xl" />
           </div>
-
-          {/* Form Body o Pantalla de Carga */}
-          {cargandoCatalogos ? (
-            <div className="py-24 px-6 flex flex-col items-center justify-center text-center space-y-3 flex-1">
-              <div className="p-4 rounded-2xl bg-aurea-navy/5 text-aurea-navy animate-pulse">
-                <Loader2 className="w-8 h-8 animate-spin text-aurea-navy" />
-              </div>
-              <h3 className="text-sm font-bold text-gray-800">
-                Cargando configuración de compra
-              </h3>
-              <p className="text-xs text-gray-500 max-w-sm">
-                Obteniendo proveedores comerciales y catálogo de compras...
+        ) : errorCarga ? (
+          <EstadoError titulo="No se pudo preparar el registro" mensaje={errorCarga} onReintentar={cargarCatalogos} />
+        ) : (
+          <form id={idForm} onSubmit={handleSubmit} noValidate className="space-y-6">
+            {errorValidacion && (
+              <p role="alert" className="p-3 rounded-xl bg-estado-error-50 border border-estado-error-200 text-estado-error-800 text-sm flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+                {errorValidacion}
               </p>
-            </div>
-          ) : errorCarga ? (
-            <div className="py-20 px-6 flex flex-col items-center justify-center text-center space-y-3 flex-1">
-              <div className="p-3.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200">
-                <AlertTriangle className="w-6 h-6" />
+            )}
+
+            {/* Proveedor */}
+            <section className="p-4 rounded-xl bg-aurea-ivory border border-aurea-champagne/70 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <label htmlFor={`${idForm}-prov`} className="flex items-center gap-1.5 text-sm font-semibold text-aurea-navy">
+                  <Truck className="w-4 h-4 text-aurea-copper" aria-hidden="true" />
+                  Proveedor
+                </label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setAbrirModalNuevoProv(true)}
+                  leftIcon={<Plus className="w-4 h-4 text-aurea-copper" aria-hidden="true" />}
+                >
+                  Nuevo proveedor
+                </Button>
               </div>
-              <h3 className="text-sm font-bold text-gray-900">
-                No se pudo cargar la información
-              </h3>
-              <p className="text-xs text-gray-600 max-w-md">{errorCarga}</p>
-              <button
-                type="button"
-                onClick={cargarCatalogos}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-aurea-navy hover:bg-aurea-navy/90 text-white rounded-xl text-xs font-semibold shadow transition-all"
+              <select
+                id={`${idForm}-prov`}
+                value={proveedorId}
+                onChange={(e) => handleCambioProveedor(e.target.value)}
+                className={cn(CLASE_CONTROL, 'font-medium')}
               >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reintentar</span>
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-6 flex-1">
-              {errorValidacion && (
-                <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-medium flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span>{errorValidacion}</span>
+                {proveedores.length === 0 ? (
+                  <option value="">Aún no hay proveedores; crea uno</option>
+                ) : (
+                  proveedores.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre}
+                      {p.contacto ? ` (${p.contacto})` : ''}
+                    </option>
+                  ))
+                )}
+              </select>
+
+              {proveedorSeleccionado && (proveedorSeleccionado.contacto || proveedorSeleccionado.telefono || proveedorSeleccionado.direccion) && (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-aurea-navy/70">
+                  {proveedorSeleccionado.contacto && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <User className="w-4 h-4 text-aurea-copper" aria-hidden="true" />
+                      {proveedorSeleccionado.contacto}
+                    </span>
+                  )}
+                  {proveedorSeleccionado.telefono && (
+                    <span className="inline-flex items-center gap-2">
+                      <a href={`tel:${proveedorSeleccionado.telefono}`} className="inline-flex items-center gap-1.5 font-mono hover:text-aurea-navy">
+                        <Phone className="w-4 h-4 text-aurea-copper" aria-hidden="true" />
+                        {proveedorSeleccionado.telefono}
+                      </a>
+                      <a
+                        href={generarEnlaceWhatsApp(
+                          proveedorSeleccionado.telefono,
+                          'Hola, nos comunicamos desde RestaurantCloud sobre la orden de compra.'
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Escribir por WhatsApp a ${proveedorSeleccionado.nombre}`}
+                        className="min-h-9 inline-flex items-center gap-1.5 px-2.5 rounded-lg bg-estado-ok-50 hover:bg-estado-ok-100 text-estado-ok-700 border border-estado-ok-200 text-xs font-semibold transition-colors"
+                      >
+                        <MessageCircle className="w-4 h-4" aria-hidden="true" />
+                        WhatsApp
+                      </a>
+                    </span>
+                  )}
+                  {proveedorSeleccionado.direccion && (
+                    <span className="inline-flex items-center gap-1.5 min-w-0">
+                      <MapPin className="w-4 h-4 text-aurea-copper shrink-0" aria-hidden="true" />
+                      <span className="truncate max-w-xs">{proveedorSeleccionado.direccion}</span>
+                    </span>
+                  )}
+                </div>
+              )}
+            </section>
+
+            {/* Comprobante */}
+            <section
+              className={cn(
+                'grid grid-cols-1 sm:grid-cols-2 gap-4',
+                requiereNumeroComprobante(tipoComprobante) ? 'lg:grid-cols-4' : 'lg:grid-cols-3'
+              )}
+            >
+              <div>
+                <label htmlFor={`${idForm}-tipo`} className={CLASE_ROTULO}>
+                  Comprobante
+                </label>
+                <select
+                  id={`${idForm}-tipo`}
+                  value={tipoComprobante}
+                  onChange={(e) => handleCambioTipoComprobante(e.target.value as TipoComprobanteCompra)}
+                  className={CLASE_CONTROL}
+                >
+                  {Object.entries(TIPOS_COMPROBANTE).map(([valor, { label }]) => (
+                    <option key={valor} value={valor}>
+                      {valor === 'FACTURA' ? `${label} (con IGV)` : label}
+                    </option>
+                  ))}
+                </select>
+                {!requiereNumeroComprobante(tipoComprobante) && (
+                  <p className="mt-1 text-xs text-aurea-navy/60">Sin serie: se registra como S/N.</p>
+                )}
+              </div>
+
+              {requiereNumeroComprobante(tipoComprobante) && (
+                <div>
+                  <label htmlFor={`${idForm}-num`} className={CLASE_ROTULO}>
+                    Serie y número
+                  </label>
+                  <input
+                    id={`${idForm}-num`}
+                    type="text"
+                    required
+                    value={numeroComprobante}
+                    onChange={(e) => setNumeroComprobante(e.target.value)}
+                    placeholder={PLACEHOLDER_NUMERO[tipoComprobante]}
+                    className={cn(CLASE_CONTROL, 'font-mono')}
+                  />
                 </div>
               )}
 
-              {/* SECCIÓN 1: PROVEEDOR */}
-              <div className="bg-gray-50/70 p-4 rounded-xl border border-gray-200 space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
-                    <Truck className="w-4 h-4 text-aurea-navy" />
-                    <span>Proveedor Comercial</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setAbrirModalNuevoProv(true)}
-                    className="inline-flex items-center gap-1 text-xs text-aurea-navy font-semibold hover:text-aurea-copper transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>+ Proveedor al vuelo</span>
-                  </button>
-                </div>
-
-                <div>
-                  <select
-                    value={proveedorId}
-                    onChange={(e) => handleCambioProveedor(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white font-medium text-gray-800 focus:ring-2 focus:ring-aurea-navy focus:outline-none"
-                  >
-                    {proveedores.length === 0 ? (
-                      <option value="">No hay proveedores registrados</option>
-                    ) : (
-                      proveedores.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.nombre} {p.contacto ? `(${p.contacto})` : ''}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </div>
-
-                {/* Ficha de sólo lectura del proveedor seleccionado */}
-                {proveedorSeleccionado && (
-                  <div className="flex flex-wrap items-center gap-y-1.5 gap-x-4 pt-2.5 border-t border-gray-200/80 text-xs text-gray-600">
-                    {proveedorSeleccionado.contacto && (
-                      <div className="flex items-center gap-1.5 text-gray-700">
-                        <User className="w-3.5 h-3.5 text-gray-400" />
-                        <span>
-                          Contacto: <strong className="font-medium text-gray-900">{proveedorSeleccionado.contacto}</strong>
-                        </span>
-                      </div>
-                    )}
-
-                    {proveedorSeleccionado.telefono && (
-                      <div className="flex items-center gap-1.5">
-                        <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="font-mono text-gray-900">{proveedorSeleccionado.telefono}</span>
-                        <a
-                          href={generarEnlaceWhatsApp(
-                            proveedorSeleccionado.telefono,
-                            'Hola, nos comunicamos desde RestaurantCloud sobre la orden de compra.'
-                          )}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] text-emerald-700 font-semibold hover:underline bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200"
-                          title="Abrir chat de WhatsApp"
-                        >
-                          <MessageCircle className="w-3 h-3 text-emerald-600" />
-                          <span>WhatsApp</span>
-                        </a>
-                      </div>
-                    )}
-
-                    {proveedorSeleccionado.direccion && (
-                      <div className="flex items-center gap-1.5 text-gray-600">
-                        <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                        <span className="truncate max-w-xs">{proveedorSeleccionado.direccion}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* SECCIÓN 2: DATOS DEL COMPROBANTE */}
-              <div
-                className={`grid grid-cols-1 sm:grid-cols-2 ${
-                  requiereNumeroComprobante(tipoComprobante) ? 'lg:grid-cols-4' : 'lg:grid-cols-3'
-                } gap-3`}
-              >
-                {/* Tipo Comprobante */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Tipo de Comprobante
-                  </label>
-                  <select
-                    value={tipoComprobante}
-                    onChange={(e) => handleCambioTipoComprobante(e.target.value as TipoComprobanteCompra)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white font-medium focus:ring-2 focus:ring-aurea-navy focus:outline-none"
-                  >
-                    <option value="FACTURA">Factura (IGV 18%)</option>
-                    <option value="BOLETA">Boleta de Venta</option>
-                    <option value="NOTA_VENTA">Nota de Venta</option>
-                    <option value="GUIA_REMISION">Guía de Remisión</option>
-                    <option value="RECIBO">Recibo Simple</option>
-                  </select>
-                  {!requiereNumeroComprobante(tipoComprobante) && (
-                    <span className="text-[11px] text-gray-500 block mt-1">
-                      Operación sin serie fiscal. Se registrará automáticamente como S/N.
-                    </span>
-                  )}
-                </div>
-
-                {/* Número de Comprobante */}
-                {requiereNumeroComprobante(tipoComprobante) && (
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      N° Comprobante <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={numeroComprobante}
-                      onChange={(e) => setNumeroComprobante(e.target.value)}
-                      placeholder={
-                        tipoComprobante === 'FACTURA'
-                          ? 'Ej: F001-0004921'
-                          : tipoComprobante === 'BOLETA'
-                          ? 'Ej: B001-0001092'
-                          : 'Ej: T001-0000312'
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-aurea-navy focus:outline-none font-mono"
-                    />
-                  </div>
-                )}
-
-                {/* Fecha Emisión */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Fecha de Emisión
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={fechaEmision}
-                    onChange={(e) => setFechaEmision(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-aurea-navy focus:outline-none"
-                  />
-                </div>
-
-                {/* Método de Pago */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Método de Pago
-                  </label>
-                  <select
-                    value={metodoPago}
-                    onChange={(e) => setMetodoPago(e.target.value as MetodoPagoCompra)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white font-medium focus:ring-2 focus:ring-aurea-navy focus:outline-none"
-                  >
-                    <option value="TRANSFERENCIA">Transferencia Bancaria</option>
-                    <option value="YAPE_PLIN">Billetera Digital (Yape / Plin)</option>
-                    <option value="EFECTIVO">Efectivo de Caja Chica</option>
-                    <option value="CREDITO_30D">Crédito Comercial (30 Días)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* SECCIÓN 3: TABLA DE INSUMOS COMPRADOS */}
-              <div className={`space-y-3 ${!proveedorId ? 'opacity-50 pointer-events-none' : ''}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider">
-                      Insumos y Costos Unitarios
-                    </h4>
-                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-semibold border border-gray-200">
-                      {lineas.length === 1 ? '1 insumo' : `${lineas.length} insumos`}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {lineas.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleLimpiarTabla}
-                        className="text-[11px] font-medium text-gray-400 hover:text-rose-600 transition-colors"
-                      >
-                        Vaciar tabla
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleAgregarLinea}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-xs font-semibold transition-colors shadow-2xs"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Agregar Insumo</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Panel de Píldoras de Insumos Habituales (Interactivo: Clic agrega / Clic de nuevo quita) */}
-                {insumosHabituales.length > 0 && (
-                  <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-2.5 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-900">
-                        <Star className="w-3.5 h-3.5 text-amber-600 fill-amber-600 shrink-0" />
-                        <span>Insumos habituales de {proveedorSeleccionado?.nombre}</span>
-                        <span className="text-[11px] text-amber-700/80 font-normal">
-                          (haz clic para añadir o quitar)
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleAgregarTodosHabituales}
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 hover:text-amber-950 underline transition-colors"
-                      >
-                        <PlusCircle className="w-3 h-3" />
-                        <span>Añadir todos</span>
-                      </button>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {insumosHabituales.map((hab) => {
-                        const yaEnTabla = lineas.some((l) => l.insumo_id === hab.insumo_id);
-                        return (
-                          <button
-                            key={hab.insumo_id}
-                            type="button"
-                            onClick={() => handleToggleHabitual(hab)}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                              yaEnTabla
-                                ? 'bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs hover:bg-amber-200/80'
-                                : 'bg-white text-gray-800 border border-amber-200 hover:bg-amber-100/70 hover:border-amber-300 shadow-2xs active:scale-95'
-                            }`}
-                            title={yaEnTabla ? `Quitar ${hab.nombre} de la compra` : `Añadir ${hab.nombre} a la compra`}
-                          >
-                            {yaEnTabla ? (
-                              <Check className="w-3 h-3 text-emerald-700 shrink-0" />
-                            ) : (
-                              <Plus className="w-3 h-3 text-amber-700 shrink-0" />
-                            )}
-                            <span>{hab.nombre}</span>
-                            <span className="text-[10px] text-gray-400 font-mono">({hab.unidad_medida})</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Tabla o Estado en Reposo (Desactivada / Vacía al inicio) */}
-                {lineas.length === 0 ? (
-                  <div className="py-8 px-4 text-center border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50 flex flex-col items-center justify-center">
-                    <div className="p-3 rounded-full bg-gray-100 text-gray-400 mb-2">
-                      <PackageSearch className="w-6 h-6" />
-                    </div>
-                    <p className="text-xs font-bold text-gray-700">
-                      No hay insumos añadidos a la orden de compra
-                    </p>
-                    <p className="text-[11px] text-gray-500 max-w-sm mt-0.5 mb-3">
-                      Haz clic en cualquiera de los insumos habituales sugeridos arriba o pulsa el botón para buscar en el catálogo general.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleAgregarLinea}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-aurea-navy hover:bg-aurea-navy/90 text-white rounded-lg text-xs font-semibold transition-all shadow-sm"
-                    >
-                      <Plus className="w-3.5 h-3.5 text-aurea-champagne" />
-                      <span>Agregar Insumo</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="border border-gray-200 rounded-xl bg-white shadow-2xs">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold rounded-t-xl">
-                        <tr>
-                          <th className="py-2.5 px-3 min-w-[240px]">Insumo</th>
-                          <th className="py-2.5 px-3 w-28">Cantidad</th>
-                          <th className="py-2.5 px-3 w-32">Precio Unitario (S/)</th>
-                          <th className="py-2.5 px-3 w-32">Variación Costo</th>
-                          <th className="py-2.5 px-3 w-32 text-right">Subtotal (S/)</th>
-                          <th className="py-2.5 px-2 w-12 text-center"></th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {lineas.map((linea, index) => {
-                          const variacion =
-                            linea.costo_anterior > 0
-                              ? ((linea.precio_unitario - linea.costo_anterior) / linea.costo_anterior) * 100
-                              : 0;
-
-                          return (
-                            <tr key={linea.id_temp} className="hover:bg-gray-50/50">
-                              {/* Selector de Insumo con Buscador Dinámico */}
-                              <td className="py-2 px-3">
-                                <SelectorInsumoSearchable
-                                  insumosHabituales={insumosHabituales}
-                                  insumoIdSeleccionado={linea.insumo_id}
-                                  insumoNombreSeleccionado={linea.insumo_nombre}
-                                  unidadMedidaSeleccionada={linea.unidad_medida}
-                                  onBuscarCatalogoRemoto={buscarCatalogo}
-                                  onSeleccionar={(insumo, esHabitual) =>
-                                    handleCambioInsumoLinea(index, insumo, esHabitual)
-                                  }
-                                />
-                              </td>
-
-                              {/* Cantidad */}
-                              <td className="py-2 px-3">
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    type="number"
-                                    step="any"
-                                    min="0.01"
-                                    required
-                                    value={linea.cantidad === 0 ? '' : linea.cantidad}
-                                    onChange={(e) => handleCambioCantidad(index, e.target.value)}
-                                    placeholder="0"
-                                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-aurea-navy font-mono"
-                                  />
-                                  <span className="text-[11px] text-gray-400 font-mono">{linea.unidad_medida}</span>
-                                </div>
-                              </td>
-
-                              {/* Precio Unitario */}
-                              <td className="py-2 px-3">
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  min="0.01"
-                                  required
-                                  value={linea.precio_unitario === 0 ? '' : linea.precio_unitario}
-                                  onChange={(e) => handleCambioPrecioUnitario(index, e.target.value)}
-                                  placeholder="0.00"
-                                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-aurea-navy font-mono"
-                                />
-                              </td>
-
-                              {/* Variación de Costo */}
-                              <td className="py-2 px-3 whitespace-nowrap">
-                                {variacion === 0 ? (
-                                  <span className="text-[11px] text-gray-400">Sin variación</span>
-                                ) : variacion > 0 ? (
-                                  <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
-                                    <TrendingUp className="w-3 h-3" />
-                                    +{variacion.toFixed(1)}%
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                                    <TrendingDown className="w-3 h-3" />
-                                    {variacion.toFixed(1)}%
-                                  </span>
-                                )}
-                              </td>
-
-                              {/* Subtotal */}
-                              <td className="py-2 px-3 text-right font-mono font-bold text-gray-900 whitespace-nowrap">
-                                S/ {linea.subtotal.toFixed(2)}
-                              </td>
-
-                              {/* Botón Eliminar */}
-                              <td className="py-2 px-2 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => handleEliminarLinea(index)}
-                                  className="text-gray-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 transition-colors"
-                                  title="Quitar línea"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              {/* SECCIÓN 4: TOTALES Y LIQUIDACIÓN CONTABLE */}
-              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="text-xs text-gray-600 max-w-md">
-                  {tipoComprobante === 'FACTURA' ? (
-                    <div className="flex items-start gap-2 text-indigo-800 bg-indigo-50/80 p-2.5 rounded-lg border border-indigo-200">
-                      <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-                      <span>
-                        <strong>Comprobante con IGV desglosado:</strong> Base imponible (S/ {subtotalNeto.toFixed(2)}) + IGV 18% (S/ {igvMonto.toFixed(2)}) computados para crédito fiscal.
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex items-start gap-2 text-gray-600">
-                      <Info className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
-                      <span>
-                        Comprobante no gravado con IGV discriminado. El total ingresará como costo íntegro de adquisición.
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Box de Totales */}
-                <div className="w-full sm:w-64 bg-white p-3.5 rounded-xl border border-gray-200 shadow-sm space-y-1.5 text-xs">
-                  {tipoComprobante === 'FACTURA' && (
-                    <>
-                      <div className="flex justify-between text-gray-500 font-mono">
-                        <span>Subtotal Neto:</span>
-                        <span>S/ {subtotalNeto.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between text-indigo-700 font-mono font-medium">
-                        <span>IGV (18%):</span>
-                        <span>S/ {igvMonto.toFixed(2)}</span>
-                      </div>
-                      <div className="border-t border-gray-100 my-1" />
-                    </>
-                  )}
-                  <div className="flex justify-between items-center text-sm font-bold text-gray-900">
-                    <span>Total a Pagar:</span>
-                    <span className="text-base text-aurea-navy font-mono">
-                      S/ {totalCalculado.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Observaciones Opcionales */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Observaciones / Notas de Despacho (Opcional)
+                <label htmlFor={`${idForm}-fecha`} className={CLASE_ROTULO}>
+                  Fecha de emisión
                 </label>
-                <textarea
-                  rows={2}
-                  value={observaciones}
-                  onChange={(e) => setObservaciones(e.target.value)}
-                  placeholder="Ej: Despacho recibido conforme en almacén central por el jefe de cocina..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-aurea-navy focus:outline-none"
+                <input
+                  id={`${idForm}-fecha`}
+                  type="date"
+                  required
+                  value={fechaEmision}
+                  onChange={(e) => setFechaEmision(e.target.value)}
+                  className={CLASE_CONTROL}
                 />
               </div>
 
-              {/* Footer Buttons */}
-              <div className="pt-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="text-xs text-gray-500 text-center sm:text-left">
-                  {!puedeGuardar && !guardando && (
-                    <span className="text-[11px] text-gray-400">
-                      {lineas.length === 0
-                        ? 'Agrega al menos un insumo para guardar la compra.'
-                        : !proveedorId
-                        ? 'Selecciona un proveedor comercial.'
-                        : requiereNumeroComprobante(tipoComprobante) && !numeroComprobante.trim()
-                        ? 'Ingresa el número de comprobante.'
-                        : !todosInsumosValidos
-                        ? 'Verifica que todos los insumos tengan precio y cantidad mayores a cero.'
-                        : ''}
-                    </span>
+              <div>
+                <label htmlFor={`${idForm}-pago`} className={CLASE_ROTULO}>
+                  Forma de pago
+                </label>
+                <select
+                  id={`${idForm}-pago`}
+                  value={metodoPago}
+                  onChange={(e) => setMetodoPago(e.target.value as MetodoPagoCompra)}
+                  className={CLASE_CONTROL}
+                >
+                  {Object.entries(METODOS_PAGO).map(([valor, { label }]) => (
+                    <option key={valor} value={valor}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </section>
+
+            {/* Insumos */}
+            <section className={cn('space-y-3', !proveedorId && 'opacity-50 pointer-events-none')}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="flex items-center gap-1.5 text-sm font-semibold text-aurea-navy">
+                  <Package className="w-4 h-4 text-aurea-copper" aria-hidden="true" />
+                  Insumos comprados
+                </h3>
+                <div className="flex items-center gap-1">
+                  {lineas.length > 0 && (
+                    <Button variant="ghost" size="sm" onClick={handleLimpiarTabla}>
+                      Vaciar
+                    </Button>
                   )}
-                </div>
-                <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                  <button
-                    type="button"
-                    onClick={onCerrar}
-                    disabled={guardando}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-xl text-xs font-medium hover:bg-gray-50 transition-colors"
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAgregarLinea}
+                    leftIcon={<Plus className="w-4 h-4 text-aurea-copper" aria-hidden="true" />}
                   >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!puedeGuardar}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-aurea-navy hover:bg-aurea-navy/90 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-aurea-navy/20 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
-                  >
-                    {guardando ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin text-aurea-champagne" />
-                        <span>Procesando Ficha...</span>
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle2 className="w-4 h-4 text-aurea-champagne" />
-                        <span>Guardar y Reponer Stock</span>
-                      </>
-                    )}
-                  </button>
+                    Agregar insumo
+                  </Button>
                 </div>
               </div>
-            </form>
-          )}
-        </div>
-      </div>
 
-      {/* Submodal Proveedor al Vuelo */}
+              {insumosHabituales.length > 0 && (
+                <div className="p-3 rounded-xl bg-aurea-champagne/20 border border-aurea-champagne space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="flex items-center gap-1.5 text-sm font-semibold text-aurea-navy">
+                      <Star className="w-4 h-4 text-aurea-copper fill-aurea-copper" aria-hidden="true" />
+                      Lo que sueles comprarle
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleAgregarTodosHabituales}
+                      className="min-h-9 px-2 rounded-lg text-xs font-semibold text-aurea-copper hover:text-aurea-navy hover:bg-aurea-champagne/40 transition-colors"
+                    >
+                      Añadir todos
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {insumosHabituales.map((hab) => {
+                      const yaEnTabla = lineas.some((l) => l.insumo_id === hab.insumo_id);
+                      return (
+                        <button
+                          key={hab.insumo_id}
+                          type="button"
+                          aria-pressed={yaEnTabla}
+                          onClick={() => handleToggleHabitual(hab)}
+                          className={cn(
+                            'min-h-9 inline-flex items-center gap-1.5 px-2.5 rounded-lg text-sm font-medium transition-colors',
+                            yaEnTabla
+                              ? 'bg-aurea-navy text-white shadow-sm'
+                              : 'bg-white border border-aurea-champagne text-aurea-navy hover:border-aurea-copper/60'
+                          )}
+                        >
+                          {yaEnTabla ? (
+                            <Check className="w-3.5 h-3.5 text-aurea-champagne" aria-hidden="true" />
+                          ) : (
+                            <Plus className="w-3.5 h-3.5 text-aurea-copper" aria-hidden="true" />
+                          )}
+                          {hab.nombre}
+                          <span className={cn('text-xs font-mono', yaEnTabla ? 'text-white/60' : 'text-aurea-navy/50')}>
+                            {hab.unidad_medida}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {lineas.length === 0 ? (
+                <div className="py-8 px-4 rounded-xl border-2 border-dashed border-aurea-copper/40 bg-aurea-ivory flex flex-col items-center text-center gap-2">
+                  <span className="w-11 h-11 rounded-xl bg-aurea-champagne/40 text-aurea-navy flex items-center justify-center" aria-hidden="true">
+                    <PackageSearch className="w-5 h-5" />
+                  </span>
+                  <p className="text-sm font-semibold text-aurea-navy">Aún no agregas insumos</p>
+                  <p className="text-sm text-aurea-navy/60 max-w-sm">
+                    {insumosHabituales.length > 0
+                      ? 'Toca los habituales de arriba o busca cualquier insumo del catálogo.'
+                      : 'Busca cualquier insumo de tu catálogo.'}
+                  </p>
+                  <Button size="sm" onClick={handleAgregarLinea} leftIcon={<Plus className="w-4 h-4 text-aurea-champagne" aria-hidden="true" />}>
+                    Agregar insumo
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-aurea-champagne/70 bg-white">
+                  <div
+                    className={cn(
+                      'hidden md:grid gap-3 px-3 py-2 rounded-t-xl bg-aurea-ivory border-b border-aurea-champagne/50 text-xs font-semibold uppercase tracking-wider text-aurea-navy/60',
+                      GRILLA_LINEAS
+                    )}
+                  >
+                    <span>Insumo</span>
+                    <span>Cantidad</span>
+                    <span>Precio unit.</span>
+                    <span className="text-center">Variación</span>
+                    <span className="text-right">Subtotal</span>
+                    <span className="sr-only">Quitar</span>
+                  </div>
+                  <ul className="divide-y divide-aurea-champagne/40">
+                    {lineas.map((linea, index) => {
+                      const variacion =
+                        linea.costo_anterior > 0
+                          ? ((linea.precio_unitario - linea.costo_anterior) / linea.costo_anterior) * 100
+                          : 0;
+                      const nombre = linea.insumo_nombre || `línea ${index + 1}`;
+
+                      return (
+                        <li
+                          key={linea.id_temp}
+                          className={cn('grid grid-cols-2 items-center gap-x-3 gap-y-2 p-3', GRILLA_LINEAS)}
+                        >
+                          <div className="col-span-2 md:col-span-1 min-w-0">
+                            <SelectorInsumoSearchable
+                              insumosHabituales={insumosHabituales}
+                              insumoIdSeleccionado={linea.insumo_id}
+                              insumoNombreSeleccionado={linea.insumo_nombre}
+                              unidadMedidaSeleccionada={linea.unidad_medida}
+                              onBuscarCatalogoRemoto={buscarCatalogo}
+                              onSeleccionar={(insumo, esHabitual) => handleCambioInsumoLinea(index, insumo, esHabitual)}
+                            />
+                          </div>
+
+                          <label className="block">
+                            <span className="md:sr-only block text-xs font-semibold text-aurea-navy/60 mb-1">Cantidad</span>
+                            <span className="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                step="any"
+                                min="0.01"
+                                inputMode="decimal"
+                                required
+                                value={linea.cantidad === 0 ? '' : linea.cantidad}
+                                onChange={(e) => handleCambioCantidad(index, e.target.value)}
+                                placeholder="0"
+                                aria-label={`Cantidad de ${nombre}`}
+                                className={CLASE_NUMERO}
+                              />
+                              <span className="text-xs font-mono text-aurea-navy/50 w-9 shrink-0">{linea.unidad_medida}</span>
+                            </span>
+                          </label>
+
+                          <label className="block">
+                            <span className="md:sr-only block text-xs font-semibold text-aurea-navy/60 mb-1">Precio unit. (S/)</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0.01"
+                              inputMode="decimal"
+                              required
+                              value={linea.precio_unitario === 0 ? '' : linea.precio_unitario}
+                              onChange={(e) => handleCambioPrecioUnitario(index, e.target.value)}
+                              placeholder="0.00"
+                              aria-label={`Precio unitario de ${nombre}`}
+                              className={CLASE_NUMERO}
+                            />
+                          </label>
+
+                          <span className="md:justify-self-center">
+                            <VariacionCosto porcentaje={variacion} />
+                          </span>
+
+                          <span className="justify-self-end font-mono font-semibold text-aurea-navy whitespace-nowrap">
+                            {soles(linea.subtotal)}
+                          </span>
+
+                          <span className="col-span-2 md:col-span-1 justify-self-end">
+                            <IconButton
+                              size="sm"
+                              variant="danger"
+                              icono={Trash2}
+                              etiqueta={`Quitar ${nombre}`}
+                              onClick={() => handleEliminarLinea(index)}
+                            />
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </section>
+
+            <div>
+              <label htmlFor={`${idForm}-obs`} className={CLASE_ROTULO}>
+                Observaciones <span className="font-normal text-aurea-navy/50">(opcional)</span>
+              </label>
+              <textarea
+                id={`${idForm}-obs`}
+                rows={2}
+                value={observaciones}
+                onChange={(e) => setObservaciones(e.target.value)}
+                placeholder="Ej. Recibido conforme por el jefe de cocina"
+                className={cn(CLASE_CONTROL, 'py-2.5')}
+              />
+            </div>
+          </form>
+        )}
+      </Modal>
+
       <ModalProveedorAlVuelo
         abierto={abrirModalNuevoProv}
         onCerrar={() => setAbrirModalNuevoProv(false)}

@@ -11,7 +11,6 @@ import { ModalCrearLocal } from '../components/locales/ModalCrearLocal';
 import { ModalEditarLocal } from '../components/locales/ModalEditarLocal';
 import { ModalDesactivarLocal } from '../components/locales/ModalDesactivarLocal';
 import { useAuthStore } from '@/stores/authStore';
-import { ROUTES } from '@/router/routes.constants';
 import {
   Building2,
   CheckCircle2,
@@ -21,6 +20,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { HOME_POR_ROL } from '@/router/accesoPorRol';
 
 export const PropietarioLocalesPage: React.FC = () => {
   const navigate = useNavigate();
@@ -99,7 +99,7 @@ export const PropietarioLocalesPage: React.FC = () => {
     );
 
     setTimeout(() => {
-      navigate(ROUTES.ADMIN_DASHBOARD);
+      navigate(HOME_POR_ROL.admin_local);
     }, 450);
   };
 

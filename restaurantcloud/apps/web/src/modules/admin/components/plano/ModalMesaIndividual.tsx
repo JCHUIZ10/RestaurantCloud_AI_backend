@@ -1,6 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useId } from 'react';
 import { PisoAdminDTO, CuotaMesasPlanDTO, FormaMesa, CrearMesaIndividualRequest } from '@/types/admin';
-import { X, Plus, Minus, Grid, Check } from 'lucide-react';
+import { Plus, Minus, Check } from 'lucide-react';
+import { Button, IconButton, Modal } from '@/components/ui';
+import { cn } from '@/shared/utils';
+import {
+  AvisoFormulario,
+  Campo,
+  CampoTexto,
+  ContadorCapacidad,
+  InterruptorUnion,
+  SelectorForma,
+} from './CamposPlano';
 
 interface ModalMesaIndividualProps {
   pisos: PisoAdminDTO[];
@@ -34,6 +44,7 @@ export const ModalMesaIndividual: React.FC<ModalMesaIndividualProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
   const aperturaInicializada = useRef('');
+  const idForm = useId();
 
 
   // Sugerir correlativo automático al abrir o cambiar de piso
@@ -76,7 +87,7 @@ export const ModalMesaIndividual: React.FC<ModalMesaIndividualProps> = ({
     }
   }, [pisoActivo, posicionInicial, isOpen]);
 
-  if (!isOpen || !pisoActivo) return null;
+  if (!pisoActivo) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,347 +134,135 @@ export const ModalMesaIndividual: React.FC<ModalMesaIndividualProps> = ({
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-aurea-copper/30 overflow-hidden max-h-[92vh] flex flex-col">
-        {/* Cabecera */}
-        <div className="p-6 bg-aurea-navy text-white flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-aurea-copper/20 border border-aurea-copper/40 flex items-center justify-center">
-              <Plus className="w-5 h-5 text-aurea-champagne" />
-            </div>
-            <div>
-              <h3 className="font-serif text-xl font-bold">Agregar Nueva Mesa Individual</h3>
-              <p className="text-xs text-white/70">
-                {pisoActivo.nombre} · Configura y elige la ubicación exacta en el salón
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+  const casillaInvalida = mapaMesas.has(`${posX}-${posY}`) || posX >= pisoActivo.columnas || posY >= pisoActivo.filas;
 
-        {/* Cuerpo Dual: Formulario Izquierda + Mini-Mapa Derecha */}
-        <div className="p-6 overflow-y-auto flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Lado Izquierdo: Formulario */}
-          <form id="crear-mesa-form" onSubmit={handleSubmit} className="lg:col-span-6 space-y-4">
-            {errorLocal && <p role="alert" className="text-sm text-rose-700">{errorLocal}</p>}
-            {/* Banner de Ambiente Activo */}
-            <div className="p-3 rounded-2xl bg-aurea-champagne/20 border border-aurea-copper/30 flex items-center justify-between text-xs text-aurea-navy">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-aurea-navy/70 uppercase tracking-wider text-[11px]">
-                  Ambiente Destino:
-                </span>
-                <span className="font-bold text-aurea-navy text-sm">{pisoActivo.nombre}</span>
-              </div>
-              <span className="text-[11px] text-aurea-navy/60 font-medium">
-                {pisoActivo.mesas.filter((m) => m.estado === 'activa').length} mesas activas
+  return (
+    <Modal
+      abierto={isOpen}
+      onCerrar={onClose}
+      cerrable={!isSubmitting}
+      tamano="xl"
+      icono={Plus}
+      etiqueta={pisoActivo.nombre}
+      titulo="Nueva mesa"
+      descripcion={`Quedarán ${Math.max(0, cuota.mesas_disponibles - 1)} de ${cuota.max_mesas_plan} mesas disponibles en tu plan.`}
+      pie={
+        <>
+          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            form={idForm}
+            loading={isSubmitting}
+            disabled={!numero.trim() || cuota.mesas_disponibles <= 0 || casillaInvalida}
+            leftIcon={<Check className="w-4 h-4" aria-hidden="true" />}
+          >
+            Guardar mesa
+          </Button>
+        </>
+      }
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+        <form id={idForm} onSubmit={handleSubmit} className="space-y-5">
+          {errorLocal && <AvisoFormulario tono="error">{errorLocal}</AvisoFormulario>}
+
+          <Campo etiqueta="Número o código" ayuda="Te sugerimos el siguiente correlativo libre.">
+            {(id) => (
+              <CampoTexto
+                id={id}
+                type="text"
+                required
+                autoFocus
+                maxLength={10}
+                value={numero}
+                onChange={(e) => setNumero(e.target.value)}
+                placeholder="Ej. 11"
+                className="font-bold"
+              />
+            )}
+          </Campo>
+
+          <div className="space-y-1.5">
+            <p className="text-sm font-semibold text-aurea-navy">Capacidad</p>
+            <ContadorCapacidad valor={capacidad} onCambiar={setCapacidad} />
+          </div>
+
+          <div className="space-y-1.5">
+            <p className="text-sm font-semibold text-aurea-navy">Forma</p>
+            <SelectorForma valor={forma} onCambiar={setForma} />
+          </div>
+
+          <InterruptorUnion activo={permiteUnion} onCambiar={setPermiteUnion} />
+        </form>
+
+        <section aria-label="Ubicación en el plano" className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-aurea-navy">Ubicación</p>
+            <div className="flex items-center gap-3 text-xs text-aurea-navy/60">
+              <span className="flex items-center gap-1">
+                <IconButton size="sm" variant="outline" icono={Minus} etiqueta="Quitar columna vacía"
+                  onClick={() => onModificarDimensiones(pisoId, -1, 0)} disabled={pisoActivo.columnas <= 1} />
+                <span className="tabular-nums">{pisoActivo.columnas} col.</span>
+                <IconButton size="sm" variant="outline" icono={Plus} etiqueta="Añadir columna"
+                  onClick={() => onModificarDimensiones(pisoId, 1, 0)} disabled={pisoActivo.columnas >= 12} />
+              </span>
+              <span className="flex items-center gap-1">
+                <IconButton size="sm" variant="outline" icono={Minus} etiqueta="Quitar fila vacía"
+                  onClick={() => onModificarDimensiones(pisoId, 0, -1)} disabled={pisoActivo.filas <= 1} />
+                <span className="tabular-nums">{pisoActivo.filas} filas</span>
+                <IconButton size="sm" variant="outline" icono={Plus} etiqueta="Añadir fila"
+                  onClick={() => onModificarDimensiones(pisoId, 0, 1)} disabled={pisoActivo.filas >= 10} />
               </span>
             </div>
+          </div>
 
-            {/* 1. Número de Mesa */}
-            <div>
-              <label className="block text-xs font-bold text-aurea-navy uppercase tracking-wider mb-1">
-                1. Número o Código de Mesa
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  maxLength={10}
-                  value={numero}
-                  onChange={(e) => setNumero(e.target.value)}
-                  placeholder="Ej. 11"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-aurea-copper/40 text-base font-bold text-aurea-navy focus:outline-none focus:ring-2 focus:ring-aurea-copper"
-                />
-                <span className="absolute right-3 top-2.5 text-[11px] font-semibold text-aurea-copper">
-                  Sugerido aut.
-                </span>
-              </div>
-            </div>
-
-            {/* 2. Capacidad de Comensales */}
-            <div>
-              <label className="block text-xs font-bold text-aurea-navy uppercase tracking-wider mb-1">
-                2. Capacidad de Comensales (Sillas)
-              </label>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCapacidad(Math.max(1, capacidad - 1))}
-                  className="w-10 h-10 rounded-xl bg-aurea-ivory border border-aurea-copper/40 font-bold text-aurea-navy hover:bg-aurea-champagne/40 active:scale-95 transition-all"
-                >
-                  -
-                </button>
-                <div className="flex-1 py-2 rounded-xl bg-white border border-aurea-copper/30 text-center font-bold text-aurea-navy">
-                  {capacidad} personas
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setCapacidad(Math.min(20, capacidad + 1))}
-                  className="w-10 h-10 rounded-xl bg-aurea-ivory border border-aurea-copper/40 font-bold text-aurea-navy hover:bg-aurea-champagne/40 active:scale-95 transition-all"
-                >
-                  +
-                </button>
-                <div className="flex gap-1 ml-1">
-                  {[2, 4, 6, 8].map((c) => (
-                    <button
-                      type="button"
-                      key={c}
-                      onClick={() => setCapacidad(c)}
-                      className={`px-2 py-1.5 rounded-lg text-xs font-semibold ${
-                        capacidad === c
-                          ? 'bg-aurea-navy text-white'
-                          : 'bg-aurea-ivory text-aurea-navy/70 border border-aurea-copper/20'
-                      }`}
+          <div className="p-3 rounded-xl bg-aurea-ivory border border-aurea-champagne/70 overflow-x-auto">
+            <div
+              className="grid gap-2"
+              style={{ gridTemplateColumns: `repeat(${pisoActivo.columnas}, minmax(44px, 1fr))` }}
+            >
+              {celdasMiniMapa.map(({ c, f, numExistente, esSeleccionada }) => {
+                const key = `mini-${c}-${f}`;
+                if (numExistente) {
+                  return (
+                    <div
+                      key={key}
+                      title={`Mesa ${numExistente}`}
+                      className="h-11 rounded-lg bg-aurea-champagne/40 text-xs font-bold text-aurea-navy/50 flex items-center justify-center select-none truncate px-1"
                     >
-                      {c}p
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* 3. Forma Visual */}
-            <div>
-              <label className="block text-xs font-bold text-aurea-navy uppercase tracking-wider mb-1">
-                3. Forma Visual en el Salón
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {(['cuadrada', 'redonda', 'rectangular'] as FormaMesa[]).map((f) => (
+                      {numExistente}
+                    </div>
+                  );
+                }
+                return (
                   <button
                     type="button"
-                    key={f}
-                    onClick={() => setForma(f)}
-                    className={`py-2 px-2 rounded-xl text-xs font-semibold border capitalize transition-all ${
-                      forma === f
-                        ? 'bg-aurea-copper text-aurea-navy font-bold border-aurea-copper shadow-sm'
-                        : 'bg-white border-aurea-copper/30 text-aurea-navy hover:bg-aurea-champagne/20'
-                    }`}
+                    key={key}
+                    aria-pressed={esSeleccionada}
+                    aria-label={`Columna ${c + 1}, fila ${f + 1}`}
+                    onClick={() => {
+                      setPosX(c);
+                      setPosY(f);
+                    }}
+                    className={cn(
+                      'h-11 rounded-lg flex items-center justify-center text-xs font-bold transition-colors truncate px-1',
+                      esSeleccionada
+                        ? 'bg-aurea-navy text-aurea-champagne ring-2 ring-aurea-copper shadow-sm'
+                        : 'bg-white border border-dashed border-aurea-copper/50 text-aurea-copper hover:bg-aurea-champagne/30'
+                    )}
                   >
-                    {f}
+                    {esSeleccionada ? numero || 'Nueva' : <Plus className="w-3.5 h-3.5" aria-hidden="true" />}
                   </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 4. Unión para Grupos */}
-            <div className="p-3 rounded-xl bg-aurea-ivory border border-aurea-copper/25">
-              <label className="flex items-center gap-2.5 cursor-pointer text-xs text-aurea-navy">
-                <input
-                  type="checkbox"
-                  checked={permiteUnion}
-                  onChange={(e) => setPermiteUnion(e.target.checked)}
-                  className="rounded text-aurea-copper focus:ring-aurea-copper w-4 h-4"
-                />
-                <span className="font-semibold">Permitir juntar con otra mesa vecina</span>
-              </label>
-            </div>
-          </form>
-
-
-          {/* Lado Derecho: Mini-Mapa Espacial Interactivo */}
-          <div className="lg:col-span-6 space-y-4 flex flex-col justify-between">
-            <div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                <label className="text-xs font-bold text-aurea-navy uppercase tracking-wider flex items-center gap-1.5">
-                  <Grid className="w-4 h-4 text-aurea-copper" />
-                  <span>Ubicación en el Plano (Mini-Mapa)</span>
-                </label>
-                <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                  {/* Ajuste de Columnas */}
-                  <div className="flex items-center gap-1 bg-aurea-champagne/30 px-2 py-0.5 rounded-lg border border-aurea-copper/30">
-                    <span className="text-[10px] text-aurea-navy/60 font-semibold">Col:</span>
-                    <button
-                      type="button"
-                      onClick={() => onModificarDimensiones(pisoId, -1, 0)}
-                      disabled={pisoActivo.columnas <= 1}
-                      title="Quitar columna del borde derecho"
-                      className="px-1.5 py-0.5 rounded bg-white hover:bg-rose-50 text-aurea-navy hover:text-rose-700 font-bold border border-aurea-copper/20 disabled:opacity-40 transition-colors flex items-center gap-0.5"
-                    >
-                      <Minus className="w-2.5 h-2.5" />
-                      <span>Col</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onModificarDimensiones(pisoId, 1, 0)}
-                      disabled={pisoActivo.columnas >= 12}
-                      title="Añadir columna al ancho"
-                      className="px-1.5 py-0.5 rounded bg-white hover:bg-emerald-50 text-aurea-navy hover:text-emerald-700 font-bold border border-aurea-copper/20 disabled:opacity-40 transition-colors flex items-center gap-0.5"
-                    >
-                      <Plus className="w-2.5 h-2.5" />
-                      <span>Col</span>
-                    </button>
-                  </div>
-
-                  {/* Ajuste de Filas */}
-                  <div className="flex items-center gap-1 bg-aurea-champagne/30 px-2 py-0.5 rounded-lg border border-aurea-copper/30">
-                    <span className="text-[10px] text-aurea-navy/60 font-semibold">Fila:</span>
-                    <button
-                      type="button"
-                      onClick={() => onModificarDimensiones(pisoId, 0, -1)}
-                      disabled={pisoActivo.filas <= 1}
-                      title="Quitar fila del fondo"
-                      className="px-1.5 py-0.5 rounded bg-white hover:bg-rose-50 text-aurea-navy hover:text-rose-700 font-bold border border-aurea-copper/20 disabled:opacity-40 transition-colors flex items-center gap-0.5"
-                    >
-                      <Minus className="w-2.5 h-2.5" />
-                      <span>Fila</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onModificarDimensiones(pisoId, 0, 1)}
-                      disabled={pisoActivo.filas >= 10}
-                      title="Añadir fila al fondo"
-                      className="px-1.5 py-0.5 rounded bg-white hover:bg-emerald-50 text-aurea-navy hover:text-emerald-700 font-bold border border-aurea-copper/20 disabled:opacity-40 transition-colors flex items-center gap-0.5"
-                    >
-                      <Plus className="w-2.5 h-2.5" />
-                      <span>Fila</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-xs text-aurea-navy/60 mb-3">
-                Toca cualquier casilla libre <strong className="text-aurea-copper">[ + ]</strong> para
-                ubicar la nueva mesa sin teclear coordenadas.
-              </p>
-
-              {/* Grid del Mini-Mapa */}
-              <div className="p-3.5 rounded-2xl bg-aurea-ivory border border-aurea-copper/30">
-                <div
-                  className="grid gap-2"
-                  style={{
-                    gridTemplateColumns: `repeat(${pisoActivo.columnas}, minmax(42px, 1fr))`,
-                  }}
-                >
-                  {celdasMiniMapa.map(({ c, f, numExistente, esSeleccionada }) => {
-                    const key = `mini-${c}-${f}`;
-                    if (numExistente) {
-                      return (
-                        <div
-                          key={key}
-                          title={`Mesa ${numExistente} ocupando Col ${c + 1}, Fila ${f + 1}`}
-                          className="h-11 rounded-xl bg-slate-200/80 border border-slate-300 text-[11px] font-bold text-slate-500 flex items-center justify-center select-none"
-                        >
-                          M{numExistente}
-                        </div>
-                      );
-                    }
-
-                    if (esSeleccionada) {
-                      return (
-                        <div
-                          key={key}
-                          className="h-11 rounded-xl bg-aurea-navy text-white border-2 border-aurea-copper text-[11px] font-bold flex flex-col items-center justify-center shadow-md animate-pulse select-none"
-                        >
-                          <span>{numero || 'NUEVA'}</span>
-                          <span className="text-[9px] text-aurea-champagne">AQUÍ</span>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <button
-                        type="button"
-                        key={key}
-                        onClick={() => {
-                          setPosX(c);
-                          setPosY(f);
-                        }}
-                        title={`Seleccionar Columna ${c + 1}, Fila ${f + 1}`}
-                        className="h-11 rounded-xl bg-white border border-dashed border-aurea-copper/50 hover:bg-aurea-champagne/40 text-aurea-copper hover:text-aurea-navy flex items-center justify-center font-bold text-sm transition-all"
-                      >
-                        +
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Botones de extensión y recorte de salón (Pie del Mini-Mapa) */}
-              <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => onModificarDimensiones(pisoId, 0, 1)}
-                    disabled={pisoActivo.filas >= 10}
-                    className="px-2.5 py-1 rounded-lg bg-aurea-champagne/40 border border-aurea-copper/40 text-aurea-navy hover:bg-aurea-champagne/70 text-[11px] font-semibold transition-colors disabled:opacity-40"
-                  >
-                    + Fila Fondo
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onModificarDimensiones(pisoId, 0, -1)}
-                    disabled={pisoActivo.filas <= 1}
-                    className="px-2.5 py-1 rounded-lg bg-white border border-rose-300 text-rose-700 hover:bg-rose-50 text-[11px] font-semibold transition-colors disabled:opacity-40"
-                  >
-                    - Quitar Fila Vacía
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => onModificarDimensiones(pisoId, 1, 0)}
-                    disabled={pisoActivo.columnas >= 12}
-                    className="px-2.5 py-1 rounded-lg bg-aurea-champagne/40 border border-aurea-copper/40 text-aurea-navy hover:bg-aurea-champagne/70 text-[11px] font-semibold transition-colors disabled:opacity-40"
-                  >
-                    + Columna
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onModificarDimensiones(pisoId, -1, 0)}
-                    disabled={pisoActivo.columnas <= 1}
-                    className="px-2.5 py-1 rounded-lg bg-white border border-rose-300 text-rose-700 hover:bg-rose-50 text-[11px] font-semibold transition-colors disabled:opacity-40"
-                  >
-                    - Quitar Col Vacía
-                  </button>
-                </div>
-              </div>
-
-              {/* Badge de Posición Seleccionada */}
-              <div className="mt-3 p-2.5 rounded-xl bg-white border border-aurea-copper/30 text-xs text-aurea-navy flex items-center justify-between">
-                <span>Casilla Seleccionada:</span>
-                <span className="font-bold text-aurea-navy font-mono">
-                  Columna {posX + 1}, Fila {posY + 1} ({posX}, {posY})
-                </span>
-              </div>
-            </div>
-
-            {/* Aviso de impacto en cupo */}
-            <div className="p-3 rounded-xl bg-aurea-champagne/20 border border-aurea-copper/25 text-xs text-aurea-navy/80">
-              <span className="font-bold">Cupo del plan {cuota.plan_nombre || 'actual'}:</span> Quedarán{' '}
-              {Math.max(0, cuota.mesas_disponibles - 1)} mesas disponibles de {cuota.max_mesas_plan}.
+                );
+              })}
             </div>
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 sm:p-6 bg-aurea-ivory border-t border-aurea-copper/20 flex items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="px-4 py-2.5 rounded-xl border border-aurea-copper/40 text-aurea-navy hover:bg-aurea-champagne/20 text-xs sm:text-sm font-semibold transition-all"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            form="crear-mesa-form"
-            disabled={isSubmitting || !numero.trim() || cuota.mesas_disponibles <= 0
-              || mapaMesas.has(`${posX}-${posY}`) || posX >= pisoActivo.columnas || posY >= pisoActivo.filas}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-aurea-navy text-white hover:bg-aurea-navy/90 text-xs sm:text-sm font-semibold transition-all shadow-md active:scale-95 disabled:opacity-50"
-          >
-            <Check className="w-4 h-4 text-aurea-champagne" />
-            <span>{isSubmitting ? 'Guardando...' : 'Guardar Mesa en Salón'}</span>
-          </button>
-        </div>
+          <p className="text-xs text-aurea-navy/60">
+            Toca una casilla libre para ubicarla. Elegida: columna {posX + 1}, fila {posY + 1}.
+          </p>
+        </section>
       </div>
-    </div>
+    </Modal>
   );
 };

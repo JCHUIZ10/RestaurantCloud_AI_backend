@@ -1,260 +1,195 @@
 import React, { useState } from 'react';
 import { Calculator, QrCode } from 'lucide-react';
 import { MetodoPagoLocalDTO, CodigoMetodoPagoLocal } from '@/types/admin';
+import { cn } from '@/shared/utils';
 
 interface MetodosPagoSimuladorProps {
   metodos: MetodoPagoLocalDTO[];
-  sedeNombre?: string;
 }
 
-export const MetodosPagoSimulador: React.FC<MetodosPagoSimuladorProps> = ({
-  metodos,
-  sedeNombre = 'Miraflores (Principal)',
-}) => {
-  // Monto de consumo de prueba
+const redondear = (n: number) => Math.round(n * 100) / 100;
+
+/** Espejo de la botonera de caja: muestra cuánto paga el cliente con cada forma de pago. */
+export const MetodosPagoSimulador: React.FC<MetodosPagoSimuladorProps> = ({ metodos }) => {
   const [montoConsumo, setMontoConsumo] = useState<number>(100.0);
 
-  // Método de pago seleccionado en la simulación
   const metodosActivos = metodos.filter((m) => m.activo);
   const metodoInicial = metodosActivos.find((m) => m.codigo === 'tarjeta') || metodosActivos[0] || metodos[0];
   const [metodoSeleccionadoCodigo, setMetodoSeleccionadoCodigo] = useState<CodigoMetodoPagoLocal>(
     metodoInicial?.codigo || 'tarjeta'
   );
 
-  const metodoSeleccionado =
-    metodos.find((m) => m.codigo === metodoSeleccionadoCodigo) || metodos[0] || null;
+  const metodoSeleccionado = metodos.find((m) => m.codigo === metodoSeleccionadoCodigo) || metodos[0] || null;
 
-  // Cálculos financieros SUNAT
   const consumoValido = Math.max(0, montoConsumo || 0);
   const comisionPorc = metodoSeleccionado?.activo ? metodoSeleccionado.comision_porcentaje : 0.0;
-  const montoRecargo = Math.round(((consumoValido * comisionPorc) / 100) * 100) / 100;
-  const totalFinal = Math.round((consumoValido + montoRecargo) * 100) / 100;
-
-  // Desglose IGV 18% SUNAT
-  const baseImponible = Math.round((totalFinal / 1.18) * 100) / 100;
-  const igv = Math.round((totalFinal - baseImponible) * 100) / 100;
+  const montoRecargo = redondear((consumoValido * comisionPorc) / 100);
+  const totalFinal = redondear(consumoValido + montoRecargo);
+  const baseImponible = redondear(totalFinal / 1.18);
+  const igv = redondear(totalFinal - baseImponible);
 
   if (!metodos.length || !metodoSeleccionado) {
     return (
-      <div className="bg-slate-900 rounded-2xl border border-slate-700/80 shadow-xl p-8 text-slate-100 flex flex-col items-center justify-center text-center space-y-3 min-h-[400px]">
-        <div className="w-12 h-12 rounded-2xl bg-slate-800 text-aurea-copper border border-slate-700 flex items-center justify-center">
+      <div className="bg-tinta-900 rounded-2xl border border-tinta-700/80 shadow-xl p-8 text-tinta-100 flex flex-col items-center justify-center text-center gap-3 min-h-[20rem]">
+        <span className="w-12 h-12 rounded-2xl bg-tinta-800 text-aurea-copper border border-tinta-700 flex items-center justify-center" aria-hidden="true">
           <Calculator className="w-6 h-6" />
-        </div>
-        <h3 className="font-bold text-base text-slate-200">Simulador de Cobro en Espera</h3>
-        <p className="text-xs text-slate-400 max-w-sm">
-          No hay métodos de pago registrados en esta sede. Habilita o aprovisiona al menos una vía de cobro para proyectar los cálculos SUNAT y la precuenta.
-        </p>
+        </span>
+        <h3 className="font-bold text-base text-tinta-200">Sin formas de pago</h3>
+        <p className="text-sm text-tinta-400 max-w-sm">Activa al menos una para ver cómo se cobra en caja.</p>
       </div>
     );
   }
 
+  const d = metodoSeleccionado.datos_adicionales;
+
   return (
-    <div className="bg-slate-900 rounded-2xl border border-slate-700/80 shadow-xl p-6 text-slate-100 flex flex-col justify-between space-y-6">
-      {/* Cabecera del Simulador */}
-      <div>
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-aurea-copper/20 text-aurea-copper border border-aurea-copper/30 flex items-center justify-center font-bold text-sm">
-              <Calculator className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-100 uppercase tracking-wide flex items-center gap-2">
-                Simulador de Cobro & Precuenta
-                <span className="text-[10px] font-mono font-normal px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
-                  Espejo POS
-                </span>
-              </h2>
-              <p className="text-xs text-slate-400">
-                Así calcula el sistema los recargos en caja y en la precuenta digital de los mozos.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Control de Monto de Consumo Simulado */}
-        <div className="mt-4 p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2.5">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-slate-300">Monto de Consumo de Prueba:</span>
-            <span className="font-mono text-aurea-copper font-bold text-sm">PEN S/ {consumoValido.toFixed(2)}</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <span className="absolute left-3.5 top-2.5 text-xs font-mono text-slate-500">PEN S/</span>
-              <input
-                type="number"
-                step="5"
-                min="1"
-                value={montoConsumo}
-                onChange={(e) => setMontoConsumo(parseFloat(e.target.value) || 0)}
-                className="w-full pl-20 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 font-mono font-bold text-base focus:outline-none focus:ring-2 focus:ring-aurea-copper"
-              />
-            </div>
-          </div>
-
-          {/* Botones de montos rápidos */}
-          <div className="flex items-center gap-2 pt-1 flex-wrap">
-            {[50, 100, 200, 350].map((monto) => (
-              <button
-                key={monto}
-                type="button"
-                onClick={() => setMontoConsumo(monto)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-all border ${
-                  montoConsumo === monto
-                    ? 'bg-aurea-copper text-aurea-navy font-bold border-aurea-copper'
-                    : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
-                }`}
-              >
-                S/ {monto}.00
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Selector de Medios de Pago en Caja (Simulación de Botonera) */}
-      <div className="space-y-2">
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">
-          Botonera de Cobro del Cajero (CU-CAJA-02)
+    <section className="bg-tinta-900 rounded-2xl border border-tinta-700/80 shadow-xl p-4 sm:p-6 text-tinta-100 space-y-5">
+      <header className="flex items-center gap-2.5 pb-3 border-b border-tinta-800">
+        <span className="w-9 h-9 rounded-lg bg-aurea-copper/20 text-aurea-copper border border-aurea-copper/30 flex items-center justify-center shrink-0" aria-hidden="true">
+          <Calculator className="w-4 h-4" />
         </span>
+        <div>
+          <h2 className="text-base font-bold text-tinta-100">Simulador de cobro</h2>
+          <p className="text-xs text-tinta-400">Así se ve en caja y en la precuenta con tu configuración.</p>
+        </div>
+      </header>
 
-        <div className="space-y-2">
-          {metodos.map((m) => {
-            const isSelected = metodoSeleccionadoCodigo === m.codigo;
-            const recargoOpcion = m.activo ? Math.round(((consumoValido * m.comision_porcentaje) / 100) * 100) / 100 : 0;
-            const totalOpcion = Math.round((consumoValido + recargoOpcion) * 100) / 100;
+      <div className="p-4 rounded-xl bg-tinta-950/70 border border-tinta-800 space-y-2.5">
+        <label htmlFor="sim-monto" className="block text-xs font-semibold text-tinta-300">
+          Consumo de prueba
+        </label>
+        <div className="relative">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-mono text-tinta-500 pointer-events-none">S/</span>
+          <input
+            id="sim-monto"
+            type="number"
+            step="5"
+            min="1"
+            inputMode="decimal"
+            value={montoConsumo}
+            onChange={(e) => setMontoConsumo(parseFloat(e.target.value) || 0)}
+            className="w-full min-h-tactil pl-10 pr-4 bg-tinta-900 border border-tinta-700 rounded-xl text-tinta-100 font-mono font-bold text-base focus:outline-none focus:ring-2 focus:ring-aurea-copper"
+          />
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {[50, 100, 200, 350].map((monto) => (
+            <button
+              key={monto}
+              type="button"
+              onClick={() => setMontoConsumo(monto)}
+              className={cn(
+                'min-h-9 px-3 rounded-lg text-xs font-mono transition-all border',
+                montoConsumo === monto
+                  ? 'bg-aurea-copper text-aurea-navy font-bold border-aurea-copper'
+                  : 'bg-tinta-800 text-tinta-300 border-tinta-700 hover:bg-tinta-700'
+              )}
+            >
+              S/ {monto}
+            </button>
+          ))}
+        </div>
+      </div>
 
-            return (
-              <button
-                key={m.codigo}
-                type="button"
-                disabled={!m.activo}
-                onClick={() => setMetodoSeleccionadoCodigo(m.codigo)}
-                className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition-all ${
-                  !m.activo
-                    ? 'opacity-40 bg-slate-950/40 border-slate-800 cursor-not-allowed'
-                    : isSelected
-                    ? 'bg-slate-800 border-aurea-copper shadow-md ring-1 ring-aurea-copper/40'
-                    : 'bg-slate-950/70 border-slate-800 hover:bg-slate-800/60'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                      isSelected ? 'border-aurea-copper bg-aurea-copper' : 'border-slate-600'
-                    }`}
-                  >
-                    {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-slate-900" />}
-                  </div>
+      <fieldset className="space-y-2">
+        <legend className="text-xs font-semibold uppercase tracking-wider text-tinta-400 mb-2">Forma de pago</legend>
+        {metodos.map((m) => {
+          const isSelected = metodoSeleccionadoCodigo === m.codigo;
+          const recargoOpcion = m.activo ? redondear((consumoValido * m.comision_porcentaje) / 100) : 0;
+          const totalOpcion = redondear(consumoValido + recargoOpcion);
 
-                  <div>
-                    <span className="text-xs font-bold text-slate-200 block">
-                      {m.nombre}
-                      {!m.activo && <span className="text-[10px] text-slate-500 font-normal ml-1.5">(Inactivo)</span>}
-                    </span>
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      {m.comision_porcentaje > 0 ? `Recargo ${m.comision_porcentaje.toFixed(2)}% (+S/ ${recargoOpcion.toFixed(2)})` : 'Sin recargo (0.00%)'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <span className="text-sm font-mono font-bold text-slate-100">
-                    S/ {totalOpcion.toFixed(2)}
+          return (
+            <button
+              key={m.codigo}
+              type="button"
+              aria-pressed={isSelected}
+              disabled={!m.activo}
+              onClick={() => setMetodoSeleccionadoCodigo(m.codigo)}
+              className={cn(
+                'w-full min-h-tactil p-3 rounded-xl border text-left flex items-center justify-between gap-3 transition-all',
+                !m.activo
+                  ? 'opacity-40 bg-tinta-950/40 border-tinta-800 cursor-not-allowed'
+                  : isSelected
+                    ? 'bg-tinta-800 border-aurea-copper shadow-md ring-1 ring-aurea-copper/40'
+                    : 'bg-tinta-950/70 border-tinta-800 hover:bg-tinta-800/60'
+              )}
+            >
+              <span className="flex items-center gap-2.5 min-w-0">
+                <span
+                  className={cn(
+                    'w-4 h-4 rounded-full border flex items-center justify-center shrink-0',
+                    isSelected ? 'border-aurea-copper bg-aurea-copper' : 'border-tinta-600'
+                  )}
+                  aria-hidden="true"
+                >
+                  {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-tinta-900" />}
+                </span>
+                <span className="min-w-0">
+                  <span className="text-sm font-bold text-tinta-200 block truncate">
+                    {m.nombre}
+                    {!m.activo && <span className="text-xs text-tinta-500 font-normal ml-1.5">(inactivo)</span>}
                   </span>
-                </div>
-              </button>
-            );
-          })}
+                  <span className="text-xs text-tinta-400 font-mono">
+                    {m.comision_porcentaje > 0 ? `+${m.comision_porcentaje.toFixed(2)}% (S/ ${recargoOpcion.toFixed(2)})` : 'Sin recargo'}
+                  </span>
+                </span>
+              </span>
+              <span className="text-sm font-mono font-bold text-tinta-100 shrink-0">S/ {totalOpcion.toFixed(2)}</span>
+            </button>
+          );
+        })}
+      </fieldset>
+
+      {/* Precuenta térmica */}
+      <div className="bg-white rounded-xl p-4 text-tinta-900 font-mono text-xs border border-tinta-300 shadow-lg space-y-1.5">
+        <p className="text-center pb-2 mb-1 border-b border-dashed border-tinta-300 font-sans font-bold text-sm uppercase tracking-wider">Precuenta</p>
+        <div className="flex justify-between text-tinta-600">
+          <span>Consumo</span>
+          <span>S/ {consumoValido.toFixed(2)}</span>
         </div>
-      </div>
-
-      {/* Ticket de Precuenta de Salón Simulado (Estilo Térmico Blanco) */}
-      <div className="bg-white rounded-xl p-4 text-slate-900 font-mono text-xs border border-slate-300 shadow-lg space-y-2.5">
-        <div className="text-center pb-2 border-b border-dashed border-slate-300">
-          <span className="font-bold text-sm uppercase block tracking-wider font-sans">RESTAURANTCLOUD AI</span>
-          <span className="text-[10px] text-slate-600 block">SEDE: {sedeNombre.toUpperCase()}</span>
-          <span className="text-[10px] text-slate-500 block">RUC: 20601234567 • PRECUENTA DE SALÓN</span>
-          <div className="flex justify-between text-[10px] text-slate-600 mt-1">
-            <span>MESA: 04</span>
-            <span>MOZO: Carlos M.</span>
-            <span>14/10/2026 21:45</span>
+        {montoRecargo > 0 && (
+          <div className="flex justify-between gap-2 text-amber-800 font-semibold bg-amber-50 px-1 py-0.5 rounded">
+            <span>Recargo {comisionPorc}%</span>
+            <span>+ S/ {montoRecargo.toFixed(2)}</span>
           </div>
+        )}
+        <div className="flex justify-between text-tinta-500">
+          <span>Op. gravada</span>
+          <span>S/ {baseImponible.toFixed(2)}</span>
         </div>
-
-        {/* Detalle de ítems de prueba */}
-        <div className="space-y-1 text-[11px] border-b border-dashed border-slate-300 pb-2">
-          <div className="flex justify-between">
-            <span>1x Lomo Saltado Criollo</span>
-            <span>S/ 48.00</span>
-          </div>
-          <div className="flex justify-between">
-            <span>1x Causa de Pulpo al Olivo</span>
-            <span>S/ 36.00</span>
-          </div>
-          <div className="flex justify-between">
-            <span>2x Chicha Morada Jarra 1L</span>
-            <span>S/ 16.00</span>
-          </div>
+        <div className="flex justify-between text-tinta-500">
+          <span>IGV 18%</span>
+          <span>S/ {igv.toFixed(2)}</span>
         </div>
-
-        {/* Fórmulas SUNAT y desglose contable */}
-        <div className="space-y-1 text-[11px]">
-          <div className="flex justify-between text-slate-600">
-            <span>CONSUMO BRUTO:</span>
-            <span>S/ {consumoValido.toFixed(2)}</span>
-          </div>
-
-          {montoRecargo > 0 && (
-            <div className="flex justify-between text-amber-800 font-semibold bg-amber-50 px-1 py-0.5 rounded">
-              <span>RECARGO {metodoSeleccionado.nombre.toUpperCase()} ({comisionPorc}%):</span>
-              <span>+ S/ {montoRecargo.toFixed(2)}</span>
-            </div>
-          )}
-
-          <div className="flex justify-between text-slate-500 text-[10px]">
-            <span>OP. GRAVADA (Base):</span>
-            <span>S/ {baseImponible.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-slate-500 text-[10px]">
-            <span>IGV (18%):</span>
-            <span>S/ {igv.toFixed(2)}</span>
-          </div>
-
-          <div className="flex justify-between text-sm font-bold pt-1.5 border-t border-slate-900 text-slate-900">
-            <span>TOTAL A PAGAR:</span>
-            <span className="text-base">S/ {totalFinal.toFixed(2)}</span>
-          </div>
+        <div className="flex justify-between items-baseline text-sm font-bold pt-1.5 border-t border-tinta-900">
+          <span>TOTAL</span>
+          <span className="text-base">S/ {totalFinal.toFixed(2)}</span>
         </div>
 
-        {/* Proyección adicional si es Billetera Digital (QR y Teléfono) */}
         {metodoSeleccionado.codigo === 'billetera_digital' && (
-          <div className="pt-2 border-t border-dashed border-slate-300 text-center space-y-1 bg-purple-50/70 p-2 rounded-lg">
-            <span className="text-[10px] font-bold text-purple-900 block uppercase">
-              📱 Pago Rápido Yape / Plin
-            </span>
-            <div className="w-16 h-16 mx-auto bg-white border border-purple-200 rounded flex items-center justify-center p-1 shadow-sm">
+          <div className="mt-2 pt-2 border-t border-dashed border-tinta-300 text-center space-y-1 bg-purple-50/70 p-2 rounded-lg">
+            <p className="text-xs font-bold text-purple-900 uppercase">Yape / Plin</p>
+            <span className="w-16 h-16 mx-auto bg-white border border-purple-200 rounded flex items-center justify-center shadow-sm" aria-hidden="true">
               <QrCode className="w-12 h-12 text-purple-800" />
-            </div>
-            <div className="text-[11px] font-bold text-purple-950 font-mono">
-              {metodoSeleccionado.datos_adicionales?.telefono || '987 654 321'}
-            </div>
-            <div className="text-[9px] text-purple-700">
-              Titular: {metodoSeleccionado.datos_adicionales?.titular || 'ÁUREA S.A.C.'}
-            </div>
+            </span>
+            <p className="font-bold text-purple-950">{d?.telefono || 'Celular sin configurar'}</p>
+            {d?.titular && <p className="text-purple-700">{d.titular}</p>}
           </div>
         )}
 
-        {/* Proyección adicional si es Transferencia Bancaria */}
         {metodoSeleccionado.codigo === 'transferencia' && (
-          <div className="pt-2 border-t border-dashed border-slate-300 text-[10px] text-slate-700 space-y-0.5 bg-slate-100 p-2 rounded-lg">
-            <div className="font-bold text-slate-900">CUENTA BANCARIA DE LA EMPRESA:</div>
-            <div>Banco: {metodoSeleccionado.datos_adicionales?.banco || 'BCP'}</div>
-            <div>Cta: {metodoSeleccionado.datos_adicionales?.cuenta || '191-88421033-0-45'}</div>
-            <div>CCI: {metodoSeleccionado.datos_adicionales?.cci || '00219100884210330451'}</div>
+          <div className="mt-2 pt-2 border-t border-dashed border-tinta-300 text-tinta-700 space-y-0.5 bg-tinta-100 p-2 rounded-lg break-all">
+            {d?.banco ? (
+              <>
+                <p className="font-bold text-tinta-900">{d.banco}</p>
+                {d.cuenta && <p>Cta: {d.cuenta}</p>}
+                {d.cci && <p>CCI: {d.cci}</p>}
+              </>
+            ) : (
+              <p>Cuenta bancaria sin registrar</p>
+            )}
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 };

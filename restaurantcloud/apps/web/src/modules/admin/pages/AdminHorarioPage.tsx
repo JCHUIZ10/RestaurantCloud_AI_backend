@@ -15,7 +15,7 @@ import {
   OnboardingHorarioVacio,
   DemoAdminHorarioWidget,
 } from '../components/horario';
-import { Loader2, CheckCircle2 } from 'lucide-react';
+import { EstadoError, Skeleton, SoloDemo, useToast } from '@/components/ui';
 
 export const AdminHorarioPage: React.FC = () => {
   const [tabActiva, setTabActiva] = useState<'semana' | 'excepciones'>('semana');
@@ -23,10 +23,13 @@ export const AdminHorarioPage: React.FC = () => {
   const [excepciones, setExcepciones] = useState<ExcepcionHorarioDTO[]>([]);
   const [totalHorasSemanales, setTotalHorasSemanales] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [errorCarga, setErrorCarga] = useState(false);
   const [guardandoSemana, setGuardandoSemana] = useState(false);
 
   // Modales
   const [modalCrearAbierto, setModalCrearAbierto] = useState(false);
+  // Cambia en cada apertura para que el formulario empiece limpio
+  const [claveModalCrear, setClaveModalCrear] = useState(0);
   const [modalConflictoAbierto, setModalConflictoAbierto] = useState(false);
   const [procesandoExcepcion, setProcesandoExcepcion] = useState(false);
 
@@ -40,19 +43,21 @@ export const AdminHorarioPage: React.FC = () => {
     reservas: ReservaConflictoDTO[];
   } | null>(null);
 
-  // Notificación Toast flotante
-  const [toastMensaje, setToastMensaje] = useState<string | null>(null);
+  const { mostrar } = useToast();
+  const mostrarToast = useCallback(
+    (mensaje: string, tono: 'ok' | 'error' | 'info' = 'ok') => mostrar(mensaje, tono),
+    [mostrar]
+  );
 
-  const mostrarToast = (mensaje: string) => {
-    setToastMensaje(mensaje);
-    setTimeout(() => {
-      setToastMensaje(null);
-    }, 4500);
+  const abrirModalCrear = () => {
+    setClaveModalCrear((k) => k + 1);
+    setModalCrearAbierto(true);
   };
 
   const cargarDatos = useCallback(async () => {
     try {
       setLoading(true);
+      setErrorCarga(false);
       const [resHorario, resExcepciones] = await Promise.all([
         adminService.getHorarioSemana(),
         adminService.getExcepcionesHorario(),
@@ -66,8 +71,8 @@ export const AdminHorarioPage: React.FC = () => {
       if (resExcepciones.exito && resExcepciones.datos) {
         setExcepciones(resExcepciones.datos);
       }
-    } catch (err) {
-      console.error('Error al cargar datos de horario y excepciones:', err);
+    } catch {
+      setErrorCarga(true);
     } finally {
       setLoading(false);
     }
@@ -85,7 +90,7 @@ export const AdminHorarioPage: React.FC = () => {
       if (res.exito && res.datos) {
         setDias(res.datos.dias);
         setTotalHorasSemanales(res.datos.total_horas_semanales || 0);
-        mostrarToast('¡Horario semanal de atención actualizado exitosamente!');
+        mostrarToast('Horario guardado');
       } else {
         throw new Error(res.errores?.[0]?.mensaje || 'No se pudo guardar el horario.');
       }
@@ -104,7 +109,7 @@ export const AdminHorarioPage: React.FC = () => {
       if (res.exito && res.datos) {
         setDias(res.datos.dias);
         setTotalHorasSemanales(res.datos.total_horas_semanales || 0);
-        mostrarToast('Plantilla aplicada correctamente a los 7 días de la semana.');
+        mostrarToast('Horario de almuerzo y cena aplicado');
       }
     } finally {
       setGuardandoSemana(false);
@@ -117,8 +122,13 @@ export const AdminHorarioPage: React.FC = () => {
     if (res.exito && res.datos) {
       await cargarDatos();
       mostrarToast(
-        `🇵🇪 Se incorporaron ${res.datos.agregados} feriados oficiales del calendario de Perú 2026.`
+        res.datos.agregados > 0
+          ? `Se agregaron ${res.datos.agregados} feriados nacionales`
+          : 'Los feriados nacionales ya estaban registrados',
+        res.datos.agregados > 0 ? 'ok' : 'info'
       );
+    } else {
+      mostrarToast(res.errores?.[0]?.mensaje || 'No se pudieron cargar los feriados', 'error');
     }
   };
 
@@ -127,7 +137,9 @@ export const AdminHorarioPage: React.FC = () => {
     const res = await adminService.eliminarExcepcion(id);
     if (res.exito) {
       setExcepciones((prev) => prev.filter((e) => e.id !== id));
-      mostrarToast('Fecha de excepción eliminada del calendario.');
+      mostrarToast('Fecha eliminada');
+    } else {
+      mostrarToast(res.errores?.[0]?.mensaje || 'No se pudo eliminar la fecha', 'error');
     }
   };
 
@@ -148,9 +160,9 @@ export const AdminHorarioPage: React.FC = () => {
         if (resCrear.exito) {
           setModalCrearAbierto(false);
           await cargarDatos();
-          mostrarToast('Excepcion programada exitosamente.');
+          mostrarToast('Fecha registrada');
         } else {
-          mostrarToast(resCrear.errores?.[0]?.mensaje || 'No se pudo programar la excepcion.');
+          mostrarToast(resCrear.errores?.[0]?.mensaje || 'No se pudo registrar la fecha', 'error');
         }
 
         return;
@@ -182,7 +194,7 @@ export const AdminHorarioPage: React.FC = () => {
         if (resCrear.exito) {
           setModalCrearAbierto(false);
           await cargarDatos();
-          mostrarToast('Excepción programada exitosamente sin conflicto de reservas.');
+          mostrarToast('Fecha registrada');
         }
       }
     } finally {
@@ -201,7 +213,7 @@ export const AdminHorarioPage: React.FC = () => {
     if (!conflictoData) return;
 
     if (IS_REAL_API) {
-      mostrarToast('La cancelacion y notificacion de reservas se habilitara en el punto 5B.');
+      mostrarToast('Todavía no se pueden cancelar reservas desde aquí.', 'info');
       return;
     }
 
@@ -221,9 +233,7 @@ export const AdminHorarioPage: React.FC = () => {
         setModalConflictoAbierto(false);
         setConflictoData(null);
         await cargarDatos();
-        mostrarToast(
-          `Cierre confirmado. Se cancelaron ${conflictoData.reservas.length} reservas registradas para esta fecha.`
-        );
+        mostrarToast(`Fecha registrada; ${conflictoData.reservas.length} reservas canceladas`);
       }
     } finally {
       setProcesandoExcepcion(false);
@@ -255,13 +265,13 @@ export const AdminHorarioPage: React.FC = () => {
     setDias([]);
     setTotalHorasSemanales(0);
     setTabActiva('semana');
-    mostrarToast('Simulación activa: Sede sin turnos configurados.');
+    mostrarToast('Simulación: local sin horario', 'info');
   };
 
   const handleRestablecerSemillas = async () => {
     mockAdminService.restablecerSemillasHorario();
     await cargarDatos();
-    mostrarToast('Semillas canónicas de Áurea Miraflores restablecidas.');
+    mostrarToast('Datos de prueba restablecidos', 'info');
   };
 
   const handleIniciarVacioManual = () => {
@@ -275,26 +285,8 @@ export const AdminHorarioPage: React.FC = () => {
     setDias(diasIniciales);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center p-8 text-gray-500">
-        <Loader2 className="w-10 h-10 animate-spin text-red-600 mb-3" />
-        <span className="text-sm font-medium">Cargando horario y excepciones del local...</span>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50/60 pb-16">
-      {/* Toast Flotante */}
-      {toastMensaje && (
-        <div className="fixed top-20 right-6 z-50 flex items-center gap-2 px-4 py-3 bg-gray-900 text-white text-xs font-semibold rounded-xl shadow-xl animate-in fade-in slide-in-from-top-4 duration-200">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>{toastMensaje}</span>
-        </div>
-      )}
-
-      {/* Header Principal */}
+    <div className="space-y-6">
       <HorarioHeader
         tabActiva={tabActiva}
         onCambiarTab={setTabActiva}
@@ -302,41 +294,43 @@ export const AdminHorarioPage: React.FC = () => {
         totalHorasSemanales={totalHorasSemanales}
       />
 
-      {/* Contenido según Pestaña */}
-      <main className="mt-4">
-        {tabActiva === 'semana' ? (
-          dias.length === 0 ? (
-            <OnboardingHorarioVacio
-              onAplicarPlantillaEstandar={() => handleAplicarPlantilla('restaurante_estandar')}
-              onIniciarVacioManual={handleIniciarVacioManual}
-              loading={guardandoSemana}
-            />
-          ) : (
-            <SemanaHorariaView
-              dias={dias}
-              onGuardar={handleGuardarSemana}
-              guardando={guardandoSemana}
-            />
-          )
-        ) : (
-          <ExcepcionesCalendarioView
-            excepciones={excepciones}
-            onNuevoCierre={() => setModalCrearAbierto(true)}
-            onCargarFeriadosPeru={handleCargarFeriadosPeru}
-            onEliminarExcepcion={handleEliminarExcepcion}
+      {loading ? (
+        <div className="space-y-3" aria-busy="true" aria-label="Cargando horario">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-20 rounded-2xl" />
+          ))}
+        </div>
+      ) : errorCarga ? (
+        <EstadoError mensaje="No se pudo cargar el horario del local." onReintentar={cargarDatos} />
+      ) : tabActiva === 'semana' ? (
+        dias.length === 0 ? (
+          <OnboardingHorarioVacio
+            onAplicarPlantillaEstandar={() => handleAplicarPlantilla('restaurante_estandar')}
+            onIniciarVacioManual={handleIniciarVacioManual}
+            loading={guardandoSemana}
           />
-        )}
-      </main>
+        ) : (
+          <SemanaHorariaView dias={dias} onGuardar={handleGuardarSemana} guardando={guardandoSemana} />
+        )
+      ) : (
+        <ExcepcionesCalendarioView
+          excepciones={excepciones}
+          onNuevoCierre={abrirModalCrear}
+          onCargarFeriadosPeru={handleCargarFeriadosPeru}
+          onEliminarExcepcion={handleEliminarExcepcion}
+        />
+      )}
 
       {/* Modal Crear / Editar Excepción */}
       <ModalCrearEditarExcepcion
+        key={claveModalCrear}
         isOpen={modalCrearAbierto}
         onClose={() => setModalCrearAbierto(false)}
         onSubmit={handleSolicitarCrearExcepcion}
         loading={procesandoExcepcion}
       />
 
-      {/* Modal Conflicto de Reservas (680px) con Enlace WhatsApp y Cancelación Atómica */}
+      {/* Reservas afectadas por la fecha: avisar por WhatsApp antes de cancelar */}
       {conflictoData && (
         <ModalConflictoReservas
           isOpen={modalConflictoAbierto}
@@ -353,14 +347,16 @@ export const AdminHorarioPage: React.FC = () => {
       )}
 
       {/* QA Test Bench Widget Flotante */}
-      {!IS_REAL_API && (
-        <DemoAdminHorarioWidget
-          onSimularConflictoNavidad={handleSimularConflictoNavidad}
-          onCargarFeriadosPeru={handleCargarFeriadosPeru}
-          onSimularSedeSinHorario={handleSimularSedeSinHorario}
-          onRestablecerSemillas={handleRestablecerSemillas}
-        />
-      )}
+      <SoloDemo>
+        {!IS_REAL_API && (
+          <DemoAdminHorarioWidget
+            onSimularConflictoNavidad={handleSimularConflictoNavidad}
+            onCargarFeriadosPeru={handleCargarFeriadosPeru}
+            onSimularSedeSinHorario={handleSimularSedeSinHorario}
+            onRestablecerSemillas={handleRestablecerSemillas}
+          />
+        )}
+      </SoloDemo>
     </div>
   );
 };

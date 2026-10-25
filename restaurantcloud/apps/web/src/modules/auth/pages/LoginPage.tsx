@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Utensils } from 'lucide-react';
 import { LoginForm } from '../components/LoginForm';
 import { SelectorCuentaModal } from '../components/SelectorCuentaModal';
 import { BetaCredentialsWidget } from '../components/BetaCredentialsWidget';
 import { loginWithCredentials, seleccionarCuenta } from '@/services/serviceAdapter';
 import { useAuthStore } from '@/stores/authStore';
-import { ROUTES } from '@/router/routes.constants';
+import { homeDeRol, destinoSeguro } from '@/router/accesoPorRol';
 import type { CuentaItemDTO, RolUsuario } from '@/types/auth';
+import { SoloDemo } from '@/components/ui/SoloDemo';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const setUsuario = useAuthStore((s) => s.setUsuario);
 
   // Estados del Formulario
@@ -25,31 +27,10 @@ export const LoginPage: React.FC = () => {
   const [tempToken, setTempToken] = useState<string>('');
   const [expiraEnSegundos, setExpiraEnSegundos] = useState<number>(300);
 
-  // Función para redirigir según el rol del usuario autenticado
+  // Redirige a la ruta solicitada antes del login (?next=) o al inicio del rol.
+  // Si el rol no puede ver la ruta solicitada, el guard lo devuelve a su inicio.
   const redirigirPorRol = (rol: RolUsuario) => {
-    switch (rol) {
-      case 'propietario':
-        navigate(ROUTES.PROPIETARIO_DASHBOARD);
-        break;
-      case 'admin_local':
-        navigate(ROUTES.ADMIN_DASHBOARD);
-        break;
-      case 'mozo':
-        navigate(ROUTES.MOZO_MESAS);
-        break;
-      case 'cocina':
-        navigate(ROUTES.COCINA_KDS);
-        break;
-      case 'cajero':
-        navigate(ROUTES.CAJERO_POS);
-        break;
-      case 'admin_saas':
-        navigate(ROUTES.SAAS_TENANTS);
-        break;
-      default:
-        navigate('/');
-        break;
-    }
+    navigate(destinoSeguro(searchParams.get('next')) ?? homeDeRol(rol), { replace: true });
   };
 
   // Manejo del Login con Credenciales
@@ -163,7 +144,9 @@ export const LoginPage: React.FC = () => {
       </footer>
 
       {/* Widget Flotante de Credenciales Beta para Evaluadores */}
-      <BetaCredentialsWidget onAutoFill={handleAutoFill} />
+      <SoloDemo>
+        <BetaCredentialsWidget onAutoFill={handleAutoFill} />
+      </SoloDemo>
     </div>
   );
 };

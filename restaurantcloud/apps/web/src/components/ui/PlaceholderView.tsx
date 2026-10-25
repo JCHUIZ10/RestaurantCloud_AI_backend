@@ -37,11 +37,11 @@ export const PlaceholderView: React.FC<PlaceholderViewProps> = ({
             <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-aurea-champagne/40 text-aurea-navy border border-aurea-copper/30">
               Rol: {rol}
             </span>
-            <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-white border border-aurea-copper/20 text-aurea-copper">
+            <span className="px-2 py-0.5 rounded text-xs font-medium bg-white border border-aurea-copper/20 text-aurea-copper">
               Layout: {layoutNombre}
             </span>
             {proximoEntregable && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-xs">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-xs">
                 <Clock4 className="w-3.5 h-3.5 text-amber-700" />
                 <span>Próximo Entregable (Fase 2)</span>
               </span>

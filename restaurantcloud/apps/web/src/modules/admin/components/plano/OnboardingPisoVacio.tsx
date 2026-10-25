@@ -1,5 +1,6 @@
 import React from 'react';
 import { Sparkles, Plus, LayoutGrid } from 'lucide-react';
+import { Button } from '@/components/ui';
 
 interface OnboardingPisoVacioProps {
   pisoNombre: string;
@@ -7,82 +8,65 @@ interface OnboardingPisoVacioProps {
   onAbrirMesaIndividual: () => void;
 }
 
+/** Cuerpo de la tarjeta del plano cuando el ambiente aún no tiene mesas. */
 export const OnboardingPisoVacio: React.FC<OnboardingPisoVacioProps> = ({
   pisoNombre,
   onAbrirAsistenteLote,
   onAbrirMesaIndividual,
-}) => {
-  return (
-    <div className="p-8 sm:p-12 rounded-3xl bg-white border-2 border-dashed border-aurea-copper/40 text-center max-w-3xl mx-auto shadow-sm space-y-6">
-      <div className="w-16 h-16 rounded-2xl bg-aurea-champagne/30 border border-aurea-copper/40 flex items-center justify-center mx-auto text-aurea-navy">
-        <LayoutGrid className="w-8 h-8 text-aurea-copper" />
-      </div>
-
-      <div>
-        <h3 className="font-serif text-2xl sm:text-3xl font-bold text-aurea-navy">
-          ¡Tu {pisoNombre} está listo para diseñar!
-        </h3>
-        <p className="text-sm text-aurea-navy/70 mt-2 max-w-xl mx-auto">
-          Aún no tienes mesas registradas en este ambiente. Elige cómo prefieres comenzar a
-          configurar la distribución de tu restaurante:
-        </p>
-      </div>
-
-      {/* Tarjetas de Doble Camino */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-left pt-2">
-        {/* Opción 1: Asistente en Lote (Recomendado) */}
-        <div className="p-6 rounded-2xl bg-aurea-ivory border-2 border-aurea-copper/50 relative flex flex-col justify-between hover:shadow-md transition-all">
-          <div className="absolute -top-3 left-4 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-aurea-copper text-aurea-navy shadow-sm">
-            Recomendado · 10 segundos
-          </div>
-
-          <div className="space-y-2 mt-2">
-            <h4 className="font-serif text-lg font-bold text-aurea-navy flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-aurea-copper" />
-              <span>Asistente Rápido en Lote</span>
-            </h4>
-            <p className="text-xs text-aurea-navy/70 leading-relaxed">
-              Genera 5, 10 o 20 mesas correlativas de 4 personas con un solo clic. El sistema
-              calculará y distribuirá automáticamente la cuadrícula geométrica.
-            </p>
-          </div>
-
-          <button
-            onClick={onAbrirAsistenteLote}
-            className="mt-5 w-full py-2.5 px-4 rounded-xl bg-aurea-navy text-white hover:bg-aurea-navy/90 text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
-          >
-            <Sparkles className="w-4 h-4 text-aurea-champagne" />
-            <span>Usar Asistente Rápido en Lote</span>
-          </button>
-        </div>
-
-        {/* Opción 2: Individual Manual */}
-        <div className="p-6 rounded-2xl bg-white border border-aurea-copper/30 flex flex-col justify-between hover:shadow-md transition-all">
-          <div className="space-y-2">
-            <h4 className="font-serif text-lg font-bold text-aurea-navy flex items-center gap-2">
-              <Plus className="w-4 h-4 text-aurea-copper" />
-              <span>Crear Mesas Individualmente</span>
-            </h4>
-            <p className="text-xs text-aurea-navy/70 leading-relaxed">
-              Agrega cada mesa una a una especificando número exacto, capacidad y forma personalizada,
-              eligiendo su posición en el mini-mapa espacial.
-            </p>
-          </div>
-
-          <button
-            onClick={onAbrirMesaIndividual}
-            className="mt-5 w-full py-2.5 px-4 rounded-xl border border-aurea-copper/40 text-aurea-navy hover:bg-aurea-champagne/20 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-95"
-          >
-            <Plus className="w-4 h-4 text-aurea-copper" />
-            <span>+ Agregar Mi Primera Mesa</span>
-          </button>
-        </div>
-      </div>
-
-      <p className="text-xs text-aurea-navy/60 italic pt-2">
-        No te preocupes: podrás modificar la capacidad, mover o reconfigurar cualquier mesa en
-        cualquier momento.
+}) => (
+  <div className="mx-3 sm:mx-5 mb-3 sm:mb-5 p-6 sm:p-10 rounded-xl border border-aurea-champagne bg-aurea-ivory bg-[radial-gradient(#F4D7B0_1px,transparent_1px)] [background-size:18px_18px] text-center space-y-6">
+    <div className="space-y-2">
+      <span className="mx-auto w-14 h-14 rounded-2xl bg-aurea-navy text-aurea-champagne ring-1 ring-aurea-copper/40 flex items-center justify-center">
+        <LayoutGrid className="w-7 h-7" aria-hidden="true" />
+      </span>
+      <h2 className="font-serif text-2xl font-bold text-aurea-navy">{pisoNombre} aún no tiene mesas</h2>
+      <p className="text-sm text-aurea-navy/70 max-w-lg mx-auto">
+        Elige cómo empezar. Después podrás mover o cambiar cualquier mesa.
       </p>
     </div>
-  );
-};
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto text-left">
+      <div className="relative p-5 rounded-2xl bg-white border-2 border-aurea-copper/60 shadow-sm flex flex-col gap-4">
+        <span className="absolute -top-3 left-4 px-2.5 py-0.5 rounded-full text-xs font-bold bg-aurea-copper text-aurea-navy">
+          Recomendado
+        </span>
+        <div className="space-y-1">
+          <h3 className="font-serif text-lg font-bold text-aurea-navy flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-aurea-copper" aria-hidden="true" />
+            Generar en lote
+          </h3>
+          <p className="text-sm text-aurea-navy/70">
+            Crea varias mesas numeradas de una vez, ordenadas en filas y columnas.
+          </p>
+        </div>
+        <Button
+          className="mt-auto w-full"
+          onClick={onAbrirAsistenteLote}
+          leftIcon={<Sparkles className="w-4 h-4 text-aurea-champagne" aria-hidden="true" />}
+        >
+          Usar el asistente
+        </Button>
+      </div>
+
+      <div className="p-5 rounded-2xl bg-white border border-aurea-champagne/70 shadow-sm flex flex-col gap-4">
+        <div className="space-y-1">
+          <h3 className="font-serif text-lg font-bold text-aurea-navy flex items-center gap-2">
+            <Plus className="w-4 h-4 text-aurea-copper" aria-hidden="true" />
+            Una por una
+          </h3>
+          <p className="text-sm text-aurea-navy/70">
+            Define número, capacidad, forma y la casilla exacta de cada mesa.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          className="mt-auto w-full"
+          onClick={onAbrirMesaIndividual}
+          leftIcon={<Plus className="w-4 h-4 text-aurea-copper" aria-hidden="true" />}
+        >
+          Agregar primera mesa
+        </Button>
+      </div>
+    </div>
+  </div>
+);

@@ -655,7 +655,7 @@ export const MozoMesasPage: React.FC = () => {
   const totalListos = planoData?.items_despacho.length || 0;
 
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden bg-slate-100">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-100">
       {/* 1. Header con Ambientes, Disponibilidad de Mesas y Filtros */}
       <SalonHeaderMozo
         pisos={planoData?.pisos_disponibles || []}
@@ -673,7 +673,7 @@ export const MozoMesasPage: React.FC = () => {
 
       {/* Toast reactivo flotante de confirmación */}
       {toastNotificacion && (
-        <div className="fixed top-16 right-6 z-50 rounded-xl bg-slate-900 border border-emerald-500/50 p-3 shadow-xl text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-top-3 duration-300">
+        <div className="fixed top-4 right-4 z-50 rounded-xl bg-slate-900 border border-emerald-500/50 p-3 shadow-xl text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-top-3 duration-300">
           <Check className="h-4 w-4 text-emerald-400 shrink-0" />
           <span>{toastNotificacion}</span>
         </div>

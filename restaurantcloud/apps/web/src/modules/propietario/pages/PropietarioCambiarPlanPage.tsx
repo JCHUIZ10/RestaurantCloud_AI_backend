@@ -27,6 +27,7 @@ import {
   Loader2,
   CheckCircle2,
 } from 'lucide-react';
+import { SoloDemo } from '@/components/ui/SoloDemo';
 
 export const PropietarioCambiarPlanPage: React.FC = () => {
   const navigate = useNavigate();
@@ -524,7 +525,9 @@ export const PropietarioCambiarPlanPage: React.FC = () => {
       />
 
       {/* Widget flotante QA sandbox */}
-      <DemoCambiarPlanWidget onRecargar={cargarDatos} />
+      <SoloDemo>
+        <DemoCambiarPlanWidget onRecargar={cargarDatos} />
+      </SoloDemo>
     </div>
   );
 };

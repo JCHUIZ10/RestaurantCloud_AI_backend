@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, Sparkles, UtensilsCrossed } from 'lucide-react';
+import { ArrowRight, Sliders } from 'lucide-react';
 
 interface OnboardingHorarioVacioProps {
   onAplicarPlantillaEstandar: () => Promise<void>;
@@ -7,75 +7,54 @@ interface OnboardingHorarioVacioProps {
   loading: boolean;
 }
 
+const PLANTILLA = [
+  { dias: 'Lunes a jueves', horario: '12:00–16:00 y 19:00–23:30', color: 'bg-red-500' },
+  { dias: 'Viernes y sábado', horario: 'Cena hasta las 00:30', color: 'bg-amber-500' },
+  { dias: 'Domingo', horario: '12:00–18:00', color: 'bg-emerald-500' },
+];
+
 export const OnboardingHorarioVacio: React.FC<OnboardingHorarioVacioProps> = ({
   onAplicarPlantillaEstandar,
   onIniciarVacioManual,
   loading,
-}) => {
-  return (
-    <div className="p-8 max-w-3xl mx-auto my-12 bg-white rounded-2xl shadow-sm border border-gray-200 text-center">
-      <div className="w-16 h-16 mx-auto rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center text-red-600 mb-5">
-        <Clock className="w-8 h-8" />
-      </div>
+}) => (
+  <div className="bg-white rounded-2xl p-6 sm:p-10 shadow-md border border-tinta-200 text-center">
+    <div className="max-w-2xl mx-auto">
+      <h2 className="font-serif text-2xl sm:text-3xl font-bold text-aurea-navy">¿Cuándo abre tu local?</h2>
+      <p className="mt-2 text-sm text-tinta-600">Sin horario no se pueden tomar reservas. Empieza con almuerzo y cena y ajústalo después.</p>
 
-      <h2 className="text-xl font-bold text-gray-900 mb-2">
-        Configura el Horario de Atención de tu Sede
-      </h2>
-      <p className="text-sm text-gray-600 max-w-xl mx-auto mb-8">
-        Tu sede aún no tiene días ni turnos asignados. Establecer un horario permite habilitar las reservas de salón y la recepción de pedidos en cocina en tus horas de servicio.
-      </p>
+      <ul className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
+        {PLANTILLA.map(({ dias, horario, color }) => (
+          <li key={dias} className="p-4 rounded-2xl bg-aurea-ivory/70 border border-aurea-champagne/70">
+            <span className="flex items-center gap-2 text-sm font-bold text-tinta-900">
+              <span className={`w-2.5 h-2.5 rounded-full ${color}`} aria-hidden="true" />
+              {dias}
+            </span>
+            <span className="block mt-1 text-xs font-mono text-tinta-600">{horario}</span>
+          </li>
+        ))}
+      </ul>
 
-      {/* Tarjeta de Recomendación */}
-      <div className="p-6 bg-gradient-to-br from-red-50/60 to-orange-50/60 border border-red-200 rounded-xl mb-8 text-left">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-red-600 text-white">
-            Recomendado
-          </span>
-          <span className="text-sm font-bold text-gray-900">
-            Plantilla Estándar de Gastronomía (Almuerzo + Cena)
-          </span>
-        </div>
-        <p className="text-xs text-gray-600 mb-4">
-          Aplica automáticamente el esquema probado para salones de restaurante en Perú:
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-gray-700">
-          <div className="flex items-center gap-2 bg-white p-2.5 rounded-lg border border-red-100">
-            <UtensilsCrossed className="w-4 h-4 text-red-500 shrink-0" />
-            <span><strong>Lunes a Jueves:</strong> Almuerzo (12-16h) y Cena (19-23:30h)</span>
-          </div>
-          <div className="flex items-center gap-2 bg-white p-2.5 rounded-lg border border-red-100">
-            <UtensilsCrossed className="w-4 h-4 text-red-500 shrink-0" />
-            <span><strong>Viernes y Sábados:</strong> Almuerzo y Cena extendida / Continuo</span>
-          </div>
-          <div className="flex items-center gap-2 bg-white p-2.5 rounded-lg border border-red-100 sm:col-span-2">
-            <UtensilsCrossed className="w-4 h-4 text-red-500 shrink-0" />
-            <span><strong>Domingos:</strong> Servicio de Almuerzo Familiar extendido (12:00 a 18:00h)</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Acciones */}
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+      <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
         <button
           type="button"
           onClick={onAplicarPlantillaEstandar}
           disabled={loading}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 shadow-sm transition disabled:opacity-50"
+          className="w-full sm:w-auto min-h-tactil px-7 rounded-xl text-sm font-bold text-aurea-navy bg-aurea-copper hover:bg-aurea-copper/90 shadow-md transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
         >
-          <Sparkles className="w-4 h-4" />
-          {loading ? 'Aplicando Plantilla...' : 'Aplicar Plantilla Estándar en 1 Clic'}
+          {loading ? 'Aplicando...' : 'Usar almuerzo y cena'}
+          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
         </button>
-
         <button
           type="button"
           onClick={onIniciarVacioManual}
           disabled={loading}
-          className="w-full sm:w-auto px-5 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+          className="w-full sm:w-auto min-h-tactil px-5 rounded-xl text-sm font-semibold text-tinta-700 border border-tinta-200 hover:bg-tinta-100 transition-colors flex items-center justify-center gap-2"
         >
-          Configurar Manualmente desde Cero
+          <Sliders className="w-4 h-4 text-tinta-400" aria-hidden="true" />
+          Configurar a mano
         </button>
       </div>
     </div>
-  );
-};
+  </div>
+);

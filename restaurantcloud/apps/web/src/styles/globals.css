@@ -9,7 +9,9 @@
   --aurea-ivory: #FFF9F0;
 
   --font-display: 'DM Serif Display', Georgia, serif;
-  --font-body: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-body: 'DM Sans', Arial, system-ui, -apple-system, sans-serif;
+
+  color-scheme: light;
 }
 
 body {
@@ -17,4 +19,25 @@ body {
   background-color: var(--aurea-ivory);
   color: var(--aurea-navy);
   font-family: var(--font-body);
+}
+
+@layer base {
+  /* Foco visible de doble tono: el cobre se distingue sobre navy y el navy sobre marfil (regla A1) */
+  :focus-visible {
+    outline: 2px solid var(--aurea-copper);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px var(--aurea-navy);
+  }
+}
+
+/* Respetar la preferencia de movimiento reducido (regla L7) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

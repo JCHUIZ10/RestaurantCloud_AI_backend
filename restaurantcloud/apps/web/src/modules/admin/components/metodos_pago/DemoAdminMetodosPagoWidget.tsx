@@ -29,8 +29,8 @@ export const DemoAdminMetodosPagoWidget: React.FC<DemoAdminMetodosPagoWidgetProp
       {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xl border border-slate-700 dark:border-slate-300 text-xs font-bold hover:scale-105 active:scale-95 transition-all ml-auto"
-        title="Herramientas de testing QA para CU-ADMIN-19"
+        className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-tinta-900 text-white shadow-xl border border-tinta-700 text-xs font-bold hover:scale-105 active:scale-95 transition-all ml-auto"
+        title="Laboratorio de pruebas"
       >
         <Wrench className="w-4 h-4 text-amber-400" />
         <span>QA Demo: Métodos de Pago</span>
@@ -39,13 +39,10 @@ export const DemoAdminMetodosPagoWidget: React.FC<DemoAdminMetodosPagoWidgetProp
 
       {/* Expanded Panel */}
       {isOpen && (
-        <div className="mt-2 p-4 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 space-y-3 animate-in slide-in-from-bottom-2 duration-200 w-80">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+        <div className="mt-2 p-4 bg-white rounded-2xl shadow-2xl border border-tinta-200 text-tinta-800 space-y-3 animate-in slide-in-from-bottom-2 duration-200 w-80">
+          <div className="flex items-center justify-between border-b border-tinta-100 pb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-tinta-500">
               Escenarios de Prueba
-            </span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 font-mono font-bold">
-              CU-ADMIN-19
             </span>
           </div>
 
@@ -55,12 +52,12 @@ export const DemoAdminMetodosPagoWidget: React.FC<DemoAdminMetodosPagoWidgetProp
                 onAplicarPreset('canonico');
                 setIsOpen(false);
               }}
-              className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-2"
+              className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-tinta-100 transition-colors flex items-center gap-2"
             >
               <Sparkles className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
               <div>
-                <div className="font-semibold text-slate-900 dark:text-white">Canónico Áurea</div>
-                <div className="text-[10px] text-slate-400">Efectivo 0%, Tarjeta 3.5%, Yape 0%</div>
+                <div className="font-semibold text-tinta-900">Canónico Áurea</div>
+                <div className="text-xs text-tinta-400">Efectivo 0%, Tarjeta 3.5%, Yape 0%</div>
               </div>
             </button>
 
@@ -69,12 +66,12 @@ export const DemoAdminMetodosPagoWidget: React.FC<DemoAdminMetodosPagoWidgetProp
                 onAplicarPreset('cero_recargo');
                 setIsOpen(false);
               }}
-              className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-2"
+              className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-tinta-100 transition-colors flex items-center gap-2"
             >
               <Percent className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
               <div>
-                <div className="font-semibold text-slate-900 dark:text-white">Cero Recargo General</div>
-                <div className="text-[10px] text-slate-400">Todas las formas al 0.00%</div>
+                <div className="font-semibold text-tinta-900">Cero Recargo General</div>
+                <div className="text-xs text-tinta-400">Todas las formas al 0.00%</div>
               </div>
             </button>
 
@@ -83,12 +80,12 @@ export const DemoAdminMetodosPagoWidget: React.FC<DemoAdminMetodosPagoWidgetProp
                 onAplicarPreset('alta_comision');
                 setIsOpen(false);
               }}
-              className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-2"
+              className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-tinta-100 transition-colors flex items-center gap-2"
             >
               <Layers className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
               <div>
-                <div className="font-semibold text-slate-900 dark:text-white">Recargo Pasarela 5.0%</div>
-                <div className="text-[10px] text-slate-400">Tarjeta con 5.00% de comisión</div>
+                <div className="font-semibold text-tinta-900">Recargo Pasarela 5.0%</div>
+                <div className="text-xs text-tinta-400">Tarjeta con 5.00% de comisión</div>
               </div>
             </button>
 
@@ -97,12 +94,12 @@ export const DemoAdminMetodosPagoWidget: React.FC<DemoAdminMetodosPagoWidgetProp
                 onAplicarPreset('solo_efectivo');
                 setIsOpen(false);
               }}
-              className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-2"
+              className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-tinta-100 transition-colors flex items-center gap-2"
             >
               <ShieldAlert className="w-3.5 h-3.5 text-rose-500 flex-shrink-0" />
               <div>
-                <div className="font-semibold text-slate-900 dark:text-white">Provocar Bloqueo 409</div>
-                <div className="text-[10px] text-slate-400">Solo 1 activo para probar Poka-Yoke</div>
+                <div className="font-semibold text-tinta-900">Provocar Bloqueo 409</div>
+                <div className="text-xs text-tinta-400">Solo 1 activo para probar Poka-Yoke</div>
               </div>
             </button>
 
@@ -111,23 +108,23 @@ export const DemoAdminMetodosPagoWidget: React.FC<DemoAdminMetodosPagoWidgetProp
                 onSimularOnboarding();
                 setIsOpen(false);
               }}
-              className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-2"
+              className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-tinta-100 transition-colors flex items-center gap-2"
             >
               <Store className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
               <div>
-                <div className="font-semibold text-slate-900 dark:text-white">Simular Sede Nueva</div>
-                <div className="text-[10px] text-slate-400">Ver flujo de onboarding inicial</div>
+                <div className="font-semibold text-tinta-900">Simular Sede Nueva</div>
+                <div className="text-xs text-tinta-400">Ver flujo de onboarding inicial</div>
               </div>
             </button>
           </div>
 
-          <div className="border-t border-slate-100 dark:border-slate-800 pt-2">
+          <div className="border-t border-tinta-100 pt-2">
             <button
               onClick={() => {
                 onRestablecerSemillas();
                 setIsOpen(false);
               }}
-              className="w-full px-2.5 py-1.5 rounded-lg text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors flex items-center justify-center gap-1.5 font-medium"
+              className="w-full px-2.5 py-1.5 rounded-lg text-xs text-rose-600 hover:bg-rose-50 transition-colors flex items-center justify-center gap-1.5 font-medium"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Restablecer Semillas de Prueba</span>

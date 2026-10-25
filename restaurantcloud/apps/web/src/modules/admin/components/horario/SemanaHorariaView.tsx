@@ -1,23 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { DiaHorarioDTO, TurnoHorarioDTO } from '@/types/admin';
-import { Plus, Trash2, Moon, AlertCircle, Save, RotateCcw, Copy, Sparkles, Check } from 'lucide-react';
+import { Plus, Trash2, Moon, AlertCircle, Save, Copy, UtensilsCrossed, Sun, Timer, Sparkles, type LucideIcon } from 'lucide-react';
+import { Button, IconButton, useToast } from '@/components/ui';
+import { cn } from '@/shared/utils';
+
+type Plantilla = 'restaurante_estandar' | 'solo_almuerzo' | 'corrido_continuo';
 
 interface SemanaHorariaViewProps {
   dias: DiaHorarioDTO[];
   onGuardar: (dias: DiaHorarioDTO[]) => Promise<void>;
-  onAplicarPlantilla?: (plantilla: 'restaurante_estandar' | 'solo_almuerzo' | 'corrido_continuo') => Promise<void>;
+  onAplicarPlantilla?: (plantilla: Plantilla) => Promise<void>;
   guardando: boolean;
 }
+
+const PLANTILLAS: Array<{ valor: Plantilla; icono: LucideIcon; titulo: string; detalle: string; color: string; fondo: string }> = [
+  { valor: 'restaurante_estandar', icono: UtensilsCrossed, titulo: 'Almuerzo y cena', detalle: '12:00–16:00 y 19:00–23:30', color: 'text-red-600', fondo: 'bg-red-50' },
+  { valor: 'solo_almuerzo', icono: Sun, titulo: 'Solo almuerzo', detalle: '12:00–16:30 todos los días', color: 'text-amber-600', fondo: 'bg-amber-50' },
+  { valor: 'corrido_continuo', icono: Timer, titulo: 'Horario corrido', detalle: '12:00–23:00 sin pausa', color: 'text-emerald-600', fondo: 'bg-emerald-50' },
+];
+
+const CLASE_CAMPO =
+  'w-full min-h-tactil px-3 bg-white border border-tinta-300 rounded-lg text-base md:text-sm text-tinta-900 focus:outline-none focus:ring-2 focus:ring-aurea-copper/40 focus:border-aurea-copper';
 
 export const SemanaHorariaView: React.FC<SemanaHorariaViewProps> = ({
   dias,
   onGuardar,
   guardando,
 }) => {
+  const { mostrar } = useToast();
   const [diasLocales, setDiasLocales] = useState<DiaHorarioDTO[]>([]);
   const [hayCambios, setHayCambios] = useState(false);
   const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
-  const [mensajeExito, setMensajeExito] = useState<string | null>(null);
 
   useEffect(() => {
     setDiasLocales(JSON.parse(JSON.stringify(dias)));
@@ -100,7 +113,7 @@ export const SemanaHorariaView: React.FC<SemanaHorariaViewProps> = ({
     setErrorValidacion(null);
   };
 
-  const generarDiasPlantilla = (plantilla: 'restaurante_estandar' | 'solo_almuerzo' | 'corrido_continuo'): DiaHorarioDTO[] => {
+  const generarDiasPlantilla = (plantilla: Plantilla): DiaHorarioDTO[] => {
     const nombresDias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
     if (plantilla === 'restaurante_estandar') {
       return nombresDias.map((nombre, idx) => {
@@ -171,21 +184,18 @@ export const SemanaHorariaView: React.FC<SemanaHorariaViewProps> = ({
     }
   };
 
-  const handleAplicarPlantillaBorrador = (plantilla: 'restaurante_estandar' | 'solo_almuerzo' | 'corrido_continuo') => {
-    const nuevosDias = generarDiasPlantilla(plantilla);
-    setDiasLocales(nuevosDias);
+  const handleAplicarPlantillaBorrador = (plantilla: Plantilla) => {
+    setDiasLocales(generarDiasPlantilla(plantilla));
     setHayCambios(true);
     setErrorValidacion(null);
-    setMensajeExito('Plantilla cargada en borrador. Revisa los turnos y pulsa "Guardar Horario Semanal" para confirmar los cambios.');
-    setTimeout(() => setMensajeExito(null), 5000);
+    mostrar('Plantilla cargada. Revisa los turnos y guarda para aplicarla.', 'info');
   };
 
   const handleCopiarLunesATodos = () => {
     if (diasLocales.length === 0) return;
     const lunes = diasLocales[0];
     if (!lunes || !lunes.atiende || !lunes.turnos || lunes.turnos.length === 0) {
-      setErrorValidacion('Para esta funcionalidad se debe tener el lunes habilitado como referencia con al menos un turno configurado.');
-      setMensajeExito(null);
+      setErrorValidacion('Para copiar el lunes, primero ábrelo y configura al menos un turno.');
       return;
     }
     const copia = diasLocales.map((d, idx) => {
@@ -199,8 +209,7 @@ export const SemanaHorariaView: React.FC<SemanaHorariaViewProps> = ({
     setDiasLocales(copia);
     setHayCambios(true);
     setErrorValidacion(null);
-    setMensajeExito('Horario de Lunes copiado a toda la semana. Recuerda pulsar "Guardar Horario Semanal" para confirmar.');
-    setTimeout(() => setMensajeExito(null), 4000);
+    mostrar('Horario del lunes copiado a toda la semana. Guarda para aplicarlo.', 'info');
   };
 
   const handleDescartar = () => {
@@ -216,16 +225,16 @@ export const SemanaHorariaView: React.FC<SemanaHorariaViewProps> = ({
     for (const d of diasLocales) {
       if (d.atiende) {
         if (!d.turnos || d.turnos.length === 0) {
-          setErrorValidacion(`El día ${d.nombre_dia} está marcado como abierto pero no tiene ningún turno configurado.`);
+          setErrorValidacion(`${d.nombre_dia} está abierto pero no tiene turnos.`);
           return;
         }
         for (const t of d.turnos) {
           if (!t.hora_inicio || !t.hora_fin) {
-            setErrorValidacion(`Debes ingresar la hora de inicio y fin para todos los turnos en ${d.nombre_dia}.`);
+            setErrorValidacion(`Completa la hora de apertura y cierre de todos los turnos del ${d.nombre_dia.toLowerCase()}.`);
             return;
           }
           if (t.hora_inicio === t.hora_fin) {
-            setErrorValidacion(`La hora de inicio y fin no pueden ser idénticas en el turno "${t.nombre_turno}" de ${d.nombre_dia}.`);
+            setErrorValidacion(`El turno «${t.nombre_turno}» del ${d.nombre_dia.toLowerCase()} abre y cierra a la misma hora.`);
             return;
           }
         }
@@ -235,303 +244,227 @@ export const SemanaHorariaView: React.FC<SemanaHorariaViewProps> = ({
     try {
       await onGuardar(diasLocales);
       setHayCambios(false);
-      setMensajeExito('Horario semanal guardado exitosamente.');
-      setTimeout(() => setMensajeExito(null), 4000);
-    } catch (err: any) {
-      setErrorValidacion(err.message || 'Error al guardar el horario semanal.');
+    } catch (err) {
+      setErrorValidacion(err instanceof Error && err.message ? err.message : 'No se pudo guardar el horario.');
     }
   };
 
   const totalHoras = calcularHorasTotales();
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Barra superior de productividad y plantillas rápidas */}
-      <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-red-100 rounded-lg text-red-600">
+    <div className="space-y-4">
+      {/* Plantillas rápidas: cargan un horario completo como borrador */}
+      <section className="bg-gradient-to-r from-red-50 via-orange-50 to-amber-50 border border-red-200 rounded-2xl p-4 sm:p-5 flex flex-col xl:flex-row xl:items-center gap-4">
+        <div className="flex items-center gap-3 xl:max-w-xs">
+          <span className="p-2.5 bg-red-100 rounded-xl text-red-600 shrink-0" aria-hidden="true">
             <Sparkles className="w-5 h-5" />
-          </div>
+          </span>
           <div>
-            <h4 className="text-sm font-semibold text-gray-900">Plantillas Operativas Rápidas</h4>
-            <p className="text-xs text-gray-600">
-              Aplica esquemas preconfigurados en un solo clic y ajústalos según tus turnos de cocina y salón.
-            </p>
+            <h2 className="text-sm font-bold text-tinta-900">Plantillas rápidas</h2>
+            <p className="text-xs text-tinta-600">Carga un horario completo en un clic y ajústalo antes de guardar.</p>
           </div>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => handleAplicarPlantillaBorrador('restaurante_estandar')}
-            className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 shadow-xs transition"
-          >
-            🍽️ Estándar (Almuerzo + Cena)
-          </button>
-          <button
-            type="button"
-            onClick={() => handleAplicarPlantillaBorrador('solo_almuerzo')}
-            className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 shadow-xs transition"
-          >
-            ☀️ Solo Almuerzos (12:00 - 16:30)
-          </button>
-          <button
-            type="button"
-            onClick={() => handleAplicarPlantillaBorrador('corrido_continuo')}
-            className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 shadow-xs transition"
-          >
-            ⚡ Corrido Continuo (12:00 - 23:00)
-          </button>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1">
+          {PLANTILLAS.map(({ valor, icono: Icono, titulo, detalle, color, fondo }) => (
+            <button
+              key={valor}
+              type="button"
+              onClick={() => handleAplicarPlantillaBorrador(valor)}
+              className="min-h-tactil px-3 py-2 rounded-xl bg-white border border-tinta-200 shadow-sm hover:border-aurea-copper hover:shadow-md text-left flex items-center gap-3 transition-all"
+            >
+              <span className={cn('p-2 rounded-lg shrink-0', fondo, color)} aria-hidden="true">
+                <Icono className="w-4 h-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-tinta-900">{titulo}</span>
+                <span className="block text-xs font-mono text-tinta-500">{detalle}</span>
+              </span>
+            </button>
+          ))}
         </div>
-      </div>
+      </section>
 
-      {/* Banner de mensajes de éxito o validación */}
-      {mensajeExito && (
-        <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-800">
-          <Check className="w-5 h-5 text-emerald-600 shrink-0" />
-          <span>{mensajeExito}</span>
-        </div>
-      )}
-
-      {errorValidacion && (
-        <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
-          <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
-          <span>{errorValidacion}</span>
-        </div>
-      )}
-
-      {/* Tarjeta con los 7 días de la semana */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden divide-y divide-gray-200">
-        <div className="p-4 bg-gray-50/80 flex items-center justify-between border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
-              Día de la Semana
-            </span>
-            <span className="text-xs text-gray-400">•</span>
-            <span className="text-xs text-gray-500">
-              Gestión de Apertura y Turnos Partidos
-            </span>
-          </div>
+      <div className="bg-white rounded-2xl border border-tinta-200 shadow-sm">
+        {/* Cabecera de la semana: copiar lunes */}
+        <div className="px-4 sm:px-6 py-3 border-b border-tinta-200 bg-aurea-ivory/60 rounded-t-2xl flex flex-wrap items-center justify-between gap-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-tinta-500">Turnos por día</span>
           <button
             type="button"
             onClick={handleCopiarLunesATodos}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:underline cursor-pointer"
+            className="min-h-tactil px-3 rounded-lg text-sm font-semibold text-aurea-copper hover:bg-aurea-champagne/30 inline-flex items-center gap-2 transition-colors"
           >
-            <Copy className="w-3.5 h-3.5" />
-            Copiar horario de Lunes a toda la semana
+            <Copy className="w-4 h-4" aria-hidden="true" />
+            Copiar lunes a toda la semana
           </button>
         </div>
 
-        {diasLocales.map((dia, diaIdx) => {
-          const horasDia = calcularHorasDia(dia);
+        {errorValidacion && (
+          <p role="alert" className="mx-4 sm:mx-6 mt-4 p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-800 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" aria-hidden="true" />
+            {errorValidacion}
+          </p>
+        )}
 
-          return (
-            <div
-              key={dia.dia_semana}
-              className={`p-5 transition ${dia.atiende ? 'bg-white' : 'bg-gray-50/50'}`}
-            >
-              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-                {/* Switch y Nombre del Día */}
-                <div className="lg:w-48 shrink-0 flex items-center lg:items-start justify-between lg:justify-start gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-base font-bold text-gray-900">{dia.nombre_dia}</span>
-                      {dia.atiende ? (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          {horasDia}h
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">
-                          Cerrado
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {dia.atiende
-                        ? `${dia.turnos.length} turno${dia.turnos.length > 1 ? 's' : ''} configurado${dia.turnos.length > 1 ? 's' : ''}`
-                        : 'No atiende al público'}
-                    </p>
+        {/* Los 7 días */}
+        <ul className="divide-y divide-tinta-100">
+          {diasLocales.map((dia, diaIdx) => {
+            const horasDia = Math.round(calcularHorasDia(dia) * 10) / 10;
+
+            return (
+              <li key={dia.dia_semana} className={cn('px-4 sm:px-6 py-4 flex flex-col lg:flex-row gap-3 lg:gap-6', !dia.atiende && 'bg-tinta-50/60')}>
+                {/* Día, estado y switch */}
+                <div className="lg:w-48 shrink-0 flex items-center justify-between lg:items-start gap-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={cn('text-base font-bold', dia.atiende ? 'text-aurea-navy' : 'text-tinta-500')}>{dia.nombre_dia}</span>
+                    {dia.atiende ? (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">{horasDia} h</span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-tinta-100 text-tinta-500 border border-tinta-200">Cerrado</span>
+                    )}
                   </div>
-
-                  {/* Switch Toggle */}
                   <button
                     type="button"
-                    onClick={() => handleToggleAtiende(diaIdx)}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      dia.atiende ? 'bg-emerald-600' : 'bg-gray-300'
-                    }`}
                     role="switch"
                     aria-checked={dia.atiende}
+                    aria-label={`Abrir los ${dia.nombre_dia.toLowerCase()}`}
+                    onClick={() => handleToggleAtiende(diaIdx)}
+                    className="-my-2 -mr-1 min-h-tactil min-w-tactil px-1 flex items-center justify-center rounded-xl shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 lg:order-first lg:-ml-1 lg:mr-0"
                   >
-                    <span
-                      aria-hidden="true"
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        dia.atiende ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    />
+                    <span className={cn('w-12 h-6 rounded-full transition-colors flex items-center', dia.atiende ? 'bg-emerald-600' : 'bg-tinta-300')}>
+                      <span className={cn('w-4 h-4 rounded-full bg-white shadow-md transition-transform', dia.atiende ? 'translate-x-7' : 'translate-x-1')} />
+                    </span>
                   </button>
                 </div>
 
-                {/* Contenido de turnos del día */}
-                <div className="flex-1">
-                  {!dia.atiende ? (
-                    <div className="bg-gray-100/70 border border-dashed border-gray-300 rounded-lg p-3 text-xs text-gray-500 flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-gray-400 shrink-0" />
-                      <span>
-                        El local permanecerá cerrado los {dia.nombre_dia}s. El sistema de reservas y comandas bloqueará pedidos para este día.
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {dia.turnos.map((turno, turnoIdx) => {
-                        const duracion = calcularHorasTurno(turno.hora_inicio, turno.hora_fin);
-                        const esTrasnochador = esTurnoTrasnochador(turno.hora_inicio, turno.hora_fin);
+                {/* Turnos */}
+                {dia.atiende && (
+                  <div className="flex-1 min-w-0 space-y-2">
+                    {dia.turnos.map((turno, turnoIdx) => {
+                      const duracion = calcularHorasTurno(turno.hora_inicio, turno.hora_fin);
+                      const esTrasnochador = esTurnoTrasnochador(turno.hora_inicio, turno.hora_fin);
+                      const idBase = `turno-${dia.dia_semana}-${turnoIdx}`;
 
-                        return (
-                          <div
-                            key={turno.id || turnoIdx}
-                            className="flex flex-wrap sm:flex-nowrap items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200"
-                          >
-                            {/* Nombre del Turno */}
-                            <div className="w-full sm:w-36">
-                              <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1">
-                                Etiqueta Turno
-                              </label>
-                              <input
-                                type="text"
-                                value={turno.nombre_turno}
-                                onChange={(e) =>
-                                  handleActualizarTurno(diaIdx, turnoIdx, 'nombre_turno', e.target.value)
-                                }
-                                placeholder="ej. Almuerzo"
-                                className="w-full text-xs font-medium px-2.5 py-1.5 bg-white border border-gray-300 rounded-md focus:ring-1 focus:ring-red-500 focus:border-red-500"
-                              />
-                            </div>
-
-                            {/* Hora Inicio */}
-                            <div className="w-32">
-                              <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1">
-                                Apertura
-                              </label>
-                              <input
-                                type="time"
-                                value={turno.hora_inicio}
-                                onChange={(e) =>
-                                  handleActualizarTurno(diaIdx, turnoIdx, 'hora_inicio', e.target.value)
-                                }
-                                className="w-full text-xs px-2.5 py-1.5 bg-white border border-gray-300 rounded-md focus:ring-1 focus:ring-red-500 focus:border-red-500 font-mono"
-                              />
-                            </div>
-
-                            <span className="text-gray-400 text-xs mt-4 hidden sm:inline">a</span>
-
-                            {/* Hora Fin */}
-                            <div className="w-32">
-                              <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1">
-                                Cierre
-                              </label>
-                              <input
-                                type="time"
-                                value={turno.hora_fin}
-                                onChange={(e) =>
-                                  handleActualizarTurno(diaIdx, turnoIdx, 'hora_fin', e.target.value)
-                                }
-                                className="w-full text-xs px-2.5 py-1.5 bg-white border border-gray-300 rounded-md focus:ring-1 focus:ring-red-500 focus:border-red-500 font-mono"
-                              />
-                            </div>
-
-                            {/* Badges de Duración y Trasnochador */}
-                            <div className="flex items-center gap-2 mt-4 sm:mt-4">
-                              <span className="text-xs font-semibold text-gray-700 bg-white border border-gray-200 px-2 py-1 rounded-md shrink-0">
-                                {duracion} hrs
-                              </span>
-
-                              {esTrasnochador && (
-                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-1 rounded-md shrink-0" title="Cierra en la madrugada del día siguiente">
-                                  <Moon className="w-3 h-3 text-purple-600" />
-                                  +1 día
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Botón eliminar turno si hay más de 1 */}
-                            {dia.turnos.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => handleEliminarTurno(diaIdx, turnoIdx)}
-                                className="mt-4 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition ml-auto"
-                                title="Eliminar este turno"
+                      return (
+                        <div
+                          key={turno.id || turnoIdx}
+                          className="grid grid-cols-2 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_auto] gap-2 sm:gap-3 items-end p-3 bg-aurea-ivory/50 rounded-xl border border-aurea-champagne/60"
+                        >
+                          <div className="col-span-2 sm:col-span-1">
+                            <label htmlFor={`${idBase}-nombre`} className="block text-xs font-semibold text-tinta-600 mb-1">
+                              Turno
+                            </label>
+                            <input
+                              id={`${idBase}-nombre`}
+                              type="text"
+                              value={turno.nombre_turno}
+                              onChange={(e) => handleActualizarTurno(diaIdx, turnoIdx, 'nombre_turno', e.target.value)}
+                              placeholder="Ej. Almuerzo"
+                              className={CLASE_CAMPO}
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor={`${idBase}-ini`} className="block text-xs font-semibold text-tinta-600 mb-1">
+                              Abre
+                            </label>
+                            <input
+                              id={`${idBase}-ini`}
+                              type="time"
+                              value={turno.hora_inicio}
+                              onChange={(e) => handleActualizarTurno(diaIdx, turnoIdx, 'hora_inicio', e.target.value)}
+                              className={cn(CLASE_CAMPO, 'font-mono')}
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor={`${idBase}-fin`} className="block text-xs font-semibold text-tinta-600 mb-1">
+                              Cierra
+                            </label>
+                            <input
+                              id={`${idBase}-fin`}
+                              type="time"
+                              value={turno.hora_fin}
+                              onChange={(e) => handleActualizarTurno(diaIdx, turnoIdx, 'hora_fin', e.target.value)}
+                              className={cn(CLASE_CAMPO, 'font-mono')}
+                            />
+                          </div>
+                          <div className="col-span-2 sm:col-span-1 flex items-center gap-2 min-h-tactil">
+                            <span className="text-xs font-semibold text-tinta-700 bg-white border border-tinta-200 px-2 py-1 rounded-md whitespace-nowrap">
+                              {duracion} h
+                            </span>
+                            {esTrasnochador && (
+                              <span
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded-md whitespace-nowrap"
+                                title="Cierra en la madrugada del día siguiente"
                               >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                                <Moon className="w-3 h-3" aria-hidden="true" />
+                                +1 día
+                              </span>
+                            )}
+                            {dia.turnos.length > 1 && (
+                              <IconButton
+                                variant="danger"
+                                icono={Trash2}
+                                etiqueta={`Quitar el turno ${turno.nombre_turno || turnoIdx + 1} del ${dia.nombre_dia.toLowerCase()}`}
+                                onClick={() => handleEliminarTurno(diaIdx, turnoIdx)}
+                                className="ml-auto"
+                              />
                             )}
                           </div>
-                        );
-                      })}
+                        </div>
+                      );
+                    })}
 
-                      {/* Botón Añadir Turno (Turno partido) */}
-                      {dia.turnos.length < 3 && (
-                        <button
-                          type="button"
-                          onClick={() => handleAgregarTurno(diaIdx)}
-                          className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-dashed border-red-300 transition"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          Añadir Turno Partido (ej. Turno Cena)
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+                    {dia.turnos.length < 3 && (
+                      <button
+                        type="button"
+                        onClick={() => handleAgregarTurno(diaIdx)}
+                        className="min-h-tactil px-3 rounded-lg border border-dashed border-aurea-copper/50 text-sm font-medium text-aurea-copper hover:bg-aurea-champagne/20 inline-flex items-center gap-1.5 transition-colors"
+                      >
+                        <Plus className="w-4 h-4" aria-hidden="true" />
+                        Añadir turno
+                      </button>
+                    )}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
 
-      {/* Barra fija inferior con resumen y acciones */}
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 sticky bottom-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 font-bold">
-            🕒
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-gray-900">Total Operativo Semanal:</span>
-              <span className="text-sm font-bold text-emerald-600">{totalHoras} horas</span>
-            </div>
-            <p className="text-xs text-gray-500">
-              {hayCambios ? 'Tienes cambios pendientes de guardar en la grilla horaria.' : 'La configuración actual está sincronizada.'}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-          {hayCambios && (
+        {/* Pie: total y acciones; fijo mientras hay cambios */}
+        <div
+          className={cn(
+            'px-4 sm:px-6 py-4 border-t border-tinta-200 rounded-b-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3',
+            hayCambios && 'sticky bottom-0 bg-white/95 backdrop-blur-sm'
+          )}
+        >
+          <p className="text-sm text-tinta-700">
+            Total semanal: <span className="font-bold text-emerald-700">{totalHoras} h</span>
+          </p>
+          <div className="flex flex-col-reverse sm:flex-row gap-2">
+            {hayCambios && (
+              <Button variant="outline" onClick={handleDescartar} disabled={guardando} className="w-full sm:w-auto">
+                Descartar
+              </Button>
+            )}
             <button
               type="button"
-              onClick={handleDescartar}
-              disabled={guardando}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+              onClick={handleGuardarSubmit}
+              disabled={!hayCambios || guardando}
+              className="w-full sm:w-auto min-h-tactil px-6 rounded-xl bg-aurea-copper text-aurea-navy hover:bg-aurea-copper/90 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-bold flex items-center justify-center gap-2 shadow-md transition-all"
             >
-              <RotateCcw className="w-4 h-4 text-gray-500" />
-              Descartar
+              {guardando ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-aurea-navy border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" aria-hidden="true" />
+                  Guardar horario
+                </>
+              )}
             </button>
-          )}
-
-          <button
-            type="button"
-            onClick={handleGuardarSubmit}
-            disabled={!hayCambios || guardando}
-            className={`inline-flex items-center gap-2 px-5 py-2 text-sm font-medium rounded-lg text-white transition shadow-sm ${
-              hayCambios && !guardando
-                ? 'bg-red-600 hover:bg-red-700 cursor-pointer'
-                : 'bg-gray-300 cursor-not-allowed'
-            }`}
-          >
-            <Save className="w-4 h-4" />
-            {guardando ? 'Guardando Horario...' : 'Guardar Horario Semanal'}
-          </button>
+          </div>
         </div>
       </div>
     </div>

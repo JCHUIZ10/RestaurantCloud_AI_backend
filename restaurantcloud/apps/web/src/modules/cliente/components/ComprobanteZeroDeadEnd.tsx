@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Search, ShieldAlert, MessageCircle, Utensils } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { ROUTES } from '@/router/routes.constants';
 
 interface ComprobanteZeroDeadEndProps {
   onBuscarCodigo: (codigo: string) => void;
@@ -93,7 +94,7 @@ export const ComprobanteZeroDeadEnd: React.FC<ComprobanteZeroDeadEndProps> = ({
         </a>
 
         <Link
-          to="/sede/aurea-miraflores/carta"
+          to={ROUTES.CARTA_DEMO}
           className="py-2.5 px-3 rounded-xl bg-white hover:bg-aurea-champagne/20 text-aurea-navy border border-aurea-copper/30 font-semibold flex items-center justify-center gap-1.5 transition-colors"
         >
           <Utensils className="w-4 h-4 text-aurea-copper" />

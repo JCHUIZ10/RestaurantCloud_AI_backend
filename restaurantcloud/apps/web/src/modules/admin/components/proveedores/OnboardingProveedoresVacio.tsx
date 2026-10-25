@@ -1,88 +1,45 @@
 import React from 'react';
-import {
-  Truck,
-  Plus,
-  MessageCircle,
-  Receipt,
-  Zap,
-} from 'lucide-react';
+import { Truck, Plus, MessageCircle, Receipt, Zap, type LucideIcon } from 'lucide-react';
+import { Button } from '@/components/ui';
 
 interface OnboardingProveedoresVacioProps {
   onAbrirNuevoProveedor: () => void;
 }
 
-export const OnboardingProveedoresVacio: React.FC<OnboardingProveedoresVacioProps> = ({
-  onAbrirNuevoProveedor,
-}) => {
-  return (
-    <div className="bg-white rounded-3xl border border-aurea-champagne/80 shadow-sm p-8 sm:p-12 text-center max-w-2xl mx-auto my-8">
-      {/* Icono Principal */}
-      <div className="w-16 h-16 rounded-3xl bg-aurea-champagne/40 border border-aurea-copper/30 flex items-center justify-center text-aurea-copper mx-auto mb-6 shadow-sm">
-        <Truck className="w-8 h-8" />
-      </div>
+const PILARES: Array<{ icono: LucideIcon; titulo: string; texto: string; color: string }> = [
+  { icono: MessageCircle, titulo: 'WhatsApp directo', texto: 'Abre el chat en un toque con el pedido ya escrito.', color: 'bg-estado-ok-100 text-estado-ok-700' },
+  { icono: Receipt, titulo: 'Control de costos', texto: 'Revisa lo que pagaste en cada compra y cómo varían los precios.', color: 'bg-aurea-navy/10 text-aurea-navy' },
+  { icono: Zap, titulo: 'Alta rápida', texto: 'Nombre y celular bastan; el RUC no es obligatorio.', color: 'bg-aurea-champagne/50 text-aurea-copper' },
+];
 
-      {/* Título y Mensaje */}
-      <h2 className="text-2xl font-serif font-bold text-aurea-navy mb-2">
-        Tu Directorio de Proveedores está Vacío
-      </h2>
-      <p className="text-sm text-aurea-navy/70 max-w-lg mx-auto mb-8">
-        Registra a tus proveedores comerciales para centralizar su contacto directo por WhatsApp, controlar la evolución de precios de insumos y facilitar la emisión de compras en tu sede.
+export const OnboardingProveedoresVacio: React.FC<OnboardingProveedoresVacioProps> = ({ onAbrirNuevoProveedor }) => (
+  <div className="bg-white rounded-2xl border border-aurea-copper/30 border-t-4 border-t-aurea-copper shadow-md p-6 sm:p-10 text-center space-y-8">
+    <div className="space-y-2">
+      <span className="mx-auto w-14 h-14 rounded-2xl bg-aurea-navy text-aurea-champagne ring-1 ring-aurea-copper/40 flex items-center justify-center">
+        <Truck className="w-7 h-7" aria-hidden="true" />
+      </span>
+      <h2 className="font-serif text-2xl font-bold text-aurea-navy">Aún no tienes proveedores</h2>
+      <p className="text-sm text-aurea-navy/70 max-w-xl mx-auto">
+        Regístralos aquí o al vuelo cuando ingreses una compra.
       </p>
-
-      {/* Tarjetas de Beneficios */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 text-left">
-        <div className="p-4 rounded-2xl bg-aurea-ivory/50 border border-aurea-champagne/80">
-          <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center mb-2.5">
-            <MessageCircle className="w-4 h-4" />
-          </div>
-          <h3 className="text-xs font-semibold text-aurea-navy mb-1">
-            WhatsApp Directo
-          </h3>
-          <p className="text-[11px] text-aurea-navy/60">
-            Abre conversaciones en un clic con pedidos y cotizaciones preformateados.
-          </p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-aurea-ivory/50 border border-aurea-champagne/80">
-          <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center mb-2.5">
-            <Receipt className="w-4 h-4" />
-          </div>
-          <h3 className="text-xs font-semibold text-aurea-navy mb-1">
-            Control de Costos
-          </h3>
-          <p className="text-[11px] text-aurea-navy/60">
-            Audita el historial de precios facturados y detecta variaciones mensuales.
-          </p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-aurea-ivory/50 border border-aurea-champagne/80">
-          <div className="w-8 h-8 rounded-xl bg-aurea-copper/10 text-aurea-copper flex items-center justify-center mb-2.5">
-            <Zap className="w-4 h-4" />
-          </div>
-          <h3 className="text-xs font-semibold text-aurea-navy mb-1">
-            Sin Burocracia
-          </h3>
-          <p className="text-[11px] text-aurea-navy/60">
-            Alta en menos de 10 segundos sin exigir RUC obligatorio.
-          </p>
-        </div>
-      </div>
-
-      {/* Botón de Acción Principal */}
-      <div className="space-y-4">
-        <button
-          type="button"
-          onClick={onAbrirNuevoProveedor}
-          className="inline-flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-aurea-copper hover:bg-aurea-copper/90 text-white text-sm font-semibold transition-all shadow-md hover:shadow-lg"
-        >
-          <Plus className="w-4 h-4 stroke-[2.5]" />
-          <span>Registrar Primer Proveedor</span>
-        </button>
-
-        <p className="text-xs text-aurea-navy/50 max-w-md mx-auto">
-          💡 <span className="font-medium text-aurea-navy/70">Tip Operativo:</span> También podrás registrarlos directamente "al vuelo" mientras formalizas una Ficha de Compra física (CU-ADMIN-06).
-        </p>
-      </div>
     </div>
-  );
-};
+
+    <ul className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto text-left">
+      {PILARES.map(({ icono: Icono, titulo, texto, color }) => (
+        <li key={titulo} className="p-4 rounded-xl bg-aurea-ivory border border-aurea-champagne space-y-2">
+          <span className="flex items-center gap-2">
+            <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${color}`} aria-hidden="true">
+              <Icono className="w-4 h-4" />
+            </span>
+            <span className="font-semibold text-aurea-navy">{titulo}</span>
+          </span>
+          <p className="text-sm text-aurea-navy/70">{texto}</p>
+        </li>
+      ))}
+    </ul>
+
+    <Button size="lg" onClick={onAbrirNuevoProveedor} leftIcon={<Plus className="w-4 h-4 text-aurea-champagne" aria-hidden="true" />}>
+      Registrar mi primer proveedor
+    </Button>
+  </div>
+);

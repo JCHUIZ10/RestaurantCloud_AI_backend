@@ -1,7 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { X, AlertTriangle, Ban, ChefHat, Utensils, Loader2 } from 'lucide-react';
+import React, { useEffect, useId, useState } from 'react';
+import { AlertTriangle, AlertCircle, Ban, ChefHat, Package, Utensils } from 'lucide-react';
 import { FichaCompraResumenDTO, ImpactoAnulacionDTO } from '@/types/admin';
 import { adminService } from '@/services/serviceAdapter';
+import { Button, EstadoBadge, Modal, Skeleton } from '@/components/ui';
+import { cn } from '@/shared/utils';
+import { TagComprobante } from './etiquetasCompra';
+import { formatoFecha, soles } from './formatoCompra';
 
 interface ModalAdvertenciaImpactoAnulacionProps {
   ficha: FichaCompraResumenDTO | null;
@@ -10,12 +14,16 @@ interface ModalAdvertenciaImpactoAnulacionProps {
   onAnulacionConfirmada: (fichaActualizada: FichaCompraResumenDTO) => void;
 }
 
+const CLASE_CONTROL =
+  'w-full px-3.5 py-2.5 bg-white border border-aurea-champagne/70 rounded-xl text-base md:text-sm text-aurea-navy placeholder:text-aurea-navy/40 focus:outline-none focus:border-aurea-copper';
+
 export const ModalAdvertenciaImpactoAnulacion: React.FC<ModalAdvertenciaImpactoAnulacionProps> = ({
   ficha,
   abierto,
   onCerrar,
   onAnulacionConfirmada,
 }) => {
+  const idForm = useId();
   const [impacto, setImpacto] = useState<ImpactoAnulacionDTO | null>(null);
   const [cargandoImpacto, setCargandoImpacto] = useState(false);
   const [motivo, setMotivo] = useState('');
@@ -28,6 +36,7 @@ export const ModalAdvertenciaImpactoAnulacion: React.FC<ModalAdvertenciaImpactoA
       setMotivo('');
       setConfirmacionTexto('');
       setError(null);
+      setImpacto(null);
       evaluarImpacto(ficha.id);
     }
   }, [abierto, ficha]);
@@ -44,17 +53,20 @@ export const ModalAdvertenciaImpactoAnulacion: React.FC<ModalAdvertenciaImpactoA
     }
   };
 
-  if (!abierto || !ficha) return null;
+  if (!ficha) return null;
+
+  const exigeConfirmacion = Boolean(impacto?.requiere_confirmacion_estricta);
+  const confirmacionOk = !exigeConfirmacion || confirmacionTexto.trim().toUpperCase() === 'ANULAR';
+  const motivoOk = motivo.trim().length >= 5;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!motivo.trim() || motivo.trim().length < 5) {
-      setError('Debe especificar un motivo de anulación claro (mínimo 5 caracteres).');
+    if (!motivoOk) {
+      setError('Escribe el motivo de la anulación (mínimo 5 caracteres).');
       return;
     }
-
-    if (impacto?.requiere_confirmacion_estricta && confirmacionTexto.trim().toUpperCase() !== 'ANULAR') {
-      setError('Para confirmar el impacto crítico, debe escribir exactamente "ANULAR".');
+    if (!confirmacionOk) {
+      setError('Escribe ANULAR para confirmar que asumes el impacto en la carta.');
       return;
     }
 
@@ -70,7 +82,7 @@ export const ModalAdvertenciaImpactoAnulacion: React.FC<ModalAdvertenciaImpactoA
         onAnulacionConfirmada(res.datos);
         onCerrar();
       } else {
-        setError(res.errores?.[0]?.mensaje || 'No se pudo anular la ficha de compra.');
+        setError(res.errores?.[0]?.mensaje || 'No se pudo anular la compra.');
       }
     } catch {
       setError('Ocurrió un error inesperado al procesar la anulación.');
@@ -80,205 +92,160 @@ export const ModalAdvertenciaImpactoAnulacion: React.FC<ModalAdvertenciaImpactoA
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col">
-        {/* Header con alerta roja */}
-        <div className="px-6 py-4 border-b border-rose-200 flex items-center justify-between bg-rose-50/70">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-rose-600 text-white shadow-md shadow-rose-600/20">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-rose-950 text-base">
-                Anular Ficha de Compra #{ficha.numero_comprobante}
-              </h3>
-              <p className="text-xs text-rose-700">
-                Evaluación de impacto en stock, platos de carta y comandas en cocina
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onCerrar}
-            disabled={anulando}
-            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-white transition-colors"
+    <Modal
+      abierto={abierto}
+      onCerrar={onCerrar}
+      cerrable={!anulando}
+      tamano="lg"
+      tono="error"
+      icono={AlertTriangle}
+      etiqueta={ficha.proveedor_nombre}
+      titulo={`Anular ${ficha.numero_comprobante}`}
+      descripcion="Se descontará del inventario lo que ingresó con esta compra."
+      pie={
+        <>
+          <Button variant="outline" onClick={onCerrar} disabled={anulando}>
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            form={idForm}
+            variant="danger"
+            loading={anulando}
+            disabled={cargandoImpacto || !motivoOk || !confirmacionOk}
+            leftIcon={<Ban className="w-4 h-4" aria-hidden="true" />}
           >
-            <X className="w-5 h-5" />
-          </button>
+            Anular compra
+          </Button>
+        </>
+      }
+    >
+      <form id={idForm} onSubmit={handleSubmit} noValidate className="space-y-5">
+        {error && (
+          <p role="alert" className="p-3 rounded-xl bg-estado-error-50 border border-estado-error-200 text-estado-error-800 text-sm flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+            {error}
+          </p>
+        )}
+
+        <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-aurea-ivory border border-aurea-champagne/70">
+          <span className="flex items-center gap-2 text-sm text-aurea-navy/70">
+            <TagComprobante tipo={ficha.tipo_comprobante} />
+            {formatoFecha(ficha.fecha_emision)}
+          </span>
+          <span className="font-serif font-bold text-lg text-aurea-navy tabular-nums">{soles(ficha.total)}</span>
         </div>
 
-        {/* Content */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 flex-1 text-xs">
-          {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg font-medium">
-              {error}
-            </div>
-          )}
-
-          {cargandoImpacto ? (
-            <div className="py-8 text-center text-gray-500">
-              <Loader2 className="w-6 h-6 animate-spin mx-auto text-rose-500 mb-2" />
-              <span>Calculando proyecciones de stock y recetas...</span>
-            </div>
-          ) : (
+        {cargandoImpacto ? (
+          <div className="space-y-2" aria-busy="true" aria-label="Calculando impacto">
+            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-14 rounded-xl" />
+          </div>
+        ) : (
+          impacto && (
             <>
-              {/* Resumen de la Ficha */}
-              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 flex justify-between items-center text-gray-700">
-                <div>
-                  <span className="font-semibold text-gray-900">{ficha.proveedor_nombre}</span>
-                  <span className="text-gray-400 mx-1.5">•</span>
-                  <span>Emisión: {ficha.fecha_emision}</span>
-                </div>
-                <div className="font-bold text-gray-900 font-mono">
-                  Total: S/ {ficha.total.toFixed(2)}
-                </div>
-              </div>
-
-              {/* 1. Impacto en Insumos */}
-              {impacto && impacto.insumos_afectados.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="font-bold text-gray-800 uppercase text-[11px] tracking-wider">
-                    Insumos a Restar del Inventario (GREATEST 0 Floor)
-                  </h4>
-                  <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold">
-                        <tr>
-                          <th className="py-2 px-3">Insumo</th>
-                          <th className="py-2 px-3 text-right">Stock Actual</th>
-                          <th className="py-2 px-3 text-right text-rose-600">Resta Compra</th>
-                          <th className="py-2 px-3 text-right font-bold">Stock Proyectado</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {impacto.insumos_afectados.map((ins) => (
-                          <tr key={ins.insumo_id} className={ins.quedara_en_quiebre ? 'bg-amber-50/40' : ''}>
-                            <td className="py-2 px-3">
-                              <span className="font-medium text-gray-900">{ins.insumo_nombre}</span>
-                              {ins.quedara_en_quiebre && (
-                                <span className="ml-2 text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded">
-                                  Quedará en Quiebre
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-2 px-3 text-right font-mono">
-                              {ins.stock_actual} {ins.unidad_medida}
-                            </td>
-                            <td className="py-2 px-3 text-right font-mono text-rose-600">
-                              -{ins.cantidad_a_restar} {ins.unidad_medida}
-                            </td>
-                            <td className="py-2 px-3 text-right font-mono font-bold text-gray-900">
-                              {ins.stock_proyectado} {ins.unidad_medida}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* 2. Platos que se apagarán en carta */}
-              {impacto && impacto.platos_que_se_agotaran.length > 0 && (
-                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
-                  <div className="flex items-center gap-2 font-bold text-amber-900 text-xs">
-                    <Utensils className="w-4 h-4 text-amber-600" />
-                    <span>Platos que se apagarán en carta por quiebre de receta ({impacto.platos_que_se_agotaran.length}):</span>
-                  </div>
-                  <ul className="list-disc list-inside space-y-1 text-amber-800 text-xs pl-2">
-                    {impacto.platos_que_se_agotaran.map((p) => (
-                      <li key={p.plato_id}>
-                        <strong>{p.plato_nombre}</strong> ({p.categoria_nombre}) — Quiebre en: <em>{p.insumo_critico}</em>
+              {impacto.insumos_afectados.length > 0 && (
+                <section className="space-y-2">
+                  <h3 className="flex items-center gap-1.5 text-sm font-semibold text-aurea-navy">
+                    <Package className="w-4 h-4 text-aurea-copper" aria-hidden="true" />
+                    Stock que se descontará
+                  </h3>
+                  <ul className="rounded-xl border border-aurea-champagne/70 divide-y divide-aurea-champagne/40 overflow-hidden">
+                    {impacto.insumos_afectados.map((ins) => (
+                      <li
+                        key={ins.insumo_id}
+                        className={cn(
+                          'flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2.5 text-sm',
+                          ins.quedara_en_quiebre ? 'bg-estado-alerta-50' : 'bg-white'
+                        )}
+                      >
+                        <span className="flex items-center gap-2 font-medium text-aurea-navy">
+                          {ins.insumo_nombre}
+                          {ins.quedara_en_quiebre && <EstadoBadge tono="alerta">Se agota</EstadoBadge>}
+                        </span>
+                        <span className="font-mono text-xs text-aurea-navy/70 whitespace-nowrap">
+                          {ins.stock_actual}
+                          <span className="text-estado-error-700"> − {ins.cantidad_a_restar}</span> ={' '}
+                          <strong className="text-sm text-aurea-navy">
+                            {ins.stock_proyectado} {ins.unidad_medida}
+                          </strong>
+                        </span>
                       </li>
                     ))}
                   </ul>
-                </div>
+                </section>
               )}
 
-              {/* 3. Comandas de cocina en riesgo */}
-              {impacto && impacto.pedidos_cocina_en_riesgo.length > 0 && (
-                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl space-y-2">
-                  <div className="flex items-center gap-2 font-bold text-rose-900 text-xs">
-                    <ChefHat className="w-4 h-4 text-rose-600" />
-                    <span>Comandas activas en cocina con insumos involucrados:</span>
-                  </div>
-                  <div className="space-y-1.5 pl-2">
-                    {impacto.pedidos_cocina_en_riesgo.map((ped) => (
-                      <div key={ped.comanda_id} className="text-rose-800 text-xs">
-                        • <strong>{ped.mesa_codigo}</strong> ({ped.comanda_id}): {ped.plato_nombre} — <em>{ped.estado_comanda}</em>
-                      </div>
+              {impacto.platos_que_se_agotaran.length > 0 && (
+                <section className="p-3.5 rounded-xl bg-estado-alerta-50 border border-estado-alerta-200 space-y-2">
+                  <h3 className="flex items-center gap-1.5 text-sm font-semibold text-estado-alerta-800">
+                    <Utensils className="w-4 h-4" aria-hidden="true" />
+                    {impacto.platos_que_se_agotaran.length === 1
+                      ? '1 plato quedará agotado en la carta'
+                      : `${impacto.platos_que_se_agotaran.length} platos quedarán agotados en la carta`}
+                  </h3>
+                  <ul className="space-y-1 text-sm text-estado-alerta-800">
+                    {impacto.platos_que_se_agotaran.map((p) => (
+                      <li key={p.plato_id}>
+                        <strong className="font-semibold">{p.plato_nombre}</strong>
+                        <span className="text-estado-alerta-700"> · falta {p.insumo_critico}</span>
+                      </li>
                     ))}
-                  </div>
-                </div>
+                  </ul>
+                </section>
               )}
 
-              {/* Input de Motivo Obligatorio */}
-              <div>
-                <label className="block text-xs font-bold text-gray-800 mb-1">
-                  Motivo de Anulación Contable (Obligatorio) <span className="text-rose-600">*</span>
-                </label>
-                <textarea
-                  rows={2}
-                  required
-                  value={motivo}
-                  onChange={(e) => setMotivo(e.target.value)}
-                  placeholder="Ej: Proveedor anuló comprobante por error de digitación en RUC; se emitió nota de crédito compensatoria..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
-                />
-              </div>
-
-              {/* Confirmación estricta si hay impacto crítico */}
-              {impacto?.requiere_confirmacion_estricta && (
-                <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
-                  <label className="block text-xs font-bold text-gray-800">
-                    Escriba <span className="text-rose-600 font-mono font-black">ANULAR</span> para confirmar que asume el apagado de platos en carta:
-                  </label>
-                  <input
-                    type="text"
-                    value={confirmacionTexto}
-                    onChange={(e) => setConfirmacionTexto(e.target.value)}
-                    placeholder="Escriba ANULAR aquí..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono font-bold tracking-wider text-rose-700 focus:ring-2 focus:ring-rose-500 focus:outline-none uppercase"
-                  />
-                </div>
+              {impacto.pedidos_cocina_en_riesgo.length > 0 && (
+                <section className="p-3.5 rounded-xl bg-estado-error-50 border border-estado-error-200 space-y-2">
+                  <h3 className="flex items-center gap-1.5 text-sm font-semibold text-estado-error-800">
+                    <ChefHat className="w-4 h-4" aria-hidden="true" />
+                    Pedidos en cocina que usan estos insumos
+                  </h3>
+                  <ul className="space-y-1 text-sm text-estado-error-800">
+                    {impacto.pedidos_cocina_en_riesgo.map((ped) => (
+                      <li key={ped.comanda_id}>
+                        <strong className="font-semibold">{ped.mesa_codigo}</strong> · {ped.plato_nombre}
+                        <span className="text-estado-error-700"> ({ped.estado_comanda})</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               )}
             </>
-          )}
+          )
+        )}
 
-          {/* Footer */}
-          <div className="pt-3 border-t border-gray-200 flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={onCerrar}
-              disabled={anulando}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-50 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={
-                anulando ||
-                motivo.trim().length < 5 ||
-                (impacto?.requiere_confirmacion_estricta && confirmacionTexto.trim().toUpperCase() !== 'ANULAR')
-              }
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {anulando ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Anulando comprobante...</span>
-                </>
-              ) : (
-                <>
-                  <Ban className="w-3.5 h-3.5" />
-                  <span>Confirmar Anulación</span>
-                </>
-              )}
-            </button>
+        <div>
+          <label htmlFor={`${idForm}-motivo`} className="block text-sm font-semibold text-aurea-navy mb-1.5">
+            Motivo de la anulación
+          </label>
+          <textarea
+            id={`${idForm}-motivo`}
+            rows={2}
+            required
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            placeholder="Ej. El proveedor emitió nota de crédito por error en el comprobante"
+            className={CLASE_CONTROL}
+          />
+        </div>
+
+        {exigeConfirmacion && (
+          <div>
+            <label htmlFor={`${idForm}-confirmar`} className="block text-sm font-semibold text-aurea-navy mb-1.5">
+              Escribe <span className="font-mono text-estado-error-700">ANULAR</span> para confirmar
+            </label>
+            <input
+              id={`${idForm}-confirmar`}
+              type="text"
+              value={confirmacionTexto}
+              onChange={(e) => setConfirmacionTexto(e.target.value)}
+              autoComplete="off"
+              className={cn(CLASE_CONTROL, 'min-h-tactil font-mono font-bold tracking-wider uppercase text-estado-error-700')}
+            />
           </div>
-        </form>
-      </div>
-    </div>
+        )}
+      </form>
+    </Modal>
   );
 };

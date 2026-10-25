@@ -21,6 +21,7 @@ import { ModalRegistrarIncidente } from '../components/incidentes/ModalRegistrar
 import { ModalDetalleResolucion } from '../components/incidentes/ModalDetalleResolucion';
 import { IncidentesVacioState } from '../components/incidentes/IncidentesVacioState';
 import { DemoAdminIncidentesWidget } from '../components/incidentes/DemoAdminIncidentesWidget';
+import { SoloDemo } from '@/components/ui/SoloDemo';
 
 export const AdminIncidentesPage: React.FC = () => {
   const [cargando, setCargando] = useState(true);
@@ -307,7 +308,9 @@ export const AdminIncidentesPage: React.FC = () => {
       />
 
       {/* QA Test Bench Flotante */}
-      <DemoAdminIncidentesWidget onRecargar={cargarIncidentes} />
+      <SoloDemo>
+        <DemoAdminIncidentesWidget onRecargar={cargarIncidentes} />
+      </SoloDemo>
     </div>
   );
 };

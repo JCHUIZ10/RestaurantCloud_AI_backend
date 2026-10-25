@@ -17,7 +17,6 @@ interface PromocionesHeaderProps {
 
 export const PromocionesHeader: React.FC<PromocionesHeaderProps> = ({
   kpis,
-  localNombre,
   onNuevaPromocion,
 }) => {
   return (
@@ -25,14 +24,6 @@ export const PromocionesHeader: React.FC<PromocionesHeaderProps> = ({
       {/* Cabecera Principal con Título y Acción Primaria */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
-              Carta & Ventas
-            </span>
-            <span className="text-xs font-semibold text-slate-500">
-              {localNombre ?? 'Sede Principal'}
-            </span>
-          </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1.5 flex items-center gap-2.5">
             <Tag className="w-7 h-7 text-amber-600 shrink-0" />
             Gestión de Promociones y Descuentos

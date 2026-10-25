@@ -3,6 +3,7 @@ import { LayoutGrid, Wifi, Filter, UtensilsCrossed, Calendar } from 'lucide-reac
 import { Link } from 'react-router-dom';
 import { ROUTES } from '@/router/routes.constants';
 import { PisoAmbienteDTO } from '@/types/mozo';
+import { BotonSalir } from '@/components/ui/BotonSalir';
 
 export type FiltroMesaTipo = 'todas' | 'mis_mesas' | 'libres' | 'ocupadas';
 
@@ -101,6 +102,8 @@ export const SalonHeaderMozo: React.FC<SalonHeaderMozoProps> = ({
             <Calendar className="w-3.5 h-3.5 text-sky-600" />
             <span>📅 Reservas {typeof reservasCount === 'number' ? `(${reservasCount})` : ''}</span>
           </Link>
+
+          <BotonSalir />
         </div>
       </div>
 

@@ -1,15 +1,8 @@
 import React from 'react';
-import {
-  Banknote,
-  CreditCard,
-  Smartphone,
-  Building2,
-  Minus,
-  Plus,
-  Save,
-  Settings,
-} from 'lucide-react';
+import { Banknote, CreditCard, Smartphone, Building2, Minus, Plus, Save, Settings, type LucideIcon } from 'lucide-react';
 import { MetodoPagoLocalDTO, CodigoMetodoPagoLocal } from '@/types/admin';
+import { Button } from '@/components/ui';
+import { cn } from '@/shared/utils';
 
 interface MetodosPagoCatalogoProps {
   metodos: MetodoPagoLocalDTO[];
@@ -23,6 +16,73 @@ interface MetodosPagoCatalogoProps {
   isGuardando: boolean;
 }
 
+/** Color propio de cada método: verde efectivo, azul tarjeta, morado Yape/Plin, gris transferencia. */
+const ESTILO: Record<CodigoMetodoPagoLocal, { nombre: string; detalle: string; etiqueta: string; icono: LucideIcon; caja: string; tag: string; switchOn: string; foco: string }> = {
+  efectivo: {
+    nombre: 'Efectivo',
+    detalle: 'Fondo de caja y vuelto en salón.',
+    etiqueta: 'Obligatorio',
+    icono: Banknote,
+    caja: 'bg-emerald-100 text-emerald-700',
+    tag: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    switchOn: 'bg-emerald-600',
+    foco: 'focus-visible:ring-emerald-500',
+  },
+  tarjeta: {
+    nombre: 'Tarjeta (POS)',
+    detalle: 'Débito y crédito en terminal física.',
+    etiqueta: 'Niubiz / Izipay',
+    icono: CreditCard,
+    caja: 'bg-blue-100 text-blue-700',
+    tag: 'bg-blue-50 text-blue-700 border-blue-200',
+    switchOn: 'bg-blue-600',
+    foco: 'focus-visible:ring-blue-500',
+  },
+  billetera_digital: {
+    nombre: 'Yape / Plin',
+    detalle: 'Cobro con QR o al celular del local.',
+    etiqueta: 'QR',
+    icono: Smartphone,
+    caja: 'bg-purple-100 text-purple-700',
+    tag: 'bg-purple-50 text-purple-700 border-purple-200',
+    switchOn: 'bg-purple-600',
+    foco: 'focus-visible:ring-purple-500',
+  },
+  transferencia: {
+    nombre: 'Transferencia bancaria',
+    detalle: 'Abonos a la cuenta de la empresa.',
+    etiqueta: 'Eventos / Reservas',
+    icono: Building2,
+    caja: 'bg-tinta-200 text-tinta-700',
+    tag: 'bg-tinta-100 text-tinta-600 border-tinta-200',
+    switchOn: 'bg-tinta-700',
+    foco: 'focus-visible:ring-tinta-500',
+  },
+};
+
+const ORDEN: CodigoMetodoPagoLocal[] = ['efectivo', 'tarjeta', 'billetera_digital', 'transferencia'];
+
+const Interruptor: React.FC<{ activo: boolean; etiqueta: string; colorOn: string; foco: string; onCambiar: () => void }> = ({
+  activo,
+  etiqueta,
+  colorOn,
+  foco,
+  onCambiar,
+}) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={activo}
+    aria-label={etiqueta}
+    onClick={onCambiar}
+    className={cn('min-h-tactil min-w-tactil px-1 flex items-center justify-center rounded-xl focus:outline-none focus-visible:ring-2', foco)}
+  >
+    <span className={cn('w-12 h-6 rounded-full transition-colors flex items-center', activo ? colorOn : 'bg-tinta-300')}>
+      <span className={cn('w-4 h-4 rounded-full bg-white shadow-md transition-transform', activo ? 'translate-x-7' : 'translate-x-1')} />
+    </span>
+  </button>
+);
+
 export const MetodosPagoCatalogo: React.FC<MetodosPagoCatalogoProps> = ({
   metodos,
   onToggleActivo,
@@ -34,371 +94,205 @@ export const MetodosPagoCatalogo: React.FC<MetodosPagoCatalogoProps> = ({
   isDirty,
   isGuardando,
 }) => {
-  const getMetodo = (codigo: CodigoMetodoPagoLocal) => metodos.find((m) => m.codigo === codigo);
-
-  const efectivo = getMetodo('efectivo');
-  const tarjeta = getMetodo('tarjeta');
-  const billetera = getMetodo('billetera_digital');
-  const transferencia = getMetodo('transferencia');
-
-  const ajustarComision = (codigo: CodigoMetodoPagoLocal, delta: number) => {
-    const m = getMetodo(codigo);
-    if (!m) return;
-    const actual = m.comision_porcentaje;
-    const nuevo = Math.min(50.0, Math.max(0.0, Math.round((actual + delta) * 100) / 100));
-    onCambiarComision(codigo, nuevo);
+  const ajustarComision = (m: MetodoPagoLocalDTO, delta: number) => {
+    const nuevo = Math.min(50.0, Math.max(0.0, Math.round((m.comision_porcentaje + delta) * 100) / 100));
+    onCambiarComision(m.codigo, nuevo);
   };
 
   const handleInputComision = (codigo: CodigoMetodoPagoLocal, valStr: string) => {
     const num = parseFloat(valStr);
     if (isNaN(num)) return;
-    const acotado = Math.min(50.0, Math.max(0.0, Math.round(num * 100) / 100));
-    onCambiarComision(codigo, acotado);
+    onCambiarComision(codigo, Math.min(50.0, Math.max(0.0, Math.round(num * 100) / 100)));
+  };
+
+  // Pie de cada tarjeta según el método: recargo, celular o cuenta
+  const pie = (m: MetodoPagoLocalDTO) => {
+    const d = m.datos_adicionales;
+    switch (m.codigo) {
+      case 'efectivo':
+        return (
+          <div className="flex items-center justify-between gap-2 text-xs text-tinta-600">
+            <span>Recargo al cliente</span>
+            <span className="font-mono font-bold text-tinta-700 bg-white px-2 py-0.5 rounded border border-tinta-200">0.00%</span>
+          </div>
+        );
+      case 'tarjeta':
+        return (
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div>
+              <span className="font-semibold text-tinta-700 block">Recargo al cliente</span>
+              <span className="text-tinta-500">
+                {m.comision_porcentaje > 0 ? `+S/ ${m.comision_porcentaje.toFixed(2)} por cada S/ 100` : 'Sin recargo'}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 ml-auto">
+              <button
+                type="button"
+                onClick={() => ajustarComision(m, -0.5)}
+                disabled={!m.activo || m.comision_porcentaje <= 0}
+                aria-label="Bajar recargo 0.5%"
+                className="w-10 h-10 rounded-xl bg-white border border-tinta-300 text-tinta-700 hover:bg-tinta-100 active:scale-95 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center shadow-sm transition-all"
+              >
+                <Minus className="w-4 h-4" aria-hidden="true" />
+              </button>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="50"
+                  inputMode="decimal"
+                  disabled={!m.activo}
+                  value={m.comision_porcentaje}
+                  onChange={(e) => handleInputComision(m.codigo, e.target.value)}
+                  aria-label="Recargo con tarjeta en porcentaje"
+                  className="w-20 h-10 appearance-none [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none text-center text-base md:text-sm font-mono font-bold pr-4 bg-white rounded-xl border border-tinta-300 text-tinta-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-tinta-100"
+                />
+                <span className="text-xs text-tinta-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">%</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => ajustarComision(m, 0.5)}
+                disabled={!m.activo || m.comision_porcentaje >= 50}
+                aria-label="Subir recargo 0.5%"
+                className="w-10 h-10 rounded-xl bg-white border border-tinta-300 text-tinta-700 hover:bg-tinta-100 active:scale-95 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center shadow-sm transition-all"
+              >
+                <Plus className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        );
+      case 'billetera_digital':
+        return (
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="min-w-0">
+              <p className="text-tinta-700">
+                Celular:{' '}
+                <span className={cn('font-mono font-bold', d?.telefono ? 'text-purple-700' : 'text-tinta-400')}>
+                  {d?.telefono || 'Sin configurar'}
+                </span>
+              </p>
+              {d?.titular && <p className="text-tinta-500 truncate">{d.titular}</p>}
+            </div>
+            <button
+              type="button"
+              onClick={onOpenModalBilletera}
+              className="min-h-10 ml-auto px-3 rounded-xl bg-white border border-purple-300 text-purple-700 hover:bg-purple-50 active:scale-95 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+            >
+              <Settings className="w-4 h-4 text-purple-600" aria-hidden="true" />
+              Celular y QR
+            </button>
+          </div>
+        );
+      case 'transferencia': {
+        const cuenta = d?.cuenta || d?.cci;
+        return (
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <p className="text-tinta-700 min-w-0">
+              {d?.banco && cuenta ? (
+                <>
+                  <span className="font-semibold">{d.banco}</span>
+                  <span className="font-mono text-tinta-800 ml-1.5 break-all">{cuenta}</span>
+                </>
+              ) : (
+                <span className="text-tinta-400">Sin cuenta registrada</span>
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={onOpenModalTransferencia}
+              className="min-h-10 ml-auto px-3 rounded-xl bg-white border border-tinta-300 text-tinta-700 hover:bg-tinta-50 active:scale-95 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+            >
+              <Settings className="w-4 h-4 text-tinta-500" aria-hidden="true" />
+              Cuenta bancaria
+            </button>
+          </div>
+        );
+      }
+      default:
+        return null;
+    }
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-6">
-      {/* Cabecera del Catálogo */}
-      <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-        <div>
-          <h2 className="text-lg font-serif font-bold text-aurea-navy flex items-center gap-2">
-            <span>💳 Catálogo de Formas de Pago</span>
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Configura qué métodos están disponibles en el POS del cajero y los recargos aplicados al comensal.
-          </p>
-        </div>
-        <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-          Regla: Min 1 Activo
-        </span>
-      </div>
+    <section className="bg-white rounded-2xl border border-tinta-200/80 shadow-sm">
+      <header className="px-4 sm:px-6 pt-5 pb-4 border-b border-tinta-100">
+        <h2 className="text-lg font-serif font-bold text-aurea-navy">Formas de pago</h2>
+        <p className="text-xs text-tinta-500 mt-0.5">Debe quedar al menos una activa.</p>
+      </header>
 
-      {/* Lista de Métodos */}
-      <div className="space-y-4">
-        {/* 1. EFECTIVO (CASH) */}
-        {efectivo && (
-          <div
-            className={`p-4 rounded-xl border transition-all ${
-              efectivo.activo ? 'bg-slate-50/70 border-slate-200' : 'bg-slate-100/50 border-slate-200 opacity-60'
-            }`}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                  <Banknote className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-slate-800">Efectivo (Cash)</span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">
-                      Legal Obligatorio
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Medio de curso legal obligatorio. Fondo de caja y vuelto en salón.
-                  </p>
-                </div>
-              </div>
-
-              {/* Switch de activación */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={efectivo.activo}
-                  onClick={() => onToggleActivo('efectivo')}
-                  className={`w-12 h-6 rounded-full transition-colors relative focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                    efectivo.activo ? 'bg-emerald-600' : 'bg-slate-300'
-                  }`}
-                >
-                  <span
-                    className={`w-4 h-4 rounded-full bg-white block transition-transform shadow-md ${
-                      efectivo.activo ? 'translate-x-7' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-3 pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-600">
-              <span className="text-[11px] text-slate-500">Recargo al comensal:</span>
-              <span className="font-mono font-bold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200">
-                0.00% (Fijo por ley)
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* 2. TARJETA DÉBITO / CRÉDITO (POS) */}
-        {tarjeta && (
-          <div
-            className={`p-4 rounded-xl border transition-all ${
-              tarjeta.activo ? 'bg-slate-50/70 border-slate-200' : 'bg-slate-100/50 border-slate-200 opacity-60'
-            }`}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
-                  <CreditCard className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-slate-800">Tarjeta Débito / Crédito (POS)</span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
-                      Niubiz / Izipay
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Terminales POS físicas. Permite trasladar el costo de pasarela al comensal.
-                  </p>
-                </div>
-              </div>
-
-              {/* Switch de activación */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={tarjeta.activo}
-                  onClick={() => onToggleActivo('tarjeta')}
-                  className={`w-12 h-6 rounded-full transition-colors relative focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    tarjeta.activo ? 'bg-blue-600' : 'bg-slate-300'
-                  }`}
-                >
-                  <span
-                    className={`w-4 h-4 rounded-full bg-white block transition-transform shadow-md ${
-                      tarjeta.activo ? 'translate-x-7' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-
-            {/* Stepper de Comisión */}
-            <div className="mt-3 pt-3 border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-              <div>
-                <span className="font-semibold text-slate-700 block">Comisión trasladada al comensal:</span>
-                <span className="text-[11px] text-slate-500">
-                  {tarjeta.comision_porcentaje > 0
-                    ? `+S/ ${(tarjeta.comision_porcentaje).toFixed(2)} por cada S/ 100 de consumo`
-                    : 'Sin recargo adicional (0%)'}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1.5 self-end sm:self-center">
-                <button
-                  type="button"
-                  onClick={() => ajustarComision('tarjeta', -0.5)}
-                  disabled={!tarjeta.activo || tarjeta.comision_porcentaje <= 0}
-                  className="w-10 h-10 rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 active:scale-95 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center font-bold text-sm shadow-sm transition-all"
-                >
-                  <Minus className="w-3.5 h-3.5" />
-                </button>
-
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="50"
-                    inputMode="decimal"
-                    disabled={!tarjeta.activo}
-                    value={tarjeta.comision_porcentaje}
-                    onChange={(e) => handleInputComision('tarjeta', e.target.value)}
-                    className="w-20 appearance-none [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none text-center text-sm font-mono font-bold py-2 bg-white rounded-xl border border-slate-300 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100"
-                  />
-                  <span className="text-[11px] text-slate-400 absolute right-2 top-2.5 pointer-events-none">%</span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => ajustarComision('tarjeta', 0.5)}
-                  disabled={!tarjeta.activo || tarjeta.comision_porcentaje >= 50}
-                  className="w-10 h-10 rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 active:scale-95 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center font-bold text-sm shadow-sm transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 3. BILLETERA DIGITAL (YAPE / PLIN) */}
-        {billetera && (
-          <div
-            className={`p-4 rounded-xl border transition-all ${
-              billetera.activo ? 'bg-slate-50/70 border-slate-200' : 'bg-slate-100/50 border-slate-200 opacity-60'
-            }`}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                  <Smartphone className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-slate-800">Billetera Digital (Yape / Plin)</span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
-                      Móvil QR
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Cobros rápidos vía código QR interoperable y número telefónico.
-                  </p>
-                </div>
-              </div>
-
-              {/* Switch de activación */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={billetera.activo}
-                  onClick={() => onToggleActivo('billetera_digital')}
-                  className={`w-12 h-6 rounded-full transition-colors relative focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                    billetera.activo ? 'bg-purple-600' : 'bg-slate-300'
-                  }`}
-                >
-                  <span
-                    className={`w-4 h-4 rounded-full bg-white block transition-transform shadow-md ${
-                      billetera.activo ? 'translate-x-7' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-
-            {/* Datos configurados y botón de edición */}
-            <div className="mt-3 pt-3 border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-1.5 text-slate-700">
-                  <span className="font-semibold">Celular de Sede:</span>
-                  <span className="font-mono text-purple-700 font-bold">
-                    {billetera.datos_adicionales?.telefono || 'No configurado'}
+      <ul className="p-4 sm:p-6 space-y-3">
+        {ORDEN.map((codigo) => {
+          const m = metodos.find((x) => x.codigo === codigo);
+          if (!m) return null;
+          const e = ESTILO[codigo];
+          const Icono = e.icono;
+          return (
+            <li
+              key={codigo}
+              className={cn(
+                'p-4 rounded-xl border transition-all',
+                m.activo ? 'bg-tinta-50/70 border-tinta-200' : 'bg-tinta-100/50 border-tinta-200 opacity-60'
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                  <span className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', e.caja)} aria-hidden="true">
+                    <Icono className="w-5 h-5" />
                   </span>
-                </div>
-                <div className="text-[11px] text-slate-500">
-                  Titular: {billetera.datos_adicionales?.titular || 'Sin titular'}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 self-end sm:self-center">
-                <button
-                  type="button"
-                  onClick={onOpenModalBilletera}
-                  className="px-3 py-1.5 rounded-xl bg-white border border-purple-300 text-purple-700 hover:bg-purple-50 active:scale-95 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
-                >
-                  <Settings className="w-3.5 h-3.5 text-purple-600" />
-                  <span>Configurar Celular & QR</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 4. TRANSFERENCIA BANCARIA */}
-        {transferencia && (
-          <div
-            className={`p-4 rounded-xl border transition-all ${
-              transferencia.activo ? 'bg-slate-50/70 border-slate-200' : 'bg-slate-100/50 border-slate-200 opacity-60'
-            }`}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-700 flex items-center justify-center shrink-0">
-                  <Building2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-slate-800">Transferencia Bancaria</span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
-                      Eventos / Reservas
-                    </span>
+                  <div className="min-w-0">
+                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-sm font-bold text-tinta-800">{e.nombre}</span>
+                      <span className={cn('text-xs px-2 py-0.5 rounded border font-semibold', e.tag)}>{e.etiqueta}</span>
+                    </p>
+                    <p className="text-xs text-tinta-500 mt-0.5">{e.detalle}</p>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Abonos bancarios a cuenta corriente de la empresa.
-                  </p>
                 </div>
+                <Interruptor
+                  activo={m.activo}
+                  etiqueta={`${m.activo ? 'Desactivar' : 'Activar'} ${e.nombre}`}
+                  colorOn={e.switchOn}
+                  foco={e.foco}
+                  onCambiar={() => onToggleActivo(codigo)}
+                />
               </div>
+              <div className="mt-3 pt-3 border-t border-tinta-200/60">{pie(m)}</div>
+            </li>
+          );
+        })}
+      </ul>
 
-              {/* Switch de activación */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={transferencia.activo}
-                  onClick={() => onToggleActivo('transferencia')}
-                  className={`w-12 h-6 rounded-full transition-colors relative focus:outline-none focus:ring-2 focus:ring-slate-500 ${
-                    transferencia.activo ? 'bg-slate-700' : 'bg-slate-300'
-                  }`}
-                >
-                  <span
-                    className={`w-4 h-4 rounded-full bg-white block transition-transform shadow-md ${
-                      transferencia.activo ? 'translate-x-7' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-
-            {/* Datos configurados */}
-            <div className="mt-3 pt-3 border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-              <div className="space-y-0.5">
-                <div className="text-slate-700">
-                  <span className="font-semibold">Banco:</span> {transferencia.datos_adicionales?.banco || 'BCP'} •
-                  <span className="font-mono text-slate-800 ml-1">
-                    {transferencia.datos_adicionales?.cuenta || '191-88421033-0-45'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 self-end sm:self-center">
-                <button
-                  type="button"
-                  onClick={onOpenModalTransferencia}
-                  className="px-3 py-1.5 rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 active:scale-95 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
-                >
-                  <Settings className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Cuentas Bancarias</span>
-                </button>
-              </div>
-            </div>
-          </div>
+      {/* Fijo al pie de la pantalla mientras hay cambios sin guardar */}
+      <footer
+        className={cn(
+          'px-4 sm:px-6 py-4 border-t border-tinta-200 rounded-b-2xl flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2',
+          isDirty && 'sticky bottom-0 bg-white/95 backdrop-blur-sm'
         )}
-      </div>
-
-      {/* FOOTER DE ACCIONES (SIN BOTÓN DE RESTAURAR VALORES, CONFORME A INSTRUCCIÓN) */}
-      <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-end gap-3">
+      >
         {isDirty && (
-          <button
-            type="button"
-            onClick={onDescartar}
-            disabled={isGuardando}
-            className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 active:scale-95 text-xs font-semibold transition-all shadow-sm"
-          >
-            Descartar Cambios
-          </button>
+          <Button variant="outline" onClick={onDescartar} disabled={isGuardando} className="w-full sm:w-auto">
+            Descartar
+          </Button>
         )}
-
         <button
           type="button"
           onClick={onGuardar}
           disabled={!isDirty || isGuardando}
-          className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-aurea-copper text-aurea-navy hover:bg-aurea-copper/90 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold flex items-center justify-center gap-2 shadow-md transition-all"
+          className="w-full sm:w-auto min-h-tactil px-6 rounded-xl bg-aurea-copper text-aurea-navy hover:bg-aurea-copper/90 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-bold flex items-center justify-center gap-2 shadow-md transition-all"
         >
           {isGuardando ? (
             <>
-              <span className="w-4 h-4 border-2 border-aurea-navy border-t-transparent rounded-full animate-spin"></span>
-              <span>Guardando configuración...</span>
+              <span className="w-4 h-4 border-2 border-aurea-navy border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+              Guardando...
             </>
           ) : (
             <>
-              <Save className="w-4 h-4 text-aurea-navy" />
-              <span>Guardar Parámetros de Pago</span>
+              <Save className="w-4 h-4" aria-hidden="true" />
+              Guardar cambios
             </>
           )}
         </button>
-      </div>
-    </div>
+      </footer>
+    </section>
   );
 };

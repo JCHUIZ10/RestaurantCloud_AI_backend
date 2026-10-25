@@ -6,6 +6,8 @@ import { SedeCustomerLayout } from '@/components/layout/SedeCustomerLayout';
 import { HomePage } from '@/modules/cliente/pages/HomePage';
 import { PlaceholderView } from '@/components/ui/PlaceholderView';
 import { ROUTES } from './routes.constants';
+import { RequireRole } from './RequireRole';
+import { ROLES_AREA } from './accesoPorRol';
 
 import { LoginPage } from '@/modules/auth/pages/LoginPage';
 import { ActivarCuentaPage } from '@/modules/auth/pages/ActivarCuentaPage';
@@ -47,7 +49,7 @@ import { SaasTenantOnboardingPage } from '@/modules/saas/pages/SaasTenantOnboard
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
   const { slug } = useParams<{ slug: string }>();
-  return <Navigate to={`/sede/${slug}/carta`} replace />;
+  return <Navigate to={ROUTES.SEDE_CARTA(slug)} replace />;
 };
 
 export const router: ReturnType<typeof createBrowserRouter> = createBrowserRouter([
@@ -136,7 +138,11 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
   // =========================================================================
   {
     path: '/propietario',
-    element: <DashboardLayout />,
+    element: (
+      <RequireRole roles={ROLES_AREA.PROPIETARIO}>
+        <DashboardLayout />
+      </RequireRole>
+    ),
     children: [
       {
         index: true,
@@ -202,8 +208,16 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
   // =========================================================================
   {
     path: '/admin',
-    element: <DashboardLayout />,
+    element: (
+      <RequireRole roles={ROLES_AREA.ADMIN}>
+        <DashboardLayout />
+      </RequireRole>
+    ),
     children: [
+      {
+        index: true,
+        element: <Navigate to={ROUTES.ADMIN_PLANO_MESAS} replace />,
+      },
       {
         path: 'dashboard',
         element: (
@@ -328,7 +342,7 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
       },
       {
         path: 'reportes/cierres-z',
-        element: <AdminFlujoCajaPage />,
+        element: <Navigate to={ROUTES.ADMIN_FLUJO_CAJA} replace />,
       },
     ],
   },
@@ -338,8 +352,16 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
   // =========================================================================
   {
     path: '/mozo',
-    element: <TerminalLayout />,
+    element: (
+      <RequireRole roles={ROLES_AREA.MOZO}>
+        <TerminalLayout />
+      </RequireRole>
+    ),
     children: [
+      {
+        index: true,
+        element: <Navigate to={ROUTES.MOZO_MESAS} replace />,
+      },
       {
         path: 'mesas',
         element: <MozoMesasPage />,
@@ -361,8 +383,16 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
 
   {
     path: '/cocina',
-    element: <TerminalLayout />,
+    element: (
+      <RequireRole roles={ROLES_AREA.COCINA}>
+        <TerminalLayout />
+      </RequireRole>
+    ),
     children: [
+      {
+        index: true,
+        element: <Navigate to={ROUTES.COCINA_KDS} replace />,
+      },
       {
         path: 'kds',
         element: <CocinaKdsPage />,
@@ -376,7 +406,11 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
 
   {
     path: '/cajero',
-    element: <TerminalLayout />,
+    element: (
+      <RequireRole roles={ROLES_AREA.CAJERO}>
+        <TerminalLayout />
+      </RequireRole>
+    ),
     children: [
       {
         index: true,
@@ -388,7 +422,7 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
       },
       {
         path: 'apertura',
-        element: <CajeroPosPage />,
+        element: <Navigate to={ROUTES.CAJERO_POS} replace />,
       },
       {
         path: 'turno',
@@ -402,7 +436,11 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
   // =========================================================================
   {
     path: '/saas',
-    element: <DashboardLayout />,
+    element: (
+      <RequireRole roles={ROLES_AREA.SAAS}>
+        <DashboardLayout />
+      </RequireRole>
+    ),
     children: [
       {
         index: true,
@@ -439,6 +477,6 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
   // Redirección por defecto ante rutas desconocidas
   {
     path: '*',
-    element: <Navigate to="/" replace />,
+    element: <Navigate to={ROUTES.HOME} replace />,
   },
 ]);

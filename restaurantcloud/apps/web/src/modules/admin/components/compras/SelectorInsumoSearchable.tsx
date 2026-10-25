@@ -1,17 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import {
-  Search,
-  ChevronDown,
-  Star,
-  Package,
-  Check,
-  X,
-  Loader2,
-  Layers,
-  PackageSearch,
-  ArrowRight,
-} from 'lucide-react';
+import { Search, ChevronDown, Star, Package, Check, X, Loader2, PackageSearch, ArrowRight, type LucideIcon } from 'lucide-react';
 import { InsumoAdminDTO, InsumoHabitualDTO } from '@/types/admin';
+import { cn } from '@/shared/utils';
 
 export interface InsumoSeleccionable {
   id: string;
@@ -32,6 +22,58 @@ interface SelectorInsumoSearchableProps {
   placeholder?: string;
 }
 
+type Pestana = 'habituales' | 'catalogo' | 'todos';
+
+/** Fila de resultado; los habituales llevan estrella cobre, los del catálogo una caja navy. */
+const Opcion: React.FC<{
+  nombre: string;
+  unidad: string;
+  habitual: boolean;
+  seleccionado: boolean;
+  onElegir: () => void;
+}> = ({ nombre, unidad, habitual, seleccionado, onElegir }) => (
+  <button
+    type="button"
+    onClick={onElegir}
+    className={cn(
+      'w-full min-h-10 flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors',
+      seleccionado ? 'bg-aurea-champagne/40 font-semibold' : 'hover:bg-aurea-ivory'
+    )}
+  >
+    {habitual ? (
+      <Star className="w-4 h-4 text-aurea-copper fill-aurea-copper shrink-0" aria-hidden="true" />
+    ) : (
+      <Package className="w-4 h-4 text-aurea-navy/50 shrink-0" aria-hidden="true" />
+    )}
+    <span className="flex-1 min-w-0 truncate text-aurea-navy">{nombre}</span>
+    <span className="text-xs font-mono text-aurea-navy/50 shrink-0">{unidad}</span>
+    {seleccionado && <Check className="w-4 h-4 text-estado-ok-600 shrink-0" aria-hidden="true" />}
+  </button>
+);
+
+const Rotulo: React.FC<{ icono: LucideIcon; children: React.ReactNode; habitual?: boolean }> = ({ icono: Icono, children, habitual }) => (
+  <p
+    className={cn(
+      'sticky top-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border-b',
+      habitual ? 'bg-aurea-champagne/40 text-aurea-copper border-aurea-champagne' : 'bg-aurea-ivory text-aurea-navy/60 border-aurea-champagne/50'
+    )}
+  >
+    <Icono className={cn('w-3.5 h-3.5', habitual && 'fill-aurea-copper')} aria-hidden="true" />
+    {children}
+  </p>
+);
+
+const Aviso: React.FC<{ titulo: string; texto?: React.ReactNode; accion?: React.ReactNode }> = ({ titulo, texto, accion }) => (
+  <div className="p-5 text-center space-y-2">
+    <span className="w-9 h-9 mx-auto rounded-xl bg-aurea-champagne/40 text-aurea-navy flex items-center justify-center" aria-hidden="true">
+      <PackageSearch className="w-5 h-5" />
+    </span>
+    <p className="text-sm font-semibold text-aurea-navy">{titulo}</p>
+    {texto && <p className="text-xs text-aurea-navy/60 max-w-xs mx-auto">{texto}</p>}
+    {accion}
+  </div>
+);
+
 export const SelectorInsumoSearchable: React.FC<SelectorInsumoSearchableProps> = ({
   insumosHabituales = [],
   insumoIdSeleccionado,
@@ -41,15 +83,13 @@ export const SelectorInsumoSearchable: React.FC<SelectorInsumoSearchableProps> =
   onBuscarCatalogoRemoto,
   insumosCatalogoInicial = [],
   disabled = false,
-  placeholder = 'Seleccionar insumo...',
+  placeholder = 'Elegir insumo',
 }) => {
   const [abierto, setAbierto] = useState(false);
   const [busqueda, setBusqueda] = useState('');
 
-  // Orden de pestañas solicitado: habituales -> catalogo -> todos
-  // Inicialización adaptativa: si el proveedor no tiene habituales, abrir directo en catalogo
-  const tabInicial = insumosHabituales.length > 0 ? 'habituales' : 'catalogo';
-  const [tabActivo, setTabActivo] = useState<'habituales' | 'catalogo' | 'todos'>(tabInicial);
+  // Si el proveedor no tiene habituales, se abre directo en el catálogo
+  const [tabActivo, setTabActivo] = useState<Pestana>(insumosHabituales.length > 0 ? 'habituales' : 'catalogo');
 
   const [resultadosRemotos, setResultadosRemotos] = useState<InsumoAdminDTO[]>([]);
   const [buscandoRemoto, setBuscandoRemoto] = useState(false);
@@ -58,10 +98,7 @@ export const SelectorInsumoSearchable: React.FC<SelectorInsumoSearchableProps> =
   const containerRef = useRef<HTMLDivElement>(null);
   const inputBusquedaRef = useRef<HTMLInputElement>(null);
 
-  const setHabitualesIds = useMemo(
-    () => new Set(insumosHabituales.map((h) => h.insumo_id)),
-    [insumosHabituales]
-  );
+  const setHabitualesIds = useMemo(() => new Set(insumosHabituales.map((h) => h.insumo_id)), [insumosHabituales]);
 
   // Adaptación si cambia la lista de habituales del proveedor seleccionado
   useEffect(() => {
@@ -70,7 +107,6 @@ export const SelectorInsumoSearchable: React.FC<SelectorInsumoSearchableProps> =
     }
   }, [insumosHabituales.length, tabActivo]);
 
-  // Determinar datos del insumo actualmente seleccionado
   const habitualActual = useMemo(
     () => insumosHabituales.find((h) => h.insumo_id === insumoIdSeleccionado),
     [insumosHabituales, insumoIdSeleccionado]
@@ -84,16 +120,8 @@ export const SelectorInsumoSearchable: React.FC<SelectorInsumoSearchableProps> =
   );
 
   const esHabitualActual = Boolean(habitualActual);
-  const nombreActual =
-    habitualActual?.nombre ||
-    catalogoActual?.nombre ||
-    insumoNombreSeleccionado ||
-    null;
-  const unidadActual =
-    habitualActual?.unidad_medida ||
-    catalogoActual?.unidad_medida ||
-    unidadMedidaSeleccionada ||
-    null;
+  const nombreActual = habitualActual?.nombre || catalogoActual?.nombre || insumoNombreSeleccionado || null;
+  const unidadActual = habitualActual?.unidad_medida || catalogoActual?.unidad_medida || unidadMedidaSeleccionada || null;
 
   // Cerrar al hacer clic fuera del componente
   useEffect(() => {
@@ -111,7 +139,7 @@ export const SelectorInsumoSearchable: React.FC<SelectorInsumoSearchableProps> =
     };
   }, [abierto]);
 
-  // Autofoco al abrir el popover
+  // Autofoco al abrir el desplegable
   useEffect(() => {
     if (abierto) {
       setBusqueda('');
@@ -121,7 +149,7 @@ export const SelectorInsumoSearchable: React.FC<SelectorInsumoSearchableProps> =
     }
   }, [abierto]);
 
-  // Búsqueda remota dinámica con debounce de 300 ms
+  // Búsqueda remota con debounce de 300 ms
   useEffect(() => {
     const termino = busqueda.trim();
     if (termino.length < 2) {
@@ -157,41 +185,28 @@ export const SelectorInsumoSearchable: React.FC<SelectorInsumoSearchableProps> =
     return () => clearTimeout(timer);
   }, [busqueda, onBuscarCatalogoRemoto, cacheRemoto]);
 
-  // Filtrado de habituales locales (instantáneo en memoria, 0ms)
+  // Filtrado local de habituales (instantáneo)
   const habitualesFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     if (!q) return insumosHabituales;
     return insumosHabituales.filter(
-      (h) =>
-        h.nombre.toLowerCase().includes(q) ||
-        h.unidad_medida.toLowerCase().includes(q)
+      (h) => h.nombre.toLowerCase().includes(q) || h.unidad_medida.toLowerCase().includes(q)
     );
   }, [insumosHabituales, busqueda]);
 
-  // Insumos del catálogo general (de búsqueda remota o catálogo inicial en memoria)
+  // Catálogo general (búsqueda remota o catálogo inicial en memoria), sin repetir habituales
   const catalogoFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     const fuentes = resultadosRemotos.length > 0 ? resultadosRemotos : insumosCatalogoInicial;
 
     return fuentes
       .filter((i) => !setHabitualesIds.has(i.id))
-      .filter((i) => {
-        if (!q) return true;
-        return (
-          i.nombre.toLowerCase().includes(q) ||
-          i.unidad_medida.toLowerCase().includes(q)
-        );
-      });
+      .filter((i) => !q || i.nombre.toLowerCase().includes(q) || i.unidad_medida.toLowerCase().includes(q));
   }, [resultadosRemotos, insumosCatalogoInicial, setHabitualesIds, busqueda]);
 
   const handleElegirHabitual = (hab: InsumoHabitualDTO) => {
     onSeleccionar(
-      {
-        id: hab.insumo_id,
-        nombre: hab.nombre,
-        unidad_medida: hab.unidad_medida,
-        costo_unitario: hab.ultimo_precio,
-      },
+      { id: hab.insumo_id, nombre: hab.nombre, unidad_medida: hab.unidad_medida, costo_unitario: hab.ultimo_precio },
       true
     );
     setAbierto(false);
@@ -199,382 +214,189 @@ export const SelectorInsumoSearchable: React.FC<SelectorInsumoSearchableProps> =
 
   const handleElegirCatalogo = (insumo: InsumoAdminDTO) => {
     onSeleccionar(
-      {
-        id: insumo.id,
-        nombre: insumo.nombre,
-        unidad_medida: insumo.unidad_medida,
-        costo_unitario: insumo.costo_unitario,
-      },
+      { id: insumo.id, nombre: insumo.nombre, unidad_medida: insumo.unidad_medida, costo_unitario: insumo.costo_unitario },
       false
     );
     setAbierto(false);
   };
 
+  const listaHabituales = habitualesFiltrados.map((hab) => (
+    <Opcion
+      key={hab.insumo_id}
+      nombre={hab.nombre}
+      unidad={hab.unidad_medida}
+      habitual
+      seleccionado={hab.insumo_id === insumoIdSeleccionado}
+      onElegir={() => handleElegirHabitual(hab)}
+    />
+  ));
+
+  const listaCatalogo = catalogoFiltrados.map((ins) => (
+    <Opcion
+      key={ins.id}
+      nombre={ins.nombre}
+      unidad={ins.unidad_medida}
+      habitual={false}
+      seleccionado={ins.id === insumoIdSeleccionado}
+      onElegir={() => handleElegirCatalogo(ins)}
+    />
+  ));
+
+  const terminoCorto = busqueda.trim().length < 2;
+  const irACatalogo = (
+    <button
+      type="button"
+      onClick={() => setTabActivo('catalogo')}
+      className="inline-flex items-center gap-1 min-h-9 px-3 rounded-lg bg-aurea-navy text-white text-xs font-semibold hover:bg-aurea-navy/90 transition-colors"
+    >
+      Buscar en el catálogo
+      <ArrowRight className="w-3.5 h-3.5 text-aurea-champagne" aria-hidden="true" />
+    </button>
+  );
+
+  const PESTANAS: Array<{ valor: Pestana; etiqueta: string; conteo: number }> = [
+    { valor: 'habituales', etiqueta: 'Habituales', conteo: habitualesFiltrados.length },
+    { valor: 'catalogo', etiqueta: 'Catálogo', conteo: catalogoFiltrados.length },
+    { valor: 'todos', etiqueta: 'Todos', conteo: habitualesFiltrados.length + catalogoFiltrados.length },
+  ];
+
   return (
-    <div ref={containerRef} className={`relative w-full ${abierto ? 'z-50' : 'z-10'}`}>
-      {/* Botón Disparador (Trigger) */}
+    <div ref={containerRef} className={cn('relative w-full', abierto ? 'z-30' : 'z-0')}>
       <button
         type="button"
         disabled={disabled}
         onClick={() => setAbierto(!abierto)}
-        className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs bg-white border border-gray-300 rounded-lg text-left text-gray-800 hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-aurea-navy transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
+        aria-expanded={abierto}
+        className={cn(
+          'w-full min-h-10 flex items-center gap-2 px-3 rounded-xl border bg-white text-left text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+          abierto ? 'border-aurea-copper' : 'border-aurea-champagne/70 hover:border-aurea-copper/60'
+        )}
       >
         {esHabitualActual ? (
-          <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
+          <Star className="w-4 h-4 text-aurea-copper fill-aurea-copper shrink-0" aria-hidden="true" />
         ) : (
-          <Package className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+          <Package className={cn('w-4 h-4 shrink-0', nombreActual ? 'text-aurea-navy/50' : 'text-aurea-copper')} aria-hidden="true" />
         )}
-
-        <span className="truncate flex-1 font-medium">
+        <span className={cn('truncate flex-1', nombreActual ? 'font-medium text-aurea-navy' : 'text-aurea-navy/50')}>
           {nombreActual || placeholder}
         </span>
-
-        {unidadActual && (
-          <span className="text-[10px] text-gray-400 font-mono shrink-0">
-            ({unidadActual})
-          </span>
-        )}
-
-        {esHabitualActual ? (
-          <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200 shrink-0">
-            Habitual
-          </span>
-        ) : nombreActual ? (
-          <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.2 rounded shrink-0">
-            Catálogo
-          </span>
-        ) : null}
-
+        {nombreActual && unidadActual && <span className="text-xs font-mono text-aurea-navy/50 shrink-0">{unidadActual}</span>}
         <ChevronDown
-          className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform duration-200 ${
-            abierto ? 'rotate-180 text-aurea-navy' : ''
-          }`}
+          className={cn('w-4 h-4 text-aurea-navy/50 shrink-0 transition-transform', abierto && 'rotate-180')}
+          aria-hidden="true"
         />
       </button>
 
-      {/* Popover Desplegable con Z-Index elevado y flotante sobre la tabla */}
       {abierto && (
-        <div className="absolute left-0 top-full mt-1 w-80 sm:w-96 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-          {/* Header con Buscador */}
-          <div className="p-2 border-b border-gray-100 bg-gray-50/70 space-y-2">
+        <div className="absolute left-0 top-full mt-1 w-[min(24rem,calc(100vw-3rem))] bg-white border border-aurea-champagne rounded-xl shadow-xl overflow-hidden">
+          <div className="p-2 border-b border-aurea-champagne/50 bg-aurea-ivory/60 space-y-2">
             <div className="relative">
-              <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-aurea-copper absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true" />
               <input
                 ref={inputBusquedaRef}
                 type="text"
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="Buscar insumo (escribe 2 o más letras)..."
-                className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-aurea-navy text-gray-900 placeholder:text-gray-400"
+                placeholder="Escribe 2 letras o más"
+                aria-label="Buscar insumo"
+                className="w-full min-h-10 pl-9 pr-9 rounded-lg border border-aurea-champagne/70 bg-white text-base md:text-sm text-aurea-navy placeholder:text-aurea-navy/40 focus:outline-none focus:border-aurea-copper"
               />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
+              <span className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
                 {buscandoRemoto ? (
-                  <Loader2 className="w-3.5 h-3.5 text-aurea-navy animate-spin" />
+                  <Loader2 className="w-4 h-4 mr-2 text-aurea-copper animate-spin" aria-hidden="true" />
                 ) : busqueda ? (
                   <button
                     type="button"
                     onClick={() => setBusqueda('')}
-                    className="p-0.5 text-gray-400 hover:text-gray-600 rounded"
-                    title="Limpiar búsqueda"
+                    aria-label="Limpiar búsqueda"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-aurea-navy/40 hover:text-aurea-navy"
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-4 h-4" aria-hidden="true" />
                   </button>
                 ) : null}
-              </div>
+              </span>
             </div>
 
-            {/* Pestañas de Navegación en Orden: Habituales -> Catálogo -> Todas */}
-            <div className="flex items-center gap-1">
-              {/* 1. Habituales */}
-              <button
-                type="button"
-                onClick={() => setTabActivo('habituales')}
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold transition-colors ${
-                  tabActivo === 'habituales'
-                    ? 'bg-amber-600 text-white shadow-2xs'
-                    : 'text-amber-800 hover:bg-amber-100/60'
-                }`}
-              >
-                <Star className="w-3 h-3 fill-current" />
-                <span>Habituales ({habitualesFiltrados.length})</span>
-              </button>
-
-              {/* 2. Catálogo */}
-              <button
-                type="button"
-                onClick={() => setTabActivo('catalogo')}
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold transition-colors ${
-                  tabActivo === 'catalogo'
-                    ? 'bg-slate-700 text-white shadow-2xs'
-                    : 'text-gray-600 hover:bg-gray-200/60'
-                }`}
-              >
-                <Package className="w-3 h-3" />
-                <span>Catálogo ({catalogoFiltrados.length})</span>
-              </button>
-
-              {/* 3. Todas */}
-              <button
-                type="button"
-                onClick={() => setTabActivo('todos')}
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold transition-colors ${
-                  tabActivo === 'todos'
-                    ? 'bg-aurea-navy text-white shadow-2xs'
-                    : 'text-gray-600 hover:bg-gray-200/60'
-                }`}
-              >
-                <Layers className="w-3 h-3" />
-                <span>Todas ({habitualesFiltrados.length + catalogoFiltrados.length})</span>
-              </button>
+            <div role="group" aria-label="Origen del insumo" className="flex items-center gap-1">
+              {PESTANAS.map((p) => {
+                const activa = tabActivo === p.valor;
+                return (
+                  <button
+                    key={p.valor}
+                    type="button"
+                    aria-pressed={activa}
+                    onClick={() => setTabActivo(p.valor)}
+                    className={cn(
+                      'min-h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg text-xs font-semibold transition-colors',
+                      activa ? 'bg-aurea-navy text-white' : 'text-aurea-navy/70 hover:bg-aurea-champagne/40'
+                    )}
+                  >
+                    {p.valor === 'habituales' && (
+                      <Star className={cn('w-3.5 h-3.5', activa ? 'text-aurea-champagne fill-aurea-champagne' : 'text-aurea-copper fill-aurea-copper')} aria-hidden="true" />
+                    )}
+                    {p.etiqueta}
+                    <span className={cn('px-1.5 rounded-full tabular-nums', activa ? 'bg-white/20' : 'bg-aurea-champagne/40 text-aurea-navy')}>
+                      {p.conteo}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Lista de Resultados Scrolleable con Estados Informativos Ricos */}
-          <div className="max-h-64 overflow-y-auto divide-y divide-gray-50 text-xs">
-            {/* PESTAÑA 1: HABITUALES */}
-            {tabActivo === 'habituales' && (
-              <div>
-                {habitualesFiltrados.length > 0 ? (
-                  habitualesFiltrados.map((hab) => {
-                    const seleccionado = hab.insumo_id === insumoIdSeleccionado;
-                    return (
-                      <button
-                        key={hab.insumo_id}
-                        type="button"
-                        onClick={() => handleElegirHabitual(hab)}
-                        className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-amber-50/50 transition-colors ${
-                          seleccionado ? 'bg-amber-50 font-semibold' : ''
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 truncate pr-2">
-                          <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
-                          <div className="truncate">
-                            <span className="text-gray-900">{hab.nombre}</span>
-                            <span className="text-[11px] text-gray-500 font-mono ml-1.5">
-                              ({hab.unidad_medida})
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="text-[10px] font-semibold text-amber-800 bg-amber-100/80 px-1.5 py-0.5 rounded border border-amber-200">
-                            Habitual
-                          </span>
-                          {seleccionado && <Check className="w-3.5 h-3.5 text-aurea-navy ml-1" />}
-                        </div>
-                      </button>
-                    );
-                  })
-                ) : insumosHabituales.length === 0 ? (
-                  <div className="p-4 text-center space-y-2">
-                    <div className="w-8 h-8 mx-auto rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
-                      <Star className="w-4 h-4 text-amber-500" />
-                    </div>
-                    <p className="text-xs font-semibold text-gray-800">Sin insumos habituales</p>
-                    <p className="text-[11px] text-gray-500 max-w-xs mx-auto">
-                      Este proveedor no tiene historial previo. Busca en el catálogo para registrar su primer insumo.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setTabActivo('catalogo')}
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-aurea-navy text-white text-[11px] font-semibold rounded-lg hover:bg-aurea-navy/90 transition-all shadow-2xs"
-                    >
-                      <span>Ir a Catálogo</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="p-4 text-center space-y-2">
-                    <p className="text-xs text-gray-600">
-                      No hay insumos habituales para &quot;<strong className="text-gray-800">{busqueda}</strong>&quot;.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setTabActivo('catalogo')}
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-slate-700 text-white text-[11px] font-semibold rounded-lg hover:bg-slate-800 transition-all shadow-2xs"
-                    >
-                      <span>Buscar en Catálogo</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+          <div className="max-h-64 overflow-y-auto divide-y divide-aurea-champagne/30">
+            {tabActivo === 'habituales' &&
+              (listaHabituales.length > 0 ? (
+                listaHabituales
+              ) : insumosHabituales.length === 0 ? (
+                <Aviso titulo="Sin insumos habituales" texto="Este proveedor aún no tiene compras previas." accion={irACatalogo} />
+              ) : (
+                <Aviso titulo={`Ningún habitual coincide con «${busqueda}»`} accion={irACatalogo} />
+              ))}
 
-            {/* PESTAÑA 2: CATÁLOGO */}
-            {tabActivo === 'catalogo' && (
-              <div>
-                {buscandoRemoto ? (
-                  <div className="p-6 text-center space-y-2">
-                    <Loader2 className="w-5 h-5 text-aurea-navy animate-spin mx-auto" />
-                    <p className="text-xs font-medium text-gray-600">Consultando catálogo maestro...</p>
-                  </div>
-                ) : catalogoFiltrados.length > 0 ? (
-                  catalogoFiltrados.map((ins) => {
-                    const seleccionado = ins.id === insumoIdSeleccionado;
-                    return (
-                      <button
-                        key={ins.id}
-                        type="button"
-                        onClick={() => handleElegirCatalogo(ins)}
-                        className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-gray-50 transition-colors ${
-                          seleccionado ? 'bg-gray-50 font-semibold' : ''
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 truncate pr-2">
-                          <Package className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                          <div className="truncate">
-                            <span className="text-gray-800">{ins.nombre}</span>
-                            <span className="text-[11px] text-gray-500 font-mono ml-1.5">
-                              ({ins.unidad_medida})
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-                            Catálogo
-                          </span>
-                          {seleccionado && <Check className="w-3.5 h-3.5 text-aurea-navy ml-1" />}
-                        </div>
-                      </button>
-                    );
-                  })
-                ) : busqueda.trim().length < 2 ? (
-                  <div className="p-5 text-center space-y-1.5">
-                    <div className="w-8 h-8 mx-auto rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
-                      <PackageSearch className="w-4 h-4" />
-                    </div>
-                    <p className="text-xs font-semibold text-gray-800">Buscar en el Catálogo Maestro</p>
-                    <p className="text-[11px] text-gray-500 max-w-xs mx-auto">
-                      Escribe al menos 2 letras en el buscador superior para consultar en tiempo real todos los insumos registrados.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="p-5 text-center space-y-1">
-                    <p className="text-xs text-gray-600">
-                      No se encontraron insumos para &quot;<strong className="text-gray-800">{busqueda}</strong>&quot; en el catálogo.
-                    </p>
-                    <p className="text-[11px] text-gray-400">
-                      Verifica la ortografía o intenta con otro término.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
+            {tabActivo === 'catalogo' &&
+              (buscandoRemoto ? (
+                <div className="p-6 flex justify-center" aria-busy="true" aria-label="Buscando en el catálogo">
+                  <Loader2 className="w-5 h-5 text-aurea-copper animate-spin" aria-hidden="true" />
+                </div>
+              ) : listaCatalogo.length > 0 ? (
+                listaCatalogo
+              ) : terminoCorto ? (
+                <Aviso titulo="Busca en todo tu catálogo" texto="Escribe al menos 2 letras arriba." />
+              ) : (
+                <Aviso titulo={`Sin resultados para «${busqueda}»`} texto="Revisa la ortografía o prueba con otro nombre." />
+              ))}
 
-            {/* PESTAÑA 3: TODAS */}
             {tabActivo === 'todos' && (
-              <div>
-                {buscandoRemoto && (
-                  <div className="p-2 text-center text-xs text-gray-500 flex items-center justify-center gap-1.5 bg-gray-50">
-                    <Loader2 className="w-3.5 h-3.5 text-aurea-navy animate-spin" />
-                    <span>Buscando en catálogo...</span>
-                  </div>
-                )}
-
-                {/* Subsección Habituales */}
-                {habitualesFiltrados.length > 0 && (
+              <>
+                {listaHabituales.length > 0 && (
                   <div>
-                    <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50/70 border-b border-amber-100 text-[10px] font-bold text-amber-900 uppercase tracking-wider sticky top-0">
-                      <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                      <span>Habituales ({habitualesFiltrados.length})</span>
-                    </div>
-                    {habitualesFiltrados.map((hab) => {
-                      const seleccionado = hab.insumo_id === insumoIdSeleccionado;
-                      return (
-                        <button
-                          key={hab.insumo_id}
-                          type="button"
-                          onClick={() => handleElegirHabitual(hab)}
-                          className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-amber-50/50 transition-colors ${
-                            seleccionado ? 'bg-amber-50 font-semibold' : ''
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 truncate pr-2">
-                            <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
-                            <div className="truncate">
-                              <span className="text-gray-900">{hab.nombre}</span>
-                              <span className="text-[11px] text-gray-500 font-mono ml-1.5">
-                                ({hab.unidad_medida})
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-[10px] font-semibold text-amber-800 bg-amber-100/80 px-1.5 py-0.5 rounded border border-amber-200">
-                              Habitual
-                            </span>
-                            {seleccionado && <Check className="w-3.5 h-3.5 text-aurea-navy ml-1" />}
-                          </div>
-                        </button>
-                      );
-                    })}
+                    <Rotulo icono={Star} habitual>
+                      Habituales
+                    </Rotulo>
+                    {listaHabituales}
                   </div>
                 )}
-
-                {/* Subsección Catálogo */}
-                {catalogoFiltrados.length > 0 && (
+                {listaCatalogo.length > 0 && (
                   <div>
-                    <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 border-b border-gray-100 text-[10px] font-bold text-gray-600 uppercase tracking-wider sticky top-0">
-                      <Package className="w-3 h-3 text-gray-400" />
-                      <span>Catálogo General ({catalogoFiltrados.length})</span>
-                    </div>
-                    {catalogoFiltrados.map((ins) => {
-                      const seleccionado = ins.id === insumoIdSeleccionado;
-                      return (
-                        <button
-                          key={ins.id}
-                          type="button"
-                          onClick={() => handleElegirCatalogo(ins)}
-                          className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-gray-50 transition-colors ${
-                            seleccionado ? 'bg-gray-50 font-semibold' : ''
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 truncate pr-2">
-                            <Package className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                            <div className="truncate">
-                              <span className="text-gray-800">{ins.nombre}</span>
-                              <span className="text-[11px] text-gray-500 font-mono ml-1.5">
-                                ({ins.unidad_medida})
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-                              Catálogo
-                            </span>
-                            {seleccionado && <Check className="w-3.5 h-3.5 text-aurea-navy ml-1" />}
-                          </div>
-                        </button>
-                      );
-                    })}
+                    <Rotulo icono={Package}>Catálogo</Rotulo>
+                    {listaCatalogo}
                   </div>
                 )}
-
-                {/* Guía o Estado Vacío en Todas */}
-                {habitualesFiltrados.length === 0 && catalogoFiltrados.length === 0 && !buscandoRemoto && (
-                  <div className="p-5 text-center space-y-1.5">
-                    {busqueda.trim().length < 2 ? (
-                      <>
-                        <div className="w-8 h-8 mx-auto rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
-                          <PackageSearch className="w-4 h-4" />
-                        </div>
-                        <p className="text-xs font-semibold text-gray-800">Escribe para buscar insumos</p>
-                        <p className="text-[11px] text-gray-500 max-w-xs mx-auto">
-                          Ingresa 2 o más letras en el buscador para buscar en habituales y catálogo general simultáneamente.
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-xs text-gray-600">
-                          No se encontraron insumos que coincidan con &quot;<strong className="text-gray-800">{busqueda}</strong>&quot;.
-                        </p>
-                        <p className="text-[11px] text-gray-400">
-                          Verifica la ortografía o intenta buscar por otro nombre.
-                        </p>
-                      </>
-                    )}
+                {buscandoRemoto ? (
+                  <div className="p-3 flex justify-center" aria-busy="true" aria-label="Buscando en el catálogo">
+                    <Loader2 className="w-4 h-4 text-aurea-copper animate-spin" aria-hidden="true" />
                   </div>
+                ) : (
+                  listaHabituales.length === 0 &&
+                  listaCatalogo.length === 0 &&
+                  (terminoCorto ? (
+                    <Aviso titulo="Escribe para buscar" texto="Busca entre habituales y catálogo a la vez." />
+                  ) : (
+                    <Aviso titulo={`Sin resultados para «${busqueda}»`} texto="Revisa la ortografía o prueba con otro nombre." />
+                  ))
                 )}
-              </div>
+              </>
             )}
           </div>
         </div>

@@ -1,14 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import {
-  AlertTriangle,
-  X,
-  ArrowRight,
-  Loader2,
-  UtensilsCrossed,
-  ShieldAlert,
-  CheckCircle2,
-} from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, Info } from 'lucide-react';
 import { ConflictoCategoriaConProductosDTO, CategoriaAdminDTO } from '@/types/admin';
+import { Button, Modal } from '@/components/ui';
+import { cn, formatPEN } from '@/shared/utils';
 
 interface ModalBloqueoReasignacionProps {
   abierto: boolean;
@@ -59,7 +53,7 @@ export const ModalBloqueoReasignacion: React.FC<ModalBloqueoReasignacionProps> =
     }
   }, [abierto, conflicto]);
 
-  if (!abierto || !conflicto) return null;
+  if (!conflicto) return null;
 
   const todosSeleccionados =
     productosPendientes.length > 0 && seleccionados.size === productosPendientes.length;
@@ -128,7 +122,7 @@ export const ModalBloqueoReasignacion: React.FC<ModalBloqueoReasignacionProps> =
         setSeleccionados(new Set(restantes.map((p) => p.id)));
         setCategoriaDestinoId('');
         setMensajeParcial(
-          `✓ Se transfirieron ${arrayIds.length} plato(s) a "${categoriaDestinoSeleccionada?.nombre}". Quedan ${resultado.platos_restantes} plato(s) en esta sección.`
+          `Se transfirieron ${arrayIds.length} plato(s) a "${categoriaDestinoSeleccionada?.nombre}". Quedan ${resultado.platos_restantes} plato(s) en esta sección.`
         );
       }
     } catch (err: any) {
@@ -139,214 +133,143 @@ export const ModalBloqueoReasignacion: React.FC<ModalBloqueoReasignacionProps> =
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-2xl max-w-lg w-full border border-amber-300 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Cabecera de Alerta */}
-        <div className="px-6 py-5 border-b border-amber-200 bg-amber-50/80 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-300 text-amber-800 flex items-center justify-center shrink-0">
-              <AlertTriangle className="w-5 h-5 text-amber-700" />
-            </div>
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800">
-                Bloqueo de Integridad Relacional (409)
-              </span>
-              <h2 className="text-lg font-serif font-bold text-aurea-navy">
-                Reasignar Platos de "{conflicto.categoria_nombre}"
-              </h2>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onCerrar}
-            disabled={cargando}
-            className="p-2 rounded-xl text-aurea-navy/60 hover:text-aurea-navy hover:bg-amber-100 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Contenido / Detalle del Conflicto */}
-        <div className="p-6 space-y-4 overflow-y-auto flex-1">
-          {errorLocal && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
-              {errorLocal}
-            </div>
-          )}
-
-          {mensajeParcial && (
-            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center gap-2 animate-fade-in">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>{mensajeParcial}</span>
-            </div>
-          )}
-
-          {/* Explicación técnica y comercial */}
-          <div className="space-y-2">
-            <p className="text-xs sm:text-sm text-aurea-navy leading-relaxed">
-              La categoría <strong className="font-bold text-aurea-navy">"{conflicto.categoria_nombre}"</strong>{' '}
-              tiene <strong className="text-amber-800 font-bold">{productosPendientes.length} plato(s)</strong>{' '}
-              asociado(s). Selecciona cuáles deseas mover y a qué sección enviarlos:
-            </p>
-            <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50/60 border border-amber-200 text-[11px] text-amber-900">
-              <ShieldAlert className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
-              <span>
-                Puedes mover platos a distintas categorías según corresponda. La categoría de origen se eliminará automáticamente una vez reasignado el último plato.
-              </span>
-            </div>
-          </div>
-
-          {/* Listado de Platos con Checkboxes */}
-          <div className="space-y-2">
-            {/* Control Maestro: Seleccionar Todos */}
-            <div className="flex items-center justify-between pb-1.5 border-b border-aurea-champagne/30">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={todosSeleccionados}
-                  ref={(el) => {
-                    if (el) el.indeterminate = algunoSeleccionado;
-                  }}
-                  onChange={handleToggleTodos}
-                  disabled={cargando}
-                  className="w-4 h-4 rounded border-aurea-copper/60 text-aurea-navy focus:ring-aurea-copper/40 cursor-pointer"
-                />
-                <span className="text-xs font-bold text-aurea-navy uppercase tracking-wider">
-                  Seleccionar todos
-                </span>
-              </label>
-              <span className="text-[11px] font-mono font-semibold text-aurea-navy/80 bg-aurea-champagne/30 px-2 py-0.5 rounded-md">
-                {seleccionados.size} de {productosPendientes.length} seleccionados
-              </span>
-            </div>
-
-            {/* Lista de Filas de Productos Pendientes */}
-            <div className="max-h-44 overflow-y-auto rounded-xl border border-aurea-champagne/40 bg-aurea-ivory/20 p-1.5 space-y-1.5">
-              {productosPendientes.map((prod) => {
-                const isSelected = seleccionados.has(prod.id);
-                return (
-                  <div
-                    key={prod.id}
-                    onClick={() => !cargando && handleToggleProducto(prod.id)}
-                    className={`flex items-center justify-between p-2 rounded-lg border transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-aurea-champagne/25 border-aurea-copper/50 shadow-2xs'
-                        : 'bg-white border-gray-100 hover:border-aurea-copper/30'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => handleToggleProducto(prod.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        disabled={cargando}
-                        className="w-4 h-4 rounded border-aurea-copper/60 text-aurea-navy focus:ring-aurea-copper/40 cursor-pointer shrink-0"
-                      />
-                      <UtensilsCrossed className="w-3.5 h-3.5 text-aurea-copper shrink-0" />
-                      <span
-                        className={`text-xs truncate ${
-                          isSelected ? 'font-bold text-aurea-navy' : 'font-medium text-aurea-navy/80'
-                        }`}
-                      >
-                        {prod.nombre}
-                      </span>
-                    </div>
-                    <span className="font-mono text-xs font-semibold text-aurea-navy/90 shrink-0 ml-2">
-                      S/ {prod.precio.toFixed(2)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Selector de Categoría Destino */}
-          <div className="space-y-1.5 pt-1">
-            <label
-              htmlFor="categoria-destino"
-              className="text-xs font-bold text-aurea-navy uppercase tracking-wider block"
-            >
-              Transferir seleccionados ({seleccionados.size}) a: *
-            </label>
-            {otrasCategoriasDisponibles.length > 0 ? (
-              <select
-                id="categoria-destino"
-                value={categoriaDestinoId}
-                onChange={(e) => {
-                  setCategoriaDestinoId(e.target.value);
-                  if (errorLocal) setErrorLocal(null);
-                }}
-                disabled={cargando}
-                className="w-full px-3.5 py-2.5 bg-white border border-aurea-champagne/60 rounded-xl text-sm font-medium text-aurea-navy focus:outline-none focus:ring-2 focus:ring-aurea-copper/50 focus:border-aurea-copper transition-all"
-              >
-                <option value="">-- Selecciona la categoría destino --</option>
-                {otrasCategoriasDisponibles.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.nombre} ({cat.total_productos} platos actuales)
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs">
-                No existen otras categorías disponibles en esta sede. Crea una nueva categoría antes de eliminar esta.
-              </div>
-            )}
-            <p className="text-[11px] text-aurea-navy/60">
-              {seleccionados.size === productosPendientes.length
-                ? 'Todos los platos restantes se moverán a esta sección y la categoría de origen será eliminada.'
-                : 'Solo los platos seleccionados se transferirán a esta categoría.'}
-            </p>
-          </div>
-        </div>
-
-        {/* Pie de Acciones */}
-        <div className="px-6 py-4 border-t border-amber-200 bg-amber-50/50 flex items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={onCerrar}
-            disabled={cargando}
-            className="px-4 py-2.5 rounded-xl border border-aurea-copper/40 bg-white hover:bg-aurea-champagne/20 text-aurea-navy text-sm font-semibold transition-colors min-h-[44px]"
-          >
+    <Modal
+      abierto={abierto}
+      onCerrar={onCerrar}
+      cerrable={!cargando}
+      icono={AlertTriangle}
+      tono="alerta"
+      etiqueta="La categoría tiene platos"
+      titulo={`Reasignar platos de «${conflicto.categoria_nombre}»`}
+      pie={
+        <>
+          <Button variant="outline" onClick={onCerrar} disabled={cargando}>
             Cancelar
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant={todosSeleccionados ? 'danger' : 'primary'}
             onClick={handleConfirmar}
-            disabled={
-              cargando ||
-              seleccionados.size === 0 ||
-              !categoriaDestinoId ||
-              otrasCategoriasDisponibles.length === 0
-            }
-            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold transition-all shadow-md min-h-[44px] disabled:opacity-50 ${
-              todosSeleccionados
-                ? 'bg-amber-600 hover:bg-amber-700'
-                : 'bg-aurea-navy hover:bg-aurea-navy/90'
-            }`}
+            loading={cargando}
+            disabled={seleccionados.size === 0 || !categoriaDestinoId || otrasCategoriasDisponibles.length === 0}
+            leftIcon={<ArrowRight className="w-4 h-4" aria-hidden="true" />}
           >
-            {cargando ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin text-white" />
-                <span>
-                  {todosSeleccionados ? 'Eliminando...' : 'Transfiriendo platos...'}
-                </span>
-              </>
-            ) : (
-              <>
-                <ArrowRight className="w-4 h-4 text-white" />
-                <span>
-                  {todosSeleccionados
-                    ? `Reasignar todos (${seleccionados.size}) y Eliminar`
-                    : `Transferir ${seleccionados.size} plato(s) a ${
-                        categoriaDestinoSeleccionada?.nombre || 'Destino'
-                      }`}
-                </span>
-              </>
-            )}
-          </button>
+            {todosSeleccionados
+              ? `Mover ${seleccionados.size} y eliminar categoría`
+              : `Mover ${seleccionados.size} plato(s)`}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-5">
+        {errorLocal && (
+          <p role="alert" className="p-3 rounded-xl bg-estado-error-50 border border-estado-error-200 text-estado-error-800 text-sm">
+            {errorLocal}
+          </p>
+        )}
+
+        {mensajeParcial && (
+          <p role="status" className="p-3 rounded-xl bg-estado-ok-50 border border-estado-ok-200 text-estado-ok-800 text-sm flex items-start gap-2">
+            <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+            <span>{mensajeParcial}</span>
+          </p>
+        )}
+
+        <div className="space-y-2 text-sm text-aurea-navy/80">
+          <p>
+            «{conflicto.categoria_nombre}» tiene{' '}
+            <strong className="font-semibold text-aurea-navy">{productosPendientes.length} plato(s)</strong>. Elige
+            cuáles mover y a qué categoría.
+          </p>
+          <p className="flex items-start gap-2 text-aurea-navy/70">
+            <Info className="w-4 h-4 mt-0.5 shrink-0 text-aurea-copper" aria-hidden="true" />
+            <span>Puedes repartirlos entre varias categorías. Al mover el último plato, esta categoría se elimina.</span>
+          </p>
+        </div>
+
+        <fieldset className="space-y-2">
+          <legend className="sr-only">Platos a mover</legend>
+          <div className="flex items-center justify-between gap-2">
+            <label className="flex items-center gap-2 min-h-tactil cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={todosSeleccionados}
+                ref={(el) => {
+                  if (el) el.indeterminate = algunoSeleccionado;
+                }}
+                onChange={handleToggleTodos}
+                disabled={cargando}
+                className="w-5 h-5 rounded border-aurea-copper/50 accent-aurea-navy"
+              />
+              <span className="text-sm font-semibold text-aurea-navy">Seleccionar todos</span>
+            </label>
+            <span className="text-xs text-aurea-navy/60 tabular-nums">
+              {seleccionados.size} de {productosPendientes.length}
+            </span>
+          </div>
+
+          <ul className="max-h-56 overflow-y-auto rounded-xl border border-aurea-champagne/70 divide-y divide-aurea-champagne/40">
+            {productosPendientes.map((prod) => {
+              const isSelected = seleccionados.has(prod.id);
+              return (
+                <li key={prod.id}>
+                  <label
+                    className={cn(
+                      'flex items-center gap-3 min-h-tactil px-3 py-2 cursor-pointer transition-colors',
+                      isSelected ? 'bg-aurea-champagne/25' : 'hover:bg-aurea-ivory'
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleToggleProducto(prod.id)}
+                      disabled={cargando}
+                      className="w-5 h-5 rounded border-aurea-copper/50 accent-aurea-navy shrink-0"
+                    />
+                    <span className={cn('flex-1 min-w-0 text-sm truncate', isSelected ? 'font-semibold text-aurea-navy' : 'text-aurea-navy/80')}>
+                      {prod.nombre}
+                    </span>
+                    <span className="text-sm tabular-nums text-aurea-navy/70 shrink-0">{formatPEN(prod.precio)}</span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </fieldset>
+
+        <div className="space-y-1.5">
+          <label htmlFor="categoria-destino" className="text-sm font-semibold text-aurea-navy block">
+            Mover a
+          </label>
+          {otrasCategoriasDisponibles.length > 0 ? (
+            <select
+              id="categoria-destino"
+              value={categoriaDestinoId}
+              onChange={(e) => {
+                setCategoriaDestinoId(e.target.value);
+                if (errorLocal) setErrorLocal(null);
+              }}
+              disabled={cargando}
+              className="w-full min-h-tactil px-3 bg-white border border-aurea-champagne/70 rounded-xl text-base md:text-sm text-aurea-navy focus:outline-none focus:border-aurea-copper"
+            >
+              <option value="">Selecciona la categoría de destino</option>
+              {otrasCategoriasDisponibles.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.nombre} ({cat.total_productos} platos)
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p className="p-3 rounded-xl bg-estado-error-50 border border-estado-error-200 text-estado-error-800 text-sm">
+              No hay otras categorías en esta sede. Crea una antes de eliminar esta.
+            </p>
+          )}
+          <p className="text-xs text-aurea-navy/60">
+            {seleccionados.size === productosPendientes.length
+              ? 'Se moverán todos los platos y la categoría de origen se eliminará.'
+              : 'Solo se moverán los platos seleccionados.'}
+          </p>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };

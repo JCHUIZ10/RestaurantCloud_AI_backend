@@ -33,9 +33,12 @@ import type {
   ComprobanteHistorialItemDTO,
   EmitirNotaCreditoResponseDTO,
 } from '@/types/caja';
+import { SoloDemo } from '@/components/ui/SoloDemo';
+import { useCerrarSesion } from '@/shared/hooks/useCerrarSesion';
 
 export const CajeroPosPage: React.FC = () => {
   const navigate = useNavigate();
+  const cerrarSesion = useCerrarSesion();
   const usuario = useAuthStore((s) => s.usuario);
 
   // Estados de datos
@@ -399,7 +402,7 @@ export const CajeroPosPage: React.FC = () => {
       {/* Toast Flotante */}
       {toast && (
         <div
-          className={`fixed top-16 right-6 z-50 px-4 py-3 rounded-2xl shadow-xl border text-xs font-medium flex items-center gap-2.5 animate-in slide-in-from-top-3 max-w-md ${
+          className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-2xl shadow-xl border text-xs font-medium flex items-center gap-2.5 animate-in slide-in-from-top-3 max-w-md ${
             toast.tipo === 'success'
               ? 'bg-emerald-900/90 text-emerald-100 border-emerald-600'
               : toast.tipo === 'error'
@@ -454,9 +457,7 @@ export const CajeroPosPage: React.FC = () => {
           correlativoProyectado={session.correlativo_proyectado}
           sedeNombre={session.sede_nombre}
           onConfirmarApertura={handleConfirmarApertura}
-          onCerrarSesion={() => {
-            navigate(ROUTES.ADMIN_DASHBOARD);
-          }}
+          onCerrarSesion={cerrarSesion}
           isSubmitting={isSubmittingApertura}
         />
       )}
@@ -467,9 +468,7 @@ export const CajeroPosPage: React.FC = () => {
           isOpen={true}
           turnoActivo={turnoActivo}
           onNotificarAdmin={handleNotificarAdmin}
-          onCerrarSesion={() => {
-            navigate(ROUTES.LOGIN);
-          }}
+          onCerrarSesion={cerrarSesion}
           onSimularCierreAdmin14={handleSimularCierreAdmin14}
         />
       )}
@@ -535,11 +534,13 @@ export const CajeroPosPage: React.FC = () => {
       )}
 
       {/* Widget Flotante de Pruebas QA (Esquina inferior derecha) */}
-      <DemoCajaTurnoWidget
-        onSelectEscenario={handleSelectEscenarioQA}
-        estadoActual={estadoBadgeTexto}
-        onSelectMesaDemo={handleSelectMesaDemo}
-      />
+      <SoloDemo>
+        <DemoCajaTurnoWidget
+          onSelectEscenario={handleSelectEscenarioQA}
+          estadoActual={estadoBadgeTexto}
+          onSelectMesaDemo={handleSelectMesaDemo}
+        />
+      </SoloDemo>
     </div>
   );
 };

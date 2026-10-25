@@ -220,7 +220,7 @@ export const MozoComandaPage: React.FC = () => {
 
   if (cargando) {
     return (
-      <div className="flex-1 flex flex-col h-[calc(100vh-3.5rem)] items-center justify-center bg-slate-100">
+      <div className="flex-1 flex flex-col h-full items-center justify-center bg-slate-100">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-aurea-navy border-t-aurea-copper rounded-full animate-spin" />
           <p className="text-sm font-semibold text-slate-700">Cargando carta de productos...</p>
@@ -230,10 +230,10 @@ export const MozoComandaPage: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden bg-slate-100">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-100">
       {/* Toast de confirmación háptica */}
       {toastExito && (
-        <div className="fixed top-16 right-6 z-50 px-4 py-3 rounded-xl bg-emerald-700 text-white shadow-2xl flex items-center gap-2 border border-emerald-500 animate-bounce-slow">
+        <div className="fixed top-4 right-4 z-50 px-4 py-3 rounded-xl bg-emerald-700 text-white shadow-2xl flex items-center gap-2 border border-emerald-500 animate-bounce-slow">
           <Check className="w-4 h-4 text-emerald-200" />
           <span className="text-xs sm:text-sm font-bold">{toastExito}</span>
         </div>

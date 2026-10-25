@@ -1,9 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  mockAdminService,
-  CANONICAL_LOCAL_ID,
-  CANONICAL_LOCAL_NOMBRE,
-} from '@/modules/admin/services/mockAdminService';
+import { mockAdminService, CANONICAL_LOCAL_ID } from '@/modules/admin/services/mockAdminService';
 import { adminService, IS_REAL_API } from '@/services/serviceAdapter';
 import {
   InsumosAdminResponseDTO,
@@ -26,7 +22,7 @@ import { ModalAjustarStock } from '../components/inventario/ModalAjustarStock';
 import { OnboardingInsumosVacio } from '../components/inventario/OnboardingInsumosVacio';
 import { DemoAdminInsumosWidget } from '../components/inventario/DemoAdminInsumosWidget';
 
-import { AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { EstadoError, SoloDemo, useToast } from '@/components/ui';
 
 export const AdminInsumosPage: React.FC = () => {
   // Estado de Datos y Carga
@@ -52,15 +48,11 @@ export const AdminInsumosPage: React.FC = () => {
   // Contador de auditorías para el widget
   const [totalAuditorias, setTotalAuditorias] = useState<number>(1);
 
-  // Notificación Toast
-  const [toast, setToast] = useState<{ tipo: 'exito' | 'error'; mensaje: string } | null>(null);
-
-  const mostrarToast = useCallback((mensaje: string, tipo: 'exito' | 'error' = 'exito') => {
-    setToast({ tipo, mensaje });
-    setTimeout(() => {
-      setToast((prev) => (prev?.mensaje === mensaje ? null : prev));
-    }, 4500);
-  }, []);
+  const { mostrar } = useToast();
+  const mostrarToast = useCallback(
+    (mensaje: string, tipo: 'exito' | 'error' = 'exito') => mostrar(mensaje, tipo === 'exito' ? 'ok' : 'error'),
+    [mostrar]
+  );
 
   // Cargar Insumos
   const cargarInsumos = useCallback(async () => {
@@ -151,7 +143,7 @@ export const AdminInsumosPage: React.FC = () => {
     try {
       const res = await adminService.crearInsumo(CANONICAL_LOCAL_ID, req);
       if (res.exito && res.datos) {
-        mostrarToast(`Insumo "${res.datos.nombre}" registrado correctamente (< 8s).`, 'exito');
+        mostrarToast(`Insumo "${res.datos.nombre}" registrado correctamente.`, 'exito');
         await cargarInsumos();
         return true;
       } else {
@@ -270,88 +262,50 @@ export const AdminInsumosPage: React.FC = () => {
       datosResponse.kpis.total_inactivos
     : 0;
 
+  const kpis = datosResponse?.kpis || {
+    total_activos: 0,
+    total_agotados: 0,
+    total_inactivos: 0,
+    valorizacion_total: 0,
+  };
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      {/* Toast Notification */}
-      {toast && (
-        <div className="fixed top-5 right-5 z-50 animate-in fade-in slide-in-from-top-3 duration-300">
-          <div
-            className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl border text-sm font-medium ${
-              toast.tipo === 'exito'
-                ? 'bg-emerald-900/90 text-white border-emerald-700/50 backdrop-blur-md'
-                : 'bg-rose-900/90 text-white border-rose-700/50 backdrop-blur-md'
-            }`}
-          >
-            {toast.tipo === 'exito' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            ) : (
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-            )}
-            <span className="leading-tight">{toast.mensaje}</span>
-          </div>
-        </div>
-      )}
+    <div className="space-y-6">
+      <InsumosHeader kpis={kpis} onAbrirNuevoInsumo={handleAbrirNuevoInsumo} />
 
-      {/* Cabecera y KPIs */}
-      <InsumosHeader
-        localNombre={CANONICAL_LOCAL_NOMBRE}
-        kpis={
-          datosResponse?.kpis || {
-            total_activos: 0,
-            total_agotados: 0,
-            total_inactivos: 0,
-            valorizacion_total: 0,
-          }
-        }
-        onAbrirNuevoInsumo={handleAbrirNuevoInsumo}
-      />
-
-      {/* Mensaje de Error de Carga */}
       {error && (
-        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-            <span>{error}</span>
-          </div>
-          <button
-            type="button"
-            onClick={cargarInsumos}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-rose-300 text-rose-800 text-xs font-semibold hover:bg-rose-100 transition-colors"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Reintentar</span>
-          </button>
-        </div>
+        <EstadoError
+          titulo="No se pudieron cargar los insumos"
+          mensaje={error}
+          onReintentar={cargarInsumos}
+          reintentando={cargando}
+        />
       )}
 
-      {/* Si la bodega está completamente en blanco (0 insumos), mostrar Onboarding */}
-      {!cargando && totalInsumosBodega === 0 ? (
+      {!cargando && !error && totalInsumosBodega === 0 ? (
         <OnboardingInsumosVacio onAbrirNuevoInsumo={handleAbrirNuevoInsumo} />
       ) : (
-        <>
-          {/* Barra de Filtros y Búsqueda */}
-          {datosResponse && (
-            <InsumosToolbar
-              filtroActual={filtroActual}
-              onCambiarFiltro={handleCambiarFiltro}
-              busqueda={busqueda}
-              onEjecutarBusqueda={handleEjecutarBusqueda}
-              kpis={datosResponse.kpis}
-            />
-          )}
-
-          {/* Tabla y Tarjetas de Insumos con Paginación Interactiva */}
+        !error && (
           <InsumosTable
             insumos={datosResponse?.insumos || []}
-            cargando={cargando}
+            cargando={cargando && !datosResponse}
             paginacion={datosResponse?.paginacion}
             onCambiarPagina={handleCambiarPagina}
             onCambiarLimite={handleCambiarLimite}
             onAbrirAjusteStock={handleAbrirAjusteStock}
             onAbrirEditarInsumo={handleAbrirEditarInsumo}
             onConmutarEstado={handleConmutarEstado}
+            cabecera={
+              <InsumosToolbar
+                filtroActual={filtroActual}
+                onCambiarFiltro={handleCambiarFiltro}
+                busqueda={busqueda}
+                onEjecutarBusqueda={handleEjecutarBusqueda}
+                kpis={kpis}
+              />
+            }
           />
-        </>
+        )
       )}
 
       {/* Modal Crear / Editar Insumo */}
@@ -372,16 +326,18 @@ export const AdminInsumosPage: React.FC = () => {
       />
 
       {/* Widget QA Flotante para Evaluación de Casos de Prueba */}
-      {!IS_REAL_API && (
+      <SoloDemo>
+        {!IS_REAL_API && (
         <DemoAdminInsumosWidget
-        onVaciarInsumos={handleVaciarInsumos}
-        onRestablecerSemillas={handleRestablecerSemillas}
-        onSimularQuiebreLimon={handleSimularQuiebreLimon}
-        onSimularQuiebreLomo={handleSimularQuiebreLomo}
-        onSimularReposicion={handleSimularReposicion}
-        totalAuditorias={totalAuditorias}
-      />
+          onVaciarInsumos={handleVaciarInsumos}
+          onRestablecerSemillas={handleRestablecerSemillas}
+          onSimularQuiebreLimon={handleSimularQuiebreLimon}
+          onSimularQuiebreLomo={handleSimularQuiebreLomo}
+          onSimularReposicion={handleSimularReposicion}
+          totalAuditorias={totalAuditorias}
+        />
       )}
+      </SoloDemo>
     </div>
   );
 };

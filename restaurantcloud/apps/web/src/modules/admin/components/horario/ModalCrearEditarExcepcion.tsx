@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { X, Calendar, Clock, AlertCircle } from 'lucide-react';
+import React, { useId, useState } from 'react';
+import { CalendarPlus, AlertCircle } from 'lucide-react';
+import { Button, Modal } from '@/components/ui';
+import { cn } from '@/shared/utils';
 
 interface ModalCrearEditarExcepcionProps {
   isOpen: boolean;
@@ -14,12 +16,22 @@ interface ModalCrearEditarExcepcionProps {
   loading: boolean;
 }
 
+const CLASE_CAMPO =
+  'w-full min-h-tactil px-3.5 bg-white border border-tinta-300 rounded-xl text-base md:text-sm text-tinta-900 placeholder:text-tinta-400 focus:outline-none focus:ring-2 focus:ring-aurea-copper/40 focus:border-aurea-copper';
+const CLASE_ROTULO = 'block text-sm font-semibold text-tinta-700 mb-1.5';
+
+const MODALIDADES = [
+  { cerrado: true, titulo: 'Cerrado todo el día', activa: 'border-red-500 bg-red-50/60 ring-1 ring-red-500', punto: 'bg-red-500' },
+  { cerrado: false, titulo: 'Horario especial', activa: 'border-amber-500 bg-amber-50/60 ring-1 ring-amber-500', punto: 'bg-amber-500' },
+];
+
 export const ModalCrearEditarExcepcion: React.FC<ModalCrearEditarExcepcionProps> = ({
   isOpen,
   onClose,
   onSubmit,
   loading,
 }) => {
+  const idForm = useId();
   const [fecha, setFecha] = useState('');
   const [cerrado, setCerrado] = useState(true);
   const [horaInicio, setHoraInicio] = useState('12:00');
@@ -27,29 +39,27 @@ export const ModalCrearEditarExcepcion: React.FC<ModalCrearEditarExcepcionProps>
   const [motivo, setMotivo] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  if (!isOpen) return null;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     if (!fecha) {
-      setError('Debes seleccionar una fecha para el cierre o feriado.');
+      setError('Elige la fecha.');
       return;
     }
 
     if (!motivo.trim() || motivo.trim().length < 3) {
-      setError('Debes especificar un motivo descriptivo (mínimo 3 caracteres).');
+      setError('Escribe el motivo (mínimo 3 caracteres).');
       return;
     }
 
     if (!cerrado && (!horaInicio || !horaFin)) {
-      setError('Debes indicar tanto la hora de apertura como la hora de cierre especial.');
+      setError('Indica la hora de apertura y la de cierre.');
       return;
     }
 
     if (!cerrado && horaInicio === horaFin) {
-      setError('La hora de apertura y cierre especial no pueden ser iguales.');
+      setError('La apertura y el cierre no pueden ser a la misma hora.');
       return;
     }
 
@@ -61,178 +71,107 @@ export const ModalCrearEditarExcepcion: React.FC<ModalCrearEditarExcepcionProps>
         hora_fin: cerrado ? undefined : horaFin,
         motivo: motivo.trim(),
       });
-    } catch (err: any) {
-      setError(err.message || 'Error al procesar la excepción.');
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : 'No se pudo registrar la fecha.');
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        {/* Header del Modal */}
-        <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-red-50 text-red-600 rounded-xl">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-gray-900">Programar Cierre o Feriado</h3>
-              <p className="text-xs text-gray-500">Configura fechas especiales y verifica posibles reservas activas</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <Modal
+      abierto={isOpen}
+      onCerrar={onClose}
+      cerrable={!loading}
+      tamano="md"
+      icono={CalendarPlus}
+      titulo="Nueva fecha especial"
+      descripcion="Ese día no se usa el horario semanal."
+      pie={
+        <>
+          <Button variant="outline" onClick={onClose} disabled={loading}>
+            Cancelar
+          </Button>
+          <Button type="submit" form={idForm} loading={loading}>
+            {loading ? 'Revisando reservas...' : 'Guardar'}
+          </Button>
+        </>
+      }
+    >
+      <form id={idForm} onSubmit={handleSubmit} noValidate className="space-y-4">
+        {error && (
+          <p role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-800 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" aria-hidden="true" />
+            {error}
+          </p>
+        )}
 
-        {/* Formulario */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
-              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* Fecha */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-1.5">
-              Fecha de la Excepción <span className="text-red-500">*</span>
+            <label htmlFor={`${idForm}-fecha`} className={CLASE_ROTULO}>
+              Fecha
+            </label>
+            <input id={`${idForm}-fecha`} type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className={CLASE_CAMPO} required />
+          </div>
+          <div>
+            <label htmlFor={`${idForm}-motivo`} className={CLASE_ROTULO}>
+              Motivo
             </label>
             <input
-              type="date"
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-              className="w-full text-sm px-3.5 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-              required
-            />
-          </div>
-
-          {/* Tipo de Excepción (Radio cards) */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-2">
-              Modalidad de Operación <span className="text-red-500">*</span>
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <label
-                className={`flex flex-col p-3.5 rounded-xl border cursor-pointer transition ${
-                  cerrado
-                    ? 'border-red-500 bg-red-50/50 text-red-900 ring-1 ring-red-500'
-                    : 'border-gray-200 hover:border-gray-300 bg-white text-gray-700'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-bold">Cierre Total</span>
-                  <input
-                    type="radio"
-                    name="modalidad"
-                    checked={cerrado}
-                    onChange={() => setCerrado(true)}
-                    className="text-red-600 focus:ring-red-500"
-                  />
-                </div>
-                <span className="text-[11px] text-gray-500">
-                  El local permanecerá completamente cerrado las 24 horas.
-                </span>
-              </label>
-
-              <label
-                className={`flex flex-col p-3.5 rounded-xl border cursor-pointer transition ${
-                  !cerrado
-                    ? 'border-amber-500 bg-amber-50/50 text-amber-900 ring-1 ring-amber-500'
-                    : 'border-gray-200 hover:border-gray-300 bg-white text-gray-700'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-bold">Horario Especial</span>
-                  <input
-                    type="radio"
-                    name="modalidad"
-                    checked={!cerrado}
-                    onChange={() => setCerrado(false)}
-                    className="text-amber-600 focus:ring-amber-500"
-                  />
-                </div>
-                <span className="text-[11px] text-gray-500">
-                  Atención acotada (ej. solo turno almuerzo o horario festivo).
-                </span>
-              </label>
-            </div>
-          </div>
-
-          {/* Rango Horario Especial */}
-          {!cerrado && (
-            <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
-              <div className="flex items-center gap-2 text-xs font-semibold text-gray-700">
-                <Clock className="w-4 h-4 text-amber-600" />
-                <span>Horario permitido de atención</span>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1">
-                    Hora Apertura
-                  </label>
-                  <input
-                    type="time"
-                    value={horaInicio}
-                    onChange={(e) => setHoraInicio(e.target.value)}
-                    className="w-full text-xs font-mono px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-red-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1">
-                    Hora Cierre
-                  </label>
-                  <input
-                    type="time"
-                    value={horaFin}
-                    onChange={(e) => setHoraFin(e.target.value)}
-                    className="w-full text-xs font-mono px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-red-500"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Motivo o Descripción */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-1.5">
-              Motivo o Descripción <span className="text-red-500">*</span>
-            </label>
-            <input
+              id={`${idForm}-motivo`}
               type="text"
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
-              placeholder="ej. Mantenimiento preventivo de campanas extractoras / Feriado Nacional"
-              className="w-full text-sm px-3.5 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              placeholder="Ej. Feriado nacional, mantenimiento"
+              className={CLASE_CAMPO}
               required
             />
           </div>
+        </div>
 
-          {/* Botones de acción */}
-          <div className="pt-3 border-t border-gray-200 flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              className="px-4 py-2.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 shadow-sm transition disabled:opacity-50"
-            >
-              {loading ? 'Verificando Reservas...' : 'Continuar y Verificar Reservas'}
-            </button>
+        <fieldset>
+          <legend className={CLASE_ROTULO}>Ese día</legend>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {MODALIDADES.map((m) => {
+              const elegida = cerrado === m.cerrado;
+              return (
+                <label
+                  key={m.titulo}
+                  className={cn(
+                    'min-h-tactil px-4 py-3 rounded-xl border cursor-pointer flex items-center gap-3 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-aurea-copper',
+                    elegida ? m.activa : 'border-tinta-200 bg-white hover:border-tinta-300'
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name={`${idForm}-modalidad`}
+                    checked={elegida}
+                    onChange={() => setCerrado(m.cerrado)}
+                    className="sr-only"
+                  />
+                  <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', m.punto)} aria-hidden="true" />
+                  <span className="text-sm font-semibold text-tinta-900">{m.titulo}</span>
+                </label>
+              );
+            })}
           </div>
-        </form>
-      </div>
-    </div>
+        </fieldset>
+
+        {!cerrado && (
+          <div className="grid grid-cols-2 gap-3 p-4 bg-amber-50/50 rounded-xl border border-amber-200">
+            <div>
+              <label htmlFor={`${idForm}-ini`} className={CLASE_ROTULO}>
+                Abre
+              </label>
+              <input id={`${idForm}-ini`} type="time" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} className={cn(CLASE_CAMPO, 'font-mono')} />
+            </div>
+            <div>
+              <label htmlFor={`${idForm}-fin`} className={CLASE_ROTULO}>
+                Cierra
+              </label>
+              <input id={`${idForm}-fin`} type="time" value={horaFin} onChange={(e) => setHoraFin(e.target.value)} className={cn(CLASE_CAMPO, 'font-mono')} />
+            </div>
+          </div>
+        )}
+      </form>
+    </Modal>
   );
 };

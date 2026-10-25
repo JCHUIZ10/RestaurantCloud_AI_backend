@@ -19,7 +19,7 @@ import { DrawerHistorialCompras } from '../components/proveedores/DrawerHistoria
 import { OnboardingProveedoresVacio } from '../components/proveedores/OnboardingProveedoresVacio';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/router/routes.constants';
-import { CheckCircle2, AlertCircle, AlertTriangle, X } from 'lucide-react';
+import { useToast } from '@/components/ui';
 
 const FALLBACK_LOCAL_ID = '00000000-0000-4000-8000-000000000010';
 
@@ -27,7 +27,6 @@ export const AdminProveedoresPage: React.FC = () => {
   const navigate = useNavigate();
   const usuario = useAuthStore((s) => s.usuario);
   const localId = usuario?.local?.id ?? FALLBACK_LOCAL_ID;
-  const localNombre = usuario?.local?.nombre ?? 'Sede Principal';
 
   // Estados de datos
   const [proveedores, setProveedores] = useState<ProveedorResumenDTO[]>([]);
@@ -61,20 +60,11 @@ export const AdminProveedoresPage: React.FC = () => {
   const [historialCompras, setHistorialCompras] = useState<ProveedorHistorialComprasDTO | null>(null);
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
 
-  // Notificación Toast
-  const [toast, setToast] = useState<{
-    tipo: 'exito' | 'error' | 'advertencia';
-    mensaje: string;
-  } | null>(null);
-
+  const { mostrar } = useToast();
   const mostrarToast = useCallback(
-    (mensaje: string, tipo: 'exito' | 'error' | 'advertencia' = 'exito') => {
-      setToast({ tipo, mensaje });
-      setTimeout(() => {
-        setToast((prev) => (prev?.mensaje === mensaje ? null : prev));
-      }, 5000);
-    },
-    []
+    (mensaje: string, tipo: 'exito' | 'error' | 'advertencia' = 'exito') =>
+      mostrar(mensaje, tipo === 'exito' ? 'ok' : tipo === 'advertencia' ? 'alerta' : 'error'),
+    [mostrar]
   );
 
   // Cargar catálogo de insumos de bodega
@@ -270,55 +260,15 @@ export const AdminProveedoresPage: React.FC = () => {
     !cargando && conteos.todos === 0 && !busqueda;
 
   return (
-    <div className="space-y-6 pb-20">
-      {/* Toast Notificación */}
-      {toast && (
-        <div
-          className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border text-sm animate-in slide-in-from-top-3 max-w-md ${
-            toast.tipo === 'exito'
-              ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
-              : toast.tipo === 'advertencia'
-              ? 'bg-amber-50 text-amber-900 border-amber-300'
-              : 'bg-rose-50 text-rose-900 border-rose-300'
-          }`}
-        >
-          {toast.tipo === 'exito' && <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />}
-          {toast.tipo === 'advertencia' && <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />}
-          {toast.tipo === 'error' && <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />}
-          <span className="flex-1 font-medium leading-tight">{toast.mensaje}</span>
-          <button
-            type="button"
-            onClick={() => setToast(null)}
-            className="text-black/40 hover:text-black p-0.5 rounded-lg"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Cabecera del Directorio de Proveedores */}
-      <ProveedoresHeader
-        localNombre={localNombre}
-        onAbrirNuevoProveedor={handleAbrirNuevoProveedor}
-      />
+    <div className="space-y-6">
+      <ProveedoresHeader onAbrirNuevoProveedor={handleAbrirNuevoProveedor} />
 
       {directorioCompletamenteVacio ? (
         <OnboardingProveedoresVacio onAbrirNuevoProveedor={handleAbrirNuevoProveedor} />
       ) : (
         <>
-          {/* Tarjetas KPI de Abastecimiento */}
           <ProveedoresKpis kpis={kpis} />
 
-          {/* Barra de Filtros, Búsqueda y Pestañas de Estado */}
-          <ProveedoresToolbar
-            busqueda={busqueda}
-            onBuscar={handleBuscar}
-            estadoFiltro={estadoFiltro}
-            onChangeEstadoFiltro={handleCambiarEstadoFiltro}
-            conteos={conteos}
-          />
-
-          {/* Tabla Directorio Comercial */}
           <ProveedoresTable
             proveedores={proveedores}
             totalItems={totalItems}
@@ -335,6 +285,15 @@ export const AdminProveedoresPage: React.FC = () => {
             onEditar={handleEditarProveedor}
             onReactivar={handleReactivarProveedor}
             onEliminar={handleEliminarProveedor}
+            cabecera={
+              <ProveedoresToolbar
+                busqueda={busqueda}
+                onBuscar={handleBuscar}
+                estadoFiltro={estadoFiltro}
+                onChangeEstadoFiltro={handleCambiarEstadoFiltro}
+                conteos={conteos}
+              />
+            }
           />
         </>
       )}

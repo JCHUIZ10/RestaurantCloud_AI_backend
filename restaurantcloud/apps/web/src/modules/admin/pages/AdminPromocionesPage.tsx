@@ -336,7 +336,7 @@ export const AdminPromocionesPage: React.FC = () => {
       )}
 
       {/* Cabecera y KPIs (Vista 1) */}
-      <PromocionesHeader kpis={kpis} localNombre={localNombre} onNuevaPromocion={handleNuevaPromocion} />
+      <PromocionesHeader kpis={kpis} onNuevaPromocion={handleNuevaPromocion} />
 
       {/* Si la sede no tiene ninguna promoción registrada, mostramos Onboarding de Bienvenida (Vista 4) */}
       {sinPromocionesEnSede ? (

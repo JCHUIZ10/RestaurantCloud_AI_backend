@@ -9,9 +9,12 @@ import { BalancePreArqueoView } from '../components/cierre/BalancePreArqueoView'
 import { ModalArqueoConteo } from '../components/cierre/ModalArqueoConteo';
 import { ReporteZCerradoView } from '../components/cierre/ReporteZCerradoView';
 import { DemoCajaCierreWidget } from '../components/demo/DemoCajaCierreWidget';
+import { SoloDemo } from '@/components/ui/SoloDemo';
+import { useCerrarSesion } from '@/shared/hooks/useCerrarSesion';
 
 export const CajeroTurnoCierrePage: React.FC = () => {
   const navigate = useNavigate();
+  const cerrarSesion = useCerrarSesion();
 
   // Estados de datos
   const [balance, setBalance] = useState<BalancePreArqueoDTO | null>(null);
@@ -162,9 +165,7 @@ export const CajeroTurnoCierrePage: React.FC = () => {
     navigate(ROUTES.CAJERO_POS);
   };
 
-  const handleCerrarSesion = () => {
-    navigate(ROUTES.LOGIN);
-  };
+  const handleCerrarSesion = cerrarSesion;
 
   const handleVolverPos = () => {
     navigate(ROUTES.CAJERO_POS);
@@ -262,7 +263,7 @@ export const CajeroTurnoCierrePage: React.FC = () => {
       {/* Toast Flotante */}
       {toast && (
         <div
-          className={`fixed top-16 right-6 z-50 px-4 py-3 rounded-2xl shadow-xl border text-xs font-medium flex items-center gap-2.5 animate-in slide-in-from-top-3 max-w-md ${
+          className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-2xl shadow-xl border text-xs font-medium flex items-center gap-2.5 animate-in slide-in-from-top-3 max-w-md ${
             toast.tipo === 'success'
               ? 'bg-emerald-900/90 text-emerald-100 border-emerald-600'
               : toast.tipo === 'error'
@@ -308,12 +309,14 @@ export const CajeroTurnoCierrePage: React.FC = () => {
       )}
 
       {/* Widget Flotante de Pruebas QA (Únicamente en modo Mock) */}
-      {!IS_REAL_API && (
-        <DemoCajaCierreWidget
-          onSelectEscenario={handleSelectEscenarioQA}
-          estadoActual={estadoBadgeTexto}
-        />
-      )}
+      <SoloDemo>
+        {!IS_REAL_API && (
+          <DemoCajaCierreWidget
+            onSelectEscenario={handleSelectEscenarioQA}
+            estadoActual={estadoBadgeTexto}
+          />
+        )}
+      </SoloDemo>
     </div>
   );
 };

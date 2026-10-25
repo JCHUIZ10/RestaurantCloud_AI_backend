@@ -5,31 +5,21 @@ import { KdsConfigHeader } from '../components/kds_config/KdsConfigHeader';
 import { KdsParametrosForm } from '../components/kds_config/KdsParametrosForm';
 import { KdsSimuladorSemaforo } from '../components/kds_config/KdsSimuladorSemaforo';
 import { DemoKdsConfigWidget } from '../components/kds_config/DemoKdsConfigWidget';
-import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import { EstadoError, ModalConfirmacion, Skeleton, SoloDemo, useToast } from '@/components/ui';
 
 export const AdminConfiguracionKdsPage: React.FC = () => {
   const [cargando, setCargando] = useState(true);
   const [isGuardando, setIsGuardando] = useState(false);
-  const sseConectado = !IS_REAL_API;
+  const [confirmarRestaurar, setConfirmarRestaurar] = useState(false);
 
   // Estados de datos (Original persistido vs Borrador reactivo)
   const [configOriginal, setConfigOriginal] = useState<ConfiguracionKdsDTO | null>(null);
   const [configBorrador, setConfigBorrador] = useState<ConfiguracionKdsDTO | null>(null);
 
-  // Toast flotante
-  const [toastMensaje, setToastMensaje] = useState<{
-    tipo: 'exito' | 'error' | 'info';
-    texto: string;
-  } | null>(null);
-
+  const { mostrar } = useToast();
   const mostrarToast = useCallback(
-    (texto: string, tipo: 'exito' | 'error' | 'info' = 'exito') => {
-      setToastMensaje({ tipo, texto });
-      setTimeout(() => {
-        setToastMensaje(null);
-      }, 4500);
-    },
-    []
+    (texto: string, tipo: 'exito' | 'error' | 'info' = 'exito') => mostrar(texto, tipo === 'exito' ? 'ok' : tipo),
+    [mostrar]
   );
 
   // Carga de configuración inicial desde el servicio
@@ -41,7 +31,7 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
         setConfigOriginal(JSON.parse(JSON.stringify(resp.datos)));
         setConfigBorrador(JSON.parse(JSON.stringify(resp.datos)));
       } else {
-        mostrarToast(resp.errores?.[0]?.mensaje || 'No se pudo cargar la configuración de KDS', 'error');
+        mostrarToast(resp.errores?.[0]?.mensaje || 'No se pudo cargar la configuración de cocina', 'error');
       }
     } catch {
       mostrarToast('Error de comunicación con el servidor', 'error');
@@ -64,7 +54,7 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
   // Validación de incoherencia (RN-KDS-01)
   const errorValidacion =
     configBorrador && configBorrador.tiempo_alerta_ambar_min <= configBorrador.tiempo_optimo_verde_min
-      ? 'El umbral de alerta (ámbar) debe superar estrictamente al umbral óptimo (verde).'
+      ? `El tiempo ámbar (${configBorrador.tiempo_alerta_ambar_min} min) debe ser mayor que el verde (${configBorrador.tiempo_optimo_verde_min} min).`
       : null;
 
   /**
@@ -77,7 +67,7 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
           window.AudioContext ||
           (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         if (!AudioCtx) {
-          mostrarToast('Tu navegador no soporta Web Audio API para tests de sonido', 'info');
+          mostrarToast('Este navegador no puede reproducir sonidos de prueba', 'info');
           return;
         }
         const ctx = new AudioCtx();
@@ -95,7 +85,6 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
           gain.connect(ctx.destination);
           osc.start();
           osc.stop(ctx.currentTime + 0.5);
-          mostrarToast('🔔 Chime emitido: Tono armónico de nueva comanda probado', 'info');
         } else {
           // Alerta descendente tipo sirena (320Hz -> 200Hz)
           const osc = ctx.createOscillator();
@@ -109,10 +98,9 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
           gain.connect(ctx.destination);
           osc.start();
           osc.stop(ctx.currentTime + 0.55);
-          mostrarToast('🚨 Alarma emitida: Sirena de comanda en rojo crítico probada', 'info');
         }
       } catch {
-        mostrarToast('Se requiere interactuar con la pantalla para reproducir audio', 'info');
+        mostrarToast('Toca la pantalla una vez y vuelve a probar el sonido', 'info');
       }
     },
     [mostrarToast]
@@ -122,7 +110,7 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
   const handleGuardar = async () => {
     if (!configBorrador) return;
     if (configBorrador.tiempo_alerta_ambar_min <= configBorrador.tiempo_optimo_verde_min) {
-      mostrarToast('Corrige los umbrales: el tiempo ámbar debe ser mayor al verde', 'error');
+      mostrarToast('Corrige los tiempos: el ámbar debe ser mayor que el verde', 'error');
       return;
     }
 
@@ -141,20 +129,19 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
       if (resp.exito && resp.datos) {
         setConfigOriginal(JSON.parse(JSON.stringify(resp.datos)));
         setConfigBorrador(JSON.parse(JSON.stringify(resp.datos)));
-        mostrarToast(
-          IS_REAL_API
-            ? 'Configuración KDS guardada exitosamente.'
-            : 'Configuracion de KDS sincronizada con cocina y salon en menos de 30 ms.',
-          'exito'
-        );
+        mostrarToast('Tiempos de cocina guardados', 'exito');
       } else {
-        mostrarToast(resp.errores?.[0]?.mensaje || 'Error al persistir parámetros', 'error');
+        mostrarToast(resp.errores?.[0]?.mensaje || 'No se pudo guardar la configuración', 'error');
       }
     } catch {
-      mostrarToast('Error de conexión al guardar configuración', 'error');
+      mostrarToast('Error de conexión al guardar la configuración', 'error');
     } finally {
       setIsGuardando(false);
     }
+  };
+
+  const handleDescartar = () => {
+    if (configOriginal) setConfigBorrador(JSON.parse(JSON.stringify(configOriginal)));
   };
 
   // Restaurar valores recomendados estándar de la industria
@@ -165,12 +152,13 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
       if (resp.exito && resp.datos) {
         setConfigOriginal(JSON.parse(JSON.stringify(resp.datos)));
         setConfigBorrador(JSON.parse(JSON.stringify(resp.datos)));
-        mostrarToast('Valores estándar de la industria restablecidos (15m verde / 25m ámbar / 3m pase)', 'info');
+        mostrarToast('Valores recomendados restablecidos', 'info');
       }
     } catch {
-      mostrarToast('Error al restablecer valores por defecto', 'error');
+      mostrarToast('Error al restablecer los valores recomendados', 'error');
     } finally {
       setIsGuardando(false);
+      setConfirmarRestaurar(false);
     }
   };
 
@@ -183,70 +171,57 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
     });
   };
 
-  if (cargando || !configBorrador) {
-    return (
-      <div className="min-h-screen bg-aurea-ivory/40 p-8 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-aurea-copper border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-sm font-mono text-slate-600">Cargando parámetros de KDS de sede...</span>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-slate-50/60 pb-16">
-      {/* Toast Flotante */}
-      {toastMensaje && (
-        <div
-          className={`fixed top-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-xl text-xs font-semibold border transition-all animate-fadeIn ${
-            toastMensaje.tipo === 'exito'
-              ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-              : toastMensaje.tipo === 'error'
-              ? 'bg-rose-50 border-rose-300 text-rose-800'
-              : 'bg-blue-50 border-blue-300 text-blue-800'
-          }`}
-        >
-          {toastMensaje.tipo === 'exito' && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
-          {toastMensaje.tipo === 'error' && <AlertCircle className="w-4 h-4 text-rose-600" />}
-          {toastMensaje.tipo === 'info' && <Info className="w-4 h-4 text-blue-600" />}
-          <span>{toastMensaje.texto}</span>
+    <div className="space-y-6">
+      <KdsConfigHeader isDirty={isDirty} />
+
+      {cargando ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" aria-busy="true" aria-label="Cargando tiempos de cocina">
+          <Skeleton className="h-[36rem] rounded-2xl" />
+          <Skeleton className="h-[30rem] rounded-2xl" />
         </div>
-      )}
-
-      {/* Cabecera */}
-      <KdsConfigHeader isDirty={isDirty} sseConectado={sseConectado} />
-
-      {/* Contenedor Principal: 2 Columnas (50% Formulario - 50% Simulador KDS) */}
-      <main className="max-w-7xl mx-auto px-6 pt-6">
+      ) : !configBorrador ? (
+        <EstadoError mensaje="No se pudo cargar la configuración de cocina." onReintentar={cargarDatos} />
+      ) : (
+        // Formulario a la izquierda y vista previa a la derecha; apilados en móvil y tablet
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-          {/* Columna Izquierda: Formulario de Parámetros */}
           <KdsParametrosForm
             config={configBorrador}
-            onChange={(nueva) => setConfigBorrador(nueva)}
+            onChange={setConfigBorrador}
             onGuardar={handleGuardar}
-            onRestaurarDefaults={handleRestaurarDefaults}
+            onDescartar={handleDescartar}
+            onRestaurarDefaults={() => setConfirmarRestaurar(true)}
             onTestAudio={handleTestAudio}
             isDirty={isDirty}
             isGuardando={isGuardando}
             errorValidacion={errorValidacion}
           />
-
-          {/* Columna Derecha: Simulador de Semáforo en Tiempo Real (Dark Theme KDS) */}
-          <KdsSimuladorSemaforo
-            config={configBorrador}
-            onTestAudio={handleTestAudio}
-          />
+          <div className="lg:sticky lg:top-6">
+            <KdsSimuladorSemaforo config={configBorrador} />
+          </div>
         </div>
-      </main>
+      )}
+
+      <ModalConfirmacion
+        abierto={confirmarRestaurar}
+        onCerrar={() => setConfirmarRestaurar(false)}
+        onConfirmar={handleRestaurarDefaults}
+        tono="alerta"
+        titulo="¿Volver a los valores recomendados?"
+        mensaje="Se guardan al instante: verde hasta 15 min, ámbar hasta 25 min y 3 min en el pase. Se pierden los cambios sin guardar."
+        textoConfirmar="Restablecer"
+        cargando={isGuardando}
+      />
 
       {/* Widget QA Sandbox flotante */}
-      {!IS_REAL_API && (
-        <DemoKdsConfigWidget
-          onAplicarPreset={handleAplicarPreset}
-          onResetCanonica={handleRestaurarDefaults}
-        />
-      )}
+      <SoloDemo>
+        {!IS_REAL_API && (
+          <DemoKdsConfigWidget
+            onAplicarPreset={handleAplicarPreset}
+            onResetCanonica={handleRestaurarDefaults}
+          />
+        )}
+      </SoloDemo>
     </div>
   );
 };

@@ -18,25 +18,25 @@ export const DemoAdminHorarioWidget: React.FC<DemoAdminHorarioWidgetProps> = ({
 
   return (
     <div className="fixed bottom-4 right-4 z-40 font-sans">
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-300 overflow-hidden w-80 transition-all duration-200">
+      <div className="bg-white rounded-2xl shadow-xl border border-tinta-300 overflow-hidden w-80 transition-all duration-200">
         {/* Barra superior del widget */}
         <button
           type="button"
           onClick={() => setAbierto(!abierto)}
-          className="w-full px-4 py-3 bg-gray-900 text-white flex items-center justify-between hover:bg-gray-800 transition cursor-pointer"
+          className="w-full px-4 py-3 bg-tinta-900 text-white flex items-center justify-between hover:bg-tinta-800 transition cursor-pointer"
         >
           <div className="flex items-center gap-2 text-xs font-bold tracking-wide">
             <Wrench className="w-4 h-4 text-amber-400" />
-            <span>QA TEST BENCH: HORARIO & FERIADOS</span>
+            <span>QA: horario y feriados</span>
           </div>
           {abierto ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
         </button>
 
         {/* Opciones cuando está desplegado */}
         {abierto && (
-          <div className="p-4 space-y-2.5 bg-gray-50 text-xs">
-            <p className="text-[11px] text-gray-500 mb-2">
-              Atajos de prueba rápida para verificar los casos de uso de CU-ADMIN-09:
+          <div className="p-4 space-y-2.5 bg-tinta-50 text-xs">
+            <p className="text-xs text-tinta-500 mb-2">
+              Atajos de prueba:
             </p>
 
             <button
@@ -57,7 +57,7 @@ export const DemoAdminHorarioWidget: React.FC<DemoAdminHorarioWidgetProps> = ({
                 onCargarFeriadosPeru();
                 setAbierto(false);
               }}
-              className="w-full text-left p-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 text-gray-800 font-medium flex items-center gap-2 transition shadow-xs"
+              className="w-full text-left p-2.5 bg-white border border-tinta-200 rounded-lg hover:bg-tinta-100 text-tinta-800 font-medium flex items-center gap-2 transition shadow-xs"
             >
               <Calendar className="w-4 h-4 text-red-600 shrink-0" />
               <span>2. Cargar Feriados Nacionales Perú 2026</span>
@@ -69,9 +69,9 @@ export const DemoAdminHorarioWidget: React.FC<DemoAdminHorarioWidgetProps> = ({
                 onSimularSedeSinHorario();
                 setAbierto(false);
               }}
-              className="w-full text-left p-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 text-gray-800 font-medium flex items-center gap-2 transition shadow-xs"
+              className="w-full text-left p-2.5 bg-white border border-tinta-200 rounded-lg hover:bg-tinta-100 text-tinta-800 font-medium flex items-center gap-2 transition shadow-xs"
             >
-              <Clock className="w-4 h-4 text-gray-500 shrink-0" />
+              <Clock className="w-4 h-4 text-tinta-500 shrink-0" />
               <span>3. Simular Sede sin Horario (Empty State)</span>
             </button>
 
@@ -81,7 +81,7 @@ export const DemoAdminHorarioWidget: React.FC<DemoAdminHorarioWidgetProps> = ({
                 onRestablecerSemillas();
                 setAbierto(false);
               }}
-              className="w-full text-left p-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 text-gray-800 font-medium flex items-center gap-2 transition shadow-xs"
+              className="w-full text-left p-2.5 bg-white border border-tinta-200 rounded-lg hover:bg-tinta-100 text-tinta-800 font-medium flex items-center gap-2 transition shadow-xs"
             >
               <RotateCcw className="w-4 h-4 text-blue-600 shrink-0" />
               <span>4. Restablecer Semillas Canónicas Áurea</span>

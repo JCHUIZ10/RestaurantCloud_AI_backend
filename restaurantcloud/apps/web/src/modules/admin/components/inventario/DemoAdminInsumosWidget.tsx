@@ -45,8 +45,8 @@ export const DemoAdminInsumosWidget: React.FC<DemoAdminInsumosWidgetProps> = ({
             </button>
           </div>
 
-          <p className="text-[11px] text-aurea-navy/70">
-            Herramientas interactivas para evaluar los estados operativos del Caso de Uso <strong>CU-ADMIN-03</strong>.
+          <p className="text-xs text-aurea-navy/70">
+            Herramientas interactivas para evaluar los estados operativos.
           </p>
 
           <div className="space-y-1.5">
@@ -101,7 +101,7 @@ export const DemoAdminInsumosWidget: React.FC<DemoAdminInsumosWidgetProps> = ({
             </button>
           </div>
 
-          <div className="pt-2 border-t border-aurea-champagne/40 flex items-center justify-between text-[11px] text-aurea-navy/60">
+          <div className="pt-2 border-t border-aurea-champagne/40 flex items-center justify-between text-xs text-aurea-navy/60">
             <span className="flex items-center gap-1">
               <FileText className="w-3 h-3 text-aurea-copper" />
               Auditorías en memoria:

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Clock, Users, User, AlertTriangle, UtensilsCrossed } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '@/router/routes.constants';
 
 interface PrecuentaHeaderProps {
   mesaId: string;
@@ -32,7 +33,7 @@ export const PrecuentaHeader: React.FC<PrecuentaHeaderProps> = ({
           {/* Lado izquierdo: Botón volver + Identificación de mesa */}
           <div className="flex items-center space-x-3">
             <button
-              onClick={() => navigate('/mozo/mesas')}
+              onClick={() => navigate(ROUTES.MOZO_MESAS)}
               className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-[#F4D7B0] transition-colors border border-[#D5A06F]/30 focus:outline-none focus:ring-2 focus:ring-[#D5A06F]"
               title="Volver al plano de salón"
               aria-label="Volver a mesas"
@@ -78,7 +79,7 @@ export const PrecuentaHeader: React.FC<PrecuentaHeaderProps> = ({
             </div>
 
             <button
-              onClick={() => navigate(`/mozo/mesas/${mesaId}/comanda`)}
+              onClick={() => navigate(ROUTES.MOZO_COMANDA(mesaId))}
               className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#D5A06F]/20 hover:bg-[#D5A06F]/30 text-[#F4D7B0] border border-[#D5A06F]/50 font-medium transition-colors"
             >
               <UtensilsCrossed className="w-3.5 h-3.5" />

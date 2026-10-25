@@ -21,6 +21,8 @@ export const ROUTES = {
   SEDE_COMPROBANTE: (slug: string = ':slug', id: string = ':numero') => `/sede/${slug}/comprobante/${id}`,
   COMPROBANTE_DIRECTO: (token: string = ':token') => `/c/${token}`,
   COMPROBANTE_BUSQUEDA: '/comprobante',
+  // Carta de la sede demo usada en enlaces públicos
+  CARTA_DEMO: '/sede/aurea-miraflores/carta',
 
   // Portal Propietario (Multi-Local & Corporativo)
   // [PRÓXIMO ENTREGABLE - FASE 2]: Resumen general corporativo multi-sede

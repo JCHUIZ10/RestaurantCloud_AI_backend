@@ -16,7 +16,8 @@ import { Paso4PagoStripe } from '../components/registro/Paso4PagoStripe';
 import { Paso5RegistroExitoso } from '../components/registro/Paso5RegistroExitoso';
 import { DemoRegistroWidget } from '../components/registro/DemoRegistroWidget';
 import { useAuthStore } from '@/stores/authStore';
-import { ROUTES } from '@/router/routes.constants';
+import { homeDeRol } from '@/router/accesoPorRol';
+import { SoloDemo } from '@/components/ui/SoloDemo';
 
 export const RegistroEmpresaPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -308,7 +309,7 @@ export const RegistroEmpresaPage: React.FC = () => {
         resultadoCompletado.token
       );
     }
-    navigate(ROUTES.PROPIETARIO_DASHBOARD);
+    navigate(homeDeRol('propietario'), { replace: true });
   };
 
   return (
@@ -386,11 +387,13 @@ export const RegistroEmpresaPage: React.FC = () => {
       </main>
 
       {/* 3. Widget Interactivo de Pruebas (Demo CU-PROP-01) - Visible exclusivamente en Paso 2 */}
-      {pasoActual === 2 && (
-        <DemoRegistroWidget
-          onAutoLlenarForm={(data) => handleUpdateForm(data)}
-        />
-      )}
+      <SoloDemo>
+        {pasoActual === 2 && (
+          <DemoRegistroWidget
+            onAutoLlenarForm={(data) => handleUpdateForm(data)}
+          />
+        )}
+      </SoloDemo>
     </div>
   );
 };

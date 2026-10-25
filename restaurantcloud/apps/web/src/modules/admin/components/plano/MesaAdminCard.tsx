@@ -1,113 +1,66 @@
 import React from 'react';
 import { MesaAdminDTO } from '@/types/admin';
-import { Users, Link2, Edit3, AlertCircle } from 'lucide-react';
+import { Users, Link2 } from 'lucide-react';
+import { EstadoBadge } from '@/components/ui';
+import { cn } from '@/shared/utils';
 
 interface MesaAdminCardProps {
   mesa: MesaAdminDTO;
   onEditarMesa: (mesa: MesaAdminDTO) => void;
 }
 
-export const MesaAdminCard: React.FC<MesaAdminCardProps> = ({ mesa, onEditarMesa }) => {
-  const isRedonda = mesa.forma === 'redonda';
-  const isRectangular = mesa.forma === 'rectangular';
-  const isOcupada = mesa.tiene_pedido_activo;
-  const estaUnidaAGrupo = Boolean(mesa.mesa_principal_id);
+const FORMA: Record<MesaAdminDTO['forma'], string> = {
+  cuadrada: 'rounded-2xl min-h-[128px]',
+  redonda: 'rounded-full aspect-square',
+  rectangular: 'rounded-xl min-h-[96px] self-center',
+};
 
-  // Estilos de forma geométrica fiel a la especificación ÁUREA
-  const getShapeClasses = () => {
-    if (isRedonda) {
-      return 'rounded-full aspect-square border-2';
-    }
-    if (isRectangular) {
-      return 'rounded-2xl border-2 col-span-1 min-h-[140px]';
-    }
-    // Cuadrada por defecto
-    return 'rounded-2xl border-2 min-h-[140px]';
-  };
+export const MesaAdminCard: React.FC<MesaAdminCardProps> = ({ mesa, onEditarMesa }) => {
+  const bloqueada = mesa.estado === 'bloqueada';
+  const ocupada = mesa.tiene_pedido_activo;
+  const enGrupo = Boolean(mesa.mesa_principal_id);
+  const nombre = /^(mesa\b)/i.test(mesa.numero) ? mesa.numero : `Mesa ${mesa.numero}`;
 
   return (
-    <div
+    <button
+      type="button"
       onClick={() => onEditarMesa(mesa)}
-      className={`relative p-3.5 sm:p-4 flex flex-col justify-between cursor-pointer transition-all duration-200 select-none hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] ${getShapeClasses()} ${
-        isOcupada
-          ? 'bg-rose-50/60 border-rose-400 text-aurea-navy'
-          : 'bg-white border-aurea-copper/40 text-aurea-navy hover:border-aurea-copper'
-      }`}
+      aria-label={`Editar ${nombre}, ${mesa.capacidad} personas, ${ocupada ? 'ocupada' : bloqueada ? 'bloqueada' : 'libre'}`}
+      className={cn(
+        'relative w-full p-3 flex flex-col items-center justify-center gap-1.5 text-center border-2 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98]',
+        FORMA[mesa.forma] ?? FORMA.cuadrada,
+        ocupada
+          ? 'bg-estado-error-50 border-estado-error-300'
+          : bloqueada
+            ? 'bg-estado-alerta-50 border-estado-alerta-300'
+            : 'bg-white border-aurea-copper/40 hover:border-aurea-copper'
+      )}
     >
-      {/* Cabecera de la Tarjeta: Número y Estado */}
-      <div className="flex items-center justify-between gap-1 w-full">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="font-serif font-bold text-base sm:text-lg text-aurea-navy">
-            {/^(mesa\b)/i.test(mesa.numero) ? mesa.numero : `Mesa ${mesa.numero}`}
-          </span>
-          {mesa.permite_union && (
-            <span title="Permite unión de grupos" className="text-aurea-copper">
-              <Link2 className="w-3.5 h-3.5" />
-            </span>
-          )}
-        </div>
+      <span className="flex items-center gap-1 font-serif font-bold text-lg leading-tight text-aurea-navy">
+        {nombre}
+        {mesa.permite_union && <Link2 className="w-3.5 h-3.5 text-aurea-copper" aria-hidden="true" />}
+      </span>
 
-        {/* Indicador de Estado Operativo */}
-        {mesa.estado === 'bloqueada' ? (
-          <span className="text-xs font-bold text-amber-800">Bloqueada</span>
-        ) : isOcupada ? (
-          <span
-            title="Mesa con comanda activa en salón"
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-300 animate-pulse shrink-0"
-          >
-            <AlertCircle className="w-3 h-3" />
-            <span>Ocupada</span>
-          </span>
-        ) : (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-            Libre
-          </span>
-        )}
-      </div>
+      <span className="flex items-center gap-1 text-xs font-medium text-aurea-navy/70">
+        <Users className="w-3.5 h-3.5 text-aurea-copper" aria-hidden="true" />
+        {mesa.capacidad} pers.
+      </span>
 
-      {/* Cuerpo Central: Capacidad, Forma y Estado de Unión */}
-      <div className="my-2 flex flex-col items-start gap-1">
-        <div className="flex items-center gap-1.5 text-xs text-aurea-navy/80 font-medium">
-          <Users className="w-3.5 h-3.5 text-aurea-copper" />
-          <span>Cap: {mesa.capacidad} pers.</span>
-        </div>
+      {bloqueada ? (
+        <EstadoBadge tono="alerta">Bloqueada</EstadoBadge>
+      ) : ocupada ? (
+        <EstadoBadge tono="error">Ocupada</EstadoBadge>
+      ) : (
+        <EstadoBadge tono="ok">Libre</EstadoBadge>
+      )}
 
-        <div className="flex items-center gap-1.5 text-[11px] text-aurea-navy/60">
-          <span className="capitalize">{mesa.forma}</span>
-          <span>·</span>
-          <span>{mesa.permite_union ? 'Unible' : 'Fija'}</span>
-        </div>
+      {enGrupo && <EstadoBadge tono="info" icono={Link2}>En grupo</EstadoBadge>}
 
-        {estaUnidaAGrupo && (
-          <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-            <span>🔗 En grupo</span>
-          </div>
-        )}
-
-        {isOcupada && mesa.comanda_activa_codigo && (
-          <div className="mt-1 text-[11px] font-mono font-semibold text-rose-700 bg-rose-100/80 px-2 py-0.5 rounded-md">
-            {mesa.comanda_activa_codigo} · S/ {(mesa.total_cuenta_activa || 0).toFixed(2)}
-          </div>
-        )}
-      </div>
-
-      {/* Pie de la Tarjeta: Acción rápida de edición */}
-      <div className="flex items-center justify-between pt-2 border-t border-aurea-copper/15 w-full text-[11px]">
-        <span className="text-aurea-navy/50 font-mono">
-          ({mesa.posicion_x},{mesa.posicion_y})
+      {ocupada && mesa.comanda_activa_codigo && (
+        <span className="text-xs font-semibold tabular-nums text-estado-error-800 truncate max-w-full">
+          S/ {(mesa.total_cuenta_activa || 0).toFixed(2)}
         </span>
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onEditarMesa(mesa);
-          }}
-          className="flex items-center gap-1 text-aurea-navy font-semibold hover:text-aurea-copper transition-colors"
-        >
-          <Edit3 className="w-3 h-3 text-aurea-copper" />
-          <span>Editar</span>
-        </button>
-      </div>
-    </div>
+      )}
+    </button>
   );
 };

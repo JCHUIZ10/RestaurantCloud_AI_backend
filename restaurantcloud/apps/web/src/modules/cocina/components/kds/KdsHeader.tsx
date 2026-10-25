@@ -1,6 +1,8 @@
 import React from 'react';
 import { Wifi, Volume2, VolumeX, LayoutGrid, Layers, Clock } from 'lucide-react';
 import { ConfiguracionKDSDTO } from '@/types/cocina';
+import { useAuthStore } from '@/stores/authStore';
+import { BotonSalir } from '@/components/ui/BotonSalir';
 
 interface KdsHeaderProps {
   horaActual: string;
@@ -43,6 +45,8 @@ export const KdsHeader: React.FC<KdsHeaderProps> = ({
   platosAgotadosCount = 0,
   onAbrirDisponibilidad,
 }) => {
+  const usuario = useAuthStore((s) => s.usuario);
+
   return (
     <header className="bg-slate-900 border-b border-slate-800 shrink-0 text-slate-100 select-none shadow-md">
       {/* Fila 1: Título, Reloj, Conectividad y Chef de Turno */}
@@ -142,15 +146,14 @@ export const KdsHeader: React.FC<KdsHeaderProps> = ({
             </span>
           </button>
 
-          {/* Chef Roberto */}
+          {/* Usuario en turno y salida */}
           <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
-            <div className="w-7 h-7 rounded-full bg-aurea-copper/20 border border-aurea-copper/40 flex items-center justify-center text-aurea-copper font-bold text-xs">
-              CK
-            </div>
-            <div className="hidden lg:block leading-tight text-left">
-              <p className="font-bold text-xs text-slate-200">Chef Roberto</p>
-              <p className="text-[10px] text-slate-400">Jefe de Cocina</p>
-            </div>
+            {usuario && (
+              <span className="hidden lg:block text-xs font-semibold text-slate-200 max-w-40 truncate">
+                {usuario.nombre}
+              </span>
+            )}
+            <BotonSalir tono="oscuro" />
           </div>
         </div>
       </div>

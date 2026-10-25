@@ -1,5 +1,6 @@
 import React from 'react';
-import { UtensilsCrossed, Plus, Sparkles } from 'lucide-react';
+import { UtensilsCrossed, Plus, Sparkles, FolderTree, Package, TrendingUp, type LucideIcon } from 'lucide-react';
+import { Button } from '@/components/ui';
 
 interface OnboardingCartaVaciaProps {
   onCrearPrimerPlato: () => void;
@@ -7,84 +8,66 @@ interface OnboardingCartaVaciaProps {
   habilitarReceta?: boolean;
 }
 
+const PASOS: Array<{ icono: LucideIcon; titulo: string; texto: string }> = [
+  { icono: FolderTree, titulo: 'Categoría', texto: 'Cada plato va en una sección: Entradas, Fondos, Bebidas…' },
+  { icono: Package, titulo: 'Insumos', texto: 'Vincula los ingredientes de bodega que consume cada ración.' },
+  { icono: TrendingUp, titulo: 'Margen', texto: 'Con precio y receta ves la ganancia de cada plato al instante.' },
+];
+
 export const OnboardingCartaVacia: React.FC<OnboardingCartaVaciaProps> = ({
   onCrearPrimerPlato,
   onCargarSemillasAurea,
   habilitarReceta = true,
 }) => {
+  const pasos = habilitarReceta ? PASOS : PASOS.slice(0, 1);
+
   return (
-    <div className="bg-white rounded-3xl border border-aurea-champagne/40 p-8 lg:p-12 shadow-sm text-center max-w-3xl mx-auto my-8">
-      <div className="w-16 h-16 rounded-2xl bg-aurea-champagne/30 border border-aurea-copper/30 flex items-center justify-center text-aurea-copper mx-auto mb-4 shadow-sm">
-        <UtensilsCrossed className="w-8 h-8" />
+    <div className="bg-white rounded-2xl border border-aurea-copper/30 border-t-4 border-t-aurea-copper shadow-md p-6 sm:p-10 text-center space-y-8">
+      <div className="space-y-2">
+        <span className="mx-auto w-14 h-14 rounded-2xl bg-aurea-navy text-aurea-champagne ring-1 ring-aurea-copper/40 flex items-center justify-center">
+          <UtensilsCrossed className="w-7 h-7" aria-hidden="true" />
+        </span>
+        <h2 className="font-serif text-2xl font-bold text-aurea-navy">Tu carta aún no tiene platos</h2>
+        <p className="text-sm text-aurea-navy/70 max-w-xl mx-auto">
+          Registra tus platos para venderlos en salón y en la comanda de los mozos.
+        </p>
       </div>
 
-      <h2 className="text-xl lg:text-2xl font-serif font-bold text-aurea-navy tracking-tight">
-        Tu Carta Aún No Tiene Platos Registrados
-      </h2>
-      <p className="text-sm text-aurea-navy/70 mt-2 max-w-xl mx-auto">
-        {habilitarReceta
-          ? 'Para habilitar la venta en salón y la comanda móvil de mozos, registra tus platos vinculando su categoría obligatoria y los insumos de su receta culinaria.'
-          : 'Registra los datos comerciales de tus productos y asígnalos a una categoría de la carta.'}
-      </p>
+      <ol className={`grid grid-cols-1 ${pasos.length > 1 ? 'sm:grid-cols-3' : ''} gap-4 max-w-3xl mx-auto text-left`}>
+        {pasos.map(({ icono: Icono, titulo, texto }, i) => (
+          <li key={titulo} className="p-4 rounded-xl bg-aurea-ivory border border-aurea-champagne space-y-2">
+            <span className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg bg-aurea-copper text-aurea-navy font-serif font-bold text-sm flex items-center justify-center">
+                {i + 1}
+              </span>
+              <Icono className="w-4 h-4 text-aurea-copper" aria-hidden="true" />
+              <span className="font-semibold text-aurea-navy">{titulo}</span>
+            </span>
+            <p className="text-sm text-aurea-navy/70">{texto}</p>
+          </li>
+        ))}
+      </ol>
 
-      {/* 3 Pasos del Onboarding */}
-      <div className={`grid grid-cols-1 ${habilitarReceta ? 'sm:grid-cols-3' : 'sm:grid-cols-1'} gap-4 my-8 text-left`}>
-        <div className="p-4 rounded-2xl bg-aurea-champagne/15 border border-aurea-champagne/40 space-y-2">
-          <div className="w-7 h-7 rounded-lg bg-aurea-copper/20 text-aurea-copper flex items-center justify-center font-bold text-xs">
-            1
-          </div>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-aurea-navy">
-            Categoría Obligatoria
-          </h3>
-          <p className="text-xs text-aurea-navy/60">
-            Secciones como Entradas, Fondos o Bebidas configuradas en CU-ADMIN-02.
-          </p>
-        </div>
-
-        {habilitarReceta && (<div className="p-4 rounded-2xl bg-aurea-champagne/15 border border-aurea-champagne/40 space-y-2">
-          <div className="w-7 h-7 rounded-lg bg-aurea-copper/20 text-aurea-copper flex items-center justify-center font-bold text-xs">
-            2
-          </div>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-aurea-navy">
-            Insumos de Almacén
-          </h3>
-          <p className="text-xs text-aurea-navy/60">
-            Ingredientes en kilos, sacos o botellas registrados en CU-ADMIN-03.
-          </p>
-        </div>)}
-
-        {habilitarReceta && (<div className="p-4 rounded-2xl bg-aurea-champagne/15 border border-aurea-champagne/40 space-y-2">
-          <div className="w-7 h-7 rounded-lg bg-aurea-copper/20 text-aurea-copper flex items-center justify-center font-bold text-xs">
-            3
-          </div>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-aurea-navy">
-            Receta Dual y Margen
-          </h3>
-          <p className="text-xs text-aurea-navy/60">
-            Dosifica por rinde o cantidad directa y obtén tu margen de ganancia en vivo.
-          </p>
-        </div>)}
-      </div>
-
-      {/* Botones de Acción */}
       <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-        <button
-          type="button"
+        <Button
+          size="lg"
+          className="w-full sm:w-auto"
           onClick={onCrearPrimerPlato}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-aurea-copper hover:bg-aurea-copper/90 text-white text-sm font-bold transition-all shadow-md hover:shadow-lg min-h-[44px]"
+          leftIcon={<Plus className="w-4 h-4 text-aurea-champagne" aria-hidden="true" />}
         >
-          <Plus className="w-4 h-4 stroke-[2.5]" />
-          <span>Crear Mi Primer Plato</span>
-        </button>
-
-        {habilitarReceta && (<button
-          type="button"
-          onClick={onCargarSemillasAurea}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white border border-aurea-champagne/80 hover:bg-aurea-champagne/20 text-aurea-navy text-sm font-semibold transition-all min-h-[44px]"
-        >
-          <Sparkles className="w-4 h-4 text-aurea-copper" />
-          <span>Cargar Carta Canónica Áurea</span>
-        </button>)}
+          Crear mi primer plato
+        </Button>
+        {habilitarReceta && (
+          <Button
+            size="lg"
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={onCargarSemillasAurea}
+            leftIcon={<Sparkles className="w-4 h-4 text-aurea-copper" aria-hidden="true" />}
+          >
+            Cargar carta de ejemplo
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet, useParams, Link } from 'react-router-dom';
 import { Utensils, MessageCircle, Phone, ArrowLeft } from 'lucide-react';
+import { ROUTES } from '@/router/routes.constants';
 
 export const SedeCustomerLayout: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -56,7 +57,7 @@ export const SedeCustomerLayout: React.FC = () => {
       <footer className="py-6 border-t border-aurea-copper/20 text-center text-xs text-aurea-navy/60 font-sans space-y-1">
         <p>Precios expresados en Soles (PEN S/) con IGV incluido.</p>
         <div className="flex items-center justify-center gap-2 pt-1">
-          <Link to="/" className="text-[11px] text-aurea-copper underline hover:text-aurea-navy flex items-center gap-1">
+          <Link to={ROUTES.HOME} className="text-[11px] text-aurea-copper underline hover:text-aurea-navy flex items-center gap-1">
             <ArrowLeft className="w-3 h-3" /> Conoce RestaurantCloud AI
           </Link>
         </div>

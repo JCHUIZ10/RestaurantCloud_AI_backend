@@ -19,12 +19,11 @@ import { ModalConfigurarTransferencia } from '../components/metodos_pago/ModalCo
 import { ModalBloqueoMinimoUnPago } from '../components/metodos_pago/ModalBloqueoMinimoUnPago';
 import { OnboardingMetodosPagoView } from '../components/metodos_pago/OnboardingMetodosPagoView';
 import { DemoAdminMetodosPagoWidget } from '../components/metodos_pago/DemoAdminMetodosPagoWidget';
-import { CheckCircle2, AlertCircle, Info, Loader2 } from 'lucide-react';
+import { Skeleton, SoloDemo, useToast } from '@/components/ui';
 
 export const AdminMetodosPagoPage: React.FC = () => {
   const [cargando, setCargando] = useState(true);
   const [isGuardando, setIsGuardando] = useState(false);
-  const sseConectado = !IS_REAL_API;
 
   // Estados del catálogo
   const [metodosOriginales, setMetodosOriginales] = useState<MetodoPagoLocalDTO[]>([]);
@@ -36,7 +35,6 @@ export const AdminMetodosPagoPage: React.FC = () => {
     ventas_tarjeta_mes: 0,
     recargos_percibidos_mes: 0,
   });
-  const [sedeNombre, setSedeNombre] = useState('Sede Principal - Áurea Miraflores');
   const [esSedeNueva, setEsSedeNueva] = useState(false);
 
   // Modales
@@ -45,20 +43,10 @@ export const AdminMetodosPagoPage: React.FC = () => {
   const [modalBloqueoOpen, setModalBloqueoOpen] = useState(false);
   const [metodoBloqueadoNombre, setMetodoBloqueadoNombre] = useState('Efectivo');
 
-  // Toasts
-  const [toastMensaje, setToastMensaje] = useState<{
-    tipo: 'exito' | 'error' | 'info';
-    texto: string;
-  } | null>(null);
-
+  const { mostrar } = useToast();
   const mostrarToast = useCallback(
-    (texto: string, tipo: 'exito' | 'error' | 'info' = 'exito') => {
-      setToastMensaje({ tipo, texto });
-      setTimeout(() => {
-        setToastMensaje(null);
-      }, 4500);
-    },
-    []
+    (texto: string, tipo: 'exito' | 'error' | 'info' = 'exito') => mostrar(texto, tipo === 'exito' ? 'ok' : tipo),
+    [mostrar]
   );
 
   // Carga de catálogo y KPIs
@@ -70,7 +58,6 @@ export const AdminMetodosPagoPage: React.FC = () => {
         setMetodosOriginales(JSON.parse(JSON.stringify(resp.datos.metodos)));
         setMetodosBorrador(JSON.parse(JSON.stringify(resp.datos.metodos)));
         setKpis(resp.datos.kpis);
-        setSedeNombre(resp.datos.sede_nombre);
         setEsSedeNueva(resp.datos.metodos.length === 0);
       } else {
         mostrarToast(resp.errores?.[0]?.mensaje || 'No se pudo cargar el catálogo de pagos', 'error');
@@ -126,7 +113,7 @@ export const AdminMetodosPagoPage: React.FC = () => {
           ).replace(/\D/g, '');
           if (tel.length < 9) {
             mostrarToast(
-              'Para habilitar Yape / Plin, primero debes configurar el número celular receptor de la sede.',
+              'Para activar Yape / Plin, primero registra el celular del local.',
               'info'
             );
             setModalBilleteraOpen(true);
@@ -142,7 +129,7 @@ export const AdminMetodosPagoPage: React.FC = () => {
           const cci = metodoActual.datos_adicionales?.cci?.trim();
           if (!banco || (!cuenta && !cci)) {
             mostrarToast(
-              'Para habilitar transferencias bancarias, primero debes registrar la cuenta o CCI de la empresa.',
+              'Para activar transferencias, primero registra la cuenta o CCI de la empresa.',
               'info'
             );
             setModalTransferenciaOpen(true);
@@ -189,7 +176,7 @@ export const AdminMetodosPagoPage: React.FC = () => {
           };
         })
       );
-      mostrarToast('Billetera digital (Yape / Plin) configurada y habilitada con éxito.', 'exito');
+      mostrarToast('Yape / Plin configurado y activado. Recuerda guardar los cambios.', 'exito');
     },
     [mostrarToast]
   );
@@ -207,7 +194,7 @@ export const AdminMetodosPagoPage: React.FC = () => {
           };
         })
       );
-      mostrarToast('Datos bancarios para transferencias configurados y habilitados con éxito.', 'exito');
+      mostrarToast('Cuenta bancaria registrada y transferencias activadas. Recuerda guardar los cambios.', 'exito');
     },
     [mostrarToast]
   );
@@ -215,7 +202,7 @@ export const AdminMetodosPagoPage: React.FC = () => {
   // Descartar cambios
   const handleDescartar = useCallback(() => {
     setMetodosBorrador(JSON.parse(JSON.stringify(metodosOriginales)));
-    mostrarToast('Cambios no guardados descartados', 'info');
+    mostrarToast('Cambios descartados', 'info');
   }, [metodosOriginales, mostrarToast]);
 
   // Guardar cambios en el backend mock
@@ -238,7 +225,7 @@ export const AdminMetodosPagoPage: React.FC = () => {
         mostrarToast(
           IS_REAL_API
             ? 'Configuración guardada. Se aplicará a los siguientes cobros de Caja.'
-            : 'Configuración de métodos de pago y comisiones guardada con éxito. Actualizado en caja y salón.',
+            : 'Métodos de pago guardados. Ya se aplican en caja y salón.',
           'exito'
         );
       } else {
@@ -395,70 +382,50 @@ export const AdminMetodosPagoPage: React.FC = () => {
   const transferenciaActual = metodosBorrador.find((m) => m.codigo === 'transferencia');
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20 transition-colors">
-      {/* Toast Notification */}
-      {toastMensaje && (
-        <div
-          role="status"
-          aria-live="polite"
-          className={`fixed top-4 right-4 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs font-semibold animate-in slide-in-from-top-4 duration-200 border ${
-            toastMensaje.tipo === 'exito'
-              ? 'bg-emerald-600 text-white border-emerald-500'
-              : toastMensaje.tipo === 'error'
-              ? 'bg-rose-600 text-white border-rose-500'
-              : 'bg-slate-900 text-white border-slate-700 dark:bg-slate-100 dark:text-slate-900'
-          }`}
-        >
-          {toastMensaje.tipo === 'exito' && <CheckCircle2 className="w-4 h-4 flex-shrink-0" />}
-          {toastMensaje.tipo === 'error' && <AlertCircle className="w-4 h-4 flex-shrink-0" />}
-          {toastMensaje.tipo === 'info' && <Info className="w-4 h-4 flex-shrink-0" />}
-          <span>{toastMensaje.texto}</span>
-        </div>
-      )}
+    <div className="space-y-6">
+      <MetodosPagoHeader isDirty={isDirty} />
 
-      {/* Main Container */}
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
-        {/* Header */}
-        <MetodosPagoHeader sedeNombre={sedeNombre} isDirty={isDirty} sseConectado={sseConectado} />
-
-        {cargando ? (
-          <div className="py-24 flex flex-col items-center justify-center gap-3 text-slate-400">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-            <span className="text-sm font-medium">Cargando catálogo de métodos de pago...</span>
+      {cargando ? (
+        <div className="space-y-6" aria-busy="true" aria-label="Cargando métodos de pago">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-24 rounded-2xl" />
+            ))}
           </div>
-        ) : esSedeNueva ? (
-          /* Vista 4: Onboarding Inicial */
-          <OnboardingMetodosPagoView
-            onAprovisionarEstandar={handleAprovisionarEstandar}
-            onIniciarManual={handleIniciarManual}
-            isLoading={cargando}
-          />
-        ) : (
-          <>
-            {/* KPIs */}
-            <MetodosPagoKPIs kpis={kpis} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Skeleton className="h-96 rounded-2xl" />
+            <Skeleton className="h-96 rounded-2xl" />
+          </div>
+        </div>
+      ) : esSedeNueva ? (
+        <OnboardingMetodosPagoView
+          onAprovisionarEstandar={handleAprovisionarEstandar}
+          onIniciarManual={handleIniciarManual}
+          isLoading={cargando}
+        />
+      ) : (
+        <>
+          <MetodosPagoKPIs kpis={kpis} />
 
-            {/* Vista 1: Split 50/50 Panel Principal */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-              {/* Columna Izquierda (50%): Catálogo de Métodos de Pago */}
-              <MetodosPagoCatalogo
-                metodos={metodosBorrador}
-                onToggleActivo={handleToggleActivo}
-                onCambiarComision={handleCambiarComision}
-                onOpenModalBilletera={() => setModalBilleteraOpen(true)}
-                onOpenModalTransferencia={() => setModalTransferenciaOpen(true)}
-                onGuardar={handleGuardar}
-                onDescartar={handleDescartar}
-                isDirty={isDirty}
-                isGuardando={isGuardando}
-              />
-
-              {/* Columna Derecha (50%): Simulador Espejo de Caja & Precuenta */}
+          {/* Catálogo a la izquierda y simulador de caja a la derecha; apilados en móvil y tablet */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <MetodosPagoCatalogo
+              metodos={metodosBorrador}
+              onToggleActivo={handleToggleActivo}
+              onCambiarComision={handleCambiarComision}
+              onOpenModalBilletera={() => setModalBilleteraOpen(true)}
+              onOpenModalTransferencia={() => setModalTransferenciaOpen(true)}
+              onGuardar={handleGuardar}
+              onDescartar={handleDescartar}
+              isDirty={isDirty}
+              isGuardando={isGuardando}
+            />
+            <div className="lg:sticky lg:top-6">
               <MetodosPagoSimulador metodos={metodosBorrador} />
             </div>
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      )}
 
       {/* Modales */}
       <ModalConfigurarBilletera
@@ -481,14 +448,16 @@ export const AdminMetodosPagoPage: React.FC = () => {
         metodoBloqueadoNombre={metodoBloqueadoNombre}
       />
 
-      {/* QA Floating Widget */}
-      {!IS_REAL_API && (
-        <DemoAdminMetodosPagoWidget
-          onAplicarPreset={handleAplicarPresetQA}
-          onSimularOnboarding={handleSimularOnboardingQA}
-          onRestablecerSemillas={handleRestablecerSemillasQA}
-        />
-      )}
+      {/* Laboratorio de pruebas (solo demo) */}
+      <SoloDemo>
+        {!IS_REAL_API && (
+          <DemoAdminMetodosPagoWidget
+            onAplicarPreset={handleAplicarPresetQA}
+            onSimularOnboarding={handleSimularOnboardingQA}
+            onRestablecerSemillas={handleRestablecerSemillasQA}
+          />
+        )}
+      </SoloDemo>
     </div>
   );
 };

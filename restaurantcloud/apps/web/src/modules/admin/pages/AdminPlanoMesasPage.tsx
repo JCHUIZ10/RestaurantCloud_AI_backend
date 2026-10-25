@@ -20,7 +20,7 @@ import { ModalNuevoPiso } from '../components/plano/ModalNuevoPiso';
 import { ModalEditarPiso } from '../components/plano/ModalEditarPiso';
 import { ModalBloqueoDesactivacion } from '../components/plano/ModalBloqueoDesactivacion';
 import { OnboardingPisoVacio } from '../components/plano/OnboardingPisoVacio';
-import { AlertCircle, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { EstadoError, Skeleton, useToast } from '@/components/ui';
 
 export const AdminPlanoMesasPage: React.FC = () => {
   const [data, setData] = useState<PlanoMesasResponseDTO | null>(null);
@@ -38,16 +38,9 @@ export const AdminPlanoMesasPage: React.FC = () => {
   const [pisoParaEditar, setPisoParaEditar] = useState<PisoAdminDTO | null>(null);
   const [conflictoDesactivacion, setConflictoDesactivacion] =
     useState<ConflictoDesactivacionMesaDTO | null>(null);
-  const [toastMessage, setToastMessage] = useState<{ tipo: 'exito' | 'error'; texto: string } | null>(
-    null
-  );
-
-  const showToast = (texto: string, tipo: 'exito' | 'error' = 'exito') => {
-    setToastMessage({ texto, tipo });
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 4000);
-  };
+  const { mostrar } = useToast();
+  const showToast = (texto: string, tipo: 'exito' | 'error' = 'exito') =>
+    mostrar(texto, tipo === 'exito' ? 'ok' : 'error');
 
   const cargarDatos = useCallback(async () => {
     try {
@@ -206,106 +199,80 @@ export const AdminPlanoMesasPage: React.FC = () => {
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-6 pb-20">
-      {/* Toast Notificación Flotante */}
-      {toastMessage && (
-        <div
-          className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border text-sm font-semibold animate-slideDown ${
-            toastMessage.tipo === 'exito'
-              ? 'bg-emerald-900 text-white border-emerald-500'
-              : 'bg-rose-900 text-white border-rose-500'
-          }`}
-        >
-          {toastMessage.tipo === 'exito' ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-          ) : (
-            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
-          )}
-          <span>{toastMessage.texto}</span>
-        </div>
-      )}
-
-      {/* ESTADO 1: Cargando / Skeleton */}
+    <div className="space-y-6">
       {loading && !data && (
-        <div className="space-y-6 animate-pulse">
-          <div className="h-20 bg-slate-200/80 rounded-2xl w-2/3" />
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="h-24 bg-slate-200/80 rounded-2xl" />
-            <div className="h-24 bg-slate-200/80 rounded-2xl" />
-            <div className="h-24 bg-slate-200/80 rounded-2xl" />
+        <div className="space-y-6" aria-busy="true" aria-label="Cargando plano de mesas">
+          <div className="space-y-2">
+            <Skeleton className="h-9 w-64 max-w-full" />
+            <Skeleton className="h-4 w-full max-w-xl" />
           </div>
-          <div className="h-12 bg-slate-200/80 rounded-xl w-1/2" />
-          <div className="h-96 bg-slate-200/80 rounded-3xl" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-28 rounded-2xl" />
+            ))}
+          </div>
+          <Skeleton className="h-96 rounded-2xl" />
         </div>
       )}
 
-      {/* ESTADO 2: Error de Red / Controlado */}
       {error && (
-        <div className="p-6 rounded-3xl bg-rose-50 border-2 border-rose-200 text-rose-900 space-y-3">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="w-6 h-6 text-rose-600" />
-            <h3 className="font-serif text-lg font-bold">Error al Cargar el Plano de Mesas</h3>
-          </div>
-          <p className="text-sm text-rose-700">{error}</p>
-          <button
-            onClick={cargarDatos}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-xs font-semibold transition-all shadow-sm"
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span>Reintentar Conexión</span>
-          </button>
-        </div>
+        <EstadoError
+          titulo="No se pudo cargar el plano de mesas"
+          mensaje={error}
+          onReintentar={cargarDatos}
+          reintentando={loading}
+        />
       )}
 
-      {/* ESTADO 3: Loaded Exitoso */}
       {data && (
         <>
-          {/* Cabecera, KPIs y Acción de Recarga */}
           <PlanoHeader
             cuota={data.cuota_mesas}
             totalCapacidadSentados={totalCapacidadSentados}
             totalMesasLocal={data.pisos.reduce((sum, p) => sum + p.total_mesas, 0)}
             totalPisosLocal={data.pisos.length}
-            localNombre={data.local_nombre}
             onAbrirMesaIndividual={() => {
               setPosicionNuevaMesa(null);
               setModalIndividualOpen(true);
             }}
-            onAbrirNuevoPiso={() => setModalNuevoPisoOpen(true)}
             onRecargar={cargarDatos}
             isReloading={loading}
           />
 
-          {/* Pestañas de Pisos y Controles de Cuadrícula */}
-          <PisosTabs
-            pisos={data.pisos}
-            pisoActivoId={pisoActivo?.id || ''}
-            onSeleccionarPiso={(id) => setPisoActivoId(id)}
-            onAbrirNuevoPiso={() => setModalNuevoPisoOpen(true)}
-            onAbrirEditarPiso={(piso) => setPisoParaEditar(piso)}
-            onModificarDimensiones={handleModificarDimensiones}
-            isUpdatingDimensions={isUpdatingDimensions}
-          />
-
-          {/* Cuadrícula o Onboarding si está vacío */}
-          {pisoActivo && pisoActivo.mesas.filter((m) => m.estado !== 'inactiva').length === 0 ? (
-            <OnboardingPisoVacio
-              pisoNombre={pisoActivo.nombre}
-              onAbrirAsistenteLote={() => setModalLoteOpen(true)}
-              onAbrirMesaIndividual={() => {
-                setPosicionNuevaMesa(null);
-                setModalIndividualOpen(true);
-              }}
+          <section
+            aria-label="Plano del ambiente"
+            className="bg-white rounded-2xl border border-aurea-copper/30 border-t-4 border-t-aurea-copper shadow-md overflow-hidden"
+          >
+            <PisosTabs
+              pisos={data.pisos}
+              pisoActivoId={pisoActivo?.id || ''}
+              onSeleccionarPiso={(id) => setPisoActivoId(id)}
+              onAbrirNuevoPiso={() => setModalNuevoPisoOpen(true)}
+              onAbrirEditarPiso={(piso) => setPisoParaEditar(piso)}
+              onModificarDimensiones={handleModificarDimensiones}
+              isUpdatingDimensions={isUpdatingDimensions}
+              puedeCrearPiso={data.cuota_mesas.pisos_activos_empresa < data.cuota_mesas.max_pisos_plan}
             />
-          ) : (
-            pisoActivo && (
-              <PlanoCuadriculaGrid
-                piso={pisoActivo}
-                onEditarMesa={(mesa) => setMesaEnEdicion(mesa)}
-                onAgregarMesaEnPosicion={handleAgregarEnPosicion}
+
+            {pisoActivo && pisoActivo.mesas.filter((m) => m.estado !== 'inactiva').length === 0 ? (
+              <OnboardingPisoVacio
+                pisoNombre={pisoActivo.nombre}
+                onAbrirAsistenteLote={() => setModalLoteOpen(true)}
+                onAbrirMesaIndividual={() => {
+                  setPosicionNuevaMesa(null);
+                  setModalIndividualOpen(true);
+                }}
               />
-            )
-          )}
+            ) : (
+              pisoActivo && (
+                <PlanoCuadriculaGrid
+                  piso={pisoActivo}
+                  onEditarMesa={(mesa) => setMesaEnEdicion(mesa)}
+                  onAgregarMesaEnPosicion={handleAgregarEnPosicion}
+                />
+              )
+            )}
+          </section>
         </>
       )}
 

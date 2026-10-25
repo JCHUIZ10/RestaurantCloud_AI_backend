@@ -1,81 +1,45 @@
 import React from 'react';
-import {
-  Boxes,
-  Zap,
-  PackageCheck,
-  ShieldAlert,
-  Plus,
-} from 'lucide-react';
+import { Boxes, Zap, PackageCheck, ShieldAlert, Plus, type LucideIcon } from 'lucide-react';
+import { Button } from '@/components/ui';
 
 interface OnboardingInsumosVacioProps {
   onAbrirNuevoInsumo: () => void;
 }
 
-export const OnboardingInsumosVacio: React.FC<OnboardingInsumosVacioProps> = ({
-  onAbrirNuevoInsumo,
-}) => {
-  return (
-    <div className="bg-white border border-aurea-champagne/60 rounded-3xl p-8 sm:p-12 text-center shadow-sm max-w-3xl mx-auto my-6">
-      {/* Icono de Despensa en Blanco */}
-      <div className="w-16 h-16 rounded-2xl bg-aurea-champagne/30 text-aurea-copper flex items-center justify-center mx-auto mb-4 border border-aurea-copper/20 shadow-inner">
-        <Boxes className="w-8 h-8" />
-      </div>
+const PILARES: Array<{ icono: LucideIcon; titulo: string; texto: string; color: string }> = [
+  { icono: Zap, titulo: 'Alta rápida', texto: 'Nombre, unidad, mínimo y costo. Sin categorías obligatorias.', color: 'bg-aurea-champagne/50 text-aurea-copper' },
+  { icono: PackageCheck, titulo: '10 unidades', texto: 'Kilo, litro, unidad y siete empaques comerciales.', color: 'bg-aurea-navy/10 text-aurea-navy' },
+  { icono: ShieldAlert, titulo: 'Carta protegida', texto: 'Si un insumo llega a cero, sus platos se pausan solos.', color: 'bg-estado-ok-100 text-estado-ok-700' },
+];
 
-      <h2 className="text-2xl font-serif font-bold text-aurea-navy tracking-tight">
-        Tu Despensa de Insumos está Vacía
-      </h2>
-      <p className="text-sm text-aurea-navy/70 mt-2 max-w-xl mx-auto leading-relaxed">
-        Esta sede fue iniciada con plantilla en blanco. Registra tus primeros insumos clave para vincularlos a las recetas de los platos y activar el control de stock en tiempo real.
+export const OnboardingInsumosVacio: React.FC<OnboardingInsumosVacioProps> = ({ onAbrirNuevoInsumo }) => (
+  <div className="bg-white rounded-2xl border border-aurea-copper/30 border-t-4 border-t-aurea-copper shadow-md p-6 sm:p-10 text-center space-y-8">
+    <div className="space-y-2">
+      <span className="mx-auto w-14 h-14 rounded-2xl bg-aurea-navy text-aurea-champagne ring-1 ring-aurea-copper/40 flex items-center justify-center">
+        <Boxes className="w-7 h-7" aria-hidden="true" />
+      </span>
+      <h2 className="font-serif text-2xl font-bold text-aurea-navy">Tu bodega aún no tiene insumos</h2>
+      <p className="text-sm text-aurea-navy/70 max-w-xl mx-auto">
+        Registra los insumos clave para vincularlos a las recetas y controlar el stock en tiempo real.
       </p>
-
-      {/* 3 Pilares de Valor */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8 mb-8 text-left">
-        <div className="p-4 rounded-2xl bg-aurea-champagne/15 border border-aurea-copper/20">
-          <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center mb-2.5">
-            <Zap className="w-4 h-4" />
-          </div>
-          <h4 className="text-xs font-bold text-aurea-navy uppercase tracking-wider">
-            Alta Ágil &lt; 8s
-          </h4>
-          <p className="text-xs text-aurea-navy/65 mt-1 leading-normal">
-            Sin formularios engorrosos ni categorías rígidas forzadas.
-          </p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-aurea-champagne/15 border border-aurea-copper/20">
-          <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center mb-2.5">
-            <PackageCheck className="w-4 h-4" />
-          </div>
-          <h4 className="text-xs font-bold text-aurea-navy uppercase tracking-wider">
-            10 Unidades
-          </h4>
-          <p className="text-xs text-aurea-navy/65 mt-1 leading-normal">
-            Catálogo cerrado estándar: kilos, litros, unidades y 7 empaques comerciales.
-          </p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-aurea-champagne/15 border border-aurea-copper/20">
-          <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center mb-2.5">
-            <ShieldAlert className="w-4 h-4" />
-          </div>
-          <h4 className="text-xs font-bold text-aurea-navy uppercase tracking-wider">
-            Protección Total
-          </h4>
-          <p className="text-xs text-aurea-navy/65 mt-1 leading-normal">
-            El stock en 0 bloquea automáticamente platos en salón y notifica a cocina.
-          </p>
-        </div>
-      </div>
-
-      {/* Botón Principal */}
-      <button
-        type="button"
-        onClick={onAbrirNuevoInsumo}
-        className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-aurea-copper hover:bg-aurea-copper/90 text-white font-semibold text-sm transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 min-h-[48px]"
-      >
-        <Plus className="w-5 h-5 stroke-[2.5]" />
-        <span>Registrar Mi Primer Insumo</span>
-      </button>
     </div>
-  );
-};
+
+    <ul className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto text-left">
+      {PILARES.map(({ icono: Icono, titulo, texto, color }) => (
+        <li key={titulo} className="p-4 rounded-xl bg-aurea-ivory border border-aurea-champagne space-y-2">
+          <span className="flex items-center gap-2">
+            <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${color}`} aria-hidden="true">
+              <Icono className="w-4 h-4" />
+            </span>
+            <span className="font-semibold text-aurea-navy">{titulo}</span>
+          </span>
+          <p className="text-sm text-aurea-navy/70">{texto}</p>
+        </li>
+      ))}
+    </ul>
+
+    <Button size="lg" onClick={onAbrirNuevoInsumo} leftIcon={<Plus className="w-4 h-4 text-aurea-champagne" aria-hidden="true" />}>
+      Registrar mi primer insumo
+    </Button>
+  </div>
+);

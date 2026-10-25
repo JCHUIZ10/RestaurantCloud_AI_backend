@@ -18,6 +18,7 @@ import {
   MesaCajaMonitorDTO,
   CajaMetricasPosDTO,
 } from '@/types/caja';
+import { BotonSalir } from '@/components/ui/BotonSalir';
 
 interface MonitorCajaPosViewProps {
   turnoActivo: CajaTurnoDTO;
@@ -127,6 +128,8 @@ export const MonitorCajaPosView: React.FC<MonitorCajaPosViewProps> = ({
             <Lock className="w-3.5 h-3.5 text-amber-500" />
             <span>Arqueo / Cierre Z</span>
           </button>
+
+          <BotonSalir />
         </div>
       </div>
 

@@ -19,6 +19,7 @@ import { ModalDetalleIncidentePropietario } from '../components/incidentes/Modal
 import { BannerAlertaCriticaSSE } from '../components/incidentes/BannerAlertaCriticaSSE';
 import { DemoPropietarioIncidentesWidget } from '../components/incidentes/DemoPropietarioIncidentesWidget';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { SoloDemo } from '@/components/ui/SoloDemo';
 
 const KPIS_INICIALES: PropietarioIncidentesKpisDTO = {
   no_revisados: 0,
@@ -279,26 +280,28 @@ export const PropietarioIncidentesPage: React.FC = () => {
       )}
 
       {/* Banco de Pruebas QA para Evaluación Concurrentemente en Vivo */}
-      <DemoPropietarioIncidentesWidget
-        onSimularSseMiraflores={() => {
-          propietarioIncidentesService.simularLlegadaIncidenteCritico(
-            '00000000-0000-4000-8000-000000000010'
-          );
-          mostrarToast('Incidente crítico simulado desde Sede Miraflores', 'exito');
-        }}
-        onSimularSseSanIsidro={() => {
-          propietarioIncidentesService.simularLlegadaIncidenteCritico(
-            '00000000-0000-4000-8000-000000000020'
-          );
-          mostrarToast('Incidente crítico simulado desde Sede San Isidro', 'exito');
-        }}
-        onRestablecer={() => {
-          propietarioIncidentesService.restablecerSemillas();
-          handleLimpiarFiltros();
-          cargarIncidentes();
-          mostrarToast('Semillas de incidentes restablecidas con éxito', 'exito');
-        }}
-      />
+      <SoloDemo>
+        <DemoPropietarioIncidentesWidget
+          onSimularSseMiraflores={() => {
+            propietarioIncidentesService.simularLlegadaIncidenteCritico(
+              '00000000-0000-4000-8000-000000000010'
+            );
+            mostrarToast('Incidente crítico simulado desde Sede Miraflores', 'exito');
+          }}
+          onSimularSseSanIsidro={() => {
+            propietarioIncidentesService.simularLlegadaIncidenteCritico(
+              '00000000-0000-4000-8000-000000000020'
+            );
+            mostrarToast('Incidente crítico simulado desde Sede San Isidro', 'exito');
+          }}
+          onRestablecer={() => {
+            propietarioIncidentesService.restablecerSemillas();
+            handleLimpiarFiltros();
+            cargarIncidentes();
+            mostrarToast('Semillas de incidentes restablecidas con éxito', 'exito');
+          }}
+        />
+      </SoloDemo>
 
       {/* Modal de Detalle, Evidencia y Directiva Ejecutiva */}
       <ModalDetalleIncidentePropietario

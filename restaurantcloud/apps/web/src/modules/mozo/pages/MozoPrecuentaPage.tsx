@@ -15,6 +15,7 @@ import { PromocionComercialSelector } from '../components/precuenta/PromocionCom
 import { DesgloseSUNATCard } from '../components/precuenta/DesgloseSUNATCard';
 import { MetodosPagoSelector } from '../components/precuenta/MetodosPagoSelector';
 import { ModalQRBilletera } from '../components/precuenta/ModalQRBilletera';
+import { ROUTES } from '@/router/routes.constants';
 
 export const MozoPrecuentaPage: React.FC = () => {
   const { mesaId = 'mesa-04' } = useParams<{ mesaId: string }>();
@@ -173,7 +174,7 @@ export const MozoPrecuentaPage: React.FC = () => {
           </h2>
           <p className="text-xs text-slate-300">{error || 'Mesa no encontrada.'}</p>
           <button
-            onClick={() => navigate('/mozo/mesas')}
+            onClick={() => navigate(ROUTES.MOZO_MESAS)}
             className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-[#D5A06F] text-[#0B2340] font-bold text-xs"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -209,7 +210,7 @@ export const MozoPrecuentaPage: React.FC = () => {
               </span>
             </div>
             <button
-              onClick={() => navigate('/mozo/mesas')}
+              onClick={() => navigate(ROUTES.MOZO_MESAS)}
               className="px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 text-[#0B2340] font-bold text-[11px] transition-colors shadow-sm ml-auto"
             >
               Ver en Plano de Salón →

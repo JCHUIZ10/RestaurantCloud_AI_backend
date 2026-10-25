@@ -18,12 +18,9 @@ import {
   ActualizarEmpleadoRequestDTO,
   ResetPasswordResponseDTO,
 } from '@/types/admin';
-import {
-  mockAdminService,
-  CANONICAL_LOCAL_NOMBRE,
-} from '../services/mockAdminService';
+import { mockAdminService } from '../services/mockAdminService';
 import { adminService, IS_REAL_API } from '@/services/serviceAdapter';
-import { CheckCircle2, AlertTriangle, X } from 'lucide-react';
+import { SoloDemo, useToast } from '@/components/ui';
 
 export const AdminPersonalPage: React.FC = () => {
   const [cargando, setCargando] = useState(true);
@@ -37,6 +34,7 @@ export const AdminPersonalPage: React.FC = () => {
   const [paginaActual, setPaginaActual] = useState(1);
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [totalFiltrados, setTotalFiltrados] = useState(0);
+  const [limite, setLimite] = useState(10);
 
   // Modales
   const [modalRegistrarAbierto, setModalRegistrarAbierto] = useState(false);
@@ -48,15 +46,11 @@ export const AdminPersonalPage: React.FC = () => {
   const [modalResetAbierto, setModalResetAbierto] = useState(false);
   const [empleadoAReset, setEmpleadoAReset] = useState<EmpleadoResumenDTO | null>(null);
 
-  // Toast
-  const [toast, setToast] = useState<{ tipo: 'exito' | 'error'; mensaje: string } | null>(null);
-
-  const mostrarToast = (tipo: 'exito' | 'error', mensaje: string) => {
-    setToast({ tipo, mensaje });
-    setTimeout(() => {
-      setToast(null);
-    }, 4000);
-  };
+  const { mostrar } = useToast();
+  const mostrarToast = useCallback(
+    (tipo: 'exito' | 'error', mensaje: string) => mostrar(mensaje, tipo === 'exito' ? 'ok' : 'error'),
+    [mostrar]
+  );
 
   const cargarDatos = useCallback(async () => {
     try {
@@ -65,7 +59,7 @@ export const AdminPersonalPage: React.FC = () => {
         rol: rolSeleccionado,
         estado: estadoSeleccionado,
         pagina: paginaActual,
-        limite: 10,
+        limite,
       });
 
       if (res.exito && res.datos) {
@@ -77,7 +71,7 @@ export const AdminPersonalPage: React.FC = () => {
     } finally {
       setCargando(false);
     }
-  }, [busqueda, rolSeleccionado, estadoSeleccionado, paginaActual]);
+  }, [busqueda, rolSeleccionado, estadoSeleccionado, paginaActual, limite]);
 
   useEffect(() => {
     cargarDatos();
@@ -89,7 +83,7 @@ export const AdminPersonalPage: React.FC = () => {
   ): Promise<EmpleadoDetalleDTO | null> => {
     const res = await adminService.registrarEmpleado(req);
     if (res.exito && res.datos) {
-      mostrarToast('exito', `Colaborador ${res.datos.nombre} registrado con éxito.`);
+      mostrarToast('exito', `${res.datos.nombre} ya forma parte del equipo.`);
       await cargarDatos();
       return res.datos;
     } else {
@@ -105,7 +99,7 @@ export const AdminPersonalPage: React.FC = () => {
   ): Promise<boolean> => {
     const res = await adminService.actualizarEmpleado(id, req);
     if (res.exito && res.datos) {
-      mostrarToast('exito', `Datos de ${res.datos.nombre} actualizados correctamente.`);
+      mostrarToast('exito', `Datos de ${res.datos.nombre} actualizados.`);
       await cargarDatos();
       return true;
     } else {
@@ -139,7 +133,7 @@ export const AdminPersonalPage: React.FC = () => {
   const handleReactivar = async (emp: EmpleadoResumenDTO) => {
     const res = await adminService.reactivarEmpleado(emp.id);
     if (res.exito && res.datos) {
-      mostrarToast('exito', `Colaborador ${emp.nombre} reactivado correctamente.`);
+      mostrarToast('exito', `${emp.nombre} vuelve a tener acceso.`);
       await cargarDatos();
     } else {
       mostrarToast('error', res.errores?.[0]?.mensaje || 'No se pudo reactivar al colaborador.');
@@ -152,7 +146,7 @@ export const AdminPersonalPage: React.FC = () => {
   ): Promise<ResetPasswordResponseDTO | null> => {
     const res = await adminService.resetPasswordEmpleado(id);
     if (res.exito && res.datos) {
-      mostrarToast('exito', `Nueva clave provisional generada para ${res.datos.nombre}.`);
+      mostrarToast('exito', `Nueva clave provisional para ${res.datos.nombre}.`);
       await cargarDatos();
       return res.datos;
     } else {
@@ -166,110 +160,86 @@ export const AdminPersonalPage: React.FC = () => {
     (e) => e.rol === 'mozo' && e.estado === 'activo' && e.id !== empleadoADesactivar?.id
   );
 
+  const sinPersonal =
+    !cargando && empleados.length === 0 && !busqueda && rolSeleccionado === 'todos' && estadoSeleccionado === 'todos';
+
+  const abrirNuevo = () => {
+    setEmpleadoAEditar(null);
+    setModalRegistrarAbierto(true);
+  };
+
   return (
-    <div className="space-y-6 pb-20">
-      {/* Toast flotante */}
-      {toast && (
-        <div className="fixed top-5 right-5 z-50 animate-in fade-in slide-in-from-top-4 duration-200">
-          <div
-            className={`flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium ${
-              toast.tipo === 'exito'
-                ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
-                : 'bg-rose-50 text-rose-900 border-rose-200'
-            }`}
-          >
-            {toast.tipo === 'exito' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            ) : (
-              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-            )}
-            <span>{toast.mensaje}</span>
-            <button
-              onClick={() => setToast(null)}
-              className="ml-2 text-slate-400 hover:text-slate-600"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
+    <div className="space-y-6">
+      <PersonalHeader metricas={metricas || undefined} onAbrirNuevoEmpleado={abrirNuevo} />
 
-      {/* Encabezado Principal */}
-      <PersonalHeader
-        localNombre={CANONICAL_LOCAL_NOMBRE}
-        metricas={metricas || undefined}
-        onAbrirNuevoEmpleado={() => {
-          setEmpleadoAEditar(null);
-          setModalRegistrarAbierto(true);
-        }}
-      />
-
-      {/* KPIs de Consumo Cuota y Personal */}
-      {metricas && <PersonalKpis metricas={metricas} />}
-
-      {/* Barra de herramientas y filtros */}
-      <PersonalToolbar
-        busqueda={busqueda}
-        onBusquedaChange={(val) => {
-          setBusqueda(val);
-          setPaginaActual(1);
-        }}
-        rolSeleccionado={rolSeleccionado}
-        onRolChange={(r) => {
-          setRolSeleccionado(r);
-          setPaginaActual(1);
-        }}
-        estadoSeleccionado={estadoSeleccionado}
-        onEstadoChange={(est) => {
-          setEstadoSeleccionado(est);
-          setPaginaActual(1);
-        }}
-        metricas={metricas || undefined}
-        totalFiltrados={totalFiltrados}
-      />
-
-      {/* Tabla o Estado Vacío */}
-      {cargando ? (
-        <div className="bg-white rounded-2xl border border-aurea-champagne/80 p-12 text-center text-slate-500">
-          <div className="w-8 h-8 border-2 border-aurea-copper border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm">Cargando directorio de personal...</p>
-        </div>
-      ) : empleados.length === 0 && !busqueda && rolSeleccionado === 'todos' && estadoSeleccionado === 'todos' ? (
+      {sinPersonal ? (
         <OnboardingPersonalVacio
-          onRegistrarPrimero={() => {
-            setEmpleadoAEditar(null);
-            setModalRegistrarAbierto(true);
-          }}
-          onRestablecerSemillas={async () => {
-            mockAdminService.restablecerSemillasPersonal();
-            await cargarDatos();
-            mostrarToast('exito', 'Se restableció el equipo demostrativo de Áurea Miraflores.');
-          }}
+          onRegistrarPrimero={abrirNuevo}
+          onRestablecerSemillas={
+            IS_REAL_API
+              ? undefined
+              : async () => {
+                  mockAdminService.restablecerSemillasPersonal();
+                  await cargarDatos();
+                  mostrarToast('exito', 'Se cargó el equipo de ejemplo.');
+                }
+          }
         />
       ) : (
-        <PersonalTable
-          empleados={empleados}
-          onEditar={(emp) => {
-            setEmpleadoAEditar(emp);
-            setModalRegistrarAbierto(true);
-          }}
-          onResetPassword={(emp) => {
-            setEmpleadoAReset(emp);
-            setModalResetAbierto(true);
-          }}
-          onSolicitarDesactivar={(emp) => {
-            if (IS_REAL_API) {
-              mostrarToast('error', 'La desactivación con reasignación operativa se habilitará en el punto 4B.');
-              return;
+        <>
+          {metricas && <PersonalKpis metricas={metricas} />}
+
+          <PersonalTable
+            empleados={empleados}
+            cargando={cargando}
+            onEditar={(emp) => {
+              setEmpleadoAEditar(emp);
+              setModalRegistrarAbierto(true);
+            }}
+            onResetPassword={(emp) => {
+              setEmpleadoAReset(emp);
+              setModalResetAbierto(true);
+            }}
+            onSolicitarDesactivar={(emp) => {
+              if (IS_REAL_API) {
+                mostrarToast('error', 'La desactivación de personal todavía no está disponible.');
+                return;
+              }
+              setEmpleadoADesactivar(emp);
+              setModalDesactivarAbierto(true);
+            }}
+            onReactivar={handleReactivar}
+            paginaActual={paginaActual}
+            totalPaginas={totalPaginas}
+            totalRegistros={totalFiltrados}
+            limite={limite}
+            onPaginaChange={(p) => setPaginaActual(p)}
+            onLimiteChange={(l) => {
+              setLimite(l);
+              setPaginaActual(1);
+            }}
+            cabecera={
+              <PersonalToolbar
+                busqueda={busqueda}
+                onBusquedaChange={(val) => {
+                  setBusqueda(val);
+                  setPaginaActual(1);
+                }}
+                rolSeleccionado={rolSeleccionado}
+                onRolChange={(r) => {
+                  setRolSeleccionado(r);
+                  setPaginaActual(1);
+                }}
+                estadoSeleccionado={estadoSeleccionado}
+                onEstadoChange={(est) => {
+                  setEstadoSeleccionado(est);
+                  setPaginaActual(1);
+                }}
+                metricas={metricas || undefined}
+              />
             }
-            setEmpleadoADesactivar(emp);
-            setModalDesactivarAbierto(true);
-          }}
-          onReactivar={handleReactivar}
-          paginaActual={paginaActual}
-          totalPaginas={totalPaginas}
-          onPaginaChange={(p) => setPaginaActual(p)}
-        />
+          />
+        </>
       )}
 
       {/* Modales */}
@@ -296,32 +266,34 @@ export const AdminPersonalPage: React.FC = () => {
         onConfirmarReset={handleConfirmarReset}
       />
 
-      {/* Widget QA Test Bench flotante */}
-      {!IS_REAL_API && <DemoAdminPersonalWidget
-        onSimularCuotaLlena={async () => {
-          mockAdminService.simularLimiteCuotaPersonal();
-          await cargarDatos();
-          mostrarToast('exito', 'Cuota SaaS simulada al 100% (15/15). El botón de nuevo ingreso ha sido bloqueado.');
-        }}
-        onSimularSedeVacia={async () => {
-          mockAdminService.simularDirectorioPersonalVacio();
-          await cargarDatos();
-          mostrarToast('exito', 'Directorio de personal vaciado. Visualizando pantalla de bienvenida didáctica.');
-        }}
-        onRestablecerSemillas={async () => {
-          mockAdminService.restablecerSemillasPersonal();
-          setBusqueda('');
-          setRolSeleccionado('todos');
-          setEstadoSeleccionado('todos');
-          await cargarDatos();
-          mostrarToast('exito', 'Semillas restablecidas (12 colaboradores en Áurea Miraflores, 80% cuota).');
-        }}
-        onFiltrarMozoConMesas={() => {
-          setBusqueda('Carlos Huamán');
-          setRolSeleccionado('mozo');
-          mostrarToast('exito', 'Mozo Carlos Huamán filtrado. Pulsa en el icono de desactivar para ver la reasignación de sus 3 mesas.');
-        }}
-      />}
+      {/* Laboratorio de pruebas (solo demo) */}
+      <SoloDemo>
+        {!IS_REAL_API && <DemoAdminPersonalWidget
+          onSimularCuotaLlena={async () => {
+            mockAdminService.simularLimiteCuotaPersonal();
+            await cargarDatos();
+            mostrarToast('exito', 'Cuota SaaS simulada al 100% (15/15). El botón de nuevo ingreso ha sido bloqueado.');
+          }}
+          onSimularSedeVacia={async () => {
+            mockAdminService.simularDirectorioPersonalVacio();
+            await cargarDatos();
+            mostrarToast('exito', 'Directorio de personal vaciado. Visualizando pantalla de bienvenida didáctica.');
+          }}
+          onRestablecerSemillas={async () => {
+            mockAdminService.restablecerSemillasPersonal();
+            setBusqueda('');
+            setRolSeleccionado('todos');
+            setEstadoSeleccionado('todos');
+            await cargarDatos();
+            mostrarToast('exito', 'Semillas restablecidas (12 colaboradores en Áurea Miraflores, 80% cuota).');
+          }}
+          onFiltrarMozoConMesas={() => {
+            setBusqueda('Carlos Huamán');
+            setRolSeleccionado('mozo');
+            mostrarToast('exito', 'Mozo Carlos Huamán filtrado. Pulsa en el icono de desactivar para ver la reasignación de sus 3 mesas.');
+          }}
+        />}
+      </SoloDemo>
     </div>
   );
 };

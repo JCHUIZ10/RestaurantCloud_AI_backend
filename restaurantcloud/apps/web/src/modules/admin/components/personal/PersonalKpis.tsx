@@ -1,142 +1,67 @@
 import React from 'react';
-import {
-  UtensilsCrossed,
-  ChefHat,
-  Banknote,
-  Sparkles,
-} from 'lucide-react';
+import { Sparkles, UserPlus, Users } from 'lucide-react';
 import { MetricasPersonalDTO } from '@/types/admin';
+import { TarjetaIndicador } from '@/components/ui';
+import { cn } from '@/shared/utils';
+import { ORDEN_ROLES, ROLES_PERSONAL } from './rolesPersonal';
 
 interface PersonalKpisProps {
   metricas: MetricasPersonalDTO;
 }
 
+/** El detalle por rol vive en las pestañas de la tabla; aquí solo el cupo del plan y el equipo activo. */
 export const PersonalKpis: React.FC<PersonalKpisProps> = ({ metricas }) => {
-  const cuotaPorcentaje = metricas.porcentaje_ocupacion;
-  const esCuotaCritica = metricas.cupos_disponibles <= 1;
+  const porcentaje = Math.min(100, metricas.porcentaje_ocupacion);
+  const libres = metricas.cupos_disponibles;
+  const tonoCupo = libres <= 0 ? 'error' : libres <= 2 ? 'alerta' : 'ok';
+  const barra = libres <= 0 ? 'bg-estado-error-500' : libres <= 2 ? 'bg-estado-alerta-500' : 'bg-estado-ok-500';
+  const activos = metricas.mozos_activos + metricas.cocina_activos + metricas.cajeros_activos;
+  const conteoRol = { mozo: metricas.mozos_activos, cocina: metricas.cocina_activos, cajero: metricas.cajeros_activos };
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {/* KPI 1: Cuota SaaS Plan Pro */}
-      <div className="bg-white rounded-2xl p-4 border border-aurea-champagne/80 shadow-sm relative overflow-hidden">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-aurea-navy/60 uppercase tracking-wider">
-            Consumo Cuota SaaS
-          </span>
-          <div className="w-8 h-8 rounded-lg bg-aurea-champagne/30 text-aurea-copper flex items-center justify-center">
-            <Sparkles className="w-4 h-4" />
-          </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <TarjetaIndicador
+        tono="cobre"
+        icono={Sparkles}
+        etiqueta={`Cupo ${metricas.plan_nombre}`}
+        valor={`${metricas.total_empleados} / ${metricas.max_usuarios_plan}`}
+        unidad="usuarios"
+      >
+        <div className="mt-2.5 h-2 rounded-full bg-aurea-champagne/40 overflow-hidden" aria-hidden="true">
+          <div className={cn('h-full rounded-full transition-all', barra)} style={{ width: `${porcentaje}%` }} />
         </div>
-        <div className="mt-2 flex items-baseline gap-2">
-          <span className="text-2xl font-bold font-serif text-aurea-navy">
-            {metricas.total_empleados} / {metricas.max_usuarios_plan}
-          </span>
-          <span className="text-xs text-aurea-navy/60 font-medium">
-            {metricas.plan_nombre}
-          </span>
-        </div>
+        <p className="mt-1 text-xs text-aurea-navy/60">{porcentaje}% ocupado</p>
+      </TarjetaIndicador>
 
-        {/* Barra de progreso */}
-        <div className="mt-2.5">
-          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-            <div
-              className={`h-2 rounded-full transition-all duration-500 ${
-                esCuotaCritica
-                  ? 'bg-amber-500'
-                  : cuotaPorcentaje > 85
-                  ? 'bg-amber-400'
-                  : 'bg-emerald-500'
-              }`}
-              style={{ width: `${Math.min(100, cuotaPorcentaje)}%` }}
-            />
-          </div>
-          <div className="flex items-center justify-between mt-1 text-[11px] text-aurea-navy/60">
-            <span>{cuotaPorcentaje}% ocupado</span>
-            <span
-              className={`font-semibold ${
-                metricas.cupos_disponibles === 0
-                  ? 'text-rose-600'
-                  : metricas.cupos_disponibles <= 2
-                  ? 'text-amber-600'
-                  : 'text-emerald-600'
-              }`}
-            >
-              {metricas.cupos_disponibles === 0
-                ? 'Cupo agotado'
-                : `${metricas.cupos_disponibles} cupo(s) disponible(s)`}
-            </span>
-          </div>
-        </div>
-      </div>
+      <TarjetaIndicador
+        tono={tonoCupo}
+        icono={UserPlus}
+        etiqueta="Cupos libres"
+        valor={libres}
+        unidad={libres === 1 ? 'cupo' : 'cupos'}
+        detalle={libres <= 0 ? 'Desactiva a alguien para liberar uno' : 'Para registrar nuevo personal'}
+      />
 
-      {/* KPI 2: Mozos de Salón */}
-      <div className="bg-white rounded-2xl p-4 border border-aurea-champagne/80 shadow-sm">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-aurea-navy/60 uppercase tracking-wider">
-            Mozos de Salón
-          </span>
-          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-            <UtensilsCrossed className="w-4 h-4" />
-          </div>
-        </div>
-        <div className="mt-2 flex items-baseline gap-2">
-          <span className="text-2xl font-bold font-serif text-blue-900">
-            {metricas.mozos_activos}
-          </span>
-          <span className="text-xs font-medium text-blue-700/70">
-            activos en salón
-          </span>
-        </div>
-        <p className="text-xs text-aurea-navy/60 mt-1">
-          Atención en mesas y comandas móviles (CU-MOZO-01)
-        </p>
-      </div>
-
-      {/* KPI 3: Equipo de Cocina */}
-      <div className="bg-white rounded-2xl p-4 border border-aurea-champagne/80 shadow-sm">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-aurea-navy/60 uppercase tracking-wider">
-            Equipo de Cocina
-          </span>
-          <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-            <ChefHat className="w-4 h-4" />
-          </div>
-        </div>
-        <div className="mt-2 flex items-baseline gap-2">
-          <span className="text-2xl font-bold font-serif text-amber-950">
-            {metricas.cocina_activos}
-          </span>
-          <span className="text-xs font-medium text-amber-700/70">
-            estaciones KDS
-          </span>
-        </div>
-        <p className="text-xs text-aurea-navy/60 mt-1">
-          Pantalla de cocina KDS y despacho (CU-COCINA-01)
-        </p>
-      </div>
-
-      {/* KPI 4: Control de Caja */}
-      <div className="bg-white rounded-2xl p-4 border border-aurea-champagne/80 shadow-sm">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-aurea-navy/60 uppercase tracking-wider">
-            Cajeros de Turno
-          </span>
-          <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <Banknote className="w-4 h-4" />
-          </div>
-        </div>
-        <div className="mt-2 flex items-baseline gap-2">
-          <span className="text-2xl font-bold font-serif text-emerald-950">
-            {metricas.cajeros_activos}
-          </span>
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-            Turno 1 activo
-          </span>
-        </div>
-        <p className="text-xs text-aurea-navy/60 mt-1">
-          Cobro de cuentas y cierre de turno (CU-CAJA-01 / CU-ADMIN-14)
-        </p>
-      </div>
+      <TarjetaIndicador
+        icono={Users}
+        etiqueta="Equipo activo"
+        valor={activos}
+        unidad={activos === 1 ? 'persona' : 'personas'}
+        className="sm:col-span-2 lg:col-span-1"
+      >
+        <ul className="mt-2 flex flex-wrap gap-1.5">
+          {ORDEN_ROLES.map((rol) => {
+            const r = ROLES_PERSONAL[rol];
+            const Icono = r.icono;
+            return (
+              <li key={rol} className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-xs font-semibold', r.tag)}>
+                <Icono className={cn('w-3.5 h-3.5', r.iconoColor)} aria-hidden="true" />
+                {conteoRol[rol]} {r.etiqueta.toLowerCase()}
+              </li>
+            );
+          })}
+        </ul>
+      </TarjetaIndicador>
     </div>
   );
 };

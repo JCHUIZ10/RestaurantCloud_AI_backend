@@ -10,6 +10,8 @@ import { ComprobanteAnuladoBanner } from '../components/ComprobanteAnuladoBanner
 import { ComprobanteZeroDeadEnd } from '../components/ComprobanteZeroDeadEnd';
 import { DemoComprobantesWidget } from '../components/DemoComprobantesWidget';
 import type { ComprobantePublicoDTO } from '@/types/comprobante';
+import { SoloDemo } from '@/components/ui/SoloDemo';
+import { ROUTES } from '@/router/routes.constants';
 
 export const ComprobanteDigitalPage: React.FC = () => {
   const { token, numero } = useParams<{ token?: string; numero?: string; slug?: string }>();
@@ -75,7 +77,7 @@ export const ComprobanteDigitalPage: React.FC = () => {
   };
 
   const handleSelectDemoToken = (nuevoToken: string) => {
-    navigate(`/c/${nuevoToken}`);
+    navigate(ROUTES.COMPROBANTE_DIRECTO(nuevoToken));
   };
 
   // =========================================================================
@@ -98,16 +100,18 @@ export const ComprobanteDigitalPage: React.FC = () => {
     return (
       <div className="w-full py-10 px-4 sm:px-6 relative">
         <ComprobanteZeroDeadEnd
-          onBuscarCodigo={(codigo) => navigate(`/c/${codigo}`)}
+          onBuscarCodigo={(codigo) => navigate(ROUTES.COMPROBANTE_DIRECTO(codigo))}
           mensajeError={errorMensaje}
           modoInicial={!tokenParam}
         />
-        {!IS_REAL_API && (
-          <DemoComprobantesWidget
-            onSelectToken={handleSelectDemoToken}
-            tokenActual={tokenParam || ''}
-          />
-        )}
+        <SoloDemo>
+          {!IS_REAL_API && (
+            <DemoComprobantesWidget
+              onSelectToken={handleSelectDemoToken}
+              tokenActual={tokenParam || ''}
+            />
+          )}
+        </SoloDemo>
       </div>
     );
   }
@@ -156,12 +160,14 @@ export const ComprobanteDigitalPage: React.FC = () => {
       </div>
 
       {/* Widget Flotante de Demostración para Alternar Comprobantes en 1 Clic */}
-      {!IS_REAL_API && (
-        <DemoComprobantesWidget
-          onSelectToken={handleSelectDemoToken}
-          tokenActual={tokenParam || ''}
-        />
-      )}
+      <SoloDemo>
+        {!IS_REAL_API && (
+          <DemoComprobantesWidget
+            onSelectToken={handleSelectDemoToken}
+            tokenActual={tokenParam || ''}
+          />
+        )}
+      </SoloDemo>
     </div>
   );
 };

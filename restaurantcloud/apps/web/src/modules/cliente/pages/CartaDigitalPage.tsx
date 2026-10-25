@@ -9,6 +9,7 @@ import { PlatoCard } from '../components/PlatoCard';
 import { PlatoModal } from '../components/PlatoModal';
 import { BusquedaVacia } from '../components/BusquedaVacia';
 import type { CatalogoCartaPublicoDTO, ProductoPublicoDTO } from '@/types/carta';
+import { ROUTES } from '@/router/routes.constants';
 
 export const CartaDigitalPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -128,7 +129,7 @@ export const CartaDigitalPage: React.FC = () => {
         </div>
         <div className="pt-2">
           <Link
-            to="/sede/aurea-miraflores/carta"
+            to={ROUTES.CARTA_DEMO}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-aurea-navy text-white text-xs font-semibold hover:bg-opacity-90 shadow-md"
           >
             <ArrowLeft className="w-4 h-4 text-aurea-copper" />

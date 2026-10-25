@@ -34,7 +34,7 @@ export const DemoAdminProductosWidget: React.FC<DemoAdminProductosWidgetProps> =
       >
         <div className="flex items-center gap-2">
           <FlaskConical className="w-4 h-4 text-aurea-copper" />
-          <span>Laboratorio de Pruebas • CU-ADMIN-04</span>
+          <span>Laboratorio de pruebas</span>
         </div>
         {colapsado ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
       </button>
@@ -42,7 +42,7 @@ export const DemoAdminProductosWidget: React.FC<DemoAdminProductosWidgetProps> =
       {/* Contenido desplegable */}
       {!colapsado && (
         <div className="p-3.5 space-y-2.5 bg-aurea-champagne/10">
-          <p className="text-[11px] text-aurea-navy/70">
+          <p className="text-xs text-aurea-navy/70">
             Simula escenarios operativos y reactividad de recetas culinarias:
           </p>
 
@@ -56,7 +56,7 @@ export const DemoAdminProductosWidget: React.FC<DemoAdminProductosWidgetProps> =
               <AlertOctagon className="w-4 h-4 text-rose-600 shrink-0" />
               <div>
                 <div className="font-semibold text-xs">Quiebre de Limón (Stock = 0)</div>
-                <div className="text-[10px] text-rose-600">Pasa Ceviche y Causa a Agotado</div>
+                <div className="text-xs text-rose-600">Pasa Ceviche y Causa a Agotado</div>
               </div>
             </button>
 
@@ -69,7 +69,7 @@ export const DemoAdminProductosWidget: React.FC<DemoAdminProductosWidgetProps> =
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               <div>
                 <div className="font-semibold text-xs">Reponer Limón (Stock = 10 kg)</div>
-                <div className="text-[10px] text-emerald-600">Reactiva disponibilidad de platos</div>
+                <div className="text-xs text-emerald-600">Reactiva disponibilidad de platos</div>
               </div>
             </button>
 
@@ -82,7 +82,7 @@ export const DemoAdminProductosWidget: React.FC<DemoAdminProductosWidgetProps> =
               <Trash2 className="w-4 h-4 text-aurea-navy/60 shrink-0" />
               <div>
                 <div className="font-semibold text-xs">Simular Carta Vacía</div>
-                <div className="text-[10px] text-aurea-navy/50">Muestra el onboarding guiado</div>
+                <div className="text-xs text-aurea-navy/50">Muestra el onboarding guiado</div>
               </div>
             </button>
 

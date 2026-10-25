@@ -19,6 +19,7 @@ import {
   Zap,
   MessageCircle,
 } from 'lucide-react';
+import { ROUTES } from '@/router/routes.constants';
 
 interface ModuloSaaS {
   id: string;
@@ -599,7 +600,7 @@ export const HomePage: React.FC = () => {
 
                     <div className="pt-8 mt-6 border-t border-aurea-copper/20">
                       <Link
-                        to={`/registro?plan=${plan.id}&ciclo=${esAnual ? 'anual' : 'mensual'}`}
+                        to={`${ROUTES.REGISTRO}?plan=${plan.id}&ciclo=${esAnual ? 'anual' : 'mensual'}`}
                         className="block w-full"
                       >
                         <Button
@@ -662,7 +663,7 @@ export const HomePage: React.FC = () => {
           </div>
 
           <div className="pt-6">
-            <Link to="/registro">
+            <Link to={ROUTES.REGISTRO}>
               <Button variant="secondary" size="lg" className="bg-aurea-champagne text-aurea-navy hover:bg-white font-bold px-8 shadow-xl">
                 Comenzar ahora mismo
               </Button>

@@ -1,17 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import {
-  X,
-  Truck,
-  User,
-  Phone,
-  Mail,
-  MapPin,
-  Package,
-  Plus,
-  Check,
-  AlertCircle,
-  MessageCircle,
-} from 'lucide-react';
+import React, { useState, useEffect, useId } from 'react';
+import { Truck, User, Mail, MapPin, Package, Plus, Check, AlertCircle, MessageCircle } from 'lucide-react';
 import {
   ProveedorResumenDTO,
   CrearProveedorRequestDTO,
@@ -22,6 +10,8 @@ import {
   extraerDigitosMovilPeru,
   formatearTelefonoPeru,
 } from '@/shared/utils/whatsapp';
+import { Button, Modal } from '@/components/ui';
+import { cn } from '@/shared/utils';
 
 interface ModalCrearEditarProveedorProps {
   abierto: boolean;
@@ -33,6 +23,20 @@ interface ModalCrearEditarProveedorProps {
   ) => Promise<{ success: boolean; mensajeError?: string }>;
 }
 
+const CLASE_CONTROL =
+  'w-full min-h-tactil px-3.5 bg-white border border-aurea-champagne/70 rounded-xl text-base md:text-sm text-aurea-navy placeholder:text-aurea-navy/40 focus:outline-none focus:border-aurea-copper';
+const CLASE_ROTULO = 'block text-sm font-semibold text-aurea-navy mb-1.5';
+
+/** Campo de texto con icono a la izquierda */
+const CampoIcono: React.FC<
+  React.InputHTMLAttributes<HTMLInputElement> & { icono: typeof User }
+> = ({ icono: Icono, className, ...props }) => (
+  <div className="relative">
+    <Icono className="w-4 h-4 text-aurea-copper absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true" />
+    <input className={cn(CLASE_CONTROL, 'pl-10', className)} {...props} />
+  </div>
+);
+
 export const ModalCrearEditarProveedor: React.FC<ModalCrearEditarProveedorProps> = ({
   abierto,
   onCerrar,
@@ -41,6 +45,7 @@ export const ModalCrearEditarProveedor: React.FC<ModalCrearEditarProveedorProps>
   onGuardar,
 }) => {
   const esEdicion = Boolean(proveedorParaEditar);
+  const idForm = useId();
 
   // Estados del formulario
   const [nombre, setNombre] = useState('');
@@ -77,9 +82,8 @@ export const ModalCrearEditarProveedor: React.FC<ModalCrearEditarProveedorProps>
     setBusquedaInsumo('');
   }, [proveedorParaEditar, abierto]);
 
-  if (!abierto) return null;
-
   const digitosTelefono = extraerDigitosMovilPeru(telefono);
+  const telefonoValido = digitosTelefono.length === 9 && digitosTelefono.startsWith('9');
 
   const toggleInsumo = (insumoId: string) => {
     setInsumosSeleccionados((prev) =>
@@ -137,261 +141,178 @@ export const ModalCrearEditarProveedor: React.FC<ModalCrearEditarProveedorProps>
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-aurea-navy/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div
-        className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-aurea-copper/20 overflow-hidden flex flex-col max-h-[90vh]"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-proveedor-titulo"
-      >
-        {/* Cabecera */}
-        <div className="px-6 py-4.5 bg-aurea-ivory/60 border-b border-aurea-champagne/80 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-aurea-copper/20 border border-aurea-copper/40 flex items-center justify-center text-aurea-copper shrink-0">
-              <Truck className="w-5 h-5" />
-            </div>
-            <div>
-              <h2
-                id="modal-proveedor-titulo"
-                className="text-lg font-serif font-bold text-aurea-navy"
-              >
-                {esEdicion ? 'Editar Proveedor Comercial' : 'Alta Rápida de Proveedor'}
-              </h2>
-              <p className="text-xs text-aurea-navy/60">
-                {esEdicion
-                  ? 'Actualiza los datos comerciales y catálogo de insumos.'
-                  : 'Registro sin burocracia de RUC en menos de 10 segundos.'}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onCerrar}
-            className="p-1.5 rounded-xl text-aurea-navy/50 hover:text-aurea-navy hover:bg-aurea-champagne/30 transition-colors"
-            title="Cerrar modal"
+    <Modal
+      abierto={abierto}
+      onCerrar={onCerrar}
+      cerrable={!guardando}
+      tamano="lg"
+      icono={Truck}
+      titulo={esEdicion ? `Editar «${proveedorParaEditar?.nombre ?? ''}»` : 'Nuevo proveedor'}
+      descripcion={esEdicion ? undefined : 'Nombre y celular bastan; el RUC no es obligatorio.'}
+      pie={
+        <>
+          <Button variant="outline" onClick={onCerrar} disabled={guardando}>
+            Cancelar
+          </Button>
+          <Button type="submit" form={idForm} loading={guardando} leftIcon={<Check className="w-4 h-4" aria-hidden="true" />}>
+            {esEdicion ? 'Guardar cambios' : 'Guardar proveedor'}
+          </Button>
+        </>
+      }
+    >
+      <form id={idForm} onSubmit={handleSubmit} noValidate className="space-y-5">
+        {errorGlobal && (
+          <p
+            role="alert"
+            className="p-3 rounded-xl bg-estado-error-50 border border-estado-error-200 text-estado-error-800 text-sm flex items-start gap-2"
           >
-            <X className="w-5 h-5" />
-          </button>
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+            {errorGlobal}
+          </p>
+        )}
+
+        <div>
+          <label htmlFor={`${idForm}-nombre`} className={CLASE_ROTULO}>
+            Nombre o razón social
+          </label>
+          <input
+            id={`${idForm}-nombre`}
+            type="text"
+            required
+            autoFocus
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder="Ej. Distribuidora San Fernando, Casero Don Lucho"
+            className={cn(CLASE_CONTROL, 'font-medium')}
+          />
         </div>
 
-        {/* Formulario con Scroll */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4.5 overflow-y-auto flex-1">
-          {errorGlobal && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              <span>{errorGlobal}</span>
-            </div>
-          )}
-
-          {/* Nombre Comercial */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-aurea-navy mb-1">
-              Nombre Comercial o Razón Social <span className="text-rose-500">*</span>
-            </label>
-            <div className="relative">
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor={`${idForm}-tel`} className="text-sm font-semibold text-aurea-navy">
+                Celular / WhatsApp
+              </label>
+              {telefonoValido ? (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-estado-ok-700">
+                  <MessageCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                  Válido
+                </span>
+              ) : digitosTelefono.length > 0 ? (
+                <span className="text-xs font-mono text-aurea-navy/60">{digitosTelefono.length}/9</span>
+              ) : null}
+            </div>
+            <div className="flex min-h-tactil rounded-xl border border-aurea-champagne/70 bg-white overflow-hidden focus-within:border-aurea-copper">
+              <span className="inline-flex items-center px-3 bg-aurea-champagne/30 border-r border-aurea-champagne/70 font-mono text-sm font-semibold text-aurea-navy select-none">
+                +51
+              </span>
               <input
-                type="text"
+                id={`${idForm}-tel`}
+                type="tel"
+                inputMode="numeric"
+                maxLength={11}
                 required
-                autoFocus
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                placeholder="Ej. Distribuidora San Fernando, Casero Don Lucho..."
-                className="w-full px-3.5 py-2 text-sm bg-aurea-ivory/30 border border-aurea-copper/30 rounded-xl focus:outline-none focus:border-aurea-copper focus:bg-white text-aurea-navy placeholder:text-aurea-navy/40 transition-all font-medium"
+                value={formatearTelefonoPeru(telefono)}
+                onChange={(e) => {
+                  const digits = extraerDigitosMovilPeru(e.target.value);
+                  const formatted = formatearTelefonoPeru(digits);
+                  setTelefono(digits ? `+51 ${formatted}` : '');
+                }}
+                placeholder="987 654 321"
+                className="w-full px-3 font-mono text-base md:text-sm text-aurea-navy bg-transparent focus:outline-none placeholder:text-aurea-navy/40"
               />
             </div>
-            <p className="text-[11px] text-aurea-navy/50 mt-1">
-              Unicidad validada a nivel de sede gastronómica. No se requiere RUC obligatorio.
-            </p>
           </div>
-
-          {/* Grilla 2 columnas: Persona de Contacto y Teléfono/WhatsApp */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div>
-              <label className="block text-xs font-semibold text-aurea-navy mb-1">
-                Persona de Contacto / Vendedor
-              </label>
-              <div className="relative">
-                <User className="w-4 h-4 text-aurea-copper/60 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={contacto}
-                  onChange={(e) => setContacto(e.target.value)}
-                  placeholder="Ej. Carlos Meneses"
-                  className="w-full pl-9 pr-3.5 py-2 text-sm bg-aurea-ivory/30 border border-aurea-copper/30 rounded-xl focus:outline-none focus:border-aurea-copper focus:bg-white text-aurea-navy placeholder:text-aurea-navy/40 transition-all"
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="flex items-center gap-1.5 text-xs font-semibold text-aurea-navy">
-                  <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Teléfono / WhatsApp</span>
-                  <span className="text-rose-500">*</span>
-                </label>
-                {digitosTelefono.length === 9 && digitosTelefono.startsWith('9') ? (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
-                    <MessageCircle className="w-3 h-3 text-emerald-600" />
-                    <span>WhatsApp Válido</span>
-                  </span>
-                ) : digitosTelefono.length > 0 ? (
-                  <span className="text-[11px] text-aurea-navy/60 font-mono">
-                    {digitosTelefono.length}/9 dígitos
-                  </span>
-                ) : null}
-              </div>
-              <div className="flex rounded-xl border border-aurea-copper/30 bg-aurea-ivory/30 overflow-hidden focus-within:ring-2 focus-within:ring-aurea-copper/50 focus-within:bg-white focus-within:border-aurea-copper transition-all">
-                {/* Prefijo Fijo No Editable */}
-                <div className="inline-flex items-center gap-1.5 px-3 bg-aurea-ivory/80 border-r border-aurea-copper/20 text-aurea-navy font-semibold text-xs select-none shrink-0">
-                  <span>🇵🇪</span>
-                  <span className="font-mono text-xs">+51</span>
-                </div>
-
-                {/* Input de Dígitos */}
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  maxLength={11}
-                  required
-                  value={formatearTelefonoPeru(telefono)}
-                  onChange={(e) => {
-                    const digits = extraerDigitosMovilPeru(e.target.value);
-                    const formatted = formatearTelefonoPeru(digits);
-                    setTelefono(digits ? `+51 ${formatted}` : '');
-                  }}
-                  placeholder="987 654 321"
-                  className="w-full px-3 py-2 text-sm font-mono text-aurea-navy bg-transparent focus:outline-none placeholder:text-aurea-navy/40"
-                />
-              </div>
-              <p className="text-[10px] text-aurea-navy/50 mt-1">
-                Móvil peruano de 9 dígitos. Contacto directo para cotizaciones y pedidos.
-              </p>
-            </div>
-          </div>
-
-          {/* Grilla 2 columnas: Email y Dirección */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div>
-              <label className="block text-xs font-semibold text-aurea-navy mb-1">
-                Correo Electrónico Comercial (Opcional)
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-aurea-copper/60 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="ventas@proveedor.pe"
-                  className="w-full pl-9 pr-3.5 py-2 text-sm bg-aurea-ivory/30 border border-aurea-copper/30 rounded-xl focus:outline-none focus:border-aurea-copper focus:bg-white text-aurea-navy placeholder:text-aurea-navy/40 transition-all"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-aurea-navy mb-1">
-                Dirección Física / Mercado / Puesto
-              </label>
-              <div className="relative">
-                <MapPin className="w-4 h-4 text-aurea-copper/60 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={direccion}
-                  onChange={(e) => setDireccion(e.target.value)}
-                  placeholder="Mdo. Santa Anita Pab. B Puesto 14"
-                  className="w-full pl-9 pr-3.5 py-2 text-sm bg-aurea-ivory/30 border border-aurea-copper/30 rounded-xl focus:outline-none focus:border-aurea-copper focus:bg-white text-aurea-navy placeholder:text-aurea-navy/40 transition-all"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Insumos que suministra habitualmente (Multi-selector de chips) */}
-          <div className="pt-2 border-t border-aurea-champagne/60">
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-aurea-navy flex items-center gap-1.5">
-                <Package className="w-4 h-4 text-aurea-copper" />
-                <span>Insumos que Suministra Habitualmente</span>
-              </label>
-              <span className="text-[11px] text-aurea-navy/60">
-                {insumosSeleccionados.length} seleccionado(s)
-              </span>
-            </div>
-            <p className="text-[11px] text-aurea-navy/60 mb-2">
-              Vincula los insumos de bodega para agilizar cotizaciones y filtros de reposición en compras.
-            </p>
-
-            {/* Buscador de insumos rápido */}
-            <input
+          <div>
+            <label htmlFor={`${idForm}-contacto`} className={CLASE_ROTULO}>
+              Persona de contacto <span className="font-normal text-aurea-navy/50">(opcional)</span>
+            </label>
+            <CampoIcono
+              id={`${idForm}-contacto`}
+              icono={User}
               type="text"
-              value={busquedaInsumo}
-              onChange={(e) => setBusquedaInsumo(e.target.value)}
-              placeholder="Filtrar insumos de bodega..."
-              className="w-full px-3 py-1.5 text-xs bg-aurea-ivory/20 border border-aurea-copper/20 rounded-lg mb-2 focus:outline-none focus:border-aurea-copper text-aurea-navy"
+              value={contacto}
+              onChange={(e) => setContacto(e.target.value)}
+              placeholder="Ej. Carlos Meneses"
             />
-
-            {/* Contenedor de chips seleccionables */}
-            <div className="max-h-36 overflow-y-auto p-2 bg-aurea-ivory/30 rounded-xl border border-aurea-champagne/80 flex flex-wrap gap-1.5">
-              {insumosFiltrados.length === 0 ? (
-                <span className="text-xs text-aurea-navy/50 p-2 italic">
-                  No se encontraron insumos con ese nombre.
-                </span>
-              ) : (
-                insumosFiltrados.map((ins) => {
-                  const seleccionado = insumosSeleccionados.includes(ins.id);
-                  return (
-                    <button
-                      key={ins.id}
-                      type="button"
-                      onClick={() => toggleInsumo(ins.id)}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                        seleccionado
-                          ? 'bg-aurea-navy text-white shadow-xs'
-                          : 'bg-white border border-aurea-champagne/80 text-aurea-navy hover:bg-aurea-champagne/30'
-                      }`}
-                    >
-                      {seleccionado ? (
-                        <Check className="w-3 h-3 text-aurea-champagne" />
-                      ) : (
-                        <Plus className="w-3 h-3 text-aurea-copper" />
-                      )}
-                      <span>{ins.nombre}</span>
-                      <span className="text-[10px] opacity-70 font-mono">({ins.unidad_medida})</span>
-                    </button>
-                  );
-                })
-              )}
-            </div>
           </div>
-
-          {/* Botones de Acción al Pie */}
-          <div className="pt-3 border-t border-aurea-champagne/80 flex items-center justify-end gap-2.5 shrink-0">
-            <button
-              type="button"
-              onClick={onCerrar}
-              disabled={guardando}
-              className="px-4 py-2 rounded-xl border border-aurea-copper/30 bg-white hover:bg-aurea-champagne/20 text-aurea-navy text-xs font-semibold transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={guardando}
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-aurea-copper hover:bg-aurea-copper/90 text-white text-xs font-semibold transition-all shadow-md hover:shadow-lg disabled:opacity-50"
-            >
-              {guardando ? (
-                <>
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Guardando...</span>
-                </>
-              ) : (
-                <>
-                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>{esEdicion ? 'Actualizar Proveedor' : 'Guardar Proveedor'}</span>
-                </>
-              )}
-            </button>
+          <div>
+            <label htmlFor={`${idForm}-email`} className={CLASE_ROTULO}>
+              Correo <span className="font-normal text-aurea-navy/50">(opcional)</span>
+            </label>
+            <CampoIcono
+              id={`${idForm}-email`}
+              icono={Mail}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="ventas@proveedor.pe"
+            />
           </div>
-        </form>
-      </div>
-    </div>
+          <div>
+            <label htmlFor={`${idForm}-dir`} className={CLASE_ROTULO}>
+              Dirección o puesto <span className="font-normal text-aurea-navy/50">(opcional)</span>
+            </label>
+            <CampoIcono
+              id={`${idForm}-dir`}
+              icono={MapPin}
+              type="text"
+              value={direccion}
+              onChange={(e) => setDireccion(e.target.value)}
+              placeholder="Mdo. Santa Anita, Pab. B, puesto 14"
+            />
+          </div>
+        </div>
+
+        <fieldset className="pt-4 border-t border-aurea-champagne/60 space-y-2">
+          <legend className="flex w-full items-center justify-between">
+            <span className="flex items-center gap-1.5 text-sm font-semibold text-aurea-navy">
+              <Package className="w-4 h-4 text-aurea-copper" aria-hidden="true" />
+              Insumos que te vende
+            </span>
+            <span className="text-xs text-aurea-navy/60">{insumosSeleccionados.length} elegidos</span>
+          </legend>
+          <input
+            type="search"
+            value={busquedaInsumo}
+            onChange={(e) => setBusquedaInsumo(e.target.value)}
+            placeholder="Filtrar insumos"
+            aria-label="Filtrar insumos"
+            className={cn(CLASE_CONTROL, 'min-h-10')}
+          />
+          <div className="max-h-44 overflow-y-auto p-2 rounded-xl bg-aurea-ivory border border-aurea-champagne/70 flex flex-wrap gap-1.5">
+            {insumosFiltrados.length === 0 ? (
+              <span className="text-sm text-aurea-navy/50 p-2">No hay insumos con ese nombre.</span>
+            ) : (
+              insumosFiltrados.map((ins) => {
+                const seleccionado = insumosSeleccionados.includes(ins.id);
+                return (
+                  <button
+                    key={ins.id}
+                    type="button"
+                    aria-pressed={seleccionado}
+                    onClick={() => toggleInsumo(ins.id)}
+                    className={cn(
+                      'min-h-9 inline-flex items-center gap-1.5 px-2.5 rounded-lg text-sm font-medium transition-colors',
+                      seleccionado
+                        ? 'bg-aurea-navy text-white shadow-sm'
+                        : 'bg-white border border-aurea-champagne text-aurea-navy hover:border-aurea-copper/60'
+                    )}
+                  >
+                    {seleccionado ? (
+                      <Check className="w-3.5 h-3.5 text-aurea-champagne" aria-hidden="true" />
+                    ) : (
+                      <Plus className="w-3.5 h-3.5 text-aurea-copper" aria-hidden="true" />
+                    )}
+                    {ins.nombre}
+                    <span className="text-xs opacity-60 font-mono">{ins.unidad_medida}</span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </fieldset>
+      </form>
+    </Modal>
   );
 };

@@ -8,11 +8,7 @@ import {
   CrearProductoRequest,
     SimulacionCapacidadDTO,
 } from '@/types/admin';
-import {
-  mockAdminService,
-  CANONICAL_LOCAL_ID,
-  CANONICAL_LOCAL_NOMBRE,
-} from '../services/mockAdminService';
+import { mockAdminService, CANONICAL_LOCAL_ID } from '../services/mockAdminService';
 import { adminService, IS_REAL_API } from '@/services/serviceAdapter';
 import { ProductosHeader } from '../components/carta/ProductosHeader';
 import { ProductosKpis } from '../components/carta/ProductosKpis';
@@ -22,8 +18,8 @@ import { ModalCrearEditarProducto } from '../components/carta/ModalCrearEditarPr
 import { DrawerCalibrarReceta } from '../components/carta/DrawerCalibrarReceta';
 import { OnboardingCartaVacia } from '../components/carta/OnboardingCartaVacia';
 import { DemoAdminProductosWidget } from '../components/carta/DemoAdminProductosWidget';
-import { CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { ROUTES } from '@/router/routes.constants';
+import { ModalConfirmacion, SoloDemo, useToast } from '@/components/ui';
 
 export const AdminProductosPage: React.FC = () => {
   const navigate = useNavigate();
@@ -57,13 +53,14 @@ export const AdminProductosPage: React.FC = () => {
   const [productoParaReceta, setProductoParaReceta] = useState<ProductoAdminDTO | null>(null);
   const [simulacionCapacidad, setSimulacionCapacidad] = useState<SimulacionCapacidadDTO | null>(null);
 
-  // Notificación Toast
-  const [toast, setToast] = useState<{ tipo: 'exito' | 'error'; mensaje: string } | null>(null);
+  const [productoAArchivar, setProductoAArchivar] = useState<ProductoAdminDTO | null>(null);
+  const [archivando, setArchivando] = useState(false);
 
-  const mostrarToast = (mensaje: string, tipo: 'exito' | 'error' = 'exito') => {
-    setToast({ tipo, mensaje });
-    setTimeout(() => setToast(null), 4000);
-  };
+  const { mostrar } = useToast();
+  const mostrarToast = useCallback(
+    (mensaje: string, tipo: 'exito' | 'error' = 'exito') => mostrar(mensaje, tipo === 'exito' ? 'ok' : 'error'),
+    [mostrar]
+  );
 
   // Cargar categorías e insumos para selectores
   const cargarCatalogosSecundarios = useCallback(async () => {
@@ -107,7 +104,7 @@ export const AdminProductosPage: React.FC = () => {
     } finally {
       setCargando(false);
     }
-  }, [categoriaSeleccionada, disponibilidadSeleccionada, busqueda, pagina, limite]);
+  }, [categoriaSeleccionada, disponibilidadSeleccionada, busqueda, pagina, limite, mostrarToast]);
 
   useEffect(() => {
     cargarCatalogosSecundarios();
@@ -254,14 +251,13 @@ export const AdminProductosPage: React.FC = () => {
   };
 
   // Archivado Lógico Seguro (activo = false)
-  const handleArchivarProducto = async (prod: ProductoAdminDTO) => {
-    const confirmar = window.confirm(
-      `¿Deseas archivar "${prod.nombre}" de la carta comercial?\n\nEl plato no se borrará físicamente para preservar las auditorías de ventas y comandas históricas.`
-    );
-    if (!confirmar) return;
+  const handleArchivarProducto = (prod: ProductoAdminDTO) => setProductoAArchivar(prod);
 
+  const handleConfirmarArchivado = async () => {
+    if (!productoAArchivar) return;
+    setArchivando(true);
     try {
-      const res = await adminService.archivarProducto(prod.id);
+      const res = await adminService.archivarProducto(productoAArchivar.id);
       if (res.exito) {
         mostrarToast(res.datos.mensaje);
         await cargarProductos();
@@ -269,6 +265,9 @@ export const AdminProductosPage: React.FC = () => {
     } catch (err) {
       console.error('Error archivando producto:', err);
       mostrarToast('Error al archivar el producto.', 'error');
+    } finally {
+      setArchivando(false);
+      setProductoAArchivar(null);
     }
   };
 
@@ -302,45 +301,11 @@ export const AdminProductosPage: React.FC = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-      {/* Notificación Toast Flotante */}
-      {toast && (
-        <div
-          className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border text-sm font-medium animate-in slide-in-from-top-4 duration-200 ${
-            toast.tipo === 'exito'
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-              : 'bg-rose-50 text-rose-800 border-rose-200'
-          }`}
-        >
-          {toast.tipo === 'exito' ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-          ) : (
-            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-          )}
-          <span>{toast.mensaje}</span>
-          <button
-            type="button"
-            onClick={() => setToast(null)}
-            className="p-1 rounded-full hover:bg-black/5 text-current/60 hover:text-current"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+    <div className="space-y-6">
+      <ProductosHeader onAbrirNuevoProducto={handleAbrirNuevoProducto} />
 
-      {/* Cabecera Principal */}
-      <ProductosHeader
-        localNombre={CANONICAL_LOCAL_NOMBRE}
-        onAbrirNuevoProducto={handleAbrirNuevoProducto}
-      />
+      <ProductosKpis kpis={kpis} totalCategorias={categorias.length} />
 
-      {/* Tarjetas KPI */}
-      <ProductosKpis
-        kpis={kpis}
-        totalCategorias={categorias.length}
-      />
-
-      {/* Si no hay productos en la sede y no hay búsqueda activa, mostrar onboarding */}
       {!cargando && kpis.total_productos === 0 && !busqueda ? (
         <OnboardingCartaVacia
           onCrearPrimerPlato={handleAbrirNuevoProducto}
@@ -348,37 +313,51 @@ export const AdminProductosPage: React.FC = () => {
           habilitarReceta={true}
         />
       ) : (
-        <>
-          {/* Barra de Herramientas y Filtros */}
-          <ProductosToolbar
-            categorias={categorias}
-            categoriaSeleccionada={categoriaSeleccionada}
-            onSeleccionarCategoria={handleSeleccionarCategoria}
-            disponibilidadSeleccionada={disponibilidadSeleccionada}
-            onSeleccionarDisponibilidad={handleSeleccionarDisponibilidad}
-            busquedaActiva={busqueda}
-            onBuscar={handleBuscar}
-            totalProductos={kpis.total_productos}
-          />
-
-          {/* Tabla de Productos de la Carta */}
-          <ProductosTable
-            productos={productos}
-            cargando={cargando}
-            paginaActual={pagina}
-            totalPaginas={totalPaginas}
-            totalRegistros={totalRegistros}
-            limitePorPagina={limite}
-            onCambiarPagina={handleCambiarPagina}
-            onCambiarLimite={handleCambiarLimite}
-            onVerReceta={handleVerReceta}
-            onEditarProducto={handleEditarProducto}
-            onArchivarProducto={handleArchivarProducto}
-            onConmutarDisponibilidad={handleConmutarDisponibilidad}
-            mostrarDatosReceta={true}
-          />
-        </>
+        <ProductosTable
+          productos={productos}
+          cargando={cargando}
+          paginaActual={pagina}
+          totalPaginas={totalPaginas}
+          totalRegistros={totalRegistros}
+          limitePorPagina={limite}
+          onCambiarPagina={handleCambiarPagina}
+          onCambiarLimite={handleCambiarLimite}
+          onVerReceta={handleVerReceta}
+          onEditarProducto={handleEditarProducto}
+          onArchivarProducto={handleArchivarProducto}
+          onConmutarDisponibilidad={handleConmutarDisponibilidad}
+          mostrarDatosReceta={true}
+          cabecera={
+            <ProductosToolbar
+              categorias={categorias}
+              categoriaSeleccionada={categoriaSeleccionada}
+              onSeleccionarCategoria={handleSeleccionarCategoria}
+              disponibilidadSeleccionada={disponibilidadSeleccionada}
+              onSeleccionarDisponibilidad={handleSeleccionarDisponibilidad}
+              busquedaActiva={busqueda}
+              onBuscar={handleBuscar}
+              totalProductos={kpis.total_productos}
+              disponibles={kpis.disponibles}
+              agotados={kpis.agotados}
+            />
+          }
+        />
       )}
+
+      <ModalConfirmacion
+        abierto={!!productoAArchivar}
+        onCerrar={() => setProductoAArchivar(null)}
+        onConfirmar={handleConfirmarArchivado}
+        cargando={archivando}
+        tono="alerta"
+        titulo="Archivar plato"
+        mensaje={
+          <>
+            «{productoAArchivar?.nombre}» saldrá de la carta. Su historial de ventas y comandas se conserva.
+          </>
+        }
+        textoConfirmar="Archivar"
+      />
 
       {/* Modal de Alta y Edición de Producto */}
       <ModalCrearEditarProducto
@@ -413,14 +392,16 @@ export const AdminProductosPage: React.FC = () => {
       />
 
       {/* Widget Interactivo de Pruebas */}
-      {!IS_REAL_API && (
-        <DemoAdminProductosWidget
-          onSimularQuiebreLimon={handleSimularQuiebreLimon}
-          onSimularReposicionLimon={handleSimularReposicionLimon}
-          onSimularCartaVacia={handleSimularCartaVacia}
-          onRestablecerAurea={handleRestablecerAurea}
-        />
-      )}
+      <SoloDemo>
+        {!IS_REAL_API && (
+          <DemoAdminProductosWidget
+            onSimularQuiebreLimon={handleSimularQuiebreLimon}
+            onSimularReposicionLimon={handleSimularReposicionLimon}
+            onSimularCartaVacia={handleSimularCartaVacia}
+            onRestablecerAurea={handleRestablecerAurea}
+          />
+        )}
+      </SoloDemo>
     </div>
   );
 };

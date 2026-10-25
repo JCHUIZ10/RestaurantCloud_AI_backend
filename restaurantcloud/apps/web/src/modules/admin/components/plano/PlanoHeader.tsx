@@ -1,174 +1,110 @@
 import React from 'react';
 import { CuotaMesasPlanDTO } from '@/types/admin';
-import { LayoutGrid, Users, Plus, Building2, Utensils, RefreshCw } from 'lucide-react';
+import { LayoutGrid, Users, Plus, RefreshCw, Gauge, Armchair } from 'lucide-react';
+import { Button, IconButton, PageHeader, TarjetaIndicador, type TonoIndicador } from '@/components/ui';
+import { cn } from '@/shared/utils';
 
 interface PlanoHeaderProps {
   cuota: CuotaMesasPlanDTO;
   totalCapacidadSentados: number;
   totalMesasLocal: number;
   totalPisosLocal: number;
-  localNombre: string;
   onAbrirMesaIndividual: () => void;
-  onAbrirNuevoPiso: () => void;
   onRecargar?: () => void;
   isReloading?: boolean;
 }
+
+const BARRA_CUPO: Record<TonoIndicador, string> = {
+  navy: 'bg-aurea-navy',
+  cobre: 'bg-aurea-copper',
+  ok: 'bg-estado-ok-600',
+  alerta: 'bg-estado-alerta-500',
+  error: 'bg-estado-error-600',
+};
 
 export const PlanoHeader: React.FC<PlanoHeaderProps> = ({
   cuota,
   totalCapacidadSentados,
   totalMesasLocal,
   totalPisosLocal,
-  localNombre,
   onAbrirMesaIndividual,
-  onAbrirNuevoPiso,
   onRecargar,
   isReloading = false,
 }) => {
-  const porcentajeUso = Math.min(
-    100,
-    Math.round((cuota.mesas_activas_empresa / cuota.max_mesas_plan) * 100)
-  );
+  const porcentajeUso = cuota.max_mesas_plan > 0
+    ? Math.min(100, Math.round((cuota.mesas_activas_empresa / cuota.max_mesas_plan) * 100))
+    : 0;
+  const tonoCupo: TonoIndicador = porcentajeUso >= 90 ? 'error' : porcentajeUso >= 70 ? 'alerta' : 'cobre';
+  const promedio = totalMesasLocal > 0 ? (totalCapacidadSentados / totalMesasLocal).toFixed(1) : '0';
 
   return (
     <div className="space-y-6">
-      {/* Título y Acciones Principales */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-aurea-copper">
-            <Building2 className="w-4 h-4" />
-            <span>Configuración de Sede · {localNombre}</span>
-          </div>
-          <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl text-aurea-navy font-bold mt-1">
-            Plano y Distribución de Mesas
-          </h1>
-          <p className="font-sans text-sm text-aurea-navy/70 mt-1 max-w-2xl">
-            Organiza los ambientes físicos del restaurante, administra la capacidad del salón y
-            optimiza el flujo operativo para salón y cocina.
-          </p>
-        </div>
-
-        {/* Botones de Acción */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {onRecargar && (
-            <button
-              onClick={onRecargar}
-              disabled={isReloading}
-              title="Actualizar plano y estado del salón"
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-aurea-copper/40 text-aurea-navy hover:bg-aurea-champagne/20 text-xs sm:text-sm font-semibold transition-all active:scale-95 disabled:opacity-50"
+      <PageHeader
+        icono={LayoutGrid}
+        titulo="Plano de mesas"
+        descripcion="Distribuye las mesas de cada ambiente tal como están en el local; los mozos ven este mismo plano al tomar pedidos."
+        acciones={
+          <>
+            {onRecargar && (
+              <IconButton
+                variant="outline"
+                etiqueta="Actualizar plano"
+                icono={RefreshCw}
+                onClick={onRecargar}
+                disabled={isReloading}
+                className={cn(isReloading && '[&_svg]:animate-spin')}
+              />
+            )}
+            <Button
+              onClick={onAbrirMesaIndividual}
+              disabled={cuota.mesas_disponibles <= 0 || totalPisosLocal === 0}
+              leftIcon={<Plus className="w-4 h-4 text-aurea-champagne" aria-hidden="true" />}
             >
-              <RefreshCw className={`w-4 h-4 text-aurea-copper ${isReloading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Actualizar</span>
-            </button>
-          )}
+              Nueva mesa
+            </Button>
+          </>
+        }
+      />
 
-          <button
-            onClick={onAbrirMesaIndividual}
-            disabled={cuota.mesas_disponibles <= 0 || totalPisosLocal === 0}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-aurea-navy text-white hover:bg-aurea-navy/90 text-xs sm:text-sm font-semibold transition-all shadow-sm active:scale-95 disabled:opacity-50"
-          >
-            <Utensils className="w-4 h-4 text-aurea-champagne" />
-            <span>+ Mesa Individual</span>
-          </button>
-
-          <button
-            onClick={onAbrirNuevoPiso}
-            disabled={cuota.pisos_activos_empresa >= cuota.max_pisos_plan}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-aurea-copper/40 text-aurea-navy hover:bg-aurea-champagne/20 text-xs sm:text-sm font-semibold transition-all active:scale-95 disabled:opacity-50"
-          >
-            <Plus className="w-4 h-4 text-aurea-copper" />
-            <span>+ Nuevo Ambiente</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Tarjetas KPI de Aforo y Cupo de Plan */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* KPI 1: Mesas Activas en Local */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-white border border-aurea-copper/30 shadow-sm flex items-start gap-4">
-          <div className="w-12 h-12 rounded-xl bg-aurea-champagne/30 border border-aurea-copper/40 flex items-center justify-center shrink-0">
-            <LayoutGrid className="w-6 h-6 text-aurea-navy" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <span className="text-xs font-semibold text-aurea-navy/60 uppercase tracking-wider block">
-              Mesas en este Local
-            </span>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="font-serif text-2xl sm:text-3xl font-bold text-aurea-navy">
-                {totalMesasLocal}
-              </span>
-              <span className="text-xs text-aurea-navy/70">mesas activas</span>
-            </div>
-            <p className="text-[11px] text-aurea-navy/60 mt-1 truncate">
-              Distribuidas en {totalPisosLocal} ambientes físicos
-            </p>
-          </div>
-        </div>
-
-        {/* KPI 2: Capacidad Total Sentados */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-white border border-aurea-copper/30 shadow-sm flex items-start gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-300 flex items-center justify-center shrink-0">
-            <Users className="w-6 h-6 text-emerald-700" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <span className="text-xs font-semibold text-aurea-navy/60 uppercase tracking-wider block">
-              Capacidad Total Sentados
-            </span>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="font-serif text-2xl sm:text-3xl font-bold text-aurea-navy">
-                {totalCapacidadSentados}
-              </span>
-              <span className="text-xs text-aurea-navy/70">comensales (aforo)</span>
-            </div>
-            <p className="text-[11px] text-aurea-navy/60 mt-1 truncate">
-              Promedio:{' '}
-              {totalMesasLocal > 0
-                ? (totalCapacidadSentados / totalMesasLocal).toFixed(1)
-                : 0}{' '}
-              personas por mesa
-            </p>
-          </div>
-        </div>
-
-        {/* KPI 3: Cupo del Plan Pro */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-white border border-aurea-copper/30 shadow-sm sm:col-span-2 lg:col-span-1">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-aurea-navy/60 uppercase tracking-wider">
-              Cupo de Mesas (Plan {cuota.plan_nombre || 'actual'})
-            </span>
-            <span className="text-xs font-bold text-aurea-copper">
-              {cuota.mesas_disponibles} disponibles
-            </span>
-          </div>
-
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="font-serif text-2xl sm:text-3xl font-bold text-aurea-navy">
-              {cuota.mesas_activas_empresa}
-            </span>
-            <span className="text-sm font-semibold text-aurea-navy/50">
-              / {cuota.max_mesas_plan} mesas
-            </span>
-          </div>
-
-          {/* Barra de progreso */}
-          <div className="w-full bg-aurea-ivory rounded-full h-2.5 mt-2.5 border border-aurea-copper/20 overflow-hidden">
+        <TarjetaIndicador
+          icono={Armchair}
+          etiqueta="Mesas en el local"
+          valor={totalMesasLocal}
+          unidad="activas"
+          detalle={`En ${totalPisosLocal} ambiente${totalPisosLocal === 1 ? '' : 's'}`}
+        />
+        <TarjetaIndicador
+          tono="ok"
+          icono={Users}
+          etiqueta="Aforo sentado"
+          valor={totalCapacidadSentados}
+          unidad="comensales"
+          detalle={`${promedio} personas por mesa en promedio`}
+        />
+        <TarjetaIndicador
+          tono={tonoCupo}
+          icono={Gauge}
+          etiqueta={`Cupo plan ${cuota.plan_nombre || 'actual'}`}
+          valor={cuota.mesas_activas_empresa}
+          unidad={`/ ${cuota.max_mesas_plan} mesas`}
+          detalle={`${cuota.mesas_disponibles} disponibles · máx. ${cuota.max_pisos_plan} ambientes`}
+          className="sm:col-span-2 lg:col-span-1"
+        >
+          <div
+            className="mt-3 h-2 w-full rounded-full bg-aurea-champagne/30 overflow-hidden"
+            role="progressbar"
+            aria-label="Uso del cupo de mesas"
+            aria-valuenow={porcentajeUso}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
             <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                porcentajeUso >= 90
-                  ? 'bg-rose-500'
-                  : porcentajeUso >= 70
-                  ? 'bg-amber-500'
-                  : 'bg-aurea-copper'
-              }`}
+              className={cn('h-full rounded-full transition-all duration-500', BARRA_CUPO[tonoCupo])}
               style={{ width: `${porcentajeUso}%` }}
             />
           </div>
-
-          <div className="flex items-center justify-between text-[11px] text-aurea-navy/60 mt-1.5">
-            <span>{porcentajeUso}% utilizado</span>
-            <span>Máx. {cuota.max_pisos_plan} ambientes</span>
-          </div>
-        </div>
+        </TarjetaIndicador>
       </div>
     </div>
   );

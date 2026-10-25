@@ -15,6 +15,7 @@ import { ModalCambiarPlanPreview } from '../components/suscripcion/ModalCambiarP
 import { DemoSuscripcionWidget } from '../components/suscripcion/DemoSuscripcionWidget';
 import { ROUTES } from '@/router/routes.constants';
 import { Loader2, CheckCircle2, AlertCircle, X, Info } from 'lucide-react';
+import { SoloDemo } from '@/components/ui/SoloDemo';
 
 export const PropietarioSuscripcionPage: React.FC = () => {
   const navigate = useNavigate();
@@ -206,12 +207,14 @@ export const PropietarioSuscripcionPage: React.FC = () => {
       />
 
       {/* 6. QA Sandbox Widget */}
-      <DemoSuscripcionWidget
-        estadoSuscripcion={dashboard.suscripcion_estado}
-        estadoCobro={dashboard.estado_cobro}
-        metodoPago={dashboard.metodo_pago}
-        onActualizar={cargarDatos}
-      />
+      <SoloDemo>
+        <DemoSuscripcionWidget
+          estadoSuscripcion={dashboard.suscripcion_estado}
+          estadoCobro={dashboard.estado_cobro}
+          metodoPago={dashboard.metodo_pago}
+          onActualizar={cargarDatos}
+        />
+      </SoloDemo>
     </div>
   );
 };

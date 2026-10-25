@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useId } from 'react';
 import {
-  X,
   ChefHat,
   Zap,
   Plus,
@@ -10,6 +9,7 @@ import {
   ArrowLeft,
   Check,
   UtensilsCrossed,
+  Package,
 } from 'lucide-react';
 import {
   ProductoAdminDTO,
@@ -19,6 +19,13 @@ import {
   CrearItemRecetaRequest,
   ModoCalculoReceta,
 } from '@/types/admin';
+import { Button, EstadoBadge, EstadoVacio, IconButton, Modal } from '@/components/ui';
+import { cn } from '@/shared/utils';
+import { tonoMargen } from './margen';
+
+const CLASE_CONTROL =
+  'w-full min-h-tactil px-3.5 bg-white border border-aurea-champagne/70 rounded-xl text-base md:text-sm text-aurea-navy placeholder:text-aurea-navy/40 focus:outline-none focus:border-aurea-copper';
+const CLASE_ROTULO = 'block text-sm font-semibold text-aurea-navy mb-1.5';
 
 interface ModalCrearEditarProductoProps {
   abierto: boolean;
@@ -38,6 +45,21 @@ interface ItemRecetaForm {
   rendimiento_platos: number;
   cantidad_descuenta: number;
 }
+
+const PASOS = [
+  { n: 1 as const, etiqueta: 'Datos del plato' },
+  { n: 2 as const, etiqueta: 'Receta e insumos' },
+];
+
+const MODOS: Array<[ModoCalculoReceta, string]> = [
+  ['rendimiento', 'Rinde por lote'],
+  ['exacto', 'Cantidad directa'],
+];
+
+const DESTINOS = [
+  { valor: true, icono: ChefHat, titulo: 'Cocina', texto: 'Se envía a la pantalla de cocina para prepararlo.' },
+  { valor: false, icono: Zap, titulo: 'Despacho directo', texto: 'Bebidas o postres que sirve el mozo o la barra.' },
+];
 
 export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> = ({
   abierto,
@@ -63,6 +85,7 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
 
   // Campos Paso 2: Receta Culinaria Dual
   const [recetaItems, setRecetaItems] = useState<ItemRecetaForm[]>([]);
+  const idForm = useId();
 
   // Inicialización cuando abre el modal o cambia el producto a editar
   useEffect(() => {
@@ -109,8 +132,6 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
       }
     }
   }, [abierto, productoEditar, categorias, insumosDisponibles]);
-
-  if (!abierto) return null;
 
   // Cálculos dinámicos en vivo para la barra de rentabilidad
   const costoTotalTeorico = recetaItems.reduce((acc, item) => {
@@ -230,516 +251,400 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-3xl shadow-2xl border border-aurea-champagne/40 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Cabecera del Modal */}
-        <div className="p-5 border-b border-aurea-champagne/40 flex items-center justify-between bg-aurea-champagne/15">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-aurea-copper/15 border border-aurea-copper/30 flex items-center justify-center text-aurea-copper">
-              <UtensilsCrossed className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-serif font-bold text-aurea-navy">
-                {productoEditar ? 'Editar Plato en Carta' : 'Registrar Nuevo Plato en Carta'}
-              </h2>
-              <p className="text-xs text-aurea-navy/60">
-                {habilitarReceta
-                  ? 'Configura datos comerciales y vincula insumos de inventario'
-                  : 'Configura los datos comerciales del producto'}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onCerrar}
-            className="p-1.5 rounded-full text-aurea-navy/50 hover:text-aurea-navy hover:bg-black/5 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Selector de Pasos */}
-        {habilitarReceta && (
-        <div className="px-6 pt-4 pb-2 border-b border-aurea-champagne/30 bg-white flex items-center justify-between text-xs">
-          <button
-            type="button"
-            onClick={() => setPasoActual(1)}
-            className={`flex items-center gap-2 pb-2 border-b-2 font-semibold transition-all ${
-              pasoActual === 1
-                ? 'border-aurea-copper text-aurea-copper'
-                : 'border-transparent text-aurea-navy/50 hover:text-aurea-navy'
-            }`}
-          >
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${
-              pasoActual === 1 ? 'bg-aurea-copper text-white' : 'bg-gray-100 text-aurea-navy/60'
-            }`}>
-              1
-            </span>
-            <span>Datos Comerciales</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleAvanzarPaso}
-            className={`flex items-center gap-2 pb-2 border-b-2 font-semibold transition-all ${
-              pasoActual === 2
-                ? 'border-aurea-copper text-aurea-copper'
-                : 'border-transparent text-aurea-navy/50 hover:text-aurea-navy'
-            }`}
-          >
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${
-              pasoActual === 2 ? 'bg-aurea-copper text-white' : 'bg-gray-100 text-aurea-navy/60'
-            }`}>
-              2
-            </span>
-            <span>Receta e Insumos (Motor Dual) *</span>
-          </button>
-        </div>
-        )}
-
-        {/* Mensaje de Error Asistido */}
-        {errorValidacion && (
-          <div className="mx-6 mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-2 text-xs text-rose-700">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
-            <span>{errorValidacion}</span>
-          </div>
-        )}
-
-        {/* Formulario con Pasos */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* ========================================================================= */}
-          {/* PASO 1: DATOS COMERCIALES */}
-          {/* ========================================================================= */}
-          {pasoActual === 1 && (
-            <div className="space-y-4">
-              {/* Categoría Obligatoria */}
-              <div>
-                <label className="block text-xs font-semibold text-aurea-navy uppercase tracking-wider mb-1.5">
-                  Categoría de la Carta <span className="text-rose-600">*</span>
-                </label>
-                {categorias.length === 0 ? (
-                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center justify-between">
-                    <span>No tienes categorías registradas aún.</span>
-                    {onIrACategorias && (
-                      <button
-                        type="button"
-                        onClick={onIrACategorias}
-                        className="font-bold underline text-aurea-copper hover:text-aurea-copper/80"
-                      >
-                        Crear en CU-ADMIN-02
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <select
-                    value={categoriaId}
-                    onChange={(e) => setCategoriaId(e.target.value)}
-                    required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-aurea-champagne/60 text-sm text-aurea-navy bg-white focus:border-aurea-copper focus:ring-2 focus:ring-aurea-copper/20 outline-none"
-                  >
-                    <option value="">Selecciona una categoría...</option>
-                    {categorias.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.nombre}
-                      </option>
-                    ))}
-                  </select>
+  // Pasos del asistente y, en el paso 2, la rentabilidad en vivo: siempre visibles aunque la receta sea larga
+  const barra = habilitarReceta ? (
+    <div className="px-4 sm:px-6 py-3 bg-aurea-ivory/60 space-y-3">
+      <ol className="flex items-center gap-2" aria-label="Pasos">
+        {PASOS.map((p, i) => {
+          const activo = pasoActual === p.n;
+          return (
+            <li key={p.n} className="flex items-center gap-2 min-w-0">
+              {i > 0 && <span className="w-6 sm:w-10 h-px bg-aurea-copper/40" aria-hidden="true" />}
+              <button
+                type="button"
+                aria-current={activo ? 'step' : undefined}
+                onClick={() => (p.n === 1 ? setPasoActual(1) : handleAvanzarPaso())}
+                className={cn(
+                  'min-h-tactil flex items-center gap-2 px-2 rounded-xl text-sm font-semibold transition-colors',
+                  activo ? 'text-aurea-navy' : 'text-aurea-navy/50 hover:text-aurea-navy'
                 )}
-              </div>
+              >
+                <span
+                  className={cn(
+                    'w-7 h-7 rounded-full flex items-center justify-center font-serif font-bold text-sm shrink-0',
+                    activo ? 'bg-aurea-navy text-aurea-champagne' : 'bg-white border border-aurea-champagne text-aurea-navy/60'
+                  )}
+                >
+                  {p.n}
+                </span>
+                <span className="truncate">{p.etiqueta}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
 
-              {/* Nombre del Plato */}
-              <div>
-                <label className="block text-xs font-semibold text-aurea-navy uppercase tracking-wider mb-1.5">
-                  Nombre del Plato / Bebida <span className="text-rose-600">*</span>
+      {pasoActual === 2 && (
+        <dl className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+          <div className="px-3 py-2 rounded-xl bg-white border border-aurea-champagne/70">
+            <dt className="text-xs text-aurea-navy/60">Precio</dt>
+            <dd className="font-serif font-bold text-aurea-navy tabular-nums">S/ {precio.toFixed(2)}</dd>
+          </div>
+          <div className="px-3 py-2 rounded-xl bg-white border border-aurea-champagne/70">
+            <dt className="text-xs text-aurea-navy/60">Costo receta</dt>
+            <dd className="text-aurea-navy tabular-nums">S/ {costoTotalTeorico.toFixed(2)}</dd>
+          </div>
+          <div className="px-3 py-2 rounded-xl bg-white border border-aurea-champagne/70">
+            <dt className="text-xs text-aurea-navy/60">Utilidad</dt>
+            <dd className="font-semibold text-estado-ok-700 tabular-nums">S/ {utilidadTeorica.toFixed(2)}</dd>
+          </div>
+          <div className="px-3 py-2 rounded-xl bg-white border border-aurea-champagne/70">
+            <dt className="text-xs text-aurea-navy/60">Margen</dt>
+            <dd>
+              <EstadoBadge tono={tonoMargen(margenBrutoPct)}>{margenBrutoPct}%</EstadoBadge>
+            </dd>
+          </div>
+        </dl>
+      )}
+    </div>
+  ) : undefined;
+
+  const pie = (
+    <>
+      {habilitarReceta && pasoActual === 2 ? (
+        <Button variant="outline" onClick={() => setPasoActual(1)} leftIcon={<ArrowLeft className="w-4 h-4" aria-hidden="true" />}>
+          Anterior
+        </Button>
+      ) : (
+        <Button variant="outline" onClick={onCerrar} disabled={guardando}>
+          Cancelar
+        </Button>
+      )}
+      {habilitarReceta && pasoActual === 1 ? (
+        <Button onClick={handleAvanzarPaso}>
+          Siguiente: receta
+          <ArrowRight className="w-4 h-4" aria-hidden="true" />
+        </Button>
+      ) : (
+        <Button type="submit" form={idForm} loading={guardando} leftIcon={<Check className="w-4 h-4" aria-hidden="true" />}>
+          Guardar plato
+        </Button>
+      )}
+    </>
+  );
+
+  return (
+    <Modal
+      abierto={abierto}
+      onCerrar={onCerrar}
+      cerrable={!guardando}
+      tamano="lg"
+      icono={UtensilsCrossed}
+      titulo={productoEditar ? `Editar «${productoEditar.nombre}»` : 'Nuevo plato'}
+      barra={barra}
+      pie={pie}
+    >
+      <form
+        id={idForm}
+        onSubmit={(e) => {
+          // Enter en el paso 1 avanza a la receta en lugar de guardar sin ella
+          if (habilitarReceta && pasoActual === 1) {
+            e.preventDefault();
+            handleAvanzarPaso();
+          } else {
+            handleSubmit(e);
+          }
+        }}
+        noValidate
+        className="space-y-5"
+      >
+        {errorValidacion && (
+          <p
+            role="alert"
+            className="p-3 rounded-xl bg-estado-error-50 border border-estado-error-200 text-estado-error-800 text-sm flex items-start gap-2"
+          >
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+            {errorValidacion}
+          </p>
+        )}
+
+        {pasoActual === 1 && (
+          <>
+            <div>
+              <label htmlFor={`${idForm}-cat`} className={CLASE_ROTULO}>
+                Categoría
+              </label>
+              {categorias.length === 0 ? (
+                <div className="p-3 rounded-xl bg-estado-alerta-50 border border-estado-alerta-200 text-sm text-estado-alerta-800 flex flex-wrap items-center justify-between gap-2">
+                  <span>Aún no tienes categorías.</span>
+                  {onIrACategorias && (
+                    <Button size="sm" variant="outline" onClick={onIrACategorias}>
+                      Crear categorías
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <select
+                  id={`${idForm}-cat`}
+                  value={categoriaId}
+                  onChange={(e) => setCategoriaId(e.target.value)}
+                  required
+                  className={cn(CLASE_CONTROL, 'cursor-pointer')}
+                >
+                  <option value="">Selecciona una categoría</option>
+                  {categorias.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.nombre}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-2">
+                <label htmlFor={`${idForm}-nombre`} className={CLASE_ROTULO}>
+                  Nombre
                 </label>
                 <input
+                  id={`${idForm}-nombre`}
                   type="text"
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
-                  placeholder="Ej. Lomo Saltado Criollo, Ceviche Clásico..."
+                  placeholder="Ej. Lomo saltado, Ceviche clásico"
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-aurea-champagne/60 text-sm text-aurea-navy focus:border-aurea-copper focus:ring-2 focus:ring-aurea-copper/20 outline-none"
+                  autoFocus
+                  className={CLASE_CONTROL}
                 />
               </div>
-
-              {/* Descripción */}
               <div>
-                <label className="block text-xs font-semibold text-aurea-navy uppercase tracking-wider mb-1.5">
-                  Descripción Comercial (Opcional)
-                </label>
-                <textarea
-                  value={descripcion}
-                  onChange={(e) => setDescripcion(e.target.value)}
-                  placeholder="Breve reseña que verán los clientes en la carta digital..."
-                  rows={2}
-                  className="w-full px-3.5 py-2 rounded-xl border border-aurea-champagne/60 text-sm text-aurea-navy focus:border-aurea-copper focus:ring-2 focus:ring-aurea-copper/20 outline-none resize-none"
-                />
-              </div>
-
-              {/* Precio de Venta */}
-              <div>
-                <label className="block text-xs font-semibold text-aurea-navy uppercase tracking-wider mb-1.5">
-                  Precio de Venta (PEN) <span className="text-rose-600">*</span>
+                <label htmlFor={`${idForm}-precio`} className={CLASE_ROTULO}>
+                  Precio
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-aurea-navy/60">
+                  <span
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-aurea-copper"
+                    aria-hidden="true"
+                  >
                     S/
                   </span>
                   <input
+                    id={`${idForm}-precio`}
                     type="number"
                     step="0.5"
                     min="0.1"
+                    inputMode="decimal"
                     value={precio}
                     onChange={(e) => setPrecio(Math.max(0, parseFloat(e.target.value) || 0))}
                     required
-                    className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-aurea-champagne/60 text-base font-serif font-bold text-aurea-navy focus:border-aurea-copper focus:ring-2 focus:ring-aurea-copper/20 outline-none"
+                    className={cn(CLASE_CONTROL, 'pl-9 font-serif font-bold')}
                   />
                 </div>
               </div>
+            </div>
 
-              {/* Destino Operativo / Despacho */}
-              <div className="p-4 rounded-2xl bg-aurea-champagne/15 border border-aurea-champagne/40 space-y-2">
-                <label className="block text-xs font-bold text-aurea-navy uppercase tracking-wider">
-                  Destino Operativo / Despacho
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <label
-                    className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                      requierePreparacion
-                        ? 'bg-white border-aurea-copper shadow-xs'
-                        : 'bg-white/60 border-aurea-champagne/60 hover:bg-white'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="destino"
-                      checked={requierePreparacion}
-                      onChange={() => setRequierePreparacion(true)}
-                      className="mt-1 text-aurea-copper focus:ring-aurea-copper"
-                    />
-                    <div>
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-aurea-navy">
-                        <ChefHat className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Cocina (KDS)</span>
-                      </div>
-                      <p className="text-[11px] text-aurea-navy/60 mt-0.5">
-                        Requiere cocción en fogones. Se envía a pantalla de cocina.
-                      </p>
-                    </div>
-                  </label>
+            <div>
+              <label htmlFor={`${idForm}-desc`} className={CLASE_ROTULO}>
+                Descripción <span className="font-normal text-aurea-navy/50">(opcional)</span>
+              </label>
+              <textarea
+                id={`${idForm}-desc`}
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                placeholder="La verán los comensales en la carta digital"
+                rows={2}
+                className={cn(CLASE_CONTROL, 'py-2.5 resize-none')}
+              />
+            </div>
 
-                  <label
-                    className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                      !requierePreparacion
-                        ? 'bg-white border-aurea-copper shadow-xs'
-                        : 'bg-white/60 border-aurea-champagne/60 hover:bg-white'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="destino"
-                      checked={!requierePreparacion}
-                      onChange={() => setRequierePreparacion(false)}
-                      className="mt-1 text-aurea-copper focus:ring-aurea-copper"
-                    />
-                    <div>
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-aurea-navy">
-                        <Zap className="w-3.5 h-3.5 text-sky-600" />
-                        <span>Despacho Directo</span>
-                      </div>
-                      <p className="text-[11px] text-aurea-navy/60 mt-0.5">
-                        Gaseosas, bebidas, licores o postres servidos por mozo/barra.
-                      </p>
-                    </div>
-                  </label>
-                </div>
+            <fieldset>
+              <legend className={CLASE_ROTULO}>¿Dónde se prepara?</legend>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {DESTINOS.map(({ valor, icono: Icono, titulo, texto }) => {
+                  const activo = requierePreparacion === valor;
+                  return (
+                    <label
+                      key={titulo}
+                      className={cn(
+                        'flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors',
+                        activo
+                          ? 'bg-aurea-champagne/30 border-aurea-copper shadow-sm'
+                          : 'bg-white border-aurea-champagne/70 hover:border-aurea-copper/60'
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name={`${idForm}-destino`}
+                        checked={activo}
+                        onChange={() => setRequierePreparacion(valor)}
+                        className="mt-1 accent-aurea-copper"
+                      />
+                      <span>
+                        <span className="flex items-center gap-1.5 text-sm font-semibold text-aurea-navy">
+                          <Icono className="w-4 h-4 text-aurea-copper" aria-hidden="true" />
+                          {titulo}
+                        </span>
+                        <span className="block text-sm text-aurea-navy/60 mt-0.5">{texto}</span>
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
-            </div>
-          )}
-
-          {/* ========================================================================= */}
-          {/* PASO 2: RECETA E INSUMOS (MOTOR DUAL) */}
-          {/* ========================================================================= */}
-          {habilitarReceta && pasoActual === 2 && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-aurea-navy">
-                    Receta e Insumos a Descontar
-                  </h3>
-                  <p className="text-[11px] text-aurea-navy/60">
-                    Elige el modo más cómodo: rendimiento por lote o cantidad directa exacta:
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAgregarInsumo}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-aurea-copper/15 hover:bg-aurea-copper/25 text-aurea-copper text-xs font-bold transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Agregar Insumo</span>
-                </button>
-              </div>
-
-              {recetaItems.length === 0 ? (
-                <div className="p-6 rounded-2xl bg-aurea-champagne/15 border border-dashed border-aurea-champagne/60 text-center">
-                  <UtensilsCrossed className="w-8 h-8 mx-auto text-aurea-navy/40 mb-2" />
-                  <p className="text-xs font-semibold text-aurea-navy">No has vinculado insumos aún</p>
-                  <p className="text-[11px] text-aurea-navy/60 mt-0.5">
-                    Haz clic en "Agregar Insumo" para asociar ingredientes de inventario a este plato.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {recetaItems.map((item, idx) => {
-                    const insumoObj = insumosDisponibles.find((i) => i.id === item.insumo_id);
-                    const unidad = insumoObj ? insumoObj.unidad_medida : 'und';
-                    const costoUnitario = insumoObj ? insumoObj.costo_unitario : 0;
-
-                    let dosisReal = item.cantidad_descuenta;
-                    if (item.modo_calculo === 'rendimiento' && item.rendimiento_platos > 0) {
-                      dosisReal = 1 / item.rendimiento_platos;
-                    }
-                    const costoPlato = dosisReal * costoUnitario;
-
-                    return (
-                      <div
-                        key={idx}
-                        className="p-3.5 rounded-2xl bg-white border border-aurea-champagne/60 shadow-xs space-y-3"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          {/* Selector de Insumo */}
-                          <div className="flex-1">
-                            <label className="block text-[11px] font-semibold text-aurea-navy/70 mb-1">
-                              Insumo de Bodega
-                            </label>
-                            <select
-                              value={item.insumo_id}
-                              onChange={(e) => handleActualizarItem(idx, 'insumo_id', e.target.value)}
-                              className="w-full px-3 py-1.5 rounded-xl border border-aurea-champagne/60 text-xs text-aurea-navy bg-white focus:border-aurea-copper outline-none"
-                            >
-                              {insumosDisponibles.map((ins) => (
-                                <option key={ins.id} value={ins.id}>
-                                  {ins.nombre} ({ins.unidad_medida}) - S/ {ins.costo_unitario.toFixed(2)}/{ins.unidad_medida}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {/* Botón Eliminar Fila */}
-                          <button
-                            type="button"
-                            onClick={() => handleEliminarInsumo(idx)}
-                            className="mt-5 p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors"
-                            title="Eliminar insumo de la receta"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-
-                        {/* Motor Dual: Selector de Modo y Dosificación */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-aurea-champagne/30 text-xs">
-                          {/* Conmutador Modo de Cálculo */}
-                          <div>
-                            <label className="block text-[11px] font-semibold text-aurea-navy/70 mb-1">
-                              Modo de Cálculo
-                            </label>
-                            <div className="flex rounded-xl bg-aurea-champagne/20 p-1 border border-aurea-champagne/40">
-                              <button
-                                type="button"
-                                onClick={() => handleActualizarItem(idx, 'modo_calculo', 'rendimiento')}
-                                className={`flex-1 py-1 rounded-lg text-center text-[11px] font-semibold transition-all ${
-                                  item.modo_calculo === 'rendimiento'
-                                    ? 'bg-white text-aurea-navy shadow-xs'
-                                    : 'text-aurea-navy/60 hover:text-aurea-navy'
-                                }`}
-                              >
-                                Rinde por Lote
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleActualizarItem(idx, 'modo_calculo', 'exacto')}
-                                className={`flex-1 py-1 rounded-lg text-center text-[11px] font-semibold transition-all ${
-                                  item.modo_calculo === 'exacto'
-                                    ? 'bg-white text-aurea-navy shadow-xs'
-                                    : 'text-aurea-navy/60 hover:text-aurea-navy'
-                                }`}
-                              >
-                                Cantidad Directa
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Input de Valor según Modo */}
-                          <div>
-                            {item.modo_calculo === 'rendimiento' ? (
-                              <div>
-                                <label className="block text-[11px] font-semibold text-aurea-navy/70 mb-1">
-                                  1 {unidad} rinde:
-                                </label>
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    value={item.rendimiento_platos}
-                                    onChange={(e) =>
-                                      handleActualizarItem(
-                                        idx,
-                                        'rendimiento_platos',
-                                        Math.max(1, parseInt(e.target.value) || 1)
-                                      )
-                                    }
-                                    className="w-full px-3 py-1.5 rounded-xl border border-aurea-champagne/60 text-xs text-aurea-navy focus:border-aurea-copper outline-none"
-                                  />
-                                  <span className="text-xs text-aurea-navy/70 font-medium whitespace-nowrap">
-                                    platos
-                                  </span>
-                                </div>
-                                <span className="text-[10px] text-aurea-navy/50 mt-0.5 block">
-                                  Dosis: {(1 / item.rendimiento_platos).toFixed(5)} {unidad}/plato
-                                </span>
-                              </div>
-                            ) : (
-                              <div>
-                                <label className="block text-[11px] font-semibold text-aurea-navy/70 mb-1">
-                                  Descuenta por plato:
-                                </label>
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0.001"
-                                    value={item.cantidad_descuenta}
-                                    onChange={(e) =>
-                                      handleActualizarItem(
-                                        idx,
-                                        'cantidad_descuenta',
-                                        Math.max(0.001, parseFloat(e.target.value) || 0)
-                                      )
-                                    }
-                                    className="w-full px-3 py-1.5 rounded-xl border border-aurea-champagne/60 text-xs text-aurea-navy focus:border-aurea-copper outline-none"
-                                  />
-                                  <span className="text-xs text-aurea-navy/70 font-medium whitespace-nowrap">
-                                    {unidad}
-                                  </span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Costo por Plato resultante */}
-                        <div className="flex items-center justify-between pt-1 text-[11px] text-aurea-navy/70">
-                          <span>Costo teórico por ración:</span>
-                          <span className="font-serif font-bold text-aurea-navy">
-                            S/ {costoPlato.toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </form>
-
-        {/* Barra de Rentabilidad en Vivo (LiveProfitabilityBar) */}
-        {habilitarReceta && (
-        <div className="px-6 py-3 bg-aurea-champagne/20 border-t border-aurea-champagne/40 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-4">
-            <div>
-              <span className="text-[10px] uppercase font-semibold text-aurea-navy/60 block">Precio</span>
-              <span className="font-serif font-bold text-aurea-navy text-sm">
-                S/ {precio.toFixed(2)}
-              </span>
-            </div>
-            <div className="h-6 w-px bg-aurea-champagne/60" />
-            <div>
-              <span className="text-[10px] uppercase font-semibold text-aurea-navy/60 block">Costo Receta</span>
-              <span className="font-medium text-aurea-navy text-sm">
-                S/ {costoTotalTeorico.toFixed(2)}
-              </span>
-            </div>
-            <div className="h-6 w-px bg-aurea-champagne/60" />
-            <div>
-              <span className="text-[10px] uppercase font-semibold text-aurea-navy/60 block">Utilidad Bruta</span>
-              <span className="font-medium text-emerald-700 text-sm">
-                S/ {utilidadTeorica.toFixed(2)}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-aurea-navy">Margen:</span>
-            <span
-              className={`px-2.5 py-0.5 rounded-full font-bold text-xs border ${
-                margenBrutoPct >= 65
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : margenBrutoPct >= 50
-                  ? 'bg-amber-50 text-amber-700 border-amber-200'
-                  : 'bg-rose-50 text-rose-700 border-rose-200'
-              }`}
-            >
-              {margenBrutoPct}%
-            </span>
-          </div>
-        </div>
+            </fieldset>
+          </>
         )}
 
-        {/* Pie del Modal con Navegación de Pasos */}
-        <div className="p-4 border-t border-aurea-champagne/40 bg-white flex items-center justify-between">
-          {habilitarReceta && pasoActual === 2 ? (
-            <button
-              type="button"
-              onClick={() => setPasoActual(1)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-aurea-champagne/60 text-aurea-navy text-xs font-semibold hover:bg-aurea-champagne/20 transition-colors"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Anterior</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onCerrar}
-              className="px-4 py-2 rounded-xl text-aurea-navy/70 hover:text-aurea-navy text-xs font-medium transition-colors"
-            >
-              Cancelar
-            </button>
-          )}
+        {habilitarReceta && pasoActual === 2 && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-aurea-navy/70">Insumos que se descuentan de bodega por cada ración.</p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleAgregarInsumo}
+                disabled={insumosDisponibles.length === 0}
+                leftIcon={<Plus className="w-4 h-4 text-aurea-copper" aria-hidden="true" />}
+              >
+                Agregar insumo
+              </Button>
+            </div>
 
-          {pasoActual === 1 && habilitarReceta ? (
-            <button
-              type="button"
-              onClick={handleAvanzarPaso}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-aurea-copper hover:bg-aurea-copper/90 text-white text-xs font-bold transition-all shadow-sm"
-            >
-              <span>Siguiente: Receta</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={guardando}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-aurea-copper hover:bg-aurea-copper/90 text-white text-xs font-bold transition-all shadow-md hover:shadow-lg disabled:opacity-50"
-            >
-              {guardando ? (
-                <>
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Guardando...</span>
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4 stroke-[2.5]" />
-                  <span>{habilitarReceta ? 'Guardar Plato y Receta' : 'Guardar Producto'}</span>
-                </>
-              )}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+            {recetaItems.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-aurea-copper/50 bg-aurea-ivory">
+                <EstadoVacio
+                  icono={Package}
+                  titulo="Sin insumos"
+                  descripcion="Agrega al menos un insumo para controlar el stock del plato."
+                />
+              </div>
+            ) : (
+              <ul className="space-y-3">
+                {recetaItems.map((item, idx) => {
+                  const insumoObj = insumosDisponibles.find((i) => i.id === item.insumo_id);
+                  const unidad = insumoObj ? insumoObj.unidad_medida : 'und';
+                  const costoUnitario = insumoObj ? insumoObj.costo_unitario : 0;
+                  const dosisReal =
+                    item.modo_calculo === 'rendimiento' && item.rendimiento_platos > 0
+                      ? 1 / item.rendimiento_platos
+                      : item.cantidad_descuenta;
+                  const costoPlato = dosisReal * costoUnitario;
+                  const idItem = `${idForm}-ins-${idx}`;
+
+                  return (
+                    <li key={idx} className="p-4 rounded-xl bg-white border border-aurea-champagne/70 shadow-sm space-y-3">
+                      <div className="flex items-end gap-2">
+                        <div className="flex-1 min-w-0">
+                          <label htmlFor={idItem} className="block text-xs font-semibold text-aurea-navy/70 mb-1">
+                            Insumo
+                          </label>
+                          <select
+                            id={idItem}
+                            value={item.insumo_id}
+                            onChange={(e) => handleActualizarItem(idx, 'insumo_id', e.target.value)}
+                            className={cn(CLASE_CONTROL, 'cursor-pointer')}
+                          >
+                            {insumosDisponibles.map((ins) => (
+                              <option key={ins.id} value={ins.id}>
+                                {ins.nombre} · S/ {ins.costo_unitario.toFixed(2)}/{ins.unidad_medida}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <IconButton
+                          variant="danger"
+                          icono={Trash2}
+                          etiqueta="Quitar insumo de la receta"
+                          onClick={() => handleEliminarInsumo(idx)}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                        <div
+                          role="group"
+                          aria-label="Cómo se calcula"
+                          className="flex p-1 rounded-xl bg-aurea-champagne/25 border border-aurea-champagne/70"
+                        >
+                          {MODOS.map(([modo, texto]) => (
+                            <button
+                              key={modo}
+                              type="button"
+                              aria-pressed={item.modo_calculo === modo}
+                              onClick={() => handleActualizarItem(idx, 'modo_calculo', modo)}
+                              className={cn(
+                                'flex-1 min-h-9 rounded-lg text-sm font-semibold transition-colors',
+                                item.modo_calculo === modo
+                                  ? 'bg-aurea-navy text-white shadow-sm'
+                                  : 'text-aurea-navy/60 hover:text-aurea-navy'
+                              )}
+                            >
+                              {texto}
+                            </button>
+                          ))}
+                        </div>
+
+                        {item.modo_calculo === 'rendimiento' ? (
+                          <div>
+                            <label htmlFor={`${idItem}-r`} className="block text-xs font-semibold text-aurea-navy/70 mb-1">
+                              1 {unidad} rinde
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                id={`${idItem}-r`}
+                                type="number"
+                                min="1"
+                                value={item.rendimiento_platos}
+                                onChange={(e) =>
+                                  handleActualizarItem(idx, 'rendimiento_platos', Math.max(1, parseInt(e.target.value) || 1))
+                                }
+                                className={CLASE_CONTROL}
+                              />
+                              <span className="text-sm text-aurea-navy/70">platos</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <label htmlFor={`${idItem}-c`} className="block text-xs font-semibold text-aurea-navy/70 mb-1">
+                              Descuenta por plato
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                id={`${idItem}-c`}
+                                type="number"
+                                step="0.01"
+                                min="0.001"
+                                value={item.cantidad_descuenta}
+                                onChange={(e) =>
+                                  handleActualizarItem(
+                                    idx,
+                                    'cantidad_descuenta',
+                                    Math.max(0.001, parseFloat(e.target.value) || 0)
+                                  )
+                                }
+                                className={CLASE_CONTROL}
+                              />
+                              <span className="text-sm text-aurea-navy/70">{unidad}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <p className="flex items-center justify-between pt-2 border-t border-aurea-champagne/40 text-xs text-aurea-navy/60">
+                        <span>
+                          {dosisReal.toFixed(dosisReal < 0.01 ? 4 : 3)} {unidad} por ración
+                        </span>
+                        <span>
+                          Costo{' '}
+                          <strong className="font-serif text-sm text-aurea-navy tabular-nums">S/ {costoPlato.toFixed(2)}</strong>
+                        </span>
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+      </form>
+    </Modal>
   );
 };

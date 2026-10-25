@@ -15,10 +15,13 @@ import { ROUTES } from '@/router/routes.constants';
 
 interface DropdownCampanaNotificacionesProps {
   onVerAnulacion?: (anulacionId: string) => void;
+  /** En la sidebar navy: campana clara y panel abierto hacia la derecha */
+  enFondoOscuro?: boolean;
 }
 
 export const DropdownCampanaNotificaciones: React.FC<DropdownCampanaNotificacionesProps> = ({
   onVerAnulacion,
+  enFondoOscuro = false,
 }) => {
   const [abierto, setAbierto] = useState(false);
   const [notificaciones, setNotificaciones] = useState<NotificacionCampanaDTO[]>([]);
@@ -109,7 +112,11 @@ export const DropdownCampanaNotificaciones: React.FC<DropdownCampanaNotificacion
         type="button"
         onClick={() => setAbierto(!abierto)}
         aria-label="Notificaciones"
-        className="relative p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className={`relative min-h-tactil min-w-tactil flex items-center justify-center rounded-xl transition-colors ${
+          enFondoOscuro
+            ? 'text-aurea-champagne hover:text-white hover:bg-white/10'
+            : 'text-tinta-600 hover:text-tinta-900 hover:bg-tinta-100'
+        }`}
       >
         <Bell className="w-5 h-5" />
         {countNoLeidas > 0 && (
@@ -121,7 +128,7 @@ export const DropdownCampanaNotificaciones: React.FC<DropdownCampanaNotificacion
 
       {/* Popover Dropdown de 390px */}
       {abierto && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 overflow-hidden flex flex-col text-slate-800 animate-in fade-in zoom-in-95 duration-150">
+        <div className={`absolute ${enFondoOscuro ? 'left-0' : 'right-0'} mt-2 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 overflow-hidden flex flex-col text-slate-800 animate-in fade-in zoom-in-95 duration-150`}>
           {/* Cabecera */}
           <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
             <div className="flex items-center gap-2">

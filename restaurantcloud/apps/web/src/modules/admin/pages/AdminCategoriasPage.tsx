@@ -18,7 +18,7 @@ import { ModalCrearEditarCategoria } from '../components/categorias/ModalCrearEd
 import { ModalBloqueoReasignacion } from '../components/categorias/ModalBloqueoReasignacion';
 import { OnboardingCategoriasVacia } from '../components/categorias/OnboardingCategoriasVacia';
 
-import { AlertCircle, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { EstadoError, ModalConfirmacion, Skeleton, useToast } from '@/components/ui';
 
 export const AdminCategoriasPage: React.FC = () => {
   // Estado de Datos y Carga
@@ -39,15 +39,15 @@ export const AdminCategoriasPage: React.FC = () => {
   const [conflictoActual, setConflictoActual] =
     useState<ConflictoCategoriaConProductosDTO | null>(null);
 
-  // Notificación Toast
-  const [toast, setToast] = useState<{ tipo: 'exito' | 'error'; mensaje: string } | null>(null);
+  // Confirmación de borrado de una categoría sin platos
+  const [categoriaAEliminar, setCategoriaAEliminar] = useState<CategoriaAdminDTO | null>(null);
+  const [eliminando, setEliminando] = useState<boolean>(false);
 
-  const mostrarToast = useCallback((mensaje: string, tipo: 'exito' | 'error' = 'exito') => {
-    setToast({ tipo, mensaje });
-    setTimeout(() => {
-      setToast((prev) => (prev?.mensaje === mensaje ? null : prev));
-    }, 4000);
-  }, []);
+  const { mostrar } = useToast();
+  const mostrarToast = useCallback(
+    (mensaje: string, tipo: 'exito' | 'error' = 'exito') => mostrar(mensaje, tipo === 'exito' ? 'ok' : 'error'),
+    [mostrar]
+  );
 
   // Cargar Categorías
   const cargarCategorias = useCallback(async () => {
@@ -236,15 +236,24 @@ export const AdminCategoriasPage: React.FC = () => {
     }
   };
 
-  // Handler: Eliminar Categoría (con Bloqueo 409 asistido)
-  const handleEliminarCategoria = async (categoria: CategoriaAdminDTO) => {
+  // Handler: Eliminar Categoría (con Bloqueo 409 asistido). Las vacías piden confirmación antes.
+  const handleEliminarCategoria = (categoria: CategoriaAdminDTO) => {
     if (categoria.total_productos === 0) {
-      const confirmacion = window.confirm(
-        `¿Estás seguro de que deseas eliminar la sección vacía "${categoria.nombre}"?`
-      );
-      if (!confirmacion) return;
+      setCategoriaAEliminar(categoria);
+      return;
     }
+    void ejecutarEliminacion(categoria);
+  };
 
+  const handleConfirmarEliminacion = async () => {
+    if (!categoriaAEliminar) return;
+    setEliminando(true);
+    await ejecutarEliminacion(categoriaAEliminar);
+    setEliminando(false);
+    setCategoriaAEliminar(null);
+  };
+
+  const ejecutarEliminacion = async (categoria: CategoriaAdminDTO) => {
     try {
       const res = await adminService.eliminarCategoria(categoria.id);
 
@@ -294,80 +303,39 @@ export const AdminCategoriasPage: React.FC = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 animate-fade-in relative">
-      {/* Toast Notificación */}
-      {toast && (
-        <div
-          className={`fixed top-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl border text-sm font-medium animate-slide-in ${
-            toast.tipo === 'exito'
-              ? 'bg-emerald-900 text-white border-emerald-700'
-              : 'bg-rose-900 text-white border-rose-700'
-          }`}
-        >
-          {toast.tipo === 'exito' ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-          ) : (
-            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
-          )}
-          <span>{toast.mensaje}</span>
-        </div>
-      )}
-
-      {/* =====================================================================
-          1. ESTADO UX: SKELETON LOADING
-          ===================================================================== */}
+    <div className="space-y-6">
+      {/* Carga: la misma forma que la vista final */}
       {cargando && !datosResponse && (
-        <div className="space-y-6 animate-pulse">
-          {/* Header Skeleton */}
+        <div className="space-y-6" aria-busy="true" aria-label="Cargando categorías">
           <div className="space-y-2">
-            <div className="h-4 w-40 bg-aurea-champagne/30 rounded" />
-            <div className="h-8 w-64 bg-aurea-champagne/40 rounded-lg" />
-            <div className="h-4 w-96 bg-aurea-champagne/20 rounded" />
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-9 w-72 max-w-full" />
+            <Skeleton className="h-4 w-full max-w-xl" />
           </div>
-
-          {/* KPI Cards Skeleton */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-20 bg-white rounded-2xl border border-aurea-champagne/30 p-4" />
+              <Skeleton key={i} className="h-28 rounded-2xl" />
             ))}
           </div>
-
-          {/* Table Skeleton */}
-          <div className="h-72 bg-white rounded-2xl border border-aurea-champagne/30" />
+          <Skeleton className="h-96 rounded-2xl" />
         </div>
       )}
 
-      {/* =====================================================================
-          2. ESTADO UX: ERROR DE RED CON REINTENTO
-          ===================================================================== */}
       {!cargando && error && (
-        <div className="p-8 sm:p-12 text-center bg-white rounded-3xl border border-rose-200 shadow-sm space-y-4 max-w-lg mx-auto">
-          <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-200">
-            <AlertCircle className="w-8 h-8" />
-          </div>
-          <div className="space-y-1.5">
-            <h3 className="text-lg font-serif font-bold text-aurea-navy">Error al cargar la carta</h3>
-            <p className="text-sm text-aurea-navy/70">{error}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => cargarCategorias()}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-aurea-navy text-white text-sm font-semibold hover:bg-aurea-navy/90 transition-all shadow-md min-h-[44px]"
-          >
-            <RefreshCw className="w-4 h-4 text-aurea-champagne" />
-            <span>Reintentar Conexión</span>
-          </button>
+        <div className="bg-white rounded-2xl border border-aurea-champagne/70 shadow-sm max-w-lg mx-auto">
+          <EstadoError
+            titulo="No se pudieron cargar las categorías"
+            mensaje={error}
+            onReintentar={() => cargarCategorias()}
+          />
         </div>
       )}
 
-      {/* =====================================================================
-          3. ESTADO UX: CARGADO REACTIVO (LOADED STATE)
-          ===================================================================== */}
+      {/* Con datos */}
       {datosResponse && !error && (
         <>
           {/* Cabecera y KPIs */}
           <CategoriasHeader
-            localNombre={datosResponse.local_nombre}
             resumen={datosResponse.resumen}
             onAbrirNuevaCategoria={handleAbrirNueva}
           />
@@ -378,18 +346,16 @@ export const AdminCategoriasPage: React.FC = () => {
               onCrearPrimeraCategoria={handleAbrirNueva}
             />
           ) : (
-            <div className="space-y-4">
-              {/* Filtros por pestaña y buscador */}
-              <CategoriasFiltrosTabs
-                filtroEstado={filtroEstado}
-                onCambiarFiltroEstado={setFiltroEstado}
-                busqueda={busqueda}
-                onCambiarBusqueda={setBusqueda}
-                conteos={conteos}
-              />
-
-              {/* Directorio de categorías (Tabla / Cards) */}
-              <CategoriasTable
+            <CategoriasTable
+                cabecera={
+                  <CategoriasFiltrosTabs
+                    filtroEstado={filtroEstado}
+                    onCambiarFiltroEstado={setFiltroEstado}
+                    busqueda={busqueda}
+                    onCambiarBusqueda={setBusqueda}
+                    conteos={conteos}
+                  />
+                }
                 categorias={categoriasFiltradas}
                 todasCategoriasOrdenadas={todasCategorias}
                 onSubirOrden={handleSubirOrden}
@@ -403,10 +369,19 @@ export const AdminCategoriasPage: React.FC = () => {
                 }}
                 filtroActivo={filtroEstado !== 'todas' || busqueda.trim().length > 0}
               />
-            </div>
           )}
         </>
       )}
+
+      <ModalConfirmacion
+        abierto={!!categoriaAEliminar}
+        onCerrar={() => setCategoriaAEliminar(null)}
+        onConfirmar={handleConfirmarEliminacion}
+        cargando={eliminando}
+        titulo="Eliminar categoría"
+        mensaje={<>¿Eliminar la categoría vacía «{categoriaAEliminar?.nombre}»? Esta acción no se puede deshacer.</>}
+        textoConfirmar="Eliminar"
+      />
 
       {/* Modales Interactivos */}
       <ModalCrearEditarCategoria

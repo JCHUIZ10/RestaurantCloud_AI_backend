@@ -26,6 +26,7 @@ import { ModalVisorReporteZAdmin } from '../components/flujo-caja/ModalVisorRepo
 import { ModalRegistroGastoManual } from '../components/flujo-caja/ModalRegistroGastoManual';
 import { ModalCierreForzadoAdmin } from '../components/flujo-caja/ModalCierreForzadoAdmin';
 import { DemoAdminFinanzasWidget } from '../components/flujo-caja/DemoAdminFinanzasWidget';
+import { SoloDemo } from '@/components/ui/SoloDemo';
 
 type TabFinanzas = 'flujo' | 'turnos_z' | 'gastos';
 
@@ -391,10 +392,12 @@ export const AdminFlujoCajaPage: React.FC = () => {
       />
 
       {/* Widget QA Sandbox */}
-      <DemoAdminFinanzasWidget
-        onSelectEscenario={handleSelectEscenarioQA}
-        estadoActual={estadoBadgeTexto}
-      />
+      <SoloDemo>
+        <DemoAdminFinanzasWidget
+          onSelectEscenario={handleSelectEscenarioQA}
+          estadoActual={estadoBadgeTexto}
+        />
+      </SoloDemo>
     </div>
   );
 };

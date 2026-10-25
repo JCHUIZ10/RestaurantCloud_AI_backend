@@ -17,6 +17,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { HOME_POR_ROL } from '@/router/accesoPorRol';
 
 interface ModalDesactivarLocalProps {
   isOpen: boolean;
@@ -218,7 +219,7 @@ export const ModalDesactivarLocal: React.FC<ModalDesactivarLocalProps> = ({
                         size="sm"
                         onClick={() => {
                           onClose();
-                          navigate('/admin/dashboard');
+                          navigate(HOME_POR_ROL.admin_local);
                         }}
                         className="text-xs shrink-0 border-aurea-copper/30 text-aurea-navy hover:bg-aurea-ivory flex items-center gap-1"
                       >

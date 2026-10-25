@@ -2,6 +2,16 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Cloud, LogIn, ArrowRight, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ROUTES } from '@/router/routes.constants';
+
+// Las anclas (/#seccion) usan <a> nativo para conservar el scroll; las rutas usan Link
+const EnlaceNav: React.FC<{
+  href: string;
+  className?: string;
+  onClick?: () => void;
+  children: React.ReactNode;
+}> = ({ href, ...props }) =>
+  href.includes('#') ? <a href={href} {...props} /> : <Link to={href} {...props} />;
 
 export const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -11,14 +21,14 @@ export const Navbar: React.FC = () => {
     { label: 'Ecosistema', href: '/#modulos' },
     { label: 'IA & Forecasting', href: '/#ia' },
     { label: 'Planes & Precios', href: '/#planes' },
-    { label: 'Carta Demo QR', href: '/carta' },
+    { label: 'Carta Demo QR', href: ROUTES.CARTA_DEMO },
   ];
 
   return (
     <header className="sticky top-0 z-50 bg-[#FFF9F0]/90 backdrop-blur-md border-b border-aurea-copper/25 transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
         {/* Logotipo Oficial RestaurantCloud AI */}
-        <Link to="/" className="flex items-center gap-3 group">
+        <Link to={ROUTES.HOME} className="flex items-center gap-3 group">
           <div className="w-11 h-11 rounded-xl bg-aurea-navy flex items-center justify-center border-2 border-aurea-copper/60 shadow-md group-hover:scale-105 transition-transform">
             <Cloud className="w-6 h-6 text-aurea-champagne" />
           </div>
@@ -40,7 +50,7 @@ export const Navbar: React.FC = () => {
         {/* Navegación Desktop */}
         <nav className="hidden md:flex items-center gap-8">
           {navLinks.map((link) => (
-            <a
+            <EnlaceNav
               key={link.label}
               href={link.href}
               className={`font-sans text-sm font-medium transition-colors hover:text-aurea-copper ${
@@ -48,14 +58,14 @@ export const Navbar: React.FC = () => {
               }`}
             >
               {link.label}
-            </a>
+            </EnlaceNav>
           ))}
         </nav>
 
         {/* Acciones Rápidas Desktop */}
         <div className="hidden md:flex items-center gap-3">
           <Link
-            to="/login"
+            to={ROUTES.LOGIN}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-aurea-navy hover:text-aurea-navy/80 hover:bg-aurea-champagne/30 transition-colors"
           >
             <LogIn className="w-4 h-4 text-aurea-copper" />
@@ -63,7 +73,7 @@ export const Navbar: React.FC = () => {
           </Link>
 
           <Link
-            to="/registro"
+            to={ROUTES.REGISTRO}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-aurea-ivory bg-aurea-navy hover:bg-opacity-90 shadow-md transition-all group"
           >
             <span>Crear Restaurante</span>
@@ -74,7 +84,7 @@ export const Navbar: React.FC = () => {
         {/* Botón Hamburguesa Móvil */}
         <div className="flex md:hidden items-center gap-2">
           <Link
-            to="/login"
+            to={ROUTES.LOGIN}
             className="p-2 text-xs font-semibold text-aurea-navy bg-aurea-champagne/40 rounded-lg border border-aurea-copper/30"
           >
             Entrar
@@ -102,20 +112,20 @@ export const Navbar: React.FC = () => {
           >
             <nav className="flex flex-col space-y-3">
               {navLinks.map((link) => (
-                <a
+                <EnlaceNav
                   key={link.label}
                   href={link.href}
                   onClick={() => setIsOpen(false)}
                   className="px-3 py-2.5 rounded-lg text-base font-medium text-aurea-navy hover:bg-aurea-champagne/30 transition-colors"
                 >
                   {link.label}
-                </a>
+                </EnlaceNav>
               ))}
             </nav>
 
             <div className="pt-3 border-t border-aurea-copper/20 flex flex-col gap-2.5">
               <Link
-                to="/registro"
+                to={ROUTES.REGISTRO}
                 onClick={() => setIsOpen(false)}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold text-aurea-ivory bg-aurea-navy shadow-md"
               >
@@ -124,7 +134,7 @@ export const Navbar: React.FC = () => {
               </Link>
 
               <Link
-                to="/login"
+                to={ROUTES.LOGIN}
                 onClick={() => setIsOpen(false)}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold text-aurea-navy border border-aurea-navy/20 hover:bg-aurea-champagne/20"
               >

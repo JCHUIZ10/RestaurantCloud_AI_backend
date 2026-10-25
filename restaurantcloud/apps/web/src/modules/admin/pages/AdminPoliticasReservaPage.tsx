@@ -12,6 +12,7 @@ import { SimuladorLineaTiempoView } from '../components/politicas/SimuladorLinea
 import { ModalBloqueoDesactivacion } from '../components/politicas/ModalBloqueoDesactivacion';
 import { PaywallStarterReservas } from '../components/politicas/PaywallStarterReservas';
 import { DemoAdminPoliticasWidget } from '../components/politicas/DemoAdminPoliticasWidget';
+import { SoloDemo } from '@/components/ui/SoloDemo';
 
 export const AdminPoliticasReservaPage: React.FC = () => {
   // Estado de carga y plan
@@ -261,7 +262,9 @@ export const AdminPoliticasReservaPage: React.FC = () => {
       />
 
       {/* QA Test Bench Flotante */}
-      <DemoAdminPoliticasWidget onRecargar={cargarDatos} />
+      <SoloDemo>
+        <DemoAdminPoliticasWidget onRecargar={cargarDatos} />
+      </SoloDemo>
     </div>
   );
 };

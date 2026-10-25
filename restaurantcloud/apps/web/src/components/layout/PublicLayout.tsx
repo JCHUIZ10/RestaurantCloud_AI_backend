@@ -1,7 +1,8 @@
 import React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, Link } from 'react-router-dom';
 import { Navbar } from './Navbar';
 import { ShieldCheck, Cloud, Server, MessageCircle, ExternalLink, Mail } from 'lucide-react';
+import { ROUTES } from '@/router/routes.constants';
 
 export const PublicLayout: React.FC = () => {
   return (
@@ -62,9 +63,9 @@ export const PublicLayout: React.FC = () => {
                   </a>
                 </li>
                 <li>
-                  <a href="/carta" className="hover:text-aurea-copper transition-colors text-aurea-copper flex items-center gap-1">
+                  <Link to={ROUTES.CARTA_DEMO} className="hover:text-aurea-copper transition-colors text-aurea-copper flex items-center gap-1">
                     Ver Menú Digital QR (Demo) <ExternalLink className="w-3 h-3" />
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>

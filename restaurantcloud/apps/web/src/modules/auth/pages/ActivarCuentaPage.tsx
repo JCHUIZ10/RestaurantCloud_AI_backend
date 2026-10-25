@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/Button';
 import { activacionService } from '../services/activacionService';
 import { useAuthStore } from '@/stores/authStore';
 import { ROUTES } from '@/router/routes.constants';
+import { homeDeRol } from '@/router/accesoPorRol';
 import type { ValidarTokenResponseDTO } from '@/types/auth';
 
 export const ActivarCuentaPage: React.FC = () => {
@@ -129,30 +130,7 @@ export const ActivarCuentaPage: React.FC = () => {
 
         // Redirigir según el rol del usuario activado tras 1.2 segundos
         setTimeout(() => {
-          const rol = res.datos.usuario.rol;
-          switch (rol) {
-            case 'propietario':
-              navigate(ROUTES.PROPIETARIO_SEDES);
-              break;
-            case 'admin_local':
-              navigate(ROUTES.ADMIN_DASHBOARD);
-              break;
-            case 'mozo':
-              navigate(ROUTES.MOZO_MESAS);
-              break;
-            case 'cocina':
-              navigate(ROUTES.COCINA_KDS);
-              break;
-            case 'cajero':
-              navigate(ROUTES.CAJERO_POS);
-              break;
-            case 'admin_saas':
-              navigate(ROUTES.SAAS_TENANTS);
-              break;
-            default:
-              navigate(ROUTES.PROPIETARIO_SEDES);
-              break;
-          }
+          navigate(homeDeRol(res.datos.usuario.rol), { replace: true });
         }, 1200);
       } else {
         setErrorEnvio(
@@ -223,7 +201,7 @@ export const ActivarCuentaPage: React.FC = () => {
                   Ir al Inicio de Sesión
                 </Button>
                 <Link
-                  to="/"
+                  to={ROUTES.HOME}
                   className="text-center text-xs text-aurea-copper font-medium hover:underline"
                 >
                   Regresar al portal principal

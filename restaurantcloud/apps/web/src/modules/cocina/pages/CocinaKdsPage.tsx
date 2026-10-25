@@ -24,6 +24,7 @@ import { ToastAlertaStock } from '../components/kds/ToastAlertaStock';
 import { ConsolidadoAllDayView } from '../components/kds/ConsolidadoAllDayView';
 import { DemoKdsWidget } from '../components/kds/DemoKdsWidget';
 import { WifiOff, AlertCircle } from 'lucide-react';
+import { SoloDemo } from '@/components/ui/SoloDemo';
 
 export const CocinaKdsPage: React.FC = () => {
   // Estados de datos principales
@@ -628,18 +629,20 @@ export const CocinaKdsPage: React.FC = () => {
       />
 
       {/* Widget Flotante de Demostración */}
-      <DemoKdsWidget
-        onInyectarComanda={handleInyectarComanda}
-        onSimularParadaFogones={handleSimularParadaFogones}
-        onSimularStockAgotado={handleSimularStockAgotado}
-        onAbrirDisponibilidad={() => setModalDisponibilidadAbierto(true)}
-        onAcelerarTiempos={handleAcelerarTiempos}
-        onAlternarVacio={handleAlternarVacio}
-        onAlternarSse={handleAlternarSse}
-        onRestablecer={handleRestablecer}
-        esVacio={comandas.length === 0}
-        sseConectado={sseConectado}
-      />
+      <SoloDemo>
+        <DemoKdsWidget
+          onInyectarComanda={handleInyectarComanda}
+          onSimularParadaFogones={handleSimularParadaFogones}
+          onSimularStockAgotado={handleSimularStockAgotado}
+          onAbrirDisponibilidad={() => setModalDisponibilidadAbierto(true)}
+          onAcelerarTiempos={handleAcelerarTiempos}
+          onAlternarVacio={handleAlternarVacio}
+          onAlternarSse={handleAlternarSse}
+          onRestablecer={handleRestablecer}
+          esVacio={comandas.length === 0}
+          sseConectado={sseConectado}
+        />
+      </SoloDemo>
     </div>
   );
 };
