@@ -12,24 +12,24 @@ class LocalProvisioningService
     private const PLANTILLAS_CATEGORIAS = [
         'polleria' => [
             'Pollos a la Brasa',
-            'Guarniciones & Papas',
+            'Guarniciones y Papas',
             'Ensaladas Frescas',
             'Bebidas & Gaseosas',
             'Cervezas & Tragos',
         ],
         'cevicheria' => [
-            'Ceviches & Tiraditos',
-            'Causas & Entradas Frías',
-            'Chicharrones & Jaleas',
-            'Arroces & Sudados',
-            'Chilcanos & Bebidas',
+            'Ceviches y Tiraditos',
+            'Causas y Entradas Frías',
+            'Chicharrones y Jaleas',
+            'Arroces y Sudados',
+            'Chilcanos y Bebidas',
         ],
         'chifa' => [
-            'Sopas & Wantanes',
+            'Sopas y Wantanes',
             'Arroz Chaufa',
-            'Tallarines & Wantán Frito',
+            'Tallarines y Wantán Frito',
             'Especialidades al Wok',
-            'Bebidas & Té Jazmín',
+            'Bebidas y Té Jazmín',
         ],
     ];
 
