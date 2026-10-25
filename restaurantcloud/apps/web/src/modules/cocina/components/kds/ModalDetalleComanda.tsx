@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Utensils, Link2, CheckCircle2, Flame, ArrowLeft } from 'lucide-react';
+import { X, Utensils, Link2, CheckCircle2, Flame, ArrowLeft, Timer, NotebookPen, ChefHat, CupSoda } from 'lucide-react';
 import { KDSComandaDTO } from '@/types/cocina';
 
 interface ModalDetalleComandaProps {
@@ -34,7 +34,7 @@ export const ModalDetalleComanda: React.FC<ModalDetalleComandaProps> = ({
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-mono font-bold text-lg sm:text-xl text-white">
-                FICHA TÉCNICA DE COMANDA #{comanda.numero_comanda}
+                DETALLE DE COMANDA #{comanda.numero_comanda}
               </span>
               <span className="text-slate-500">•</span>
               <span className="flex items-center gap-1 font-mono font-bold text-lg text-aurea-champagne">
@@ -52,8 +52,9 @@ export const ModalDetalleComanda: React.FC<ModalDetalleComandaProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <span className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold border ${badgeColor}`}>
-              ⏱️ {comanda.minutos_espera} min ({esRojo ? 'Crítico' : esAmbar ? 'Alerta' : 'Óptimo'})
+            <span className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold border flex items-center gap-1 ${badgeColor}`}>
+              <Timer className="w-3.5 h-3.5" />
+              {comanda.minutos_espera} min ({esRojo ? 'Crítico' : esAmbar ? 'Alerta' : 'Óptimo'})
             </span>
             <button
               onClick={onClose}
@@ -113,7 +114,7 @@ export const ModalDetalleComanda: React.FC<ModalDetalleComandaProps> = ({
                   </div>
 
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-bold ${
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-bold flex items-center gap-1 ${
                       esListo
                         ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
                         : esEnFuego
@@ -123,10 +124,12 @@ export const ModalDetalleComanda: React.FC<ModalDetalleComandaProps> = ({
                         : 'bg-slate-800 text-slate-300'
                     }`}
                   >
+                    {esListo && <CheckCircle2 className="w-3.5 h-3.5" />}
+                    {esEnFuego && <Flame className="w-3.5 h-3.5" />}
                     {esListo
-                      ? '✓ LISTO EN PASE'
+                      ? 'LISTO EN PASE'
                       : esEnFuego
-                      ? '🔥 EN FUEGO'
+                      ? 'EN FUEGO'
                       : esAnulado
                       ? 'ANULADO'
                       : 'EN COLA'}
@@ -135,15 +138,17 @@ export const ModalDetalleComanda: React.FC<ModalDetalleComandaProps> = ({
 
                 {/* Nota de Comensal / Alérgenos */}
                 {item.nota_cocina && (
-                  <div className="p-2 rounded-xl bg-amber-950/30 border border-amber-700/50 text-amber-200 text-xs">
-                    📝 <strong>Especificación:</strong> {item.nota_cocina}
+                  <div className="p-2 rounded-xl bg-amber-950/30 border border-amber-700/50 text-amber-200 text-xs flex items-start gap-1.5">
+                    <NotebookPen className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span><strong>Especificación:</strong> {item.nota_cocina}</span>
                   </div>
                 )}
 
-                {/* Ficha de Receta Culinaria (CU-ADMIN-04 / producto_insumo + insumo) */}
+                {/* Ficha de Receta Culinaria */}
                 <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800/80 text-xs">
-                  <span className="text-[11px] font-mono text-aurea-copper block font-semibold mb-1">
-                    🍲 Receta Culinaria (Insumos de Almacén):
+                  <span className="text-[11px] font-mono text-aurea-copper flex items-center gap-1.5 font-semibold mb-1">
+                    <ChefHat className="w-3.5 h-3.5" />
+                    Receta Culinaria:
                   </span>
                   <p className="text-slate-300 leading-relaxed font-mono text-[11px]">
                     {item.receta_resumen}
@@ -167,7 +172,7 @@ export const ModalDetalleComanda: React.FC<ModalDetalleComandaProps> = ({
                       className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors flex items-center gap-1.5"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>✓ Marcar Terminado</span>
+                      <span>Marcar Terminado</span>
                     </button>
                   </div>
                 )}
@@ -179,13 +184,15 @@ export const ModalDetalleComanda: React.FC<ModalDetalleComandaProps> = ({
           {comanda.bebidas_salon_count > 0 && (
             <div className="p-3 rounded-2xl bg-slate-950/50 border border-slate-800 text-xs text-slate-400 flex items-center justify-between">
               <div>
-                <span className="font-semibold text-slate-300 block">
-                  🥤 Despacho Directo en Salón (requiere_preparacion = false):
+                <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+                  <CupSoda className="w-3.5 h-3.5" />
+                  Despacho Directo en Salón:
                 </span>
                 <span>{comanda.bebidas_salon_count} bebidas atendidas directamente por mozo en mesa.</span>
               </div>
-              <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono text-[11px]">
-                ✓ SERVIDO EN MESA
+              <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono text-[11px] flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                SERVIDO EN MESA
               </span>
             </div>
           )}
@@ -198,7 +205,7 @@ export const ModalDetalleComanda: React.FC<ModalDetalleComandaProps> = ({
             className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors flex items-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Volver al Tablero KDS</span>
+            <span>Volver al Tablero de Cocina</span>
           </button>
 
           <button
@@ -209,7 +216,7 @@ export const ModalDetalleComanda: React.FC<ModalDetalleComandaProps> = ({
             className="px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-all flex items-center gap-2"
           >
             <CheckCircle2 className="w-4 h-4" />
-            <span>✓ Despachar Todo al Pase de Salón</span>
+            <span>Despachar Todo al Pase de Salón</span>
           </button>
         </div>
       </div>

@@ -11,8 +11,6 @@ import {
   ItemEnFuegoResolucionDTO,
 } from '@/types/cocina';
 import { cocinaService } from '@/services/serviceAdapter';
-import { mockCocinaService } from '../services/mockCocinaService';
-import { MOCK_CONFIGURACION_KDS } from '../services/mockCocinaService';
 import { KdsHeader } from '../components/kds/KdsHeader';
 import { KdsTicketCard } from '../components/kds/KdsTicketCard';
 import { ModalDetalleComanda } from '../components/kds/ModalDetalleComanda';
@@ -22,14 +20,24 @@ import { ModalDisponibilidadPlatos } from '../components/kds/ModalDisponibilidad
 import { DialogoResolucionFuego } from '../components/kds/DialogoResolucionFuego';
 import { ToastAlertaStock } from '../components/kds/ToastAlertaStock';
 import { ConsolidadoAllDayView } from '../components/kds/ConsolidadoAllDayView';
-import { DemoKdsWidget } from '../components/kds/DemoKdsWidget';
-import { WifiOff, AlertCircle } from 'lucide-react';
-import { SoloDemo } from '@/components/ui/SoloDemo';
+import { WifiOff, AlertCircle, ConciergeBell } from 'lucide-react';
+import { CajaCerradaBloqueoView } from '@/components/feedback/CajaCerradaBloqueoView';
+
+const DEFAULT_CONFIGURACION_KDS: ConfiguracionKDSDTO = {
+  local_id: '',
+  tiempo_optimo_verde_min: 15,
+  tiempo_alerta_ambar_min: 25,
+  tiempo_maximo_pase_min: 3,
+  alerta_sonora_nueva_comanda: true,
+  alerta_sonora_comanda_roja: true,
+  intervalo_sonido_rojo_seg: 60,
+  vista_predeterminada: 'fifo',
+};
 
 export const CocinaKdsPage: React.FC = () => {
   // Estados de datos principales
   const [comandas, setComandas] = useState<KDSComandaDTO[]>([]);
-  const [configuracion, setConfiguracion] = useState<ConfiguracionKDSDTO>(MOCK_CONFIGURACION_KDS);
+  const [configuracion, setConfiguracion] = useState<ConfiguracionKDSDTO>(DEFAULT_CONFIGURACION_KDS);
   const [consolidado, setConsolidado] = useState<ConsolidadoAllDayDTO[]>([]);
   const [pedidosDespachados, setPedidosDespachados] = useState<KDSPedidoDespachadoDTO[]>([]);
   const [catalogoDisponibilidad, setCatalogoDisponibilidad] = useState<PlatoDisponibilidadDTO[]>([]);
@@ -126,7 +134,7 @@ export const CocinaKdsPage: React.FC = () => {
       if (resMetricas.exito) setMetricasDespacho(resMetricas.datos);
       if (resCatalogo.exito) setCatalogoDisponibilidad(resCatalogo.datos);
     } catch {
-      setError('No se pudo conectar con el servidor KDS de cocina.');
+      setError('No se pudo conectar con el servidor de cocina.');
     } finally {
       setCargando(false);
     }
@@ -140,6 +148,12 @@ export const CocinaKdsPage: React.FC = () => {
       cocinaService.obtenerComandas().then((res: any) => {
         if (res?.exito && res.datos) {
           setComandas(res.datos);
+        }
+      }).catch(() => {});
+
+      cocinaService.obtenerConfiguracion().then((res: any) => {
+        if (res?.exito && res.datos) {
+          setConfiguracion(res.datos);
         }
       }).catch(() => {});
     }, 3000);
@@ -306,15 +320,6 @@ export const CocinaKdsPage: React.FC = () => {
     }
   };
 
-  // Manejador: Simular consumo que agota stock de insumo (Demo CU-03)
-  const handleSimularStockAgotado = async () => {
-    const alerta = mockCocinaService.simularConsumoStockCritico();
-    setAlertaStockToast(alerta);
-    reproducirChime('alerta_parada');
-    const resCat = await cocinaService.obtenerCatalogoDisponibilidad();
-    if (resCat.exito) setCatalogoDisponibilidad(resCat.datos);
-  };
-
   // Manejador: Despachar comanda completa (CU-COCINA-02)
   const handleDespacharTodo = async (pedidoId: string) => {
     const res = await cocinaService.despacharComandaCompleta(pedidoId);
@@ -408,69 +413,29 @@ export const CocinaKdsPage: React.FC = () => {
       .filter((c) => c.items.length > 0);
   }, [comandas, categoriaSeleccionada]);
 
-  // Acciones de demostración (Widget)
-  const handleInyectarComanda = () => {
-    const nueva = mockCocinaService.simularNuevaComandaMozo();
-    setComandas((prev) => [nueva, ...prev]);
-    reproducirChime('nueva_comanda');
-    actualizarConsolidado();
-  };
-
-  const handleSimularParadaFogones = () => {
-    const evento = mockCocinaService.simularAnulacionSSE();
-    setAlertaParada(evento);
-    reproducirChime('alerta_parada');
-
-    // Tachar el plato en la comanda correspondiente
-    setComandas((prev) =>
-      prev.map((c) => ({
-        ...c,
-        items: c.items.map((i) =>
-          i.item_id === evento.item_id ? { ...i, estado: 'anulado' } : i
-        ),
-      }))
-    );
-    actualizarConsolidado();
-  };
-
-  const handleAcelerarTiempos = (minutosAdicionales: number) => {
-    const segundosExtra = minutosAdicionales * 60;
-    setComandas((prev) =>
-      prev.map((c) => {
-        const seg = c.segundos_transcurridos + segundosExtra;
-        const min = Math.floor(seg / 60);
-        let color: 'verde' | 'ambar' | 'rojo' = 'verde';
-        if (min > configuracion.tiempo_alerta_ambar_min) color = 'rojo';
-        else if (min > configuracion.tiempo_optimo_verde_min) color = 'ambar';
-
-        return {
-          ...c,
-          segundos_transcurridos: seg,
-          minutos_espera: min,
-          semaforo_color: color,
-        };
-      })
-    );
-  };
-
-  const handleAlternarVacio = () => {
-    if (comandas.length > 0) {
-      setComandas([]);
-      setConsolidado([]);
-    } else {
-      mockCocinaService.restablecerComandasIniciales();
-      cargarDatos();
+  const verificarEstadoCajaSilencioso = useCallback(async () => {
+    try {
+      const resConfig = await cocinaService.obtenerConfiguracion();
+      if (resConfig?.exito && resConfig.datos) {
+        setConfiguracion(resConfig.datos);
+        if (resConfig.datos.caja_abierta) {
+          await cargarDatos();
+        }
+      }
+    } catch {
+      // Ignorar fallo de red silencioso
     }
-  };
+  }, [cargarDatos]);
 
-  const handleAlternarSse = () => {
-    setSseConectado(!sseConectado);
-  };
-
-  const handleRestablecer = () => {
-    mockCocinaService.restablecerComandasIniciales();
-    cargarDatos();
-  };
+  if (configuracion && configuracion.caja_abierta === false) {
+    return (
+      <CajaCerradaBloqueoView
+        rol="cocina"
+        onReintentar={verificarEstadoCajaSilencioso}
+        mensajePersonalizado="Actualmente no hay caja abierta. Vuelve a intentarlo más tarde cuando se aperture el turno de servicio."
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col h-full space-y-3 font-sans select-none">
@@ -479,7 +444,7 @@ export const CocinaKdsPage: React.FC = () => {
         <div className="p-2.5 rounded-xl bg-amber-950/80 border border-amber-600/70 text-amber-200 text-xs flex items-center justify-between font-mono animate-pulse">
           <div className="flex items-center gap-2">
             <WifiOff className="w-4 h-4 text-amber-400" />
-            <span>⚠️ Sincronización interrumpida. Reintentando en 3s... (Modo local activo)</span>
+            <span>Conexión interrumpida. Reintentando en 3s... (Modo local activo)</span>
           </div>
           <button
             onClick={() => setSseConectado(true)}
@@ -550,8 +515,8 @@ export const CocinaKdsPage: React.FC = () => {
       ) : comandasFiltradas.length === 0 ? (
         // Estado 2: Empty State ("¡Fogones al día!")
         <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-slate-400">
-          <div className="w-20 h-20 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-4xl mb-4 shadow-inner">
-            🛎️
+          <div className="w-20 h-20 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mb-4 shadow-inner">
+            <ConciergeBell className="w-9 h-9 text-slate-400" />
           </div>
           <h3 className="font-serif font-black text-2xl text-white mb-2">
             ¡Fogones al día! No hay pedidos pendientes
@@ -559,12 +524,6 @@ export const CocinaKdsPage: React.FC = () => {
           <p className="text-sm text-slate-400 max-w-md leading-relaxed">
             Todas las comandas de cocina han sido completadas y despachadas al pase de salón. Las nuevas órdenes enviadas por los mozos aparecerán aquí en tiempo real.
           </p>
-          <button
-            onClick={handleInyectarComanda}
-            className="mt-6 px-5 py-2.5 rounded-xl font-bold text-xs bg-aurea-copper text-slate-950 hover:bg-aurea-champagne transition-colors"
-          >
-            Simular Pedido de Prueba
-          </button>
         </div>
       ) : (
         // Vista 1: Tablero KDS 4 Columnas FIFO
@@ -627,22 +586,6 @@ export const CocinaKdsPage: React.FC = () => {
         onCerrar={() => setAlertaStockToast(null)}
         onAbrirDisponibilidad={() => setModalDisponibilidadAbierto(true)}
       />
-
-      {/* Widget Flotante de Demostración */}
-      <SoloDemo>
-        <DemoKdsWidget
-          onInyectarComanda={handleInyectarComanda}
-          onSimularParadaFogones={handleSimularParadaFogones}
-          onSimularStockAgotado={handleSimularStockAgotado}
-          onAbrirDisponibilidad={() => setModalDisponibilidadAbierto(true)}
-          onAcelerarTiempos={handleAcelerarTiempos}
-          onAlternarVacio={handleAlternarVacio}
-          onAlternarSse={handleAlternarSse}
-          onRestablecer={handleRestablecer}
-          esVacio={comandas.length === 0}
-          sseConectado={sseConectado}
-        />
-      </SoloDemo>
     </div>
   );
 };

@@ -38,15 +38,16 @@ const LINKS_SAAS: EnlaceMenu[] = [
   { label: 'Supervisión de tenants', href: ROUTES.SAAS_TENANTS, icon: Building2 },
 ];
 
-// Consola Propietario (Resumen General e Incidentes Empresa diferidos para próximo entregable)
+// Consola Propietario (Resumen General, Incidentes y Suscripción diferidos para próxima unidad)
 const LINKS_PROPIETARIO: EnlaceMenu[] = [
   { label: 'Mis sedes', href: ROUTES.PROPIETARIO_SEDES, icon: Building2 },
   { label: 'Administradores', href: ROUTES.PROPIETARIO_ADMINISTRADORES, icon: Users },
-  { label: 'Suscripción', href: ROUTES.PROPIETARIO_SUSCRIPCION, icon: CreditCard },
+  // Diferido para próxima unidad:
+  // { label: 'Suscripción', href: ROUTES.PROPIETARIO_SUSCRIPCION, icon: CreditCard },
 ];
 
-// Consola Admin de Local. El Panel del Local, Políticas de Reserva, Incidentes y Reportes
-// de Venta son placeholders del próximo entregable y no se listan (regla NV10).
+// Consola Admin de Local. El Panel del Local, Políticas de Reserva, Incidentes, Reportes
+// de Venta y Flujo de Caja son placeholders/vistas diferidas para próxima unidad.
 const LINKS_ADMIN: EnlaceMenu[] = [
   { label: 'Plano de mesas', href: ROUTES.ADMIN_PLANO_MESAS, icon: LayoutGrid },
   { label: 'Categorías del menú', href: ROUTES.ADMIN_CATEGORIAS, icon: FolderTree },
@@ -60,7 +61,8 @@ const LINKS_ADMIN: EnlaceMenu[] = [
   { label: 'Tiempos de cocina', href: ROUTES.ADMIN_CONFIGURACION_KDS, icon: Flame },
   { label: 'Métodos de pago', href: ROUTES.ADMIN_METODOS_PAGO, icon: Wallet },
   { label: 'Auditoría de anulaciones', href: ROUTES.ADMIN_ANULACIONES, icon: FileX2 },
-  { label: 'Flujo de caja y cierres Z', href: ROUTES.ADMIN_FLUJO_CAJA, icon: CreditCard },
+  // Diferido para próxima unidad:
+  // { label: 'Flujo de caja y cierres Z', href: ROUTES.ADMIN_FLUJO_CAJA, icon: CreditCard },
 ];
 
 // Breakpoint lg de Tailwind: decide dónde se monta la campana para no duplicar su sondeo

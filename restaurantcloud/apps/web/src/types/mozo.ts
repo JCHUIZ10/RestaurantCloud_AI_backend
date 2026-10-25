@@ -122,6 +122,7 @@ export interface PisoAmbienteDTO {
  * Payload consolidado de carga inicial para el Mozo
  */
 export interface PlanoCompletoMozoDTO {
+  caja_abierta?: boolean;
   piso_activo: PisoAmbienteDTO;
   pisos_disponibles: PisoAmbienteDTO[];
   mesas: MesaCardDTO[];

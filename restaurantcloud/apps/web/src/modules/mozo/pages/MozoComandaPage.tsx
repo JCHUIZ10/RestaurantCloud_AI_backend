@@ -149,6 +149,11 @@ export const MozoComandaPage: React.FC = () => {
       const res = await mozoService.enviarPedidoCocina(payload);
 
       if (!res.exito) {
+        if (res.errores?.[0]?.codigo === 'ERR_CAJA_NO_ABIERTA') {
+          navigate(ROUTES.MOZO_MESAS);
+          return;
+        }
+
         // Manejo de Error 409 Conflict (Vista 4)
         setConflictoStock({
           producto_id: 'prod-mar-01',

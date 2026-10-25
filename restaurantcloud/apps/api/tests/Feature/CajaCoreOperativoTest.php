@@ -13,7 +13,11 @@ class CajaCoreOperativoTest extends TestCase
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
     private string $localId = '00000000-0000-4000-8000-000000000010';
     private string $cajeroId = '00000000-0000-4000-8000-000000000105';
+    private string $mozoId = '00000000-0000-4000-8000-000000000104';
+    private string $cocineroId = '00000000-0000-4000-8000-000000000106';
     private string $tokenCajero;
+    private string $tokenMozo;
+    private string $tokenCocina;
 
     protected function setUp(): void
     {
@@ -34,12 +38,54 @@ class CajaCoreOperativoTest extends TestCase
 
         Redis::setex("auth:session:{$tokenHash}", 3600, json_encode($sessionPayload));
         $this->tokenCajero = $rawToken;
+
+        $rawMozo = 'test_token_mozo_' . Str::random(32);
+        $tokenHashMozo = hash('sha256', $rawMozo);
+        Redis::setex("auth:session:{$tokenHashMozo}", 3600, json_encode([
+            'id' => $this->mozoId,
+            'nombre' => 'Carlos Mendoza',
+            'correo' => 'carlos.mozo@aurea.local',
+            'rol' => 'mozo',
+            'empresa_id' => $this->empresaId,
+            'local_id' => $this->localId,
+            'estado' => 'activo',
+        ]));
+        $this->tokenMozo = $rawMozo;
+
+        $rawCocina = 'test_token_cocina_' . Str::random(32);
+        $tokenHashCocina = hash('sha256', $rawCocina);
+        Redis::setex("auth:session:{$tokenHashCocina}", 3600, json_encode([
+            'id' => $this->cocineroId,
+            'nombre' => 'Chef Marco',
+            'correo' => 'marco.cocina@aurea.local',
+            'rol' => 'cocinero',
+            'empresa_id' => $this->empresaId,
+            'local_id' => $this->localId,
+            'estado' => 'activo',
+        ]));
+        $this->tokenCocina = $rawCocina;
     }
 
     private function headers(): array
     {
         return [
             'Authorization' => 'Bearer ' . $this->tokenCajero,
+            'Accept' => 'application/json',
+        ];
+    }
+
+    private function headersMozo(): array
+    {
+        return [
+            'Authorization' => 'Bearer ' . $this->tokenMozo,
+            'Accept' => 'application/json',
+        ];
+    }
+
+    private function headersCocina(): array
+    {
+        return [
+            'Authorization' => 'Bearer ' . $this->tokenCocina,
             'Accept' => 'application/json',
         ];
     }
@@ -330,5 +376,90 @@ class CajaCoreOperativoTest extends TestCase
         $resPdf = $this->get('/api/v1/caja/turnos/' . $cajaId . '/reporte-z/pdf', $this->headers());
         $resPdf->assertStatus(200);
         $this->assertEquals('application/pdf', $resPdf->headers->get('content-type'));
+    }
+
+    public function test_salon_y_cocina_reportan_caja_cerrada_y_bloquean_operacion_cuando_no_hay_caja_abierta(): void
+    {
+        $this->cerrarCajasAbiertas();
+        $this->limpiarPedidosActivos();
+
+        // 1. Mozo consulta el plano: debe reportar caja_abierta = false
+        $resPlano = $this->getJson('/api/v1/mozo/plano', $this->headersMozo());
+        $resPlano->assertStatus(200)
+            ->assertJson([
+                'exito' => true,
+                'datos' => [
+                    'caja_abierta' => false,
+                ],
+            ]);
+
+        // 2. Cocina consulta configuración: debe reportar caja_abierta = false
+        $resCocina = $this->getJson('/api/v1/cocina/configuracion', $this->headersCocina());
+        $resCocina->assertStatus(200)
+            ->assertJson([
+                'exito' => true,
+                'datos' => [
+                    'caja_abierta' => false,
+                ],
+            ]);
+
+        // 3. Mozo intenta abrir una mesa: debe ser rechazado con 409 ERR_CAJA_NO_ABIERTA
+        $mesa = DB::table('mesa')->where('local_id', $this->localId)->first();
+        $this->assertNotNull($mesa);
+
+        $resAbrir = $this->postJson("/api/v1/mozo/mesas/{$mesa->id}/abrir", [
+            'comensales' => 2,
+        ], $this->headersMozo());
+
+        $resAbrir->assertStatus(409)
+            ->assertJson([
+                'exito' => false,
+                'errores' => [
+                    ['codigo' => 'ERR_CAJA_NO_ABIERTA'],
+                ],
+            ]);
+    }
+
+    public function test_salon_y_cocina_reportan_caja_abierta_y_permiten_operacion_cuando_caja_esta_abierta(): void
+    {
+        $this->cerrarCajasAbiertas();
+        $this->limpiarPedidosActivos();
+
+        // 1. Cajero apertura caja
+        $resApertura = $this->postJson('/api/v1/caja/apertura', [
+            'monto_apertura' => 200.00,
+        ], $this->headers());
+        $this->assertEquals(201, $resApertura->status());
+
+        // 2. Mozo consulta plano: caja_abierta = true
+        $resPlano = $this->getJson('/api/v1/mozo/plano', $this->headersMozo());
+        $resPlano->assertStatus(200)
+            ->assertJson([
+                'exito' => true,
+                'datos' => [
+                    'caja_abierta' => true,
+                ],
+            ]);
+
+        // 3. Cocina consulta configuracion: caja_abierta = true
+        $resCocina = $this->getJson('/api/v1/cocina/configuracion', $this->headersCocina());
+        $resCocina->assertStatus(200)
+            ->assertJson([
+                'exito' => true,
+                'datos' => [
+                    'caja_abierta' => true,
+                ],
+            ]);
+
+        // 4. Mozo puede abrir mesa normalmente
+        $mesa = DB::table('mesa')->where('local_id', $this->localId)->first();
+        $resAbrir = $this->postJson("/api/v1/mozo/mesas/{$mesa->id}/abrir", [
+            'comensales' => 2,
+        ], $this->headersMozo());
+
+        $resAbrir->assertStatus(201);
+
+        // Limpieza de pedido
+        $this->limpiarPedidosActivos();
     }
 }

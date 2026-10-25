@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertOctagon, CheckCircle, ShieldAlert, Clock, User, Utensils } from 'lucide-react';
+import { AlertOctagon, AlertTriangle, CheckCircle, ShieldAlert, Clock, User, Utensils } from 'lucide-react';
 import { ItemAnuladoSSEEvent } from '@/types/cocina';
 
 interface ModalAlertaParadaFogonesProps {
@@ -23,7 +23,7 @@ export const ModalAlertaParadaFogones: React.FC<ModalAlertaParadaFogonesProps> =
           </div>
           <div>
             <h3 className="font-serif font-black text-lg sm:text-xl text-rose-100 tracking-wide">
-              🛑 ATENCIÓN COCINA • PARADA DE FOGONES
+              ATENCIÓN COCINA • PARADA DE FOGONES
             </h3>
             <p className="text-xs font-mono text-rose-300">
               Alerta en Salón: item anulado • Salón revocó preparación
@@ -62,8 +62,9 @@ export const ModalAlertaParadaFogones: React.FC<ModalAlertaParadaFogonesProps> =
 
           {/* Causa Reportada por Salón */}
           <div className="p-3.5 rounded-2xl bg-amber-950/40 border border-amber-800/50 text-xs">
-            <span className="font-bold text-amber-300 block mb-1">
-              ⚠️ Causa reportada por Salón (CU-MOZO-06 / CU-MOZO-07):
+            <span className="font-bold text-amber-300 flex items-center gap-1.5 mb-1">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              Causa reportada por Salón:
             </span>
             <p className="text-amber-100 font-medium leading-relaxed">
               &quot;{evento.motivo_anulacion}&quot;
@@ -74,7 +75,7 @@ export const ModalAlertaParadaFogones: React.FC<ModalAlertaParadaFogonesProps> =
           <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 text-xs text-slate-300 space-y-1">
             <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
               <ShieldAlert className="w-4 h-4 text-emerald-400" />
-              <span>Instrucción Operativa Antimerma (es_merma = false):</span>
+              <span>Qué hacer ahora:</span>
             </div>
             <p className="text-slate-400 leading-relaxed">
               Detener inmediatamente la cocción en wok o sartén. No emplatar para evitar merma de insumos físicos no cocinados.
@@ -89,7 +90,7 @@ export const ModalAlertaParadaFogones: React.FC<ModalAlertaParadaFogonesProps> =
             className="w-full min-h-[48px] rounded-2xl font-bold text-sm bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg transition-all flex items-center justify-center gap-2"
           >
             <CheckCircle className="w-5 h-5" />
-            <span>[ ✓ Entendido / Retirar Plato de la Comanda ]</span>
+            <span>Entendido / Retirar Plato de la Comanda</span>
           </button>
         </div>
       </div>

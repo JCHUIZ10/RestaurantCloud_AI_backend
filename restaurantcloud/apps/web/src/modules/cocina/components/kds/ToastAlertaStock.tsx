@@ -30,9 +30,6 @@ export const ToastAlertaStock: React.FC<ToastAlertaStockProps> = ({
           <div>
             <h4 className="font-bold text-sm text-white flex items-center gap-2">
               <span>ALERTA DE INVENTARIO CULINARIO</span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-600 text-slate-950 font-black">
-                CU-COCINA-03
-              </span>
             </h4>
             <p className="text-xs text-amber-300/90 font-mono">
               Comanda #{alerta.numero_comanda} • Mesa {alerta.mesa_codigo}
@@ -54,7 +51,7 @@ export const ToastAlertaStock: React.FC<ToastAlertaStockProps> = ({
         <div className="p-2.5 rounded-xl bg-slate-950/70 border border-amber-900/60 space-y-1">
           <div className="flex items-center gap-1.5 text-amber-300 font-bold">
             <PackageX className="w-4 h-4 text-rose-400 shrink-0" />
-            <span>Insumo con Quiebre Teórico en Almacén:</span>
+            <span>Insumo sin stock suficiente en almacén:</span>
           </div>
           <p className="font-semibold text-white pl-5 text-sm">
             {alerta.insumo_nombre}
@@ -75,7 +72,10 @@ export const ToastAlertaStock: React.FC<ToastAlertaStockProps> = ({
           </div>
           {alerta.faltante_teorico > 0 && (
             <div className="pl-5 text-[11px] font-mono text-rose-300">
-              <span>⚠️ Faltante teórico no registrado: </span>
+              <span className="inline-flex items-center gap-1">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                Faltante no registrado:
+              </span>{' '}
               <strong>
                 {alerta.faltante_teorico} {alerta.unidad_medida}
               </strong>
@@ -87,7 +87,7 @@ export const ToastAlertaStock: React.FC<ToastAlertaStockProps> = ({
         <div className="p-2 rounded-xl bg-emerald-950/40 border border-emerald-800/40 flex items-start gap-2 text-emerald-200">
           <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
           <p className="leading-relaxed text-[11px]">
-            <strong>Política de Servicio Continuo:</strong> La preparación NO se bloqueó. El plato salió al pase. El plato fue conmutado automáticamente a <em>&quot;Agotado por receta&quot;</em> en la carta digital.
+            <strong>El servicio no se detuvo:</strong> la preparación continuó y el plato salió al pase. El plato cambió automáticamente a <em>&quot;Agotado por receta&quot;</em> en la carta digital.
           </p>
         </div>
       </div>

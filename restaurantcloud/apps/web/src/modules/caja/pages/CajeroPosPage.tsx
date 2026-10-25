@@ -15,10 +15,7 @@ import {
 import {
   cajaService,
 } from '@/services/serviceAdapter';
-import {
-  mockCajaService,
-  CAJERO_ACTUAL_MOCK,
-} from '../services/mockCajaService';
+
 import { ModalAperturaTurno } from '../components/apertura/ModalAperturaTurno';
 import { ModalBloqueoTurnoPrevio } from '../components/apertura/ModalBloqueoTurnoPrevio';
 import { MonitorCajaPosView } from '../components/monitor/MonitorCajaPosView';
@@ -27,13 +24,11 @@ import { ModalPrecuentaCompleta } from '@/modules/mozo/components/precuenta/Moda
 import { ModalDividirCuenta } from '@/modules/mozo/components/split/ModalDividirCuenta';
 import { ModalHistorialComprobantesPos } from '../components/comprobantes/ModalHistorialComprobantesPos';
 import { ModalEmisionNotaCredito } from '../components/comprobantes/ModalEmisionNotaCredito';
-import { DemoCajaTurnoWidget } from '../components/demo/DemoCajaTurnoWidget';
 import type { DividirCuentaResponseDTO } from '@/types/mozo';
 import type {
   ComprobanteHistorialItemDTO,
   EmitirNotaCreditoResponseDTO,
 } from '@/types/caja';
-import { SoloDemo } from '@/components/ui/SoloDemo';
 import { useCerrarSesion } from '@/shared/hooks/useCerrarSesion';
 
 export const CajeroPosPage: React.FC = () => {
@@ -239,20 +234,6 @@ export const CajeroPosPage: React.FC = () => {
   // Manejador tras confirmar división de cuenta en mesa (Conmuta a CUENTA PEDIDA con subcuentas)
   const handleDivisionConfirmada = async (datos: DividirCuentaResponseDTO) => {
     try {
-      const subcuentasDTO: SubcuentaComandaDTO[] = datos.subcuentas_resumen.map((s) => ({
-        id: s.id,
-        numero_subcuenta: s.numero,
-        titular_referencia: s.nombre_referencia,
-        subtotal_bruto: s.total,
-        descuento: 0,
-        total_neto: s.total,
-        tipo_comprobante_sugerido: (s.tipo_comprobante.toUpperCase() as 'BOLETA' | 'FACTURA' | 'NOTA_VENTA') || 'BOLETA',
-        estado: s.estado,
-        estado_pago: s.estado,
-        items: [],
-      }));
-
-      await mockCajaService.registrarDivisionCuenta(datos.mesa_id, subcuentasDTO);
       showToast(
         'success',
         `Mesa ${datos.mesa_numero} subdividida en ${datos.partes} cuentas. Estado conmutado a CUENTA PEDIDA (Esperando Comprobante).`
@@ -316,62 +297,10 @@ export const CajeroPosPage: React.FC = () => {
 
   // Manejador de Notificar a Administración (Vista 2)
   const handleNotificarAdmin = async () => {
-    try {
-      const nombreCajero = usuario?.nombre || CAJERO_ACTUAL_MOCK.nombre;
-      const resp = await mockCajaService.notificarAdministradorCajaBloqueada(nombreCajero);
-      if (resp.exito && resp.datos) {
-        showToast(
-          'info',
-          `Aviso enviado: ${resp.datos.admin_nombre} (Administradora) resolverá el cierre en CU-ADMIN-14.`
-        );
-      }
-    } catch {
-      showToast('error', 'Error al notificar a la administración.');
-    }
-  };
-
-  // Manejador de Simulación de Cierre Formal desde CU-ADMIN-14
-  const handleSimularCierreAdmin14 = async () => {
-    mockCajaService.simularCierreDesdeCuAdmin14QA();
     showToast(
-      'success',
-      'Cierre formal ejecutado por Mariana Ramos en CU-ADMIN-14. Terminal liberada para nueva apertura.'
+      'info',
+      'Aviso registrado: La administración ha sido notificada para resolver el cierre del turno pendiente.'
     );
-    await cargarDatos();
-  };
-
-  // Manejador de Cambio de Escenario QA
-  const handleSelectEscenarioQA = async (
-    escenario: 'cerrada' | 'conflicto_409' | 'abierta_operativa' | 'forzar_cierre' | 'restablecer'
-  ) => {
-    if (escenario === 'cerrada') {
-      mockCajaService.simularCajaCerradaQA();
-      showToast('info', 'Sandbox: Caja cerrada. Mostrando Vista 1 (Modal de Apertura).');
-    } else if (escenario === 'conflicto_409') {
-      mockCajaService.simularTurnoPrevioAbiertoQA();
-      showToast('error', 'Sandbox: Provocando conflicto 409 (Turno previo no cerrado). Mostrando Vista 2.');
-    } else if (escenario === 'abierta_operativa') {
-      mockCajaService.simularTurnoAbiertoOperativoQA();
-      showToast('success', 'Sandbox: Turno #042 activo. Salón operativo listo.');
-    } else if (escenario === 'forzar_cierre') {
-      mockCajaService.simularCierreDesdeCuAdmin14QA();
-      showToast('info', 'Sandbox: Cierre de caja ejecutado por Administradora en CU-ADMIN-14.');
-    } else if (escenario === 'restablecer') {
-      mockCajaService.restablecerSemillasCajaQA();
-      showToast('info', 'Sandbox: Semillas restablecidas al estado cerrado inicial.');
-    }
-    await cargarDatos();
-  };
-
-  // Demo QA: Abrir mesa directamente
-  const handleSelectMesaDemo = (mesaId: string) => {
-    const mesa = mesas.find((m) => m.id === mesaId);
-    if (!mesa) return;
-    if (mesa.estado === 'cuenta_pedida') {
-      handleAbrirEmitirComprobante(mesa);
-    } else if (mesa.estado === 'ocupada') {
-      handleAbrirPrecuenta(mesa);
-    }
   };
 
   if (loading || !session || !metricas) {
@@ -385,17 +314,12 @@ export const CajeroPosPage: React.FC = () => {
 
   // Determinación de la Vista Canónica
   const turnoActivo: CajaTurnoDTO | null = session.turno_activo || null;
-  const currentUserId = usuario?.id || CAJERO_ACTUAL_MOCK.id;
+  const currentUserId = usuario?.id || '';
   const isTurnoPrevioDeOtroCajero =
     turnoActivo !== null && turnoActivo.cajero_id !== currentUserId;
   const isCajaCerrada = session.estado_caja === 'cerrada' && !turnoActivo;
   const isPosDesbloqueado = turnoActivo !== null && !isTurnoPrevioDeOtroCajero;
 
-  const estadoBadgeTexto = isTurnoPrevioDeOtroCajero
-    ? '409 Conflicto'
-    : isCajaCerrada
-    ? 'Caja Cerrada'
-    : 'Turno Abierto';
 
   return (
     <div className="relative min-h-full pb-20">
@@ -427,7 +351,7 @@ export const CajeroPosPage: React.FC = () => {
               id: 'turno-temp',
               local_id: session.sede_nombre || 'local-1',
               cajero_id: currentUserId,
-              cajero_nombre: usuario?.nombre || CAJERO_ACTUAL_MOCK.nombre,
+              cajero_nombre: usuario?.nombre || 'Cajero de Turno',
               correlativo: session.correlativo_proyectado,
               monto_apertura: 0,
               estado: 'cerrada',
@@ -469,7 +393,6 @@ export const CajeroPosPage: React.FC = () => {
           turnoActivo={turnoActivo}
           onNotificarAdmin={handleNotificarAdmin}
           onCerrarSesion={cerrarSesion}
-          onSimularCierreAdmin14={handleSimularCierreAdmin14}
         />
       )}
 
@@ -533,14 +456,7 @@ export const CajeroPosPage: React.FC = () => {
         />
       )}
 
-      {/* Widget Flotante de Pruebas QA (Esquina inferior derecha) */}
-      <SoloDemo>
-        <DemoCajaTurnoWidget
-          onSelectEscenario={handleSelectEscenarioQA}
-          estadoActual={estadoBadgeTexto}
-          onSelectMesaDemo={handleSelectMesaDemo}
-        />
-      </SoloDemo>
+
     </div>
   );
 };

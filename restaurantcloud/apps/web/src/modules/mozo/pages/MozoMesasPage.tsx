@@ -30,6 +30,7 @@ import { ModalResolucionIncidencia } from '../components/quiebre/ModalResolucion
 import { ModalSustitucionCarta } from '../components/quiebre/ModalSustitucionCarta';
 import { ModalAnulacionQuiebre } from '../components/quiebre/ModalAnulacionQuiebre';
 import { Bell, ChevronRight, Check } from 'lucide-react';
+import { CajaCerradaBloqueoView } from '@/components/feedback/CajaCerradaBloqueoView';
 
 export const MozoMesasPage: React.FC = () => {
   const [cargando, setCargando] = useState(true);
@@ -651,6 +652,18 @@ export const MozoMesasPage: React.FC = () => {
 
     mostrarToast(`✓ Plato anulado (S/ ${res.datos.monto_anulado.toFixed(2)} descontados). Sin merma imputada.`);
   };
+
+  if (planoData && planoData.caja_abierta === false) {
+    return (
+      <CajaCerradaBloqueoView
+        rol="mozo"
+        onReintentar={async () => {
+          await cargarPlano(pisoActivoId, true);
+        }}
+        mensajePersonalizado="Actualmente no hay caja abierta. Vuelve a intentarlo más tarde o solicita la apertura de turno al cajero o administrador."
+      />
+    );
+  }
 
   const totalListos = planoData?.items_despacho.length || 0;
 

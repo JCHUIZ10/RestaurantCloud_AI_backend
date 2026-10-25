@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   ExternalLink,
   ShieldAlert,
-  Sparkles,
 } from 'lucide-react';
 import { CajaTurnoDTO } from '@/types/caja';
 
@@ -19,7 +18,6 @@ interface ModalBloqueoTurnoPrevioProps {
   turnoActivo: CajaTurnoDTO | null;
   onNotificarAdmin: () => Promise<void>;
   onCerrarSesion: () => void;
-  onSimularCierreAdmin14: () => void;
 }
 
 export const ModalBloqueoTurnoPrevio: React.FC<ModalBloqueoTurnoPrevioProps> = ({
@@ -27,7 +25,6 @@ export const ModalBloqueoTurnoPrevio: React.FC<ModalBloqueoTurnoPrevioProps> = (
   turnoActivo,
   onNotificarAdmin,
   onCerrarSesion,
-  onSimularCierreAdmin14,
 }) => {
   const [notificado, setNotificado] = useState<boolean>(false);
   const [isNotificando, setIsNotificando] = useState<boolean>(false);
@@ -174,16 +171,7 @@ export const ModalBloqueoTurnoPrevio: React.FC<ModalBloqueoTurnoPrevioProps> = (
                   <span>Avisar por WhatsApp</span>
                 </a>
 
-                {/* Acción QA para simular la resolución que el admin ejecuta en CU-ADMIN-14 */}
-                <button
-                  type="button"
-                  onClick={onSimularCierreAdmin14}
-                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-aurea-champagne font-mono font-bold text-[11px] border border-aurea-copper/40 flex items-center gap-1 transition-colors shadow-sm ml-auto"
-                  title="Simula la acción del Administrador en CU-ADMIN-14"
-                >
-                  <Sparkles className="w-3 h-3 text-aurea-copper" />
-                  <span>Simular Cierre en CU-ADMIN-14</span>
-                </button>
+
               </div>
             </div>
           ) : null}

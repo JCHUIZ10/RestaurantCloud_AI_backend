@@ -1,5 +1,5 @@
 import React from 'react';
-import { Flame, Clock, Lightbulb } from 'lucide-react';
+import { Flame, Clock, Lightbulb, ConciergeBell, CheckCircle2 } from 'lucide-react';
 import { ConsolidadoAllDayDTO } from '@/types/cocina';
 
 interface ConsolidadoAllDayViewProps {
@@ -25,8 +25,8 @@ export const ConsolidadoAllDayView: React.FC<ConsolidadoAllDayViewProps> = ({
   if (consolidado.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-slate-400">
-        <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center text-3xl mb-4">
-          🛎️
+        <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mb-4">
+          <ConciergeBell className="w-8 h-8 text-slate-400" />
         </div>
         <h3 className="font-serif font-bold text-xl text-white mb-1">
           ¡Producción al día! No hay raciones pendientes
@@ -58,7 +58,7 @@ export const ConsolidadoAllDayView: React.FC<ConsolidadoAllDayViewProps> = ({
 
         <div className="flex items-center gap-1.5 text-aurea-copper font-medium text-xs bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
           <Lightbulb className="w-4 h-4 shrink-0" />
-          <span>Cocción masiva por tandas acumuladas en wok/horno (CU-COCINA-02)</span>
+          <span>Cocción masiva por tandas acumuladas en wok/horno</span>
         </div>
       </div>
 
@@ -134,7 +134,8 @@ export const ConsolidadoAllDayView: React.FC<ConsolidadoAllDayViewProps> = ({
                           className="flex-1 py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold font-mono text-[11px] transition-all flex items-center justify-center gap-1 shadow"
                           title="Marcar listos en pase todas las raciones en fuego (FIFO)"
                         >
-                          <span>✓ {plato.cantidad_en_fuego}x en Pase</span>
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>{plato.cantidad_en_fuego}x en Pase</span>
                         </button>
                       )}
                     </div>

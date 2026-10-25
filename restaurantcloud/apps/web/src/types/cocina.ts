@@ -11,6 +11,7 @@ export type SemaforoKDSColor = 'verde' | 'ambar' | 'rojo';
  * Parámetros de umbrales y alertas acústicas de sede (tabla configuracion_kds)
  */
 export interface ConfiguracionKDSDTO {
+  caja_abierta?: boolean;
   local_id: string;
   tiempo_optimo_verde_min: number;   // Default 15m (CHECK BETWEEN 3 AND 60)
   tiempo_alerta_ambar_min: number;   // Default 25m (CHECK BETWEEN 5 AND 120)

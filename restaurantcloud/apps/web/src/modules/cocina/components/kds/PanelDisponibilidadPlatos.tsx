@@ -34,11 +34,18 @@ export const PanelDisponibilidadPlatos: React.FC<PanelDisponibilidadPlatosProps>
     });
     const apagadosTotal = safeCatalogo.filter((p) => p.disponibilidad === 'agotado').length;
     return [
-      { valor: TODAS, etiqueta: TODAS, conteo: safeCatalogo.length, alerta: apagadosTotal ? `${apagadosTotal} agotados` : undefined },
+      {
+        valor: TODAS,
+        etiqueta: TODAS,
+        conteo: safeCatalogo.length,
+        punto: apagadosTotal ? 'bg-estado-error-500' : 'bg-estado-ok-500',
+        alerta: apagadosTotal ? `${apagadosTotal} agotados` : undefined,
+      },
       ...Array.from(stats, ([nombre, s]) => ({
         valor: nombre,
         etiqueta: nombre,
         conteo: s.total,
+        punto: s.apagados ? 'bg-estado-error-500' : 'bg-estado-ok-500',
         alerta: s.apagados ? `${s.apagados} agotados` : undefined,
       })),
     ];
@@ -58,14 +65,14 @@ export const PanelDisponibilidadPlatos: React.FC<PanelDisponibilidadPlatosProps>
 
   return (
     <div className={cn('flex flex-col gap-4', className)}>
-      <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-3 p-2.5 rounded-2xl bg-tinta-950 border border-tinta-800">
         <Pestanas
           tema="oscuro"
           etiqueta="Filtrar por categoría"
           opciones={categorias}
           valor={categoriaActiva}
           onCambiar={setCategoriaActiva}
-          className="lg:flex-1 lg:min-w-0"
+          className="lg:flex-1 lg:min-w-0 !bg-tinta-900 !border-tinta-700"
         />
         <CampoBusqueda
           tema="oscuro"
@@ -108,12 +115,12 @@ const TarjetaDisponibilidad: React.FC<{
   return (
     <article
       className={cn(
-        'h-full rounded-2xl border p-4 flex flex-col gap-3',
+        'h-full rounded-2xl border border-l-4 p-4 flex flex-col gap-3 transition-colors',
         esDisponible
-          ? 'bg-tinta-900 border-tinta-800'
+          ? 'bg-estado-ok-950/25 border-estado-ok-900/60 border-l-estado-ok-500'
           : esQuiebreStock
-            ? 'bg-estado-error-950/30 border-estado-error-900'
-            : 'bg-estado-alerta-950/30 border-estado-alerta-900'
+            ? 'bg-estado-error-950/50 border-estado-error-800 border-l-estado-error-500'
+            : 'bg-estado-alerta-950/50 border-estado-alerta-800 border-l-estado-alerta-500'
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -131,20 +138,20 @@ const TarjetaDisponibilidad: React.FC<{
       </div>
 
       {esDisponible && (plato.ordenes_en_fuego > 0 || plato.ordenes_en_cola > 0) && (
-        <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+        <div className="flex flex-wrap items-center gap-2">
           {plato.ordenes_en_fuego > 0 && (
-            <span className="flex items-center gap-1.5 text-estado-alerta-300">
+            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-estado-alerta-500/15 border border-estado-alerta-500/35 text-estado-alerta-300 text-sm">
               <Flame className="w-4 h-4" aria-hidden="true" />
-              <span className="tabular-nums">{plato.ordenes_en_fuego}</span> en fuego
+              <span className="tabular-nums font-semibold">{plato.ordenes_en_fuego}</span> en fuego
             </span>
           )}
           {plato.ordenes_en_cola > 0 && (
-            <span className="flex items-center gap-1.5 text-tinta-300">
+            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-aurea-copper/15 border border-aurea-copper/35 text-aurea-champagne text-sm">
               <Clock className="w-4 h-4" aria-hidden="true" />
-              <span className="tabular-nums">{plato.ordenes_en_cola}</span> en cola
+              <span className="tabular-nums font-semibold">{plato.ordenes_en_cola}</span> en cola
             </span>
           )}
-        </p>
+        </div>
       )}
 
       {esQuiebreStock && (

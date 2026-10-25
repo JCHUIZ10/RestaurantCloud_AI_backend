@@ -30,8 +30,14 @@ class MozoController extends Controller
             ->orderBy('nombre')
             ->get();
 
+        $cajaAbierta = DB::table('caja')
+            ->where('local_id', $localId)
+            ->where('estado', 'abierta')
+            ->exists();
+
         if ($pisosRaw->isEmpty()) {
             return ApiResponse::ok([
+                'caja_abierta' => $cajaAbierta,
                 'piso_activo' => null,
                 'pisos_disponibles' => [],
                 'mesas' => [],
@@ -394,6 +400,7 @@ class MozoController extends Controller
             ->count();
 
         return ApiResponse::ok([
+            'caja_abierta' => $cajaAbierta,
             'piso_activo' => $pisoActivoDTO,
             'pisos_disponibles' => $pisosDTO,
             'mesas' => $mesas->values(),
@@ -425,6 +432,19 @@ class MozoController extends Controller
         $mesa = DB::table('mesa')->where('id', $id)->where('local_id', $localId)->first();
         if (! $mesa) {
             return ApiResponse::error('La mesa especificada no existe en esta sede.', 404);
+        }
+
+        $cajaAbierta = DB::table('caja')
+            ->where('local_id', $localId)
+            ->where('estado', 'abierta')
+            ->exists();
+
+        if (! $cajaAbierta) {
+            return ApiResponse::error(
+                'ERR_CAJA_NO_ABIERTA',
+                'Actualmente no hay caja abierta en este local. Vuelve a intentarlo más tarde.',
+                409
+            );
         }
 
         $comensales = (int) $request->input('comensales', $mesa->capacidad ?: 2);
@@ -1510,6 +1530,19 @@ class MozoController extends Controller
         $mesa = DB::table('mesa')->where('id', $validated['mesa_id'])->where('local_id', $localId)->first();
         if (! $mesa) {
             return ApiResponse::error('La mesa especificada no existe en esta sede.', 404);
+        }
+
+        $cajaAbierta = DB::table('caja')
+            ->where('local_id', $localId)
+            ->where('estado', 'abierta')
+            ->exists();
+
+        if (! $cajaAbierta) {
+            return ApiResponse::error(
+                'ERR_CAJA_NO_ABIERTA',
+                'Actualmente no hay caja abierta en este local. Vuelve a intentarlo más tarde.',
+                409
+            );
         }
 
         // 1. Validación de Disponibilidad / Stock Concurrente

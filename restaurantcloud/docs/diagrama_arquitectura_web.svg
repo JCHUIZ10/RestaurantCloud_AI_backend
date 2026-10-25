@@ -1,0 +1,235 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1800" height="1100" viewBox="0 0 1800 1100" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <symbol id="lg-react" viewBox="0 0 24 24"><path d="M14.23 12.004a2.236 2.236 0 0 1-2.235 2.236 2.236 2.236 0 0 1-2.236-2.236 2.236 2.236 0 0 1 2.235-2.236 2.236 2.236 0 0 1 2.236 2.236zm2.648-10.69c-1.346 0-3.107.96-4.888 2.622-1.78-1.653-3.542-2.602-4.887-2.602-.41 0-.783.093-1.106.278-1.375.793-1.683 3.264-.973 6.365C1.98 8.917 0 10.42 0 12.004c0 1.59 1.99 3.097 5.043 4.03-.704 3.113-.39 5.588.988 6.38.32.187.69.275 1.102.275 1.345 0 3.107-.96 4.888-2.624 1.78 1.654 3.542 2.603 4.887 2.603.41 0 .783-.09 1.106-.275 1.374-.792 1.683-3.263.973-6.365C22.02 15.096 24 13.59 24 12.004c0-1.59-1.99-3.097-5.043-4.032.704-3.11.39-5.587-.988-6.38-.318-.184-.688-.277-1.092-.278zm-.005 1.09v.006c.225 0 .406.044.558.127.666.382.955 1.835.73 3.704-.054.46-.142.945-.25 1.44-.96-.236-2.006-.417-3.107-.534-.66-.905-1.345-1.727-2.035-2.447 1.592-1.48 3.087-2.292 4.105-2.295zm-9.77.02c1.012 0 2.514.808 4.11 2.28-.686.72-1.37 1.537-2.02 2.442-1.107.117-2.154.298-3.113.538-.112-.49-.195-.964-.254-1.42-.23-1.868.054-3.32.714-3.707.19-.09.4-.127.563-.132zm4.882 3.05c.455.468.91.992 1.36 1.564-.44-.02-.89-.034-1.345-.034-.46 0-.915.01-1.36.034.44-.572.895-1.096 1.345-1.565zM12 8.1c.74 0 1.477.034 2.202.093.406.582.802 1.203 1.183 1.86.372.64.71 1.29 1.018 1.946-.308.655-.646 1.31-1.013 1.95-.38.66-.773 1.288-1.18 1.87-.728.063-1.466.098-2.21.098-.74 0-1.477-.035-2.202-.093-.406-.582-.802-1.204-1.183-1.86-.372-.64-.71-1.29-1.018-1.946.303-.657.646-1.313 1.013-1.954.38-.66.773-1.286 1.18-1.868.728-.064 1.466-.098 2.21-.098zm-3.635.254c-.24.377-.48.763-.704 1.16-.225.39-.435.782-.635 1.174-.265-.656-.49-1.31-.676-1.947.64-.15 1.315-.283 2.015-.386zm7.26 0c.695.103 1.365.23 2.006.387-.18.632-.405 1.282-.66 1.933-.2-.39-.41-.783-.64-1.174-.225-.392-.465-.774-.705-1.146zm3.063.675c.484.15.944.317 1.375.498 1.732.74 2.852 1.708 2.852 2.476-.005.768-1.125 1.74-2.857 2.475-.42.18-.88.342-1.355.493-.28-.958-.646-1.956-1.1-2.98.45-1.017.81-2.01 1.085-2.964zm-13.395.004c.278.96.645 1.957 1.1 2.98-.45 1.017-.812 2.01-1.086 2.964-.484-.15-.944-.318-1.37-.5-1.732-.737-2.852-1.706-2.852-2.474 0-.768 1.12-1.742 2.852-2.476.42-.18.88-.342 1.356-.494zm11.678 4.28c.265.657.49 1.312.676 1.948-.64.157-1.316.29-2.016.39.24-.375.48-.762.705-1.158.225-.39.435-.788.636-1.18zm-9.945.02c.2.392.41.783.64 1.175.23.39.465.772.705 1.143-.695-.102-1.365-.23-2.006-.386.18-.63.406-1.282.66-1.933zM17.92 16.32c.112.493.2.968.254 1.423.23 1.868-.054 3.32-.714 3.708-.147.09-.338.128-.563.128-1.012 0-2.514-.807-4.11-2.28.686-.72 1.37-1.536 2.02-2.44 1.107-.118 2.154-.3 3.113-.54zm-11.83.01c.96.234 2.006.415 3.107.532.66.905 1.345 1.727 2.035 2.446-1.595 1.483-3.092 2.295-4.11 2.295-.22-.005-.406-.05-.553-.132-.666-.38-.955-1.834-.73-3.703.054-.46.142-.944.25-1.438zm4.56.64c.44.02.89.034 1.345.034.46 0 .915-.01 1.36-.034-.44.572-.895 1.095-1.345 1.565-.455-.47-.91-.993-1.36-1.565z"/></symbol>
+    <symbol id="lg-laravel" viewBox="0 0 24 24"><path d="M23.642 5.43a.364.364 0 01.014.1v5.149c0 .135-.073.26-.189.326l-4.323 2.49v4.934a.378.378 0 01-.188.326L9.93 23.949a.316.316 0 01-.066.027c-.008.002-.016.008-.024.01a.348.348 0 01-.192 0c-.011-.002-.02-.008-.03-.012-.02-.008-.042-.014-.062-.025L.533 18.755a.376.376 0 01-.189-.326V2.974c0-.033.005-.066.014-.098.003-.012.01-.02.014-.032a.369.369 0 01.023-.058c.004-.013.015-.022.023-.033l.033-.045c.012-.01.025-.018.037-.027.014-.012.027-.024.041-.034H.53L5.043.05a.375.375 0 01.375 0L9.93 2.647h.002c.015.01.027.021.04.033l.038.027c.013.014.02.03.033.045.008.011.02.021.025.033.01.02.017.038.024.058.003.011.01.021.013.032.01.031.014.064.014.098v9.652l3.76-2.164V5.527c0-.033.004-.066.013-.098.003-.01.01-.02.013-.032a.487.487 0 01.024-.059c.007-.012.018-.02.025-.033.012-.015.021-.03.033-.043.012-.012.025-.02.037-.028.014-.01.026-.023.041-.032h.001l4.513-2.598a.375.375 0 01.375 0l4.513 2.598c.016.01.027.021.042.031.012.01.025.018.036.028.013.014.022.03.034.044.008.012.019.021.024.033.011.02.018.04.024.06.006.01.012.021.015.032zm-.74 5.032V6.179l-1.578.908-2.182 1.256v4.283zm-4.51 7.75v-4.287l-2.147 1.225-6.126 3.498v4.325zM1.093 3.624v14.588l8.273 4.761v-4.325l-4.322-2.445-.002-.003H5.04c-.014-.01-.025-.021-.04-.031-.011-.01-.024-.018-.035-.027l-.001-.002c-.013-.012-.021-.025-.031-.04-.01-.011-.021-.022-.028-.036h-.002c-.008-.014-.013-.031-.02-.047-.006-.016-.014-.027-.018-.043a.49.49 0 01-.008-.057c-.002-.014-.006-.027-.006-.041V5.789l-2.18-1.257zM5.23.81L1.47 2.974l3.76 2.164 3.758-2.164zm1.956 13.505l2.182-1.256V3.624l-1.58.91-2.182 1.255v9.435zm11.581-10.95l-3.76 2.163 3.76 2.163 3.759-2.164zm-.376 4.978L16.21 7.087 14.63 6.18v4.283l2.182 1.256 1.58.908zm-8.65 9.654l5.514-3.148 2.756-1.572-3.757-2.163-4.323 2.489-3.941 2.27z"/></symbol>
+    <symbol id="lg-nginx" viewBox="0 0 24 24"><path d="M12 0L1.605 6v12L12 24l10.395-6V6L12 0zm6 16.59c0 .705-.646 1.29-1.529 1.29-.631 0-1.351-.255-1.801-.81l-6-7.141v6.66c0 .721-.57 1.29-1.274 1.29H7.32c-.721 0-1.29-.6-1.29-1.29V7.41c0-.705.63-1.29 1.5-1.29.646 0 1.38.255 1.83.81l5.97 7.141V7.41c0-.721.6-1.29 1.29-1.29h.075c.72 0 1.29.6 1.29 1.29v9.18H18z"/></symbol>
+    <symbol id="lg-postgresql" viewBox="0 0 24 24"><path d="M23.5594 14.7228a.5269.5269 0 0 0-.0563-.1191c-.139-.2632-.4768-.3418-1.0074-.2321-1.6533.3411-2.2935.1312-2.5256-.0191 1.342-2.0482 2.445-4.522 3.0411-6.8297.2714-1.0507.7982-3.5237.1222-4.7316a1.5641 1.5641 0 0 0-.1509-.235C21.6931.9086 19.8007.0248 17.5099.0005c-1.4947-.0158-2.7705.3461-3.1161.4794a9.449 9.449 0 0 0-.5159-.0816 8.044 8.044 0 0 0-1.3114-.1278c-1.1822-.0184-2.2038.2642-3.0498.8406-.8573-.3211-4.7888-1.645-7.2219.0788C.9359 2.1526.3086 3.8733.4302 6.3043c.0409.818.5069 3.334 1.2423 5.7436.4598 1.5065.9387 2.7019 1.4334 3.582.553.9942 1.1259 1.5933 1.7143 1.7895.4474.1491 1.1327.1441 1.8581-.7279.8012-.9635 1.5903-1.8258 1.9446-2.2069.4351.2355.9064.3625 1.39.3772a.0569.0569 0 0 0 .0004.0041 11.0312 11.0312 0 0 0-.2472.3054c-.3389.4302-.4094.5197-1.5002.7443-.3102.064-1.1344.2339-1.1464.8115-.0025.1224.0329.2309.0919.3268.2269.4231.9216.6097 1.015.6331 1.3345.3335 2.5044.092 3.3714-.6787-.017 2.231.0775 4.4174.3454 5.0874.2212.5529.7618 1.9045 2.4692 1.9043.2505 0 .5263-.0291.8296-.0941 1.7819-.3821 2.5557-1.1696 2.855-2.9059.1503-.8707.4016-2.8753.5388-4.1012.0169-.0703.0357-.1207.057-.1362.0007-.0005.0697-.0471.4272.0307a.3673.3673 0 0 0 .0443.0068l.2539.0223.0149.001c.8468.0384 1.9114-.1426 2.5312-.4308.6438-.2988 1.8057-1.0323 1.5951-1.6698zM2.371 11.8765c-.7435-2.4358-1.1779-4.8851-1.2123-5.5719-.1086-2.1714.4171-3.6829 1.5623-4.4927 1.8367-1.2986 4.8398-.5408 6.108-.13-.0032.0032-.0066.0061-.0098.0094-2.0238 2.044-1.9758 5.536-1.9708 5.7495-.0002.0823.0066.1989.0162.3593.0348.5873.0996 1.6804-.0735 2.9184-.1609 1.1504.1937 2.2764.9728 3.0892.0806.0841.1648.1631.2518.2374-.3468.3714-1.1004 1.1926-1.9025 2.1576-.5677.6825-.9597.5517-1.0886.5087-.3919-.1307-.813-.5871-1.2381-1.3223-.4796-.839-.9635-2.0317-1.4155-3.5126zm6.0072 5.0871c-.1711-.0428-.3271-.1132-.4322-.1772.0889-.0394.2374-.0902.4833-.1409 1.2833-.2641 1.4815-.4506 1.9143-1.0002.0992-.126.2116-.2687.3673-.4426a.3549.3549 0 0 0 .0737-.1298c.1708-.1513.2724-.1099.4369-.0417.156.0646.3078.26.3695.4752.0291.1016.0619.2945-.0452.4444-.9043 1.2658-2.2216 1.2494-3.1676 1.0128zm2.094-3.988-.0525.141c-.133.3566-.2567.6881-.3334 1.003-.6674-.0021-1.3168-.2872-1.8105-.8024-.6279-.6551-.9131-1.5664-.7825-2.5004.1828-1.3079.1153-2.4468.079-3.0586-.005-.0857-.0095-.1607-.0122-.2199.2957-.2621 1.6659-.9962 2.6429-.7724.4459.1022.7176.4057.8305.928.5846 2.7038.0774 3.8307-.3302 4.7363-.084.1866-.1633.3629-.2311.5454zm7.3637 4.5725c-.0169.1768-.0358.376-.0618.5959l-.146.4383a.3547.3547 0 0 0-.0182.1077c-.0059.4747-.054.6489-.115.8693-.0634.2292-.1353.4891-.1794 1.0575-.11 1.4143-.8782 2.2267-2.4172 2.5565-1.5155.3251-1.7843-.4968-2.0212-1.2217a6.5824 6.5824 0 0 0-.0769-.2266c-.2154-.5858-.1911-1.4119-.1574-2.5551.0165-.5612-.0249-1.9013-.3302-2.6462.0044-.2932.0106-.5909.019-.8918a.3529.3529 0 0 0-.0153-.1126 1.4927 1.4927 0 0 0-.0439-.208c-.1226-.4283-.4213-.7866-.7797-.9351-.1424-.059-.4038-.1672-.7178-.0869.067-.276.1831-.5875.309-.9249l.0529-.142c.0595-.16.134-.3257.213-.5012.4265-.9476 1.0106-2.2453.3766-5.1772-.2374-1.0981-1.0304-1.6343-2.2324-1.5098-.7207.0746-1.3799.3654-1.7088.5321a5.6716 5.6716 0 0 0-.1958.1041c.0918-1.1064.4386-3.1741 1.7357-4.4823a4.0306 4.0306 0 0 1 .3033-.276.3532.3532 0 0 0 .1447-.0644c.7524-.5706 1.6945-.8506 2.802-.8325.4091.0067.8017.0339 1.1742.081 1.939.3544 3.2439 1.4468 4.0359 2.3827.8143.9623 1.2552 1.9315 1.4312 2.4543-1.3232-.1346-2.2234.1268-2.6797.779-.9926 1.4189.543 4.1729 1.2811 5.4964.1353.2426.2522.4522.2889.5413.2403.5825.5515.9713.7787 1.2552.0696.087.1372.1714.1885.245-.4008.1155-1.1208.3825-1.0552 1.717-.0123.1563-.0423.4469-.0834.8148-.0461.2077-.0702.4603-.0994.7662zm.8905-1.6211c-.0405-.8316.2691-.9185.5967-1.0105a2.8566 2.8566 0 0 0 .135-.0406 1.202 1.202 0 0 0 .1342.103c.5703.3765 1.5823.4213 3.0068.1344-.2016.1769-.5189.3994-.9533.6011-.4098.1903-1.0957.333-1.7473.3636-.7197.0336-1.0859-.0807-1.1721-.151zm.5695-9.2712c-.0059.3508-.0542.6692-.1054 1.0017-.055.3576-.112.7274-.1264 1.1762-.0142.4368.0404.8909.0932 1.3301.1066.887.216 1.8003-.2075 2.7014a3.5272 3.5272 0 0 1-.1876-.3856c-.0527-.1276-.1669-.3326-.3251-.6162-.6156-1.1041-2.0574-3.6896-1.3193-4.7446.3795-.5427 1.3408-.5661 2.1781-.463zm.2284 7.0137a12.3762 12.3762 0 0 0-.0853-.1074l-.0355-.0444c.7262-1.1995.5842-2.3862.4578-3.4385-.0519-.4318-.1009-.8396-.0885-1.2226.0129-.4061.0666-.7543.1185-1.0911.0639-.415.1288-.8443.1109-1.3505.0134-.0531.0188-.1158.0118-.1902-.0457-.4855-.5999-1.938-1.7294-3.253-.6076-.7073-1.4896-1.4972-2.6889-2.0395.5251-.1066 1.2328-.2035 2.0244-.1859 2.0515.0456 3.6746.8135 4.8242 2.2824a.908.908 0 0 1 .0667.1002c.7231 1.3556-.2762 6.2751-2.9867 10.5405zm-8.8166-6.1162c-.025.1794-.3089.4225-.6211.4225a.5821.5821 0 0 1-.0809-.0056c-.1873-.026-.3765-.144-.5059-.3156-.0458-.0605-.1203-.178-.1055-.2844.0055-.0401.0261-.0985.0925-.1488.1182-.0894.3518-.1226.6096-.0867.3163.0441.6426.1938.6113.4186zm7.9305-.4114c.0111.0792-.049.201-.1531.3102-.0683.0717-.212.1961-.4079.2232a.5456.5456 0 0 1-.075.0052c-.2935 0-.5414-.2344-.5607-.3717-.024-.1765.2641-.3106.5611-.352.297-.0414.6111.0088.6356.1851z"/></symbol>
+    <symbol id="lg-redis" viewBox="0 0 24 24"><path d="M22.71 13.145c-1.66 2.092-3.452 4.483-7.038 4.483-3.203 0-4.397-2.825-4.48-5.12.701 1.484 2.073 2.685 4.214 2.63 4.117-.133 6.94-3.852 6.94-7.239 0-4.05-3.022-6.972-8.268-6.972-3.752 0-8.4 1.428-11.455 3.685C2.59 6.937 3.885 9.958 4.35 9.626c2.648-1.904 4.748-3.13 6.784-3.744C8.12 9.244.886 17.05 0 18.425c.1 1.261 1.66 4.648 2.424 4.648.232 0 .431-.133.664-.365a100.49 100.49 0 0 0 5.54-6.765c.222 3.104 1.748 6.898 6.014 6.898 3.819 0 7.604-2.756 9.33-8.965.2-.764-.73-1.361-1.261-.73zm-4.349-5.013c0 1.959-1.926 2.922-3.685 2.922-.941 0-1.664-.247-2.235-.568 1.051-1.592 2.092-3.225 3.21-4.973 1.972.334 2.71 1.43 2.71 2.619z"/></symbol>
+    <symbol id="lg-minio" viewBox="0 0 24 24"><path d="M13.2072.006c-.6216-.0478-1.2.1943-1.6211.582a2.15 2.15 0 0 0-.0938 3.0352l3.4082 3.5507a3.042 3.042 0 0 1-.664 4.6875l-.463.2383V7.2853a15.4198 15.4198 0 0 0-8.0174 10.4862v.0176l6.5487-3.3281v7.621L13.7794 24V13.6817l.8965-.4629a4.4432 4.4432 0 0 0 1.2207-7.0292l-3.371-3.5254a.7489.7489 0 0 1 .037-1.0547.7522.7522 0 0 1 1.0567.0371l.4668.4863-.006.0059 4.0704 4.2441a.0566.0566 0 0 0 .082 0 .06.06 0 0 0 0-.0703l-3.1406-5.1425-.1484.1425.1484-.1445C14.4945.3926 13.8287.0538 13.2072.006Zm-.9024 9.8652v2.9941l-4.1523 2.1484a13.9787 13.9787 0 0 1 2.7676-3.9277 14.1784 14.1784 0 0 1 1.3847-1.2148z"/></symbol>
+    <symbol id="lg-stripe" viewBox="0 0 24 24"><path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.594-7.305h.003z"/></symbol>
+    <symbol id="lg-php" viewBox="0 0 24 24"><path d="M7.01 10.207h-.944l-.515 2.648h.838c.556 0 .97-.105 1.242-.314.272-.21.455-.559.55-1.049.092-.47.05-.802-.124-.995-.175-.193-.523-.29-1.047-.29zM12 5.688C5.373 5.688 0 8.514 0 12s5.373 6.313 12 6.313S24 15.486 24 12c0-3.486-5.373-6.312-12-6.312zm-3.26 7.451c-.261.25-.575.438-.917.551-.336.108-.765.164-1.285.164H5.357l-.327 1.681H3.652l1.23-6.326h2.65c.797 0 1.378.209 1.744.628.366.418.476 1.002.33 1.752a2.836 2.836 0 0 1-.305.847c-.143.255-.33.49-.561.703zm4.024.715l.543-2.799c.063-.318.039-.536-.068-.651-.107-.116-.336-.174-.687-.174H11.46l-.704 3.625H9.388l1.23-6.327h1.367l-.327 1.682h1.218c.767 0 1.295.134 1.586.401s.378.7.263 1.299l-.572 2.944h-1.389zm7.597-2.265a2.782 2.782 0 0 1-.305.847c-.143.255-.33.49-.561.703a2.44 2.44 0 0 1-.917.551c-.336.108-.765.164-1.286.164h-1.18l-.327 1.682h-1.378l1.23-6.326h2.649c.797 0 1.378.209 1.744.628.366.417.477 1.001.331 1.751zM17.766 10.207h-.943l-.516 2.648h.838c.557 0 .971-.105 1.242-.314.272-.21.455-.559.551-1.049.092-.47.049-.802-.125-.995s-.524-.29-1.047-.29z"/></symbol>
+    <filter id="sh" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#1f2433" flood-opacity="0.10"/>
+    </filter>
+    <filter id="sh2" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#1f2433" flood-opacity="0.12"/>
+    </filter>
+    <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b8901c"/>
+    </marker>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbf7ee"/>
+      <stop offset="1" stop-color="#f3ecdc"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1800" height="1100" fill="url(#bg)"/>
+
+  <!-- Encabezado -->
+  <text x="40" y="78" font-size="40" font-weight="700" fill="#1f2433">¿Cómo funciona RestaurantCloud por dentro?</text>
+  <text x="40" y="118" font-size="20" fill="#5b6070">Arquitectura web actual, explicada como un restaurante: el salón, el jefe de cocina, la despensa y los proveedores.</text>
+  <rect x="1556" y="46" width="204" height="44" rx="22" fill="#1f2433"/>
+  <circle cx="1582" cy="68" r="8" fill="#d4ab2c"/>
+  <text x="1600" y="75" font-size="18" font-weight="700" fill="#ffffff">RestaurantCloud</text>
+
+  <!-- ============ 1. NAVEGADOR ============ -->
+  <g filter="url(#sh)"><rect x="40" y="180" width="400" height="540" rx="22" fill="#ffffff" stroke="#e8dec6"/></g>
+  <circle cx="80" cy="226" r="20" fill="#d4ab2c"/>
+  <text x="80" y="233" font-size="20" font-weight="700" fill="#1f2433" text-anchor="middle">1</text>
+  <text x="112" y="215" font-size="13" font-weight="700" fill="#b8901c" letter-spacing="1.5">LO QUE VE LA PERSONA</text>
+  <text x="112" y="245" font-size="26" font-weight="700" fill="#1f2433">Navegador web</text>
+  <g filter="url(#sh2)"><rect x="352" y="196" width="64" height="64" rx="16" fill="#20232a"/></g>
+  <use href="#lg-react" xlink:href="#lg-react" x="364" y="208" width="40" height="40" fill="#61dafb"/>
+  <text x="64" y="288" font-size="16" fill="#5b6070">Celular, tablet o computadora · sin instalar nada</text>
+
+  <g font-size="16">
+    <rect x="64" y="304" width="352" height="58" rx="14" fill="#f6f1e4"/>
+    <circle cx="96" cy="333" r="18" fill="#2f6f5e"/><text x="96" y="339" fill="#fff" font-weight="700" text-anchor="middle">M</text>
+    <text x="126" y="328" font-weight="700" fill="#1f2433">Mozo</text><text x="126" y="350" font-size="14" fill="#5b6070">toma pedidos en la mesa</text>
+
+    <rect x="64" y="372" width="352" height="58" rx="14" fill="#f6f1e4"/>
+    <circle cx="96" cy="401" r="18" fill="#c0573e"/><text x="96" y="407" fill="#fff" font-weight="700" text-anchor="middle">C</text>
+    <text x="126" y="396" font-weight="700" fill="#1f2433">Cocina</text><text x="126" y="418" font-size="14" fill="#5b6070">ve las comandas en pantalla</text>
+
+    <rect x="64" y="440" width="352" height="58" rx="14" fill="#f6f1e4"/>
+    <circle cx="96" cy="469" r="18" fill="#3d5a99"/><text x="96" y="475" fill="#fff" font-weight="700" text-anchor="middle">$</text>
+    <text x="126" y="464" font-weight="700" fill="#1f2433">Caja</text><text x="126" y="486" font-size="14" fill="#5b6070">cobra y emite comprobantes</text>
+
+    <rect x="64" y="508" width="352" height="58" rx="14" fill="#f6f1e4"/>
+    <circle cx="96" cy="537" r="18" fill="#8a5a9e"/><text x="96" y="543" fill="#fff" font-weight="700" text-anchor="middle">D</text>
+    <text x="126" y="532" font-weight="700" fill="#1f2433">Dueño / Administrador</text><text x="126" y="554" font-size="14" fill="#5b6070">revisa ventas y configura el local</text>
+  </g>
+
+  <rect x="64" y="578" width="352" height="64" rx="14" fill="#fbf0cf"/>
+  <text x="84" y="605" font-size="16" font-weight="700" fill="#7a5c0c">Es como el salón del restaurante:</text>
+  <text x="84" y="628" font-size="15" fill="#7a5c0c">aquí la gente pide, mira y paga.</text>
+  <rect x="64" y="652" width="352" height="52" rx="12" fill="#1f2433"/>
+  <use href="#lg-nginx" xlink:href="#lg-nginx" x="80" y="666" width="24" height="24" fill="#2fbf5b"/>
+  <text x="114" y="676" font-size="14" font-weight="700" fill="#ffffff">Nginx <tspan font-weight="400" fill="#c9cede">· entrega la página web</tspan></text>
+  <text x="114" y="694" font-size="12" fill="#e9d8a6">sirve la app React a cada dispositivo</text>
+
+  <!-- Flecha 1 -> 2 -->
+  <line x1="446" y1="450" x2="524" y2="450" stroke="#b8901c" stroke-width="4" marker-start="url(#ah)" marker-end="url(#ah)"/>
+  <rect x="446" y="384" width="78" height="48" rx="10" fill="#1f2433"/>
+  <text x="485" y="404" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">Internet</text>
+  <text x="485" y="422" font-size="13" fill="#e9d8a6" text-anchor="middle">seguro</text>
+  <text x="485" y="482" font-size="12" fill="#5b6070" text-anchor="middle">pide</text>
+  <text x="485" y="498" font-size="12" fill="#5b6070" text-anchor="middle">y recibe</text>
+
+  <!-- ============ 2. LARAVEL ============ -->
+  <g filter="url(#sh)"><rect x="530" y="180" width="640" height="540" rx="22" fill="#ffffff" stroke="#e8dec6"/></g>
+  <circle cx="570" cy="226" r="20" fill="#d4ab2c"/>
+  <text x="570" y="233" font-size="20" font-weight="700" fill="#1f2433" text-anchor="middle">2</text>
+  <text x="602" y="215" font-size="13" font-weight="700" fill="#b8901c" letter-spacing="1.5">EL CEREBRO DEL SISTEMA</text>
+  <text x="602" y="245" font-size="26" font-weight="700" fill="#1f2433">Servidor Laravel</text>
+  <g filter="url(#sh2)"><rect x="1082" y="196" width="64" height="64" rx="16" fill="#fff1ef"/></g>
+  <use href="#lg-laravel" xlink:href="#lg-laravel" x="1094" y="208" width="40" height="40" fill="#ff2d20"/>
+  <text x="560" y="288" font-size="16" fill="#5b6070">Recibe cada pedido, aplica las reglas y responde</text>
+
+  <rect x="560" y="304" width="580" height="50" rx="12" fill="#1f2433"/>
+  <text x="582" y="335" font-size="16" font-weight="700" fill="#ffffff">Motor ultrarrápido<tspan font-weight="400" fill="#c9cede">  ·  atiende muchos pedidos a la vez</tspan></text>
+  <use href="#lg-php" xlink:href="#lg-php" x="992" y="315" width="28" height="28" fill="#8f93d0"/>
+  <text x="1028" y="334" font-size="13" font-weight="700" fill="#e9eef7">FrankenPHP</text>
+
+  <rect x="560" y="364" width="580" height="204" rx="16" fill="#f6f1e4"/>
+  <text x="578" y="393" font-size="16" font-weight="700" fill="#1f2433">Lógica de negocio<tspan font-weight="400" fill="#5b6070">  —  las reglas de tu restaurante</tspan></text>
+
+  <g font-size="15">
+    <g>
+      <rect x="569" y="406" width="133" height="70" rx="12" fill="#fff" stroke="#e8dec6"/>
+      <circle cx="586" cy="425" r="6" fill="#2f6f5e"/><text x="598" y="430" font-weight="700" fill="#1f2433">Mesas</text>
+      <text x="580" y="458" font-size="13" fill="#5b6070">salón y cuentas</text>
+    </g>
+    <g>
+      <rect x="712" y="406" width="133" height="70" rx="12" fill="#fff" stroke="#e8dec6"/>
+      <circle cx="729" cy="425" r="6" fill="#d4ab2c"/><text x="741" y="430" font-weight="700" fill="#1f2433">Carta</text>
+      <text x="723" y="458" font-size="13" fill="#5b6070">platos y precios</text>
+    </g>
+    <g>
+      <rect x="855" y="406" width="133" height="70" rx="12" fill="#fff" stroke="#e8dec6"/>
+      <circle cx="872" cy="425" r="6" fill="#c0573e"/><text x="884" y="430" font-weight="700" fill="#1f2433">Cocina</text>
+      <text x="866" y="458" font-size="13" fill="#5b6070">comandas al chef</text>
+    </g>
+    <g>
+      <rect x="998" y="406" width="133" height="70" rx="12" fill="#fff" stroke="#e8dec6"/>
+      <circle cx="1015" cy="425" r="6" fill="#3d5a99"/><text x="1027" y="430" font-weight="700" fill="#1f2433">Caja</text>
+      <text x="1009" y="458" font-size="13" fill="#5b6070">cobros y cierre</text>
+    </g>
+    <g>
+      <rect x="569" y="486" width="133" height="70" rx="12" fill="#fff" stroke="#e8dec6"/>
+      <circle cx="586" cy="505" r="6" fill="#6b8f3a"/><text x="598" y="510" font-weight="700" fill="#1f2433">Inventario</text>
+      <text x="580" y="538" font-size="13" fill="#5b6070">stock e insumos</text>
+    </g>
+    <g>
+      <rect x="712" y="486" width="133" height="70" rx="12" fill="#fff" stroke="#e8dec6"/>
+      <circle cx="729" cy="505" r="6" fill="#8a5a9e"/><text x="741" y="510" font-weight="700" fill="#1f2433">Personal</text>
+      <text x="723" y="538" font-size="13" fill="#5b6070">turnos y roles</text>
+    </g>
+    <g>
+      <rect x="855" y="486" width="133" height="70" rx="12" fill="#fff" stroke="#e8dec6"/>
+      <circle cx="872" cy="505" r="6" fill="#d9822b"/><text x="884" y="510" font-weight="700" fill="#1f2433">Promociones</text>
+      <text x="866" y="538" font-size="13" fill="#5b6070">ofertas y combos</text>
+    </g>
+    <g>
+      <rect x="998" y="486" width="133" height="70" rx="12" fill="#fff" stroke="#e8dec6"/>
+      <circle cx="1015" cy="505" r="6" fill="#4a8fa8"/><text x="1027" y="510" font-weight="700" fill="#1f2433">Empresas</text>
+      <text x="1009" y="538" font-size="13" fill="#5b6070">cada local aparte</text>
+    </g>
+  </g>
+
+  <rect x="560" y="580" width="580" height="48" rx="12" fill="#ffffff" stroke="#b8901c" stroke-dasharray="6 5"/>
+  <text x="582" y="610" font-size="15" font-weight="700" fill="#1f2433">Ayudantes en segundo plano<tspan font-weight="400" fill="#5b6070">  ·  hacen reportes y tareas sin hacerte esperar</tspan></text>
+
+  <rect x="560" y="640" width="580" height="60" rx="14" fill="#fbf0cf"/>
+  <text x="582" y="676" font-size="16" font-weight="700" fill="#7a5c0c">Es como el jefe de cocina:<tspan font-weight="400"> organiza, decide y controla cada paso.</tspan></text>
+
+  <!-- Flecha 2 -> 3 -->
+  <line x1="1176" y1="450" x2="1254" y2="450" stroke="#b8901c" stroke-width="4" marker-start="url(#ah)" marker-end="url(#ah)"/>
+  <rect x="1176" y="384" width="78" height="48" rx="10" fill="#1f2433"/>
+  <text x="1215" y="404" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">Guarda</text>
+  <text x="1215" y="422" font-size="13" fill="#e9d8a6" text-anchor="middle">y consulta</text>
+
+  <!-- ============ 3. DATOS ============ -->
+  <g filter="url(#sh)"><rect x="1260" y="180" width="500" height="540" rx="22" fill="#ffffff" stroke="#e8dec6"/></g>
+  <circle cx="1300" cy="226" r="20" fill="#d4ab2c"/>
+  <text x="1300" y="233" font-size="20" font-weight="700" fill="#1f2433" text-anchor="middle">3</text>
+  <text x="1332" y="215" font-size="13" font-weight="700" fill="#b8901c" letter-spacing="1.5">DONDE SE GUARDA TODO</text>
+  <text x="1332" y="245" font-size="26" font-weight="700" fill="#1f2433">La despensa de datos</text>
+  <text x="1284" y="288" font-size="16" fill="#5b6070">La memoria del negocio, siempre protegida</text>
+
+  <!-- PostgreSQL -->
+  <rect x="1284" y="304" width="452" height="124" rx="14" fill="#f6f1e4"/>
+  <g filter="url(#sh2)"><rect x="1300" y="324" width="80" height="80" rx="18" fill="#ffffff"/></g>
+  <use href="#lg-postgresql" xlink:href="#lg-postgresql" x="1316" y="340" width="48" height="48" fill="#336791"/>
+  <text x="1398" y="336" font-size="18" font-weight="700" fill="#1f2433">Base de datos principal</text>
+  <text x="1398" y="361" font-size="14" fill="#5b6070">El libro contable: pedidos, ventas,</text>
+  <text x="1398" y="380" font-size="14" fill="#5b6070">platos y clientes. Cada restaurante</text>
+  <text x="1398" y="399" font-size="14" fill="#5b6070">solo ve su propia información.</text>
+  <text x="1722" y="418" font-size="12" font-weight="700" fill="#336791" text-anchor="end">PostgreSQL</text>
+
+  <!-- Redis -->
+  <rect x="1284" y="440" width="452" height="124" rx="14" fill="#f6f1e4"/>
+  <g filter="url(#sh2)"><rect x="1300" y="460" width="80" height="80" rx="18" fill="#ffffff"/></g>
+  <use href="#lg-redis" xlink:href="#lg-redis" x="1316" y="476" width="48" height="48" fill="#dc382d"/>
+  <text x="1398" y="472" font-size="18" font-weight="700" fill="#1f2433">Memoria rápida</text>
+  <text x="1398" y="497" font-size="14" fill="#5b6070">Avisa al instante entre pantallas</text>
+  <text x="1398" y="516" font-size="14" fill="#5b6070">(mozo → cocina → caja) y guarda</text>
+  <text x="1398" y="535" font-size="14" fill="#5b6070">la fila de tareas pendientes.</text>
+  <text x="1722" y="554" font-size="12" font-weight="700" fill="#dc382d" text-anchor="end">Redis</text>
+
+  <!-- MinIO -->
+  <rect x="1284" y="576" width="452" height="124" rx="14" fill="#f6f1e4"/>
+  <g filter="url(#sh2)"><rect x="1300" y="596" width="80" height="80" rx="18" fill="#ffffff"/></g>
+  <use href="#lg-minio" xlink:href="#lg-minio" x="1316" y="612" width="48" height="48" fill="#c72e49"/>
+  <text x="1398" y="608" font-size="18" font-weight="700" fill="#1f2433">Archivo de documentos</text>
+  <text x="1398" y="633" font-size="14" fill="#5b6070">Reportes de cierre de caja (Z)</text>
+  <text x="1398" y="652" font-size="14" fill="#5b6070">y comprobantes en PDF, listos</text>
+  <text x="1398" y="671" font-size="14" fill="#5b6070">para descargar cuando se necesiten.</text>
+  <text x="1722" y="690" font-size="12" font-weight="700" fill="#c72e49" text-anchor="end">MinIO</text>
+
+  <!-- ============ 4. EXTERNOS ============ -->
+  <circle cx="60" cy="790" r="20" fill="#d4ab2c"/>
+  <text x="60" y="797" font-size="20" font-weight="700" fill="#1f2433" text-anchor="middle">4</text>
+  <text x="92" y="782" font-size="13" font-weight="700" fill="#b8901c" letter-spacing="1.5">PROVEEDORES DE CONFIANZA</text>
+  <text x="92" y="806" font-size="20" font-weight="700" fill="#1f2433">Servicios externos conectados al cerebro</text>
+
+  <line x1="850" y1="720" x2="850" y2="822" stroke="#b8901c" stroke-width="3"/>
+  <line x1="464" y1="822" x2="1336" y2="822" stroke="#b8901c" stroke-width="3"/>
+  <circle cx="850" cy="822" r="6" fill="#b8901c"/>
+  <line x1="464" y1="822" x2="464" y2="846" stroke="#b8901c" stroke-width="3"/>
+  <line x1="1336" y1="822" x2="1336" y2="846" stroke="#b8901c" stroke-width="3"/>
+
+  <!-- apiperu.dev -->
+  <g filter="url(#sh)"><rect x="40" y="846" width="848" height="160" rx="18" fill="#ffffff" stroke="#e8dec6"/></g>
+  <g filter="url(#sh2)"><rect x="64" y="870" width="112" height="112" rx="24" fill="#1f2433"/></g>
+  <rect x="86" y="898" width="68" height="46" rx="7" fill="#ffffff"/>
+  <rect x="86" y="898" width="68" height="11" rx="5" fill="#d4ab2c"/>
+  <rect x="86" y="904" width="68" height="5" fill="#d4ab2c"/>
+  <circle cx="104" cy="925" r="8" fill="#1f2433"/>
+  <path d="M93,940 a11,8 0 0 1 22,0 z" fill="#1f2433"/>
+  <path d="M121,920 h26 M121,928 h26 M121,936 h18" stroke="#9097a6" stroke-width="3" stroke-linecap="round"/>
+  <text x="120" y="966" font-size="12" font-weight="700" fill="#e9c75a" text-anchor="middle">DNI · RUC</text>
+  <text x="200" y="900" font-size="22" font-weight="700" fill="#1f2433">Consulta de DNI y RUC</text>
+  <text x="200" y="930" font-size="15" fill="#5b6070">Escribes el número del documento y el sistema completa solo</text>
+  <text x="200" y="952" font-size="15" fill="#5b6070">el nombre o la razón social del cliente al emitir boletas y facturas.</text>
+  <rect x="200" y="966" width="108" height="26" rx="13" fill="#e6f2ee"/>
+  <circle cx="216" cy="979" r="5" fill="#2f6f5e"/>
+  <text x="228" y="984" font-size="12" font-weight="700" fill="#2f6f5e">EN USO HOY</text>
+  <text x="864" y="986" font-size="14" font-weight="700" fill="#1f2433" text-anchor="end">apiperu.dev</text>
+
+  <!-- Stripe -->
+  <g filter="url(#sh)"><rect x="912" y="846" width="848" height="160" rx="18" fill="#ffffff" stroke="#e8dec6"/></g>
+  <g filter="url(#sh2)"><rect x="936" y="870" width="112" height="112" rx="24" fill="#635bff"/></g>
+  <use href="#lg-stripe" xlink:href="#lg-stripe" x="962" y="896" width="60" height="60" fill="#ffffff"/>
+  <text x="1072" y="900" font-size="22" font-weight="700" fill="#1f2433">Pagos con tarjeta</text>
+  <text x="1072" y="930" font-size="15" fill="#5b6070">Cobra de forma segura la suscripción de cada restaurante.</text>
+  <text x="1072" y="952" font-size="15" fill="#5b6070">Los datos de la tarjeta los guarda Stripe, nunca nuestro sistema.</text>
+  <rect x="1072" y="966" width="108" height="26" rx="13" fill="#e6f2ee"/>
+  <circle cx="1088" cy="979" r="5" fill="#2f6f5e"/>
+  <text x="1100" y="984" font-size="12" font-weight="700" fill="#2f6f5e">EN USO HOY</text>
+  <text x="1736" y="986" font-size="14" font-weight="700" fill="#635bff" text-anchor="end">Stripe</text>
+
+  <!-- Pie -->
+  <rect x="40" y="1032" width="1720" height="42" rx="21" fill="#1f2433"/>
+  <text x="900" y="1059" font-size="16" fill="#ffffff" text-anchor="middle"><tspan font-weight="700" fill="#e9c75a">Regla de oro:</tspan> solo el cerebro (Laravel) escribe en la base de datos; el navegador nunca la toca directamente.</text>
+</svg>

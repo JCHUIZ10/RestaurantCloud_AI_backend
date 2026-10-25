@@ -22,10 +22,16 @@ class CocinaController extends Controller
         $user = $request->user();
         $localId = $user->local_id;
 
+        $cajaAbierta = DB::table('caja')
+            ->where('local_id', $localId)
+            ->where('estado', 'abierta')
+            ->exists();
+
         $config = DB::table('configuracion_kds')->where('local_id', $localId)->first();
 
         if (! $config) {
             return ApiResponse::ok([
+                'caja_abierta' => $cajaAbierta,
                 'local_id' => $localId,
                 'tiempo_optimo_verde_min' => 15,
                 'tiempo_alerta_ambar_min' => 25,
@@ -38,6 +44,7 @@ class CocinaController extends Controller
         }
 
         return ApiResponse::ok([
+            'caja_abierta' => $cajaAbierta,
             'local_id' => $config->local_id,
             'tiempo_optimo_verde_min' => (int) $config->tiempo_optimo_verde_min,
             'tiempo_alerta_ambar_min' => (int) $config->tiempo_alerta_ambar_min,

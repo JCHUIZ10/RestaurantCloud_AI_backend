@@ -126,7 +126,6 @@ import {
   CierreForzadoAdminRequestDTO,
 } from '@/types/admin';
 import { ReporteZDTO } from '@/types/caja';
-import { mockCajaService } from '@/modules/caja/services/mockCajaService';
 import { MOCK_CONFIGURACION_KDS } from '@/modules/cocina/services/mockCocinaService';
 import {
   PropietarioIncidentesFiltrosRequest,
@@ -10706,8 +10705,6 @@ class MockAdminService {
     turno.revisado_at = new Date().toISOString();
     turno.notas_auditoria = `Cierre de rescate ejecutado. Efectivo contado S/ ${efectivoContado.toFixed(2)}. Terminal liberada.`;
 
-    // Sincronizar con mockCajaService para liberar la terminal inmediatamente
-    mockCajaService.simularCierreDesdeCuAdmin14QA();
 
     return {
       exito: true,
@@ -10795,8 +10792,6 @@ class MockAdminService {
    * QA Helper: Simular terminal bloqueada por cajero saliente sin cerrar turno
    */
   simularTerminalBloqueadaQA(): void {
-    // Sincronizar estado en mockCajaService
-    mockCajaService.simularTurnoPrevioAbiertoQA();
     const turnoActivo = this.turnosCaja.find((t) => t.estado === 'abierta');
     if (turnoActivo) {
       turnoActivo.cajero_nombre = 'Juan Pérez';
@@ -10821,7 +10816,6 @@ class MockAdminService {
     this.flujoCajaResumen = JSON.parse(JSON.stringify(SEMILLAS_FLUJO_CAJA_AUREA));
     this.gastosOperativos = JSON.parse(JSON.stringify(SEMILLAS_GASTOS_AUREA));
     this.turnosCaja = JSON.parse(JSON.stringify(SEMILLAS_TURNOS_CAJA_AUREA));
-    mockCajaService.restablecerSemillasCajaQA();
   }
 }
 

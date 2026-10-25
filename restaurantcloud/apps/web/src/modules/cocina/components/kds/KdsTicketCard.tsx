@@ -275,7 +275,7 @@ export const KdsTicketCard: React.FC<KdsTicketCardProps> = ({
                               title="Revertir a fuego y restaurar existencias en inventario"
                             >
                               <RotateCcw className="w-3.5 h-3.5" />
-                              <span>[ ↺ Deshacer ({segundosRestantes}s) ]</span>
+                              <span>Deshacer ({segundosRestantes}s)</span>
                             </button>
                           );
                         }
@@ -300,8 +300,11 @@ export const KdsTicketCard: React.FC<KdsTicketCardProps> = ({
         {/* Chip informativo de bebidas atendidas por mozo (requiere_preparacion = false) */}
         {comanda.bebidas_salon_count > 0 && (
           <div className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 text-xs font-mono flex items-center justify-between">
-            <span>🥤 {comanda.bebidas_salon_count} Bebidas de salón</span>
-            <span className="text-[10px] text-slate-500">Atend. por mozo</span>
+            <span className="flex items-center gap-1.5">
+              <CupSoda className="w-3.5 h-3.5" />
+              {comanda.bebidas_salon_count} Bebidas de salón
+            </span>
+            <span className="text-[10px] text-slate-500">Atendido por el mozo</span>
           </div>
         )}
 
@@ -319,12 +322,12 @@ export const KdsTicketCard: React.FC<KdsTicketCardProps> = ({
           {esRojo ? (
             <>
               <BellRing className="w-4 h-4" />
-              <span>[ 🚨 Despachar y Notificar Mozo ]</span>
+              <span>Despachar y Notificar Mozo</span>
             </>
           ) : (
             <>
               <CheckCircle2 className="w-4 h-4" />
-              <span>[ ✓ Despachar Todo al Pase ]</span>
+              <span>Despachar Todo al Pase</span>
             </>
           )}
         </button>

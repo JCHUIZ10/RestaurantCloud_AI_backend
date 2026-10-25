@@ -20,7 +20,6 @@ import {
   BETA_CREDENTIALS,
 } from '@/modules/auth/services/mockAuthService';
 
-import { mockCocinaService } from '@/modules/cocina/services/mockCocinaService';
 import { mockAdminService } from '@/modules/admin/services/mockAdminService';
 import { realPlanoService } from './api/planoService';
 import { realSaasTenantsService, type SaasTenantsService } from './api/realSaasTenantsService';
@@ -36,16 +35,8 @@ export const planoService = realPlanoService;
 // Módulo Caja POS: 100% conectado directamente a la API de Laravel
 export const cajaService = realCajaService;
 
-// Proxy / Fallback para Cocina KDS
-export const cocinaService = new Proxy(mockCocinaService as any, {
-  get(target, prop, receiver) {
-    if (IS_REAL_API && prop in realCocinaService) {
-      const val = (realCocinaService as any)[prop];
-      return typeof val === 'function' ? val.bind(realCocinaService) : val;
-    }
-    return Reflect.get(target, prop, receiver);
-  },
-});
+// Módulo Cocina KDS: 100% conectado directamente a la API de Laravel
+export const cocinaService = realCocinaService;
 
 export const adminService = new Proxy(mockAdminService as any, {
   get(target, prop, receiver) {

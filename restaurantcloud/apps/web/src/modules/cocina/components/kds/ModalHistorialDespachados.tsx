@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, Utensils, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Clock, Utensils, CheckCircle2, ArrowLeft, NotebookPen, Info } from 'lucide-react';
 import { KDSPedidoDespachadoDTO, MetricasDespachoDTO } from '@/types/cocina';
 
 interface ModalHistorialDespachadosProps {
@@ -114,8 +114,9 @@ export const ModalHistorialDespachados: React.FC<ModalHistorialDespachadosProps>
                           </span>
                         </div>
 
-                        <span className="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-emerald-950/60 text-emerald-300 border border-emerald-800/60">
-                          ✓ Hace {pedido.minutos_desde_despacho}m
+                        <span className="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-emerald-950/60 text-emerald-300 border border-emerald-800/60 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Hace {pedido.minutos_desde_despacho}m
                         </span>
                       </div>
 
@@ -138,8 +139,9 @@ export const ModalHistorialDespachados: React.FC<ModalHistorialDespachadosProps>
                               <span className="font-medium text-slate-200">{it.producto_nombre}</span>
                             </div>
                             {it.nota_cocina && (
-                              <span className="text-[10px] text-amber-300/80 pl-5">
-                                📝 {it.nota_cocina}
+                              <span className="text-[10px] text-amber-300/80 pl-5 flex items-center gap-1">
+                                <NotebookPen className="w-3 h-3 shrink-0" />
+                                {it.nota_cocina}
                               </span>
                             )}
                           </li>
@@ -163,7 +165,10 @@ export const ModalHistorialDespachados: React.FC<ModalHistorialDespachadosProps>
 
         {/* Footer del Modal */}
         <div className="px-5 py-3 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-          <span>💡 Vista de solo lectura. Las comandas completadas se archivan durante 30 minutos para consulta y no pueden devolverse a cocina para proteger el ritmo de las partidas culinarias.</span>
+          <span className="flex items-start gap-1.5">
+            <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            Vista de solo lectura. Las comandas completadas se archivan durante 30 minutos para consulta y no pueden devolverse a cocina para proteger el ritmo de las partidas culinarias.
+          </span>
           <button
             onClick={onCerrar}
             className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition-colors"
