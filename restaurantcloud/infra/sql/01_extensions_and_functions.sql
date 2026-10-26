@@ -61,7 +61,7 @@ CREATE OR REPLACE FUNCTION fn_obtener_siguiente_correlativo(
     p_tipo_comprobante VARCHAR,
     p_serie VARCHAR
 )
-RETURNS INT AS $
+RETURNS INT AS $$
 DECLARE
     v_siguiente INT;
     v_max_existente INT;
@@ -97,7 +97,7 @@ BEGIN
 
     RETURN v_siguiente;
 END;
-$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 -- 5. FUNCIÓN DE SEGURIDAD PARA BYPASS RLS DE ADMINISTRADOR SAAS (CU-SAAS-01)
 CREATE OR REPLACE FUNCTION fn_es_admin_saas()
