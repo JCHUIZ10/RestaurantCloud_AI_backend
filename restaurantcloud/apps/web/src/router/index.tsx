@@ -89,6 +89,10 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
           />
         ),
       },
+      {
+        path: 'carta',
+        element: <Navigate to="/sede/aurea-miraflores/carta" replace />,
+      },
       // Búsqueda manual de comprobante Zero Dead-Ends
       {
         path: 'comprobante',
