@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { CompletarRegistroResponseDTO } from '@/types/registroEmpresa';
-import { Button } from '@/components/ui/Button';
 import { formatPEN } from '@/shared/utils';
 import {
   CheckCircle2,
@@ -46,7 +45,7 @@ export const Paso5RegistroExitoso: React.FC<Paso5RegistroExitosoProps> = ({
 
   return (
     <div className="max-w-2xl mx-auto animate-fadeIn py-4 space-y-6">
-      <div className="bg-white rounded-3xl p-6 sm:p-10 border-2 border-aurea-copper/25 shadow-2xl text-center space-y-6">
+      <div className="bg-white rounded-3xl p-6 sm:p-10 border border-aurea-copper/25 shadow-xl text-center space-y-6">
         {/* Check verde animado */}
         <div className="w-20 h-20 rounded-full bg-emerald-50 border-4 border-emerald-500 text-emerald-600 mx-auto flex items-center justify-center shadow-lg">
           <CheckCircle2 className="w-12 h-12 stroke-[2.5]" />
@@ -54,7 +53,7 @@ export const Paso5RegistroExitoso: React.FC<Paso5RegistroExitosoProps> = ({
 
         {/* Título de Confirmación */}
         <div className="space-y-2">
-          <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+          <span className="text-xs font-semibold uppercase tracking-widest text-aurea-navy bg-aurea-champagne/40 px-3.5 py-1 rounded-full border border-aurea-copper/30">
             Alta Completada & Pago Confirmado
           </span>
           <h2 className="font-serif text-3xl sm:text-4xl text-aurea-navy font-bold">
@@ -171,15 +170,14 @@ export const Paso5RegistroExitoso: React.FC<Paso5RegistroExitosoProps> = ({
 
         {/* Botón Principal: Ir al Panel de Control */}
         <div className="pt-2">
-          <Button
+          <button
             type="button"
-            size="lg"
             onClick={onIrAlDashboard}
-            className="w-full bg-aurea-navy text-white hover:bg-aurea-navy/90 font-bold py-4 shadow-xl flex items-center justify-center gap-2 text-base"
+            className="w-full bg-aurea-navy hover:bg-[#12345e] text-white font-semibold py-3.5 px-6 rounded-full shadow-md flex items-center justify-center gap-2 text-base transition-all cursor-pointer"
           >
-            <span>IR A MI PANEL DE CONTROL</span>
-            <ArrowRight className="w-5 h-5" />
-          </Button>
+            <span>Ir a mi panel de control</span>
+            <ArrowRight className="w-5 h-5 text-aurea-copper" />
+          </button>
           <p className="text-[11px] text-aurea-navy/60 mt-2">
             Tu sesión como Propietario se iniciará automáticamente.
           </p>

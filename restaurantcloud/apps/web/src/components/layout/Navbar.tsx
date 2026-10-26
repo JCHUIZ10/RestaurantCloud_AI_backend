@@ -84,18 +84,26 @@ export const Navbar: React.FC = () => {
 
   const handleSectionClick = (event: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    if (!isLanding || !href.startsWith('/#')) {
+    if (!href.startsWith('/#')) {
       pendingScroll.current = null;
       setIsOpen(false);
       return;
     }
-    const section = document.getElementById(href.slice(2));
-    if (!section) return;
     event.preventDefault();
-    scrollAfterMenuClose(() => {
-      navigate(href, { preventScrollReset: true });
-      section.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
-    });
+    const sectionId = href.slice(2);
+    if (isLanding) {
+      const section = document.getElementById(sectionId);
+      scrollAfterMenuClose(() => {
+        navigate(href, { preventScrollReset: true });
+        if (section) {
+          section.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+        }
+      });
+    } else {
+      scrollAfterMenuClose(() => {
+        navigate(href);
+      });
+    }
   };
 
   return (
@@ -128,6 +136,7 @@ export const Navbar: React.FC = () => {
         <div className="public-nav-actions hidden md:flex items-center gap-3">
           <Link
             to={ROUTES.LOGIN}
+            onClick={() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' })}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-aurea-navy hover:text-aurea-navy/80 hover:bg-aurea-champagne/30 transition-colors"
           >
             <LogIn className="w-4 h-4 text-aurea-copper" />
@@ -136,6 +145,7 @@ export const Navbar: React.FC = () => {
 
           <Link
             to={ROUTES.REGISTRO}
+            onClick={() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' })}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-aurea-ivory bg-aurea-navy hover:bg-opacity-90 shadow-md transition-all group"
           >
             <span>Crear Restaurante</span>
@@ -147,6 +157,7 @@ export const Navbar: React.FC = () => {
         <div className="public-nav-mobile flex md:hidden items-center gap-2">
           <Link
             to={ROUTES.LOGIN}
+            onClick={() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' })}
             className="p-2 text-xs font-semibold text-aurea-navy bg-aurea-champagne/40 rounded-lg border border-aurea-copper/30"
           >
             Entrar
@@ -191,7 +202,10 @@ export const Navbar: React.FC = () => {
             <div className="pt-3 border-t border-aurea-copper/20 flex flex-col gap-2.5">
               <Link
                 to={ROUTES.REGISTRO}
-                onClick={() => setIsOpen(false)}
+                onClick={() => {
+                  setIsOpen(false);
+                  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+                }}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold text-aurea-ivory bg-aurea-navy shadow-md"
               >
                 <Sparkles className="w-4 h-4 text-aurea-copper" />
@@ -200,7 +214,10 @@ export const Navbar: React.FC = () => {
 
               <Link
                 to={ROUTES.LOGIN}
-                onClick={() => setIsOpen(false)}
+                onClick={() => {
+                  setIsOpen(false);
+                  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+                }}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold text-aurea-navy border border-aurea-navy/20 hover:bg-aurea-champagne/20"
               >
                 <LogIn className="w-4 h-4 text-aurea-copper" />

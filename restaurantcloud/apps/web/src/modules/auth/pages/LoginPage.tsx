@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Utensils } from 'lucide-react';
 import { LoginForm } from '../components/LoginForm';
 import { SelectorCuentaModal } from '../components/SelectorCuentaModal';
 import { BetaCredentialsWidget } from '../components/BetaCredentialsWidget';
@@ -100,14 +99,15 @@ export const LoginPage: React.FC = () => {
     <div className="min-h-[calc(100vh-64px)] py-10 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center relative selection:bg-aurea-champagne selection:text-aurea-navy">
       {/* Cabecera / Identidad de la Marca */}
       <div className="text-center space-y-2 mb-8">
-        <div className="w-12 h-12 rounded-2xl bg-aurea-navy flex items-center justify-center text-aurea-champagne mx-auto shadow-md border-2 border-aurea-copper/40">
-          <Utensils className="w-6 h-6 text-aurea-copper" />
+        <div className="flex items-center justify-center gap-2.5 mb-1">
+          <img src="/favicon.ico" alt="Aurea" width={32} height={32} className="h-8 w-8 object-contain" />
+          <span className="font-sans text-2xl font-bold tracking-widest text-aurea-navy">AUREA</span>
         </div>
-        <h1 className="font-serif text-3xl sm:text-4xl font-bold text-aurea-navy tracking-wide">
-          ÁUREA
+        <h1 className="font-serif text-3xl sm:text-4xl font-bold text-aurea-navy tracking-tight">
+          Bienvenido de vuelta
         </h1>
-        <p className="text-xs sm:text-sm font-sans text-aurea-navy/70">
-          «Una experiencia para disfrutar» • RestaurantCloud AI
+        <p className="text-xs sm:text-sm font-sans text-aurea-navy/70 max-w-sm mx-auto">
+          Ingresa a tu restaurante o selecciona tu sede de operación
         </p>
       </div>
 
@@ -137,10 +137,7 @@ export const LoginPage: React.FC = () => {
         )}
       </div>
 
-      {/* Pie de página sutil */}
-      <footer className="mt-10 text-center text-xs text-aurea-navy/50 font-sans">
-        <p>© 2026 RestaurantCloud AI. Plataforma Gastronómica Multi-Tenant Cero Papel.</p>
-      </footer>
+
 
       {/* Widget Flotante de Credenciales Beta para Evaluadores */}
       <BetaCredentialsWidget onAutoFill={handleAutoFill} />

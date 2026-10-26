@@ -59,9 +59,12 @@ export const RegistroEmpresaPage: React.FC = () => {
     registroEmpresaService.getPlanById(planSeleccionadoId);
 
   // 2. Control de Pasos (1: Plan, 2: Datos, 3: OTP, 4: Pago, 5: Éxito)
-  // Siempre iniciamos en Paso 1 para que el usuario pueda confirmar o cambiar de plan y periodicidad
-  const [pasoActual, setPasoActual] = useState<number>(1);
-  const [pasoMaximoAlcanzado, setPasoMaximoAlcanzado] = useState<number>(1);
+  // Si viene con un plan seleccionado desde la landing (?plan= o ?paso=2), va directo al Paso 2 (Datos de Empresa)
+  const pasoParam = searchParams.get('paso');
+  const pasoInicial = (pasoParam === '2' || planParam !== null) ? 2 : 1;
+
+  const [pasoActual, setPasoActual] = useState<number>(pasoInicial);
+  const [pasoMaximoAlcanzado, setPasoMaximoAlcanzado] = useState<number>(pasoInicial);
 
   // 3. Estado del Formulario (Limpio por defecto para producción)
   const [formData, setFormData] = useState<IniciarRegistroRequestDTO>({

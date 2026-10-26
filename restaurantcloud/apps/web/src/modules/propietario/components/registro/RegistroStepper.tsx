@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, ShieldCheck, Mail, CreditCard, Building2, Sparkles } from 'lucide-react';
+import { Check, ShieldCheck, Mail, CreditCard, Building2, Layers } from 'lucide-react';
 
 interface RegistroStepperProps {
   pasoActual: number; // 1: Plan, 2: Datos, 3: OTP, 4: Pago, 5: Exito
@@ -8,7 +8,7 @@ interface RegistroStepperProps {
 }
 
 const PASOS = [
-  { id: 1, titulo: 'Plan SaaS', icono: Sparkles, descripcion: 'Selección de plan' },
+  { id: 1, titulo: 'Plan SaaS', icono: Layers, descripcion: 'Selección de plan' },
   { id: 2, titulo: 'Datos de Empresa', icono: Building2, descripcion: 'RUC y propietario' },
   { id: 3, titulo: 'Verificar Correo', icono: Mail, descripcion: 'Código OTP' },
   { id: 4, titulo: 'Pago Seguro', icono: CreditCard, descripcion: 'Suscripción Stripe' },
@@ -21,7 +21,7 @@ export const RegistroStepper: React.FC<RegistroStepperProps> = ({
   pasoMaximoAlcanzado,
 }) => {
   return (
-    <div className="w-full bg-white border-b border-aurea-copper/20 shadow-sm py-4 px-4 sm:px-6 lg:px-8">
+    <div className="w-full bg-[#FFF9F0]/90 backdrop-blur-md border-b border-aurea-copper/25 py-3.5 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Vista Mobile: Barra de progreso compacta */}
         <div className="block md:hidden">
@@ -68,16 +68,16 @@ export const RegistroStepper: React.FC<RegistroStepperProps> = ({
                   type="button"
                   disabled={!alcanzable}
                   onClick={() => alcanzable && onSelectPaso(paso.id)}
-                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-all duration-200 text-left ${
-                    alcanzable ? 'cursor-pointer hover:bg-aurea-ivory' : 'cursor-default'
+                  className={`flex items-center gap-2.5 px-3.5 py-1.5 rounded-full transition-all duration-200 text-left ${
+                    alcanzable ? 'cursor-pointer hover:bg-aurea-champagne/20' : 'cursor-default'
                   } ${activo ? 'bg-aurea-navy text-white shadow-sm' : ''}`}
                 >
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 transition-colors ${
                       completado
-                        ? 'bg-emerald-500 text-white'
+                        ? 'bg-aurea-navy text-aurea-champagne border border-aurea-copper/40'
                         : activo
-                        ? 'bg-aurea-copper text-aurea-navy'
+                        ? 'bg-aurea-copper text-aurea-navy shadow-sm'
                         : 'bg-aurea-ivory text-aurea-navy/60 border border-aurea-copper/30'
                     }`}
                   >

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { PlanSaaSDTO, IniciarRegistroRequestDTO } from '@/types/registroEmpresa';
-import { Button } from '@/components/ui/Button';
 import { formatPEN, extraerDigitosMovilPeru, formatearTelefonoPeru } from '@/shared/utils';
 import {
   Building2,
@@ -13,7 +12,6 @@ import {
   HelpCircle,
   CheckCircle,
   ArrowRight,
-  Sparkles,
 } from 'lucide-react';
 
 interface Paso2DatosEmpresaProps {
@@ -419,20 +417,20 @@ export const Paso2DatosEmpresa: React.FC<Paso2DatosEmpresaProps> = ({
 
             {/* Botón de Envío */}
             <div className="pt-4 border-t border-aurea-copper/20">
-              <Button
+              <button
                 type="submit"
                 disabled={cargando || !terminosAceptados || formData.ruc.length !== 11}
-                className="w-full sm:w-auto px-8 py-3 bg-aurea-navy text-white hover:bg-aurea-navy/90 font-bold shadow-lg flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-8 py-3.5 bg-aurea-navy hover:bg-[#12345e] text-white font-semibold rounded-full shadow-md flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {cargando ? (
                   <span>Validando RUC y despachando código OTP...</span>
                 ) : (
                   <>
-                    <span>CONTINUAR A VERIFICACIÓN DE CORREO</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <span>Continuar a verificación de correo</span>
+                    <ArrowRight className="w-4 h-4 text-aurea-copper" />
                   </>
                 )}
-              </Button>
+              </button>
             </div>
           </div>
         </div>
@@ -458,8 +456,7 @@ export const Paso2DatosEmpresa: React.FC<Paso2DatosEmpresaProps> = ({
             {/* Tarjeta de Plan */}
             <div className="bg-white/10 rounded-2xl p-4 space-y-2 border border-white/10">
               <div className="flex items-center justify-between">
-                <span className="font-serif text-lg font-bold text-aurea-champagne flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-aurea-copper" />
+                <span className="font-serif text-lg font-bold text-aurea-champagne">
                   {plan.nombre}
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-aurea-copper text-aurea-navy uppercase">
@@ -475,7 +472,7 @@ export const Paso2DatosEmpresa: React.FC<Paso2DatosEmpresaProps> = ({
                 </span>
               </div>
               {cicloFacturacion === 'anual' ? (
-                <div className="text-[11px] text-emerald-400 font-medium">
+                <div className="text-[11px] text-aurea-champagne font-medium">
                   Equiv. {formatPEN(plan.precio_anual / 12)}/mes
                   {plan.precio_mensual * 12 > plan.precio_anual &&
                     ` • Ahorras ${

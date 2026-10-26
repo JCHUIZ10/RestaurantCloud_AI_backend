@@ -30,7 +30,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="w-full bg-white rounded-3xl p-6 sm:p-8 border-2 border-aurea-copper/25 shadow-xl space-y-6"
+      className="w-full bg-white rounded-3xl p-6 sm:p-8 border border-aurea-copper/30 shadow-[0_12px_36px_rgba(11,35,64,0.06)] space-y-6"
     >
       {/* Títulos del Formulario */}
       <div className="space-y-1.5 text-center">
@@ -80,7 +80,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
               onChange={(e) => setCorreo(e.target.value)}
               placeholder="ejemplo@restaurante.pe"
               disabled={cargando}
-              className="w-full pl-10 pr-4 py-3 rounded-xl bg-[#FFF9F0]/60 border-2 border-aurea-copper/25 text-sm text-aurea-navy placeholder:text-aurea-navy/40 focus:outline-none focus:border-aurea-copper focus:ring-2 focus:ring-aurea-copper/20 transition-all font-sans"
+              className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-[#FFF9F0]/70 border border-aurea-navy/15 text-sm text-aurea-navy placeholder:text-aurea-navy/40 focus:outline-none focus:bg-white focus:border-aurea-copper focus:ring-2 focus:ring-aurea-copper/20 transition-all font-sans"
             />
           </div>
         </div>
@@ -114,7 +114,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••••••"
               disabled={cargando}
-              className="w-full pl-10 pr-11 py-3 rounded-xl bg-[#FFF9F0]/60 border-2 border-aurea-copper/25 text-sm text-aurea-navy placeholder:text-aurea-navy/40 focus:outline-none focus:border-aurea-copper focus:ring-2 focus:ring-aurea-copper/20 transition-all font-sans"
+              className="w-full pl-11 pr-11 py-3.5 rounded-2xl bg-[#FFF9F0]/70 border border-aurea-navy/15 text-sm text-aurea-navy placeholder:text-aurea-navy/40 focus:outline-none focus:bg-white focus:border-aurea-copper focus:ring-2 focus:ring-aurea-copper/20 transition-all font-sans"
             />
             <button
               type="button"
@@ -137,7 +137,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           whileTap={{ scale: cargando ? 1 : 0.98 }}
           type="submit"
           disabled={cargando}
-          className="w-full py-3.5 px-4 rounded-xl bg-aurea-navy hover:bg-aurea-navy/95 text-white font-sans text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-aurea-navy/15 transition-all disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
+          className="w-full py-3.5 px-6 rounded-full bg-aurea-navy hover:bg-[#12345e] text-white font-sans text-sm font-semibold flex items-center justify-center gap-2 shadow-md shadow-aurea-navy/15 transition-all disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
         >
           {cargando ? (
             <>
@@ -156,12 +156,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({
       {/* Enlace de Registro de Empresa */}
       <div className="pt-4 border-t border-aurea-copper/15 text-center text-xs text-aurea-navy/70 space-y-2">
         <p>
-          ¿Tu restaurante aún no utiliza RestaurantCloud?{' '}
+          ¿Tu restaurante aún no utiliza Áurea?{' '}
           <Link
             to={ROUTES.REGISTRO}
             className="font-bold text-aurea-copper hover:underline"
           >
-            Regístrate aquí
+            Crear restaurante aquí
           </Link>
         </p>
         <p className="text-[11px] text-aurea-navy/50">

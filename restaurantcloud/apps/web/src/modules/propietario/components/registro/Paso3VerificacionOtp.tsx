@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/Button';
 import { Mail, Clock, RefreshCw, AlertCircle, ArrowRight, Edit3 } from 'lucide-react';
 import { ModalModificarCorreo } from './ModalModificarCorreo';
 
@@ -116,7 +115,7 @@ export const Paso3VerificacionOtp: React.FC<Paso3VerificacionOtpProps> = ({
 
   return (
     <div className="max-w-xl mx-auto animate-fadeIn py-4">
-      <div className="bg-white rounded-3xl p-6 sm:p-10 border-2 border-aurea-copper/25 shadow-xl text-center space-y-6">
+      <div className="bg-white rounded-3xl p-7 sm:p-10 border border-aurea-copper/30 shadow-[0_12px_36px_rgba(11,35,64,0.06)] text-center space-y-6">
         {/* Icono central de correo */}
         <div className="w-16 h-16 rounded-3xl bg-aurea-ivory border-2 border-aurea-copper/40 text-aurea-navy mx-auto flex items-center justify-center shadow-sm">
           <Mail className="w-8 h-8 text-aurea-copper" />
@@ -208,21 +207,20 @@ export const Paso3VerificacionOtp: React.FC<Paso3VerificacionOtpProps> = ({
           </div>
 
           {/* Botón principal */}
-          <Button
+          <button
             type="submit"
-            size="lg"
             disabled={cargando || !codigoCompleto || segundosExpiracion === 0}
-            className="w-full bg-aurea-navy text-white hover:bg-aurea-navy/90 font-bold py-3.5 shadow-lg flex items-center justify-center gap-2"
+            className="w-full bg-aurea-navy hover:bg-[#12345e] text-white font-semibold py-3.5 px-6 rounded-full shadow-md flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {cargando ? (
               <span>Validando código OTP...</span>
             ) : (
               <>
-                <span>VERIFICAR Y CONTINUAR AL PAGO</span>
-                <ArrowRight className="w-4 h-4" />
+                <span>Verificar y continuar al pago</span>
+                <ArrowRight className="w-4 h-4 text-aurea-copper" />
               </>
             )}
-          </Button>
+          </button>
 
           {/* Enlace de Reenvío con Cooldown */}
           <div className="pt-2">

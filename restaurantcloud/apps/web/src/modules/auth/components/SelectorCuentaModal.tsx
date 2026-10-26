@@ -41,7 +41,7 @@ export const SelectorCuentaModal: React.FC<SelectorCuentaModalProps> = ({
     <motion.div
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="w-full bg-white rounded-3xl p-6 sm:p-8 border-2 border-aurea-copper/25 shadow-xl space-y-6"
+      className="w-full bg-white rounded-3xl p-6 sm:p-8 border border-aurea-copper/30 shadow-[0_12px_36px_rgba(11,35,64,0.06)] space-y-6"
     >
       {/* Cabecera del Selector Multi-Tenant */}
       <div className="space-y-2 text-center">
@@ -91,10 +91,10 @@ export const SelectorCuentaModal: React.FC<SelectorCuentaModalProps> = ({
                   onSeleccionarCuenta(cuenta.usuario_id);
                 }
               }}
-              className={`p-4 rounded-2xl border-2 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+              className={`p-4.5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
                 bloqueado
                   ? 'border-slate-200 bg-slate-50 opacity-65 cursor-not-allowed'
-                  : 'border-aurea-copper/20 hover:border-aurea-copper hover:bg-[#FFF9F0]/50 hover:shadow-md cursor-pointer group'
+                  : 'border-aurea-copper/25 hover:border-aurea-copper hover:bg-[#FFF9F0]/60 hover:shadow-md cursor-pointer group'
               }`}
             >
               <div className="space-y-1">
@@ -125,10 +125,10 @@ export const SelectorCuentaModal: React.FC<SelectorCuentaModalProps> = ({
                 <button
                   type="button"
                   disabled={bloqueado || cargando}
-                  className={`w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm ${
+                  className={`w-full sm:w-auto px-5 py-2.5 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm ${
                     bloqueado
                       ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
-                      : 'bg-aurea-navy text-white group-hover:bg-opacity-90'
+                      : 'bg-aurea-navy text-white group-hover:bg-[#12345e]'
                   }`}
                 >
                   {cargando ? (

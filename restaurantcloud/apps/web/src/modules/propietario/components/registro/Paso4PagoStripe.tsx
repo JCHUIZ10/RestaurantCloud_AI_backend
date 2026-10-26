@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { PlanSaaSDTO } from '@/types/registroEmpresa';
-import { Button } from '@/components/ui/Button';
 import { formatPEN } from '@/shared/utils';
 import {
   CreditCard,
@@ -8,7 +7,6 @@ import {
   ShieldCheck,
   CheckCircle2,
   AlertCircle,
-  Sparkles,
 } from 'lucide-react';
 
 interface Paso4PagoStripeProps {
@@ -54,7 +52,7 @@ export const Paso4PagoStripe: React.FC<Paso4PagoStripeProps> = ({
         {/* ============================================================
             COLUMNA IZQUIERDA (7 COLS): STRIPE ELEMENTS CHECKOUT
             ============================================================ */}
-        <div className="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-8 border-2 border-aurea-copper/25 shadow-sm space-y-6">
+        <div className="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-8 border border-aurea-copper/25 shadow-sm space-y-6">
           <div className="border-b border-aurea-copper/20 pb-4">
             <span className="text-xs font-semibold uppercase tracking-widest text-aurea-copper">
               Paso 4: Checkout Bancario Seguro
@@ -233,20 +231,20 @@ export const Paso4PagoStripe: React.FC<Paso4PagoStripeProps> = ({
 
             {/* Botón de Pago con Cobro Exacto */}
             <div className="pt-2">
-              <Button
+              <button
                 type="submit"
                 disabled={cargando}
-                className="w-full bg-emerald-700 text-white hover:bg-emerald-800 font-bold py-3.5 shadow-lg flex items-center justify-center gap-2 text-base"
+                className="w-full bg-aurea-navy hover:bg-[#12345e] text-white font-semibold py-3.5 px-6 rounded-full shadow-md flex items-center justify-center gap-2 text-base transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {cargando ? (
                   <span>Confirmando cobro con Stripe...</span>
                 ) : (
                   <>
-                    <ShieldCheck className="w-5 h-5" />
-                    <span>PAGAR Y ACTIVAR EMPRESA ({formatPEN(montoCobro)})</span>
+                    <ShieldCheck className="w-5 h-5 text-aurea-copper" />
+                    <span>Pagar y activar empresa ({formatPEN(montoCobro)})</span>
                   </>
                 )}
-              </Button>
+              </button>
             </div>
           </div>
         </div>
@@ -255,7 +253,7 @@ export const Paso4PagoStripe: React.FC<Paso4PagoStripeProps> = ({
             COLUMNA DERECHA (5 COLS): RESUMEN DE COMPRA EXACTO POR PLAN
             ============================================================ */}
         <aside className="lg:col-span-5 space-y-5 lg:sticky lg:top-24">
-          <div className="bg-aurea-navy text-aurea-ivory rounded-3xl p-6 sm:p-7 border-2 border-aurea-copper shadow-xl space-y-5">
+          <div className="bg-aurea-navy text-aurea-ivory rounded-3xl p-6 sm:p-7 border border-aurea-copper/30 shadow-xl space-y-5">
             <div className="border-b border-aurea-copper/20 pb-3">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-aurea-champagne">
                 Resumen de Compra
@@ -269,8 +267,7 @@ export const Paso4PagoStripe: React.FC<Paso4PagoStripeProps> = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-white/10">
                 <div>
-                  <span className="font-serif text-lg font-bold text-aurea-champagne flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-aurea-copper" />
+                  <span className="font-serif text-lg font-bold text-aurea-champagne">
                     {plan.nombre}
                   </span>
                   <span className="text-xs text-white/70 block mt-0.5">
@@ -281,7 +278,7 @@ export const Paso4PagoStripe: React.FC<Paso4PagoStripeProps> = ({
                       : 'Ciclo de renovación mensual recurrente'}
                   </span>
                   {esAnual && (
-                    <span className="text-[11px] text-emerald-400 font-semibold block mt-1">
+                    <span className="text-[11px] text-aurea-champagne font-semibold block mt-1">
                       Equiv. {formatPEN(plan.precio_anual / 12)}/mes
                     </span>
                   )}
@@ -336,11 +333,11 @@ export const Paso4PagoStripe: React.FC<Paso4PagoStripeProps> = ({
                     Total a Cobrar Hoy:
                   </span>
                   <span className="text-3xl font-extrabold text-white font-sans">
-                    {formatPEN(plan.precio_mensual)}
+                    {formatPEN(montoCobro)}
                   </span>
                 </div>
                 <p className="text-[10px] text-white/60 mt-1">
-                  Monto final debitado en moneda nacional (PEN). Próxima renovación dentro de 30 días calendario.
+                  Monto final debitado en moneda nacional (PEN). Próxima renovación dentro de {esAnual ? '1 año' : '30 días'} calendario.
                 </p>
               </div>
             </div>

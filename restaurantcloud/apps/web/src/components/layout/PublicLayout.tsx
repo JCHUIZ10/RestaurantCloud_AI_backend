@@ -1,13 +1,37 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Navbar } from './Navbar';
 import { WhatsAppIcon } from '@/components/ui/WhatsAppIcon';
 import { ExternalLink, Mail } from 'lucide-react';
 
 export const PublicLayout: React.FC = () => {
-  const isLanding = useLocation().pathname === '/';
+  const location = useLocation();
+  const isAuthOrRegistro = ['/login', '/registro', '/activar-cuenta', '/recuperar-password'].includes(location.pathname);
+
+  // Manejo de scroll para enlaces con hash (#modulos, #ia, #planes) y reset a top=0 en cambio de ruta
+  useEffect(() => {
+    if (location.hash) {
+      const targetId = location.hash.replace('#', '');
+      const scrollToElement = () => {
+        const el = document.getElementById(targetId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return true;
+        }
+        return false;
+      };
+
+      if (!scrollToElement()) {
+        const timer = setTimeout(scrollToElement, 150);
+        return () => clearTimeout(timer);
+      }
+    } else {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }
+  }, [location.pathname, location.hash]);
+
   return (
-    <div className={`${isLanding ? 'aurea-landing ' : ''}min-h-screen flex flex-col bg-aurea-ivory text-aurea-navy selection:bg-aurea-champagne selection:text-aurea-navy`}>
+    <div className="aurea-landing min-h-screen flex flex-col bg-aurea-ivory text-aurea-navy selection:bg-aurea-champagne selection:text-aurea-navy">
       {/* Barra de Navegación Global */}
       <Navbar />
 
@@ -16,8 +40,21 @@ export const PublicLayout: React.FC = () => {
         <Outlet />
       </main>
 
-      {/* Footer Corporativo SaaS B2B */}
-      <footer className="bg-aurea-navy text-aurea-ivory pt-16 pb-12 border-t-4 border-aurea-copper">
+      {/* Footer Condicional: Minimalista en Auth/Registro y Completo en Landing */}
+      {isAuthOrRegistro ? (
+        <footer className="py-6 border-t border-aurea-copper/20 text-center text-xs text-aurea-navy/60 font-sans">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <img src="/favicon.ico" alt="" width="20" height="20" className="h-5 w-5 object-contain" />
+              <span className="font-semibold tracking-wider text-aurea-navy">ÁUREA</span>
+              <span className="text-aurea-navy/30">•</span>
+              <span>Plataforma Gastronómica Cero Papel</span>
+            </div>
+            <p>© {new Date().getFullYear()} ÁUREA. Todos los derechos reservados.</p>
+          </div>
+        </footer>
+      ) : (
+        <footer className="bg-aurea-navy text-aurea-ivory pt-16 pb-12 border-t-4 border-aurea-copper">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10 pb-12 border-b border-white/10">
             {/* Columna 1: Marca y Propuesta SaaS */}
@@ -118,6 +155,7 @@ export const PublicLayout: React.FC = () => {
           </div>
         </div>
       </footer>
+      )}
     </div>
   );
 };
