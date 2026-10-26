@@ -8,7 +8,6 @@ import { loginWithCredentials, seleccionarCuenta } from '@/services/serviceAdapt
 import { useAuthStore } from '@/stores/authStore';
 import { homeDeRol, destinoSeguro } from '@/router/accesoPorRol';
 import type { CuentaItemDTO, RolUsuario } from '@/types/auth';
-import { SoloDemo } from '@/components/ui/SoloDemo';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -144,9 +143,7 @@ export const LoginPage: React.FC = () => {
       </footer>
 
       {/* Widget Flotante de Credenciales Beta para Evaluadores */}
-      <SoloDemo>
-        <BetaCredentialsWidget onAutoFill={handleAutoFill} />
-      </SoloDemo>
+      <BetaCredentialsWidget onAutoFill={handleAutoFill} />
     </div>
   );
 };
