@@ -13,6 +13,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Detrás de Caddy (TLS): respetar X-Forwarded-* para generar URLs https.
+        $middleware->trustProxies(at: '*');
+
         $middleware->alias([
             'auth.redis' => \App\Http\Middleware\RedisTokenAuth::class,
             'tenant.context' => \App\Http\Middleware\TenantContext::class,

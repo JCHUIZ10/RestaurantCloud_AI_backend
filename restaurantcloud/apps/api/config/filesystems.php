@@ -54,6 +54,8 @@ return [
             'region' => env('AWS_DEFAULT_REGION'),
             'bucket' => env('AWS_BUCKET'),
             'url' => env('AWS_URL'),
+            // Host público para URLs firmadas; el proxy reenvía con Host minio:9000 para que la firma coincida.
+            'temporary_url' => env('AWS_TEMPORARY_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => filter_var(env('AWS_USE_PATH_STYLE_ENDPOINT', false), FILTER_VALIDATE_BOOLEAN),
             // Los documentos privados son críticos: los servicios que los

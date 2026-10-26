@@ -1,0 +1,27 @@
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy api:8080 {
+			# SSE (KDS): entregar eventos sin buffer.
+			flush_interval -1
+		}
+	}
+
+	handle /up {
+		reverse_proxy api:8080
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+# Descargas firmadas de MinIO: la firma se generó para el host interno minio:9000.
+{$FILES_DOMAIN} {
+	reverse_proxy minio:9000 {
+		header_up Host minio:9000
+	}
+}

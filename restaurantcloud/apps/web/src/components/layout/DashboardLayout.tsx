@@ -3,7 +3,6 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import {
   Building2,
   Users,
-  CreditCard,
   Menu,
   X,
   LogOut,

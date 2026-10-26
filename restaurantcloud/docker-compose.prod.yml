@@ -1,0 +1,248 @@
+# Producción en VPS: solo Caddy publica puertos (80/443).
+# Uso: docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+
+x-laravel-env: &laravel-env
+  APP_ENV: production
+  APP_DEBUG: "false"
+  APP_URL: https://${APP_DOMAIN:?APP_DOMAIN requerido}
+  LOG_LEVEL: ${LOG_LEVEL:-warning}
+  REDIS_CLIENT: phpredis
+  SESSION_DRIVER: redis
+  SESSION_SECURE_COOKIE: "true"
+  CACHE_STORE: redis
+  QUEUE_CONNECTION: redis
+  DB_HOST: db
+  DB_PORT: 5432
+  DB_DATABASE: ${POSTGRES_DB}
+  DB_USERNAME: ${POSTGRES_USER}
+  DB_PASSWORD: ${POSTGRES_PASSWORD}
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  REDIS_PASSWORD: ${REDIS_PASSWORD}
+  AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+  AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+  AWS_DEFAULT_REGION: us-east-1
+  AWS_BUCKET: ${MINIO_DEFAULT_BUCKET:-restaurantcloud}
+  AWS_ENDPOINT: http://minio:9000
+  AWS_TEMPORARY_URL: https://${FILES_DOMAIN:?FILES_DOMAIN requerido}
+  AWS_USE_PATH_STYLE_ENDPOINT: "true"
+  FILESYSTEM_DISK: s3
+  STRIPE_KEY: ${STRIPE_KEY:-}
+  STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+  STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+  APIDEV_TOKEN: ${APIDEV_TOKEN:-}
+  MAIL_MAILER: ${MAIL_MAILER:-log}
+  MAIL_HOST: ${MAIL_HOST:-}
+  MAIL_PORT: ${MAIL_PORT:-587}
+  MAIL_USERNAME: ${MAIL_USERNAME:-}
+  MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+  MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@example.com}
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: saas_postgres_db
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB requerido}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER requerido}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requerido}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
+      PGCLIENTENCODING: "UTF8"
+    command:
+      - "postgres"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "effective_io_concurrency=200"
+      - "-c"
+      - "wal_compression=on"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "min_wal_size=512MB"
+      - "-c"
+      - "max_wal_size=2GB"
+      - "-c"
+      - "wal_buffers=16MB"
+      - "-c"
+      - "track_io_timing=on"
+      - "-c"
+      - "shared_buffers=512MB"
+      - "-c"
+      - "effective_cache_size=2GB"
+      - "-c"
+      - "work_mem=16MB"
+      - "-c"
+      - "maintenance_work_mem=128MB"
+      - "-c"
+      - "max_parallel_workers_per_gather=2"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Solo se ejecuta al crear el volumen por primera vez.
+      - ./infra/sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - saas_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: saas_redis
+    restart: unless-stopped
+    logging: *logging
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD requerido}", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-ttl", "--appendonly", "yes", "--appendfsync", "everysec"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - saas_network
+
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    container_name: saas_minio
+    restart: unless-stopped
+    logging: *logging
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER requerido}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD requerido}
+    # Consola solo por túnel SSH: ssh -L 9001:127.0.0.1:9001 deploy@VPS
+    ports:
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/9000' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - saas_network
+
+  minio-init:
+    image: cgr.dev/chainguard/minio:latest
+    container_name: saas_minio_init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}
+        mc mb local/${MINIO_DEFAULT_BUCKET:-restaurantcloud} --ignore-existing
+        exit 0
+    networks:
+      - saas_network
+
+  api:
+    build:
+      context: .
+      dockerfile: ./infra/docker/api.Dockerfile
+    container_name: saas_laravel_api
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      <<: *laravel-env
+      CONTAINER_ROLE: api
+      APP_SERVER: octane
+      OCTANE_WORKERS: ${OCTANE_WORKERS:-4}
+    volumes:
+      - ./apps/api:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - saas_network
+
+  queue:
+    build:
+      context: .
+      dockerfile: ./infra/docker/api.Dockerfile
+    container_name: saas_laravel_queue
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      <<: *laravel-env
+      CONTAINER_ROLE: queue
+    volumes:
+      - ./apps/api:/app
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - saas_network
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: ./infra/docker/api.Dockerfile
+    container_name: saas_laravel_scheduler
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      <<: *laravel-env
+      CONTAINER_ROLE: scheduler
+    volumes:
+      - ./apps/api:/app
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - saas_network
+
+  web:
+    build:
+      context: .
+      dockerfile: ./infra/docker/web.Dockerfile
+      args:
+        VITE_USE_REAL_API: "true"
+        VITE_STRIPE_PUBLIC_KEY: ${STRIPE_KEY:-}
+    container_name: saas_web_caddy
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      FILES_DOMAIN: ${FILES_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - minio
+    networks:
+      - saas_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  saas_network:
+    driver: bridge
