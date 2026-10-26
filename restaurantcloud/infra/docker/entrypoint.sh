@@ -22,9 +22,18 @@ if [ ! -d vendor ] || [ ! -f vendor/autoload.php ]; then
     fi
 fi
 
-if grep -q "APP_KEY=$" .env || grep -q "APP_KEY= " .env; then
-    echo "Generando APP_KEY..."
-    php artisan key:generate --force
+# Solo la API genera la clave: si api, queue y scheduler ejecutan key:generate a la vez,
+# las claves se concatenan en .env y el Encrypter de Octane falla al iniciar los workers.
+if [ -z "${APP_KEY:-}" ] && { grep -q "^APP_KEY=$" .env || grep -q "^APP_KEY= " .env; }; then
+    if [ "$ROLE" = "api" ]; then
+        echo "Generando APP_KEY..."
+        php artisan key:generate --force
+    else
+        echo "Esperando que la API genere APP_KEY..."
+        until grep -q "^APP_KEY=base64:" .env; do
+            sleep 2
+        done
+    fi
 fi
 
 echo "Esperando que PostgreSQL esté listo..."
