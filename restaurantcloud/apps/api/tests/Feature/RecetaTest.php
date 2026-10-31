@@ -273,4 +273,131 @@ class RecetaTest extends TestCase
         DB::table('auditoria_stock_ajuste')->where('insumo_id', $insumoId)->delete();
         DB::table('insumo')->where('id', $insumoId)->delete();
     }
+
+    /**
+     * Test 4: Crear producto con receta vía POST /api/v1/admin/productos guarda atómicamente la receta.
+     */
+    public function test_crear_producto_con_receta_guarda_insumos_y_calcula_costos(): void
+    {
+        $categoria = DB::table('categoria_producto')
+            ->where('local_id', $this->localId)
+            ->first();
+        $this->assertNotNull($categoria);
+
+        $insumoId = (string) Str::uuid();
+        DB::table('insumo')->insert([
+            'id' => $insumoId,
+            'local_id' => $this->localId,
+            'nombre' => 'Insumo Test Post ' . Str::random(4),
+            'unidad_medida' => 'kg',
+            'stock_actual' => 10.0,
+            'stock_minimo' => 1.0,
+            'costo_unitario' => 20.00,
+            'estado' => 'activo',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $payload = [
+            'categoria_id' => $categoria->id,
+            'nombre' => 'Plato Creado Con Receta ' . Str::random(4),
+            'descripcion' => 'Descripción de prueba',
+            'precio' => 40.00,
+            'requiere_preparacion' => true,
+            'receta' => [
+                [
+                    'insumo_id' => $insumoId,
+                    'modo_calculo' => 'exacto',
+                    'cantidad_descuenta' => 0.50,
+                ],
+            ],
+        ];
+
+        $response = $this->postJson('/api/v1/admin/productos', $payload, $this->headers());
+        $response->assertStatus(201);
+        $response->assertJsonPath('datos.total_ingredientes', 1);
+        $response->assertJsonPath('datos.costo_estandar', 10);
+        $response->assertJsonPath('datos.costo_teorico', 10);
+
+        $productoId = $response->json('datos.id');
+
+        // Verificar persistencia en base de datos
+        $itemsEnBd = DB::table('producto_insumo')->where('producto_id', $productoId)->get();
+        $this->assertCount(1, $itemsEnBd);
+        $this->assertEquals($insumoId, $itemsEnBd->first()->insumo_id);
+
+        // Limpieza
+        DB::table('producto_insumo')->where('producto_id', $productoId)->delete();
+        DB::table('producto')->where('id', $productoId)->delete();
+        DB::table('insumo')->where('id', $insumoId)->delete();
+    }
+
+    /**
+     * Test 5: Actualizar producto con receta vía PATCH /api/v1/admin/productos/{id} actualiza atómicamente la receta.
+     */
+    public function test_actualizar_producto_con_receta_actualiza_insumos_y_recalcula_costos(): void
+    {
+        $categoria = DB::table('categoria_producto')
+            ->where('local_id', $this->localId)
+            ->first();
+        $this->assertNotNull($categoria);
+
+        $productoId = (string) Str::uuid();
+        DB::table('producto')->insert([
+            'id' => $productoId,
+            'local_id' => $this->localId,
+            'categoria_id' => $categoria->id,
+            'nombre' => 'Plato Patch Test ' . Str::random(4),
+            'precio' => 60.00,
+            'costo_estandar' => 0.00,
+            'requiere_preparacion' => true,
+            'disponibilidad' => 'disponible',
+            'activo' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $insumoId = (string) Str::uuid();
+        DB::table('insumo')->insert([
+            'id' => $insumoId,
+            'local_id' => $this->localId,
+            'nombre' => 'Insumo Test Patch ' . Str::random(4),
+            'unidad_medida' => 'kg',
+            'stock_actual' => 8.0,
+            'stock_minimo' => 1.0,
+            'costo_unitario' => 15.00,
+            'estado' => 'activo',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $payload = [
+            'categoria_id' => $categoria->id,
+            'nombre' => 'Plato Patch Test Editado ' . Str::random(4),
+            'precio' => 60.00,
+            'requiere_preparacion' => true,
+            'receta' => [
+                [
+                    'insumo_id' => $insumoId,
+                    'modo_calculo' => 'rendimiento',
+                    'rendimiento_platos' => 3, // 1/3 kg = ~0.33333 kg -> costo 5.00
+                ],
+            ],
+        ];
+
+        $response = $this->patchJson("/api/v1/admin/productos/{$productoId}", $payload, $this->headers());
+        $response->assertStatus(200);
+        $response->assertJsonPath('datos.total_ingredientes', 1);
+        $this->assertEquals(5.0, (float) $response->json('datos.costo_estandar'));
+
+        // Verificar que la base de datos se actualizó
+        $itemsEnBd = DB::table('producto_insumo')->where('producto_id', $productoId)->get();
+        $this->assertCount(1, $itemsEnBd);
+        $this->assertEquals('rendimiento', $itemsEnBd->first()->modo_calculo);
+
+        // Limpieza
+        DB::table('producto_insumo')->where('producto_id', $productoId)->delete();
+        DB::table('producto')->where('id', $productoId)->delete();
+        DB::table('insumo')->where('id', $insumoId)->delete();
+    }
 }

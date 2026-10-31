@@ -23,8 +23,7 @@ import { Button, EstadoBadge, EstadoVacio, IconButton, Modal } from '@/component
 import { cn } from '@/shared/utils';
 import { tonoMargen } from './margen';
 
-const CLASE_CONTROL =
-  'w-full min-h-tactil px-3.5 bg-white border border-aurea-champagne/70 rounded-xl text-base md:text-sm text-aurea-navy placeholder:text-aurea-navy/40 focus:outline-none focus:border-aurea-copper';
+const CLASE_CONTROL = 'w-full min-h-tactil px-3.5 bg-white border border-aurea-champagne/70 rounded-xl text-base md:text-sm text-aurea-navy placeholder:text-aurea-navy/40 focus:outline-none focus:border-aurea-copper';
 const CLASE_ROTULO = 'block text-sm font-semibold text-aurea-navy mb-1.5';
 
 interface ModalCrearEditarProductoProps {
@@ -44,6 +43,9 @@ interface ItemRecetaForm {
   modo_calculo: ModoCalculoReceta;
   rendimiento_platos: number;
   cantidad_descuenta: number;
+  nombre?: string;
+  unidad_medida?: string;
+  costo_unitario?: number;
 }
 
 const PASOS = [
@@ -100,12 +102,15 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
         setPrecio(productoEditar.precio);
         setRequierePreparacion(productoEditar.requiere_preparacion);
 
-                const recetaPlato = productoEditar.receta || (productoEditar as any).items || [];
+        const recetaPlato = productoEditar.receta || (productoEditar as any).items || [];
         const itemsMapeados: ItemRecetaForm[] = recetaPlato.map((r: any) => ({
           insumo_id: r.insumo_id,
           modo_calculo: r.modo_calculo || 'exacto',
           rendimiento_platos: Number(r.rendimiento_platos) || (Number(r.cantidad_descuenta) > 0 ? Math.round(1 / Number(r.cantidad_descuenta)) : 100),
           cantidad_descuenta: Number(r.cantidad_descuenta) || 0.1,
+          nombre: r.nombre || r.insumo_nombre,
+          unidad_medida: r.unidad_medida,
+          costo_unitario: Number(r.costo_unitario || r.costo_unitario_insumo || 0),
         }));
         setRecetaItems(habilitarReceta ? itemsMapeados : []);
       } else {
@@ -521,14 +526,15 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
               <ul className="space-y-3">
                 {recetaItems.map((item, idx) => {
                   const insumoObj = insumosDisponibles.find((i) => i.id === item.insumo_id);
-                  const unidad = insumoObj ? insumoObj.unidad_medida : 'und';
-                  const costoUnitario = insumoObj ? insumoObj.costo_unitario : 0;
+                  const unidad = insumoObj ? insumoObj.unidad_medida : (item.unidad_medida || 'und');
+                  const costoUnitario = insumoObj ? insumoObj.costo_unitario : (item.costo_unitario || 0);
                   const dosisReal =
                     item.modo_calculo === 'rendimiento' && item.rendimiento_platos > 0
                       ? 1 / item.rendimiento_platos
                       : item.cantidad_descuenta;
                   const costoPlato = dosisReal * costoUnitario;
                   const idItem = `${idForm}-ins-${idx}`;
+                  const existeEnCatalogo = insumosDisponibles.some((i) => i.id === item.insumo_id);
 
                   return (
                     <li key={idx} className="p-4 rounded-xl bg-white border border-aurea-champagne/70 shadow-sm space-y-3">
@@ -543,6 +549,11 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
                             onChange={(e) => handleActualizarItem(idx, 'insumo_id', e.target.value)}
                             className={cn(CLASE_CONTROL, 'cursor-pointer')}
                           >
+                            {!existeEnCatalogo && item.insumo_id && (
+                              <option value={item.insumo_id}>
+                                {item.nombre || 'Insumo asignado'} · S/ {costoUnitario.toFixed(2)}/{unidad}
+                              </option>
+                            )}
                             {insumosDisponibles.map((ins) => (
                               <option key={ins.id} value={ins.id}>
                                 {ins.nombre} · S/ {ins.costo_unitario.toFixed(2)}/{ins.unidad_medida}
