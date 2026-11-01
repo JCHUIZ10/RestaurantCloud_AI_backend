@@ -18,8 +18,6 @@ export const ModalNuevoPiso: React.FC<ModalNuevoPisoProps> = ({
   onSubmit,
 }) => {
   const [nombre, setNombre] = useState('');
-  const [columnas, setColumnas] = useState(4);
-  const [filas, setFilas] = useState(3);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
   const idForm = useId();
@@ -35,8 +33,8 @@ export const ModalNuevoPiso: React.FC<ModalNuevoPisoProps> = ({
       setIsSubmitting(true);
       await onSubmit({
         nombre: nombre.trim(),
-        columnas,
-        filas,
+        columnas: 1,
+        filas: 1,
       });
       setNombre('');
       onClose();
@@ -95,36 +93,6 @@ export const ModalNuevoPiso: React.FC<ModalNuevoPisoProps> = ({
             />
           )}
         </Campo>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Campo etiqueta="Columnas">
-            {(id) => (
-              <CampoTexto
-                id={id}
-                type="number"
-                min="1"
-                max="12"
-                disabled={excedePisos}
-                value={columnas}
-                onChange={(e) => setColumnas(parseInt(e.target.value) || 1)}
-              />
-            )}
-          </Campo>
-          <Campo etiqueta="Filas">
-            {(id) => (
-              <CampoTexto
-                id={id}
-                type="number"
-                min="1"
-                max="10"
-                disabled={excedePisos}
-                value={filas}
-                onChange={(e) => setFilas(parseInt(e.target.value) || 1)}
-              />
-            )}
-          </Campo>
-        </div>
-        <p className="text-xs text-aurea-navy/60">Podrás ajustar el tamaño de la cuadrícula más adelante.</p>
       </form>
     </Modal>
   );

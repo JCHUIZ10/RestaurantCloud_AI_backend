@@ -72,11 +72,16 @@ class PlanoController extends Controller
 
     private function datosPiso(Request $request): array
     {
-        $request->merge(['nombre' => is_string($request->input('nombre')) ? trim($request->input('nombre')) : $request->input('nombre')]);
+        $request->merge([
+            'nombre' => is_string($request->input('nombre')) ? trim($request->input('nombre')) : $request->input('nombre'),
+            'columnas' => $request->input('columnas', 1),
+            'filas' => $request->input('filas', 1),
+        ]);
 
         return $request->validate([
-            'nombre' => ['required', 'string', 'max:60'], 'columnas' => ['required', 'integer', 'between:1,12'],
-            'filas' => ['required', 'integer', 'between:1,10'],
+            'nombre' => ['required', 'string', 'max:60'],
+            'columnas' => ['integer', 'between:1,12'],
+            'filas' => ['integer', 'between:1,10'],
         ]);
     }
 

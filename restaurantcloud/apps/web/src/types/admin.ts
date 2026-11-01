@@ -121,8 +121,8 @@ export interface ActualizarMesaRequest {
  */
 export interface CrearPisoRequest {
   nombre: string;
-  columnas: number;
-  filas: number;
+  columnas?: number;
+  filas?: number;
 }
 
 /**

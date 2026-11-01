@@ -248,6 +248,22 @@ class PlanoMesasTest extends TestCase
         $this->assertSame(1, DB::table('pedido')->where('mesa_id', $mesa)->count());
     }
 
+    public function test_crear_piso_solo_con_nombre_asigna_dimensiones_por_defecto_1x1(): void
+    {
+        $response = $this->postJson('/api/v1/admin/pisos', ['nombre' => 'Terraza 1x1'])
+            ->assertCreated()
+            ->assertJsonPath('datos.columnas', 1)
+            ->assertJsonPath('datos.filas', 1)
+            ->assertJsonPath('datos.nombre', 'Terraza 1x1');
+
+        $this->assertDatabaseHas('piso', [
+            'id' => $response->json('datos.id'),
+            'nombre' => 'Terraza 1x1',
+            'columnas' => 1,
+            'filas' => 1,
+        ]);
+    }
+
     public function test_aprovisionamiento_no_elude_cuota_de_ambientes(): void
     {
         DB::table('plan')->where('id', $this->planId)->update(['max_locales' => 10, 'max_pisos' => 1]);
