@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useId } from 'react';
+import React, { useState, useEffect, useId, useRef } from 'react';
 import {
   ChefHat,
   Zap,
@@ -22,9 +22,22 @@ import {
 import { Button, EstadoBadge, EstadoVacio, IconButton, Modal } from '@/components/ui';
 import { cn } from '@/shared/utils';
 import { tonoMargen } from './margen';
+import { SelectorFotoPlato } from './SelectorFotoPlato';
+import { FOTO_SIN_CAMBIOS, type SeleccionFotoPlato } from './seleccionFotoPlato';
 
 const CLASE_CONTROL = 'w-full min-h-tactil px-3.5 bg-white border border-aurea-champagne/70 rounded-xl text-base md:text-sm text-aurea-navy placeholder:text-aurea-navy/40 focus:outline-none focus:border-aurea-copper';
 const CLASE_ROTULO = 'block text-sm font-semibold text-aurea-navy mb-1.5';
+
+/**
+ * Resultado de guardar. El plato y su foto se guardan en pasos separados: si el plato quedó
+ * guardado pero la foto falló, se informa `productoId` para que un reintento actualice ese plato
+ * en lugar de crear otro.
+ */
+export interface ResultadoGuardadoProducto {
+  exito: boolean;
+  productoId?: string;
+  errorFoto?: string;
+}
 
 interface ModalCrearEditarProductoProps {
   abierto: boolean;
@@ -32,7 +45,11 @@ interface ModalCrearEditarProductoProps {
   categorias: CategoriaAdminDTO[];
   insumosDisponibles: InsumoAdminDTO[];
   onCerrar: () => void;
-  onGuardar: (req: CrearProductoRequest) => Promise<boolean>;
+  onGuardar: (
+    req: CrearProductoRequest,
+    foto: SeleccionFotoPlato,
+    productoIdYaGuardado?: string
+  ) => Promise<ResultadoGuardadoProducto>;
   onIrACategorias?: () => void;
   habilitarReceta?: boolean;
   pasoInicial?: 1 | 2;
@@ -84,14 +101,33 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
   const [descripcion, setDescripcion] = useState('');
   const [precio, setPrecio] = useState<number>(25.0);
   const [requierePreparacion, setRequierePreparacion] = useState(true);
+  const [foto, setFoto] = useState<SeleccionFotoPlato>(FOTO_SIN_CAMBIOS);
+  // Plato ya guardado cuyo paso de foto falló: el reintento lo actualiza en vez de duplicarlo.
+  const [productoIdGuardado, setProductoIdGuardado] = useState<string | null>(null);
 
   // Campos Paso 2: Receta Culinaria Dual
   const [recetaItems, setRecetaItems] = useState<ItemRecetaForm[]>([]);
   const idForm = useId();
+  const formRef = useRef<HTMLFormElement>(null);
+  const prevAbiertoRef = useRef(false);
+  const prevProductoIdRef = useRef<string | undefined>(undefined);
+
+  // La foto elegida y el plato a medio guardar se reinician solo al abrir o cambiar de plato,
+  // no cuando se recargan las listas de categorías o insumos.
+  useEffect(() => {
+    setFoto(FOTO_SIN_CAMBIOS);
+    setProductoIdGuardado(null);
+  }, [abierto, productoEditar?.id]);
 
   // Inicialización cuando abre el modal o cambia el producto a editar
   useEffect(() => {
-    if (abierto) {
+    const acabaDeAbrir = abierto && !prevAbiertoRef.current;
+    const cambioProducto = abierto && productoEditar?.id !== prevProductoIdRef.current;
+
+    prevAbiertoRef.current = abierto;
+    prevProductoIdRef.current = productoEditar?.id;
+
+    if (acabaDeAbrir || cambioProducto) {
       setErrorValidacion(null);
       setPasoActual(pasoInicial);
 
@@ -135,8 +171,29 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
           setRecetaItems([]);
         }
       }
+    } else if (abierto) {
+      // Si el modal ya estaba abierto y las categorías terminaron de cargar en segundo plano
+      if (categorias.length > 0 && !productoEditar) {
+        setCategoriaId((prev) => (prev ? prev : categorias[0].id));
+      }
+      // Si los insumos terminaron de cargar para un nuevo plato y no tenía insumos precargados
+      if (habilitarReceta && insumosDisponibles.length > 0 && !productoEditar) {
+        setRecetaItems((prev) => {
+          if (prev.length === 0) {
+            return [
+              {
+                insumo_id: insumosDisponibles[0].id,
+                modo_calculo: 'exacto',
+                rendimiento_platos: 100,
+                cantidad_descuenta: 0.25,
+              },
+            ];
+          }
+          return prev;
+        });
+      }
     }
-  }, [abierto, productoEditar, categorias, insumosDisponibles]);
+  }, [abierto, productoEditar, categorias, insumosDisponibles, pasoInicial, habilitarReceta]);
 
   // Cálculos dinámicos en vivo para la barra de rentabilidad
   const costoTotalTeorico = recetaItems.reduce((acc, item) => {
@@ -183,30 +240,51 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
     setRecetaItems(nueva);
   };
 
-  // Validaciones
-  const handleAvanzarPaso = () => {
+  // Validaciones y scroll
+  const scrollAlInicioModal = (comportamiento: ScrollBehavior = 'smooth') => {
+    formRef.current?.parentElement?.scrollTo({ top: 0, behavior: comportamiento });
+  };
+
+  const handleAvanzarPaso = (e?: React.SyntheticEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
     setErrorValidacion(null);
     if (!categoriaId) {
       setErrorValidacion('Debes seleccionar una categoría obligatoria.');
+      scrollAlInicioModal('smooth');
+      document.getElementById(`${idForm}-cat`)?.focus();
       return;
     }
     if (!nombre.trim()) {
       setErrorValidacion('El nombre del plato es obligatorio.');
+      scrollAlInicioModal('smooth');
+      document.getElementById(`${idForm}-nombre`)?.focus();
       return;
     }
     if (precio <= 0) {
       setErrorValidacion('El precio de venta debe ser mayor a 0 Soles.');
+      scrollAlInicioModal('smooth');
+      document.getElementById(`${idForm}-precio`)?.focus();
       return;
     }
     setPasoActual(2);
+    scrollAlInicioModal('auto');
   };
 
   const handleSubmit = async (e?: React.SyntheticEvent) => {
     e?.preventDefault();
+    e?.stopPropagation();
     setErrorValidacion(null);
+
+    // Salvaguarda: si por algún evento del DOM se dispara submit en el paso 1, avanzar al paso 2 en lugar de guardar
+    if (habilitarReceta && pasoActual !== 2) {
+      handleAvanzarPaso(e);
+      return;
+    }
 
     if (habilitarReceta && recetaItems.length === 0) {
       setErrorValidacion('Todo plato en carta debe tener al menos un insumo en su receta para control de stock.');
+      scrollAlInicioModal('smooth');
       return;
     }
 
@@ -214,10 +292,12 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
     for (const it of habilitarReceta ? recetaItems : []) {
       if (it.modo_calculo === 'rendimiento' && it.rendimiento_platos <= 0) {
         setErrorValidacion('El rendimiento en platos por empaque debe ser mayor a 0.');
+        scrollAlInicioModal('smooth');
         return;
       }
       if (it.modo_calculo === 'exacto' && it.cantidad_descuenta <= 0) {
         setErrorValidacion('La cantidad exacta que descuenta debe ser mayor a 0.');
+        scrollAlInicioModal('smooth');
         return;
       }
     }
@@ -240,16 +320,20 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
       nombre: nombre.trim(),
       descripcion: descripcion.trim() || undefined,
       precio: Number(precio),
-      foto_url: productoEditar?.foto_url || undefined,
       requiere_preparacion: requierePreparacion,
       receta: payloadReceta,
     };
 
     setGuardando(true);
     try {
-      const exito = await onGuardar(payload);
-      if (exito) {
+      const resultado = await onGuardar(payload, foto, productoIdGuardado ?? undefined);
+      if (resultado.exito) {
         onCerrar();
+      } else if (resultado.productoId) {
+        setProductoIdGuardado(resultado.productoId);
+        setErrorValidacion(
+          `El plato se guardó, pero la foto no se pudo subir${resultado.errorFoto ? `: ${resultado.errorFoto}` : '.'} Pulsa «Guardar plato» para reintentar o cierra este cuadro para dejarlo así.`
+        );
       }
     } finally {
       setGuardando(false);
@@ -268,7 +352,14 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
               <button
                 type="button"
                 aria-current={activo ? 'step' : undefined}
-                onClick={() => (p.n === 1 ? setPasoActual(1) : handleAvanzarPaso())}
+                onClick={() => {
+                  if (p.n === 1) {
+                    setPasoActual(1);
+                    scrollAlInicioModal('auto');
+                  } else {
+                    handleAvanzarPaso();
+                  }
+                }}
                 className={cn(
                   'min-h-tactil flex items-center gap-2 px-2 rounded-xl text-sm font-semibold transition-colors',
                   activo ? 'text-aurea-navy' : 'text-aurea-navy/50 hover:text-aurea-navy'
@@ -317,21 +408,45 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
   const pie = (
     <>
       {habilitarReceta && pasoActual === 2 ? (
-        <Button variant="outline" onClick={() => setPasoActual(1)} leftIcon={<ArrowLeft className="w-4 h-4" aria-hidden="true" />}>
+        <Button
+          key="btn-anterior"
+          variant="outline"
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            setPasoActual(1);
+            scrollAlInicioModal('auto');
+          }}
+          leftIcon={<ArrowLeft className="w-4 h-4" aria-hidden="true" />}
+        >
           Anterior
         </Button>
       ) : (
-        <Button variant="outline" onClick={onCerrar} disabled={guardando}>
+        <Button key="btn-cancelar" variant="outline" type="button" onClick={onCerrar} disabled={guardando}>
           Cancelar
         </Button>
       )}
       {habilitarReceta && pasoActual === 1 ? (
-        <Button onClick={handleAvanzarPaso}>
+        <Button
+          key="btn-siguiente-receta"
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleAvanzarPaso(e);
+          }}
+        >
           Siguiente: receta
           <ArrowRight className="w-4 h-4" aria-hidden="true" />
         </Button>
       ) : (
-        <Button type="submit" form={idForm} loading={guardando} leftIcon={<Check className="w-4 h-4" aria-hidden="true" />}>
+        <Button
+          key="btn-guardar-plato"
+          type="submit"
+          form={idForm}
+          loading={guardando}
+          leftIcon={<Check className="w-4 h-4" aria-hidden="true" />}
+        >
           Guardar plato
         </Button>
       )}
@@ -350,12 +465,13 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
       pie={pie}
     >
       <form
+        ref={formRef}
         id={idForm}
         onSubmit={(e) => {
+          e.preventDefault();
           // Enter en el paso 1 avanza a la receta en lugar de guardar sin ella
           if (habilitarReceta && pasoActual === 1) {
-            e.preventDefault();
-            handleAvanzarPaso();
+            handleAvanzarPaso(e);
           } else {
             handleSubmit(e);
           }
@@ -375,6 +491,14 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
 
         {pasoActual === 1 && (
           <>
+            <SelectorFotoPlato
+              nombrePlato={nombre}
+              fotoActualUrl={productoEditar?.foto_url}
+              valor={foto}
+              onChange={setFoto}
+              disabled={guardando}
+            />
+
             <div>
               <label htmlFor={`${idForm}-cat`} className={CLASE_ROTULO}>
                 Categoría
@@ -392,9 +516,16 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
                 <select
                   id={`${idForm}-cat`}
                   value={categoriaId}
-                  onChange={(e) => setCategoriaId(e.target.value)}
+                  onChange={(e) => {
+                    setCategoriaId(e.target.value);
+                    if (errorValidacion) setErrorValidacion(null);
+                  }}
                   required
-                  className={cn(CLASE_CONTROL, 'cursor-pointer')}
+                  className={cn(
+                    CLASE_CONTROL,
+                    'cursor-pointer',
+                    errorValidacion && !categoriaId && 'border-estado-error-500 focus:border-estado-error-600 ring-1 ring-estado-error-500'
+                  )}
                 >
                   <option value="">Selecciona una categoría</option>
                   {categorias.map((cat) => (
@@ -415,11 +546,17 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
                   id={`${idForm}-nombre`}
                   type="text"
                   value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
+                  onChange={(e) => {
+                    setNombre(e.target.value);
+                    if (errorValidacion) setErrorValidacion(null);
+                  }}
                   placeholder="Ej. Lomo saltado, Ceviche clásico"
                   required
                   autoFocus
-                  className={CLASE_CONTROL}
+                  className={cn(
+                    CLASE_CONTROL,
+                    errorValidacion && !nombre.trim() && 'border-estado-error-500 focus:border-estado-error-600 ring-1 ring-estado-error-500'
+                  )}
                 />
               </div>
               <div>
@@ -440,9 +577,16 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
                     min="0.1"
                     inputMode="decimal"
                     value={precio}
-                    onChange={(e) => setPrecio(Math.max(0, parseFloat(e.target.value) || 0))}
+                    onChange={(e) => {
+                      setPrecio(Math.max(0, parseFloat(e.target.value) || 0));
+                      if (errorValidacion) setErrorValidacion(null);
+                    }}
                     required
-                    className={cn(CLASE_CONTROL, 'pl-9 font-serif font-bold')}
+                    className={cn(
+                      CLASE_CONTROL,
+                      'pl-9 font-serif font-bold',
+                      errorValidacion && precio <= 0 && 'border-estado-error-500 focus:border-estado-error-600 ring-1 ring-estado-error-500'
+                    )}
                   />
                 </div>
               </div>
@@ -515,11 +659,15 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
             </div>
 
             {recetaItems.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-aurea-copper/50 bg-aurea-ivory">
+              <div className="rounded-xl border border-dashed border-aurea-copper/50 bg-aurea-ivory p-4">
                 <EstadoVacio
                   icono={Package}
-                  titulo="Sin insumos"
-                  descripcion="Agrega al menos un insumo para controlar el stock del plato."
+                  titulo={insumosDisponibles.length === 0 ? 'Sin insumos en almacén' : 'Sin insumos en la receta'}
+                  descripcion={
+                    insumosDisponibles.length === 0
+                      ? 'No hay insumos disponibles en bodega. Debes registrarlos en el catálogo de insumos para asignarlos a esta receta.'
+                      : 'Agrega al menos un insumo para controlar el stock del plato.'
+                  }
                 />
               </div>
             ) : (

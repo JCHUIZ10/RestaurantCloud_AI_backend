@@ -88,6 +88,7 @@ class RecetaService
      */
     public function guardar(string $productoId, string $localId, array $items): array
     {
+        CartaPublicaService::invalidar($localId);
         $itemsNormalizados = [];
 
         foreach ($items as $item) {

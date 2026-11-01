@@ -2,6 +2,7 @@
 
 namespace App\Domains\Promociones\Services;
 
+use App\Domains\Carta\Services\CartaPublicaService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -261,6 +262,8 @@ class PromocionService
      */
     public function crear(string $localId, array $data): array
     {
+        CartaPublicaService::invalidar($localId);
+
         // 1. Unicidad de nombre por sede
         $existeNombre = DB::table('promocion')
             ->where('local_id', $localId)
@@ -366,6 +369,8 @@ class PromocionService
      */
     public function actualizar(string $id, string $localId, array $data): array
     {
+        CartaPublicaService::invalidar($localId);
+
         $existente = DB::table('promocion')
             ->where('id', $id)
             ->where('local_id', $localId)
@@ -437,6 +442,8 @@ class PromocionService
      */
     public function toggleEstado(string $id, string $localId, bool $activa): array
     {
+        CartaPublicaService::invalidar($localId);
+
         $promo = DB::table('promocion')
             ->where('id', $id)
             ->where('local_id', $localId)
@@ -473,6 +480,8 @@ class PromocionService
      */
     public function eliminar(string $id, string $localId): bool
     {
+        CartaPublicaService::invalidar($localId);
+
         $promo = DB::table('promocion')
             ->where('id', $id)
             ->where('local_id', $localId)

@@ -7,12 +7,12 @@ use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class ProductoController extends Controller
 {
-    public function __construct(private ProductoService $productos)
-    {
-    }
+    public function __construct(private ProductoService $productos) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -84,7 +84,6 @@ class ProductoController extends Controller
             'nombre' => ['required', 'string', 'min:2', 'max:100'],
             'descripcion' => ['nullable', 'string', 'max:2000'],
             'precio' => ['required', 'numeric', 'min:0.01', 'max:999999.99'],
-            'foto_url' => ['nullable', 'string', 'max:255'],
             'requiere_preparacion' => ['required', 'boolean'],
             'receta' => ['nullable', 'array'],
             'receta.*.insumo_id' => ['required', 'uuid'],
@@ -111,12 +110,15 @@ class ProductoController extends Controller
             return ApiResponse::error('ERR_PRODUCTO_DUPLICADO', $exception->getMessage(), 422);
         } catch (\InvalidArgumentException $exception) {
             $codigo = str_contains($exception->getMessage(), 'categoría') ? 'ERR_CATEGORIA_INVALIDA' : 'ERR_DATOS_INVALIDOS';
+
             return ApiResponse::error($codigo, $exception->getMessage(), 422);
-        } catch (\Illuminate\Validation\ValidationException $exception) {
-            \Illuminate\Support\Facades\Log::error('Validacion producto fallida: ' . json_encode($exception->errors()));
+        } catch (ValidationException $exception) {
+            Log::error('Validacion producto fallida: '.json_encode($exception->errors()));
+
             return ApiResponse::error('ERR_DATOS_INVALIDOS', json_encode($exception->errors()), 422, $exception->errors());
         } catch (\Throwable $exception) {
-            \Illuminate\Support\Facades\Log::error('Error producto: ' . $exception->getMessage() . ' ' . $exception->getFile() . ':' . $exception->getLine());
+            Log::error('Error producto: '.$exception->getMessage().' '.$exception->getFile().':'.$exception->getLine());
+
             return ApiResponse::error('ERR_PRODUCTO_FALLIDO', $exception->getMessage(), 422);
         }
     }

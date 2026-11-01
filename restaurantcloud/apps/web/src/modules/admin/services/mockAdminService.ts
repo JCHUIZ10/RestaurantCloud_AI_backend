@@ -5653,7 +5653,7 @@ class MockAdminService {
       precio: req.precio,
       costo_estandar: 0,
       moneda: 'PEN',
-      foto_url: req.foto_url || null,
+      foto_url: null,
       disponibilidad: tieneQuiebre ? 'agotado' : 'disponible',
       motivo_agotado: tieneQuiebre ? 'quiebre_stock_receta' : null,
       requiere_preparacion: req.requiere_preparacion,
@@ -5723,7 +5723,6 @@ class MockAdminService {
     if (req.descripcion !== undefined) prod.descripcion = req.descripcion.trim();
     if (req.precio !== undefined) prod.precio = req.precio;
     if (req.requiere_preparacion !== undefined) prod.requiere_preparacion = req.requiere_preparacion;
-    if (req.foto_url !== undefined) prod.foto_url = req.foto_url;
     prod.updated_at = new Date().toISOString();
 
     // Actualizar receta si se proporcionó
@@ -5744,6 +5743,48 @@ class MockAdminService {
       });
       this.recetasDetalladas.push(...nuevasRecetas);
     }
+
+    return {
+      exito: true,
+      datos: this.enriquecerProducto(prod),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
+   * POST /api/v1/admin/productos/{id}/foto
+   * La foto vive solo en memoria de la sesión (URL de objeto del navegador).
+   */
+  async subirFotoProducto(id: string, foto: File): Promise<ApiResponse<ProductoAdminDTO>> {
+    return this.fijarFotoProducto(id, URL.createObjectURL(foto));
+  }
+
+  /** DELETE /api/v1/admin/productos/{id}/foto */
+  async quitarFotoProducto(id: string): Promise<ApiResponse<ProductoAdminDTO>> {
+    return this.fijarFotoProducto(id, null);
+  }
+
+  private async fijarFotoProducto(id: string, fotoUrl: string | null): Promise<ApiResponse<ProductoAdminDTO>> {
+    await new Promise((r) => setTimeout(r, 120));
+    const prod = this.productos.find((p) => p.id === id && p.activo);
+    if (!prod) {
+      return {
+        exito: false,
+        datos: null as unknown as ProductoAdminDTO,
+        errores: [
+          {
+            codigo: 'ERR_PRODUCTO_NO_ENCONTRADO',
+            mensaje: 'El producto solicitado no existe o fue archivado.',
+          },
+        ],
+      };
+    }
+
+    if (prod.foto_url?.startsWith('blob:')) {
+      URL.revokeObjectURL(prod.foto_url);
+    }
+    prod.foto_url = fotoUrl;
+    prod.updated_at = new Date().toISOString();
 
     return {
       exito: true,

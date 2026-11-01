@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Domains\Archivos\Services\TenantStorageService;
 use App\Domains\Inventario\Services\StockDeduccionService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
@@ -1337,7 +1338,7 @@ class MozoController extends Controller
                 'nombre' => $p->nombre,
                 'descripcion' => $p->descripcion ?? '',
                 'precio' => (float) $p->precio,
-                'foto_url' => $p->foto_url,
+                'foto_url' => app(TenantStorageService::class)->resolverUrlCatalogo($p->foto_url),
                 'disponibilidad' => $p->disponibilidad,
                 'requiere_preparacion' => (bool) $p->requiere_preparacion,
             ];

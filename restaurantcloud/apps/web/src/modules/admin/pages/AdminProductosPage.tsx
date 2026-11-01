@@ -14,7 +14,11 @@ import { ProductosHeader } from '../components/carta/ProductosHeader';
 import { ProductosKpis } from '../components/carta/ProductosKpis';
 import { ProductosToolbar } from '../components/carta/ProductosToolbar';
 import { ProductosTable } from '../components/carta/ProductosTable';
-import { ModalCrearEditarProducto } from '../components/carta/ModalCrearEditarProducto';
+import {
+  ModalCrearEditarProducto,
+  type ResultadoGuardadoProducto,
+} from '../components/carta/ModalCrearEditarProducto';
+import type { SeleccionFotoPlato } from '../components/carta/seleccionFotoPlato';
 import { DrawerCalibrarReceta } from '../components/carta/DrawerCalibrarReceta';
 import { OnboardingCartaVacia } from '../components/carta/OnboardingCartaVacia';
 import { DemoAdminProductosWidget } from '../components/carta/DemoAdminProductosWidget';
@@ -165,37 +169,64 @@ export const AdminProductosPage: React.FC = () => {
     setModalAbierto(true);
   };
 
-  const handleGuardarProducto = async (req: CrearProductoRequest): Promise<boolean> => {
+  const handleGuardarProducto = async (
+    req: CrearProductoRequest,
+    foto: SeleccionFotoPlato,
+    productoIdYaGuardado?: string
+  ): Promise<ResultadoGuardadoProducto> => {
+    // Tras un fallo de foto el plato ya existe: el reintento lo actualiza en lugar de duplicarlo.
+    const idExistente = productoEditar?.id ?? productoIdYaGuardado;
+    const esEdicion = Boolean(productoEditar);
+
     try {
-      if (productoEditar) {
-        const res = await adminService.actualizarProducto(productoEditar.id, req);
-        if (res.exito) {
-          mostrarToast(`Plato "${req.nombre}" actualizado exitosamente.`);
-          await cargarProductos();
-          return true;
-        } else {
-          mostrarToast(res.errores?.[0]?.mensaje || 'Error al actualizar plato.', 'error');
-          return false;
-        }
-      } else {
-        const res = await adminService.crearProducto(CANONICAL_LOCAL_ID, req);
-        if (res.exito) {
-          mostrarToast(
-            IS_REAL_API
-              ? `Plato "${req.nombre}" registrado exitosamente.`
-              : `Plato "${req.nombre}" registrado exitosamente con su receta culinaria.`
-          );
-          await cargarProductos();
-          return true;
-        } else {
-          mostrarToast(res.errores?.[0]?.mensaje || 'Error al crear plato.', 'error');
-          return false;
+      const res = idExistente
+        ? await adminService.actualizarProducto(idExistente, req)
+        : await adminService.crearProducto(CANONICAL_LOCAL_ID, req);
+
+      if (!res.exito) {
+        mostrarToast(
+          res.errores?.[0]?.mensaje || (esEdicion ? 'Error al actualizar plato.' : 'Error al crear plato.'),
+          'error'
+        );
+        return { exito: false };
+      }
+
+      const productoId: string = res.datos.id;
+      let errorFoto: string | undefined;
+
+      if (foto.nueva || foto.quitar) {
+        try {
+          const resFoto = foto.nueva
+            ? await adminService.subirFotoProducto(productoId, foto.nueva)
+            : await adminService.quitarFotoProducto(productoId);
+          if (!resFoto.exito) {
+            errorFoto = resFoto.errores?.[0]?.mensaje || 'El servidor no aceptó la foto.';
+          }
+        } catch (err) {
+          console.error('Error actualizando foto del producto:', err);
+          errorFoto = 'Revisa tu conexión e inténtalo de nuevo.';
         }
       }
+
+      await cargarProductos();
+
+      if (errorFoto) {
+        mostrarToast(`Plato "${req.nombre}" guardado, pero su foto no se pudo actualizar.`, 'error');
+        return { exito: false, productoId, errorFoto };
+      }
+
+      mostrarToast(
+        esEdicion
+          ? `Plato "${req.nombre}" actualizado exitosamente.`
+          : IS_REAL_API
+            ? `Plato "${req.nombre}" registrado exitosamente.`
+            : `Plato "${req.nombre}" registrado exitosamente con su receta culinaria.`
+      );
+      return { exito: true };
     } catch (err) {
       console.error('Error guardando producto:', err);
       mostrarToast('Ocurrió un error inesperado al procesar la solicitud.', 'error');
-      return false;
+      return { exito: false };
     }
   };
 

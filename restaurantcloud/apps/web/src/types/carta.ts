@@ -24,6 +24,8 @@ export interface ProductoPublicoDTO {
   descripcion?: string | null;
   precio: number;
   foto_url?: string | null;
+  /** Versión reducida (≈400 px) para las tarjetas; ausente en fotos anteriores a las miniaturas */
+  foto_thumb_url?: string | null;
   disponibilidad: 'disponible' | 'agotado';
 }
 

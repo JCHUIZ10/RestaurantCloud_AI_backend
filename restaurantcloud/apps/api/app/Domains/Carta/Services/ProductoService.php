@@ -2,9 +2,13 @@
 
 namespace App\Domains\Carta\Services;
 
+use App\Domains\Archivos\Services\TenantStorageService;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 class ProductoService
 {
@@ -21,7 +25,7 @@ class ProductoService
             ->selectRaw("COUNT(*) FILTER (WHERE p.disponibilidad = 'disponible')::int as disponibles")
             ->selectRaw("COUNT(*) FILTER (WHERE p.disponibilidad = 'agotado')::int as agotados")
             ->selectRaw(
-                "COALESCE(AVG(CASE WHEN p.precio > 0 THEN ((p.precio - p.costo_estandar) / p.precio) * 100 ELSE 0 END), 0) as margen_promedio",
+                'COALESCE(AVG(CASE WHEN p.precio > 0 THEN ((p.precio - p.costo_estandar) / p.precio) * 100 ELSE 0 END), 0) as margen_promedio',
             )
             ->first();
 
@@ -103,6 +107,7 @@ class ProductoService
         $productos = $productosDb
             ->map(function ($producto) use ($recetasPorProducto) {
                 $producto->receta = $recetasPorProducto[$producto->id] ?? [];
+
                 return $this->mapearProducto($producto);
             })
             ->all();
@@ -178,6 +183,8 @@ class ProductoService
 
     public function crear(string $localId, array $data): array
     {
+        CartaPublicaService::invalidar($localId);
+
         return DB::transaction(function () use ($localId, $data): array {
             $this->verificarCategoria($data['categoria_id'], $localId);
             $this->verificarNombre($localId, $data['nombre']);
@@ -192,7 +199,6 @@ class ProductoService
                     'nombre' => trim($data['nombre']),
                     'descripcion' => $data['descripcion'] ?? null,
                     'precio' => $data['precio'],
-                    'foto_url' => $data['foto_url'] ?? null,
                     'requiere_preparacion' => $data['requiere_preparacion'],
                     'disponibilidad' => 'disponible',
                     'activo' => true,
@@ -214,6 +220,8 @@ class ProductoService
 
     public function actualizar(string $id, string $localId, array $data): ?array
     {
+        CartaPublicaService::invalidar($localId);
+
         return DB::transaction(function () use ($id, $localId, $data): ?array {
             $producto = DB::table('producto')
                 ->where('id', $id)
@@ -235,7 +243,6 @@ class ProductoService
                     'nombre' => trim($data['nombre']),
                     'descripcion' => $data['descripcion'] ?? null,
                     'precio' => $data['precio'],
-                    'foto_url' => $data['foto_url'] ?? null,
                     'requiere_preparacion' => $data['requiere_preparacion'],
                     'updated_at' => now(),
                 ]);
@@ -257,8 +264,9 @@ class ProductoService
         string $localId,
         string $usuarioId,
         string $disponibilidad,
-    ): ?array
-    {
+    ): ?array {
+        CartaPublicaService::invalidar($localId);
+
         $actualizado = DB::table('producto')
             ->where('id', $id)
             ->where('local_id', $localId)
@@ -274,8 +282,63 @@ class ProductoService
         return $actualizado ? $this->obtener($id, $localId) : null;
     }
 
+    /**
+     * CU-ADMIN-04: Reemplaza la foto del producto. La foto anterior se borra solo tras confirmar el cambio.
+     *
+     * @throws \InvalidArgumentException si el archivo no es una imagen admitida.
+     */
+    public function reemplazarFoto(
+        string $id,
+        string $localId,
+        string $empresaId,
+        string $usuarioId,
+        UploadedFile $foto,
+    ): ?array {
+        if (! $this->productoActivoExiste($id, $localId)) {
+            return null;
+        }
+
+        $almacenamiento = app(TenantStorageService::class);
+        $nueva = $almacenamiento->guardarFotoProducto($empresaId, $localId, $id, $foto, $usuarioId);
+
+        try {
+            $anterior = $this->cambiarFotoUrl($id, $localId, $nueva['object_key'], $empresaId, $usuarioId);
+        } catch (Throwable $exception) {
+            $almacenamiento->eliminarArchivoPorKey($empresaId, $nueva['object_key']);
+            throw $exception;
+        }
+
+        if ($anterior === false) {
+            // El producto se archivó mientras se subía la foto.
+            $almacenamiento->eliminarArchivoPorKey($empresaId, $nueva['object_key']);
+
+            return null;
+        }
+
+        $this->descartarFoto($empresaId, $anterior);
+
+        return $this->obtener($id, $localId);
+    }
+
+    /**
+     * CU-ADMIN-04: Quita la foto del producto; la carta mostrará la imagen de reemplazo.
+     */
+    public function quitarFoto(string $id, string $localId, string $empresaId, string $usuarioId): ?array
+    {
+        $anterior = $this->cambiarFotoUrl($id, $localId, null, $empresaId, $usuarioId);
+
+        if ($anterior === false) {
+            return null;
+        }
+
+        $this->descartarFoto($empresaId, $anterior);
+
+        return $this->obtener($id, $localId);
+    }
+
     public function archivar(string $id, string $localId): ?array
     {
+        CartaPublicaService::invalidar($localId);
         $producto = DB::table('producto')
             ->where('id', $id)
             ->where('local_id', $localId)
@@ -295,6 +358,82 @@ class ProductoService
             'producto_id' => $id,
             'mensaje' => "El producto \"{$producto->nombre}\" fue archivado de la carta.",
         ];
+    }
+
+    private function productoActivoExiste(string $id, string $localId): bool
+    {
+        return DB::table('producto')
+            ->where('id', $id)
+            ->where('local_id', $localId)
+            ->where('activo', true)
+            ->exists();
+    }
+
+    /**
+     * Fija la foto del producto bajo bloqueo de fila y devuelve la anterior
+     * (null si no tenía), o false si el producto no existe o está archivado.
+     * El cambio y su registro de auditoría se confirman juntos.
+     */
+    private function cambiarFotoUrl(
+        string $id,
+        string $localId,
+        ?string $nuevaKey,
+        string $empresaId,
+        string $usuarioId
+    ): string|false|null {
+        CartaPublicaService::invalidar($localId);
+
+        return DB::transaction(function () use ($id, $localId, $nuevaKey, $empresaId, $usuarioId): string|false|null {
+            $producto = DB::table('producto')
+                ->where('id', $id)
+                ->where('local_id', $localId)
+                ->where('activo', true)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $producto) {
+                return false;
+            }
+
+            DB::table('producto')->where('id', $id)->update([
+                'foto_url' => $nuevaKey,
+                'updated_at' => now(),
+            ]);
+
+            DB::table('log_auditoria')->insert([
+                'id' => (string) Str::uuid(),
+                'empresa_id' => $empresaId,
+                'local_id' => $localId,
+                'usuario_id' => $usuarioId,
+                'accion' => $nuevaKey === null ? 'PRODUCTO_FOTO_ELIMINADA' : 'PRODUCTO_FOTO_ACTUALIZADA',
+                'entidad_tipo' => 'producto',
+                'entidad_id' => $id,
+                'detalle' => json_encode([
+                    'producto_nombre' => $producto->nombre,
+                    'foto_anterior' => $producto->foto_url,
+                    'foto_nueva' => $nuevaKey,
+                ]),
+                'fecha' => now(),
+            ]);
+
+            return $producto->foto_url;
+        });
+    }
+
+    /**
+     * Borra la foto reemplazada. Un fallo aquí no debe deshacer el cambio ya confirmado.
+     */
+    private function descartarFoto(string $empresaId, ?string $key): void
+    {
+        if ($key === null || $key === '') {
+            return;
+        }
+
+        try {
+            app(TenantStorageService::class)->eliminarArchivoPorKey($empresaId, $key);
+        } catch (Throwable $exception) {
+            Log::warning("No se pudo borrar la foto anterior {$key}: {$exception->getMessage()}");
+        }
     }
 
     private function consultaBase(string $localId)
@@ -333,7 +472,7 @@ class ProductoService
             'costo_teorico' => round($costoTeorico, 2),
             'margen_bruto_pct' => $margenBrutoPct,
             'moneda' => $producto->moneda,
-            'foto_url' => $producto->foto_url,
+            'foto_url' => app(TenantStorageService::class)->resolverUrlCatalogo($producto->foto_url),
             'disponibilidad' => $producto->disponibilidad,
             'motivo_agotado' => $producto->motivo_agotado,
             'requiere_preparacion' => (bool) $producto->requiere_preparacion,

@@ -1,5 +1,7 @@
 import { apiClient, apiGet, apiPost, apiPatch, apiPut, apiDelete } from './client';
 import { realPlanoService } from './planoService';
+import { extraerDigitosMovilPeru } from '@/shared/utils';
+import type { CatalogoCartaPublicoDTO } from '@/types/carta';
 import type { ApiResponse } from '@/types/api';
 import type {
   PlanoCompletoMozoDTO,
@@ -880,6 +882,26 @@ export const realAdminService = {
     disponibilidad: DisponibilidadProducto,
   ): Promise<ApiEnvelope<ProductoAdminDTO>> =>
     apiPatch(`/admin/productos/${id}/disponibilidad`, { disponibilidad }),
+  /** CU-ADMIN-04: sube o reemplaza la foto del plato (multipart, campo `foto`). */
+  async subirFotoProducto(id: string, foto: File): Promise<ApiEnvelope<ProductoAdminDTO>> {
+    const formulario = new FormData();
+    formulario.append('foto', foto);
+    try {
+      // El cliente declara JSON por defecto: sin sobrescribirlo, axios convertiría el FormData a JSON.
+      return (await apiClient.post(`/admin/productos/${id}/foto`, formulario, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })).data;
+    } catch (error: any) {
+      return error.response?.data ?? Promise.reject(error);
+    }
+  },
+  async quitarFotoProducto(id: string): Promise<ApiEnvelope<ProductoAdminDTO>> {
+    try {
+      return (await apiClient.delete(`/admin/productos/${id}/foto`)).data;
+    } catch (error: any) {
+      return error.response?.data ?? Promise.reject(error);
+    }
+  },
   async archivarProducto(id: string): Promise<ApiEnvelope<{ producto_id: string; mensaje: string }>> {
     try {
       return (await apiClient.delete(`/admin/productos/${id}`)).data;
@@ -1220,6 +1242,24 @@ export const realAdminService = {
         datos: null,
         errores: [{ codigo: 'ERR_CONEXION', mensaje: 'Error al obtener rendimiento de la promoción.' }],
       };
+    }
+  },
+};
+
+// CU-CLIENTE-01: Carta digital pública de una sede (sin sesión)
+export const realCartaPublicaService = {
+  async obtenerCartaPublica(slug: string): Promise<ApiEnvelope<CatalogoCartaPublicoDTO>> {
+    try {
+      const res = await apiGet<CatalogoCartaPublicoDTO>(`/public/locales/${encodeURIComponent(slug)}/carta`);
+      return res.exito
+        ? { ...res, datos: { ...res.datos, sede: { ...res.datos.sede, telefono: extraerDigitosMovilPeru(res.datos.sede.telefono) } } }
+        : res;
+    } catch (error: any) {
+      // Solo los errores de negocio (404) traen el sobre estándar; un 429 o 500 debe propagarse como fallo.
+      if (typeof error.response?.data?.exito === 'boolean') {
+        return error.response.data;
+      }
+      throw error;
     }
   },
 };

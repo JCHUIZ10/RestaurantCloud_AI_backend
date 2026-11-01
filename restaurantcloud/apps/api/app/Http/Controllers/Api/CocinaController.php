@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Domains\Archivos\Services\TenantStorageService;
+use App\Domains\Carta\Services\CartaPublicaService;
+use App\Domains\Inventario\Services\StockDeduccionService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
 use Carbon\Carbon;
@@ -10,7 +13,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
-use App\Domains\Inventario\Services\StockDeduccionService;
 
 class CocinaController extends Controller
 {
@@ -942,7 +944,7 @@ class CocinaController extends Controller
                 'categoria_id' => $p->categoria_id,
                 'categoria_nombre' => $p->categoria_nombre,
                 'precio' => (float) $p->precio,
-                'foto_url' => $p->foto_url,
+                'foto_url' => app(TenantStorageService::class)->resolverUrlCatalogo($p->foto_url),
                 'disponibilidad' => $p->disponibilidad,
                 'motivo_agotado' => $p->motivo_agotado,
                 'fecha_modificacion_disp' => $p->fecha_modificacion_disp ? Carbon::parse($p->fecha_modificacion_disp)->toIso8601String() : null,
@@ -987,6 +989,7 @@ class CocinaController extends Controller
 
         $resultado = $items->map(function ($it) {
             $minutosEspera = (int) max(0, round((now()->timestamp - strtotime($it->pedido_created_at)) / 60));
+
             return [
                 'item_id' => $it->item_id,
                 'pedido_id' => $it->pedido_id,
@@ -1010,6 +1013,7 @@ class CocinaController extends Controller
     {
         $user = $request->user();
         $localId = $user->local_id;
+        CartaPublicaService::invalidar($localId);
 
         $producto = DB::table('producto')
             ->where('id', $productoId)
@@ -1102,6 +1106,7 @@ class CocinaController extends Controller
     {
         $user = $request->user();
         $localId = $user->local_id;
+        CartaPublicaService::invalidar($localId);
 
         $validated = $request->validate([
             'items_no_alcanzados_ids' => ['nullable', 'array'],
@@ -1192,6 +1197,7 @@ class CocinaController extends Controller
     {
         $user = $request->user();
         $localId = $user->local_id;
+        CartaPublicaService::invalidar($localId);
 
         $producto = DB::table('producto')
             ->where('id', $productoId)

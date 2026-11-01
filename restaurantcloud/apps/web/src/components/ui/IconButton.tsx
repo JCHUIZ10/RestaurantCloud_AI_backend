@@ -8,7 +8,7 @@ export interface IconButtonProps
   /** Texto accesible obligatorio: el icono es el único contenido (regla I3) */
   etiqueta: string;
   icono: LucideIcon;
-  variant?: 'ghost' | 'outline' | 'danger';
+  variant?: 'ghost' | 'outline' | 'danger' | 'success';
   /** sm solo en tablas densas de escritorio; md cumple el objetivo táctil de 44px */
   size?: 'sm' | 'md';
   tema?: TemaUI;
@@ -19,11 +19,13 @@ const VARIANTES = {
     ghost: 'text-aurea-navy/70 hover:text-aurea-navy hover:bg-aurea-champagne/30',
     outline: 'border border-aurea-champagne/70 bg-white text-aurea-navy/80 hover:bg-aurea-champagne/20',
     danger: 'text-estado-error-600 hover:text-estado-error-700 hover:bg-estado-error-50',
+    success: 'text-estado-ok-600 hover:text-estado-ok-700 hover:bg-estado-ok-50',
   },
   oscuro: {
     ghost: 'text-tinta-300 hover:text-white hover:bg-tinta-800',
     outline: 'border border-tinta-700 text-tinta-200 hover:bg-tinta-800 hover:text-white',
     danger: 'text-estado-error-300 hover:text-estado-error-200 hover:bg-estado-error-900/40',
+    success: 'text-estado-ok-300 hover:text-estado-ok-200 hover:bg-estado-ok-900/40',
   },
 } as const;
 

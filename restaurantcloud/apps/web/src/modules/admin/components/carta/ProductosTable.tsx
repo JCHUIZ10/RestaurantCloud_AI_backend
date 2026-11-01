@@ -15,6 +15,7 @@ import {
   EstadoBadge,
   EstadoVacio,
   IconButton,
+  ImagenPlato,
   ListaResponsive,
   Paginacion,
   Skeleton,
@@ -40,15 +41,6 @@ interface ProductosTableProps {
   /** Filtros que van dentro de la tarjeta */
   cabecera?: React.ReactNode;
 }
-
-const Inicial: React.FC<{ nombre: string }> = ({ nombre }) => (
-  <span
-    className="w-10 h-10 rounded-xl bg-aurea-champagne/30 border border-aurea-champagne flex items-center justify-center text-aurea-copper font-serif font-bold shrink-0"
-    aria-hidden="true"
-  >
-    {nombre.charAt(0)}
-  </span>
-);
 
 const TagCategoria: React.FC<{ nombre: string }> = ({ nombre }) => (
   <span className="inline-flex items-center px-2.5 py-1 rounded-lg border border-aurea-champagne bg-aurea-champagne/20 text-xs font-medium text-aurea-navy whitespace-nowrap">
@@ -121,8 +113,14 @@ export const ProductosTable: React.FC<ProductosTableProps> = ({
         )}
         <IconButton
           size={tamano}
+          variant={disponible ? 'danger' : 'success'}
+          className={
+            disponible
+              ? 'border border-estado-error-200 bg-estado-error-50/70 text-estado-error-700 hover:bg-estado-error-100 hover:border-estado-error-300 hover:text-estado-error-800'
+              : 'border border-estado-ok-200 bg-estado-ok-50/70 text-estado-ok-700 hover:bg-estado-ok-100 hover:border-estado-ok-300 hover:text-estado-ok-800'
+          }
           icono={disponible ? PackageX : PackageCheck}
-          etiqueta={disponible ? `Marcar «${prod.nombre}» como agotado` : `Marcar «${prod.nombre}» como disponible`}
+          etiqueta={disponible ? `Marcar «${prod.nombre}» como agotado` : `Habilitar «${prod.nombre}» (marcar disponible)`}
           onClick={() => onConmutarDisponibilidad(prod)}
         />
         <IconButton size={tamano} icono={Edit2} etiqueta={`Editar «${prod.nombre}»`} onClick={() => onEditarProducto(prod)} />
@@ -139,9 +137,10 @@ export const ProductosTable: React.FC<ProductosTableProps> = ({
 
   const nombreCelda = (prod: ProductoAdminDTO) => (
     <div className="flex items-start gap-3 min-w-0 max-w-xs">
-      <Inicial nombre={prod.nombre} />
+      <ImagenPlato src={prod.foto_url} nombre={prod.nombre} className="w-12 h-12 rounded-xl border border-aurea-champagne/70" />
       <div className="min-w-0">
         <p className="font-semibold text-aurea-navy truncate">{prod.nombre}</p>
+        {!prod.foto_url && <p className="text-xs text-aurea-navy/50">Sin foto</p>}
         {prod.descripcion && (
           <p className="text-xs text-aurea-navy/60 truncate" title={prod.descripcion}>
             {prod.descripcion}

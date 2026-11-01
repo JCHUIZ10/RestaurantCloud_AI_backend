@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { formatPEN } from '@/shared/utils';
+import { ImagenPlato } from '@/components/ui';
 import { Eye, AlertCircle } from 'lucide-react';
 import type { ProductoPublicoDTO } from '@/types/carta';
 
@@ -25,26 +26,21 @@ export const PlatoCard: React.FC<PlatoCardProps> = ({ plato, onOpenModal }) => {
       style={{ perspective: 800 }}
     >
       {/* 1. Imagen del Plato (lateral en smartphone, cabecera panorámica en desktop grid) */}
-      {plato.foto_url && (
-        <div className="w-28 sm:w-32 lg:w-full h-28 sm:h-32 lg:h-44 shrink-0 bg-aurea-ivory relative border-r lg:border-r-0 lg:border-b border-aurea-copper/20 overflow-hidden order-2 lg:order-1">
-          <img
-            src={plato.foto_url}
-            alt={plato.nombre}
-            className={`w-full h-full object-cover transition-transform duration-500 ${
-              isAgotado ? 'grayscale filter' : 'hover:scale-105'
-            }`}
-            loading="lazy"
-          />
-
-          {isAgotado && (
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-2 text-center backdrop-blur-[1px]">
-              <span className="text-[10px] font-bold text-white uppercase tracking-wider bg-rose-600/90 px-2 py-0.5 rounded shadow">
-                Agotado
-              </span>
-            </div>
-          )}
-        </div>
-      )}
+      {/* La foto es opcional: sin ella se muestra la imagen de reemplazo para mantener la grilla alineada */}
+      <ImagenPlato
+        src={plato.foto_thumb_url ?? plato.foto_url}
+        nombre={plato.nombre}
+        className="w-28 sm:w-32 lg:w-full h-28 sm:h-32 lg:h-44 border-r lg:border-r-0 lg:border-b border-aurea-copper/20 order-2 lg:order-1"
+        imgClassName={`transition-transform duration-500 ${isAgotado ? 'grayscale filter' : 'hover:scale-105'}`}
+      >
+        {isAgotado && (
+          <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-2 text-center backdrop-blur-[1px]">
+            <span className="text-[10px] font-bold text-white uppercase tracking-wider bg-rose-600/90 px-2 py-0.5 rounded shadow">
+              Agotado
+            </span>
+          </div>
+        )}
+      </ImagenPlato>
 
       {/* 2. Contenido Textual del Plato */}
       <div className="flex-1 flex flex-col justify-between p-3.5 sm:p-4 min-w-0 order-1 lg:order-2">

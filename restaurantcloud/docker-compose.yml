@@ -100,6 +100,7 @@ services:
       - |
         mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}
         mc mb local/${MINIO_DEFAULT_BUCKET:-restaurantcloud} --ignore-existing
+        mc anonymous set download local/${MINIO_DEFAULT_BUCKET:-restaurantcloud}/catalogo
         exit 0
     networks:
       - saas_network
@@ -133,6 +134,7 @@ services:
       AWS_DEFAULT_REGION: us-east-1
       AWS_BUCKET: ${MINIO_DEFAULT_BUCKET:-restaurantcloud}
       AWS_ENDPOINT: http://minio:9000
+      AWS_URL: ${AWS_URL:-http://localhost:9000/restaurantcloud}
       AWS_USE_PATH_STYLE_ENDPOINT: "true"
       FILESYSTEM_DISK: s3
       STRIPE_KEY: ${STRIPE_KEY:-}
@@ -174,6 +176,7 @@ services:
       AWS_DEFAULT_REGION: us-east-1
       AWS_BUCKET: ${MINIO_DEFAULT_BUCKET:-restaurantcloud}
       AWS_ENDPOINT: http://minio:9000
+      AWS_URL: ${AWS_URL:-http://localhost:9000/restaurantcloud}
       AWS_USE_PATH_STYLE_ENDPOINT: "true"
       FILESYSTEM_DISK: s3
     volumes:

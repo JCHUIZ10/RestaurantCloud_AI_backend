@@ -21,6 +21,10 @@
 
 # Descargas firmadas de MinIO: la firma se generó para el host interno minio:9000.
 {$FILES_DOMAIN} {
+	# Fotos de catálogo: cada versión tiene un UUID propio, por lo que son inmutables.
+	@catalogo path /{$MINIO_DEFAULT_BUCKET:restaurantcloud}/catalogo/*
+	header @catalogo Cache-Control "public, max-age=31536000, immutable"
+
 	reverse_proxy minio:9000 {
 		header_up Host minio:9000
 	}

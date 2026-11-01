@@ -76,6 +76,8 @@ class CategoriaService
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+            CartaPublicaService::invalidar($localId);
+
             return $this->categoria($id, $localId);
         });
     }
@@ -101,6 +103,8 @@ class CategoriaService
                 'activa' => $data['activa'] ?? null,
                 'updated_at' => now(),
             ], fn ($value) => $value !== null));
+            CartaPublicaService::invalidar($localId);
+
             return $this->categoria($id, $localId);
         });
     }
@@ -111,6 +115,8 @@ class CategoriaService
             ->where('id', $id)
             ->where('local_id', $localId)
             ->update(['activa' => $activa, 'updated_at' => now()]);
+        CartaPublicaService::invalidar($localId);
+
         return $updated ? $this->categoria($id, $localId) : null;
     }
 
@@ -136,6 +142,8 @@ class CategoriaService
                     'updated_at' => now(),
                 ]);
             }
+            CartaPublicaService::invalidar($localId);
+
             return $this->listado($localId)['categorias'];
         });
     }
@@ -171,6 +179,7 @@ class CategoriaService
             }
 
             DB::table('categoria_producto')->where('id', $id)->delete();
+            CartaPublicaService::invalidar($localId);
             $this->normalizarOrden($localId);
 
             return [
@@ -213,9 +222,11 @@ class CategoriaService
             $movidos = $query->update(['categoria_id' => $destinoId, 'updated_at' => now()]);
             $restantes = DB::table('producto')->where('categoria_id', $id)->count();
             $eliminada = $restantes === 0;
+            CartaPublicaService::invalidar($localId);
 
             if ($eliminada) {
                 DB::table('categoria_producto')->where('id', $id)->delete();
+                CartaPublicaService::invalidar($localId);
                 $this->normalizarOrden($localId);
             }
 
@@ -245,7 +256,7 @@ class CategoriaService
 
                 foreach ($temporal as $categoria) {
                     DB::table('categoria_producto')->where('id', $categoria->id)->update([
-                        'nombre' => '__reemplazar_' . $categoria->id,
+                        'nombre' => '__reemplazar_'.$categoria->id,
                     ]);
                 }
 
@@ -284,6 +295,8 @@ class CategoriaService
                     }
                 }
             }
+
+            CartaPublicaService::invalidar($localId);
 
             return $this->listado($localId);
         });

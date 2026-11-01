@@ -565,7 +565,6 @@ export interface CrearProductoRequest {
   nombre: string;
   descripcion?: string;
   precio: number;
-  foto_url?: string;
   requiere_preparacion: boolean;
   receta: CrearItemRecetaRequest[];
 }

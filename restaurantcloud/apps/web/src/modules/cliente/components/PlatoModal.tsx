@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, AlertCircle, Info, MessageCircle } from 'lucide-react';
 import { formatPEN } from '@/shared/utils';
+import { ImagenPlato } from '@/components/ui';
 import type { ProductoPublicoDTO } from '@/types/carta';
 
 interface PlatoModalProps {
@@ -47,12 +48,7 @@ export const PlatoModal: React.FC<PlatoModalProps> = ({ plato, onClose, telefono
 
           {/* Fotografía HD en la parte superior */}
           {plato.foto_url && (
-            <div className="relative w-full h-56 sm:h-64 shrink-0 bg-aurea-navy overflow-hidden">
-              <img
-                src={plato.foto_url}
-                alt={plato.nombre}
-                className="w-full h-full object-cover"
-              />
+            <ImagenPlato src={plato.foto_url} nombre={plato.nombre} eager className="w-full h-56 sm:h-64 bg-aurea-navy">
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
               {/* Badges superiores sobre la imagen */}
@@ -70,7 +66,7 @@ export const PlatoModal: React.FC<PlatoModalProps> = ({ plato, onClose, telefono
                   {formatPEN(plato.precio)}
                 </span>
               </div>
-            </div>
+            </ImagenPlato>
           )}
 
           {/* Cuerpo y Ficha del Plato */}

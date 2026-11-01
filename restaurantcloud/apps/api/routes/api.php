@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Admin\MetodoPagoController;
 use App\Http\Controllers\Api\Admin\PersonalController;
 use App\Http\Controllers\Api\Admin\PlanoController;
 use App\Http\Controllers\Api\Admin\ProductoController;
+use App\Http\Controllers\Api\Admin\ProductoFotoController;
 use App\Http\Controllers\Api\Admin\PromocionController;
 use App\Http\Controllers\Api\Admin\ProveedorController;
 use App\Http\Controllers\Api\Admin\RecetaController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\Api\MozoController;
 use App\Http\Controllers\Api\Propietario\AdministradorController;
 use App\Http\Controllers\Api\Propietario\LocalController;
 use App\Http\Controllers\Api\Public\ActivacionCuentaController;
+use App\Http\Controllers\Api\Public\CartaPublicaController;
 use App\Http\Controllers\Api\Public\ComprobantePublicoController;
 use App\Http\Controllers\Api\Public\RegistroController;
 use App\Http\Controllers\Api\Saas\SaasTenantController;
@@ -46,6 +48,11 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/validar', [ActivacionCuentaController::class, 'validar']);
             Route::post('/completar', [ActivacionCuentaController::class, 'completar']);
         });
+
+        // CU-CLIENTE-01: carta digital de una sede, sin sesión.
+        Route::middleware('throttle:60,1')
+            ->get('/locales/{slug}/carta', [CartaPublicaController::class, 'show'])
+            ->name('public.carta.show');
 
         // CU-CLIENTE-02: solo el token QR permite consultar o descargar.
         Route::middleware('throttle:30,1')->prefix('comprobantes')->group(function (): void {
@@ -96,6 +103,8 @@ Route::prefix('v1')->group(function (): void {
             Route::patch('/productos/{id}', [ProductoController::class, 'update']);
             Route::patch('/productos/{id}/disponibilidad', [ProductoController::class, 'disponibilidad']);
             Route::delete('/productos/{id}', [ProductoController::class, 'destroy']);
+            Route::post('/productos/{id}/foto', [ProductoFotoController::class, 'store'])->whereUuid('id');
+            Route::delete('/productos/{id}/foto', [ProductoFotoController::class, 'destroy'])->whereUuid('id');
             Route::get('/productos/{id}/receta', [RecetaController::class, 'show']);
             Route::put('/productos/{id}/receta', [RecetaController::class, 'update']);
             Route::get('/productos/{id}/capacidad', [RecetaController::class, 'capacidad']);

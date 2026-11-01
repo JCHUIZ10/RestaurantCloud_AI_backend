@@ -10,6 +10,7 @@ import {
   realCocinaService,
   realCajaService,
   realAdminService,
+  realCartaPublicaService,
   realPropietarioAdminsService,
   realPropietarioLocalesService,
 } from './api/realApiServices';
@@ -21,6 +22,7 @@ import {
 } from '@/modules/auth/services/mockAuthService';
 
 import { mockAdminService } from '@/modules/admin/services/mockAdminService';
+import { getCartaPublicaPorSlug } from '@/modules/cliente/services/mockCartaService';
 import { realPlanoService } from './api/planoService';
 import { realSaasTenantsService, type SaasTenantsService } from './api/realSaasTenantsService';
 
@@ -51,6 +53,11 @@ export const adminService = new Proxy(mockAdminService as any, {
     return Reflect.get(target, prop, receiver);
   },
 });
+
+// Carta digital pública (CU-CLIENTE-01): API real, o mock en modo demo
+export const cartaPublicaService = IS_REAL_API
+  ? realCartaPublicaService
+  : { obtenerCartaPublica: getCartaPublicaPorSlug };
 
 // Servicio Real para Propietario Administradores (CU-PROP-05 - 100% Backend)
 export const propietarioAdminsService = realPropietarioAdminsService;

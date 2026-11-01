@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Search, X, AlertTriangle, ArrowLeft } from 'lucide-react';
-import { getCartaPublicaPorSlug } from '../services/mockCartaService';
+import { cartaPublicaService, IS_REAL_API } from '@/services/serviceAdapter';
 import { CartaHeader } from '../components/CartaHeader';
 import { PromoBanner } from '../components/PromoBanner';
 import { CategoryTabs } from '../components/CategoryTabs';
@@ -23,13 +23,21 @@ export const CartaDigitalPage: React.FC = () => {
   const [categoriaActiva, setCategoriaActiva] = useState<string>('todas');
   const [platoSeleccionado, setPlatoSeleccionado] = useState<ProductoPublicoDTO | null>(null);
 
-  // Carga de Datos desde el Servicio de Mocks con ApiResponse
+  // Carga de la carta: API real, o mocks en modo demo (el slug por defecto solo existe en demo)
   useEffect(() => {
+    const slugConsulta = slug || (IS_REAL_API ? '' : 'aurea-miraflores');
+    if (!slugConsulta) {
+      setErrorMensaje('La dirección de la carta no es válida.');
+      setCargando(false);
+      return;
+    }
+
     let isMounted = true;
     setCargando(true);
     setErrorMensaje(null);
 
-    getCartaPublicaPorSlug(slug || 'aurea-miraflores')
+    cartaPublicaService
+      .obtenerCartaPublica(slugConsulta)
       .then((res) => {
         if (!isMounted) return;
         if (res.exito && res.datos) {
@@ -127,15 +135,17 @@ export const CartaDigitalPage: React.FC = () => {
             {errorMensaje || 'La dirección de la carta no existe o la sede fue desactivada temporalmente.'}
           </p>
         </div>
-        <div className="pt-2">
-          <Link
-            to={ROUTES.CARTA_DEMO}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-aurea-navy text-white text-xs font-semibold hover:bg-opacity-90 shadow-md"
-          >
-            <ArrowLeft className="w-4 h-4 text-aurea-copper" />
-            <span>Ver Carta Demo ÁUREA Miraflores</span>
-          </Link>
-        </div>
+        {!IS_REAL_API && (
+          <div className="pt-2">
+            <Link
+              to={ROUTES.CARTA_DEMO}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-aurea-navy text-white text-xs font-semibold hover:bg-opacity-90 shadow-md"
+            >
+              <ArrowLeft className="w-4 h-4 text-aurea-copper" />
+              <span>Ver Carta Demo ÁUREA Miraflores</span>
+            </Link>
+          </div>
+        )}
       </div>
     );
   }

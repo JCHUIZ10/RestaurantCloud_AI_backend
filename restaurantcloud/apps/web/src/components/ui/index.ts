@@ -18,3 +18,4 @@ export { useToast, type TonoToast } from './useToast';
 export { SoloDemo } from './SoloDemo';
 export { BotonSalir } from './BotonSalir';
 export { Paginacion } from './Paginacion';
+export { ImagenPlato } from './ImagenPlato';
