@@ -82,7 +82,7 @@ export const AdminIncidentesPage: React.FC = () => {
       } else {
         mostrarToast('Error al cargar historial de incidentes', 'error');
       }
-    } catch (err) {
+    } catch {
       mostrarToast('Error de comunicación con el servidor', 'error');
     } finally {
       setCargando(false);
@@ -96,7 +96,7 @@ export const AdminIncidentesPage: React.FC = () => {
       if (resp.exito) {
         setEmpleados(resp.datos.empleados.filter((e) => e.estado === 'activo'));
       }
-    } catch (err) {
+    } catch {
       // Silencioso
     }
   }, []);
@@ -144,7 +144,7 @@ export const AdminIncidentesPage: React.FC = () => {
       } else {
         mostrarToast(resp.errores?.[0]?.mensaje || 'No se pudo abrir el expediente', 'error');
       }
-    } catch (err) {
+    } catch {
       mostrarToast('Error de conexión', 'error');
     }
   };
@@ -166,7 +166,7 @@ export const AdminIncidentesPage: React.FC = () => {
         mostrarToast(resp.errores?.[0]?.mensaje || 'Error al registrar incidente', 'error');
         return false;
       }
-    } catch (err) {
+    } catch {
       mostrarToast('Error al registrar incidente', 'error');
       return false;
     }
@@ -188,7 +188,7 @@ export const AdminIncidentesPage: React.FC = () => {
         mostrarToast(resp.errores?.[0]?.mensaje || 'Error al actualizar', 'error');
         return false;
       }
-    } catch (err) {
+    } catch {
       mostrarToast('Error de servidor al actualizar', 'error');
       return false;
     }
@@ -212,7 +212,7 @@ export const AdminIncidentesPage: React.FC = () => {
         mostrarToast(resp.errores?.[0]?.mensaje || 'Error al resolver', 'error');
         return false;
       }
-    } catch (err) {
+    } catch {
       mostrarToast('Error de servidor al resolver', 'error');
       return false;
     }

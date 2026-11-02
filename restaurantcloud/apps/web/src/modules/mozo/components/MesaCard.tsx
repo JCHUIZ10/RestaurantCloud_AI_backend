@@ -76,7 +76,7 @@ export const MesaCard: React.FC<MesaCardProps> = ({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onAbrirMesaRapido ? onAbrirMesaRapido(mesa) : onSeleccionar(mesa);
+            (onAbrirMesaRapido ?? onSeleccionar)(mesa);
           }}
           className="w-full mt-2 py-1.5 px-3 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200 hover:border-transparent transition-all flex items-center justify-center gap-1"
         >
@@ -227,7 +227,7 @@ export const MesaCard: React.FC<MesaCardProps> = ({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onAtenderQuiebre ? onAtenderQuiebre(mesa) : onSeleccionar(mesa);
+                (onAtenderQuiebre ?? onSeleccionar)(mesa);
               }}
               className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-1 shadow-sm border border-amber-400 animate-pulse transition-all active:scale-95 cursor-pointer"
               title="Resolver quiebre de stock en esta mesa"

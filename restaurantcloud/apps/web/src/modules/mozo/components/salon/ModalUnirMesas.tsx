@@ -46,8 +46,6 @@ export const ModalUnirMesas: React.FC<ModalUnirMesasProps> = ({
     }
   };
 
-  if (!isOpen) return null;
-
   const toggleSeleccion = (candidata: CandidataUnionMesaDTO) => {
     if (!candidata.elegible) return;
 
@@ -112,6 +110,9 @@ export const ModalUnirMesas: React.FC<ModalUnirMesasProps> = ({
       return a.numero.localeCompare(b.numero, undefined, { numeric: true });
     });
   }, [datosCandidatas]);
+
+  // Después de todos los hooks: un return anticipado antes de useMemo cambia su orden entre renders
+  if (!isOpen) return null;
 
   const handleConfirmar = async () => {
     if (seleccionadasIds.length === 0) return;

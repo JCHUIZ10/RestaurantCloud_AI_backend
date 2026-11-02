@@ -60,7 +60,7 @@ export const AdminPoliticasReservaPage: React.FC = () => {
         setPoliticasOriginales(JSON.parse(JSON.stringify(resp.datos)));
         setPoliticasBorrador(JSON.parse(JSON.stringify(resp.datos)));
       }
-    } catch (err) {
+    } catch {
       mostrarToast('Error de conexión al cargar parámetros', 'error');
     } finally {
       setCargando(false);
@@ -138,7 +138,7 @@ export const AdminPoliticasReservaPage: React.FC = () => {
         setPoliticasBorrador(JSON.parse(JSON.stringify(resp.datos)));
         mostrarToast('Políticas de reserva actualizadas exitosamente en Sede Miraflores', 'exito');
       }
-    } catch (err) {
+    } catch {
       mostrarToast('Error de comunicación con el servidor', 'error');
     } finally {
       setIsGuardando(false);
@@ -163,7 +163,7 @@ export const AdminPoliticasReservaPage: React.FC = () => {
         setPoliticasBorrador(JSON.parse(JSON.stringify(resp.datos)));
         mostrarToast('Parámetros restablecidos a los valores recomendados de salón', 'exito');
       }
-    } catch (err) {
+    } catch {
       mostrarToast('Error al restaurar valores recomendados', 'error');
     } finally {
       setIsGuardando(false);
