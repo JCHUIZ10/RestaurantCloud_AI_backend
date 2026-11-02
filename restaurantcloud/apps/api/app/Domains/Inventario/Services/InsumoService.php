@@ -2,6 +2,7 @@
 
 namespace App\Domains\Inventario\Services;
 
+use App\Domains\Carta\Services\CartaPublicaService;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -9,7 +10,7 @@ use Illuminate\Support\Str;
 class InsumoService
 {
     private const UNIDADES_VALIDAS = [
-        'kg', 'L', 'und', 'botella', 'saco', 'lata', 'caja', 'paquete', 'bidon', 'jaba'
+        'kg', 'L', 'und', 'botella', 'saco', 'lata', 'caja', 'paquete', 'bidon', 'jaba',
     ];
 
     public function listado(string $localId, array $filtros): array
@@ -25,7 +26,7 @@ class InsumoService
             ->selectRaw("COUNT(*) FILTER (WHERE estado = 'activo')::int as total_activos")
             ->selectRaw("COUNT(*) FILTER (WHERE estado = 'agotado')::int as total_agotados")
             ->selectRaw("COUNT(*) FILTER (WHERE estado = 'inactivo')::int as total_inactivos")
-            ->selectRaw("COALESCE(SUM(stock_actual * costo_unitario), 0)::numeric as valorizacion_total")
+            ->selectRaw('COALESCE(SUM(stock_actual * costo_unitario), 0)::numeric as valorizacion_total')
             ->first();
 
         // Consulta base con join opcional a proveedor
@@ -36,7 +37,7 @@ class InsumoService
                 'i.id', 'i.local_id', 'i.nombre', 'i.unidad_medida',
                 'i.stock_actual', 'i.stock_minimo', 'i.costo_unitario', 'i.moneda',
                 'i.ultimo_proveedor_id', 'prov.nombre as ultimo_proveedor_nombre',
-                'i.fecha_ultima_compra', 'i.estado', 'i.created_at', 'i.updated_at'
+                'i.fecha_ultima_compra', 'i.estado', 'i.created_at', 'i.updated_at',
             ]);
 
         // Filtro por estado
@@ -92,7 +93,7 @@ class InsumoService
                 'i.id', 'i.local_id', 'i.nombre', 'i.unidad_medida',
                 'i.stock_actual', 'i.stock_minimo', 'i.costo_unitario', 'i.moneda',
                 'i.ultimo_proveedor_id', 'prov.nombre as ultimo_proveedor_nombre',
-                'i.fecha_ultima_compra', 'i.estado', 'i.created_at', 'i.updated_at'
+                'i.fecha_ultima_compra', 'i.estado', 'i.created_at', 'i.updated_at',
             ])
             ->first();
 
@@ -133,7 +134,9 @@ class InsumoService
     public function actualizar(string $id, string $localId, array $data): ?array
     {
         $insumo = DB::table('insumo')->where('id', $id)->where('local_id', $localId)->first();
-        if (! $insumo) return null;
+        if (! $insumo) {
+            return null;
+        }
 
         $this->validarUnidad($data['unidad_medida'] ?? $insumo->unidad_medida);
         $this->verificarNombreUnico($localId, $data['nombre'], $id);
@@ -169,7 +172,10 @@ class InsumoService
             throw new \RuntimeException('No se pudo procesar el ajuste de inventario.');
         }
 
-        return json_decode($resultado->payload, true);
+        $payload = json_decode($resultado->payload, true);
+        CartaPublicaService::invalidarTrasInventario($localId, $payload ?: []);
+
+        return $payload;
     }
 
     public function cambiarEstado(string $id, string $localId, string $nuevoEstado): ?array
@@ -223,7 +229,7 @@ class InsumoService
                 'a.id', 'a.local_id', 'a.insumo_id', 'i.nombre as insumo_nombre',
                 'a.usuario_id', 'u.nombre as usuario_nombre',
                 'a.stock_anterior', 'a.stock_nuevo', 'a.diferencia',
-                'a.motivo', 'a.notas', 'a.created_at'
+                'a.motivo', 'a.notas', 'a.created_at',
             ])
             ->orderByDesc('a.created_at')
             ->limit(50)

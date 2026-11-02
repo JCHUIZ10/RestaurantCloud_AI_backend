@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Domains\Archivos\Services\TenantStorageService;
 use App\Domains\Carta\Services\CartaPublicaService;
+use App\Domains\Inventario\Services\InsumoService;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -321,6 +322,38 @@ class CartaPublicaTest extends TestCase
 
         $despues = collect($this->categoriaEnRespuesta($this->carta()->assertOk(), $categoriaId)['platos'])->firstWhere('id', $productoId);
         $this->assertSame('agotado', $despues['disponibilidad']);
+    }
+
+    public function test_quiebre_de_stock_en_funcion_de_inventario_invalida_la_carta_cacheada(): void
+    {
+        $categoriaId = $this->crearCategoria();
+        $productoId = $this->crearProducto($categoriaId);
+        $insumoId = (string) Str::uuid();
+        DB::table('insumo')->insert([
+            'id' => $insumoId,
+            'local_id' => $this->localId,
+            'nombre' => 'Insumo Test '.Str::random(6),
+            'unidad_medida' => 'kg',
+            'stock_actual' => 5,
+            'stock_minimo' => 1,
+            'costo_unitario' => 10,
+        ]);
+        DB::table('producto_insumo')->insert([
+            'producto_id' => $productoId,
+            'insumo_id' => $insumoId,
+            'modo_calculo' => 'exacto',
+            'cantidad_descuenta' => 0.5,
+        ]);
+        $this->carta()->assertOk();
+
+        // fn_inventario_ajustar_stock agota el plato dentro de PostgreSQL, sin pasar por ProductoService
+        app(InsumoService::class)->ajustarStock($insumoId, $this->localId, $this->adminId, [
+            'stock_fisico' => 0,
+            'motivo' => 'conteo_fisico_inventario',
+        ]);
+
+        $plato = collect($this->categoriaEnRespuesta($this->carta()->assertOk(), $categoriaId)['platos'])->firstWhere('id', $productoId);
+        $this->assertSame('agotado', $plato['disponibilidad']);
     }
 
     public function test_la_segunda_consulta_se_sirve_desde_cache_sin_releer_productos(): void

@@ -33,6 +33,33 @@ class CartaPublicaService
         DB::afterCommit(fn () => Cache::forget(self::clave($localId)));
     }
 
+    /**
+     * Las funciones fn_inventario_* de PostgreSQL agotan o reactivan platos sin pasar por los
+     * servicios de carta. Indica si su respuesta reporta algún plato con cambio de disponibilidad.
+     *
+     * @param  array<string, mixed>  $respuesta  JSON decodificado que devuelve la función
+     */
+    public static function cambiaDisponibilidad(array $respuesta): bool
+    {
+        foreach (['platos_bloqueados_en_carta', 'quiebres_generados', 'platos_reactivados', 'platos_agotados'] as $clave) {
+            if (! empty($respuesta[$clave])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $respuesta  JSON decodificado que devuelve la función fn_inventario_*
+     */
+    public static function invalidarTrasInventario(string $localId, array $respuesta): void
+    {
+        if (self::cambiaDisponibilidad($respuesta)) {
+            self::invalidar($localId);
+        }
+    }
+
     private static function clave(string $localId): string
     {
         return "carta_publica:{$localId}";

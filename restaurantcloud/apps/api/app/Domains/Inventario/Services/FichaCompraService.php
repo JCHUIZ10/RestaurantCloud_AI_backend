@@ -2,6 +2,7 @@
 
 namespace App\Domains\Inventario\Services;
 
+use App\Domains\Carta\Services\CartaPublicaService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -25,10 +26,10 @@ class FichaCompraService
         $statsMesActual = DB::table('ficha_compra')
             ->where('local_id', $localId)
             ->where('estado', 'registrada')
-            ->whereRaw("EXTRACT(YEAR FROM fecha_emision) = EXTRACT(YEAR FROM CURRENT_DATE)")
-            ->whereRaw("EXTRACT(MONTH FROM fecha_emision) = EXTRACT(MONTH FROM CURRENT_DATE)")
-            ->selectRaw("COALESCE(SUM(total), 0)::numeric as gasto_mes_total")
-            ->selectRaw("COUNT(*)::int as total_compras_mes")
+            ->whereRaw('EXTRACT(YEAR FROM fecha_emision) = EXTRACT(YEAR FROM CURRENT_DATE)')
+            ->whereRaw('EXTRACT(MONTH FROM fecha_emision) = EXTRACT(MONTH FROM CURRENT_DATE)')
+            ->selectRaw('COALESCE(SUM(total), 0)::numeric as gasto_mes_total')
+            ->selectRaw('COUNT(*)::int as total_compras_mes')
             ->selectRaw("COALESCE(SUM(CASE WHEN tipo_comprobante = 'factura' THEN impuestos ELSE 0 END), 0)::numeric as facturas_con_igv_monto")
             ->first();
 
@@ -38,7 +39,7 @@ class FichaCompraService
             ->where('estado', 'registrada')
             ->whereRaw("fecha_emision >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')")
             ->whereRaw("fecha_emision < DATE_TRUNC('month', CURRENT_DATE)")
-            ->selectRaw("COALESCE(SUM(total), 0)::numeric as gasto_mes_anterior")
+            ->selectRaw('COALESCE(SUM(total), 0)::numeric as gasto_mes_anterior')
             ->first();
 
         $gastoMesActual = (float) ($statsMesActual->gasto_mes_total ?? 0);
@@ -123,7 +124,7 @@ class FichaCompraService
                 'p.nombre as proveedor_nombre',
                 'p.telefono as proveedor_telefono',
                 DB::raw("COALESCE(u.nombre, 'Administrador') as registrado_por_nombre"),
-                DB::raw("(SELECT COUNT(*)::int FROM ficha_compra_detalle WHERE ficha_compra_id = fc.id) as cantidad_items"),
+                DB::raw('(SELECT COUNT(*)::int FROM ficha_compra_detalle WHERE ficha_compra_id = fc.id) as cantidad_items'),
             ])
             ->orderBy('fc.fecha_emision', 'desc')
             ->orderBy('fc.created_at', 'desc')
@@ -166,7 +167,7 @@ class FichaCompraService
                 'p.direccion as proveedor_direccion',
                 DB::raw("COALESCE(u.nombre, 'Administrador') as registrado_por_nombre"),
                 'ua.nombre as anulado_por_nombre',
-                DB::raw("(SELECT COUNT(*)::int FROM ficha_compra_detalle WHERE ficha_compra_id = fc.id) as cantidad_items"),
+                DB::raw('(SELECT COUNT(*)::int FROM ficha_compra_detalle WHERE ficha_compra_id = fc.id) as cantidad_items'),
             ])
             ->first();
 
@@ -593,6 +594,7 @@ class FichaCompraService
         );
 
         $res = json_decode($resultadoJson->res ?? '{}', true);
+        CartaPublicaService::invalidarTrasInventario($localId, $res ?: []);
 
         return $this->detalle($id, $localId);
     }
@@ -614,6 +616,10 @@ class FichaCompraService
                 'motivo_agotado' => null,
                 'updated_at' => now(),
             ]);
+
+        if ($actualizados > 0) {
+            CartaPublicaService::invalidar($localId);
+        }
 
         return [
             'actualizados' => $actualizados,

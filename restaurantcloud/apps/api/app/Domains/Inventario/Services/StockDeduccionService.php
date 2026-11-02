@@ -2,10 +2,30 @@
 
 namespace App\Domains\Inventario\Services;
 
+use App\Domains\Carta\Services\CartaPublicaService;
 use Illuminate\Support\Facades\DB;
 
 class StockDeduccionService
 {
+    /**
+     * Invalida la carta pública de la sede del ítem si la función agotó o reactivó platos.
+     */
+    private function invalidarCarta(string $pedidoItemId, array $respuesta): void
+    {
+        if (! CartaPublicaService::cambiaDisponibilidad($respuesta)) {
+            return;
+        }
+
+        $localId = DB::table('pedido_item as pi')
+            ->join('pedido as p', 'p.id', '=', 'pi.pedido_id')
+            ->where('pi.id', $pedidoItemId)
+            ->value('p.local_id');
+
+        if ($localId) {
+            CartaPublicaService::invalidar($localId);
+        }
+    }
+
     /**
      * Descuenta atómicamente la receta culinaria de un ítem de pedido en KDS o despacho de salón.
      */
@@ -25,7 +45,10 @@ class StockDeduccionService
                 ];
             }
 
-            return json_decode($resultado->payload, true) ?: [];
+            $payload = json_decode($resultado->payload, true) ?: [];
+            $this->invalidarCarta($pedidoItemId, $payload);
+
+            return $payload;
         });
     }
 
@@ -48,7 +71,10 @@ class StockDeduccionService
                 ];
             }
 
-            return json_decode($resultado->payload, true) ?: [];
+            $payload = json_decode($resultado->payload, true) ?: [];
+            $this->invalidarCarta($pedidoItemId, $payload);
+
+            return $payload;
         });
     }
 

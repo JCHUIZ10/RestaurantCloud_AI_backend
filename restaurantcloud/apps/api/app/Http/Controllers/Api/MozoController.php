@@ -4,13 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Domains\Archivos\Services\TenantStorageService;
 use App\Domains\Inventario\Services\StockDeduccionService;
+use App\Domains\Promociones\Services\PromocionService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Domains\Promociones\Services\PromocionService;
-use Carbon\Carbon;
 use Illuminate\Support\Str;
 
 class MozoController extends Controller
@@ -140,7 +140,7 @@ class MozoController extends Controller
                     ->sort()
                     ->values()
                     ->all();
-                $etiqueta = 'Mesa [ ' . implode(' ; ', $numeros) . ' ]';
+                $etiqueta = 'Mesa [ '.implode(' ; ', $numeros).' ]';
                 $etiquetasUnionPorMesa[$principalId] = $etiqueta;
                 foreach ($hijas as $hija) {
                     $etiquetasUnionPorMesa[$hija->id] = $etiqueta;
@@ -541,8 +541,8 @@ class MozoController extends Controller
                 ->filter()
                 ->sort()
                 ->values();
-            $etiquetaUnion = 'Mesa [ ' . implode(' ; ', $todosNumeros->all()) . ' ]';
-            $mesasAgrupadasDetalle = 'Mesa ' . ($principal?->numero ?? '') . ' (Titular) + ' . $hermanas->pluck('numero')->map(fn($n) => "Mesa $n")->implode(', ');
+            $etiquetaUnion = 'Mesa [ '.implode(' ; ', $todosNumeros->all()).' ]';
+            $mesasAgrupadasDetalle = 'Mesa '.($principal?->numero ?? '').' (Titular) + '.$hermanas->pluck('numero')->map(fn ($n) => "Mesa $n")->implode(', ');
             $esMesaUnida = true;
         } else {
             $hijas = DB::table('mesa')->where('mesa_principal_id', $mesa->id)->get();
@@ -551,8 +551,8 @@ class MozoController extends Controller
                     ->merge($hijas->pluck('numero'))
                     ->sort()
                     ->values();
-                $etiquetaUnion = 'Mesa [ ' . implode(' ; ', $todosNumeros->all()) . ' ]';
-                $mesasAgrupadasDetalle = "Mesa {$mesa->numero} (Titular) + " . $hijas->pluck('numero')->map(fn($n) => "Mesa $n")->implode(', ');
+                $etiquetaUnion = 'Mesa [ '.implode(' ; ', $todosNumeros->all()).' ]';
+                $mesasAgrupadasDetalle = "Mesa {$mesa->numero} (Titular) + ".$hijas->pluck('numero')->map(fn ($n) => "Mesa $n")->implode(', ');
                 $esMesaUnida = true;
             }
         }
@@ -744,16 +744,16 @@ class MozoController extends Controller
             return ApiResponse::error('No hay una comanda activa para solicitar la cuenta en esta mesa.', 404);
         }
 
-        $tipoComprobante = $preferencias['tipo_comprobante'] 
-            ?? $preferencias['tipo_comprobante_sugerido'] 
+        $tipoComprobante = $preferencias['tipo_comprobante']
+            ?? $preferencias['tipo_comprobante_sugerido']
             ?? $pedido->tipo_comprobante_sugerido;
 
-        $docCliente = $preferencias['documento_cliente'] 
-            ?? $preferencias['documento_cliente_sugerido'] 
+        $docCliente = $preferencias['documento_cliente']
+            ?? $preferencias['documento_cliente_sugerido']
             ?? $pedido->documento_cliente_sugerido;
 
-        $nomCliente = $preferencias['nombre_cliente'] 
-            ?? $preferencias['nombre_cliente_sugerido'] 
+        $nomCliente = $preferencias['nombre_cliente']
+            ?? $preferencias['nombre_cliente_sugerido']
             ?? $pedido->nombre_cliente_sugerido;
 
         $promocionId = $preferencias['promocion_id'] ?? $pedido->promocion_id;
@@ -892,7 +892,7 @@ class MozoController extends Controller
                 ->values();
 
             $mensaje = $unionDisuelta
-                ? "Mesa {$titular->numero} y sus mesas unidas (" . $secundarias->pluck('numero')->implode(', ') . ") liberadas exitosamente y separadas como nuevas."
+                ? "Mesa {$titular->numero} y sus mesas unidas (".$secundarias->pluck('numero')->implode(', ').') liberadas exitosamente y separadas como nuevas.'
                 : "Mesa {$mesa->numero} liberada exitosamente. Vuelve a estar disponible para nuevos comensales.";
 
             return ApiResponse::ok([
@@ -1079,7 +1079,7 @@ class MozoController extends Controller
                 ->sort()
                 ->values();
 
-            $labelUnificado = 'Mesa [ ' . implode(' ; ', $todosNumeros->all()) . ' ]';
+            $labelUnificado = 'Mesa [ '.implode(' ; ', $todosNumeros->all()).' ]';
             $capacidadTotal = (int) $titular->capacidad + (int) $secundarias->sum('capacidad');
 
             $mesasItems = [
@@ -1141,7 +1141,7 @@ class MozoController extends Controller
             ->sort()
             ->values();
 
-        $label = 'Mesa [ ' . implode(' ; ', $todosNumeros->all()) . ' ]';
+        $label = 'Mesa [ '.implode(' ; ', $todosNumeros->all()).' ]';
 
         $mesasRestaurar = [
             [
@@ -1255,11 +1255,11 @@ class MozoController extends Controller
 
             $nuevaEtiqueta = $grupoDisuelto
                 ? null
-                : 'Mesa [ ' . implode(' ; ', $restantesNumeros->all()) . ' ]';
+                : 'Mesa [ '.implode(' ; ', $restantesNumeros->all()).' ]';
 
             $mensaje = $grupoDisuelto
-                ? "Todas las mesas secundarias (" . implode(', ', $desvinculadasNumeros->all()) . ") fueron desvinculadas y liberadas. La Mesa {$titular->numero} continúa ocupada con la comanda activa."
-                : "Mesa(s) " . implode(', ', $desvinculadasNumeros->all()) . " desvinculada(s) y liberada(s). Mesa {$titular->numero} y restantes continúan con la comanda activa ({$nuevaEtiqueta}).";
+                ? 'Todas las mesas secundarias ('.implode(', ', $desvinculadasNumeros->all()).") fueron desvinculadas y liberadas. La Mesa {$titular->numero} continúa ocupada con la comanda activa."
+                : 'Mesa(s) '.implode(', ', $desvinculadasNumeros->all())." desvinculada(s) y liberada(s). Mesa {$titular->numero} y restantes continúan con la comanda activa ({$nuevaEtiqueta}).";
 
             return ApiResponse::ok([
                 'mesa_principal_id' => $titularId,
@@ -1346,6 +1346,7 @@ class MozoController extends Controller
 
         $categoriasDTO = $categorias->map(function ($c) use ($productos) {
             $totalCount = $productos->where('categoria_id', $c->id)->count();
+
             return [
                 'id' => $c->id,
                 'nombre' => $c->nombre,
@@ -2147,6 +2148,7 @@ class MozoController extends Controller
     private function normalizarMotivoCategoria(string $categoria): string
     {
         $categoria = strtolower(trim($categoria));
+
         return match ($categoria) {
             'error_toma', 'error_registro' => 'error_registro',
             'demora_cliente' => 'demora_cliente',
@@ -2168,7 +2170,7 @@ class MozoController extends Controller
             ->where('local_id', $localId)
             ->first();
 
-        if (!$mesa) {
+        if (! $mesa) {
             return [null, null];
         }
 
@@ -2177,7 +2179,7 @@ class MozoController extends Controller
             ? $mesa
             : DB::table('mesa')->where('id', $titularId)->first();
 
-        if (!$titular) {
+        if (! $titular) {
             return [null, null];
         }
 
@@ -2193,9 +2195,9 @@ class MozoController extends Controller
                 ->merge($secundarias->pluck('numero'))
                 ->sort()
                 ->values();
-            $etiqueta = 'Mesa [ ' . $numeros->implode(' ; ') . ' ]';
+            $etiqueta = 'Mesa [ '.$numeros->implode(' ; ').' ]';
         } else {
-            $etiqueta = 'Mesa ' . $titular->numero;
+            $etiqueta = 'Mesa '.$titular->numero;
         }
 
         return [$titular, $etiqueta];
@@ -2215,7 +2217,7 @@ class MozoController extends Controller
         ]);
 
         [$titular, $etiquetaUnion] = $this->resolverMesaTitularYEtiqueta($id, $localId);
-        if (!$titular) {
+        if (! $titular) {
             return ApiResponse::error('MESA_NO_ENCONTRADA', 'Mesa no encontrada.', 404);
         }
 
@@ -2226,7 +2228,7 @@ class MozoController extends Controller
             ->select('pi.*', 'p.mozo_id', 'p.estado as pedido_estado', 'p.created_at as pedido_created_at')
             ->first();
 
-        if (!$item) {
+        if (! $item) {
             return ApiResponse::error('ITEM_NO_ENCONTRADO', 'El plato no existe en la comanda del local.', 404);
         }
 
@@ -2245,7 +2247,7 @@ class MozoController extends Controller
         $costoMerma = $esMerma ? round((int) $item->cantidad * $costoEstandar, 2) : 0.00;
 
         $anuladoAt = now();
-        $pedidoCreatedAt = \Carbon\Carbon::parse($item->pedido_created_at);
+        $pedidoCreatedAt = Carbon::parse($item->pedido_created_at);
         $minutosEspera = max(0, (int) round($pedidoCreatedAt->diffInMinutes($anuladoAt)));
 
         return DB::transaction(function () use (
@@ -2255,10 +2257,7 @@ class MozoController extends Controller
             // Revertir existencias a bodega si el plato no es merma culinaria (ej. en_cola)
             // y su receta ya había sido descontada por producción o despacho
             if (! $esMerma && (bool) ($item->stock_descontado ?? false)) {
-                DB::selectOne('SELECT fn_inventario_revertir_receta(CAST(? AS uuid), CAST(? AS uuid)) AS res', [
-                    $item->id,
-                    $user->id,
-                ]);
+                app(StockDeduccionService::class)->revertirRecetaItem($item->id, $user->id);
             }
 
             // 1. Actualizar ítem a anulado
@@ -2397,7 +2396,7 @@ class MozoController extends Controller
         ]);
 
         [$titular, $etiquetaUnion] = $this->resolverMesaTitularYEtiqueta($id, $localId);
-        if (!$titular) {
+        if (! $titular) {
             return ApiResponse::error('MESA_NO_ENCONTRADA', 'Mesa no encontrada.', 404);
         }
 
@@ -2408,7 +2407,7 @@ class MozoController extends Controller
             ->latest('created_at')
             ->first();
 
-        if (!$pedido) {
+        if (! $pedido) {
             return ApiResponse::error('NO_PEDIDO_ACTIVO', 'La mesa no cuenta con un pedido activo para anular.', 422);
         }
 
@@ -2424,7 +2423,7 @@ class MozoController extends Controller
             ->keyBy('id');
 
         $anuladoAt = now();
-        $pedidoCreatedAt = \Carbon\Carbon::parse($pedido->created_at);
+        $pedidoCreatedAt = Carbon::parse($pedido->created_at);
         $minutosEspera = max(0, (int) round($pedidoCreatedAt->diffInMinutes($anuladoAt)));
         $motivoNormalizado = $this->normalizarMotivoCategoria($validated['motivo_categoria']);
         $empresaId = $user->empresa_id ?? DB::table('local')->where('id', $localId)->value('empresa_id');
@@ -2448,10 +2447,7 @@ class MozoController extends Controller
                     // Revertir existencias a bodega si el plato no es merma culinaria (ej. en_cola)
                     // y su receta ya había sido descontada por producción o despacho
                     if (! $esMerma && (bool) ($item->stock_descontado ?? false)) {
-                        DB::selectOne('SELECT fn_inventario_revertir_receta(CAST(? AS uuid), CAST(? AS uuid)) AS res', [
-                            $item->id,
-                            $user->id,
-                        ]);
+                        app(StockDeduccionService::class)->revertirRecetaItem($item->id, $user->id);
                     }
 
                     // 1. Actualizar ítem a anulado
@@ -2655,6 +2651,7 @@ class MozoController extends Controller
             if ($a['es_misma_categoria'] !== $b['es_misma_categoria']) {
                 return $a['es_misma_categoria'] ? -1 : 1;
             }
+
             return strcmp($a['nombre'], $b['nombre']);
         })->values()->slice(0, 6)->all();
 
@@ -2775,7 +2772,7 @@ class MozoController extends Controller
             // 2. Crear nuevo ítem en comanda con prioridad
             $nuevoItemId = (string) Str::uuid();
             $notaCocina = ! empty($validated['notas_cocina'])
-                ? 'SUSTITUCIÓN URGENTE (Quiebre): ' . trim($validated['notas_cocina'])
+                ? 'SUSTITUCIÓN URGENTE (Quiebre): '.trim($validated['notas_cocina'])
                 : 'SUSTITUCIÓN URGENTE (Quiebre)';
 
             DB::table('pedido_item')->insert([
@@ -2919,7 +2916,7 @@ class MozoController extends Controller
             $anulacionId = (string) Str::uuid();
             $motivoDetalleCompleto = strlen($validated['motivo_detalle']) >= 10
                 ? $validated['motivo_detalle']
-                : 'Quiebre de stock en cocina: ' . $validated['motivo_detalle'];
+                : 'Quiebre de stock en cocina: '.$validated['motivo_detalle'];
 
             DB::table('pedido_anulacion')->insert([
                 'id' => $anulacionId,
@@ -3159,7 +3156,7 @@ class MozoController extends Controller
             ->whereIn('r.estado', ['confirmada', 'bloqueada'])
             ->where(function ($q) use ($ventanaInicio, $ventanaFin, $duracion) {
                 $q->where('r.fecha_hora', '<', $ventanaFin)
-                  ->whereRaw("r.fecha_hora + interval '{$duracion} minutes' > ?", [$ventanaInicio]);
+                    ->whereRaw("r.fecha_hora + interval '{$duracion} minutes' > ?", [$ventanaInicio]);
             })
             ->select('rm.mesa_id', 'r.cliente_nombre', 'r.fecha_hora')
             ->get()
@@ -3241,7 +3238,7 @@ class MozoController extends Controller
 
         if ($turno === 'almuerzo' && isset($turnos['almuerzo'])) {
             $query->whereTime('r.fecha_hora', '>=', $turnos['almuerzo']['inicio'])
-                  ->whereTime('r.fecha_hora', '<', $turnos['almuerzo']['fin']);
+                ->whereTime('r.fecha_hora', '<', $turnos['almuerzo']['fin']);
         } elseif ($turno === 'cena' && isset($turnos['cena'])) {
             $query->whereTime('r.fecha_hora', '>=', $turnos['cena']['inicio']);
             if (isset($turnos['cena']['fin']) && $turnos['cena']['fin'] > $turnos['cena']['inicio']) {
@@ -3281,9 +3278,9 @@ class MozoController extends Controller
             if (count($numeros) === 0) {
                 $mesasEtiqueta = 'Sin mesa';
             } elseif (count($numeros) === 1) {
-                $mesasEtiqueta = 'Mesa ' . $numeros[0];
+                $mesasEtiqueta = 'Mesa '.$numeros[0];
             } else {
-                $mesasEtiqueta = 'Mesa [ ' . implode(' ; ', $numeros) . ' ]';
+                $mesasEtiqueta = 'Mesa [ '.implode(' ; ', $numeros).' ]';
             }
 
             $reservaTimestamp = strtotime($r->fecha_hora);
@@ -3376,7 +3373,7 @@ class MozoController extends Controller
             ->whereIn('r.estado', ['confirmada', 'bloqueada'])
             ->where(function ($q) use ($ventanaInicio, $ventanaFin, $duracion) {
                 $q->where('r.fecha_hora', '<', $ventanaFin)
-                  ->whereRaw("r.fecha_hora + interval '{$duracion} minutes' > ?", [$ventanaInicio]);
+                    ->whereRaw("r.fecha_hora + interval '{$duracion} minutes' > ?", [$ventanaInicio]);
             })
             ->select('m.numero')
             ->distinct()
@@ -3384,7 +3381,7 @@ class MozoController extends Controller
 
         if ($colisiones->isNotEmpty()) {
             return ApiResponse::error(
-                'Conflicto de horario: La mesa ' . $colisiones->implode(', ') . ' ya cuenta con una reserva activa en esa franja.',
+                'Conflicto de horario: La mesa '.$colisiones->implode(', ').' ya cuenta con una reserva activa en esa franja.',
                 422
             );
         }
@@ -3438,7 +3435,7 @@ class MozoController extends Controller
             ]);
 
             $numeros = $mesasDB->pluck('numero')->sort()->values()->all();
-            $etiqueta = count($numeros) === 1 ? 'Mesa ' . $numeros[0] : 'Mesa [ ' . implode(' ; ', $numeros) . ' ]';
+            $etiqueta = count($numeros) === 1 ? 'Mesa '.$numeros[0] : 'Mesa [ '.implode(' ; ', $numeros).' ]';
 
             return ApiResponse::ok([
                 'id' => $reservaId,
@@ -3751,7 +3748,7 @@ class MozoController extends Controller
                 'hora_texto' => date('H:i', strtotime($reserva->fecha_hora)),
                 'minutos_restantes' => $minutosRestantes,
                 'num_personas' => (int) $reserva->num_personas,
-                'mesas_etiqueta' => 'Mesa ' . $nuevaMesa->numero,
+                'mesas_etiqueta' => 'Mesa '.$nuevaMesa->numero,
                 'mesa_ids' => [$nuevaMesa->id],
                 'estado' => $reserva->estado,
                 'notas' => $notasActuales,
