@@ -18,37 +18,40 @@
         </include>
     </source>
     <php>
-        <env name="APP_ENV" value="testing"/>
-        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
-        <env name="BCRYPT_ROUNDS" value="4"/>
-        <env name="BROADCAST_CONNECTION" value="null"/>
-        <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="pgsql"/>
-        <env name="DB_HOST" value="db"/>
-        <env name="DB_PORT" value="5432"/>
-        <env name="DB_DATABASE" value="restaurantcloud_db"/>
-        <env name="DB_USERNAME" value="saas_admin"/>
-        <env name="DB_PASSWORD" value="123"/>
-        <env name="REDIS_CLIENT" value="predis"/>
-        <env name="REDIS_HOST" value="redis"/>
-        <env name="REDIS_PORT" value="6379"/>
-        <env name="REDIS_PASSWORD" value="rC_redis_secret_2026!"/>
-        <env name="FILESYSTEM_DISK" value="s3"/>
-        <env name="AWS_ACCESS_KEY_ID" value="saas_minio_admin"/>
-        <env name="AWS_SECRET_ACCESS_KEY" value="rC_minio_secret_2026!"/>
-        <env name="AWS_DEFAULT_REGION" value="us-east-1"/>
-        <env name="AWS_BUCKET" value="restaurantcloud"/>
-        <env name="AWS_ENDPOINT" value="http://minio:9000"/>
-        <env name="AWS_USE_PATH_STYLE_ENDPOINT" value="true"/>
-        <env name="STRIPE_KEY" value="pk_test_51RXxfq02BE027197zUNZ6B7NNUGu8E4qNLGnx0D5Kxu46SHNlKQxUP9qCt7rDgqhtg9RCRqcC2oKqSgAuZvgVFj4004cl4ycQi"/>
-        <env name="STRIPE_SECRET_KEY" value="sk_test_51RXxfq02BE0271973rio6XFQD6uYl64ktkfr5SwtnXpPEFXmd5aXp5AufI2UU5HH0pG4SgkD5Pp5TrpjBigL208V00dvWMPRGT"/>
-        <env name="MAIL_MAILER" value="array"/>
-        <env name="QUEUE_CONNECTION" value="sync"/>
-        <env name="SESSION_DRIVER" value="array"/>
-        <env name="PULSE_ENABLED" value="false"/>
-        <env name="TELESCOPE_ENABLED" value="false"/>
-        <env name="NIGHTWATCH_ENABLED" value="false"/>
-        <env name="APIDEV_MOCK" value="true"/>
+        <!-- <server> y no <env>: el contenedor ya define estas variables en $_SERVER, que Laravel lee -->
+        <!-- antes que $_ENV; <env force="true"> solo pisa $_ENV/getenv() y no bastaría. -->
+        <!-- BD y bucket exclusivos de tests: recrearlos con scripts/test-db-reset.sh. -->
+        <!-- Las claves de Stripe llegan por el entorno del contenedor. -->
+        <server name="APP_ENV" value="testing"/>
+        <server name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <server name="BCRYPT_ROUNDS" value="4"/>
+        <server name="BROADCAST_CONNECTION" value="null"/>
+        <server name="CACHE_STORE" value="array"/>
+        <server name="DB_CONNECTION" value="pgsql"/>
+        <server name="DB_HOST" value="db"/>
+        <server name="DB_PORT" value="5432"/>
+        <server name="DB_DATABASE" value="restaurantcloud_test"/>
+        <server name="DB_USERNAME" value="saas_admin"/>
+        <server name="DB_PASSWORD" value="123"/>
+        <server name="REDIS_HOST" value="redis"/>
+        <server name="REDIS_PORT" value="6379"/>
+        <server name="REDIS_PASSWORD" value="rC_redis_secret_2026!"/>
+        <server name="REDIS_PREFIX" value="rc_test_"/>
+        <server name="FILESYSTEM_DISK" value="s3"/>
+        <server name="AWS_ACCESS_KEY_ID" value="saas_minio_admin"/>
+        <server name="AWS_SECRET_ACCESS_KEY" value="rC_minio_secret_2026!"/>
+        <server name="AWS_DEFAULT_REGION" value="us-east-1"/>
+        <server name="AWS_BUCKET" value="restaurantcloud-test"/>
+        <server name="AWS_URL" value="http://localhost:9000/restaurantcloud-test"/>
+        <server name="AWS_ENDPOINT" value="http://minio:9000"/>
+        <server name="AWS_USE_PATH_STYLE_ENDPOINT" value="true"/>
+        <server name="MAIL_MAILER" value="array"/>
+        <server name="QUEUE_CONNECTION" value="sync"/>
+        <server name="SESSION_DRIVER" value="array"/>
+        <server name="PULSE_ENABLED" value="false"/>
+        <server name="TELESCOPE_ENABLED" value="false"/>
+        <server name="NIGHTWATCH_ENABLED" value="false"/>
+        <server name="APIDEV_MOCK" value="true"/>
     </php>
 
 </phpunit>

@@ -10,15 +10,18 @@ use Tests\TestCase;
 class CobroFiscalComprobanteTest extends TestCase
 {
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
+
     private string $localId = '00000000-0000-4000-8000-000000000010';
+
     private string $cajeroId = '00000000-0000-4000-8000-000000000105';
+
     private string $tokenCajero;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $rawToken = 'test_token_cobro_fiscal_' . Str::random(32);
+        $rawToken = 'test_token_cobro_fiscal_'.Str::random(32);
         $tokenHash = hash('sha256', $rawToken);
 
         $sessionPayload = [
@@ -38,7 +41,7 @@ class CobroFiscalComprobanteTest extends TestCase
     private function headers(): array
     {
         return [
-            'Authorization' => 'Bearer ' . $this->tokenCajero,
+            'Authorization' => 'Bearer '.$this->tokenCajero,
             'Accept' => 'application/json',
         ];
     }
@@ -115,6 +118,15 @@ class CobroFiscalComprobanteTest extends TestCase
             'updated_at' => now(),
         ]);
 
+        // Mismo cálculo que fn_obtener_siguiente_correlativo: supera al acumulador y al máximo ya emitido
+        $acumuladoSerie = (int) DB::table('comprobante_serie')
+            ->where('local_id', $this->localId)
+            ->where('tipo_comprobante', 'boleta')
+            ->where('serie', 'B001')
+            ->value('correlativo_actual');
+        $maximoEmitido = (int) DB::table('comprobante')->where('serie', 'B001')->max('correlativo');
+        $correlativoEsperado = max($acumuladoSerie, $maximoEmitido) + 1;
+
         // 3. Ejecutar POST api/v1/caja/cobrar
         $response = $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', [
             'pedido_id' => $pedidoId,
@@ -145,10 +157,10 @@ class CobroFiscalComprobanteTest extends TestCase
         $this->assertNotNull($comprobanteDb);
         $this->assertEquals('emitido', $comprobanteDb->estado);
         $this->assertEquals('B001', $comprobanteDb->serie);
-        $this->assertGreaterThan(37922, $comprobanteDb->correlativo);
+        $this->assertSame($correlativoEsperado, (int) $comprobanteDb->correlativo);
 
         // 5. Verificar que el token digital es consultable públicamente
-        $publicResponse = $this->getJson('/api/v1/public/comprobantes/' . $datos['token_digital']);
+        $publicResponse = $this->getJson('/api/v1/public/comprobantes/'.$datos['token_digital']);
         $publicResponse->assertStatus(200);
         $publicResponse->assertJson([
             'exito' => true,

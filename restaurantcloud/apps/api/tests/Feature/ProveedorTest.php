@@ -10,9 +10,13 @@ use Tests\TestCase;
 class ProveedorTest extends TestCase
 {
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
+
     private string $localId = '00000000-0000-4000-8000-000000000010';
+
     private string $adminId = '00000000-0000-4000-8000-000000000102';
+
     private string $adminCorreo = 'admin@aurea.local';
+
     private string $tokenAdmin;
 
     protected function setUp(): void
@@ -20,7 +24,7 @@ class ProveedorTest extends TestCase
         parent::setUp();
 
         // Autenticación en Redis para admin_local
-        $rawToken = 'test_token_admin_prov_' . Str::random(32);
+        $rawToken = 'test_token_admin_prov_'.Str::random(32);
         $tokenHash = hash('sha256', $rawToken);
 
         $sessionPayload = [
@@ -40,7 +44,7 @@ class ProveedorTest extends TestCase
     private function headers(): array
     {
         return [
-            'Authorization' => 'Bearer ' . $this->tokenAdmin,
+            'Authorization' => 'Bearer '.$this->tokenAdmin,
             'Accept' => 'application/json',
         ];
     }
@@ -97,7 +101,7 @@ class ProveedorTest extends TestCase
         // Obtener un insumo existente en la sede
         $insumoId = DB::table('insumo')->where('local_id', $this->localId)->value('id');
 
-        $nombre = 'Avícola Santa Anita ' . Str::random(5);
+        $nombre = 'Avícola Santa Anita '.Str::random(5);
         $payload = [
             'nombre' => $nombre,
             'contacto' => 'Carlos Méndez',
@@ -132,7 +136,7 @@ class ProveedorTest extends TestCase
      */
     public function test_crear_proveedor_duplicado_rechaza_con_409(): void
     {
-        $nombre = 'Distribuidora Panamericana ' . Str::random(5);
+        $nombre = 'Distribuidora Panamericana '.Str::random(5);
         $payload = [
             'nombre' => $nombre,
             'telefono' => '+51 911 222 333',
@@ -144,7 +148,7 @@ class ProveedorTest extends TestCase
 
         // Segundo intento con variación de mayúsculas/espacios
         $payloadDuplicado = [
-            'nombre' => '  ' . strtoupper($nombre) . '  ',
+            'nombre' => '  '.strtoupper($nombre).'  ',
             'telefono' => '+51 999 000 111',
         ];
 
@@ -162,14 +166,14 @@ class ProveedorTest extends TestCase
         DB::table('proveedor')->insert([
             'id' => $id,
             'local_id' => $this->localId,
-            'nombre' => 'Proveedor Original ' . Str::random(4),
+            'nombre' => 'Proveedor Original '.Str::random(4),
             'telefono' => '+51 900 111 222',
             'activo' => true,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        $nuevoNombre = 'Proveedor Actualizado ' . Str::random(4);
+        $nuevoNombre = 'Proveedor Actualizado '.Str::random(4);
         $payload = [
             'nombre' => $nuevoNombre,
             'contacto' => 'Gerente de Ventas',
@@ -193,7 +197,7 @@ class ProveedorTest extends TestCase
         DB::table('proveedor')->insert([
             'id' => $id,
             'local_id' => $this->localId,
-            'nombre' => 'Proveedor Toggle ' . Str::random(4),
+            'nombre' => 'Proveedor Toggle '.Str::random(4),
             'telefono' => '+51 900 888 777',
             'activo' => true,
             'created_at' => now(),
@@ -216,8 +220,15 @@ class ProveedorTest extends TestCase
      */
     public function test_eliminar_proveedor_con_compras_bloquea_on_delete_restrict_409(): void
     {
-        // En seed 07 existe 'Mercado Mayorista San Pedro' con ficha de compra registrada
+        // 'Mercado Mayorista San Pedro' (seed 07) llega sin compras; se le registra una ficha
         $provId = '00000000-0000-4000-8000-000000000411';
+        DB::table('ficha_compra')->insert([
+            'local_id' => $this->localId,
+            'proveedor_id' => $provId,
+            'usuario_id' => $this->adminId,
+            'numero_comprobante' => 'F001-'.random_int(1000, 9999),
+            'total' => 150.00,
+        ]);
 
         $response = $this->deleteJson("/api/v1/admin/proveedores/{$provId}", [], $this->headers());
 
@@ -235,7 +246,7 @@ class ProveedorTest extends TestCase
         DB::table('proveedor')->insert([
             'id' => $id,
             'local_id' => $this->localId,
-            'nombre' => 'Proveedor Efimero ' . Str::random(4),
+            'nombre' => 'Proveedor Efimero '.Str::random(4),
             'telefono' => '+51 900 333 444',
             'activo' => true,
             'created_at' => now(),

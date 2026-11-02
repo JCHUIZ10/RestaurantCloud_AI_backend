@@ -10,15 +10,18 @@ use Tests\TestCase;
 class CocinaStockDeduccionTest extends TestCase
 {
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
+
     private string $localId = '00000000-0000-4000-8000-000000000010';
+
     private string $adminId = '00000000-0000-4000-8000-000000000102';
+
     private string $tokenAdmin;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $rawToken = 'test_token_kds_' . Str::random(32);
+        $rawToken = 'test_token_kds_'.Str::random(32);
         $tokenHash = hash('sha256', $rawToken);
 
         $sessionPayload = [
@@ -38,7 +41,7 @@ class CocinaStockDeduccionTest extends TestCase
     private function headers(): array
     {
         return [
-            'Authorization' => 'Bearer ' . $this->tokenAdmin,
+            'Authorization' => 'Bearer '.$this->tokenAdmin,
             'Accept' => 'application/json',
         ];
     }
@@ -49,7 +52,7 @@ class CocinaStockDeduccionTest extends TestCase
         DB::table('insumo')->insert([
             'id' => $id,
             'local_id' => $this->localId,
-            'nombre' => $nombre . ' ' . Str::random(6),
+            'nombre' => $nombre.' '.Str::random(6),
             'unidad_medida' => $unidad,
             'stock_actual' => $stock,
             'stock_minimo' => 1.0,
@@ -58,7 +61,31 @@ class CocinaStockDeduccionTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+
         return $id;
+    }
+
+    private function asegurarCajaAbierta(): void
+    {
+        $abierta = DB::table('caja')
+            ->where('local_id', $this->localId)
+            ->where('estado', 'abierta')
+            ->exists();
+
+        if ($abierta) {
+            return;
+        }
+
+        DB::table('caja')->insert([
+            'id' => (string) Str::uuid(),
+            'local_id' => $this->localId,
+            'cajero_id' => '00000000-0000-4000-8000-000000000105',
+            'monto_apertura' => 250.00,
+            'estado' => 'abierta',
+            'fecha_apertura' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     private function crearMesaTest(): string
@@ -91,7 +118,7 @@ class CocinaStockDeduccionTest extends TestCase
             'id' => $productoId,
             'local_id' => $this->localId,
             'categoria_id' => $categoria->id,
-            'nombre' => $nombre . ' ' . Str::random(6),
+            'nombre' => $nombre.' '.Str::random(6),
             'precio' => 35.0,
             'requiere_preparacion' => $requierePrep,
             'disponibilidad' => 'disponible',
@@ -380,6 +407,7 @@ class CocinaStockDeduccionTest extends TestCase
             ['insumo_id' => $insumoVinoId, 'modo_calculo' => 'exacto', 'cantidad_descuenta' => 1.000],
         ], false); // requiere_preparacion = false
 
+        $this->asegurarCajaAbierta();
         $mesaId = $this->crearMesaTest();
 
         $response = $this->postJson('/api/v1/mozo/pedidos', [

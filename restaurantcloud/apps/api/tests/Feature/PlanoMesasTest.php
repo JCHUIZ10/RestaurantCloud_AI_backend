@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Domains\Tenant\Services\LocalProvisioningService;
 use App\Http\Middleware\RedisTokenAuth;
 use App\Models\Usuario;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
@@ -13,8 +12,6 @@ use Tests\TestCase;
 
 class PlanoMesasTest extends TestCase
 {
-    use DatabaseTransactions;
-
     private string $empresaId;
 
     private string $localId;
@@ -243,6 +240,9 @@ class PlanoMesasTest extends TestCase
             ->assertJsonPath('errores.0.detalles.total_cuenta', 25);
         DB::table('pedido')->where('id', $pedido)->update(['estado' => 'cobrado']);
         $this->patchJson("/api/v1/admin/mesas/{$mesa}/desactivar")->assertOk();
+        // La caja abierta se valida antes que la mesa: se abre para que el rechazo sea por la mesa
+        DB::table('caja')->insert(['id' => (string) Str::uuid(), 'local_id' => $this->localId,
+            'cajero_id' => $this->usuarioId, 'monto_apertura' => 0, 'estado' => 'abierta', 'fecha_apertura' => now()]);
         $this->postJson("/api/v1/mozo/mesas/{$mesa}/pedidos", ['items' => [['producto_id' => $producto, 'cantidad' => 1]]])
             ->assertConflict()->assertJsonPath('errores.0.codigo', 'ERR_MESA_NO_DISPONIBLE');
         $this->assertSame(1, DB::table('pedido')->where('mesa_id', $mesa)->count());

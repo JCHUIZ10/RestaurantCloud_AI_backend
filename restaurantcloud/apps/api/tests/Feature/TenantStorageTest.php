@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Console\Commands\InitTenantStorageCommand;
 use App\Domains\Archivos\Services\TenantStorageService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -11,7 +10,9 @@ use Tests\TestCase;
 class TenantStorageTest extends TestCase
 {
     private TenantStorageService $service;
+
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
+
     private string $localId = '00000000-0000-4000-8000-000000000010';
 
     protected function setUp(): void
@@ -89,7 +90,7 @@ class TenantStorageTest extends TestCase
     {
         $url = $this->service->generarUrlDescargaTemporal("privado/empresas/{$this->empresaId}/documento.pdf", 15);
 
-        $this->assertStringContainsString('restaurantcloud/privado/empresas/', $url);
+        $this->assertStringContainsString(config('filesystems.disks.s3.bucket').'/privado/empresas/', $url);
         $this->assertStringContainsString('X-Amz-Signature=', $url);
         $this->assertStringContainsString('X-Amz-Expires=', $url);
     }
@@ -125,8 +126,8 @@ class TenantStorageTest extends TestCase
 
         // 2. Segunda ejecución: Debe detectar que ya existe y evitar duplicidad (requisito del usuario)
         $this->artisan('tenant:init-storage', ['--test' => true])
-            ->expectsOutputToContain("ya cuenta con su espacio MinIO inicializado")
-            ->expectsOutputToContain("Omitiendo para evitar duplicidad")
+            ->expectsOutputToContain('ya cuenta con su espacio MinIO inicializado')
+            ->expectsOutputToContain('Omitiendo para evitar duplicidad')
             ->assertExitCode(0);
     }
 

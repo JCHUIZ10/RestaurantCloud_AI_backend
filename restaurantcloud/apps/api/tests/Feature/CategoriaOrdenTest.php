@@ -4,17 +4,16 @@ namespace Tests\Feature;
 
 use App\Http\Middleware\RedisTokenAuth;
 use App\Models\Usuario;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class CategoriaOrdenTest extends TestCase
 {
-    use DatabaseTransactions;
-
     private string $empresaId;
+
     private string $localId;
+
     private Usuario $usuario;
 
     protected function setUp(): void
@@ -28,7 +27,7 @@ class CategoriaOrdenTest extends TestCase
         $this->empresaId = (string) Str::uuid();
         DB::table('empresa')->insert([
             'id' => $this->empresaId,
-            'ruc' => '20' . random_int(100000000, 999999999),
+            'ruc' => '20'.random_int(100000000, 999999999),
             'razon_social' => 'Empresa Test Categorias',
             'tipo_identidad_fiscal' => 'RUC_20',
             'correo_contacto' => 'cat@example.test',
@@ -48,7 +47,7 @@ class CategoriaOrdenTest extends TestCase
             'direccion' => 'Calle Falsa 123',
             'ubigeo_cod' => '999999',
             'telefono' => '999999999',
-            'slug' => 'local-cat-' . Str::random(8),
+            'slug' => 'local-cat-'.Str::random(8),
             'estado' => 'activo',
         ]);
 
@@ -59,7 +58,7 @@ class CategoriaOrdenTest extends TestCase
             'nombre' => 'Admin Categorias',
             'password_hash' => 'hash',
             'local_id' => $this->localId,
-            'correo' => 'admin-' . Str::random(8) . '@test.com',
+            'correo' => 'admin-'.Str::random(8).'@test.com',
             'rol' => 'admin_local',
             'estado' => 'activo',
         ]);

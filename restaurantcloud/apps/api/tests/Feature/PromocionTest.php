@@ -10,9 +10,13 @@ use Tests\TestCase;
 class PromocionTest extends TestCase
 {
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
+
     private string $localId = '00000000-0000-4000-8000-000000000010';
+
     private string $adminId = '00000000-0000-4000-8000-000000000102';
+
     private string $adminCorreo = 'admin@aurea.local';
+
     private string $tokenAdmin;
 
     protected function setUp(): void
@@ -20,7 +24,7 @@ class PromocionTest extends TestCase
         parent::setUp();
 
         // Autenticación en Redis para admin_local
-        $rawToken = 'test_token_admin_promo_' . Str::random(32);
+        $rawToken = 'test_token_admin_promo_'.Str::random(32);
         $tokenHash = hash('sha256', $rawToken);
 
         $sessionPayload = [
@@ -40,7 +44,7 @@ class PromocionTest extends TestCase
     private function headers(): array
     {
         return [
-            'Authorization' => 'Bearer ' . $this->tokenAdmin,
+            'Authorization' => 'Bearer '.$this->tokenAdmin,
             'Accept' => 'application/json',
         ];
     }
@@ -107,7 +111,7 @@ class PromocionTest extends TestCase
     public function test_crear_promocion_autogenera_codigo_exitosamente(): void
     {
         $payload = [
-            'nombre' => 'Test Martes de Parrillas ' . Str::random(5),
+            'nombre' => 'Test Martes de Parrillas '.Str::random(5),
             'descripcion' => 'Descuento especial en carnes',
             'tipo_descuento' => 'porcentaje',
             'valor' => 20,
@@ -127,7 +131,7 @@ class PromocionTest extends TestCase
         $this->assertTrue($response->json('exito'));
         $codigo = $response->json('datos.codigo');
         $this->assertNotEmpty($codigo);
-        $this->assertStringStartsWith('PROMO-' . date('Y') . '-', $codigo);
+        $this->assertStringStartsWith('PROMO-'.date('Y').'-', $codigo);
 
         // Limpieza
         $id = $response->json('datos.id');
@@ -160,7 +164,7 @@ class PromocionTest extends TestCase
     {
         // Caso A: Fecha inicio posterior a fecha fin
         $payloadFechas = [
-            'nombre' => 'Promo Fechas Invalidas ' . Str::random(5),
+            'nombre' => 'Promo Fechas Invalidas '.Str::random(5),
             'tipo_descuento' => 'porcentaje',
             'valor' => 15,
             'fecha_inicio' => '2026-11-10',
@@ -172,7 +176,7 @@ class PromocionTest extends TestCase
 
         // Caso B: Porcentaje mayor a 100%
         $payloadPorcentaje = [
-            'nombre' => 'Promo Porcentaje Excesivo ' . Str::random(5),
+            'nombre' => 'Promo Porcentaje Excesivo '.Str::random(5),
             'tipo_descuento' => 'porcentaje',
             'valor' => 150,
             'fecha_inicio' => date('Y-m-d'),
@@ -194,7 +198,7 @@ class PromocionTest extends TestCase
             'id' => $id,
             'local_id' => $this->localId,
             'codigo' => 'PROMO-TEST-VENC',
-            'nombre' => 'Promo Vencida ' . Str::random(5),
+            'nombre' => 'Promo Vencida '.Str::random(5),
             'tipo_descuento' => 'porcentaje',
             'valor' => 10,
             'fecha_inicio' => '2026-08-01',
@@ -221,8 +225,9 @@ class PromocionTest extends TestCase
      */
     public function test_salvaguarda_contable_bloquea_eliminar_promocion_con_historial(): void
     {
-        // La promoción de semilla canónica 00000000-0000-4000-8000-000000000441 tiene usos_actuales = 12
+        // La semilla deja la promoción canónica sin usos; se le simula historial de comprobantes
         $idConHistorial = '00000000-0000-4000-8000-000000000441';
+        DB::table('promocion')->where('id', $idConHistorial)->update(['usos_actuales' => 12]);
 
         $response = $this->deleteJson("/api/v1/admin/promociones/{$idConHistorial}", [], $this->headers());
 
@@ -240,7 +245,7 @@ class PromocionTest extends TestCase
             'id' => $id,
             'local_id' => $this->localId,
             'codigo' => 'PROMO-TEST-DEL',
-            'nombre' => 'Promo Sin Usos ' . Str::random(5),
+            'nombre' => 'Promo Sin Usos '.Str::random(5),
             'tipo_descuento' => 'monto_fijo',
             'valor' => 10,
             'fecha_inicio' => date('Y-m-d'),
