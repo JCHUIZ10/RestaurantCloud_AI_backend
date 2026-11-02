@@ -15,6 +15,7 @@ import {
 } from '../components/categorias/CategoriasFiltrosTabs';
 import { CategoriasTable } from '../components/categorias/CategoriasTable';
 import { ModalCrearEditarCategoria } from '../components/categorias/ModalCrearEditarCategoria';
+import { ModalMoverCategoria } from '../components/categorias/ModalMoverCategoria';
 import { ModalBloqueoReasignacion } from '../components/categorias/ModalBloqueoReasignacion';
 import { OnboardingCategoriasVacia } from '../components/categorias/OnboardingCategoriasVacia';
 
@@ -38,6 +39,13 @@ export const AdminCategoriasPage: React.FC = () => {
   const [modalBloqueoAbierto, setModalBloqueoAbierto] = useState<boolean>(false);
   const [conflictoActual, setConflictoActual] =
     useState<ConflictoCategoriaConProductosDTO | null>(null);
+
+  // Modal para salto directo de posición
+  const [categoriaAMover, setCategoriaAMover] = useState<CategoriaAdminDTO | null>(null);
+
+  // Paginación controlada de la tabla
+  const [paginaTabla, setPaginaTabla] = useState<number>(1);
+  const [limiteTabla, setLimiteTabla] = useState<number>(10);
 
   // Confirmación de borrado de una categoría sin platos
   const [categoriaAEliminar, setCategoriaAEliminar] = useState<CategoriaAdminDTO | null>(null);
@@ -236,6 +244,41 @@ export const AdminCategoriasPage: React.FC = () => {
     }
   };
 
+  // Handler: Mover categoría a posición directa (ej. de pos 25 a pos 3 en un solo paso)
+  const handleMoverAPosicion = async (id: string, nuevaPosicion: number) => {
+    const currentIndex = todasCategorias.findIndex((c) => c.id === id);
+    if (currentIndex < 0) return;
+
+    const targetIndex = Math.max(0, Math.min(nuevaPosicion - 1, todasCategorias.length - 1));
+    if (currentIndex === targetIndex) return;
+
+    // Clonar lista y reposicionar elemento
+    const copia = [...todasCategorias];
+    const [item] = copia.splice(currentIndex, 1);
+    copia.splice(targetIndex, 0, item);
+
+    // Asignar orden correlativo secuencial
+    const payloadReorden = copia.map((c, idx) => ({
+      id: c.id,
+      orden: idx + 1,
+    }));
+
+    try {
+      const res = await adminService.reordenarCategorias({ categorias: payloadReorden });
+      if (res.exito) {
+        mostrarToast(`«${item.nombre}» reubicada en la posición #${nuevaPosicion}.`);
+        await cargarCategorias();
+        // Navegar a la página donde quedó ubicada
+        const nuevaPagina = Math.ceil(nuevaPosicion / limiteTabla);
+        setPaginaTabla(nuevaPagina);
+      } else {
+        mostrarToast(res.errores?.[0]?.mensaje || 'No se pudo mover la categoría.', 'error');
+      }
+    } catch {
+      mostrarToast('Error al actualizar la posición de la categoría.', 'error');
+    }
+  };
+
   // Handler: Eliminar Categoría (con Bloqueo 409 asistido). Las vacías piden confirmación antes.
   const handleEliminarCategoria = (categoria: CategoriaAdminDTO) => {
     if (categoria.total_productos === 0) {
@@ -360,6 +403,7 @@ export const AdminCategoriasPage: React.FC = () => {
                 todasCategoriasOrdenadas={todasCategorias}
                 onSubirOrden={handleSubirOrden}
                 onBajarOrden={handleBajarOrden}
+                onSolicitarMoverPosicion={(cat) => setCategoriaAMover(cat)}
                 onConmutarVisibilidad={handleConmutarVisibilidad}
                 onEditar={handleAbrirEditar}
                 onEliminar={handleEliminarCategoria}
@@ -368,6 +412,10 @@ export const AdminCategoriasPage: React.FC = () => {
                   setFiltroEstado('todas');
                 }}
                 filtroActivo={filtroEstado !== 'todas' || busqueda.trim().length > 0}
+                paginaActual={paginaTabla}
+                onCambiarPagina={setPaginaTabla}
+                limitePorPagina={limiteTabla}
+                onCambiarLimite={setLimiteTabla}
               />
           )}
         </>
@@ -388,8 +436,17 @@ export const AdminCategoriasPage: React.FC = () => {
         abierto={modalFormAbierto}
         modo={modoForm}
         categoriaEditar={categoriaAEditar}
+        totalCategorias={todasCategorias.length}
         onCerrar={() => setModalFormAbierto(false)}
         onGuardar={handleGuardarCategoria}
+      />
+
+      <ModalMoverCategoria
+        abierto={!!categoriaAMover}
+        categoria={categoriaAMover}
+        totalCategorias={todasCategorias.length}
+        onCerrar={() => setCategoriaAMover(null)}
+        onMover={handleMoverAPosicion}
       />
 
       <ModalBloqueoReasignacion

@@ -63,9 +63,31 @@ class CategoriaService
             $nombre = trim($data['nombre']);
             $this->verificarNombre($localId, $nombre);
             $id = (string) Str::uuid();
-            $orden = ((int) DB::table('categoria_producto')
-                ->where('local_id', $localId)
-                ->max('orden')) + 1;
+
+            $posicion = $data['posicion'] ?? 'fin';
+
+            if ($posicion === 'inicio' || $posicion === 1 || $posicion === '1') {
+                DB::table('categoria_producto')
+                    ->where('local_id', $localId)
+                    ->increment('orden');
+                $orden = 1;
+            } elseif (is_numeric($posicion) && (int) $posicion > 1) {
+                $pos = (int) $posicion;
+                $max = (int) DB::table('categoria_producto')->where('local_id', $localId)->max('orden');
+                if ($pos > $max) {
+                    $orden = $max + 1;
+                } else {
+                    DB::table('categoria_producto')
+                        ->where('local_id', $localId)
+                        ->where('orden', '>=', $pos)
+                        ->increment('orden');
+                    $orden = $pos;
+                }
+            } else {
+                $orden = ((int) DB::table('categoria_producto')
+                    ->where('local_id', $localId)
+                    ->max('orden')) + 1;
+            }
 
             DB::table('categoria_producto')->insert([
                 'id' => $id,
@@ -76,6 +98,7 @@ class CategoriaService
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+            $this->normalizarOrden($localId);
             CartaPublicaService::invalidar($localId);
 
             return $this->categoria($id, $localId);

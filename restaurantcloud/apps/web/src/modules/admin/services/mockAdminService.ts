@@ -4459,8 +4459,30 @@ class MockAdminService {
     }
 
     const categoriasLocales = this.categorias.filter((c) => c.local_id === localId);
-    const siguienteOrden =
-      categoriasLocales.length > 0 ? Math.max(...categoriasLocales.map((c) => c.orden)) + 1 : 1;
+    let siguienteOrden: number;
+    const pos = payload.posicion;
+
+    if (pos === 'inicio' || pos === 1) {
+      for (const cat of categoriasLocales) {
+        cat.orden += 1;
+      }
+      siguienteOrden = 1;
+    } else if (typeof pos === 'number' && pos > 1) {
+      const max = categoriasLocales.length > 0 ? Math.max(...categoriasLocales.map((c) => c.orden)) : 0;
+      if (pos > max) {
+        siguienteOrden = max + 1;
+      } else {
+        for (const cat of categoriasLocales) {
+          if (cat.orden >= pos) {
+            cat.orden += 1;
+          }
+        }
+        siguienteOrden = pos;
+      }
+    } else {
+      siguienteOrden =
+        categoriasLocales.length > 0 ? Math.max(...categoriasLocales.map((c) => c.orden)) + 1 : 1;
+    }
 
     const nueva: MockCategoriaRaw = {
       id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `cat-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -4473,6 +4495,12 @@ class MockAdminService {
     };
 
     this.categorias.push(nueva);
+    const categoriasActualizadas = this.categorias
+      .filter((c) => c.local_id === localId)
+      .sort((a, b) => a.orden - b.orden);
+    categoriasActualizadas.forEach((c, idx) => {
+      c.orden = idx + 1;
+    });
 
     return {
       exito: true,

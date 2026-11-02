@@ -8,6 +8,7 @@ interface ModalCrearEditarCategoriaProps {
   abierto: boolean;
   modo: 'crear' | 'editar';
   categoriaEditar?: CategoriaAdminDTO | null;
+  totalCategorias?: number;
   onCerrar: () => void;
   onGuardar: (
     payload: CrearCategoriaRequest | ActualizarCategoriaRequest,
@@ -19,11 +20,14 @@ export const ModalCrearEditarCategoria: React.FC<ModalCrearEditarCategoriaProps>
   abierto,
   modo,
   categoriaEditar,
+  totalCategorias = 0,
   onCerrar,
   onGuardar,
 }) => {
   const [nombre, setNombre] = useState('');
   const [activa, setActiva] = useState(true);
+  const [tipoPosicion, setTipoPosicion] = useState<'fin' | 'inicio' | 'especifica'>('fin');
+  const [posicionNumero, setPosicionNumero] = useState(1);
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
   const idForm = useId();
@@ -37,10 +41,12 @@ export const ModalCrearEditarCategoria: React.FC<ModalCrearEditarCategoriaProps>
       } else {
         setNombre('');
         setActiva(true);
+        setTipoPosicion('fin');
+        setPosicionNumero(totalCategorias + 1);
       }
       setErrorLocal(null);
     }
-  }, [abierto, modo, categoriaEditar]);
+  }, [abierto, modo, categoriaEditar, totalCategorias]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,9 +68,20 @@ export const ModalCrearEditarCategoria: React.FC<ModalCrearEditarCategoriaProps>
     setCargando(true);
     setErrorLocal(null);
 
+    let posicionPayload: 'inicio' | 'fin' | number | undefined = undefined;
+    if (modo === 'crear') {
+      if (tipoPosicion === 'inicio') posicionPayload = 'inicio';
+      else if (tipoPosicion === 'especifica') posicionPayload = posicionNumero;
+      else posicionPayload = 'fin';
+    }
+
     try {
       const exitoso = await onGuardar(
-        { nombre: nombreLimpio, activa },
+        {
+          nombre: nombreLimpio,
+          activa,
+          ...(posicionPayload ? { posicion: posicionPayload } : {}),
+        },
         modo === 'editar' && categoriaEditar ? categoriaEditar.id : undefined
       );
 
@@ -136,6 +153,91 @@ export const ModalCrearEditarCategoria: React.FC<ModalCrearEditarCategoriaProps>
             Debe ser único en la sede. Aparece en la carta digital y en la comanda.
           </p>
         </div>
+
+        {modo === 'crear' && (
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-aurea-navy">
+              Ubicación inicial en la carta
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setTipoPosicion('fin')}
+                className={cn(
+                  'p-3 rounded-xl border text-left text-sm transition-all flex flex-col justify-between',
+                  tipoPosicion === 'fin'
+                    ? 'border-aurea-copper bg-aurea-champagne/20 text-aurea-navy font-semibold shadow-sm ring-1 ring-aurea-copper/50'
+                    : 'border-aurea-champagne/70 bg-white text-aurea-navy/70 hover:border-aurea-champagne'
+                )}
+              >
+                <span>Al final</span>
+                <span className="text-xs text-aurea-navy/60 font-normal mt-1">
+                  Puesto #{totalCategorias + 1} (habitual)
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTipoPosicion('inicio')}
+                className={cn(
+                  'p-3 rounded-xl border text-left text-sm transition-all flex flex-col justify-between',
+                  tipoPosicion === 'inicio'
+                    ? 'border-aurea-copper bg-aurea-champagne/20 text-aurea-navy font-semibold shadow-sm ring-1 ring-aurea-copper/50'
+                    : 'border-aurea-champagne/70 bg-white text-aurea-navy/70 hover:border-aurea-champagne'
+                )}
+              >
+                <span>Al inicio</span>
+                <span className="text-xs text-aurea-navy/60 font-normal mt-1">
+                  Puesto #1 (prioritaria)
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTipoPosicion('especifica');
+                  if (posicionNumero > totalCategorias + 1) setPosicionNumero(totalCategorias + 1);
+                }}
+                className={cn(
+                  'p-3 rounded-xl border text-left text-sm transition-all flex flex-col justify-between',
+                  tipoPosicion === 'especifica'
+                    ? 'border-aurea-copper bg-aurea-champagne/20 text-aurea-navy font-semibold shadow-sm ring-1 ring-aurea-copper/50'
+                    : 'border-aurea-champagne/70 bg-white text-aurea-navy/70 hover:border-aurea-champagne'
+                )}
+              >
+                <span>Personalizada</span>
+                <span className="text-xs text-aurea-navy/60 font-normal mt-1">
+                  Elegir puesto exacto
+                </span>
+              </button>
+            </div>
+
+            {tipoPosicion === 'especifica' && (
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-aurea-ivory/60 border border-aurea-champagne/60 mt-2">
+                <label htmlFor={`${idForm}-pos`} className="text-sm font-medium text-aurea-navy whitespace-nowrap">
+                  Número de posición:
+                </label>
+                <input
+                  id={`${idForm}-pos`}
+                  type="number"
+                  min={1}
+                  max={totalCategorias + 1}
+                  value={posicionNumero}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    if (!isNaN(val)) {
+                      setPosicionNumero(Math.max(1, Math.min(totalCategorias + 1, val)));
+                    }
+                  }}
+                  className="w-20 px-3 py-1.5 bg-white border border-aurea-champagne/70 rounded-xl text-center text-sm font-bold text-aurea-navy focus:outline-none focus:border-aurea-copper tabular-nums"
+                />
+                <span className="text-xs text-aurea-navy/60">
+                  (Rango válido: 1 a {totalCategorias + 1})
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="p-4 rounded-xl border border-aurea-champagne/70 bg-aurea-ivory flex items-center justify-between gap-4">
           <div>

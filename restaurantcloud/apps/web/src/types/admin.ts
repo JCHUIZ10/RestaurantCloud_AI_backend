@@ -226,6 +226,7 @@ export interface CategoriasAdminResponseDTO {
 export interface CrearCategoriaRequest {
   nombre: string;
   activa?: boolean;
+  posicion?: 'inicio' | 'fin' | number;
 }
 
 /**

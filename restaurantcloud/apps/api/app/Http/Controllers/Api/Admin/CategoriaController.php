@@ -24,6 +24,7 @@ class CategoriaController extends Controller
         $data = $request->validate([
             'nombre' => ['required', 'string', 'min:2', 'max:60'],
             'activa' => ['sometimes', 'boolean'],
+            'posicion' => ['sometimes', 'nullable'],
         ]);
 
         return $this->run(fn () => ApiResponse::ok(

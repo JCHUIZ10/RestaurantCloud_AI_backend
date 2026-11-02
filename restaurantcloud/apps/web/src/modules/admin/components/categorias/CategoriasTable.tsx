@@ -2,6 +2,7 @@ import React from 'react';
 import {
   ChevronUp,
   ChevronDown,
+  ArrowUpDown,
   Pencil,
   Trash2,
   Eye,
@@ -18,6 +19,7 @@ interface CategoriasTableProps {
   todasCategoriasOrdenadas: CategoriaAdminDTO[];
   onSubirOrden: (categoriaId: string) => void;
   onBajarOrden: (categoriaId: string) => void;
+  onSolicitarMoverPosicion?: (categoria: CategoriaAdminDTO) => void;
   onConmutarVisibilidad: (categoriaId: string, activa: boolean) => void;
   onEditar: (categoria: CategoriaAdminDTO) => void;
   onEliminar: (categoria: CategoriaAdminDTO) => void;
@@ -72,17 +74,44 @@ const BotonVisibilidad: React.FC<{
 );
 
 /** Posición en la comanda */
-const NumeroOrden: React.FC<{ orden: number }> = ({ orden }) => (
-  <span className="w-8 h-8 rounded-lg bg-aurea-champagne/30 border border-aurea-champagne text-aurea-navy font-serif font-bold text-sm tabular-nums flex items-center justify-center shrink-0">
-    {orden}
-  </span>
-);
+const NumeroOrden: React.FC<{
+  orden: number;
+  nombre?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}> = ({ orden, nombre, onClick, disabled }) => {
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onClick}
+        title={disabled ? undefined : `Cambiar posición de «${nombre ?? ''}» (Puesto actual: ${orden})`}
+        className={cn(
+          'w-8 h-8 rounded-lg bg-aurea-champagne/30 border border-aurea-champagne text-aurea-navy font-serif font-bold text-sm tabular-nums flex items-center justify-center shrink-0 transition-all',
+          disabled
+            ? 'opacity-60 cursor-not-allowed'
+            : 'hover:bg-aurea-champagne hover:scale-105 active:scale-95 cursor-pointer focus:outline-none focus:ring-2 focus:ring-aurea-copper/60'
+        )}
+      >
+        <span>{orden}</span>
+      </button>
+    );
+  }
+
+  return (
+    <span className="w-8 h-8 rounded-lg bg-aurea-champagne/30 border border-aurea-champagne text-aurea-navy font-serif font-bold text-sm tabular-nums flex items-center justify-center shrink-0">
+      {orden}
+    </span>
+  );
+};
 
 export const CategoriasTable: React.FC<CategoriasTableProps> = ({
   categorias,
   todasCategoriasOrdenadas,
   onSubirOrden,
   onBajarOrden,
+  onSolicitarMoverPosicion,
   onConmutarVisibilidad,
   onEditar,
   onEliminar,
@@ -168,12 +197,17 @@ export const CategoriasTable: React.FC<CategoriasTableProps> = ({
     {
       id: 'orden',
       cabecera: 'Orden',
-      className: 'w-40',
+      className: 'w-48',
       celda: (cat) => {
         const { puedeSubir, puedeBajar } = limitesOrden(cat);
         return (
           <div className="flex items-center gap-1.5">
-            <NumeroOrden orden={cat.orden} />
+            <NumeroOrden
+              orden={cat.orden}
+              nombre={cat.nombre}
+              onClick={onSolicitarMoverPosicion ? () => onSolicitarMoverPosicion(cat) : undefined}
+              disabled={filtroActivo}
+            />
             <IconButton
               etiqueta={`Subir «${cat.nombre}»`}
               title={ayudaOrden}
@@ -190,6 +224,16 @@ export const CategoriasTable: React.FC<CategoriasTableProps> = ({
               onClick={() => onBajarOrden(cat.id)}
               disabled={!puedeBajar}
             />
+            {onSolicitarMoverPosicion && (
+              <IconButton
+                etiqueta={`Mover «${cat.nombre}» de posición`}
+                title={ayudaOrden || `Mover «${cat.nombre}» a otra posición`}
+                icono={ArrowUpDown}
+                size="sm"
+                onClick={() => onSolicitarMoverPosicion(cat)}
+                disabled={filtroActivo}
+              />
+            )}
           </div>
         );
       },
@@ -223,7 +267,12 @@ export const CategoriasTable: React.FC<CategoriasTableProps> = ({
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
-            <NumeroOrden orden={cat.orden} />
+            <NumeroOrden
+              orden={cat.orden}
+              nombre={cat.nombre}
+              onClick={onSolicitarMoverPosicion ? () => onSolicitarMoverPosicion(cat) : undefined}
+              disabled={filtroActivo}
+            />
             <div className="min-w-0 space-y-1.5">
               <p className={cn('text-base font-semibold leading-tight', cat.activa ? 'text-aurea-navy' : 'text-aurea-navy/60')}>
                 {cat.nombre}
@@ -242,6 +291,16 @@ export const CategoriasTable: React.FC<CategoriasTableProps> = ({
             <IconButton etiqueta={`Eliminar «${cat.nombre}»`} icono={Trash2} variant="danger" onClick={() => onEliminar(cat)} />
           </div>
           <div className="flex items-center gap-1">
+            {onSolicitarMoverPosicion && (
+              <IconButton
+                etiqueta={`Mover «${cat.nombre}» de posición`}
+                title={ayudaOrden || `Mover «${cat.nombre}» a otra posición`}
+                icono={ArrowUpDown}
+                variant="outline"
+                onClick={() => onSolicitarMoverPosicion(cat)}
+                disabled={filtroActivo}
+              />
+            )}
             <IconButton
               etiqueta={`Subir «${cat.nombre}»`}
               title={ayudaOrden}
