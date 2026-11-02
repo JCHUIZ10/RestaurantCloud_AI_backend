@@ -149,6 +149,36 @@ Etapa 1 ──► Etapa 2 ──► Etapa 3 ──► Etapa 4 ──► Etapa 5 
 | 6 | Alto | — | Sí: aprobar el cambio de rol |
 | 7 | Bajo | — | No |
 
+## Registro de ejecución
+
+**2026-11-02**: verificación inicial: los problemas persistían (50 fallos / 186 aprobados, 236 tests).
+
+- **Etapa 1 cerrada: 50 → 11 fallos.** Columna añadida a `02_schema_ddl.sql` y aplicada con `ALTER` en `restaurantcloud_db`. Las 7 funciones de `08_inventory_functions.sql` ya coincidían con la BD (comparadas por hash en una transacción con rollback; sin sobrecargas).
+  - Fallos destapados: `CocinaComandasTransiciones` y `CocinaStockDeduccion` (deshacer 30 s → `VENTANA_DESHACER_EXPIRADA`). **Bug de producto:** `CocinaController::cambiarEstadoItem` guardaba `now()->utc()`; Laravel lo serializa sin offset y la sesión Postgres (`America/Lima`) lo interpretaba como hora local, así que `fecha_inicio_coccion`/`fecha_listo_cocina` quedaban 5 h en el futuro. Corregido (se quitó `->utc()`). En `restaurantcloud_db` quedan 7 ítems con esas fechas en el futuro (datos históricos ya desplazados, sin corregir).
+- **Etapa 2 cerrada: 11 → 1 fallo.**
+  - `phpunit.xml`: `<env>` → `<server>`. `<env force="true">` no bastaba: solo pisa `$_ENV`/`getenv()`, y Laravel lee antes `$_SERVER`, donde Docker ya dejó los valores del contenedor. Se descubrió también que los tests usaban `QUEUE_CONNECTION=redis` (jobs al worker real sobre la BD de desarrollo).
+  - BD `restaurantcloud_test` + bucket `restaurantcloud-test` (con la política pública de `catalogo/`) recreados por `scripts/test-db-reset.sh`. El esquema resultante es idéntico al de `restaurantcloud_db` salvo el orden de la columna `stock_descontado`.
+  - `REDIS_PREFIX=rc_test_`; las claves de Stripe se quitaron de `phpunit.xml` (llegan por el entorno del contenedor).
+  - `DatabaseTransactions` en `tests/TestCase.php`. El grupo C (cuotas) pasó solo.
+  - Grupo B no era contaminación: la semilla deja la promoción `…441` con `usos_actuales = 0` y borra todas las compras del local, así que los tests suponían un historial inexistente. Ahora `PromocionTest` y `ProveedorTest` crean su propio historial.
+  - Tests frágiles corregidos: `CobroFiscalComprobanteTest` (correlativo mágico `> 37922` → se calcula el esperado), `CocinaStockDeduccionTest` (abre caja propia), `TenantStorageTest` (bucket fijo en la aserción).
+  - Criterio de salida verificado: dos corridas seguidas → 1 fallo / 235 aprobados; la BD de tests vuelve a la semilla y los conteos de `restaurantcloud_db` no cambian.
+- **Etapa 4 cerrada: 1 → 0 fallos (236 / 236).** Decisión: la caja abierta se valida antes que la mesa (sin cambios en el servicio). `PlanoMesasTest` abre caja en su local de prueba. `PromocionTest` corrido 10 veces seguidas: 10/10 en verde, no es inestable. Se quitó el `use DatabaseTransactions` duplicado de `PlanoMesasTest` y `CategoriaOrdenTest`.
+- Decisiones posteriores: Etapa 3 opción A (recrear volumen), Etapa 5 con migraciones como fuente, Etapa 6 pospuesta.
+- **Etapa 5 cerrada.** Las 19 migraciones no podían ejecutarse desde cero (`2026_10_11_000004` falla con un error de sintaxis SQL) y nunca se aplicaron; los seeders `PlanSeeder`/`UbigeoSeeder`/`AdminSaaSSeeder` duplicaban `06` y no se usaban. Se retiraron (quedan en el historial de git).
+  - `infra/sql/*.sql` → `apps/api/database/sql/` (mismos nombres; el contenedor de la API solo monta `apps/api`).
+  - `2026_11_02_021504_crear_esquema_base`: ejecuta 01–06 y 08 en BD vacía; si ya existe `empresa` (BD creada con initdb, p. ej. producción) solo se registra como aplicada.
+  - `2026_11_02_021508_agregar_stock_descontado_a_pedido_item`: `ADD COLUMN IF NOT EXISTS` para BDs existentes.
+  - `07` → `LocalAureaDemoSeeder` (vía `DatabaseSeeder`).
+  - `docker-compose.yml` y `docker-compose.prod.yml` ya no montan `docker-entrypoint-initdb.d`; `infra/docker/entrypoint.sh` corre `php artisan migrate --force` en el rol `api`.
+  - `scripts/test-db-reset.sh` usa `migrate --seed` (con salvaguarda que aborta si la conexión no apunta a `restaurantcloud_test`); nuevo `scripts/schema-check.sh` compara cualquier BD con una migrada desde cero (sale con 1 si difieren). No hay CI en el repo donde engancharlo.
+  - Verificado: BD vacía migrada y BD creada con los SQL + migrate dan `pg_dump --schema-only` idénticos. Flujo documentado en `apps/api/README.md`.
+- **Etapa 3 cerrada (opción A).** Respaldo en `restaurantcloud/backups/restaurantcloud_db_2026-11-02.dump` (`pg_dump -Fc`, excluido de git vía `.git/info/exclude`). Volumen `restaurantcloud_postgres_data` recreado; la API migró sola al arrancar y se corrió `db:seed`. Resultado: 2 pisos, 8 mesas, 5 productos, promoción `…441` y proveedor `…411` presentes; `schema-check` en verde. No había claves `carta_publica:*` en Redis. Quedan en MinIO 12 objetos bajo `catalogo/empresas/dae4f73e…/` de una empresa que ya no existe en la BD: el comando de purga no los ve (trabaja sobre la tabla `archivo`) y no se borraron.
+- **Etapa 7 cerrada (parcial en frontend).**
+  - Carta pública: nuevo `CartaPublicaService::invalidarTrasInventario()`; se invalida tras `fn_inventario_ajustar_stock`, `descontar_receta`, `revertir_receta`, `anular_compra` y `reingresar_item_sellado` solo si la respuesta reporta platos agotados o reactivados, y tras `FichaCompraService::reactivarPlatos`. `MozoController` ahora revierte recetas vía `StockDeduccionService`. Test nuevo en `CartaPublicaTest` (falla sin la corrección).
+  - oxlint: corregido el único error (`ModalUnirMesas`: `useMemo` tras un `return` anticipado) y 20 advertencias mecánicas (`no-unused-vars`, `no-useless-escape`, `no-unused-expressions`). Quedan 132 advertencias, 98 de ellas `set-state-in-effect` en ~70 componentes: requieren refactorizar cómo cada modal reinicia su estado y no hay tests de frontend que lo cubran; se dejan para un trabajo dedicado. Las de `immutability` revisadas son falsos positivos.
+- Pendiente: Etapa 6 (rol RLS), pospuesta por decisión. Hallazgo nuevo: no existe la tabla `failed_jobs` que usa `config/queue.php`, así que registrar un job fallido daría error.
+
 ## Reglas de ejecución
 
 - Una etapa por vez; al cerrar cada una se corre la suite completa y se anota aquí el conteo de fallos.
