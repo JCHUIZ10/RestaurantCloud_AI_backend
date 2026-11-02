@@ -112,9 +112,11 @@ export const DrawerHistorialCompras: React.FC<DrawerHistorialComprasProps> = ({
                   <div className="flex items-start justify-between gap-3 pb-3 border-b border-aurea-champagne/50">
                     <div className="min-w-0">
                       <p className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-sm font-bold text-aurea-navy">{fc.numero_comprobante}</span>
+                        {fc.numero_comprobante && fc.numero_comprobante.trim().toUpperCase() !== 'S/N' && fc.tipo_comprobante.toLowerCase() !== 'nota_venta' && fc.tipo_comprobante.toLowerCase() !== 'recibo' && (
+                          <span className="font-mono text-sm font-bold text-aurea-navy">{fc.numero_comprobante}</span>
+                        )}
                         <span className="px-2 py-0.5 rounded-lg border border-aurea-champagne bg-aurea-champagne/20 text-xs font-medium text-aurea-navy capitalize">
-                          {fc.tipo_comprobante}
+                          {fc.tipo_comprobante.replace('_', ' ')}
                         </span>
                       </p>
                       <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-aurea-navy/60">

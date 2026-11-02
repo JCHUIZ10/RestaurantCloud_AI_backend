@@ -13,7 +13,7 @@ import {
 } from '@/components/ui';
 import { cn } from '@/shared/utils';
 import { TagComprobante, TagPago } from './etiquetasCompra';
-import { formatoFecha, soles } from './formatoCompra';
+import { esComprobanteEnumerado, formatoFecha, identificadorComprobante, soles } from './formatoCompra';
 
 interface ComprasTableProps {
   fichas: FichaCompraResumenDTO[];
@@ -33,16 +33,27 @@ interface ComprasTableProps {
 
 const Comprobante: React.FC<{ f: FichaCompraResumenDTO }> = ({ f }) => {
   const anulada = f.estado === 'ANULADA';
+  const enumerado = esComprobanteEnumerado(f);
+
   return (
     <div className="min-w-0 space-y-1">
       <div className="flex flex-wrap items-center gap-2">
         <TagComprobante tipo={f.tipo_comprobante} />
-        <span className={cn('font-mono text-sm font-semibold', anulada ? 'line-through text-aurea-navy/40' : 'text-aurea-navy')}>
-          {f.numero_comprobante}
-        </span>
+        {enumerado && (
+          <span className={cn('font-mono text-sm font-semibold', anulada ? 'line-through text-aurea-navy/40' : 'text-aurea-navy')}>
+            {f.numero_comprobante}
+          </span>
+        )}
       </div>
       <p className="text-xs text-aurea-navy/60">
-        <span className="font-mono">{f.codigo_correlativo}</span> · {f.cantidad_items} {f.cantidad_items === 1 ? 'insumo' : 'insumos'}
+        {enumerado && f.codigo_correlativo && f.codigo_correlativo !== 'S/N' ? (
+          <>
+            <span className="font-mono">{f.codigo_correlativo}</span> ·{' '}
+          </>
+        ) : null}
+        <span>
+          {f.cantidad_items} {f.cantidad_items === 1 ? 'insumo' : 'insumos'}
+        </span>
       </p>
     </div>
   );
@@ -102,20 +113,23 @@ export const ComprasTable: React.FC<ComprasTableProps> = ({
   cabecera,
   onLimpiarFiltros,
 }) => {
-  const acciones = (f: FichaCompraResumenDTO, tamano: 'sm' | 'md') => (
-    <div className="flex items-center justify-end gap-1">
-      <IconButton size={tamano} icono={Eye} etiqueta={`Ver detalle de ${f.numero_comprobante}`} onClick={() => onVerDetalle(f.id)} />
-      {f.estado !== 'ANULADA' && (
-        <IconButton
-          size={tamano}
-          variant="danger"
-          icono={Ban}
-          etiqueta={`Anular ${f.numero_comprobante}`}
-          onClick={() => onSolicitarAnulacion(f)}
-        />
-      )}
-    </div>
-  );
+  const acciones = (f: FichaCompraResumenDTO, tamano: 'sm' | 'md') => {
+    const idComprobante = identificadorComprobante(f);
+    return (
+      <div className="flex items-center justify-end gap-1">
+        <IconButton size={tamano} icono={Eye} etiqueta={`Ver detalle de ${idComprobante}`} onClick={() => onVerDetalle(f.id)} />
+        {f.estado !== 'ANULADA' && (
+          <IconButton
+            size={tamano}
+            variant="danger"
+            icono={Ban}
+            etiqueta={`Anular ${idComprobante}`}
+            onClick={() => onSolicitarAnulacion(f)}
+          />
+        )}
+      </div>
+    );
+  };
 
   const columnas: ColumnaTabla<FichaCompraResumenDTO>[] = [
     { id: 'comprobante', cabecera: 'Comprobante', celda: (f) => <Comprobante f={f} /> },

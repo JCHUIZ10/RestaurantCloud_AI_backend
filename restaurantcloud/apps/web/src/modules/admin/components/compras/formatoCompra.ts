@@ -23,3 +23,34 @@ export const METODOS_PAGO: Record<MetodoPagoCompra, { label: string; clase: stri
   EFECTIVO: { label: 'Efectivo', clase: 'bg-estado-ok-50 text-estado-ok-700 border-estado-ok-200' },
   CREDITO_30D: { label: 'Crédito 30 días', clase: 'bg-estado-alerta-50 text-estado-alerta-800 border-estado-alerta-200' },
 };
+
+/**
+ * Determina si el comprobante tiene serie/número físico visible.
+ * NOTA_VENTA y RECIBO son comprobantes sin enumeración/serie formal (S/N).
+ */
+export const esComprobanteEnumerado = (ficha: {
+  numero_comprobante?: string;
+  tipo_comprobante?: TipoComprobanteCompra;
+}): boolean => {
+  if (ficha.tipo_comprobante === 'NOTA_VENTA' || ficha.tipo_comprobante === 'RECIBO') {
+    return false;
+  }
+  const num = ficha.numero_comprobante?.trim().toUpperCase();
+  return Boolean(num && num !== 'S/N' && num !== 'SIN NUMERO' && num !== 'SIN NÚMERO');
+};
+
+/**
+ * Retorna el identificador legible para títulos, modales y etiquetas accesibles.
+ * Si es enumerado: ej. "F001-12356566"
+ * Si no es enumerado: ej. "Nota de venta" o "Recibo"
+ */
+export const identificadorComprobante = (ficha: {
+  numero_comprobante?: string;
+  tipo_comprobante?: TipoComprobanteCompra;
+}): string => {
+  if (esComprobanteEnumerado(ficha) && ficha.numero_comprobante) {
+    return ficha.numero_comprobante;
+  }
+  return (ficha.tipo_comprobante && TIPOS_COMPROBANTE[ficha.tipo_comprobante]?.label) ?? 'Comprobante';
+};
+

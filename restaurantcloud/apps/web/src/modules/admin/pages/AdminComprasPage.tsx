@@ -10,6 +10,7 @@ import {
   ModalReactivacionPlatos,
   OnboardingComprasVacio,
   CriterioBusquedaCompra,
+  identificadorComprobante,
 } from '../components/compras';
 import {
   FichaCompraResumenDTO,
@@ -112,7 +113,7 @@ export const AdminComprasPage: React.FC = () => {
     platosReactivables: PlatoReactivableDTO[]
   ) => {
     cargarFichas();
-    mostrarExito(`Compra ${ficha.numero_comprobante} registrada. Los insumos ya están en el inventario.`);
+    mostrarExito(`Compra ${identificadorComprobante(ficha)} registrada. Los insumos ya están en el inventario.`);
     if (platosReactivables && platosReactivables.length > 0) {
       setPlatosReactivablesPendientes(platosReactivables);
     }
@@ -120,7 +121,7 @@ export const AdminComprasPage: React.FC = () => {
 
   const handleAnulacionConfirmada = (fichaActualizada: FichaCompraResumenDTO) => {
     cargarFichas();
-    mostrarExito(`Compra ${fichaActualizada.numero_comprobante} anulada. Se descontó el stock ingresado.`);
+    mostrarExito(`Compra ${identificadorComprobante(fichaActualizada)} anulada. Se descontó el stock ingresado.`);
   };
 
   const handlePlatosReactivados = (cantidad: number) => {

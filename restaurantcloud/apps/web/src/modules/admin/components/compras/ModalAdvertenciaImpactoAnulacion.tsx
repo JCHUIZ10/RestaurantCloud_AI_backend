@@ -5,7 +5,7 @@ import { adminService } from '@/services/serviceAdapter';
 import { Button, EstadoBadge, Modal, Skeleton } from '@/components/ui';
 import { cn } from '@/shared/utils';
 import { TagComprobante } from './etiquetasCompra';
-import { formatoFecha, soles } from './formatoCompra';
+import { formatoFecha, identificadorComprobante, soles } from './formatoCompra';
 
 interface ModalAdvertenciaImpactoAnulacionProps {
   ficha: FichaCompraResumenDTO | null;
@@ -100,7 +100,7 @@ export const ModalAdvertenciaImpactoAnulacion: React.FC<ModalAdvertenciaImpactoA
       tono="error"
       icono={AlertTriangle}
       etiqueta={ficha.proveedor_nombre}
-      titulo={`Anular ${ficha.numero_comprobante}`}
+      titulo={`Anular ${identificadorComprobante(ficha)}`}
       descripcion="Se descontará del inventario lo que ingresó con esta compra."
       pie={
         <>

@@ -6402,17 +6402,6 @@ class MockAdminService {
   // MÉTODOS PARA CU-ADMIN-06: REGISTRAR FICHA DE COMPRA DE INSUMOS
   // ===========================================================================
 
-  private generarCorrelativoNotaVenta(): string {
-    const hoy = new Date();
-    const yyyy = hoy.getFullYear();
-    const mm = String(hoy.getMonth() + 1).padStart(2, '0');
-    const dd = String(hoy.getDate()).padStart(2, '0');
-    const fechaPrefix = `${yyyy}${mm}${dd}`;
-    const prefix = `NV-${fechaPrefix}-`;
-    const countHoy = this.fichasCompra.filter((f) => f.numero_comprobante.startsWith(prefix)).length + 1;
-    return `${prefix}${String(countHoy).padStart(4, '0')}`;
-  }
-
   private generarCodigoFicha(): string {
     const hoy = new Date();
     const yyyy = hoy.getFullYear();
@@ -6601,11 +6590,11 @@ class MockAdminService {
       if (request.actualizar_contacto_proveedor.direccion) prov.direccion = request.actualizar_contacto_proveedor.direccion;
     }
 
-    // Autogenerar número de comprobante si es NOTA_VENTA o RECIBO y vino vacío
+    // Asignar número de comprobante si es NOTA_VENTA o RECIBO (sin serie / S/N)
     let numeroComprobante = request.numero_comprobante?.trim() || '';
     if (!numeroComprobante) {
       if (request.tipo_comprobante === 'NOTA_VENTA' || request.tipo_comprobante === 'RECIBO') {
-        numeroComprobante = this.generarCorrelativoNotaVenta();
+        numeroComprobante = 'S/N';
       } else {
         return {
           exito: false,

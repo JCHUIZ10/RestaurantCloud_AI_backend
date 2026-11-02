@@ -9,3 +9,5 @@ export * from './ModalAdvertenciaImpactoAnulacion';
 export * from './ModalReactivacionPlatos';
 export * from './OnboardingComprasVacio';
 export * from './SelectorInsumoSearchable';
+export * from './formatoCompra';
+export * from './etiquetasCompra';

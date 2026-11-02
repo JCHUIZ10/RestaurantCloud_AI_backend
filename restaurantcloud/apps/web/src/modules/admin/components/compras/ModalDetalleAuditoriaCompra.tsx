@@ -4,7 +4,7 @@ import { FichaCompraDetalleCompletoDTO } from '@/types/admin';
 import { adminService } from '@/services/serviceAdapter';
 import { Button, EstadoBadge, Modal, Skeleton } from '@/components/ui';
 import { TagComprobante, TagPago, VariacionCosto } from './etiquetasCompra';
-import { formatoFecha, soles } from './formatoCompra';
+import { esComprobanteEnumerado, formatoFecha, identificadorComprobante, soles } from './formatoCompra';
 
 interface ModalDetalleAuditoriaCompraProps {
   fichaId: string | null;
@@ -47,8 +47,8 @@ export const ModalDetalleAuditoriaCompra: React.FC<ModalDetalleAuditoriaCompraPr
       onCerrar={onCerrar}
       tamano="xl"
       icono={Receipt}
-      etiqueta={d?.codigo_correlativo}
-      titulo={d ? d.numero_comprobante : 'Detalle de compra'}
+      etiqueta={d && esComprobanteEnumerado(d) && d.codigo_correlativo !== 'S/N' ? d.codigo_correlativo : undefined}
+      titulo={d ? identificadorComprobante(d) : 'Detalle de compra'}
       pie={
         <>
           <Button variant="outline" onClick={() => window.print()} disabled={!d} leftIcon={<Printer className="w-4 h-4 text-aurea-copper" aria-hidden="true" />}>
