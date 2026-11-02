@@ -8,7 +8,7 @@ import {
   EmpleadoDetalleDTO,
 } from '@/types/admin';
 import { Button, Modal } from '@/components/ui';
-import { cn } from '@/shared/utils';
+import { cn, extraerDigitosMovilPeru, formatearTelefonoPeru, generarEnlaceWhatsApp } from '@/shared/utils';
 import { ORDEN_ROLES, ROLES_PERSONAL } from './rolesPersonal';
 
 interface ModalRegistrarEditarEmpleadoProps {
@@ -34,7 +34,7 @@ export const ModalRegistrarEditarEmpleado: React.FC<ModalRegistrarEditarEmpleado
   const idForm = useId();
   const [nombre, setNombre] = useState('');
   const [correo, setCorreo] = useState('');
-  const [telefono, setTelefono] = useState('+51 ');
+  const [telefono, setTelefono] = useState('');
   const [rol, setRol] = useState<RolEmpleadoOperativo>('mozo');
   const [enviarBienvenida, setEnviarBienvenida] = useState(true);
 
@@ -45,18 +45,21 @@ export const ModalRegistrarEditarEmpleado: React.FC<ModalRegistrarEditarEmpleado
   const [empleadoCreado, setEmpleadoCreado] = useState<EmpleadoDetalleDTO | null>(null);
   const [copiado, setCopiado] = useState(false);
 
+  const digitosTelefono = extraerDigitosMovilPeru(telefono);
+  const telefonoValido = digitosTelefono.length === 9 && digitosTelefono.startsWith('9');
+
   useEffect(() => {
     if (empleadoAEditar) {
       setNombre(empleadoAEditar.nombre);
       setCorreo(empleadoAEditar.correo);
-      setTelefono(empleadoAEditar.telefono);
+      setTelefono(empleadoAEditar.telefono || '');
       setRol(empleadoAEditar.rol);
       setEmpleadoCreado(null);
       setErrorValidacion(null);
     } else {
       setNombre('');
       setCorreo('');
-      setTelefono('+51 9');
+      setTelefono('');
       setRol('mozo');
       setEnviarBienvenida(true);
       setEmpleadoCreado(null);
@@ -78,18 +81,25 @@ export const ModalRegistrarEditarEmpleado: React.FC<ModalRegistrarEditarEmpleado
       return;
     }
 
-    const cleanTel = telefono.replace(/\D/g, '');
-    if (cleanTel.length < 9) {
+    const digitos = extraerDigitosMovilPeru(telefono);
+    if (!digitos || digitos.length !== 9) {
       setErrorValidacion('Escribe un celular válido de 9 dígitos.');
       return;
     }
+
+    if (!digitos.startsWith('9')) {
+      setErrorValidacion('El número celular debe iniciar con el dígito 9 según el estándar móvil de Perú.');
+      return;
+    }
+
+    const telefonoFormateado = `+51 ${formatearTelefonoPeru(digitos)}`;
 
     setGuardando(true);
     try {
       if (empleadoAEditar) {
         const ok = await onGuardarEdicion(empleadoAEditar.id, {
           nombre: nombre.trim(),
-          telefono: telefono.trim(),
+          telefono: telefonoFormateado,
           rol,
         });
         if (ok) {
@@ -99,7 +109,7 @@ export const ModalRegistrarEditarEmpleado: React.FC<ModalRegistrarEditarEmpleado
         const nuevo = await onGuardarNuevo({
           nombre: nombre.trim(),
           correo: correo.trim().toLowerCase(),
-          telefono: telefono.trim(),
+          telefono: telefonoFormateado,
           rol,
           enviar_bienvenida: enviarBienvenida,
         });
@@ -122,6 +132,10 @@ export const ModalRegistrarEditarEmpleado: React.FC<ModalRegistrarEditarEmpleado
 
   if (empleadoCreado) {
     const r = ROLES_PERSONAL[empleadoCreado.rol];
+    const mensajeWhatsApp = `¡Hola ${empleadoCreado.nombre}! Tus credenciales de acceso a RestaurantCloud AI son:\n📧 Usuario: ${empleadoCreado.correo}\n🔑 Clave provisional: ${empleadoCreado.password_temporal}\n🌐 Acceso: https://app.restaurantcloud.pe/login`;
+    const enlaceWhatsapp =
+      empleadoCreado.enlace_whatsapp_link ||
+      (empleadoCreado.telefono ? generarEnlaceWhatsApp(empleadoCreado.telefono, mensajeWhatsApp) : '');
     return (
       <Modal
         abierto={abierto}
@@ -165,9 +179,9 @@ export const ModalRegistrarEditarEmpleado: React.FC<ModalRegistrarEditarEmpleado
             )}
           </dl>
 
-          {empleadoCreado.enlace_whatsapp_link && (
+          {enlaceWhatsapp && (
             <a
-              href={empleadoCreado.enlace_whatsapp_link}
+              href={enlaceWhatsapp}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full min-h-tactil inline-flex items-center justify-center gap-2 px-4 rounded-xl bg-estado-ok-600 hover:bg-estado-ok-700 text-white text-sm font-semibold shadow-sm transition-colors"
@@ -290,22 +304,47 @@ export const ModalRegistrarEditarEmpleado: React.FC<ModalRegistrarEditarEmpleado
           </div>
 
           <div>
-            <label htmlFor={`${idForm}-tel`} className={CLASE_ROTULO}>
-              Celular / WhatsApp
-            </label>
-            <div className="relative">
-              <Phone className={CLASE_ICONO} aria-hidden="true" />
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor={`${idForm}-tel`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-aurea-navy">
+                <Phone className="w-3.5 h-3.5 text-aurea-copper" aria-hidden="true" />
+                <span>Celular / WhatsApp</span>
+              </label>
+              {telefonoValido ? (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-estado-ok-700">
+                  <MessageCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                  Válido
+                </span>
+              ) : digitosTelefono.length > 0 ? (
+                <span className="text-xs font-mono text-aurea-navy/60">{digitosTelefono.length}/9</span>
+              ) : null}
+            </div>
+            <div className="flex min-h-tactil rounded-xl border border-aurea-champagne/70 bg-white overflow-hidden focus-within:border-aurea-copper focus-within:ring-2 focus-within:ring-aurea-copper/20">
+              {/* Prefijo Fijo No Editable */}
+              <div className="inline-flex items-center gap-1.5 px-3 bg-aurea-ivory border-r border-aurea-champagne/70 text-aurea-navy font-semibold text-xs select-none">
+                <span>🇵🇪</span>
+                <span className="font-mono text-xs">+51</span>
+              </div>
+
+              {/* Input de Dígitos */}
               <input
                 id={`${idForm}-tel`}
                 type="tel"
-                inputMode="tel"
+                inputMode="numeric"
                 required
-                value={telefono}
-                onChange={(e) => setTelefono(e.target.value)}
-                placeholder="+51 987 654 321"
-                className={cn(CLASE_CONTROL, 'font-mono')}
+                maxLength={11}
+                value={formatearTelefonoPeru(telefono)}
+                onChange={(e) => {
+                  const digits = extraerDigitosMovilPeru(e.target.value);
+                  const formatted = formatearTelefonoPeru(digits);
+                  setTelefono(digits ? `+51 ${formatted}` : '');
+                }}
+                placeholder="987 654 321"
+                className="w-full px-3.5 py-2.5 bg-transparent font-mono text-base md:text-sm text-aurea-navy placeholder:text-aurea-navy/40 focus:outline-none"
               />
             </div>
+            <p className="mt-1 text-xs text-aurea-navy/50">
+              Número móvil de 9 dígitos. Inicia con 9.
+            </p>
           </div>
         </div>
 
