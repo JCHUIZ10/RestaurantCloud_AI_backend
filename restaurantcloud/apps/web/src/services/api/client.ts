@@ -23,12 +23,45 @@ apiClient.interceptors.request.use((config) => {
   if (activeLocalId && config.headers && !config.headers['X-Local-Id']) {
     config.headers['X-Local-Id'] = activeLocalId;
   }
+
+  // Log en desarrollo
+  if (import.meta.env.DEV) {
+    console.log(`🚀 [API] ${config.method?.toUpperCase()} ${config.url}`, {
+      params: config.params,
+      data: config.data,
+    });
+  }
+
   return config;
 });
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Log en desarrollo
+    if (import.meta.env.DEV) {
+      console.log(
+        `✅ [API] ${response.config.method?.toUpperCase()} ${response.config.url}`,
+        {
+          status: response.status,
+          data: response.data,
+        }
+      );
+    }
+    return response;
+  },
   async (error) => {
+    // Log de error en desarrollo
+    if (import.meta.env.DEV) {
+      console.error(
+        `❌ [API ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url}`,
+        {
+          status: error.response?.status,
+          data: error.response?.data,
+          error,
+        }
+      );
+    }
+
     const originalRequest = error.config;
     // Si falla 401 en una ruta protegida (y no es intento de login ni refresh)
     if (
