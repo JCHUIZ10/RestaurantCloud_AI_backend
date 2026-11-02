@@ -89,8 +89,7 @@ services:
       - "max_parallel_workers_per_gather=2"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # Solo se ejecuta al crear el volumen por primera vez.
-      - ./infra/sql:/docker-entrypoint-initdb.d:ro
+      # El esquema lo crean las migraciones de Laravel al arrancar la API.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s

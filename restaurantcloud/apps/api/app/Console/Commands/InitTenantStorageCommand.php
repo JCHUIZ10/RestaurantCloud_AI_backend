@@ -22,7 +22,8 @@ class InitTenantStorageCommand extends Command
     {
         $salud = $storageService->verificarSalud();
         if (! ($salud['disponible'] ?? false)) {
-            $this->error('No hay conexión con el servidor MinIO S3: ' . ($salud['error'] ?? 'desconocido'));
+            $this->error('No hay conexión con el servidor MinIO S3: '.($salud['error'] ?? 'desconocido'));
+
             return self::FAILURE;
         }
 
@@ -58,7 +59,8 @@ class InitTenantStorageCommand extends Command
         $empresa = DB::table('empresa')->where('id', $testId)->first();
 
         if (! $empresa) {
-            $this->error("La empresa de prueba con ID {$testId} no existe en la base de datos. Asegúrate de haber ejecutado 07_seed_local_aurea_completo.sql.");
+            $this->error("La empresa de prueba con ID {$testId} no existe en la base de datos. Asegúrate de haber ejecutado php artisan db:seed (semilla 07_seed_local_aurea_completo.sql).");
+
             return self::FAILURE;
         }
 
@@ -77,7 +79,8 @@ class InitTenantStorageCommand extends Command
             }
 
             $this->warn("La empresa de prueba '{$empresa->razon_social}' (RUC: {$empresa->ruc}) ya cuenta con su espacio MinIO inicializado.");
-            $this->info("Omitiendo para evitar duplicidad. (Usa --force si deseas regenerar el manifiesto).");
+            $this->info('Omitiendo para evitar duplicidad. (Usa --force si deseas regenerar el manifiesto).');
+
             return self::SUCCESS;
         }
 
@@ -90,11 +93,13 @@ class InitTenantStorageCommand extends Command
 
         if (! $empresa) {
             $this->error("No se encontró ninguna empresa con el ID: {$empresaId}");
+
             return self::FAILURE;
         }
 
         if (! $forzar && $storageService->estaInicializado($empresaId)) {
             $this->warn("La empresa '{$empresa->razon_social}' ya tiene almacenamiento inicializado. Usa --force para sobrescribir.");
+
             return self::SUCCESS;
         }
 
@@ -107,6 +112,7 @@ class InitTenantStorageCommand extends Command
 
         if ($empresas->isEmpty()) {
             $this->warn('No hay empresas registradas en la base de datos.');
+
             return self::SUCCESS;
         }
 
@@ -116,6 +122,7 @@ class InitTenantStorageCommand extends Command
         foreach ($empresas as $empresa) {
             if (! $forzar && $storageService->estaInicializado($empresa->id)) {
                 $omitidas++;
+
                 continue;
             }
 
@@ -153,6 +160,7 @@ class InitTenantStorageCommand extends Command
 
         if (! $exito) {
             $this->error("Fallo al guardar el manifiesto en MinIO para {$empresa->id}.");
+
             return self::FAILURE;
         }
 
@@ -171,7 +179,7 @@ class InitTenantStorageCommand extends Command
         }
 
         $this->newLine();
-        $this->info("✓ Espacio de almacenamiento MinIO registrado exitosamente:");
+        $this->info('✓ Espacio de almacenamiento MinIO registrado exitosamente:');
         $this->table(
             ['Propiedad', 'Valor'],
             [
@@ -184,7 +192,7 @@ class InitTenantStorageCommand extends Command
                 ['Prefijo Privado', "privado/empresas/{$empresa->id}/"],
                 ['ID Registro BD (archivo)', $archivo->id ?? 'N/A'],
                 ['Visibilidad BD', $archivo->visibilidad ?? 'privado'],
-                ['SHA-256', substr($archivo->sha256 ?? '', 0, 16) . '...'],
+                ['SHA-256', substr($archivo->sha256 ?? '', 0, 16).'...'],
             ]
         );
 

@@ -44,6 +44,10 @@ done
 
 case "$ROLE" in
     api)
+        # Solo la API migra: queue y scheduler arrancan en paralelo y no deben competir.
+        # En una BD creada antes con initdb, el esquema base solo se registra como aplicado.
+        echo "Aplicando migraciones pendientes..."
+        php artisan migrate --force --no-interaction
         SERVER="${APP_SERVER:-octane}"
         if [ "$SERVER" = "octane" ] && command -v frankenphp > /dev/null 2>&1; then
             echo "PostgreSQL listo. Iniciando API Laravel con Octane (FrankenPHP) en el puerto 8080 (Workers: ${OCTANE_WORKERS:-2})..."

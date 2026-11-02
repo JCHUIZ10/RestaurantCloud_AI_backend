@@ -538,6 +538,7 @@ CREATE TABLE IF NOT EXISTS pedido_item (
     motivo_anulacion VARCHAR(255),
     anulado_por UUID REFERENCES usuario(id) ON DELETE SET NULL,
     es_merma BOOL NOT NULL DEFAULT false,
+    stock_descontado BOOL NOT NULL DEFAULT false,
     fecha_inicio_coccion TIMESTAMPTZ,
     fecha_listo_cocina TIMESTAMPTZ,
     estado_pago VARCHAR(20) NOT NULL DEFAULT 'pendiente' CHECK (estado_pago IN ('pendiente', 'cobrado')),

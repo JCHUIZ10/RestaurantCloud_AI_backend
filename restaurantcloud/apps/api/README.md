@@ -1,58 +1,48 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# RestaurantCloud API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+API Laravel modular (ver `../README.md` para la estructura general). Este documento cubre el esquema de base de datos y la suite de tests.
 
-## About Laravel
+## Esquema de base de datos
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Las migraciones de Laravel son la **única fuente de verdad** del esquema. Todo cambio de tablas, índices, políticas RLS, vistas o funciones entra como una migración nueva.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- `database/sql/01…08_*.sql`: esquema canónico al 2026-11-02 (antes `infra/sql`, que cargaba `docker-entrypoint-initdb.d`).
+- `database/migrations/2026_11_02_021504_crear_esquema_base.php`: ejecuta 01–06 y 08 sobre una BD vacía. Si la BD ya tiene el esquema (creada antes con initdb), solo se registra como aplicada.
+- Las migraciones posteriores aplican cambios incrementales y deben funcionar tanto en BDs nuevas como existentes (`IF NOT EXISTS`, `CREATE OR REPLACE`).
+- `06_seed_initial_data.sql` (planes, ubigeo, Admin SaaS) es parte del esquema base porque toda instalación lo necesita. `07_seed_local_aurea_completo.sql` es solo demo y lo carga `LocalAureaDemoSeeder`.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+No edites los archivos de `database/sql` para cambiar una BD existente: no se vuelven a ejecutar. Se mantienen como referencia legible del esquema base.
 
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding assistants and developer tools. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+### Flujo habitual
 
 ```bash
-composer require laravel/boost --dev
+# Nuevo cambio de esquema
+docker exec saas_laravel_api php artisan make:migration agregar_x_a_tabla --no-interaction
+docker exec saas_laravel_api php artisan migrate
 
-php artisan boost:install
+# Datos demo del local ÁUREA (desarrollo)
+docker exec saas_laravel_api php artisan db:seed --force
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+El contenedor `api` ejecuta `php artisan migrate --force` en cada arranque (`infra/docker/entrypoint.sh`).
 
-## Contributing
+### Verificar que no hay deriva
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+./scripts/schema-check.sh                       # compara restaurantcloud_db
+./scripts/schema-check.sh restaurantcloud_test  # o cualquier otra BD
+```
 
-## Code of Conduct
+Migra una BD temporal desde cero y compara su `pg_dump --schema-only` con la BD indicada. Sale con código 1 si difieren.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Tests
 
-## Security Vulnerabilities
+La suite corre contra `restaurantcloud_test` y el bucket `restaurantcloud-test`, nunca contra los datos de desarrollo:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+- `phpunit.xml` usa `<server>` (no `<env>`) porque el contenedor ya define esas variables en `$_SERVER`, que Laravel lee primero.
+- `tests/TestCase.php` envuelve cada test en una transacción que se revierte; los tests deben preparar sus propios datos y no depender de lo que deje otro test.
 
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+./scripts/test-db-reset.sh                       # tras cambiar migraciones o semillas
+docker exec saas_laravel_api php artisan test
+```
