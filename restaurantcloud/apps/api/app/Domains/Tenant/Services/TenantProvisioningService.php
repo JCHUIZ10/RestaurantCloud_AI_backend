@@ -110,8 +110,9 @@ class TenantProvisioningService
 
             // B. Crear Suscripción Inicial
             $suscripcionId = (string) Str::uuid();
+            $ciclo = ($datos['ciclo_facturacion'] ?? 'mensual') === 'anual' ? 'anual' : 'mensual';
             $fechaInicio = now();
-            $fechaFin = ($datos['ciclo_facturacion'] ?? 'mensual') === 'anual'
+            $fechaFin = $ciclo === 'anual'
                 ? now()->addYear()
                 : now()->addMonth();
 
@@ -123,7 +124,7 @@ class TenantProvisioningService
                 'fecha_fin_periodo' => $fechaFin,
                 'estado' => 'activa',
                 'dias_gracia_restantes' => 5,
-                'stripe_subscription_id' => $datos['stripe_subscription_id'] ?? null,
+                'ciclo_facturacion' => $ciclo,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -141,7 +142,7 @@ class TenantProvisioningService
                 'local_id' => null, // Administrador global de la empresa
                 'nombre' => trim($datos['nombre_propietario']),
                 'correo' => $correo,
-                'password_hash' => Hash::make($datos['password']),
+                'password_hash' => $datos['password_hash'] ?? Hash::make($datos['password']),
                 'telefono' => trim($datos['telefono'] ?? ''),
                 'rol' => 'propietario',
                 'estado' => 'activo',
@@ -209,6 +210,7 @@ class TenantProvisioningService
                 ],
                 'pago' => [
                     'id' => $pagoId,
+                    'numero_recibo' => DB::table('pago')->where('id', $pagoId)->value('numero_recibo'),
                     'monto' => $monto,
                     'estado' => 'exitoso',
                     'origen_pago' => $datos['origen_pago'] ?? 'stripe',
@@ -273,7 +275,7 @@ class TenantProvisioningService
             $tipoIdentidad = in_array($datos['tipo_identidad_fiscal'] ?? '', ['RUC_20', 'RUC_10'], true)
                 ? $datos['tipo_identidad_fiscal']
                 : (str_starts_with($ruc, '20') ? 'RUC_20' : 'RUC_10');
-            $codigoDisplay = 'EMP-' . strtoupper(substr($ruc, 2, 6));
+            $codigoDisplay = 'EMP-'.strtoupper(substr($ruc, 2, 6));
 
             DB::table('empresa')->insert([
                 'id' => $empresaId,
@@ -307,6 +309,7 @@ class TenantProvisioningService
                 'fecha_fin_periodo' => $fechaFin,
                 'estado' => 'activa',
                 'dias_gracia_restantes' => 5,
+                'ciclo_facturacion' => $ciclo,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);

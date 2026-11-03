@@ -94,6 +94,7 @@ export interface UsuarioCreadoDTO {
 }
 
 export interface ConstanciaRegistroDTO {
+  pago_id?: string;
   numero_comprobante: string;
   periodo: string;
   fecha_pago: string;
@@ -111,8 +112,9 @@ export interface SoporteEmergenciaDTO {
 
 export interface CompletarRegistroResponseDTO {
   mensaje: string;
-  token: string;
-  refresh_token: string;
+  // null si el alta se completó pero no se pudo abrir la sesión automática
+  token: string | null;
+  refresh_token: string | null;
   empresa: EmpresaCreadaDTO;
   usuario: UsuarioCreadoDTO;
   constancia: ConstanciaRegistroDTO;

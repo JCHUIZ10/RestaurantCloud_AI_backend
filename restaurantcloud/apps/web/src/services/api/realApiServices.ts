@@ -1317,6 +1317,27 @@ export const realRegistroEmpresaService = {
     }
   },
 
+  async reenviarOtp(req: { registro_id: string }): Promise<any> {
+    try {
+      return await apiPost<any>('/public/registro/reenviar-otp', req);
+    } catch (err: any) {
+      if (err.response?.data) {
+        return err.response.data;
+      }
+      return {
+        exito: false,
+        datos: null,
+        errores: [
+          {
+            codigo: 'ERROR_CONEXION',
+            mensaje: 'No se pudo conectar con el servidor al reenviar el código.',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+  },
+
   async verificarOTP(req: any): Promise<any> {
     try {
       return await apiPost<any>('/public/registro/verificar-otp', req);

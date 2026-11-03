@@ -109,12 +109,12 @@ ON CONFLICT (id) DO UPDATE SET
 
 INSERT INTO suscripcion (
     id, empresa_id, plan_id, fecha_inicio, fecha_fin_periodo, estado,
-    dias_gracia_restantes, stripe_subscription_id
+    dias_gracia_restantes, ciclo_facturacion
 ) VALUES (
     '00000000-0000-4000-8000-000000000002',
     '00000000-0000-4000-8000-000000000001', 2,
     NOW() - INTERVAL '5 days', NOW() + INTERVAL '25 days', 'activa', 5,
-    'sub_local_aurea'
+    'mensual'
 )
 ON CONFLICT (id) DO UPDATE SET
     fecha_fin_periodo = EXCLUDED.fecha_fin_periodo, estado = EXCLUDED.estado,

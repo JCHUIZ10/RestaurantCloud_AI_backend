@@ -11,8 +11,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class SaasTenantController extends Controller
 {
@@ -95,8 +95,11 @@ class SaasTenantController extends Controller
         $anioActual = Carbon::now()->year;
 
         $nuevasEsteMes = $todas->filter(function ($t) use ($mesActual, $anioActual) {
-            if (empty($t->fecha_registro)) return false;
+            if (empty($t->fecha_registro)) {
+                return false;
+            }
             $fecha = Carbon::parse($t->fecha_registro);
+
             return $fecha->month === $mesActual && $fecha->year === $anioActual;
         })->count();
 
@@ -155,11 +158,11 @@ class SaasTenantController extends Controller
         }
 
         if (! empty($buscar)) {
-            $b = '%' . strtolower($buscar) . '%';
+            $b = '%'.strtolower($buscar).'%';
             $query->where(function ($q) use ($b) {
                 $q->whereRaw('LOWER(razon_social) LIKE ?', [$b])
-                  ->orWhereRaw('ruc LIKE ?', [$b])
-                  ->orWhereRaw('LOWER(correo_contacto) LIKE ?', [$b]);
+                    ->orWhereRaw('ruc LIKE ?', [$b])
+                    ->orWhereRaw('LOWER(correo_contacto) LIKE ?', [$b]);
             });
         }
 
@@ -172,7 +175,7 @@ class SaasTenantController extends Controller
             ->get();
 
         $items = $filas->map(function ($row) {
-            $codigoDisplay = 'EMP-' . strtoupper(substr($row->ruc, 2, 6));
+            $codigoDisplay = 'EMP-'.strtoupper(substr($row->ruc, 2, 6));
             $diasGracia = (int) ($row->dias_gracia_restantes ?? 5);
 
             return [
@@ -245,11 +248,11 @@ class SaasTenantController extends Controller
             ->map(function ($p) {
                 return [
                     'id' => $p->id,
-                    'comprobante_codigo' => $p->numero_operacion ?: 'REC-' . substr($p->id, 0, 8),
+                    'comprobante_codigo' => $p->numero_recibo,
                     'fecha' => $p->fecha ? Carbon::parse($p->fecha)->toIso8601String() : now()->toIso8601String(),
                     'monto_pen' => (float) $p->monto,
                     'origen_pago' => $p->origen_pago,
-                    'medio_detalle' => strtoupper(str_replace('_', ' ', $p->origen_pago)) . ($p->numero_operacion ? " ({$p->numero_operacion})" : ''),
+                    'medio_detalle' => strtoupper(str_replace('_', ' ', $p->origen_pago)).($p->numero_operacion ? " ({$p->numero_operacion})" : ''),
                     'estado' => $p->estado,
                     'stripe_payment_id' => $p->stripe_payment_id ?? null,
                     'numero_operacion' => $p->numero_operacion ?? null,
@@ -277,7 +280,7 @@ class SaasTenantController extends Controller
 
         $detalle = [
             'empresa_id' => $empresa->id,
-            'codigo_display' => 'EMP-' . strtoupper(substr($empresa->ruc, 2, 6)),
+            'codigo_display' => 'EMP-'.strtoupper(substr($empresa->ruc, 2, 6)),
             'ruc' => $empresa->ruc,
             'tipo_contribuyente_label' => $empresa->tipo_identidad_fiscal === 'RUC_20'
                 ? 'RUC 20 — Persona Jurídica (Empresa)'
@@ -296,7 +299,7 @@ class SaasTenantController extends Controller
                 'id' => $plan ? (int) $plan->id : 2,
                 'nombre' => $plan ? $plan->nombre : 'Pro',
                 'precio_mensual' => $plan ? (float) $plan->precio_mensual : 80.0,
-                'ciclo' => 'mensual',
+                'ciclo' => $suscripcion->ciclo_facturacion ?? 'mensual',
             ],
             'estado_suscripcion' => $suscripcion ? $suscripcion->estado : $empresa->estado,
             'dias_gracia_restantes' => $diasGracia,
@@ -305,7 +308,6 @@ class SaasTenantController extends Controller
             'fecha_proximo_cobro' => $suscripcion ? Carbon::parse($suscripcion->fecha_fin_periodo)->toIso8601String() : now()->addMonth()->toIso8601String(),
             'fecha_corte_gracia' => $suscripcion->fecha_corte_gracia ?? null,
             'stripe_customer_id' => $empresa->stripe_customer_id ?? null,
-            'stripe_subscription_id' => $suscripcion->stripe_subscription_id ?? null,
             'metodo_pago_detalle' => $pagos->first()['medio_detalle'] ?? 'Transferencia Bancaria',
             'origen_alta' => $empresa->origen_alta ?? 'manual_admin',
             'historial_pagos' => $pagos,

@@ -4,6 +4,7 @@ namespace App\Domains\Suscripcion\Services;
 
 use Stripe\Customer;
 use Stripe\Event;
+use Stripe\Exception\InvalidRequestException;
 use Stripe\PaymentIntent;
 use Stripe\SetupIntent;
 use Stripe\StripeClient;
@@ -12,7 +13,9 @@ use Stripe\Webhook;
 class StripeGatewayService
 {
     private ?StripeClient $client = null;
+
     private string $secretKey;
+
     private ?string $webhookSecret;
 
     public function __construct()
@@ -70,14 +73,18 @@ class StripeGatewayService
     }
 
     /**
-     * Asocia el método de pago al cliente y ejecuta el cobro de la primera mensualidad/anualidad
+     * Asocia el método de pago al cliente y ejecuta el cobro de la primera mensualidad/anualidad.
+     *
+     * Con $idempotencyKey, Stripe devuelve el mismo PaymentIntent ante un reintento
+     * en lugar de cobrar dos veces.
      */
     public function cobrarSuscripcionInicial(
         string $customerId,
         string $paymentMethodId,
         float $monto,
         string $moneda = 'pen',
-        string $descripcion = 'RestaurantCloud SaaS - Suscripción Inicial'
+        string $descripcion = 'RestaurantCloud SaaS - Suscripción Inicial',
+        ?string $idempotencyKey = null
     ): PaymentIntent {
         $client = $this->getClient();
 
@@ -88,7 +95,7 @@ class StripeGatewayService
                 'customer' => $customerId,
             ]);
             $finalPaymentMethodId = $pm->id;
-        } catch (\Stripe\Exception\InvalidRequestException $e) {
+        } catch (InvalidRequestException $e) {
             // Si ya está adjunto, continuamos sin error
             if (strpos($e->getMessage(), 'already been attached') === false) {
                 throw $e;
@@ -113,7 +120,7 @@ class StripeGatewayService
             'metadata' => [
                 'tipo_cobro' => 'alta_suscripcion_inicial',
             ],
-        ]);
+        ], $idempotencyKey ? ['idempotency_key' => $idempotencyKey] : null);
     }
 
     /**

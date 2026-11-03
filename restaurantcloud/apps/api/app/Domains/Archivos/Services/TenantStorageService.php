@@ -452,6 +452,17 @@ class TenantStorageService
     }
 
     /**
+     * CU-PROP-01 / CU-PROP-02: Constancia PDF de un pago de suscripción SaaS (nivel empresa)
+     */
+    public function generarKeyReciboSuscripcion(
+        string $empresaId,
+        string $pagoId,
+        ?string $archivoId = null
+    ): string {
+        return $this->generarKeyPrivado($empresaId, null, 'suscripcion/recibos', $pagoId, 'pdf', $archivoId);
+    }
+
+    /**
      * CU-CAJA-05: Reporte Z digital del turno de caja (inmutable, siempre PDF)
      */
     public function generarKeyReporteZ(

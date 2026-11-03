@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\CocinaController;
 use App\Http\Controllers\Api\MozoController;
 use App\Http\Controllers\Api\Propietario\AdministradorController;
 use App\Http\Controllers\Api\Propietario\LocalController;
+use App\Http\Controllers\Api\Propietario\SuscripcionController;
 use App\Http\Controllers\Api\Public\ActivacionCuentaController;
 use App\Http\Controllers\Api\Public\CartaPublicaController;
 use App\Http\Controllers\Api\Public\ComprobantePublicoController;
@@ -40,6 +41,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/planes', [RegistroController::class, 'getPlanes']);
         Route::post('/registro/iniciar', [RegistroController::class, 'iniciarRegistro']);
         Route::patch('/registro/modificar-correo', [RegistroController::class, 'modificarCorreo']);
+        Route::post('/registro/reenviar-otp', [RegistroController::class, 'reenviarOtp']);
         Route::post('/registro/verificar-otp', [RegistroController::class, 'verificarOtp']);
         Route::post('/registro/completar', [RegistroController::class, 'completarRegistro']);
 
@@ -220,6 +222,13 @@ Route::prefix('v1')->group(function (): void {
                 Route::post('/{id}/cancelar-invitacion', [AdministradorController::class, 'cancelarInvitacion']);
                 Route::get('/{id}/enlace-invitacion', [AdministradorController::class, 'enlaceInvitacion']);
                 Route::patch('/{id}/cambiar-estado', [AdministradorController::class, 'cambiarEstado']);
+            });
+
+            // CU-PROP-02: Mi suscripción (lectura) y constancias de pago
+            Route::prefix('suscripcion')->group(function (): void {
+                Route::get('/', [SuscripcionController::class, 'show']);
+                Route::get('/pagos/{id}/recibo', [SuscripcionController::class, 'descargarRecibo'])
+                    ->whereUuid('id');
             });
         });
 

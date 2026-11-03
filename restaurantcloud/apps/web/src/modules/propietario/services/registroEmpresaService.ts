@@ -13,6 +13,7 @@ import type {
   CompletarRegistroApiResponse,
 } from '@/types/registroEmpresa';
 import { realRegistroEmpresaService } from '@/services/api/realApiServices';
+import { apiDescargarPdf } from '@/services/api/client';
 
 const IS_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 
@@ -292,6 +293,58 @@ class RegistroEmpresaService {
   }
 
   /**
+   * Endpoint 2b: Reenviar un código OTP nuevo conservando el mismo registro
+   * POST /api/v1/public/registro/reenviar-otp
+   */
+  async reenviarOtp(registroId: string): Promise<IniciarRegistroApiResponse> {
+    if (IS_REAL_API) {
+      const res = await realRegistroEmpresaService.reenviarOtp({ registro_id: registroId });
+      if (res.exito && res.datos) {
+        const reg = this.getRegistroEnProgreso();
+        if (reg && (res.datos as any).otp_debug) {
+          reg.otp_valido = (res.datos as any).otp_debug;
+          reg.intentos_restantes = 3;
+          this.saveRegistroEnProgreso(reg);
+        }
+      }
+      return res;
+    }
+
+    await new Promise((res) => setTimeout(res, 400));
+    const registro = this.getRegistroEnProgreso();
+
+    if (!registro || registro.registro_id !== registroId) {
+      return {
+        exito: false,
+        datos: null as unknown as IniciarRegistroResponseDTO,
+        errores: [
+          {
+            codigo: 'REGISTRO_NO_ENCONTRADO',
+            mensaje: 'No se encontró la sesión de registro. Por favor inicia nuevamente.',
+          },
+        ],
+        meta: { timestamp: new Date().toISOString() },
+      };
+    }
+
+    registro.otp_valido = DEFAULT_OTP;
+    registro.intentos_restantes = 3;
+    this.saveRegistroEnProgreso(registro);
+
+    return {
+      exito: true,
+      datos: {
+        registro_id: registro.registro_id,
+        mensaje: `Hemos enviado un nuevo código a ${registro.correo}`,
+        correo: registro.correo,
+        expira_en_segundos: 600,
+        cooldown_reenvio_segundos: 60,
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  /**
    * Endpoint 3: Validar código OTP
    * POST /api/v1/public/registro/verificar-otp
    */
@@ -479,33 +532,21 @@ class RegistroEmpresaService {
   }
 
   /**
-   * Endpoint 5: Descarga simulada de constancia PDF
+   * Endpoint 5: Descarga la constancia PDF persistida en el backend.
+   * GET /api/v1/propietario/suscripcion/pagos/{pago_id}/recibo
+   * En modo demo no hay backend: se imprime la pantalla de confirmación.
    */
-  descargarConstanciaPDF(comprobanteNumero: string, razonSocial: string): void {
-    const contenido = `
-========================================================================
-                      RESTAURANTCLOUD AI - SAAS
-            CONSTANCIA OFICIAL DE ALTA Y SUSCRIPCIÓN B2B
-========================================================================
-Número de Comprobante : ${comprobanteNumero}
-Razón Social          : ${razonSocial}
-Fecha de Emisión      : ${new Date().toLocaleDateString('es-PE')}
-Estado de Servicio    : ACTIVO (Tenant aprovisionado con RLS)
-Pasarela Bancaria     : Stripe Payments Europe Ltd.
-Soporte Técnico       : soporte@restaurantcloud.pe | WhatsApp: +51 930 723 537
-========================================================================
-Gracias por confiar en RestaurantCloud AI. Tu restaurante ya está activo.
-========================================================================
-`;
-    const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `constancia_${comprobanteNumero}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  async descargarConstanciaPDF(resultado: CompletarRegistroResponseDTO): Promise<void> {
+    if (!IS_REAL_API) {
+      window.print();
+      return;
+    }
+
+    await apiDescargarPdf(
+      resultado.constancia.url_descarga_pdf,
+      `Constancia-${resultado.constancia.numero_comprobante}.pdf`,
+      resultado.token
+    );
   }
 }
 

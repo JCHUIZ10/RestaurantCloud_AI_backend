@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Domains\Auth\Services\SesionService;
 use App\Http\Controllers\Controller;
 use App\Models\Usuario;
 use App\Support\ApiResponse;
@@ -10,9 +11,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class AuthController extends Controller
 {
+    public function __construct(private SesionService $sesiones) {}
+
     /**
      * Autenticación multi-rol y resolución multi-cuenta con emisión de token almacenado en Redis.
      * Conforme a la especificación CU-AUTH-01 con control de intentos fallidos en Redis (bloqueo 5 min tras 3 intentos).
@@ -26,7 +30,7 @@ class AuthController extends Controller
 
         $correoSanitizado = trim(strtolower($validated['correo']));
         $ip = $request->ip() ?: '127.0.0.1';
-        $redisKey = "auth:intentos:{$ip}:" . md5($correoSanitizado);
+        $redisKey = "auth:intentos:{$ip}:".md5($correoSanitizado);
 
         // 1. Verificar si ha superado los 3 intentos fallidos en Redis (bloqueo por 5 minutos = 300 segundos)
         $intentos = 0;
@@ -49,6 +53,7 @@ class AuthController extends Controller
 
         if ($usuarios->isEmpty()) {
             $this->registrarIntentoFallido($redisKey);
+
             return ApiResponse::error(
                 'CREDENCIALES_INVALIDAS',
                 'Correo o contraseña incorrectos.',
@@ -63,6 +68,7 @@ class AuthController extends Controller
 
         if ($usuariosValidos->isEmpty()) {
             $this->registrarIntentoFallido($redisKey);
+
             return ApiResponse::error(
                 'CREDENCIALES_INVALIDAS',
                 'Correo o contraseña incorrectos.',
@@ -110,7 +116,7 @@ class AuthController extends Controller
             })->values();
 
             // Emitir temp_token en Redis (5 min)
-            $tempToken = 'rc_temp_' . Str::random(48);
+            $tempToken = 'rc_temp_'.Str::random(48);
             try {
                 Redis::setex("auth:temp:{$tempToken}", 300, json_encode([
                     'correo' => $correoSanitizado,
@@ -131,6 +137,7 @@ class AuthController extends Controller
         // CASO A: Cuenta única activa (Acceso directo al panel)
         /** @var Usuario $user */
         $user = $usuariosActivos->first();
+
         return $this->generarRespuestaSesionExitosa($user);
     }
 
@@ -144,7 +151,6 @@ class AuthController extends Controller
         ]);
 
         $user = Usuario::find($validated['usuario_id']);
-
 
         if (! $user) {
             return ApiResponse::error(
@@ -264,44 +270,9 @@ class AuthController extends Controller
 
         $user->update(['ultimo_login' => now()]);
 
-        // Generar tokens opacos
-        $token = 'rc_live_' . Str::random(60);
-        $tokenHash = hash('sha256', $token);
-        $refreshToken = $existingRefreshToken ?: ('rc_refresh_' . Str::uuid()->toString());
-
-        $empresa = $user->empresa_id ? DB::table('empresa')->where('id', $user->empresa_id)->first() : null;
-        $local = $user->local_id ? DB::table('local')->where('id', $user->local_id)->first() : null;
-
-        $sessionPayload = [
-            'id' => $user->id,
-            'nombre' => $user->nombre,
-            'correo' => $user->correo,
-            'rol' => $user->rol,
-            'telefono' => $user->telefono,
-            'empresa_id' => $user->empresa_id,
-            'local_id' => $user->local_id,
-            'estado' => $user->estado,
-            'refresh_token' => $refreshToken,
-        ];
-
-        // Guardar sesión activa en Redis (TTL 24 horas = 86400s)
         try {
-            Redis::setex("auth:session:{$tokenHash}", 86400, json_encode($sessionPayload));
-
-            // Guardar refresh_token en Redis (TTL 7 días = 604800s)
-            Redis::setex("auth:refresh:{$refreshToken}", 604800, json_encode([
-                'usuario_id' => $user->id,
-                'token_hash' => $tokenHash,
-            ]));
-        } catch (\Throwable $e) {
-            // No se debe entregar un token si la sesión no fue persistida.
-            try {
-                Redis::del("auth:session:{$tokenHash}");
-                Redis::del("auth:refresh:{$refreshToken}");
-            } catch (\Throwable $cleanupException) {
-                // La respuesta principal conserva el error de disponibilidad.
-            }
-
+            $sesion = $this->sesiones->emitir($user, $existingRefreshToken);
+        } catch (RuntimeException $e) {
             return ApiResponse::error(
                 'SERVICIO_SESION_NO_DISPONIBLE',
                 'No fue posible iniciar la sesión. Intenta nuevamente en unos minutos.',
@@ -309,11 +280,13 @@ class AuthController extends Controller
             );
         }
 
+        $empresa = $user->empresa_id ? DB::table('empresa')->where('id', $user->empresa_id)->first() : null;
+        $local = $user->local_id ? DB::table('local')->where('id', $user->local_id)->first() : null;
 
         return ApiResponse::ok([
             'requiere_seleccion' => false,
-            'token' => $token,
-            'refresh_token' => $refreshToken,
+            'token' => $sesion['token'],
+            'refresh_token' => $sesion['refresh_token'],
             'usuario' => [
                 'id' => $user->id,
                 'nombre' => $user->nombre,
@@ -386,5 +359,4 @@ class AuthController extends Controller
 
         return ApiResponse::ok(['mensaje' => 'Sesión cerrada correctamente.']);
     }
-
 }

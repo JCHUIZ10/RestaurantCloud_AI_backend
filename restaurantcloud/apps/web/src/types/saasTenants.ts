@@ -138,7 +138,6 @@ export interface TenantDetailResponseDTO {
   fecha_proximo_cobro: string;
   fecha_corte_gracia?: string | null;
   stripe_customer_id?: string | null;
-  stripe_subscription_id?: string | null;
   metodo_pago_detalle: string;
   origen_alta: OrigenAltaEmpresa;
   historial_pagos: PagoHistorialItemDTO[];

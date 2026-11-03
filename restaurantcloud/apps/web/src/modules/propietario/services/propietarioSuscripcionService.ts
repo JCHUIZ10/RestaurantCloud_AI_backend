@@ -30,6 +30,10 @@ import type {
   PeriodicidadFacturacion,
 } from '@/types/propietarioCambiarPlan';
 
+import { apiDescargarPdf, apiGet } from '@/services/api/client';
+
+const IS_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
+
 const SUSCRIPCION_STORAGE_KEY = 'restaurantcloud_propietario_suscripcion_db';
 const LOCALES_STORAGE_KEY = 'restaurantcloud_locales_propietario_db';
 const ADMINS_STORAGE_KEY = 'restaurantcloud_propietario_admins_db';
@@ -40,7 +44,6 @@ interface SuscripcionStoreData {
   proximo_plan_id?: number | null;
   config_downgrade?: ConfiguracionDowngradeDTO | null;
   recursos_conciliados?: boolean;
-  stripe_schedule_id?: string | null;
   suscripcion_estado: EstadoSuscripcion;
   metodo_pago: MetodoPagoDTO;
   al_dia: boolean;
@@ -59,7 +62,6 @@ const DEFAULT_STORE_DATA: SuscripcionStoreData = {
   proximo_plan_id: null,
   config_downgrade: null,
   recursos_conciliados: false,
-  stripe_schedule_id: null,
   suscripcion_estado: 'activa',
   metodo_pago: {
     marca: 'visa',
@@ -241,6 +243,10 @@ class PropietarioSuscripcionService {
 
   // 1. Consultar Dashboard General de Suscripción
   async getDashboardSuscripcion(): Promise<SuscripcionDashboardApiResponse> {
+    if (IS_REAL_API) {
+      return apiGet<SuscripcionDashboardDTO>('/propietario/suscripcion');
+    }
+
     await new Promise((r) => setTimeout(r, 200));
     const store = this.loadData();
     const planId = store.plan_id ?? 2;
@@ -407,8 +413,16 @@ class PropietarioSuscripcionService {
     };
   }
 
-  // 4. Descargar Factura de Suscripción (Emisión Formato Oficial PDF/TXT)
-  descargarFactura(factura: FacturaSuscripcionDTO): void {
+  // 4. Descargar la constancia PDF persistida del pago (modo demo: texto de ejemplo)
+  async descargarFactura(factura: FacturaSuscripcionDTO): Promise<void> {
+    if (IS_REAL_API) {
+      if (!factura.url_descarga_pdf) {
+        throw new Error('Este pago no tiene constancia disponible.');
+      }
+      await apiDescargarPdf(factura.url_descarga_pdf, `Constancia-${factura.numero_comprobante}.pdf`);
+      return;
+    }
+
     const contenido = `
 ================================================================================
 RESTAURANTCLOUD AI — COMPROBANTE TRIBUTARIO DE SUSCRIPCIÓN SAAS
@@ -717,7 +731,6 @@ Representación impresa de la Factura Electrónica consultable en www.restaurant
     store.proximo_plan_id = null;
     store.config_downgrade = null;
     store.recursos_conciliados = false;
-    store.stripe_schedule_id = null;
 
     const planNombre = dto.nuevo_plan_id === 3 ? 'Enterprise' : 'Pro';
     const montoCobrado = dto.nuevo_plan_id === 3 ? 125.00 : 75.00;
@@ -930,7 +943,6 @@ Representación impresa de la Factura Electrónica consultable en www.restaurant
     store.proximo_plan_id = dto.nuevo_plan_id;
     store.config_downgrade = dto.config_downgrade;
     store.recursos_conciliados = true;
-    store.stripe_schedule_id = 'sub_sched_' + Math.random().toString(36).substring(2, 9);
 
     this.saveData(store);
 
@@ -967,7 +979,6 @@ Representación impresa de la Factura Electrónica consultable en www.restaurant
     store.proximo_plan_id = null;
     store.config_downgrade = null;
     store.recursos_conciliados = false;
-    store.stripe_schedule_id = null;
 
     this.saveData(store);
 
@@ -1000,7 +1011,6 @@ Representación impresa de la Factura Electrónica consultable en www.restaurant
       mesas_ids_activas: ['mes-0001', 'mes-0002', 'mes-0003', 'mes-0004', 'mes-0005', 'mes-0006', 'mes-0007', 'mes-0008', 'mes-0009', 'mes-0010'],
       usuarios_ids_activos: ['usr-prop-01', 'usr-adm-01', 'usr-moz-01'],
     };
-    store.stripe_schedule_id = 'sub_sched_demo_qa';
     this.saveData(store);
   }
 

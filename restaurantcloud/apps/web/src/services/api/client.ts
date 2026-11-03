@@ -135,6 +135,26 @@ export async function apiPatch<T>(
   return response.data;
 }
 
+/**
+ * Descarga un PDF protegido y lo guarda en el equipo con el nombre indicado.
+ * `token` permite descargar con una sesión que aún no se guardó en localStorage
+ * (p. ej. la constancia en el Paso 5 del registro).
+ */
+export async function apiDescargarPdf(url: string, nombreArchivo: string, token?: string | null): Promise<void> {
+  const response = await apiClient.get(url, {
+    responseType: 'blob',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = nombreArchivo;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(blobUrl);
+}
+
 export async function apiDelete<T>(
   url: string,
   config?: AxiosRequestConfig

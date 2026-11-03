@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Public;
 
+use App\Domains\Auth\Services\SesionService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -9,10 +10,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Redis;
-use Illuminate\Support\Str;
+use RuntimeException;
 
 class ActivacionCuentaController extends Controller
 {
+    public function __construct(private SesionService $sesiones) {}
+
     /**
      * GET /api/v1/public/activar-cuenta/validar?token=...
      * Valida el token efímero de invitación en Redis y retorna los datos públicos.
@@ -178,30 +181,12 @@ class ActivacionCuentaController extends Controller
 
         if (! $esAdminSinLocal) {
             // Generar sesión autenticada en Redis solo si tiene sede activa
-            $sessionToken = Str::random(60);
-            $tokenHash = hash('sha256', $sessionToken);
-            $refreshToken = Str::random(60);
-
-            $sessionPayload = [
-                'id' => $usuario->id,
-                'nombre' => $usuario->nombre,
-                'correo' => $usuario->correo,
-                'rol' => $usuario->rol,
-                'telefono' => $usuario->telefono,
-                'empresa_id' => $usuario->empresa_id,
-                'local_id' => $usuario->local_id,
-                'estado' => 'activo',
-                'refresh_token' => $refreshToken,
-            ];
-
             try {
-                Redis::setex("auth:session:{$tokenHash}", 86400, json_encode($sessionPayload));
-                Redis::setex("auth:refresh:{$refreshToken}", 604800, json_encode([
-                    'usuario_id' => $usuario->id,
-                    'token_hash' => $tokenHash,
-                ]));
-            } catch (\Throwable $e) {
-                // Silencioso si Redis falla en emitir sesión automática
+                $sesion = $this->sesiones->emitir($usuario);
+                $sessionToken = $sesion['token'];
+                $refreshToken = $sesion['refresh_token'];
+            } catch (RuntimeException $e) {
+                // Sin sesión automática: el usuario inicia sesión manualmente.
             }
         }
 

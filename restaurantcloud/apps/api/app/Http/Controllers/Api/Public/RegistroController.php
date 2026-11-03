@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api\Public;
 
+use App\Domains\Auth\Services\SesionService;
+use App\Domains\Suscripcion\Services\ReciboSuscripcionService;
 use App\Domains\Suscripcion\Services\StripeGatewayService;
 use App\Domains\Tenant\Services\TenantProvisioningService;
 use App\Http\Controllers\Controller;
@@ -10,15 +12,19 @@ use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class RegistroController extends Controller
 {
     public function __construct(
         private TenantProvisioningService $provisioning,
-        private StripeGatewayService $stripeGateway
+        private StripeGatewayService $stripeGateway,
+        private SesionService $sesiones,
+        private ReciboSuscripcionService $recibos
     ) {}
 
     /**
@@ -122,7 +128,7 @@ class RegistroController extends Controller
             'telefono' => trim($validated['telefono']),
             'nombre_propietario' => trim($validated['nombre_propietario']),
             'correo' => strtolower(trim($validated['correo'])),
-            'password' => $validated['password'],
+            'password_hash' => Hash::make($validated['password']),
             'ciclo_facturacion' => $validated['ciclo_facturacion'] ?? 'mensual',
             'correo_verificado' => false,
             'intentos_restantes' => 3,
@@ -192,6 +198,58 @@ class RegistroController extends Controller
             'registro_id' => $registroId,
             'mensaje' => "Correo modificado con éxito. Hemos enviado un nuevo código a {$nuevoCorreo}",
             'correo' => $nuevoCorreo,
+            'expira_en_segundos' => 600,
+            'cooldown_reenvio_segundos' => 60,
+            'otp_debug' => (config('app.env') !== 'production') ? $otp : null,
+        ]);
+    }
+
+    /**
+     * Paso 3.1b: Reenviar un código OTP nuevo para el mismo registro
+     * POST /api/v1/public/registro/reenviar-otp
+     */
+    public function reenviarOtp(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'registro_id' => ['required', 'string'],
+        ]);
+
+        $registroId = $validated['registro_id'];
+        $raw = Redis::get("registro:onboarding:{$registroId}");
+
+        if (! $raw) {
+            return ApiResponse::error(
+                'REGISTRO_NO_ENCONTRADO',
+                'La sesión de registro ha expirado. Por favor inicia el proceso nuevamente.',
+                404
+            );
+        }
+
+        $cooldownKey = "registro:otp:cooldown:{$registroId}";
+        $cooldownRestante = (int) Redis::ttl($cooldownKey);
+        if ($cooldownRestante > 0) {
+            return ApiResponse::error(
+                'REENVIO_EN_ESPERA',
+                "Espera {$cooldownRestante} segundos antes de solicitar un nuevo código.",
+                429
+            );
+        }
+
+        $sessionData = json_decode($raw, true);
+        $sessionData['intentos_restantes'] = 3;
+
+        $otp = str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+
+        Redis::setex("registro:onboarding:{$registroId}", 1800, json_encode($sessionData));
+        Redis::setex("registro:otp:{$registroId}", 600, $otp);
+        Redis::setex($cooldownKey, 60, '1');
+
+        Log::info("OTP reenviado para registro {$registroId} ({$sessionData['correo']}): {$otp}");
+
+        return ApiResponse::ok([
+            'registro_id' => $registroId,
+            'mensaje' => "Hemos enviado un nuevo código a {$sessionData['correo']}",
+            'correo' => $sessionData['correo'],
             'expira_en_segundos' => 600,
             'cooldown_reenvio_segundos' => 60,
             'otp_debug' => (config('app.env') !== 'production') ? $otp : null,
@@ -282,6 +340,7 @@ class RegistroController extends Controller
             ]);
         } catch (\Throwable $e) {
             Log::error("Error de Stripe al crear cliente/SetupIntent: {$e->getMessage()}");
+
             return response()->json([
                 'exito' => false,
                 'datos' => null,
@@ -308,6 +367,30 @@ class RegistroController extends Controller
         ]);
 
         $registroId = $validated['registro_id'];
+
+        // Un doble clic o un reintento de red no debe cobrar ni aprovisionar dos veces.
+        $lockKey = "registro:completar:lock:{$registroId}";
+        if (! Redis::set($lockKey, '1', 'EX', 120, 'NX')) {
+            return ApiResponse::error(
+                'REGISTRO_EN_PROCESO',
+                'Tu pago ya se está procesando. Espera unos segundos.',
+                409
+            );
+        }
+
+        try {
+            return $this->procesarAlta($registroId, $validated['stripe_payment_method_id']);
+        } finally {
+            Redis::del($lockKey);
+        }
+    }
+
+    /**
+     * Cobra en Stripe, aprovisiona el tenant y emite la sesión del nuevo propietario.
+     * Se ejecuta bajo el lock de completarRegistro.
+     */
+    private function procesarAlta(string $registroId, string $paymentMethodId): JsonResponse
+    {
         $raw = Redis::get("registro:onboarding:{$registroId}");
 
         if (! $raw) {
@@ -345,7 +428,8 @@ class RegistroController extends Controller
             return ApiResponse::error('PLAN_INVALIDO', 'El plan seleccionado no es válido.', 422);
         }
 
-        $monto = ($sessionData['ciclo_facturacion'] ?? 'mensual') === 'anual'
+        $cicloFacturacion = $sessionData['ciclo_facturacion'] ?? 'mensual';
+        $monto = $cicloFacturacion === 'anual'
             ? (float) $plan->precio_anual
             : (float) $plan->precio_mensual;
 
@@ -353,10 +437,11 @@ class RegistroController extends Controller
         try {
             $paymentIntent = $this->stripeGateway->cobrarSuscripcionInicial(
                 $sessionData['stripe_customer_id'],
-                $validated['stripe_payment_method_id'],
+                $paymentMethodId,
                 $monto,
                 'pen',
-                "RestaurantCloud - Suscripción {$plan->nombre} ({$sessionData['razon_social']})"
+                "RestaurantCloud - Suscripción {$plan->nombre} ({$sessionData['razon_social']})",
+                "registro-{$registroId}-{$paymentMethodId}"
             );
 
             if ($paymentIntent->status !== 'succeeded') {
@@ -374,6 +459,7 @@ class RegistroController extends Controller
             }
         } catch (\Throwable $e) {
             Log::error("Fallo al cobrar suscripción en Stripe: {$e->getMessage()}");
+
             return response()->json([
                 'exito' => false,
                 'datos' => null,
@@ -395,13 +481,14 @@ class RegistroController extends Controller
                 'tipo_identidad_fiscal' => $sessionData['tipo_contribuyente'],
                 'correo' => $sessionData['correo'],
                 'nombre_propietario' => $sessionData['nombre_propietario'],
-                'password' => $sessionData['password'],
+                'password' => $sessionData['password'] ?? null,
+                'password_hash' => $sessionData['password_hash'] ?? null,
                 'telefono' => $sessionData['telefono'],
                 'plan_id' => (int) $sessionData['plan_id'],
                 'stripe_customer_id' => $sessionData['stripe_customer_id'],
                 'stripe_payment_id' => $paymentIntent->id,
                 'monto_pagado' => $monto,
-                'ciclo_facturacion' => $sessionData['ciclo_facturacion'] ?? 'mensual',
+                'ciclo_facturacion' => $cicloFacturacion,
                 'origen_alta' => 'autoservicio_stripe',
             ]);
 
@@ -409,30 +496,28 @@ class RegistroController extends Controller
             Redis::del("registro:onboarding:{$registroId}");
             Redis::del("registro:otp:{$registroId}");
 
-            // 3. Crear sesión autenticada JWT en Redis para el nuevo propietario
-            $usuario = Usuario::where('id', $resultado['usuario']['id'])->first();
-            $token = Str::random(80);
-            $tokenPayload = [
-                'usuario_id' => $usuario->id,
-                'empresa_id' => $usuario->empresa_id,
-                'local_id' => null,
-                'rol' => 'propietario',
-                'nombre' => $usuario->nombre,
-                'correo' => $usuario->correo,
-                'creado_en' => now()->toIso8601String(),
-            ];
+            $usuario = Usuario::findOrFail($resultado['usuario']['id']);
+            $pagoId = $resultado['pago']['id'];
 
-            // Guardar token en Redis con TTL de 24 horas (86400s)
-            Redis::setex("auth:token:{$token}", 86400, json_encode($tokenPayload));
+            // 3. Constancia PDF persistida; si falla se regenera en la primera descarga.
+            try {
+                $this->recibos->generarPdf($pagoId, $usuario->id);
+            } catch (\Throwable $e) {
+                Log::warning("No se pudo generar la constancia del pago {$pagoId}: {$e->getMessage()}");
+            }
 
-            $numeroComprobante = 'SUB-' . date('Ymd') . '-' . strtoupper(substr(str_replace('-', '', $resultado['empresa']['id']), 0, 8));
-            $refreshToken = Str::random(80);
-            Redis::setex("auth:refresh:{$refreshToken}", 86400 * 30, $usuario->id);
+            // 4. Sesión del nuevo propietario; sin Redis el alta sigue siendo válida y se inicia sesión manualmente.
+            $sesion = null;
+            try {
+                $sesion = $this->sesiones->emitir($usuario);
+            } catch (RuntimeException $e) {
+                Log::warning("Alta completada sin sesión automática para {$usuario->id}: {$e->getMessage()}");
+            }
 
             return ApiResponse::ok([
                 'mensaje' => '¡Empresa registrada y suscripción activada con éxito!',
-                'token' => $token,
-                'refresh_token' => $refreshToken,
+                'token' => $sesion['token'] ?? null,
+                'refresh_token' => $sesion['refresh_token'] ?? null,
                 'empresa' => [
                     'id' => $resultado['empresa']['id'],
                     'razon_social' => $resultado['empresa']['razon_social'],
@@ -452,13 +537,14 @@ class RegistroController extends Controller
                 ],
                 'suscripcion' => $resultado['suscripcion'],
                 'constancia' => [
-                    'numero_comprobante' => $numeroComprobante,
-                    'periodo' => now()->format('m/Y'),
-                    'fecha_pago' => now()->format('d/m/Y H:i'),
-                    'proximo_cobro' => now()->addMonth()->format('d/m/Y'),
+                    'pago_id' => $pagoId,
+                    'numero_comprobante' => $resultado['pago']['numero_recibo'],
+                    'periodo' => $cicloFacturacion === 'anual' ? 'Anual' : 'Mensual',
+                    'fecha_pago' => $resultado['suscripcion']['fecha_inicio'],
+                    'proximo_cobro' => $resultado['suscripcion']['fecha_fin_periodo'],
                     'monto_pagado' => $monto,
                     'moneda' => 'PEN',
-                    'url_descarga_pdf' => "/api/v1/public/comprobante/{$numeroComprobante}/pdf",
+                    'url_descarga_pdf' => "/api/v1/propietario/suscripcion/pagos/{$pagoId}/recibo",
                 ],
                 'soporte_emergencia' => [
                     'whatsapp' => '+51 930 723 537',
@@ -469,6 +555,7 @@ class RegistroController extends Controller
 
         } catch (\Throwable $e) {
             Log::error("Fallo durante el aprovisionamiento de tenant: {$e->getMessage()}");
+
             return response()->json([
                 'exito' => false,
                 'datos' => null,
@@ -496,6 +583,7 @@ class RegistroController extends Controller
             $event = $this->stripeGateway->procesarWebhook($payload, (string) $sigHeader);
         } catch (\Throwable $e) {
             Log::error("Fallo de validación de firma en Webhook Stripe: {$e->getMessage()}");
+
             return response()->json(['error' => 'Firma de webhook inválida'], 400);
         }
 
@@ -507,10 +595,11 @@ class RegistroController extends Controller
                 $empresa = DB::table('empresa')->where('stripe_customer_id', $customerId)->first();
 
                 if ($empresa) {
+                    $ciclo = DB::table('suscripcion')->where('empresa_id', $empresa->id)->value('ciclo_facturacion');
                     DB::table('suscripcion')->where('empresa_id', $empresa->id)->update([
                         'estado' => 'activa',
                         'dias_gracia_restantes' => 5,
-                        'fecha_fin_periodo' => now()->addMonth(),
+                        'fecha_fin_periodo' => $ciclo === 'anual' ? now()->addYear() : now()->addMonth(),
                         'updated_at' => now(),
                     ]);
                     Log::info("Webhook Stripe: Pago recurrente exitoso procesado para empresa {$empresa->id}");

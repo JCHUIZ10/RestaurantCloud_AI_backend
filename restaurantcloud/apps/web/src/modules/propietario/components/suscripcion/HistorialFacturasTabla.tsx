@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FacturaSuscripcionDTO } from '@/types/propietarioSuscripcion';
 import { propietarioSuscripcionService } from '../../services/propietarioSuscripcionService';
 import {
@@ -17,8 +17,15 @@ interface HistorialFacturasTablaProps {
 export const HistorialFacturasTabla: React.FC<HistorialFacturasTablaProps> = ({
   facturas,
 }) => {
-  const handleDescargar = (factura: FacturaSuscripcionDTO) => {
-    propietarioSuscripcionService.descargarFactura(factura);
+  const [errorDescarga, setErrorDescarga] = useState<string | null>(null);
+
+  const handleDescargar = async (factura: FacturaSuscripcionDTO) => {
+    setErrorDescarga(null);
+    try {
+      await propietarioSuscripcionService.descargarFactura(factura);
+    } catch {
+      setErrorDescarga(`No se pudo descargar la constancia ${factura.numero_comprobante}. Intenta nuevamente en unos minutos.`);
+    }
   };
 
   const renderEstadoBadge = (estado: FacturaSuscripcionDTO['estado']) => {
@@ -79,13 +86,17 @@ export const HistorialFacturasTabla: React.FC<HistorialFacturasTablaProps> = ({
             Historial de Facturación y Comprobantes
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Comprobantes electrónicos oficiales con validez tributaria ante SUNAT emitidos por RestaurantCloud AI.
+            Constancias de los pagos de tu suscripción, disponibles en PDF cuando las necesites.
           </p>
         </div>
         <div className="text-xs text-slate-400 font-mono self-start sm:self-center">
           {facturas.length} {facturas.length === 1 ? 'comprobante' : 'comprobantes'}
         </div>
       </div>
+
+      {errorDescarga && (
+        <p className="mt-3 text-xs text-red-700">{errorDescarga}</p>
+      )}
 
       {/* Vista de Escritorio (Tabla md en adelante) */}
       <div className="hidden md:block overflow-x-auto mt-4">
@@ -131,10 +142,11 @@ export const HistorialFacturasTabla: React.FC<HistorialFacturasTablaProps> = ({
                     size="sm"
                     onClick={() => handleDescargar(fac)}
                     className="border-slate-200 hover:border-aurea-copper hover:text-aurea-copper text-slate-700 text-xs font-semibold py-1 px-2.5 inline-flex items-center gap-1.5"
-                    title={`Descargar factura electrónica ${fac.numero_comprobante}`}
+                    disabled={fac.estado !== 'exitoso'}
+                    title={`Descargar constancia ${fac.numero_comprobante}`}
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>Descargar PDF/TXT</span>
+                    <span>Descargar PDF</span>
                   </Button>
                 </td>
               </tr>
@@ -176,10 +188,11 @@ export const HistorialFacturasTabla: React.FC<HistorialFacturasTablaProps> = ({
               type="button"
               variant="outline"
               onClick={() => handleDescargar(fac)}
+              disabled={fac.estado !== 'exitoso'}
               className="w-full border-slate-200 hover:border-aurea-copper hover:text-aurea-copper text-xs font-semibold py-2 flex items-center justify-center gap-1.5"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Descargar Comprobante Tributario</span>
+              <span>Descargar constancia PDF</span>
             </Button>
           </div>
         ))}

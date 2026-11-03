@@ -219,7 +219,6 @@ export const ModalExpedienteTenant: React.FC<ModalExpedienteTenantProps> = ({
             {expediente.stripe_customer_id && (
               <div className="pt-2 border-t border-aurea-copper/10 flex items-center gap-4 text-xs font-mono text-aurea-navy/70">
                 <span>Stripe Customer: {expediente.stripe_customer_id}</span>
-                <span>Sub ID: {expediente.stripe_subscription_id}</span>
               </div>
             )}
           </div>

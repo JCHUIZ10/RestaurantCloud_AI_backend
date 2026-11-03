@@ -22,7 +22,7 @@ export const MetodoPagoCard: React.FC<MetodoPagoCardProps> = ({
   onActualizarTarjeta,
 }) => {
   const formatExp = (mes?: number, ano?: number) => {
-    if (!mes || !ano) return '12/28';
+    if (!mes || !ano) return '--/--';
     const mm = String(mes).padStart(2, '0');
     const yy = String(ano).slice(-2);
     return `${mm}/${yy}`;
@@ -78,7 +78,7 @@ export const MetodoPagoCard: React.FC<MetodoPagoCardProps> = ({
               </div>
               <div className="text-right">
                 <span className="text-xs font-bold font-mono tracking-widest text-aurea-champagne uppercase">
-                  {metodoPago?.marca || 'VISA'}
+                  {metodoPago?.marca || 'Stripe'}
                 </span>
               </div>
             </div>
@@ -86,7 +86,7 @@ export const MetodoPagoCard: React.FC<MetodoPagoCardProps> = ({
             {/* Número enmascarado */}
             <div className="py-2">
               <p className="font-mono text-lg sm:text-xl tracking-[0.25em] text-slate-100 font-semibold drop-shadow">
-                •••• •••• •••• {metodoPago?.ultimos_4 || '4242'}
+                •••• •••• •••• {metodoPago?.ultimos_4 || '••••'}
               </p>
             </div>
 
@@ -97,7 +97,7 @@ export const MetodoPagoCard: React.FC<MetodoPagoCardProps> = ({
                   Titular de la Tarjeta
                 </p>
                 <p className="font-medium tracking-wide uppercase text-slate-100 truncate max-w-[190px]">
-                  {metodoPago?.titular || 'Rodrigo De Las Casas'}
+                  {metodoPago?.titular || 'Registrada en Stripe'}
                 </p>
               </div>
               <div className="text-right">

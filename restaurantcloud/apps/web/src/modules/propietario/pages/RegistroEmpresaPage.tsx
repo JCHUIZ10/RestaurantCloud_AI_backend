@@ -17,6 +17,7 @@ import { Paso5RegistroExitoso } from '../components/registro/Paso5RegistroExitos
 import { DemoRegistroWidget } from '../components/registro/DemoRegistroWidget';
 import { useAuthStore } from '@/stores/authStore';
 import { homeDeRol } from '@/router/accesoPorRol';
+import { ROUTES } from '@/router/routes.constants';
 import { SoloDemo } from '@/components/ui/SoloDemo';
 
 export const RegistroEmpresaPage: React.FC = () => {
@@ -248,14 +249,14 @@ export const RegistroEmpresaPage: React.FC = () => {
     }
   };
 
-  // Reenviar OTP
+  // Reenviar OTP sobre el mismo registro (no crea una sesión nueva)
   const handleReenviarOtp = async () => {
     if (!registroId) return;
-    await registroEmpresaService.iniciarRegistro({
-      ...formData,
-      plan_id: planSeleccionadoId,
-      ciclo_facturacion: cicloFacturacion,
-    });
+    setErrorOtp(null);
+    const res = await registroEmpresaService.reenviarOtp(registroId);
+    if (!res.exito) {
+      setErrorOtp(res.errores?.[0]?.mensaje || 'No se pudo reenviar el código');
+    }
   };
 
   // Paso 4 -> Paso 5: Confirmar Pago en Stripe y Activar Empresa
@@ -286,32 +287,36 @@ export const RegistroEmpresaPage: React.FC = () => {
     }
   };
 
-  // Descarga de comprobante en Paso 5
-  const handleDescargarConstancia = () => {
+  // Descarga de la constancia PDF en Paso 5
+  const handleDescargarConstancia = async () => {
     if (!resultadoCompletado) return;
-    registroEmpresaService.descargarConstanciaPDF(
-      resultadoCompletado.constancia.numero_comprobante,
-      resultadoCompletado.empresa.razon_social
-    );
+    await registroEmpresaService.descargarConstanciaPDF(resultadoCompletado);
   };
 
-  // Redirección al panel del propietario
+  // Redirección al panel del propietario con la sesión emitida por el alta
   const handleIrAlDashboard = () => {
-    if (resultadoCompletado) {
-      setUsuarioAuth(
-        {
-          id: resultadoCompletado.usuario.id,
-          nombre: resultadoCompletado.usuario.nombre,
-          correo: resultadoCompletado.usuario.correo,
-          rol: 'propietario',
-          empresa: {
-            id: resultadoCompletado.empresa.id,
-            nombre: resultadoCompletado.empresa.razon_social,
-          },
-        },
-        resultadoCompletado.token
-      );
+    if (!resultadoCompletado?.token) {
+      // Alta completada sin sesión automática: el propietario ingresa con sus credenciales.
+      navigate(ROUTES.LOGIN, { replace: true });
+      return;
     }
+
+    if (resultadoCompletado.refresh_token) {
+      localStorage.setItem('refresh_token', resultadoCompletado.refresh_token);
+    }
+    setUsuarioAuth(
+      {
+        id: resultadoCompletado.usuario.id,
+        nombre: resultadoCompletado.usuario.nombre,
+        correo: resultadoCompletado.usuario.correo,
+        rol: 'propietario',
+        empresa: {
+          id: resultadoCompletado.empresa.id,
+          nombre: resultadoCompletado.empresa.razon_social,
+        },
+      },
+      resultadoCompletado.token
+    );
     navigate(homeDeRol('propietario'), { replace: true });
   };
 

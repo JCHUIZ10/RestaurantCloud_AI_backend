@@ -14,7 +14,7 @@ import {
 
 interface Paso5RegistroExitosoProps {
   resultado: CompletarRegistroResponseDTO;
-  onDescargarConstancia: () => void;
+  onDescargarConstancia: () => Promise<void>;
   onIrAlDashboard: () => void;
 }
 
@@ -24,11 +24,20 @@ export const Paso5RegistroExitoso: React.FC<Paso5RegistroExitosoProps> = ({
   onIrAlDashboard,
 }) => {
   const [descargando, setDescargando] = useState(false);
+  const [errorDescarga, setErrorDescarga] = useState<string | null>(null);
 
-  const handleDescargar = () => {
+  const handleDescargar = async () => {
     setDescargando(true);
-    onDescargarConstancia();
-    setTimeout(() => setDescargando(false), 1000);
+    setErrorDescarga(null);
+    try {
+      await onDescargarConstancia();
+    } catch {
+      setErrorDescarga(
+        'No pudimos descargar la constancia ahora. También podrás obtenerla desde "Mi suscripción" en tu panel.'
+      );
+    } finally {
+      setDescargando(false);
+    }
   };
 
   const whatsappUrl = `https://wa.me/51930723537?text=Hola,%20acabo%20de%20activar%20mi%20empresa%20${encodeURIComponent(
@@ -128,10 +137,13 @@ export const Paso5RegistroExitoso: React.FC<Paso5RegistroExitosoProps> = ({
               <Download className="w-4 h-4" />
               <span>
                 {descargando
-                  ? 'Generando documento oficial...'
-                  : 'Descargar Constancia de Registro (PDF / TXT)'}
+                  ? 'Descargando constancia...'
+                  : 'Descargar Constancia de Registro (PDF)'}
               </span>
             </button>
+            {errorDescarga && (
+              <p className="mt-2 text-xs text-red-700">{errorDescarga}</p>
+            )}
           </div>
         </div>
 
