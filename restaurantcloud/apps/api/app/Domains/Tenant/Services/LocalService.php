@@ -2,6 +2,7 @@
 
 namespace App\Domains\Tenant\Services;
 
+use App\Domains\Suscripcion\Services\UsoRecursosEmpresa;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
@@ -277,6 +278,14 @@ class LocalService
                             Redis::setex("jwt:blacklist:{$previo->id}", 86400, 'revocado');
                         } catch (\Throwable $e) {
                             // Silencioso
+                        }
+                    }
+
+                    if ($admin->local_id !== $localId || $admin->estado !== 'activo') {
+                        $maximo = (int) DB::table('empresa as e')->join('plan as p', 'p.id', '=', 'e.plan_id')
+                            ->where('e.id', $empresaId)->value('p.max_usuarios');
+                        if (app(UsoRecursosEmpresa::class)->personalDelLocal($localId) >= $maximo) {
+                            throw new \OverflowException("La sede alcanzó el límite de {$maximo} personas activas de tu plan.");
                         }
                     }
 

@@ -106,8 +106,8 @@ export const ModalGeneradorLote: React.FC<ModalGeneradorLoteProps> = ({
         
         <AvisoFormulario tono={excedeCuota ? 'error' : 'ok'}>
           {excedeCuota
-            ? `No hay espacio: crearías ${totalMesasNuevas} mesas y quedan ${cuota.mesas_disponibles} en tu plan, o el ambiente ya tiene mesas. Reduce columnas o filas.`
-            : `Te quedarán ${cuotaRestante} de ${cuota.max_mesas_plan} mesas disponibles en tu plan ${cuota.plan_nombre || 'actual'}.`}
+            ? `No hay espacio: crearías ${totalMesasNuevas} mesas y quedan ${cuota.mesas_disponibles} en esta sede, o el ambiente ya tiene mesas. Reduce columnas o filas.`
+            : `Te quedarán ${cuotaRestante} de ${cuota.max_mesas_plan} mesas disponibles en esta sede (plan ${cuota.plan_nombre || 'actual'}).`}
         </AvisoFormulario>
 
         <section className="p-4 rounded-xl bg-aurea-ivory border border-aurea-champagne/70 space-y-4">

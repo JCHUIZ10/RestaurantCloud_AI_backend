@@ -12,18 +12,18 @@ class PlanoService
 
     public function __construct(private CuotaSalonService $cuotas) {}
 
-    /** Serializa las escrituras del plano y los cambios de cuota de la empresa. */
+    /** Serializa las escrituras del plano y los cambios de cuota de la sede. */
     public function ejecutar(string $empresaId, string $localId, callable $accion, bool $escritura = true): array
     {
         return DB::transaction(function () use ($empresaId, $localId, $accion, $escritura): array {
-            $empresa = DB::table('empresa')->where('id', $empresaId);
-            if ($escritura) {
-                $empresa->lockForUpdate();
-            }
-            if (! $empresa->first()) {
+            if (! DB::table('empresa')->where('id', $empresaId)->exists()) {
                 throw new PlanoException('ERR_SEDE_INVALIDA', 'Empresa no disponible.', 403);
             }
-            $local = DB::table('local')->where('id', $localId)->where('empresa_id', $empresaId)->first();
+            $sede = DB::table('local')->where('id', $localId)->where('empresa_id', $empresaId);
+            if ($escritura) {
+                $sede->lockForUpdate();
+            }
+            $local = $sede->first();
             if (! $local || $local->estado !== 'activo') {
                 throw new PlanoException('ERR_SEDE_INACTIVA', 'La sede debe estar activa.', 403);
             }
@@ -59,7 +59,7 @@ class PlanoService
 
         return [
             'local_id' => $localId, 'local_nombre' => $local->nombre,
-            'cuota_mesas' => $this->cuotas->obtener($empresaId),
+            'cuota_mesas' => $this->cuotas->obtener($empresaId, $localId),
             'pisos' => $pisos->map(function ($piso) use ($detalles): array {
                 $mesasPiso = $detalles->where('piso_id', $piso->id)->values();
 
@@ -73,9 +73,9 @@ class PlanoService
     public function crearPiso(string $empresaId, string $localId, array $data): array
     {
         $this->validarNombre($localId, $data['nombre']);
-        $cuota = $this->cuotas->obtener($empresaId);
-        if ($cuota['pisos_activos_empresa'] >= $cuota['max_pisos_plan']) {
-            throw new PlanoException('ERR_CUOTA_PISOS_EXCEDIDA', 'Se alcanzó el límite de ambientes del plan.', 403);
+        $cuota = $this->cuotas->obtener($empresaId, $localId);
+        if ($cuota['pisos_activos_local'] >= $cuota['max_pisos_plan']) {
+            throw new PlanoException('ERR_CUOTA_PISOS_EXCEDIDA', 'Se alcanzó el límite de ambientes por sede del plan.', 403);
         }
         $id = (string) Str::uuid();
         DB::table('piso')->insert(['id' => $id, 'local_id' => $localId, ...$data, 'estado' => 'activo']);
@@ -119,7 +119,7 @@ class PlanoService
     public function crearMesa(string $empresaId, string $localId, string $pisoId, array $data): array
     {
         $piso = $this->piso($localId, $pisoId);
-        $this->asegurarMesas($empresaId, 1);
+        $this->asegurarMesas($empresaId, $localId, 1);
         $this->validarMesa($localId, $piso, $data);
         $id = (string) Str::uuid();
         DB::table('mesa')->insert(['id' => $id, 'local_id' => $localId, 'piso_id' => $pisoId, ...$data, 'estado' => 'activa']);
@@ -134,7 +134,7 @@ class PlanoService
             throw new PlanoException('ERR_PISO_NO_VACIO', 'El asistente requiere un ambiente vacío.');
         }
         $cantidad = $data['columnas'] * $data['filas'];
-        $this->asegurarMesas($empresaId, $cantidad);
+        $this->asegurarMesas($empresaId, $localId, $cantidad);
         $this->modificarPiso($localId, $pisoId, ['columnas' => $data['columnas'], 'filas' => $data['filas']]);
         for ($i = 0; $i < $cantidad; $i++) {
             $this->crearMesa($empresaId, $localId, $pisoId, [
@@ -206,10 +206,10 @@ class PlanoService
         }
     }
 
-    private function asegurarMesas(string $empresaId, int $cantidad): void
+    private function asegurarMesas(string $empresaId, string $localId, int $cantidad): void
     {
-        if ($this->cuotas->obtener($empresaId)['mesas_disponibles'] < $cantidad) {
-            throw new PlanoException('ERR_CUOTA_MESAS_EXCEDIDA', 'No hay cupo suficiente de mesas en el plan.', 403);
+        if ($this->cuotas->obtener($empresaId, $localId)['mesas_disponibles'] < $cantidad) {
+            throw new PlanoException('ERR_CUOTA_MESAS_EXCEDIDA', 'No hay cupo suficiente de mesas en esta sede según el plan.', 403);
         }
     }
 

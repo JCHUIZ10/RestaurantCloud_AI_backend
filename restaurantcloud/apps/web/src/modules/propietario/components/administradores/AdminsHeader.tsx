@@ -46,7 +46,7 @@ export const AdminsHeader: React.FC<AdminsHeaderProps> = ({
                 className="text-xs text-aurea-copper hover:text-aurea-navy font-bold flex items-center gap-1 underline"
               >
                 <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-                Límite alcanzado ({usuariosActivos}/{usuariosPermitidos}). Mejorar a Enterprise →
+                Ya tienes {usuariosActivos}/{usuariosPermitidos} administradores sin sede. Asigna uno a una sede o mejora tu plan →
               </Link>
             </div>
           ) : (

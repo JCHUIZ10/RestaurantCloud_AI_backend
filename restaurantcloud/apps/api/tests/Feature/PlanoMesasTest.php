@@ -132,17 +132,21 @@ class PlanoMesasTest extends TestCase
             ->assertCreated()->assertJsonPath('datos.mesas_creadas', 2);
     }
 
-    public function test_cuota_incluye_otras_sedes_y_restaura_contexto(): void
+    public function test_cuota_de_mesas_y_pisos_es_por_sede_y_restaura_contexto(): void
     {
         $otroPiso = $this->piso($this->otroLocalId);
         DB::table('mesa')->insert(['id' => (string) Str::uuid(), 'local_id' => $this->otroLocalId,
             'piso_id' => $otroPiso, 'numero' => '99', 'capacidad' => 6, 'estado' => 'bloqueada']);
         DB::table('plan')->where('id', $this->planId)->update(['max_mesas' => 1, 'max_pisos' => 2]);
-        $this->getJson('/api/v1/admin/pisos')->assertOk()->assertJsonPath('datos.cuota_mesas.mesas_activas_empresa', 1)
+        $this->getJson('/api/v1/admin/pisos')->assertOk()
+            ->assertJsonPath('datos.cuota_mesas.mesas_activas_local', 0)
+            ->assertJsonPath('datos.cuota_mesas.pisos_activos_local', 1)
             ->assertJsonCount(1, 'datos.pisos')->assertJsonPath('datos.pisos.0.total_mesas', 0);
         $this->assertSame($this->localId, DB::selectOne("SELECT current_setting('app.current_local_id') AS id")->id);
-        $this->postJson("/api/v1/admin/pisos/{$this->pisoId}/mesas", $this->datosMesa())->assertForbidden();
-        $this->postJson('/api/v1/admin/pisos', ['nombre' => 'Extra', 'columnas' => 1, 'filas' => 1])->assertForbidden();
+        $this->postJson("/api/v1/admin/pisos/{$this->pisoId}/mesas", $this->datosMesa())->assertCreated();
+        $this->postJson("/api/v1/admin/pisos/{$this->pisoId}/mesas", $this->datosMesa(['numero' => '02', 'posicion_x' => 1]))->assertForbidden();
+        $this->postJson('/api/v1/admin/pisos', ['nombre' => 'Extra', 'columnas' => 1, 'filas' => 1])->assertCreated();
+        $this->postJson('/api/v1/admin/pisos', ['nombre' => 'Otro', 'columnas' => 1, 'filas' => 1])->assertForbidden();
     }
 
     public function test_aislamiento_de_sede_rol_y_local_inactivo(): void
@@ -264,16 +268,16 @@ class PlanoMesasTest extends TestCase
         ]);
     }
 
-    public function test_aprovisionamiento_no_elude_cuota_de_ambientes(): void
+    public function test_aprovisionamiento_no_elude_cuota_de_mesas_por_sede(): void
     {
-        DB::table('plan')->where('id', $this->planId)->update(['max_locales' => 10, 'max_pisos' => 1]);
+        DB::table('plan')->where('id', $this->planId)->update(['max_locales' => 10, 'max_mesas' => 10]);
         try {
             app(LocalProvisioningService::class)->provisionar($this->empresaId, [
-                'nombre' => 'Sede sin cupo', 'slug' => 'sin-cupo-'.Str::random(10), 'giro_negocio' => 'en_blanco',
+                'nombre' => 'Sede sin cupo', 'slug' => 'sin-cupo-'.Str::random(10), 'giro_negocio' => 'polleria',
             ]);
-            $this->fail('El aprovisionamiento debe rechazar la falta de cupo.');
+            $this->fail('El aprovisionamiento debe rechazar una plantilla que excede el límite por sede.');
         } catch (\OverflowException $exception) {
-            $this->assertStringContainsString('ambientes', $exception->getMessage());
+            $this->assertStringContainsString('mesas', $exception->getMessage());
             $this->assertSame(2, DB::table('local')->where('empresa_id', $this->empresaId)->count());
         }
     }

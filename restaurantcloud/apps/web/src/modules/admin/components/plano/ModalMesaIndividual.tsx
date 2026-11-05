@@ -145,7 +145,7 @@ export const ModalMesaIndividual: React.FC<ModalMesaIndividualProps> = ({
       icono={Plus}
       etiqueta={pisoActivo.nombre}
       titulo="Nueva mesa"
-      descripcion={`Quedarán ${Math.max(0, cuota.mesas_disponibles - 1)} de ${cuota.max_mesas_plan} mesas disponibles en tu plan.`}
+      descripcion={`Quedarán ${Math.max(0, cuota.mesas_disponibles - 1)} de ${cuota.max_mesas_plan} mesas disponibles en esta sede.`}
       pie={
         <>
           <Button variant="outline" onClick={onClose} disabled={isSubmitting}>

@@ -58,7 +58,7 @@ class PersonalService
     public function crear(string $empresaId, string $localId, array $data): array
     {
         return DB::transaction(function () use ($empresaId, $localId, $data): array {
-            $this->asegurarCupo($empresaId);
+            $this->asegurarCupo($localId);
             $correo = strtolower(trim($data['correo']));
             if (DB::table('usuario')
                 ->where('empresa_id', $empresaId)
@@ -68,7 +68,7 @@ class PersonalService
                 throw new \DomainException("El correo \"{$correo}\" ya está registrado en la empresa.");
             }
 
-            $passwordTemporal = 'Rc@' . Str::upper(Str::random(10));
+            $passwordTemporal = 'Rc@'.Str::upper(Str::random(10));
             $id = (string) Str::uuid();
             DB::table('usuario')->insert([
                 'id' => $id,
@@ -106,7 +106,7 @@ class PersonalService
 
     public function reactivar(string $id, string $empresaId, string $localId): ?array
     {
-        return DB::transaction(function () use ($id, $empresaId, $localId): ?array {
+        return DB::transaction(function () use ($id, $localId): ?array {
             $usuario = DB::table('usuario')
                 ->where('id', $id)
                 ->where('local_id', $localId)
@@ -119,7 +119,7 @@ class PersonalService
             }
 
             if ($usuario->estado !== 'activo') {
-                $this->asegurarCupo($empresaId);
+                $this->asegurarCupo($localId);
                 DB::table('usuario')->where('id', $id)->update([
                     'estado' => 'activo',
                     'updated_at' => now(),
@@ -142,7 +142,7 @@ class PersonalService
             return null;
         }
 
-        $passwordTemporal = 'Rc@' . Str::upper(Str::random(10));
+        $passwordTemporal = 'Rc@'.Str::upper(Str::random(10));
         DB::table('usuario')->where('id', $id)->update([
             'password_hash' => Hash::make($passwordTemporal),
             'updated_at' => now(),
@@ -191,9 +191,10 @@ class PersonalService
             ->select('p.nombre', 'p.max_usuarios')
             ->first();
 
-        $usuariosActivosEmpresa = DB::table('usuario')
-            ->where('empresa_id', $empresaId)
+        $usuariosActivosLocal = DB::table('usuario')
+            ->where('local_id', $localId)
             ->where('estado', 'activo')
+            ->where('rol', '!=', 'propietario')
             ->count();
 
         $porRol = DB::table('usuario')
@@ -214,34 +215,35 @@ class PersonalService
         return [
             'total_empleados' => (int) $porRol->total,
             'max_usuarios_plan' => $maximo,
-            'cupos_disponibles' => max(0, $maximo - $usuariosActivosEmpresa),
+            'cupos_disponibles' => max(0, $maximo - $usuariosActivosLocal),
             'mozos_activos' => (int) $porRol->mozos,
             'cocina_activos' => (int) $porRol->cocina,
             'cajeros_activos' => (int) $porRol->cajeros,
             'plan_nombre' => $plan->nombre,
             'porcentaje_ocupacion' => $maximo
-                ? (int) round(($usuariosActivosEmpresa / $maximo) * 100)
+                ? (int) round(($usuariosActivosLocal / $maximo) * 100)
                 : 0,
         ];
     }
 
-    private function asegurarCupo(string $empresaId): void
+    /** El cupo de personal es por sede: se bloquea la fila del local para serializar las altas. */
+    private function asegurarCupo(string $localId): void
     {
-        $empresa = DB::table('empresa as e')
+        $plan = DB::table('local as l')
+            ->join('empresa as e', 'e.id', '=', 'l.empresa_id')
             ->join('plan as p', 'p.id', '=', 'e.plan_id')
-            ->where('e.id', $empresaId)
+            ->where('l.id', $localId)
             ->select('p.max_usuarios')
             ->lockForUpdate()
             ->first();
         $activos = DB::table('usuario')
-            ->where('empresa_id', $empresaId)
+            ->where('local_id', $localId)
             ->where('estado', 'activo')
-            ->lockForUpdate()
-            ->pluck('id')
+            ->where('rol', '!=', 'propietario')
             ->count();
 
-        if ($activos >= $empresa->max_usuarios) {
-            throw new \OverflowException("Se alcanzó el límite de {$empresa->max_usuarios} usuarios activos del plan.");
+        if ($activos >= $plan->max_usuarios) {
+            throw new \OverflowException("Se alcanzó el límite de {$plan->max_usuarios} personas activas por sede del plan.");
         }
     }
 
@@ -268,6 +270,6 @@ class PersonalService
         $numero = str_starts_with($numero, '51') ? $numero : "51{$numero}";
         $texto = "Hola {$nombre}. Acceso RestaurantCloud AI: usuario {$correo}, clave provisional {$password}.";
 
-        return 'https://wa.me/' . $numero . '?text=' . rawurlencode($texto);
+        return 'https://wa.me/'.$numero.'?text='.rawurlencode($texto);
     }
 }

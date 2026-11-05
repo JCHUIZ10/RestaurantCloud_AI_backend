@@ -11,14 +11,17 @@ import type { ApiResponse } from './api';
 export type EstadoUsuarioAdmin = 'activo' | 'inactivo' | 'pendiente_activacion';
 
 /**
- * Cuota de cuentas de personal según el plan contratado (plan.max_usuarios)
+ * Cupo de administradores sin sede asignada. El personal de cada sede se limita por sede (plan.max_usuarios);
+ * quienes aún no tienen sede solo pueden ser tantos como locales permite el plan (plan.max_locales).
  */
 export interface CuotaPersonalDTO {
   plan_id: number;
   plan_nombre: string;
-  usuarios_permitidos: number; // plan.max_usuarios (Plan Pro: 15)
-  usuarios_activos: number;    // Conteo actual de colaboradores (mozos, cocina, cajeros, administradores)
+  usuarios_permitidos: number; // plan.max_locales: máximo de administradores sin sede
+  usuarios_activos: number;    // Administradores activos o invitados que aún no tienen sede
   cupos_disponibles: number;   // permitidos - activos
+  administradores_sin_sede?: number;
+  max_sin_sede?: number;
   limite_alcanzado: boolean;
 }
 

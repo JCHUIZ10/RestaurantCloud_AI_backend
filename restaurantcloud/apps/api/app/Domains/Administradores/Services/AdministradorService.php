@@ -2,6 +2,7 @@
 
 namespace App\Domains\Administradores\Services;
 
+use App\Domains\Suscripcion\Services\UsoRecursosEmpresa;
 use App\Models\Usuario;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -404,7 +405,7 @@ class AdministradorService
             }
 
             if ($nuevoEstado === 'activo') {
-                $this->asegurarCupo($empresaId);
+                $this->asegurarCupo($empresaId, $usuario->local_id);
             }
 
             DB::table('usuario')->where('id', $adminId)->update([
@@ -436,22 +437,20 @@ class AdministradorService
     }
 
     /**
-     * Calcula las métricas de consumo de cuota de personal de la empresa.
+     * Cuota de administradores sin sede asignada: el personal de cada local se mide por local,
+     * así que solo se limita a quienes aún no ocupan cupo en ninguno (tantos como locales permite el plan).
      */
     private function calcularCuota(string $empresaId): array
     {
         $plan = DB::table('empresa as e')
             ->join('plan as p', 'p.id', '=', 'e.plan_id')
             ->where('e.id', $empresaId)
-            ->select('p.id as plan_id', 'p.nombre as plan_nombre', 'p.max_usuarios')
+            ->select('p.id as plan_id', 'p.nombre as plan_nombre', 'p.max_locales')
             ->first();
 
-        $usuariosActivos = DB::table('usuario')
-            ->where('empresa_id', $empresaId)
-            ->where('estado', 'activo')
-            ->count();
+        $usuariosActivos = app(UsoRecursosEmpresa::class)->administradoresSinSede($empresaId);
 
-        $maxPermitidos = (int) ($plan->max_usuarios ?? 10);
+        $maxPermitidos = (int) ($plan->max_locales ?? 1);
         $cuposLibres = max(0, $maxPermitidos - $usuariosActivos);
 
         return [
@@ -461,17 +460,32 @@ class AdministradorService
             'usuarios_activos' => $usuariosActivos,
             'cupos_disponibles' => $cuposLibres,
             'limite_alcanzado' => $usuariosActivos >= $maxPermitidos,
+            'administradores_sin_sede' => $usuariosActivos,
+            'max_sin_sede' => $maxPermitidos,
         ];
     }
 
     /**
-     * Bloquea la operación si se ha alcanzado la cuota de usuarios permitidos.
+     * Bloquea la operación si se alcanzó el cupo: el del local indicado o, sin sede, el de administradores sin asignar.
      */
-    private function asegurarCupo(string $empresaId): void
+    private function asegurarCupo(string $empresaId, ?string $localId = null): void
     {
-        $cuota = $this->calcularCuota($empresaId);
+        if ($localId !== null) {
+            $maximo = (int) DB::table('local as l')
+                ->join('empresa as e', 'e.id', '=', 'l.empresa_id')
+                ->join('plan as p', 'p.id', '=', 'e.plan_id')
+                ->where('l.id', $localId)
+                ->lockForUpdate()
+                ->value('p.max_usuarios');
 
-        if ($cuota['limite_alcanzado']) {
+            if (app(UsoRecursosEmpresa::class)->personalDelLocal($localId) >= $maximo) {
+                throw new \OverflowException('PERSONAL_LIMITE_PLAN_ALCANZADO');
+            }
+
+            return;
+        }
+
+        if ($this->calcularCuota($empresaId)['limite_alcanzado']) {
             throw new \OverflowException('PERSONAL_LIMITE_PLAN_ALCANZADO');
         }
     }
@@ -503,6 +517,6 @@ class AdministradorService
         }
 
         // Formatear canónicamente: +51 987 654 321
-        return '+51 ' . substr($soloDigitos, 0, 3) . ' ' . substr($soloDigitos, 3, 3) . ' ' . substr($soloDigitos, 6, 3);
+        return '+51 '.substr($soloDigitos, 0, 3).' '.substr($soloDigitos, 3, 3).' '.substr($soloDigitos, 6, 3);
     }
 }

@@ -3793,10 +3793,10 @@ class MockAdminService {
       local_nombre: CANONICAL_LOCAL_NOMBRE,
       cuota_mesas: {
         plan_nombre: 'Pro',
-        mesas_activas_empresa: mesasActivas,
+        mesas_activas_local: mesasActivas,
         max_mesas_plan: this.maxMesasPlan,
         mesas_disponibles: Math.max(0, this.maxMesasPlan - mesasActivas),
-        pisos_activos_empresa: this.pisos.filter((p) => p.estado === 'activo').length,
+        pisos_activos_local: this.pisos.filter((p) => p.estado === 'activo').length,
         max_pisos_plan: this.maxPisosPlan,
       },
       pisos: JSON.parse(JSON.stringify(this.pisos.filter((p) => p.estado === 'activo'))),

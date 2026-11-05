@@ -56,15 +56,15 @@ export interface PisoAdminDTO {
 }
 
 /**
- * Información de consumo de cuotas del plan de la empresa.
- * Mapea a la tabla `plan` y agregados de `mesa` y `piso`.
+ * Consumo de la sede frente a los límites por sede del plan (ambientes y mesas).
+ * Mapea a la tabla `plan` y agregados de `mesa` y `piso` del local.
  */
 export interface CuotaMesasPlanDTO {
   plan_nombre?: string;
-  mesas_activas_empresa: number;
+  mesas_activas_local: number;
   max_mesas_plan: number;
   mesas_disponibles: number;
-  pisos_activos_empresa: number;
+  pisos_activos_local: number;
   max_pisos_plan: number;
 }
 

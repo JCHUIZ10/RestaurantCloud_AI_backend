@@ -22,7 +22,7 @@ export const ModalNuevoPiso: React.FC<ModalNuevoPisoProps> = ({
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
   const idForm = useId();
 
-  const excedePisos = cuota.pisos_activos_empresa >= cuota.max_pisos_plan;
+  const excedePisos = cuota.pisos_activos_local >= cuota.max_pisos_plan;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +52,7 @@ export const ModalNuevoPiso: React.FC<ModalNuevoPisoProps> = ({
       cerrable={!isSubmitting}
       icono={Layers}
       titulo="Nuevo ambiente"
-      descripcion={`Usas ${cuota.pisos_activos_empresa} de ${cuota.max_pisos_plan} ambientes de tu plan.`}
+      descripcion={`Usas ${cuota.pisos_activos_local} de ${cuota.max_pisos_plan} ambientes que permite tu plan en esta sede.`}
       pie={
         <>
           <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
@@ -74,7 +74,7 @@ export const ModalNuevoPiso: React.FC<ModalNuevoPisoProps> = ({
         {errorLocal && <AvisoFormulario tono="error">{errorLocal}</AvisoFormulario>}
         {excedePisos && (
           <AvisoFormulario tono="error">
-            Tu plan permite hasta {cuota.max_pisos_plan} ambientes. Pide a gerencia ampliar el plan para crear otro.
+            Tu plan permite hasta {cuota.max_pisos_plan} ambientes por sede. Pide a gerencia ampliar el plan para crear otro.
           </AvisoFormulario>
         )}
 

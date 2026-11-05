@@ -251,7 +251,7 @@ export const AdminPlanoMesasPage: React.FC = () => {
               onAbrirEditarPiso={(piso) => setPisoParaEditar(piso)}
               onModificarDimensiones={handleModificarDimensiones}
               isUpdatingDimensions={isUpdatingDimensions}
-              puedeCrearPiso={data.cuota_mesas.pisos_activos_empresa < data.cuota_mesas.max_pisos_plan}
+              puedeCrearPiso={data.cuota_mesas.pisos_activos_local < data.cuota_mesas.max_pisos_plan}
             />
 
             {pisoActivo && pisoActivo.mesas.filter((m) => m.estado !== 'inactiva').length === 0 ? (

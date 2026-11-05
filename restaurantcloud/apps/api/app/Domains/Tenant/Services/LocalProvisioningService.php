@@ -123,7 +123,7 @@ class LocalProvisioningService
                 throw new \OverflowException("Has alcanzado el límite máximo de locales de tu Plan {$empresa->plan_nombre} ({$empresa->max_locales} locales).");
             }
 
-            app(CuotaSalonService::class)->asegurar($empresaId, 1, $giro === 'en_blanco' ? 0 : 15);
+            app(CuotaSalonService::class)->asegurarPlantilla($empresaId, 1, $giro === 'en_blanco' ? 0 : 15);
 
             // 2. Validar unicidad global del slug
             $existeSlug = DB::table('local')->whereRaw('LOWER(slug) = ?', [$slug])->exists();

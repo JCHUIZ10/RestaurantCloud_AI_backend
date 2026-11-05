@@ -32,7 +32,7 @@ export const PlanoHeader: React.FC<PlanoHeaderProps> = ({
   isReloading = false,
 }) => {
   const porcentajeUso = cuota.max_mesas_plan > 0
-    ? Math.min(100, Math.round((cuota.mesas_activas_empresa / cuota.max_mesas_plan) * 100))
+    ? Math.min(100, Math.round((cuota.mesas_activas_local / cuota.max_mesas_plan) * 100))
     : 0;
   const tonoCupo: TonoIndicador = porcentajeUso >= 90 ? 'error' : porcentajeUso >= 70 ? 'alerta' : 'cobre';
   const promedio = totalMesasLocal > 0 ? (totalCapacidadSentados / totalMesasLocal).toFixed(1) : '0';
@@ -85,10 +85,10 @@ export const PlanoHeader: React.FC<PlanoHeaderProps> = ({
         <TarjetaIndicador
           tono={tonoCupo}
           icono={Gauge}
-          etiqueta={`Cupo plan ${cuota.plan_nombre || 'actual'}`}
-          valor={cuota.mesas_activas_empresa}
+          etiqueta={`Cupo de esta sede · plan ${cuota.plan_nombre || 'actual'}`}
+          valor={cuota.mesas_activas_local}
           unidad={`/ ${cuota.max_mesas_plan} mesas`}
-          detalle={`${cuota.mesas_disponibles} disponibles · máx. ${cuota.max_pisos_plan} ambientes`}
+          detalle={`${cuota.mesas_disponibles} disponibles · máx. ${cuota.max_pisos_plan} ambientes por sede`}
           className="sm:col-span-2 lg:col-span-1"
         >
           <div
