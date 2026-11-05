@@ -207,7 +207,8 @@ class SuscripcionCobrosTest extends TestCase
 
         $suscripcion = DB::table('suscripcion')->where('id', $this->suscripcionId)->first();
         $this->assertSame('en_gracia', $suscripcion->estado);
-        $this->assertSame(2, (int) $suscripcion->reintentos_stripe_conteo);
+        // Un intento manual no consume los reintentos automáticos de la gracia
+        $this->assertSame(1, (int) $suscripcion->reintentos_stripe_conteo);
         $this->assertSame(1, DB::table('pago')->where('suscripcion_id', $this->suscripcionId)->where('estado', 'fallido')->count());
     }
 
@@ -332,5 +333,110 @@ class SuscripcionCobrosTest extends TestCase
 
         $this->assertSame('activa', DB::table('empresa')->where('id', $this->empresaId)->value('estado'));
         $this->getJson('/api/v1/propietario/locales', $this->headers())->assertOk();
+    }
+
+    public function test_los_intentos_manuales_usan_llaves_distintas_y_no_consumen_los_automaticos(): void
+    {
+        $this->dejarEnGracia();
+        $llaves = [];
+
+        $this->mockStripe(function (MockInterface $mock) use (&$llaves): void {
+            $mock->shouldReceive('cobrarRenovacion')->twice()->andReturnUsing(function ($cliente, $monto, $descripcion, $llave) use (&$llaves) {
+                $llaves[] = $llave;
+
+                throw new \RuntimeException('Your card was declined.');
+            });
+        });
+
+        foreach ([1, 2] as $intento) {
+            $this->postJson('/api/v1/propietario/suscripcion/cobro-pendiente/reintentar', [], $this->headers())
+                ->assertStatus(402);
+        }
+
+        $this->assertCount(2, array_unique($llaves), 'Stripe repetiría el rechazo anterior si la llave de idempotencia se reutiliza.');
+        $suscripcion = DB::table('suscripcion')->where('id', $this->suscripcionId)->first();
+        $this->assertSame(1, (int) $suscripcion->reintentos_stripe_conteo);
+        $this->assertSame('en_gracia', $suscripcion->estado);
+    }
+
+    public function test_el_comando_sigue_reintentando_aunque_haya_intentos_manuales_fallidos(): void
+    {
+        $this->dejarEnGracia();
+        DB::table('pago')->insert([
+            'id' => (string) Str::uuid(), 'empresa_id' => $this->empresaId, 'suscripcion_id' => $this->suscripcionId,
+            'plan_id' => 2, 'monto' => 80, 'fecha' => now()->subDay(), 'estado' => 'fallido', 'origen_pago' => 'stripe',
+            'nota' => 'Cobro rechazado: manual', 'created_at' => now()->subDay(),
+        ]);
+
+        $this->mockStripe(function (MockInterface $mock): void {
+            $mock->shouldReceive('cobrarRenovacion')->once()->andReturn($this->cobroExitoso());
+        });
+
+        $this->artisan('suscripciones:procesar-cobros')->assertSuccessful();
+
+        $this->assertSame('activa', DB::table('suscripcion')->where('id', $this->suscripcionId)->value('estado'));
+    }
+
+    private function suspenderAdministrativamente(): void
+    {
+        DB::table('suscripcion_suspension')->insert([
+            'id' => (string) Str::uuid(),
+            'empresa_id' => $this->empresaId,
+            'suscripcion_id' => $this->suscripcionId,
+            'tipo_evento' => 'suspension_temporal',
+            'motivo' => 'Uso indebido',
+            'detalle_justificacion' => 'Suspendida por el equipo SaaS tras una revisión.',
+            'ejecutado_por' => DB::table('usuario')->where('empresa_id', $this->empresaId)->where('rol', 'propietario')->value('id'),
+            'estado' => 'activa',
+        ]);
+        DB::table('suscripcion')->where('id', $this->suscripcionId)->update(['estado' => 'suspendida']);
+        DB::table('empresa')->where('id', $this->empresaId)->update(['estado' => 'suspendida']);
+        CobroSuscripcionService::olvidarEstadoEmpresa($this->empresaId);
+    }
+
+    public function test_una_suspension_administrativa_no_se_levanta_pagando(): void
+    {
+        $this->suspenderAdministrativamente();
+        $this->mockStripe(fn (MockInterface $mock) => $mock->shouldReceive('cobrarRenovacion')->never());
+
+        $this->postJson('/api/v1/propietario/suscripcion/cobro-pendiente/reintentar', [], $this->headers())
+            ->assertStatus(403)
+            ->assertJsonPath('errores.0.codigo', 'SUSPENSION_ADMINISTRATIVA');
+
+        $this->getJson('/api/v1/propietario/suscripcion', $this->headers())
+            ->assertOk()
+            ->assertJsonPath('datos.estado_cobro.suspension_administrativa', true)
+            ->assertJsonPath('datos.estado_cobro.monto_pendiente', 0);
+
+        $this->assertSame('suspendida', DB::table('empresa')->where('id', $this->empresaId)->value('estado'));
+    }
+
+    public function test_cambiar_la_tarjeta_en_una_suspension_administrativa_no_cobra_ni_reactiva(): void
+    {
+        $this->suspenderAdministrativamente();
+        $this->mockStripe(function (MockInterface $mock): void {
+            $mock->shouldReceive('recuperarMetodoPago')->andReturn($this->metodoNuevo());
+            $mock->shouldReceive('establecerMetodoPredeterminado')->andReturn('pm_nueva');
+            $mock->shouldReceive('cobrarRenovacion')->never();
+        });
+
+        $this->postJson('/api/v1/propietario/suscripcion/metodo-pago/confirmar', [
+            'stripe_payment_method_id' => 'pm_nueva',
+        ], $this->headers())
+            ->assertOk()
+            ->assertJsonPath('datos.cobro_pendiente_regularizado', false);
+
+        $this->assertSame('suspendida', DB::table('empresa')->where('id', $this->empresaId)->value('estado'));
+    }
+
+    public function test_el_comando_no_toca_una_suscripcion_suspendida_administrativamente(): void
+    {
+        $this->suspenderAdministrativamente();
+        DB::table('suscripcion')->where('id', $this->suscripcionId)->update(['fecha_fin_periodo' => now()->subDay()]);
+        $this->mockStripe(fn (MockInterface $mock) => $mock->shouldReceive('cobrarRenovacion')->never());
+
+        $this->artisan('suscripciones:procesar-cobros')->assertSuccessful();
+
+        $this->assertSame('suspendida', DB::table('suscripcion')->where('id', $this->suscripcionId)->value('estado'));
     }
 }

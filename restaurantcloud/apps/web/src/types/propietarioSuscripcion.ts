@@ -89,6 +89,8 @@ export interface EstadoCobroDunningDTO {
   monto_pendiente: number;
   ultimo_error_cobro: string | null;
   reintentos_fallidos: number;
+  /** El equipo de RestaurantCloud suspendió la cuenta; pagar no la reactiva */
+  suspension_administrativa: boolean;
 }
 
 export interface FacturaSuscripcionDTO {

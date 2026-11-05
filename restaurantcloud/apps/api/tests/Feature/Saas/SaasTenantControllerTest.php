@@ -10,8 +10,11 @@ use Tests\TestCase;
 class SaasTenantControllerTest extends TestCase
 {
     private string $testRuc = '20603849206';
+
     private string $testEmail = 'titular.controller.b2b@puertomarino.pe';
+
     private string $tokenSaas;
+
     private string $tokenProp;
 
     protected function setUp(): void
@@ -22,7 +25,7 @@ class SaasTenantControllerTest extends TestCase
         $adminSaas = DB::table('usuario')->where('rol', 'admin_saas')->first();
         $adminId = $adminSaas ? $adminSaas->id : (string) Str::uuid();
 
-        $rawTokenSaas = 'test_token_saas_' . Str::random(32);
+        $rawTokenSaas = 'test_token_saas_'.Str::random(32);
         $tokenHashSaas = hash('sha256', $rawTokenSaas);
 
         Redis::setex("auth:session:{$tokenHashSaas}", 3600, json_encode([
@@ -37,7 +40,7 @@ class SaasTenantControllerTest extends TestCase
         $this->tokenSaas = $rawTokenSaas;
 
         // 2. Sesión no autorizada (rol propietario)
-        $rawTokenProp = 'test_token_prop_' . Str::random(32);
+        $rawTokenProp = 'test_token_prop_'.Str::random(32);
         $tokenHashProp = hash('sha256', $rawTokenProp);
 
         Redis::setex("auth:session:{$tokenHashProp}", 3600, json_encode([
@@ -207,11 +210,35 @@ class SaasTenantControllerTest extends TestCase
         $this->assertNotEmpty($resNotificar->json('datos.invitacion_token'));
 
         // 7. Test de Suspensión Preventiva
-        $resSuspender = $this->postJson("/api/v1/saas/tenants/{$empresaId}/suspender", [], $this->headersSaas());
+        $this->postJson("/api/v1/saas/tenants/{$empresaId}/suspender", [], $this->headersSaas())->assertStatus(422);
+
+        $resSuspender = $this->postJson("/api/v1/saas/tenants/{$empresaId}/suspender", [
+            'motivo' => 'Uso indebido',
+            'detalle' => 'Suspendida tras una revisión del equipo SaaS.',
+        ], $this->headersSaas());
         $resSuspender->assertStatus(200);
         $resSuspender->assertJsonPath('datos.estado', 'suspendida');
 
         $empresaBd = DB::table('empresa')->where('id', $empresaId)->first();
         $this->assertEquals('suspendida', $empresaBd->estado);
+        $this->assertSame(1, DB::table('suscripcion_suspension')->where('empresa_id', $empresaId)->where('estado', 'activa')->count());
+
+        // 8. Reactivación: exige nota de auditoría y cierra la suspensión administrativa
+        $this->postJson("/api/v1/saas/tenants/{$empresaId}/reactivar", ['nota' => 'corta'], $this->headersSaas())->assertStatus(422);
+
+        $this->postJson("/api/v1/saas/tenants/{$empresaId}/reactivar", [
+            'nota' => 'Se aclaró el caso con el titular y se levanta la suspensión.',
+        ], $this->headersSaas())
+            ->assertStatus(200)
+            ->assertJsonPath('datos.estado', 'activa');
+
+        $this->assertEquals('activa', DB::table('empresa')->where('id', $empresaId)->value('estado'));
+        $this->assertEquals('activa', DB::table('suscripcion')->where('empresa_id', $empresaId)->latest('created_at')->value('estado'));
+        $this->assertSame(0, DB::table('suscripcion_suspension')->where('empresa_id', $empresaId)->where('estado', 'activa')->count());
+        $this->assertSame(1, DB::table('suscripcion_suspension')->where('empresa_id', $empresaId)->where('estado', 'resuelta_reactivada')->count());
+
+        $this->postJson("/api/v1/saas/tenants/{$empresaId}/reactivar", [
+            'nota' => 'Intento de reactivar una empresa que ya está activa.',
+        ], $this->headersSaas())->assertStatus(409);
     }
 }

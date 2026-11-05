@@ -55,7 +55,7 @@ class CobroSuscripcionService
                 continue;
             }
 
-            $resultado = $this->intentarCobro($id, ['activa'], true);
+            $resultado = $this->intentarCobro($id, ['activa'], true, true);
             $this->contar($resumen, $resultado, 'renovadas', 'fallidas');
         }
 
@@ -93,7 +93,7 @@ class CobroSuscripcionService
                 continue;
             }
 
-            $resultado = $this->intentarCobro($suscripcion->id, ['en_gracia'], false);
+            $resultado = $this->intentarCobro($suscripcion->id, ['en_gracia'], false, true);
             $this->contar($resumen, $resultado, 'reintentos_exitosos', 'reintentos_fallidos');
         }
 
@@ -102,18 +102,34 @@ class CobroSuscripcionService
 
     /**
      * Cobro inmediato del importe adeudado (botón "Pagar ahora" o tras cambiar la tarjeta).
+     * Una suspensión administrativa no es una deuda: pagar no la levanta, solo la reactiva el equipo SaaS.
+     * Los intentos manuales no consumen los reintentos automáticos de la gracia.
      *
-     * @return array{exito: bool, omitido: bool, pago_id: ?string, error: ?string}
+     * @return array{exito: bool, omitido: bool, pago_id: ?string, error: ?string, bloqueado?: bool}
      */
     public function regularizarPendiente(string $empresaId): array
     {
+        if (self::haySuspensionAdministrativa($empresaId)) {
+            return ['exito' => false, 'omitido' => true, 'bloqueado' => true, 'pago_id' => null, 'error' => null];
+        }
+
         $suscripcionId = $this->suscripcionPendiente($empresaId)?->id;
 
         if (! $suscripcionId) {
             return ['exito' => false, 'omitido' => true, 'pago_id' => null, 'error' => null];
         }
 
-        return $this->intentarCobro($suscripcionId, ['en_gracia', 'suspendida', 'activa'], true);
+        return $this->intentarCobro($suscripcionId, ['en_gracia', 'suspendida', 'activa'], true, false);
+    }
+
+    /** La empresa fue suspendida por el equipo SaaS (no por falta de pago) y sigue sin reactivarse. */
+    public static function haySuspensionAdministrativa(string $empresaId): bool
+    {
+        return DB::table('suscripcion_suspension')
+            ->where('empresa_id', $empresaId)
+            ->where('tipo_evento', 'suspension_temporal')
+            ->where('estado', 'activa')
+            ->exists();
     }
 
     /**
@@ -184,11 +200,12 @@ class CobroSuscripcionService
      * (exitoso o fallido) y actualiza el estado de cobro.
      *
      * @param  list<string>  $estadosValidos  Estados desde los que se permite cobrar.
+     * @param  bool  $automatico  true si lo dispara el comando programado; solo esos intentos cuentan hacia el máximo.
      * @return array{exito: bool, omitido: bool, pago_id: ?string, error: ?string}
      */
-    private function intentarCobro(string $suscripcionId, array $estadosValidos, bool $exigirVencida): array
+    private function intentarCobro(string $suscripcionId, array $estadosValidos, bool $exigirVencida, bool $automatico): array
     {
-        $resultado = DB::transaction(function () use ($suscripcionId, $estadosValidos, $exigirVencida): array {
+        $resultado = DB::transaction(function () use ($suscripcionId, $estadosValidos, $exigirVencida, $automatico): array {
             $suscripcion = DB::table('suscripcion')->where('id', $suscripcionId)->lockForUpdate()->first();
 
             if (! $suscripcion
@@ -204,11 +221,13 @@ class CobroSuscripcionService
             $ciclo = $cambio['ciclo'] ?? $suscripcion->ciclo_facturacion;
             $monto = (float) ($ciclo === 'anual' ? $plan->precio_anual : $plan->precio_mensual);
             $descripcion = "RestaurantCloud - Renovación {$plan->nombre} ({$empresa->razon_social})";
+            // Cada intento fallido distinto necesita su propia llave; si no, Stripe repetiría la respuesta del anterior
+            $fallidos = DB::table('pago')->where('suscripcion_id', $suscripcion->id)->where('estado', 'fallido')->count();
             $llave = sprintf(
                 'renovacion-%s-%d-%d-%d-%s',
                 $suscripcion->id,
                 Carbon::parse($suscripcion->fecha_fin_periodo)->timestamp,
-                (int) $suscripcion->reintentos_stripe_conteo,
+                $fallidos,
                 $plan->id,
                 $ciclo
             );
@@ -238,7 +257,7 @@ class CobroSuscripcionService
             if ($error === null) {
                 $this->registrarCobroExitoso($suscripcion, $empresa, $plan, $ciclo, $cambio, $pagoId, $monto, $stripePaymentId);
             } else {
-                $this->registrarCobroFallido($suscripcion, $plan, $pagoId, $monto, $stripePaymentId, $error);
+                $this->registrarCobroFallido($suscripcion, $plan, $pagoId, $monto, $stripePaymentId, $error, $automatico);
             }
 
             return ['exito' => $error === null, 'omitido' => false, 'pago_id' => $pagoId, 'error' => $error];
@@ -308,7 +327,7 @@ class CobroSuscripcionService
         }
     }
 
-    private function registrarCobroFallido(object $suscripcion, object $plan, string $pagoId, float $monto, ?string $stripePaymentId, string $error): void
+    private function registrarCobroFallido(object $suscripcion, object $plan, string $pagoId, float $monto, ?string $stripePaymentId, string $error, bool $automatico): void
     {
         $corte = $suscripcion->fecha_corte_gracia
             ? Carbon::parse($suscripcion->fecha_corte_gracia)
@@ -336,7 +355,7 @@ class CobroSuscripcionService
             'fecha_corte_gracia' => $corte,
             'dias_gracia_restantes' => $estado === 'suspendida' ? 0 : $this->diasGracia($corte),
             'ultimo_error_cobro' => Str::limit($error, 250),
-            'reintentos_stripe_conteo' => (int) $suscripcion->reintentos_stripe_conteo + 1,
+            'reintentos_stripe_conteo' => (int) $suscripcion->reintentos_stripe_conteo + ($automatico ? 1 : 0),
             'updated_at' => now(),
         ]);
 

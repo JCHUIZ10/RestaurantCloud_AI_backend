@@ -198,6 +198,7 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/planes', [SaasTenantController::class, 'planes']);
                 Route::get('/{id}', [SaasTenantController::class, 'show']);
                 Route::post('/{id}/suspender', [SaasTenantController::class, 'suspender']);
+                Route::post('/{id}/reactivar', [SaasTenantController::class, 'reactivar']);
                 Route::post('/{id}/notificar-cobro', [SaasTenantController::class, 'notificarCobro']);
             });
             Route::get('/planes', [SaasTenantController::class, 'planes']);

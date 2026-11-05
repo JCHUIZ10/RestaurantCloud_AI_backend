@@ -135,6 +135,14 @@ class SuscripcionController extends Controller
 
         $cobro = $this->cobros->regularizarPendiente($empresaId);
 
+        if ($cobro['bloqueado'] ?? false) {
+            return ApiResponse::error(
+                'SUSPENSION_ADMINISTRATIVA',
+                'Tu cuenta fue suspendida por el equipo de RestaurantCloud, no por un cobro pendiente. Contacta a soporte para reactivarla.',
+                403
+            );
+        }
+
         if ($cobro['omitido']) {
             return ApiResponse::error('SIN_COBRO_PENDIENTE', 'Tu suscripción no tiene cobros pendientes.', 409);
         }

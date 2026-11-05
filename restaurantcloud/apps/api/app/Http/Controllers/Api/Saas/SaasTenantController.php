@@ -327,21 +327,42 @@ class SaasTenantController extends Controller
      */
     public function suspender(Request $request, string $id): JsonResponse
     {
+        $validated = $request->validate([
+            'motivo' => ['required', 'string', 'max:100'],
+            'detalle' => ['required', 'string', 'min:15'],
+        ]);
+
         $empresa = DB::table('empresa')->where('id', $id)->first();
         if (! $empresa) {
             return ApiResponse::error('EMPRESA_NO_ENCONTRADA', 'La empresa no existe.', 404);
         }
 
-        DB::table('empresa')->where('id', $id)->update([
-            'estado' => 'suspendida',
-            'updated_at' => now(),
-        ]);
+        DB::transaction(function () use ($request, $id, $validated): void {
+            DB::table('empresa')->where('id', $id)->update([
+                'estado' => 'suspendida',
+                'updated_at' => now(),
+            ]);
 
-        DB::table('suscripcion')->where('empresa_id', $id)->update([
-            'estado' => 'suspendida',
-            'dias_gracia_restantes' => 0,
-            'updated_at' => now(),
-        ]);
+            DB::table('suscripcion')->where('empresa_id', $id)->update([
+                'estado' => 'suspendida',
+                'dias_gracia_restantes' => 0,
+                'updated_at' => now(),
+            ]);
+
+            // Queda registrada como administrativa: pagar no la levanta, solo la reactivación del equipo SaaS
+            if (! CobroSuscripcionService::haySuspensionAdministrativa($id)) {
+                DB::table('suscripcion_suspension')->insert([
+                    'id' => (string) Str::uuid(),
+                    'empresa_id' => $id,
+                    'suscripcion_id' => DB::table('suscripcion')->where('empresa_id', $id)->latest('created_at')->value('id'),
+                    'tipo_evento' => 'suspension_temporal',
+                    'motivo' => $validated['motivo'],
+                    'detalle_justificacion' => $validated['detalle'],
+                    'ejecutado_por' => $request->user()->id,
+                    'estado' => 'activa',
+                ]);
+            }
+        });
 
         CobroSuscripcionService::olvidarEstadoEmpresa($id);
 
@@ -349,6 +370,57 @@ class SaasTenantController extends Controller
             'empresa_id' => $id,
             'estado' => 'suspendida',
             'mensaje' => "Empresa {$empresa->razon_social} suspendida preventivamente.",
+        ]);
+    }
+
+    /**
+     * POST /api/v1/saas/tenants/{id}/reactivar
+     * Levanta una suspensión (administrativa o por falta de pago) con una nota de auditoría.
+     * Si el periodo ya venció, el cobro programado intentará renovarlo en su siguiente corrida.
+     */
+    public function reactivar(Request $request, string $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'nota' => ['required', 'string', 'min:15'],
+        ]);
+
+        $empresa = DB::table('empresa')->where('id', $id)->first();
+        if (! $empresa) {
+            return ApiResponse::error('EMPRESA_NO_ENCONTRADA', 'La empresa no existe.', 404);
+        }
+        if ($empresa->estado !== 'suspendida') {
+            return ApiResponse::error('EMPRESA_NO_SUSPENDIDA', 'La empresa no está suspendida.', 409);
+        }
+
+        DB::transaction(function () use ($request, $id, $validated): void {
+            DB::table('suscripcion_suspension')
+                ->where('empresa_id', $id)
+                ->where('estado', 'activa')
+                ->update([
+                    'estado' => 'resuelta_reactivada',
+                    'fecha_reactivacion' => now(),
+                    'reactivado_por' => $request->user()->id,
+                    'nota_reactivacion' => $validated['nota'],
+                    'actualizado_at' => now(),
+                ]);
+
+            DB::table('empresa')->where('id', $id)->update(['estado' => 'activa', 'updated_at' => now()]);
+            DB::table('suscripcion')->where('empresa_id', $id)->where('estado', 'suspendida')->update([
+                'estado' => 'activa',
+                'dias_gracia_restantes' => CobroSuscripcionService::DIAS_GRACIA,
+                'fecha_corte_gracia' => null,
+                'ultimo_error_cobro' => null,
+                'reintentos_stripe_conteo' => 0,
+                'updated_at' => now(),
+            ]);
+        });
+
+        CobroSuscripcionService::olvidarEstadoEmpresa($id);
+
+        return ApiResponse::ok([
+            'empresa_id' => $id,
+            'estado' => 'activa',
+            'mensaje' => "Empresa {$empresa->razon_social} reactivada.",
         ]);
     }
 

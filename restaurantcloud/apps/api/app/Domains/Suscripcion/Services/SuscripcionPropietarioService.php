@@ -77,7 +77,8 @@ class SuscripcionPropietarioService
      */
     private function estadoCobro(?object $suscripcion, object $plan, string $estado): array
     {
-        $pendiente = in_array($estado, ['en_gracia', 'suspendida'], true);
+        $administrativa = $suscripcion !== null && CobroSuscripcionService::haySuspensionAdministrativa($suscripcion->empresa_id);
+        $pendiente = in_array($estado, ['en_gracia', 'suspendida'], true) && ! $administrativa;
         $corte = $suscripcion?->fecha_corte_gracia ? Carbon::parse($suscripcion->fecha_corte_gracia) : null;
         $cambio = $suscripcion ? CambioProgramado::de($suscripcion) : null;
         $planCobro = $cambio ? (DB::table('plan')->where('id', $cambio['plan_id'])->first() ?: $plan) : $plan;
@@ -95,6 +96,7 @@ class SuscripcionPropietarioService
             'monto_pendiente' => $pendiente ? $importe : 0.0,
             'ultimo_error_cobro' => $suscripcion->ultimo_error_cobro ?? null,
             'reintentos_fallidos' => (int) ($suscripcion->reintentos_stripe_conteo ?? 0),
+            'suspension_administrativa' => $administrativa,
         ];
     }
 
@@ -131,7 +133,8 @@ class SuscripcionPropietarioService
             'exp_ano' => $tarjeta['exp_ano'],
             'titular' => $tarjeta['titular'],
             'proximo_a_vencer' => $venceEn->lte(now()->addDays(30)),
-            'estado_cobro_tarjeta' => in_array($estadoSuscripcion, ['en_gracia', 'suspendida'], true) ? 'rechazado' : 'al_dia',
+            'estado_cobro_tarjeta' => in_array($estadoSuscripcion, ['en_gracia', 'suspendida'], true)
+                && ! CobroSuscripcionService::haySuspensionAdministrativa($empresa->id) ? 'rechazado' : 'al_dia',
         ];
     }
 

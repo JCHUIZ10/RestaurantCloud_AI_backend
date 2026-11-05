@@ -23,10 +23,12 @@ export const MetodoPagoCard: React.FC<MetodoPagoCardProps> = ({
   const formatExp = (mes: number, ano: number) =>
     `${String(mes).padStart(2, '0')}/${String(ano).slice(-2)}`;
 
+  // Una suspensión administrativa no es un cobro rechazado
   const tieneErrorCobro =
-    !estadoCobro?.al_dia ||
-    metodoPago?.estado_cobro_tarjeta === 'rechazado' ||
-    (estadoCobro?.monto_pendiente ?? 0) > 0;
+    !estadoCobro?.suspension_administrativa &&
+    (!estadoCobro?.al_dia ||
+      metodoPago?.estado_cobro_tarjeta === 'rechazado' ||
+      (estadoCobro?.monto_pendiente ?? 0) > 0);
 
   return (
     <article className="rounded-2xl border border-aurea-navy/10 bg-white p-6 sm:p-7 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">

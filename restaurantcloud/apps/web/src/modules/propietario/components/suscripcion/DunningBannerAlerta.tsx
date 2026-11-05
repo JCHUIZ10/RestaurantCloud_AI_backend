@@ -21,11 +21,34 @@ export const DunningBannerAlerta: React.FC<DunningBannerAlertaProps> = ({
   onPagarAhora,
 }) => {
   const esSuspendida = estadoSuscripcion === 'suspendida';
+  const esAdministrativa = estadoCobro?.suspension_administrativa ?? false;
   const esEnGracia =
     estadoSuscripcion === 'en_gracia' || (estadoCobro?.en_periodo_gracia ?? false);
 
   if (!esSuspendida && !esEnGracia) {
     return null;
+  }
+
+  // Suspensión decidida por el equipo SaaS: no hay deuda que pagar, solo contactar a soporte
+  if (esAdministrativa) {
+    return (
+      <section role="alert" aria-live="assertive" className="rounded-xl bg-red-50 border-2 border-red-300 p-4 sm:p-5 shadow-sm">
+        <div className="flex items-start gap-3.5">
+          <div className="p-2.5 rounded-lg bg-red-100 text-red-700 shrink-0">
+            <ShieldAlert className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="font-sans font-bold text-base sm:text-lg text-red-900">
+              Cuenta suspendida por RestaurantCloud
+            </h2>
+            <p className="text-xs sm:text-sm text-red-800 mt-1 max-w-2xl leading-relaxed">
+              Esta suspensión no corresponde a un cobro pendiente, por lo que pagar no la levanta. Contacta a soporte para
+              que revisen tu caso y reactiven tu cuenta. Mientras tanto, la operación de tus sedes permanece pausada.
+            </p>
+          </div>
+        </div>
+      </section>
+    );
   }
 
   const acciones = (
