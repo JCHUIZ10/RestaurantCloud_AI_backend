@@ -48,6 +48,8 @@ export interface IniciarRegistroResponseDTO {
   correo: string;
   expira_en_segundos: number;
   cooldown_reenvio_segundos: number;
+  /** Código OTP en claro; el backend solo lo devuelve fuera de producción. */
+  otp_debug?: string | null;
 }
 
 export interface ModificarCorreoRequestDTO {

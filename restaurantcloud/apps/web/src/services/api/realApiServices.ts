@@ -1317,6 +1317,26 @@ export const realRegistroEmpresaService = {
     }
   },
 
+  async nuevoSetupIntent(req: { registro_id: string }): Promise<any> {
+    try {
+      return await apiPost<any>('/public/registro/nuevo-setup-intent', req);
+    } catch (err: any) {
+      if (err.response?.data) {
+        return err.response.data;
+      }
+      return {
+        exito: false,
+        datos: null,
+        errores: [
+          {
+            codigo: 'ERROR_CONEXION',
+            mensaje: 'No se pudo conectar con el servidor para preparar un nuevo intento de pago.',
+          },
+        ],
+      };
+    }
+  },
+
   async reenviarOtp(req: { registro_id: string }): Promise<any> {
     try {
       return await apiPost<any>('/public/registro/reenviar-otp', req);

@@ -1,10 +1,8 @@
 import type {
   PlanSaaSDTO,
   IniciarRegistroRequestDTO,
-  IniciarRegistroResponseDTO,
   ModificarCorreoRequestDTO,
   VerificarRegistroOTPRequestDTO,
-  VerificarRegistroOTPResponseDTO,
   CompletarRegistroRequestDTO,
   CompletarRegistroResponseDTO,
   IniciarRegistroApiResponse,
@@ -14,71 +12,6 @@ import type {
 } from '@/types/registroEmpresa';
 import { realRegistroEmpresaService } from '@/services/api/realApiServices';
 import { apiDescargarPdf } from '@/services/api/client';
-
-const IS_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
-
-/**
- * Catálogo Canónico Oficial de Planes SaaS (PostgreSQL 16: 06_seed_initial_data.sql)
- */
-export const PLANES_CANONICOS: PlanSaaSDTO[] = [
-  {
-    id: 1,
-    nombre: 'Starter',
-    slug: 'plan-starter',
-    descripcion: 'Ideal para cafeterías, bistrós y restaurantes independientes de 1 sede con hasta 25 mesas.',
-    precio_mensual: 40.0,
-    precio_anual: 400.0,
-    max_locales: 1,
-    max_pisos: 1,
-    max_mesas: 25,
-    max_usuarios: 5,
-    incluye_reservas: false,
-    incluye_reportes_avanzados: false,
-    incluye_asistente_ia: false,
-    incluye_prediccion_ia: false,
-    activo: true,
-    visible_publico: true,
-    destacado: false,
-  },
-  {
-    id: 2,
-    nombre: 'Pro (Con IA)',
-    slug: 'plan-pro',
-    descripcion: 'Para restaurantes en expansión con múltiples ambientes, reservas de salón, KDS y asistente IA.',
-    precio_mensual: 80.0,
-    precio_anual: 800.0,
-    max_locales: 3,
-    max_pisos: 2,
-    max_mesas: 30,
-    max_usuarios: 15,
-    incluye_reservas: true,
-    incluye_reportes_avanzados: true,
-    incluye_asistente_ia: true,
-    incluye_prediccion_ia: false,
-    activo: true,
-    visible_publico: true,
-    destacado: true,
-  },
-  {
-    id: 3,
-    nombre: 'Enterprise',
-    slug: 'plan-enterprise',
-    descripcion: 'Para cadenas gastronómicas y franquicias con operaciones complejas y suite completa de IA.',
-    precio_mensual: 160.0,
-    precio_anual: 1600.0,
-    max_locales: 10,
-    max_pisos: 5,
-    max_mesas: 60,
-    max_usuarios: 40,
-    incluye_reservas: true,
-    incluye_reportes_avanzados: true,
-    incluye_asistente_ia: true,
-    incluye_prediccion_ia: true,
-    activo: true,
-    visible_publico: true,
-    destacado: false,
-  },
-];
 
 interface RegistroEnProgreso {
   registro_id: string;
@@ -90,51 +23,37 @@ interface RegistroEnProgreso {
   nombre_propietario: string;
   correo: string;
   ciclo_facturacion: 'mensual' | 'anual';
-  otp_valido: string;
   correo_verificado: boolean;
-  intentos_restantes: number;
+  otp_debug?: string | null;
+  /** SetupIntent de Stripe creado al verificar el correo; permite retomar el Paso 4 tras recargar */
+  stripe_client_secret?: string | null;
+  stripe_public_key?: string | null;
 }
 
 const STORAGE_KEY = 'restaurantcloud_registro_onboarding';
-const DEFAULT_OTP = '529148';
-const RUC_DUPLICADO_PRUEBA = '20100000001';
 
+/**
+ * CU-PROP-01: Registro de empresa (alta autoservicio con pago en Stripe).
+ */
 class RegistroEmpresaService {
   private planesCache: PlanSaaSDTO[] | null = null;
 
   /**
-   * Obtiene la lista de planes públicos desde la API /public/planes
+   * Catálogo de planes públicos. Falla si la API no responde: no hay catálogo local de respaldo.
+   * GET /api/v1/public/planes
    */
   async getPlanes(forceRefresh = false): Promise<PlanSaaSDTO[]> {
-    if (!forceRefresh && this.planesCache && this.planesCache.length > 0) {
+    if (!forceRefresh && this.planesCache) {
       return this.planesCache;
     }
 
-    try {
-      const datos = await realRegistroEmpresaService.getPlanes();
-      if (Array.isArray(datos) && datos.length > 0) {
-        this.planesCache = datos;
-        return datos;
-      }
-    } catch (err) {
-      console.warn('[RegistroEmpresaService] Error al consultar API de planes, usando catálogo de respaldo:', err);
+    const datos = await realRegistroEmpresaService.getPlanes();
+    if (!Array.isArray(datos) || datos.length === 0) {
+      throw new Error('El catálogo de planes no está disponible en este momento.');
     }
 
-    if (this.planesCache && this.planesCache.length > 0) return this.planesCache;
-
-    // Degradación elegante: Usar catálogo canónico oficial para evitar bloquear al usuario
-    this.planesCache = PLANES_CANONICOS;
-    return PLANES_CANONICOS;
-  }
-
-  /**
-   * Obtiene un plan por su ID
-   */
-  getPlanById(id: number): PlanSaaSDTO {
-    const enCache = this.planesCache?.find((p) => p.id === id);
-    if (enCache) return enCache;
-    const plan = PLANES_CANONICOS.find((p) => p.id === id);
-    return plan ?? PLANES_CANONICOS[1]; // Pro por defecto si no existe
+    this.planesCache = datos;
+    return datos;
   }
 
   /**
@@ -158,390 +77,113 @@ class RegistroEmpresaService {
   }
 
   /**
-   * Endpoint 1: Iniciar registro y despachar OTP al correo
+   * Paso 2: iniciar registro y despachar OTP al correo
    * POST /api/v1/public/registro/iniciar
    */
-  async iniciarRegistro(
-    req: IniciarRegistroRequestDTO
-  ): Promise<IniciarRegistroApiResponse> {
-    if (IS_REAL_API) {
-      const res = await realRegistroEmpresaService.iniciarRegistro(req);
-      if (res.exito && res.datos) {
-        this.saveRegistroEnProgreso({
-          registro_id: res.datos.registro_id,
-          plan_id: req.plan_id,
-          tipo_contribuyente: req.tipo_contribuyente,
-          ruc: req.ruc,
-          razon_social: req.razon_social,
-          telefono: req.telefono,
-          nombre_propietario: req.nombre_propietario,
-          correo: req.correo,
-          ciclo_facturacion: req.ciclo_facturacion || 'mensual',
-          otp_valido: (res.datos as any).otp_debug || DEFAULT_OTP,
-          correo_verificado: false,
-          intentos_restantes: 3,
-        });
-      }
-      return res;
-    }
-
-    await new Promise((res) => setTimeout(res, 600));
-
-
-    // Validación de RUC duplicado de prueba
-    if (req.ruc.trim() === RUC_DUPLICADO_PRUEBA) {
-      return {
-        exito: false,
-        datos: null as unknown as IniciarRegistroResponseDTO,
-        errores: [
-          {
-            codigo: 'RUC_YA_REGISTRADO',
-            mensaje: `El RUC ${req.ruc} ya cuenta con una empresa activa en RestaurantCloud. Si eres el dueño, inicia sesión.`,
-            campo: 'ruc',
-          },
-        ],
-        meta: { timestamp: new Date().toISOString() },
-      };
-    }
-
-    const registroId = crypto.randomUUID();
-    const registro: RegistroEnProgreso = {
-      registro_id: registroId,
-      plan_id: req.plan_id,
-      tipo_contribuyente: req.tipo_contribuyente,
-      ruc: req.ruc,
-      razon_social: req.razon_social,
-      telefono: req.telefono,
-      nombre_propietario: req.nombre_propietario,
-      correo: req.correo,
-      ciclo_facturacion: req.ciclo_facturacion || 'mensual',
-      otp_valido: DEFAULT_OTP,
-      correo_verificado: false,
-      intentos_restantes: 3,
-    };
-
-    this.saveRegistroEnProgreso(registro);
-
-    return {
-      exito: true,
-      datos: {
-        registro_id: registroId,
-        mensaje: `Se ha enviado un código de verificación de 6 dígitos a ${req.correo}`,
+  async iniciarRegistro(req: IniciarRegistroRequestDTO): Promise<IniciarRegistroApiResponse> {
+    const res = await realRegistroEmpresaService.iniciarRegistro(req);
+    if (res.exito && res.datos) {
+      this.saveRegistroEnProgreso({
+        registro_id: res.datos.registro_id,
+        plan_id: req.plan_id,
+        tipo_contribuyente: req.tipo_contribuyente,
+        ruc: req.ruc,
+        razon_social: req.razon_social,
+        telefono: req.telefono,
+        nombre_propietario: req.nombre_propietario,
         correo: req.correo,
-        expira_en_segundos: 600,
-        cooldown_reenvio_segundos: 60,
-      },
-      meta: { timestamp: new Date().toISOString() },
-    };
+        ciclo_facturacion: req.ciclo_facturacion || 'mensual',
+        correo_verificado: false,
+        otp_debug: res.datos.otp_debug ?? null,
+      });
+    }
+    return res;
   }
 
   /**
-   * Endpoint 2: Modificar correo si el usuario tuvo un error de tipeo
+   * Paso 3: corregir el correo si hubo un error de tipeo
    * PATCH /api/v1/public/registro/modificar-correo
    */
-  async modificarCorreo(
-    req: ModificarCorreoRequestDTO
-  ): Promise<ModificarCorreoApiResponse> {
-    if (IS_REAL_API) {
-      const res = await realRegistroEmpresaService.modificarCorreo(req);
-      if (res.exito && res.datos) {
-        const reg = this.getRegistroEnProgreso();
-        if (reg) {
-          reg.correo = req.nuevo_correo;
-          if ((res.datos as any).otp_debug) {
-            reg.otp_valido = (res.datos as any).otp_debug;
-          }
-          this.saveRegistroEnProgreso(reg);
-        }
+  async modificarCorreo(req: ModificarCorreoRequestDTO): Promise<ModificarCorreoApiResponse> {
+    const res = await realRegistroEmpresaService.modificarCorreo(req);
+    if (res.exito && res.datos) {
+      const reg = this.getRegistroEnProgreso();
+      if (reg) {
+        reg.correo = req.nuevo_correo;
+        reg.otp_debug = res.datos.otp_debug ?? null;
+        this.saveRegistroEnProgreso(reg);
       }
-      return res;
     }
-
-    await new Promise((res) => setTimeout(res, 400));
-    const registro = this.getRegistroEnProgreso();
-
-    if (!registro || registro.registro_id !== req.registro_id) {
-      return {
-        exito: false,
-        datos: null as unknown as IniciarRegistroResponseDTO,
-        errores: [
-          {
-            codigo: 'REGISTRO_NO_ENCONTRADO',
-            mensaje: 'No se encontró la sesión de registro. Por favor inicia nuevamente.',
-          },
-        ],
-        meta: { timestamp: new Date().toISOString() },
-      };
-    }
-
-    registro.correo = req.nuevo_correo;
-    registro.otp_valido = DEFAULT_OTP;
-    registro.intentos_restantes = 3;
-    this.saveRegistroEnProgreso(registro);
-
-    return {
-      exito: true,
-      datos: {
-        registro_id: registro.registro_id,
-        mensaje: `Correo modificado con éxito. Hemos enviado un nuevo código a ${req.nuevo_correo}`,
-        correo: req.nuevo_correo,
-        expira_en_segundos: 600,
-        cooldown_reenvio_segundos: 60,
-      },
-      meta: { timestamp: new Date().toISOString() },
-    };
+    return res;
   }
 
   /**
-   * Endpoint 2b: Reenviar un código OTP nuevo conservando el mismo registro
+   * Paso 3: reenviar un código OTP nuevo conservando el mismo registro
    * POST /api/v1/public/registro/reenviar-otp
    */
   async reenviarOtp(registroId: string): Promise<IniciarRegistroApiResponse> {
-    if (IS_REAL_API) {
-      const res = await realRegistroEmpresaService.reenviarOtp({ registro_id: registroId });
-      if (res.exito && res.datos) {
-        const reg = this.getRegistroEnProgreso();
-        if (reg && (res.datos as any).otp_debug) {
-          reg.otp_valido = (res.datos as any).otp_debug;
-          reg.intentos_restantes = 3;
-          this.saveRegistroEnProgreso(reg);
-        }
+    const res = await realRegistroEmpresaService.reenviarOtp({ registro_id: registroId });
+    if (res.exito && res.datos) {
+      const reg = this.getRegistroEnProgreso();
+      if (reg) {
+        reg.otp_debug = res.datos.otp_debug ?? null;
+        this.saveRegistroEnProgreso(reg);
       }
-      return res;
     }
-
-    await new Promise((res) => setTimeout(res, 400));
-    const registro = this.getRegistroEnProgreso();
-
-    if (!registro || registro.registro_id !== registroId) {
-      return {
-        exito: false,
-        datos: null as unknown as IniciarRegistroResponseDTO,
-        errores: [
-          {
-            codigo: 'REGISTRO_NO_ENCONTRADO',
-            mensaje: 'No se encontró la sesión de registro. Por favor inicia nuevamente.',
-          },
-        ],
-        meta: { timestamp: new Date().toISOString() },
-      };
-    }
-
-    registro.otp_valido = DEFAULT_OTP;
-    registro.intentos_restantes = 3;
-    this.saveRegistroEnProgreso(registro);
-
-    return {
-      exito: true,
-      datos: {
-        registro_id: registro.registro_id,
-        mensaje: `Hemos enviado un nuevo código a ${registro.correo}`,
-        correo: registro.correo,
-        expira_en_segundos: 600,
-        cooldown_reenvio_segundos: 60,
-      },
-      meta: { timestamp: new Date().toISOString() },
-    };
+    return res;
   }
 
   /**
-   * Endpoint 3: Validar código OTP
+   * Paso 4: pedir un SetupIntent nuevo tras un cobro rechazado (el anterior ya quedó confirmado)
+   * POST /api/v1/public/registro/nuevo-setup-intent
+   */
+  async nuevoSetupIntent(registroId: string): Promise<{ stripe_client_secret: string; stripe_public_key: string } | null> {
+    const res = await realRegistroEmpresaService.nuevoSetupIntent({ registro_id: registroId });
+    if (!res.exito || !res.datos) {
+      return null;
+    }
+
+    const reg = this.getRegistroEnProgreso();
+    if (reg) {
+      reg.stripe_client_secret = res.datos.stripe_client_secret;
+      reg.stripe_public_key = res.datos.stripe_public_key;
+      this.saveRegistroEnProgreso(reg);
+    }
+    return res.datos;
+  }
+
+  /**
+   * Paso 3: validar el código OTP
    * POST /api/v1/public/registro/verificar-otp
    */
-  async verificarOTP(
-    req: VerificarRegistroOTPRequestDTO
-  ): Promise<VerificarOTPApiResponse> {
-    if (IS_REAL_API) {
-      const res = await realRegistroEmpresaService.verificarOTP(req);
-      if (res.exito && res.datos) {
-        const reg = this.getRegistroEnProgreso();
-        if (reg) {
-          reg.correo_verificado = true;
-          this.saveRegistroEnProgreso(reg);
-        }
+  async verificarOTP(req: VerificarRegistroOTPRequestDTO): Promise<VerificarOTPApiResponse> {
+    const res = await realRegistroEmpresaService.verificarOTP(req);
+    if (res.exito && res.datos) {
+      const reg = this.getRegistroEnProgreso();
+      if (reg) {
+        reg.correo_verificado = true;
+        reg.otp_debug = null;
+        reg.stripe_client_secret = res.datos.stripe_client_secret;
+        reg.stripe_public_key = res.datos.stripe_public_key;
+        this.saveRegistroEnProgreso(reg);
       }
-      return res;
     }
-
-    await new Promise((res) => setTimeout(res, 500));
-    const registro = this.getRegistroEnProgreso();
-
-    if (!registro || registro.registro_id !== req.registro_id) {
-      return {
-        exito: false,
-        datos: null as unknown as VerificarRegistroOTPResponseDTO,
-        errores: [
-          {
-            codigo: 'REGISTRO_NO_ENCONTRADO',
-            mensaje: 'Sesión de registro no válida o expirada.',
-          },
-        ],
-        meta: { timestamp: new Date().toISOString() },
-      };
-    }
-
-    if (req.otp !== registro.otp_valido) {
-      registro.intentos_restantes -= 1;
-      this.saveRegistroEnProgreso(registro);
-
-      return {
-        exito: false,
-        datos: null as unknown as VerificarRegistroOTPResponseDTO,
-        errores: [
-          {
-            codigo: 'OTP_INVALIDO',
-            mensaje:
-              registro.intentos_restantes > 0
-                ? `Código incorrecto. Te quedan ${registro.intentos_restantes} intento(s).`
-                : 'Código inválido y superaste el límite de intentos. Solicita un nuevo código.',
-            campo: 'otp',
-          },
-        ],
-        meta: { timestamp: new Date().toISOString() },
-      };
-    }
-
-    // OTP Correcto
-    registro.correo_verificado = true;
-    this.saveRegistroEnProgreso(registro);
-
-    const plan = this.getPlanById(registro.plan_id);
-    const esAnual = registro.ciclo_facturacion === 'anual';
-    const montoTotal = esAnual ? plan.precio_anual : plan.precio_mensual;
-
-    return {
-      exito: true,
-      datos: {
-        registro_id: registro.registro_id,
-        correo_verificado: true,
-        stripe_client_secret: `seti_${crypto.randomUUID()}_secret_${crypto.randomUUID().slice(0, 8)}`,
-        stripe_public_key: 'pk_test_51MzRestaurantCloudDemoKey2026',
-        monto_total: montoTotal,
-        moneda: 'PEN',
-      },
-      meta: { timestamp: new Date().toISOString() },
-    };
+    return res;
   }
 
   /**
-   * Endpoint 4: Completar registro tras confirmación de pago en Stripe
+   * Paso 4: completar el registro tras confirmar el pago en Stripe
    * POST /api/v1/public/registro/completar
    */
-  async completarRegistro(
-    req: CompletarRegistroRequestDTO
-  ): Promise<CompletarRegistroApiResponse> {
-    if (IS_REAL_API) {
-      return realRegistroEmpresaService.completarRegistro(req);
-    }
-
-    await new Promise((res) => setTimeout(res, 800));
-
-    const registro = this.getRegistroEnProgreso();
-
-    if (!registro || registro.registro_id !== req.registro_id) {
-      return {
-        exito: false,
-        datos: null as unknown as CompletarRegistroResponseDTO,
-        errores: [
-          {
-            codigo: 'REGISTRO_NO_ENCONTRADO',
-            mensaje: 'No se encontró la sesión de registro temporal.',
-          },
-        ],
-        meta: { timestamp: new Date().toISOString() },
-      };
-    }
-
-    if (!registro.correo_verificado) {
-      return {
-        exito: false,
-        datos: null as unknown as CompletarRegistroResponseDTO,
-        errores: [
-          {
-            codigo: 'CORREO_NO_VERIFICADO',
-            mensaje: 'Debes verificar tu correo antes de procesar la suscripción.',
-          },
-        ],
-        meta: { timestamp: new Date().toISOString() },
-      };
-    }
-
-    const plan = this.getPlanById(registro.plan_id);
-    const empresaId = crypto.randomUUID();
-    const usuarioId = crypto.randomUUID();
-    const esAnual = registro.ciclo_facturacion === 'anual';
-    const hoy = new Date();
-    const proximoPeriodo = new Date(hoy);
-    if (esAnual) {
-      proximoPeriodo.setFullYear(proximoPeriodo.getFullYear() + 1);
-    } else {
-      proximoPeriodo.setMonth(proximoPeriodo.getMonth() + 1);
-    }
-    const montoPagado = esAnual ? plan.precio_anual : plan.precio_mensual;
-
-    const respuesta: CompletarRegistroResponseDTO = {
-      mensaje: '¡Empresa registrada y suscripción activada con éxito!',
-      token: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${btoa(
-        JSON.stringify({
-          sub: usuarioId,
-          empresa_id: empresaId,
-          rol: 'propietario',
-          correo: registro.correo,
-          exp: Math.floor(Date.now() / 1000) + 86400,
-        })
-      )}.firma_mock`,
-      refresh_token: crypto.randomUUID(),
-      empresa: {
-        id: empresaId,
-        razon_social: registro.razon_social,
-        ruc: registro.ruc,
-        estado: 'activa',
-        plan: {
-          id: plan.id,
-          nombre: plan.nombre,
-          precio: montoPagado,
-        },
-      },
-      usuario: {
-        id: usuarioId,
-        nombre: registro.nombre_propietario,
-        correo: registro.correo,
-        rol: 'propietario',
-      },
-      constancia: {
-        numero_comprobante: `REC-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-        periodo: esAnual ? 'Anual' : 'Mensual',
-        fecha_pago: hoy.toISOString(),
-        proximo_cobro: proximoPeriodo.toISOString(),
-        monto_pagado: montoPagado,
-        moneda: 'PEN',
-        url_descarga_pdf: `/api/v1/descargas/constancia-registro/${empresaId}`,
-      },
-      soporte_emergencia: {
-        whatsapp: '+51930723537',
-        correo: 'soporte@restaurantcloud.pe',
-        disponibilidad: '24/7 Prioritaria',
-      },
-    };
-
-    return {
-      exito: true,
-      datos: respuesta,
-      meta: { timestamp: new Date().toISOString() },
-    };
+  completarRegistro(req: CompletarRegistroRequestDTO): Promise<CompletarRegistroApiResponse> {
+    return realRegistroEmpresaService.completarRegistro(req);
   }
 
   /**
-   * Endpoint 5: Descarga la constancia PDF persistida en el backend.
+   * Paso 5: descargar la constancia PDF persistida en el backend.
    * GET /api/v1/propietario/suscripcion/pagos/{pago_id}/recibo
-   * En modo demo no hay backend: se imprime la pantalla de confirmación.
    */
   async descargarConstanciaPDF(resultado: CompletarRegistroResponseDTO): Promise<void> {
-    if (!IS_REAL_API) {
-      window.print();
-      return;
-    }
-
     await apiDescargarPdf(
       resultado.constancia.url_descarga_pdf,
       `Constancia-${resultado.constancia.numero_comprobante}.pdf`,

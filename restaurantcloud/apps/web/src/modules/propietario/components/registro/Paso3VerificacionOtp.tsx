@@ -144,7 +144,7 @@ export const Paso3VerificacionOtp: React.FC<Paso3VerificacionOtpProps> = ({
           </button>
         </div>
 
-        {/* Chip para Entorno de Desarrollo / Pruebas */}
+        {/* Código OTP devuelto por el backend (solo fuera de producción) */}
         {otpSugerido && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-amber-900 text-xs flex items-center justify-between gap-2 text-left">
             <div>
@@ -153,10 +153,7 @@ export const Paso3VerificacionOtp: React.FC<Paso3VerificacionOtpProps> = ({
             </div>
             <button
               type="button"
-              onClick={() => {
-                const arr = otpSugerido.slice(0, 6).split('');
-                setDigits(arr);
-              }}
+              onClick={() => setDigits(otpSugerido.slice(0, 6).split(''))}
               className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold rounded-xl text-xs transition-colors shrink-0"
             >
               Autocompletar

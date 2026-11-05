@@ -12,13 +12,11 @@ import { RegistroStepper } from '../components/registro/RegistroStepper';
 import { Paso1PlanSelector } from '../components/registro/Paso1PlanSelector';
 import { Paso2DatosEmpresa } from '../components/registro/Paso2DatosEmpresa';
 import { Paso3VerificacionOtp } from '../components/registro/Paso3VerificacionOtp';
-import { Paso4PagoStripe } from '../components/registro/Paso4PagoStripe';
+import { Paso4PagoStripe, type StripeSetupRegistro } from '../components/registro/Paso4PagoStripe';
 import { Paso5RegistroExitoso } from '../components/registro/Paso5RegistroExitoso';
-import { DemoRegistroWidget } from '../components/registro/DemoRegistroWidget';
 import { useAuthStore } from '@/stores/authStore';
 import { homeDeRol } from '@/router/accesoPorRol';
 import { ROUTES } from '@/router/routes.constants';
-import { SoloDemo } from '@/components/ui/SoloDemo';
 
 export const RegistroEmpresaPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -55,9 +53,7 @@ export const RegistroEmpresaPage: React.FC = () => {
     cargarPlanes();
   }, []);
 
-  const planActual: PlanSaaSDTO =
-    planes.find((p) => p.id === planSeleccionadoId) ??
-    registroEmpresaService.getPlanById(planSeleccionadoId);
+  const planActual: PlanSaaSDTO | undefined = planes.find((p) => p.id === planSeleccionadoId);
 
   // 2. Control de Pasos (1: Plan, 2: Datos, 3: OTP, 4: Pago, 5: Éxito)
   // Si viene con un plan seleccionado desde la landing (?plan= o ?paso=2), va directo al Paso 2 (Datos de Empresa)
@@ -81,6 +77,8 @@ export const RegistroEmpresaPage: React.FC = () => {
   });
 
   const [registroId, setRegistroId] = useState<string | null>(null);
+  const [otpDebug, setOtpDebug] = useState<string | null>(null);
+  const [stripeSetup, setStripeSetup] = useState<StripeSetupRegistro | null>(null);
 
   // 4. Estados de Carga y Errores UX
   const [cargando, setCargando] = useState(false);
@@ -127,6 +125,13 @@ export const RegistroEmpresaPage: React.FC = () => {
     const progreso = registroEmpresaService.getRegistroEnProgreso();
     if (progreso) {
       setRegistroId(progreso.registro_id);
+      setOtpDebug(progreso.otp_debug ?? null);
+      if (progreso.stripe_client_secret && progreso.stripe_public_key) {
+        setStripeSetup({
+          clientSecret: progreso.stripe_client_secret,
+          clavePublica: progreso.stripe_public_key,
+        });
+      }
       setPlanSeleccionadoId(progreso.plan_id);
       if (progreso.ciclo_facturacion) {
         setCicloFacturacion(progreso.ciclo_facturacion);
@@ -195,6 +200,7 @@ export const RegistroEmpresaPage: React.FC = () => {
       }
 
       setRegistroId(res.datos.registro_id);
+      setOtpDebug(res.datos.otp_debug ?? null);
       setPasoActual(3);
       setPasoMaximoAlcanzado((prev) => Math.max(prev, 3));
     } catch (err: any) {
@@ -224,6 +230,11 @@ export const RegistroEmpresaPage: React.FC = () => {
         return;
       }
 
+      setOtpDebug(null);
+      setStripeSetup({
+        clientSecret: res.datos.stripe_client_secret,
+        clavePublica: res.datos.stripe_public_key,
+      });
       setPasoActual(4);
       setPasoMaximoAlcanzado((prev) => Math.max(prev, 4));
     } catch {
@@ -243,6 +254,7 @@ export const RegistroEmpresaPage: React.FC = () => {
 
     if (res.exito) {
       setFormData((prev) => ({ ...prev, correo: nuevoCorreo }));
+      setOtpDebug(res.datos?.otp_debug ?? null);
       setErrorOtp(null);
     } else {
       throw new Error(res.errores?.[0]?.mensaje || 'No se pudo actualizar el correo');
@@ -256,7 +268,28 @@ export const RegistroEmpresaPage: React.FC = () => {
     const res = await registroEmpresaService.reenviarOtp(registroId);
     if (!res.exito) {
       setErrorOtp(res.errores?.[0]?.mensaje || 'No se pudo reenviar el código');
+      return;
     }
+    setOtpDebug(res.datos.otp_debug ?? null);
+  };
+
+  // Tras un cobro rechazado el SetupIntent ya quedó confirmado: se pide uno nuevo para reintentar con otra tarjeta
+  const renovarSetupIntent = async () => {
+    if (!registroId) return;
+    const nuevo = await registroEmpresaService.nuevoSetupIntent(registroId);
+    setStripeSetup(
+      nuevo ? { clientSecret: nuevo.stripe_client_secret, clavePublica: nuevo.stripe_public_key } : null
+    );
+  };
+
+  // La sesión de pago se perdió (recarga o expiración): se vuelve a los datos de la empresa
+  const handleReiniciarRegistro = () => {
+    registroEmpresaService.clearProgreso();
+    setRegistroId(null);
+    setOtpDebug(null);
+    setStripeSetup(null);
+    setErrorPago(null);
+    setPasoActual(2);
   };
 
   // Paso 4 -> Paso 5: Confirmar Pago en Stripe y Activar Empresa
@@ -273,6 +306,7 @@ export const RegistroEmpresaPage: React.FC = () => {
 
       if (!res.exito) {
         setErrorPago(res.errores?.[0]?.mensaje || 'No se pudo procesar el cobro');
+        await renovarSetupIntent();
         return;
       }
 
@@ -348,7 +382,20 @@ export const RegistroEmpresaPage: React.FC = () => {
           />
         )}
 
-        {pasoActual === 2 && (
+        {(pasoActual === 2 || pasoActual === 4) && !planActual && (
+          <div className="text-center py-16 text-sm text-aurea-navy/70">
+            {cargandoPlanes ? 'Cargando plan seleccionado...' : (
+              <>
+                {errorPlanes ?? 'No se encontró el plan seleccionado.'}{' '}
+                <button type="button" onClick={cargarPlanes} className="underline font-semibold">
+                  Reintentar
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {pasoActual === 2 && planActual && (
           <Paso2DatosEmpresa
             plan={planActual}
             cicloFacturacion={cicloFacturacion}
@@ -365,7 +412,7 @@ export const RegistroEmpresaPage: React.FC = () => {
         {pasoActual === 3 && (
           <Paso3VerificacionOtp
             correo={formData.correo}
-            otpSugerido={registroEmpresaService.getRegistroEnProgreso()?.otp_valido || null}
+            otpSugerido={otpDebug}
             onVerificarOtp={handleVerificarOtp}
             onReenviarOtp={handleReenviarOtp}
             onModificarCorreo={handleModificarCorreo}
@@ -374,12 +421,14 @@ export const RegistroEmpresaPage: React.FC = () => {
           />
         )}
 
-        {pasoActual === 4 && (
+        {pasoActual === 4 && planActual && (
           <Paso4PagoStripe
             plan={planActual}
             cicloFacturacion={cicloFacturacion}
             nombrePropietario={formData.nombre_propietario}
+            stripeSetup={stripeSetup}
             onConfirmarPago={handleConfirmarPago}
+            onReiniciarRegistro={handleReiniciarRegistro}
             cargando={cargando}
             errorPago={errorPago}
           />
@@ -393,15 +442,6 @@ export const RegistroEmpresaPage: React.FC = () => {
           />
         )}
       </main>
-
-      {/* 3. Widget Interactivo de Pruebas (Demo CU-PROP-01) - Visible exclusivamente en Paso 2 */}
-      <SoloDemo>
-        {pasoActual === 2 && (
-          <DemoRegistroWidget
-            onAutoLlenarForm={(data) => handleUpdateForm(data)}
-          />
-        )}
-      </SoloDemo>
     </div>
   );
 };

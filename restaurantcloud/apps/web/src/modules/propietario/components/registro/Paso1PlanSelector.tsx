@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { PlanSaaSDTO } from '@/types/registroEmpresa';
-import { PLANES_CANONICOS } from '../../services/registroEmpresaService';
 import { TABLA_COMPARATIVA } from '@/shared/data/planesComparativa';
 import {
   Check,
@@ -86,8 +85,8 @@ export const Paso1PlanSelector: React.FC<Paso1PlanSelectorProps> = ({
     );
   }
 
-  // Planes canónicos de respaldo si no llegaron del backend
-  const planesData: PlanSaaSDTO[] = planes.length > 0 ? planes : PLANES_CANONICOS;
+  // Los planes vienen siempre del catálogo del backend
+  const planesData: PlanSaaSDTO[] = planes;
   const planStarter: PlanSaaSDTO = planesData.find((p: PlanSaaSDTO) => p.id === 1) || planesData[0];
   const planPro: PlanSaaSDTO = planesData.find((p: PlanSaaSDTO) => p.id === 2 || p.destacado) || planesData[1];
   const planEnterprise: PlanSaaSDTO = planesData.find((p: PlanSaaSDTO) => p.id === 3) || planesData[2];

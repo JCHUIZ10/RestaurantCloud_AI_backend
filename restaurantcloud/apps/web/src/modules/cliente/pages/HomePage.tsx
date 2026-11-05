@@ -5,7 +5,7 @@ import { ProductViews } from '../components/ProductViews';
 import '../styles/landing.css';
 import { Button } from '@/components/ui/Button';
 import { WhatsAppIcon } from '@/components/ui/WhatsAppIcon';
-import { registroEmpresaService, PLANES_CANONICOS } from '@/modules/propietario/services/registroEmpresaService';
+import { registroEmpresaService } from '@/modules/propietario/services/registroEmpresaService';
 import { PlanSaaSDTO } from '@/types/registroEmpresa';
 import {
   ArrowRight,
@@ -72,25 +72,18 @@ export const HomePage: React.FC = () => {
   const [cargandoPlanes, setCargandoPlanes] = useState(true);
   const [mobilePlanTab, setMobilePlanTab] = useState<number>(2);
 
-  useEffect(() => {
-    let montado = true;
+  const cargarPlanes = React.useCallback(() => {
+    setCargandoPlanes(true);
     registroEmpresaService
-      .getPlanes()
-      .then((data) => {
-        if (montado && data && data.length > 0) {
-          setPlanes(data);
-        }
-      })
-      .catch(() => {
-        if (montado) setPlanes(PLANES_CANONICOS);
-      })
-      .finally(() => {
-        if (montado) setCargandoPlanes(false);
-      });
-    return () => {
-      montado = false;
-    };
+      .getPlanes(true)
+      .then((data) => setPlanes(data))
+      .catch(() => setPlanes([]))
+      .finally(() => setCargandoPlanes(false));
   }, []);
+
+  useEffect(() => {
+    cargarPlanes();
+  }, [cargarPlanes]);
 
   const whatsappUrl = 'https://wa.me/51987654321?text=Hola,%20deseo%20asesoría%20sobre%20RestaurantCloud%20AI%20para%20mi%20restaurante';
 
@@ -339,9 +332,20 @@ export const HomePage: React.FC = () => {
 
           {/* Renderizado de Planes Estilo Apron (Desktop Table + Mobile Tabbed Breakdown) */}
           {!cargandoPlanes && (() => {
-            const planStarter = planes.find((p) => p.id === 1) || PLANES_CANONICOS[0];
-            const planPro = planes.find((p) => p.id === 2 || p.destacado) || PLANES_CANONICOS[1];
-            const planEnterprise = planes.find((p) => p.id === 3) || PLANES_CANONICOS[2];
+            const planStarter = planes.find((p) => p.id === 1);
+            const planPro = planes.find((p) => p.id === 2 || p.destacado);
+            const planEnterprise = planes.find((p) => p.id === 3);
+
+            if (!planStarter || !planPro || !planEnterprise) {
+              return (
+                <div className="text-center py-12 text-sm text-aurea-navy/70">
+                  No pudimos cargar el catálogo de planes en este momento.{' '}
+                  <button type="button" onClick={cargarPlanes} className="underline font-semibold">
+                    Reintentar
+                  </button>
+                </div>
+              );
+            }
 
             const precioStarter = esAnual ? planStarter.precio_anual / 12 : planStarter.precio_mensual;
             const precioPro = esAnual ? planPro.precio_anual / 12 : planPro.precio_mensual;

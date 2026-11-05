@@ -11,7 +11,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Mockery\MockInterface;
 use Stripe\PaymentIntent;
+use Stripe\SetupIntent;
 use Tests\TestCase;
 
 /**
@@ -57,6 +59,13 @@ class SuscripcionRegistroTest extends TestCase
     private function simularCobroExitoso(): void
     {
         $this->mock(StripeGatewayService::class, function ($mock): void {
+            $mock->shouldReceive('obtenerTarjetaPredeterminada')->andReturn([
+                'marca' => 'visa',
+                'ultimos_4' => '4242',
+                'exp_mes' => 12,
+                'exp_ano' => 2031,
+                'titular' => 'Lucía Autologin',
+            ]);
             $mock->shouldReceive('cobrarSuscripcionInicial')
                 ->once()
                 ->andReturn(PaymentIntent::constructFrom([
@@ -92,6 +101,8 @@ class SuscripcionRegistroTest extends TestCase
         $dashboard->assertOk()
             ->assertJsonPath('datos.empresa.ruc', self::RUC_VALIDO)
             ->assertJsonPath('datos.plan.periodicidad', 'anual')
+            ->assertJsonPath('datos.metodo_pago.ultimos_4', '4242')
+            ->assertJsonPath('datos.metodo_pago.proximo_a_vencer', false)
             ->assertJsonCount(1, 'datos.historial_pagos');
 
         $refresh = $this->postJson('/api/v1/auth/refresh', [
@@ -187,5 +198,35 @@ class SuscripcionRegistroTest extends TestCase
         $this->postJson('/api/v1/public/registro/reenviar-otp', ['registro_id' => $registroId])
             ->assertStatus(429)
             ->assertJsonPath('errores.0.codigo', 'REENVIO_EN_ESPERA');
+    }
+
+    public function test_nuevo_setup_intent_reutiliza_el_cliente_stripe_del_registro(): void
+    {
+        $this->mock(StripeGatewayService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('crearSetupIntent')
+                ->once()
+                ->with('cus_test_autologin')
+                ->andReturn(SetupIntent::constructFrom(['id' => 'seti_nuevo', 'client_secret' => 'seti_nuevo_secret']));
+        });
+
+        $registroId = $this->prepararRegistroVerificado();
+
+        $this->postJson('/api/v1/public/registro/nuevo-setup-intent', ['registro_id' => $registroId])
+            ->assertOk()
+            ->assertJsonPath('datos.stripe_client_secret', 'seti_nuevo_secret');
+
+        $this->assertSame('seti_nuevo', json_decode(Redis::get("registro:onboarding:{$registroId}"), true)['stripe_setup_intent_id']);
+    }
+
+    public function test_nuevo_setup_intent_exige_correo_verificado(): void
+    {
+        $registroId = $this->prepararRegistroVerificado();
+        $sesion = json_decode(Redis::get("registro:onboarding:{$registroId}"), true);
+        $sesion['correo_verificado'] = false;
+        Redis::setex("registro:onboarding:{$registroId}", 1800, json_encode($sesion));
+
+        $this->postJson('/api/v1/public/registro/nuevo-setup-intent', ['registro_id' => $registroId])
+            ->assertStatus(422)
+            ->assertJsonPath('errores.0.codigo', 'CORREO_NO_VERIFICADO');
     }
 }

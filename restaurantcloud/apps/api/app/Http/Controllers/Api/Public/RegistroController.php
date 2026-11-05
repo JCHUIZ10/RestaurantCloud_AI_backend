@@ -257,6 +257,54 @@ class RegistroController extends Controller
     }
 
     /**
+     * Paso 4: nuevo SetupIntent para el mismo cliente de Stripe. Un SetupIntent ya confirmado
+     * no admite otra tarjeta, así que tras un cobro rechazado el navegador pide uno nuevo.
+     * POST /api/v1/public/registro/nuevo-setup-intent
+     */
+    public function nuevoSetupIntent(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'registro_id' => ['required', 'string'],
+        ]);
+
+        $registroId = $validated['registro_id'];
+        $raw = Redis::get("registro:onboarding:{$registroId}");
+        $sessionData = $raw ? json_decode($raw, true) : null;
+
+        if (! $sessionData) {
+            return ApiResponse::error(
+                'REGISTRO_NO_ENCONTRADO',
+                'La sesión de registro ha expirado. Por favor inicia el proceso nuevamente.',
+                404
+            );
+        }
+
+        if (empty($sessionData['correo_verificado']) || empty($sessionData['stripe_customer_id'])) {
+            return ApiResponse::error('CORREO_NO_VERIFICADO', 'Debes verificar tu correo antes de registrar una tarjeta.', 422);
+        }
+
+        try {
+            $setupIntent = $this->stripeGateway->crearSetupIntent($sessionData['stripe_customer_id']);
+        } catch (\Throwable $e) {
+            Log::error("No se pudo renovar el SetupIntent del registro {$registroId}: {$e->getMessage()}");
+
+            return ApiResponse::error(
+                'STRIPE_NO_DISPONIBLE',
+                'No pudimos conectar con la pasarela de pagos. Intenta nuevamente en unos minutos.',
+                503
+            );
+        }
+
+        $sessionData['stripe_setup_intent_id'] = $setupIntent->id;
+        Redis::setex("registro:onboarding:{$registroId}", 1800, json_encode($sessionData));
+
+        return ApiResponse::ok([
+            'stripe_client_secret' => $setupIntent->client_secret,
+            'stripe_public_key' => config('services.stripe.key'),
+        ]);
+    }
+
+    /**
      * Paso 3.2: Verificar código OTP de 6 dígitos e inicializar SetupIntent de Stripe
      * POST /api/v1/public/registro/verificar-otp
      */
@@ -587,40 +635,10 @@ class RegistroController extends Controller
             return response()->json(['error' => 'Firma de webhook inválida'], 400);
         }
 
-        // Manejar eventos
-        switch ($event->type) {
-            case 'invoice.payment_succeeded':
-                $invoice = $event->data->object;
-                $customerId = $invoice->customer;
-                $empresa = DB::table('empresa')->where('stripe_customer_id', $customerId)->first();
-
-                if ($empresa) {
-                    $ciclo = DB::table('suscripcion')->where('empresa_id', $empresa->id)->value('ciclo_facturacion');
-                    DB::table('suscripcion')->where('empresa_id', $empresa->id)->update([
-                        'estado' => 'activa',
-                        'dias_gracia_restantes' => 5,
-                        'fecha_fin_periodo' => $ciclo === 'anual' ? now()->addYear() : now()->addMonth(),
-                        'updated_at' => now(),
-                    ]);
-                    Log::info("Webhook Stripe: Pago recurrente exitoso procesado para empresa {$empresa->id}");
-                }
-                break;
-
-            case 'invoice.payment_failed':
-                $invoice = $event->data->object;
-                $customerId = $invoice->customer;
-                $empresa = DB::table('empresa')->where('stripe_customer_id', $customerId)->first();
-
-                if ($empresa) {
-                    DB::table('suscripcion')->where('empresa_id', $empresa->id)->update([
-                        'estado' => 'en_gracia',
-                        'ultimo_error_cobro' => $invoice->last_finalization_error?->message ?? 'Fallo en renovación periódica',
-                        'updated_at' => now(),
-                    ]);
-                    Log::warning("Webhook Stripe: Cobro fallido para empresa {$empresa->id}. Iniciado período de gracia.");
-                }
-                break;
-        }
+        // Los cobros recurrentes no usan Stripe Billing: la renovación, los reintentos y la
+        // suspensión los ejecuta `suscripciones:procesar-cobros` (CobroSuscripcionService).
+        // El endpoint solo valida la firma y acusa recibo del evento.
+        Log::info("Webhook Stripe recibido: {$event->type}");
 
         return response()->json(['received' => true]);
     }
