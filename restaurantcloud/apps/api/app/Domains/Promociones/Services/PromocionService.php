@@ -165,6 +165,7 @@ class PromocionService
                 if ($estadoFiltro === 'vencidas') {
                     return $p['estado_visual'] === 'vencida';
                 }
+
                 return true;
             });
         }
@@ -210,7 +211,7 @@ class PromocionService
             ->where('p.local_id', $localId)
             ->where(function ($q) use ($termino) {
                 $q->where('p.nombre', 'ILIKE', "%{$termino}%")
-                  ->orWhere('p.codigo', 'ILIKE', "%{$termino}%");
+                    ->orWhere('p.codigo', 'ILIKE', "%{$termino}%");
             })
             ->groupBy(
                 'p.id', 'p.local_id', 'p.codigo', 'p.nombre', 'p.descripcion',
@@ -240,10 +241,19 @@ class PromocionService
                 if ($estado === 'agotadas') {
                     return $p['estado_visual'] === 'agotada' || $p['estado_visual'] === 'agotada_hoy';
                 }
-                if ($estado === 'vigentes') return $p['estado_visual'] === 'vigente';
-                if ($estado === 'programadas') return $p['estado_visual'] === 'programada';
-                if ($estado === 'pausadas') return $p['estado_visual'] === 'pausada';
-                if ($estado === 'vencidas') return $p['estado_visual'] === 'vencida';
+                if ($estado === 'vigentes') {
+                    return $p['estado_visual'] === 'vigente';
+                }
+                if ($estado === 'programadas') {
+                    return $p['estado_visual'] === 'programada';
+                }
+                if ($estado === 'pausadas') {
+                    return $p['estado_visual'] === 'pausada';
+                }
+                if ($estado === 'vencidas') {
+                    return $p['estado_visual'] === 'vencida';
+                }
+
                 return true;
             });
         }
@@ -300,7 +310,7 @@ class PromocionService
         }
 
         $diasSemana = ! empty($data['dias_semana']) ? $data['dias_semana'] : [1, 2, 3, 4, 5, 6, 7];
-        $diasPg = '{' . implode(',', array_map('intval', $diasSemana)) . '}';
+        $diasPg = '{'.implode(',', array_map('intval', $diasSemana)).'}';
 
         $id = Str::uuid()->toString();
 
@@ -327,6 +337,7 @@ class PromocionService
         ]);
 
         $creada = DB::table('promocion')->where('id', $id)->first();
+
         return $this->mapearPromocionDTO($creada);
     }
 
@@ -415,22 +426,48 @@ class PromocionService
             'updated_at' => now(),
         ];
 
-        if (isset($data['nombre'])) $updateData['nombre'] = trim($data['nombre']);
-        if (array_key_exists('descripcion', $data)) $updateData['descripcion'] = $data['descripcion'] ? trim($data['descripcion']) : null;
-        if (isset($data['tipo_descuento'])) $updateData['tipo_descuento'] = $data['tipo_descuento'];
-        if (isset($data['valor'])) $updateData['valor'] = $valor;
-        if (array_key_exists('tope_maximo_descuento', $data)) $updateData['tope_maximo_descuento'] = $data['tope_maximo_descuento'] ? (float) $data['tope_maximo_descuento'] : null;
-        if (isset($data['monto_minimo_consumo'])) $updateData['monto_minimo_consumo'] = (float) $data['monto_minimo_consumo'];
-        if (isset($data['dias_semana'])) {
-            $updateData['dias_semana'] = '{' . implode(',', array_map('intval', $data['dias_semana'])) . '}';
+        if (isset($data['nombre'])) {
+            $updateData['nombre'] = trim($data['nombre']);
         }
-        if (array_key_exists('hora_inicio', $data)) $updateData['hora_inicio'] = $data['hora_inicio'];
-        if (array_key_exists('hora_fin', $data)) $updateData['hora_fin'] = $data['hora_fin'];
-        if (isset($data['fecha_inicio'])) $updateData['fecha_inicio'] = $data['fecha_inicio'];
-        if (isset($data['fecha_fin'])) $updateData['fecha_fin'] = $data['fecha_fin'];
-        if (isset($data['tipo_limite_usos'])) $updateData['tipo_limite_usos'] = $data['tipo_limite_usos'];
-        if (array_key_exists('limite_usos', $data)) $updateData['limite_usos'] = $data['limite_usos'] ? (int) $data['limite_usos'] : null;
-        if (isset($data['activa'])) $updateData['activa'] = (bool) $data['activa'];
+        if (array_key_exists('descripcion', $data)) {
+            $updateData['descripcion'] = $data['descripcion'] ? trim($data['descripcion']) : null;
+        }
+        if (isset($data['tipo_descuento'])) {
+            $updateData['tipo_descuento'] = $data['tipo_descuento'];
+        }
+        if (isset($data['valor'])) {
+            $updateData['valor'] = $valor;
+        }
+        if (array_key_exists('tope_maximo_descuento', $data)) {
+            $updateData['tope_maximo_descuento'] = $data['tope_maximo_descuento'] ? (float) $data['tope_maximo_descuento'] : null;
+        }
+        if (isset($data['monto_minimo_consumo'])) {
+            $updateData['monto_minimo_consumo'] = (float) $data['monto_minimo_consumo'];
+        }
+        if (isset($data['dias_semana'])) {
+            $updateData['dias_semana'] = '{'.implode(',', array_map('intval', $data['dias_semana'])).'}';
+        }
+        if (array_key_exists('hora_inicio', $data)) {
+            $updateData['hora_inicio'] = $data['hora_inicio'];
+        }
+        if (array_key_exists('hora_fin', $data)) {
+            $updateData['hora_fin'] = $data['hora_fin'];
+        }
+        if (isset($data['fecha_inicio'])) {
+            $updateData['fecha_inicio'] = $data['fecha_inicio'];
+        }
+        if (isset($data['fecha_fin'])) {
+            $updateData['fecha_fin'] = $data['fecha_fin'];
+        }
+        if (isset($data['tipo_limite_usos'])) {
+            $updateData['tipo_limite_usos'] = $data['tipo_limite_usos'];
+        }
+        if (array_key_exists('limite_usos', $data)) {
+            $updateData['limite_usos'] = $data['limite_usos'] ? (int) $data['limite_usos'] : null;
+        }
+        if (isset($data['activa'])) {
+            $updateData['activa'] = (bool) $data['activa'];
+        }
 
         DB::table('promocion')->where('id', $id)->update($updateData);
 
@@ -611,6 +648,7 @@ class PromocionService
                     'nombre' => (string) $pr->nombre,
                     'motivo' => 'No aplica para el día de hoy',
                 ];
+
                 continue;
             }
 
@@ -624,6 +662,7 @@ class PromocionService
                         'nombre' => (string) $pr->nombre,
                         'motivo' => "Horario válido: {$hi} a {$hf}",
                     ];
+
                     continue;
                 }
             }
@@ -634,8 +673,9 @@ class PromocionService
                 $noElegibles[] = [
                     'id' => (string) $pr->id,
                     'nombre' => (string) $pr->nombre,
-                    'motivo' => "Exige consumo mínimo de S/ " . number_format($montoMinimo, 2),
+                    'motivo' => 'Exige consumo mínimo de S/ '.number_format($montoMinimo, 2),
                 ];
+
                 continue;
             }
 
@@ -646,6 +686,7 @@ class PromocionService
                     'nombre' => (string) $pr->nombre,
                     'motivo' => 'Cupo global agotado',
                 ];
+
                 continue;
             }
 
@@ -657,6 +698,7 @@ class PromocionService
                         'nombre' => (string) $pr->nombre,
                         'motivo' => 'Cupo de hoy completado',
                     ];
+
                     continue;
                 }
             }

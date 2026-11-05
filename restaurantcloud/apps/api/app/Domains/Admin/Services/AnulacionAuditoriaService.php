@@ -13,7 +13,7 @@ class AnulacionAuditoriaService
      */
     public function listado(string $localId, array $filtros): array
     {
-        $fechaActiva = !empty($filtros['fecha']) && $filtros['fecha'] !== 'todas'
+        $fechaActiva = ! empty($filtros['fecha']) && $filtros['fecha'] !== 'todas'
             ? $filtros['fecha']
             : null;
 
@@ -67,13 +67,13 @@ class AnulacionAuditoriaService
         };
 
         // Filtro por mozo
-        if (!empty($filtros['mozo_id']) && $filtros['mozo_id'] !== 'todos') {
+        if (! empty($filtros['mozo_id']) && $filtros['mozo_id'] !== 'todos') {
             $query->where('pa.mozo_id', $filtros['mozo_id']);
         }
 
         // Buscador textual
-        if (!empty($filtros['busqueda'])) {
-            $term = '%' . trim($filtros['busqueda']) . '%';
+        if (! empty($filtros['busqueda'])) {
+            $term = '%'.trim($filtros['busqueda']).'%';
             $query->where(function ($q) use ($term) {
                 $q->where('pa.producto_nombre', 'ILIKE', $term)
                     ->orWhere('pa.mesa_numero', 'ILIKE', $term)
@@ -197,7 +197,7 @@ class AnulacionAuditoriaService
                 throw new RuntimeException('ERR_ANULACION_NO_ENCONTRADA: La anulación solicitada no existe.', 404);
             }
 
-            if (!empty($anulacion->incidente_id)) {
+            if (! empty($anulacion->incidente_id)) {
                 $incidenteActual = DB::table('incidente')->where('id', $anulacion->incidente_id)->first();
                 $codigo = $incidenteActual ? $incidenteActual->codigo : 'INC-EXPEDIENTE';
                 throw new RuntimeException("ERR_YA_ESCALADO: Esta anulación ya fue escalada previamente bajo el expediente {$codigo}.", 422);

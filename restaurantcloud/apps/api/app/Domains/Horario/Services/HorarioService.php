@@ -229,7 +229,7 @@ class HorarioService
                 'cerrado' => true,
                 'hora_inicio' => null,
                 'hora_fin' => null,
-                'motivo' => $feriado['motivo'] . ' (Feriado Nacional)',
+                'motivo' => $feriado['motivo'].' (Feriado Nacional)',
                 'created_by' => $usuarioId,
                 'created_at' => now(),
             ]);

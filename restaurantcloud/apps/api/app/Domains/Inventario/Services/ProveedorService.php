@@ -27,10 +27,10 @@ class ProveedorService
         $statsComprasMes = DB::table('ficha_compra')
             ->where('local_id', $localId)
             ->where('estado', 'registrada')
-            ->whereRaw("EXTRACT(YEAR FROM fecha_emision) = EXTRACT(YEAR FROM CURRENT_DATE)")
-            ->whereRaw("EXTRACT(MONTH FROM fecha_emision) = EXTRACT(MONTH FROM CURRENT_DATE)")
-            ->selectRaw("COALESCE(SUM(total), 0)::numeric as compras_mes_total")
-            ->selectRaw("COUNT(*)::int as fichas_mes_total")
+            ->whereRaw('EXTRACT(YEAR FROM fecha_emision) = EXTRACT(YEAR FROM CURRENT_DATE)')
+            ->whereRaw('EXTRACT(MONTH FROM fecha_emision) = EXTRACT(MONTH FROM CURRENT_DATE)')
+            ->selectRaw('COALESCE(SUM(total), 0)::numeric as compras_mes_total')
+            ->selectRaw('COUNT(*)::int as fichas_mes_total')
             ->first();
 
         // Proveedores frecuentes: aquellos con 3 o más compras registradas
@@ -79,9 +79,9 @@ class ProveedorService
                 'p.activo',
                 'p.created_at',
                 'p.updated_at',
-                DB::raw("COUNT(fc.id)::int as total_compras"),
-                DB::raw("COALESCE(SUM(fc.total), 0)::numeric as total_gastado"),
-                DB::raw("MAX(fc.fecha_emision)::text as ultima_compra_fecha"),
+                DB::raw('COUNT(fc.id)::int as total_compras'),
+                DB::raw('COALESCE(SUM(fc.total), 0)::numeric as total_gastado'),
+                DB::raw('MAX(fc.fecha_emision)::text as ultima_compra_fecha'),
             ]);
 
         // Filtro por estado
@@ -232,9 +232,9 @@ class ProveedorService
                 'p.activo',
                 'p.created_at',
                 'p.updated_at',
-                DB::raw("COUNT(fc.id)::int as total_compras"),
-                DB::raw("COALESCE(SUM(fc.total), 0)::numeric as total_gastado"),
-                DB::raw("MAX(fc.fecha_emision)::text as ultima_compra_fecha"),
+                DB::raw('COUNT(fc.id)::int as total_compras'),
+                DB::raw('COALESCE(SUM(fc.total), 0)::numeric as total_gastado'),
+                DB::raw('MAX(fc.fecha_emision)::text as ultima_compra_fecha'),
             ])
             ->first();
 
@@ -416,7 +416,7 @@ class ProveedorService
         } catch (QueryException $e) {
             if ($e->getCode() === '23503') { // Foreign key violation
                 throw new \DomainException(
-                    "No es posible eliminar físicamente al proveedor debido a referencias contables asociadas (ON DELETE RESTRICT). Desactívelo en su lugar.",
+                    'No es posible eliminar físicamente al proveedor debido a referencias contables asociadas (ON DELETE RESTRICT). Desactívelo en su lugar.',
                     409
                 );
             }

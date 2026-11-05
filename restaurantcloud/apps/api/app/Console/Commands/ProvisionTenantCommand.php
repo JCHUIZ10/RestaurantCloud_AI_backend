@@ -67,6 +67,7 @@ class ProvisionTenantCommand extends Command
             return self::SUCCESS;
         } catch (\Throwable $e) {
             $this->error("Error al aprovisionar: {$e->getMessage()}");
+
             return self::FAILURE;
         }
     }

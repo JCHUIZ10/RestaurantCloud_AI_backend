@@ -9,7 +9,9 @@ use Throwable;
 class ConsultaDocumentoService
 {
     private string $baseUrl;
+
     private ?string $token;
+
     private bool $mock;
 
     public function __construct(
@@ -47,7 +49,7 @@ class ConsultaDocumentoService
     private function consultarDni(string $dni): array
     {
         try {
-            $url = $this->baseUrl . '/dni';
+            $url = $this->baseUrl.'/dni';
             $response = Http::withToken((string) $this->token)
                 ->acceptJson()
                 ->asJson()
@@ -84,13 +86,15 @@ class ConsultaDocumentoService
             }
 
             $mensajeError = $response->json('message') ?? 'El DNI ingresado no fue encontrado en RENIEC.';
+
             return [
                 'exito' => false,
                 'codigo_error' => 'DNI_NO_ENCONTRADO',
                 'mensaje' => $mensajeError,
             ];
         } catch (Throwable $e) {
-            Log::warning('Error de conexión con APIDev DNI: ' . $e->getMessage(), ['dni' => $dni]);
+            Log::warning('Error de conexión con APIDev DNI: '.$e->getMessage(), ['dni' => $dni]);
+
             return [
                 'exito' => false,
                 'codigo_error' => 'SERVICIO_PADRON_NO_DISPONIBLE',
@@ -105,7 +109,7 @@ class ConsultaDocumentoService
     private function consultarRuc(string $ruc): array
     {
         try {
-            $url = $this->baseUrl . '/ruc';
+            $url = $this->baseUrl.'/ruc';
             $response = Http::withToken((string) $this->token)
                 ->acceptJson()
                 ->asJson()
@@ -140,13 +144,15 @@ class ConsultaDocumentoService
             }
 
             $mensajeError = $response->json('message') ?? 'El RUC ingresado no fue encontrado en los padrones de SUNAT.';
+
             return [
                 'exito' => false,
                 'codigo_error' => 'RUC_NO_ENCONTRADO',
                 'mensaje' => $mensajeError,
             ];
         } catch (Throwable $e) {
-            Log::warning('Error de conexión con APIDev RUC: ' . $e->getMessage(), ['ruc' => $ruc]);
+            Log::warning('Error de conexión con APIDev RUC: '.$e->getMessage(), ['ruc' => $ruc]);
+
             return [
                 'exito' => false,
                 'codigo_error' => 'SERVICIO_PADRON_NO_DISPONIBLE',
@@ -168,7 +174,7 @@ class ConsultaDocumentoService
                 '10293847' => 'JUAN PÉREZ GARCÍA',
                 '48192039' => 'ANA MARÍA CHÁVEZ ROJAS',
             ];
-            $nombre = $nombresDni[$documento] ?? ('CIUDADANO DNI ' . substr($documento, -4));
+            $nombre = $nombresDni[$documento] ?? ('CIUDADANO DNI '.substr($documento, -4));
 
             return [
                 'exito' => true,
@@ -201,8 +207,8 @@ class ConsultaDocumentoService
         ];
 
         $datosRuc = $razonesRuc[$documento] ?? [
-            'nombre' => 'EMPRESA CONSULTORA DEMO ' . substr($documento, -4) . ' S.A.C.',
-            'direccion' => 'CALLE LOS NEGOCIOS ' . substr($documento, -3) . ', SAN ISIDRO, LIMA',
+            'nombre' => 'EMPRESA CONSULTORA DEMO '.substr($documento, -4).' S.A.C.',
+            'direccion' => 'CALLE LOS NEGOCIOS '.substr($documento, -3).', SAN ISIDRO, LIMA',
         ];
 
         return [

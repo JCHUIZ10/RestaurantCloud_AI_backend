@@ -38,8 +38,8 @@ class ReporteZDigitalService
             'reporte' => $reporteZ,
         ])->render();
 
-        if (class_exists(\Dompdf\Dompdf::class) && class_exists(\Dompdf\Options::class)) {
-            $options = new Options();
+        if (class_exists(Dompdf::class) && class_exists(Options::class)) {
+            $options = new Options;
             $options->set('isRemoteEnabled', false);
             $options->set('defaultFont', 'DejaVu Sans');
 

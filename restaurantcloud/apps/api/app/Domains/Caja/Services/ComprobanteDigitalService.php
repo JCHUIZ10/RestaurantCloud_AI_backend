@@ -56,8 +56,8 @@ class ComprobanteDigitalService
             'items' => $items,
         ])->render();
 
-        if (class_exists(\Dompdf\Dompdf::class) && class_exists(\Dompdf\Options::class)) {
-            $options = new Options();
+        if (class_exists(Dompdf::class) && class_exists(Options::class)) {
+            $options = new Options;
             $options->set('isRemoteEnabled', false);
             $options->set('defaultFont', 'DejaVu Sans');
 
@@ -79,8 +79,8 @@ class ComprobanteDigitalService
             $archivoId,
         );
 
-        $numero = $comprobante->serie . '-' . str_pad((string) $comprobante->correlativo, 8, '0', STR_PAD_LEFT);
-        $nombre = strtoupper($comprobante->tipo) . '-' . $numero . '.pdf';
+        $numero = $comprobante->serie.'-'.str_pad((string) $comprobante->correlativo, 8, '0', STR_PAD_LEFT);
+        $nombre = strtoupper($comprobante->tipo).'-'.$numero.'.pdf';
 
         $guardado = Storage::disk('s3')->put($objectKey, $pdfContent, [
             'visibility' => 'private',

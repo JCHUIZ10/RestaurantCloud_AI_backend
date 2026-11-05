@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 class DespacharOutboxComprobantes extends Command
 {
     protected $signature = 'outbox:despachar-comprobantes {--limite=25 : Maximo de eventos por ejecucion}';
+
     protected $description = 'Encola los documentos de comprobantes pendientes registrados en Outbox.';
 
     public function handle(): int
