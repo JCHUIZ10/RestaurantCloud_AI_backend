@@ -54,7 +54,7 @@ class RedisTokenAuth
         }
 
         // Reconstituir el modelo Usuario en memoria sin tocar la base de datos
-        $user = new Usuario();
+        $user = new Usuario;
 
         $user->forceFill([
             'id' => $sessionData['id'],

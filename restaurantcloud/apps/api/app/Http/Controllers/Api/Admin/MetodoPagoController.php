@@ -10,9 +10,7 @@ use Illuminate\Http\Request;
 
 class MetodoPagoController extends Controller
 {
-    public function __construct(private MetodoPagoLocalService $metodosPago)
-    {
-    }
+    public function __construct(private MetodoPagoLocalService $metodosPago) {}
 
     public function index(Request $request): JsonResponse
     {

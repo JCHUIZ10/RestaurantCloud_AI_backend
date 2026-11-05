@@ -10,11 +10,12 @@ use Laravel\Sanctum\HasApiTokens;
 
 class Usuario extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, HasUuids;
+    use HasApiTokens, HasFactory, HasUuids, Notifiable;
 
     protected $table = 'usuario';
 
     protected $keyType = 'string';
+
     public $incrementing = false;
 
     protected $fillable = [

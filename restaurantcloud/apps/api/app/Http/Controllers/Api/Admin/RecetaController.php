@@ -33,7 +33,7 @@ class RecetaController extends Controller
     public function update(Request $request, string $productoId): JsonResponse
     {
         $localId = $request->user()->local_id;
-        
+
         $items = $request->input('items', $request->input('receta', []));
         if (! is_array($items)) {
             return ApiResponse::error('ERR_DATOS_INVALIDOS', 'El campo items o receta debe ser un arreglo.', 422);
@@ -41,6 +41,7 @@ class RecetaController extends Controller
 
         try {
             $resultado = $this->recetaService->guardar($productoId, $localId, $items);
+
             return ApiResponse::ok($resultado);
         } catch (\InvalidArgumentException $e) {
             return ApiResponse::error('ERR_DATOS_INVALIDOS', $e->getMessage(), 422);
@@ -58,6 +59,7 @@ class RecetaController extends Controller
 
         try {
             $resultado = $this->recetaService->capacidad($productoId, $localId);
+
             return ApiResponse::ok($resultado);
         } catch (\Throwable $e) {
             return ApiResponse::error('ERR_CAPACIDAD_FALLIDA', $e->getMessage(), 422);

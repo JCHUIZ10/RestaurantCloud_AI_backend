@@ -52,6 +52,7 @@ class FichaCompraController extends Controller
 
         try {
             $resultado = $this->fichaCompraService->registrar($localId, $usuarioId, $data);
+
             return ApiResponse::ok($resultado, 201);
         } catch (\DomainException $e) {
             return ApiResponse::error('ERR_VALIDACION_COMPRA', $e->getMessage(), 422);
@@ -82,6 +83,7 @@ class FichaCompraController extends Controller
 
         try {
             $impacto = $this->fichaCompraService->obtenerImpactoAnulacion($id, $localId);
+
             return ApiResponse::ok($impacto);
         } catch (\DomainException $e) {
             return ApiResponse::error('ERR_NOT_FOUND', $e->getMessage(), 404);
@@ -108,6 +110,7 @@ class FichaCompraController extends Controller
 
         try {
             $fichaAnulada = $this->fichaCompraService->anular($fichaId, $localId, $usuarioId, $request->input('motivo'));
+
             return ApiResponse::ok($fichaAnulada);
         } catch (\DomainException $e) {
             return ApiResponse::error('ERR_ANULACION_COMPRA', $e->getMessage(), 422);

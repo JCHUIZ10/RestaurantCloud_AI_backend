@@ -34,6 +34,7 @@ class InsumoController extends Controller
 
         try {
             $insumo = $this->insumoService->crear($localId, $data);
+
             return ApiResponse::ok($insumo, 201);
         } catch (\DomainException $e) {
             return ApiResponse::error('ERR_INSUMO_DUPLICADO', $e->getMessage(), 409);
@@ -69,6 +70,7 @@ class InsumoController extends Controller
             if (! $insumo) {
                 return ApiResponse::error('ERR_NO_ENCONTRADO', 'El insumo no existe o no pertenece a esta sede.', 404);
             }
+
             return ApiResponse::ok($insumo);
         } catch (\DomainException $e) {
             return ApiResponse::error('ERR_INSUMO_DUPLICADO', $e->getMessage(), 409);
@@ -88,6 +90,7 @@ class InsumoController extends Controller
 
         try {
             $resultado = $this->insumoService->ajustarStock($id, $user->local_id, $user->id, $data);
+
             return ApiResponse::ok($resultado);
         } catch (\Throwable $e) {
             return ApiResponse::error('ERR_AJUSTE_FALLIDO', $e->getMessage(), 422);
@@ -106,6 +109,7 @@ class InsumoController extends Controller
             if (! $insumo) {
                 return ApiResponse::error('ERR_NO_ENCONTRADO', 'El insumo no existe o no pertenece a esta sede.', 404);
             }
+
             return ApiResponse::ok($insumo);
         } catch (\InvalidArgumentException $e) {
             return ApiResponse::error('ERR_ESTADO_INVALIDO', $e->getMessage(), 422);

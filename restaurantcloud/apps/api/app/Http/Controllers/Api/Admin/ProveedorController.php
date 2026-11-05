@@ -43,6 +43,7 @@ class ProveedorController extends Controller
 
         try {
             $proveedor = $this->proveedorService->crear($localId, $data);
+
             return ApiResponse::ok($proveedor, 201);
         } catch (\DomainException $e) {
             return ApiResponse::error('ERR_PROVEEDOR_DUPLICADO', $e->getMessage(), 409);
@@ -87,6 +88,7 @@ class ProveedorController extends Controller
             if (! $proveedor) {
                 return ApiResponse::error('ERR_NO_ENCONTRADO', 'El proveedor no existe o no pertenece a esta sede.', 404);
             }
+
             return ApiResponse::ok($proveedor);
         } catch (\DomainException $e) {
             return ApiResponse::error('ERR_PROVEEDOR_DUPLICADO', $e->getMessage(), 409);
@@ -124,6 +126,7 @@ class ProveedorController extends Controller
             if (! $eliminado) {
                 return ApiResponse::error('ERR_NO_ENCONTRADO', 'El proveedor no existe o no pertenece a esta sede.', 404);
             }
+
             return ApiResponse::ok(['id' => $id, 'mensaje' => 'Proveedor eliminado exitosamente.']);
         } catch (\DomainException $e) {
             return ApiResponse::error('ERR_PROVEEDOR_TIENE_COMPRAS', $e->getMessage(), 409);

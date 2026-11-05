@@ -78,6 +78,7 @@ class AnulacionController extends Controller
             return ApiResponse::ok($resultado);
         } catch (RuntimeException $e) {
             $status = $e->getCode() >= 400 && $e->getCode() < 600 ? $e->getCode() : 400;
+
             return ApiResponse::error('ERR_REVISION_ANULACION', $e->getMessage(), $status);
         }
     }
@@ -110,6 +111,7 @@ class AnulacionController extends Controller
             return ApiResponse::ok($resultado);
         } catch (RuntimeException $e) {
             $status = $e->getCode() >= 400 && $e->getCode() < 600 ? $e->getCode() : 400;
+
             return ApiResponse::error('ERR_ESCALAR_INCIDENTE', $e->getMessage(), $status);
         }
     }

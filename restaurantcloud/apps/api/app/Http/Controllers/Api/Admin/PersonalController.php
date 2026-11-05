@@ -10,9 +10,7 @@ use Illuminate\Http\Request;
 
 class PersonalController extends Controller
 {
-    public function __construct(private PersonalService $personal)
-    {
-    }
+    public function __construct(private PersonalService $personal) {}
 
     public function index(Request $request): JsonResponse
     {

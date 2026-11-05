@@ -10,9 +10,7 @@ use Illuminate\Http\Request;
 
 class ConfiguracionKdsController extends Controller
 {
-    public function __construct(private ConfiguracionKdsService $configuracionKds)
-    {
-    }
+    public function __construct(private ConfiguracionKdsService $configuracionKds) {}
 
     public function show(Request $request): JsonResponse
     {

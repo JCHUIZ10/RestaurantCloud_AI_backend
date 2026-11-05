@@ -10,9 +10,7 @@ use Illuminate\Http\Request;
 
 class HorarioController extends Controller
 {
-    public function __construct(private HorarioService $horarios)
-    {
-    }
+    public function __construct(private HorarioService $horarios) {}
 
     public function semana(Request $request): JsonResponse
     {

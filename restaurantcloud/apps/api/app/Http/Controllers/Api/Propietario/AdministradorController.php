@@ -10,9 +10,7 @@ use Illuminate\Http\Request;
 
 class AdministradorController extends Controller
 {
-    public function __construct(private AdministradorService $service)
-    {
-    }
+    public function __construct(private AdministradorService $service) {}
 
     /**
      * GET /api/v1/propietario/administradores

@@ -78,6 +78,7 @@ class PromocionController extends Controller
 
         try {
             $promocion = $this->promocionService->crear($localId, $data);
+
             return ApiResponse::ok($promocion, 201);
         } catch (\DomainException $e) {
             return ApiResponse::error('ERR_PROMOCION_DUPLICADA', $e->getMessage(), 409);
@@ -128,10 +129,12 @@ class PromocionController extends Controller
 
         try {
             $promocion = $this->promocionService->actualizar($id, $localId, $data);
+
             return ApiResponse::ok($promocion);
         } catch (\DomainException $e) {
             $status = $e->getCode() ?: 400;
             $code = $status === 409 ? 'ERR_PROMOCION_DUPLICADA' : 'ERR_NO_ENCONTRADO';
+
             return ApiResponse::error($code, $e->getMessage(), $status);
         } catch (\InvalidArgumentException $e) {
             return ApiResponse::error('ERR_VALIDACION_PROMOCION', $e->getMessage(), 422);
@@ -151,10 +154,12 @@ class PromocionController extends Controller
 
         try {
             $promocion = $this->promocionService->toggleEstado($id, $localId, $data['activa']);
+
             return ApiResponse::ok($promocion);
         } catch (\DomainException $e) {
             $msg = $e->getMessage();
             $code = str_contains($msg, 'vigencia') ? 'ERR_PROMOCION_VENCIDA' : (str_contains($msg, 'cupo') ? 'ERR_CUPO_AGOTADO' : 'ERR_NO_ENCONTRADO');
+
             return ApiResponse::error($code, $msg, $e->getCode() ?: 400);
         }
     }
@@ -168,10 +173,12 @@ class PromocionController extends Controller
 
         try {
             $this->promocionService->eliminar($id, $localId);
+
             return ApiResponse::ok(['id' => $id, 'mensaje' => 'Promoción eliminada exitosamente.']);
         } catch (\DomainException $e) {
             $status = $e->getCode() ?: 400;
             $code = $status === 409 ? 'ERR_PROMOCION_CON_HISTORIAL' : 'ERR_NO_ENCONTRADO';
+
             return ApiResponse::error($code, $e->getMessage(), $status);
         }
     }
@@ -185,6 +192,7 @@ class PromocionController extends Controller
 
         try {
             $datos = $this->promocionService->rendimiento($id, $localId);
+
             return ApiResponse::ok($datos);
         } catch (\DomainException $e) {
             return ApiResponse::error('ERR_NO_ENCONTRADO', $e->getMessage(), 404);

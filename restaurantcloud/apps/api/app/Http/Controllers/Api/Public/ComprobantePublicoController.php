@@ -52,10 +52,10 @@ class ComprobantePublicoController
             'tipo_label' => $this->tipoLabel($comprobante->tipo),
             'serie' => $comprobante->serie,
             'correlativo' => (int) $comprobante->correlativo,
-            'serie_numero' => $comprobante->serie . '-' . str_pad((string) $comprobante->correlativo, 8, '0', STR_PAD_LEFT),
+            'serie_numero' => $comprobante->serie.'-'.str_pad((string) $comprobante->correlativo, 8, '0', STR_PAD_LEFT),
             'fecha_emision' => $comprobante->fecha,
             'estado' => $comprobante->estado,
-            'hash_seguridad' => $archivo?->sha256 ?? hash('sha256', $comprobante->id . $comprobante->token_qr),
+            'hash_seguridad' => $archivo?->sha256 ?? hash('sha256', $comprobante->id.$comprobante->token_qr),
             'documento_digital' => [
                 'estado' => $archivo ? 'disponible' : 'generando',
                 'pdf_disponible' => $archivo !== null,

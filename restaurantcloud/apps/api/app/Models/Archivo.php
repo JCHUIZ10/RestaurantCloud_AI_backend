@@ -14,6 +14,7 @@ class Archivo extends Model
     protected $table = 'archivo';
 
     protected $keyType = 'string';
+
     public $incrementing = false;
 
     protected $fillable = [

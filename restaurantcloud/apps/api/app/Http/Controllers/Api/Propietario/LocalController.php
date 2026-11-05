@@ -10,9 +10,7 @@ use Illuminate\Http\Request;
 
 class LocalController extends Controller
 {
-    public function __construct(private LocalService $service)
-    {
-    }
+    public function __construct(private LocalService $service) {}
 
     /**
      * GET /api/v1/propietario/locales
