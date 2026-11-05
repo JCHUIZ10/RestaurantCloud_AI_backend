@@ -16,6 +16,8 @@ import { DesgloseSUNATCard } from '../components/precuenta/DesgloseSUNATCard';
 import { MetodosPagoSelector } from '../components/precuenta/MetodosPagoSelector';
 import { ModalQRBilletera } from '../components/precuenta/ModalQRBilletera';
 import { ROUTES } from '@/router/routes.constants';
+import { DIVISOR_IGV } from '@/shared/constants/tributario';
+import { construirOpcionesPago } from '../utils/opcionesPago';
 
 export const MozoPrecuentaPage: React.FC = () => {
   const { mesaId = 'mesa-04' } = useParams<{ mesaId: string }>();
@@ -27,9 +29,9 @@ export const MozoPrecuentaPage: React.FC = () => {
 
   // Estados interactivos
   const [promocionSeleccionada, setPromocionSeleccionada] = useState<PromocionSedeDTO | null>(null);
-  const [metodoSeleccionado, setMetodoSeleccionado] = useState<CodigoMetodoPago>('billetera_digital');
+  const [metodoSeleccionado, setMetodoSeleccionado] = useState<CodigoMetodoPago>('efectivo');
   const [modalQRAbierto, setModalQRAbierto] = useState(false);
-  const [numeroOperacion, setNumeroOperacion] = useState<string>('581902');
+  const [numeroOperacion, setNumeroOperacion] = useState<string>('');
   const [enviandoNotificacion, setEnviandoNotificacion] = useState(false);
   const [cuentaPedidaExitosa, setCuentaPedidaExitosa] = useState(false);
 
@@ -71,7 +73,7 @@ export const MozoPrecuentaPage: React.FC = () => {
       ? Math.round(consumoBruto * (promocionSeleccionada.porcentaje_descuento / 100) * 100) / 100
       : 0;
     const totalNeto = Math.round((consumoBruto - descuentoComercial) * 100) / 100;
-    const baseImponible = Math.round((totalNeto / 1.18) * 100) / 100;
+    const baseImponible = Math.round((totalNeto / DIVISOR_IGV) * 100) / 100;
     const igv = Math.round((totalNeto - baseImponible) * 100) / 100;
 
     const desgloseSUNAT: DesgloseSUNATMozoDTO = {
@@ -83,37 +85,11 @@ export const MozoPrecuentaPage: React.FC = () => {
       tasa_igv: 0.18,
     };
 
-    // Recalcular opciones de pago
-    const comisionTarjeta = Math.round(totalNeto * 0.035 * 100) / 100;
-    const opcionesPago: OpcionPagoMozoDTO[] = [
-      {
-        codigo: 'efectivo',
-        nombre: 'Efectivo',
-        comision_porcentaje: 0.0,
-        monto_comision: 0.0,
-        total_estimado: totalNeto,
-      },
-      {
-        codigo: 'billetera_digital',
-        nombre: 'Billetera Digital (Yape / Plin)',
-        comision_porcentaje: 0.0,
-        monto_comision: 0.0,
-        total_estimado: totalNeto,
-        detalle_billetera: {
-          telefono: '987 654 321',
-          titular: 'Restaurant S.A.C.',
-          ruc: '20601234567',
-          monto_exacto: totalNeto,
-        },
-      },
-      {
-        codigo: 'tarjeta',
-        nombre: 'Tarjeta Débito / Crédito',
-        comision_porcentaje: 3.5,
-        monto_comision: comisionTarjeta,
-        total_estimado: Math.round((totalNeto + comisionTarjeta) * 100) / 100,
-      },
-    ];
+    // Medios de pago habilitados en la sede (tabla metodo_pago_local), sin opciones de reserva
+    const opcionesPago = construirOpcionesPago(
+      (dataOriginal as any).opciones_pago || (dataOriginal as any).opciones_cobro,
+      totalNeto
+    );
 
     return {
       desgloseSUNAT,
@@ -122,6 +98,14 @@ export const MozoPrecuentaPage: React.FC = () => {
       totalNeto,
     };
   }, [dataOriginal, promocionSeleccionada]);
+
+  // Si el método elegido ya no está entre los habilitados de la sede, se pasa al primero disponible
+  useEffect(() => {
+    if (!calculos || calculos.opcionesPago.length === 0) return;
+    if (!calculos.opcionesPago.some((o) => o.codigo === metodoSeleccionado)) {
+      setMetodoSeleccionado(calculos.opcionesPago[0].codigo);
+    }
+  }, [calculos, metodoSeleccionado]);
 
   // Manejador para notificar a caja
   const handleNotificarCaja = async (numOp?: string) => {
@@ -238,7 +222,12 @@ export const MozoPrecuentaPage: React.FC = () => {
           <div className="lg:col-span-5 space-y-4">
             <DesgloseSUNATCard desglose={calculos.desgloseSUNAT} />
 
-            <MetodosPagoSelector
+            {calculos.opcionesPago.length === 0 ? (
+              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium">
+                  La sede no tiene medios de pago habilitados. Configúralos en Formas de pago para poder emitir la cuenta.
+                </div>
+            ) : (
+              <MetodosPagoSelector
               opcionesPago={calculos.opcionesPago}
               metodoSeleccionado={metodoSeleccionado}
               onSeleccionarMetodo={setMetodoSeleccionado}
@@ -247,6 +236,7 @@ export const MozoPrecuentaPage: React.FC = () => {
               enviandoNotificacion={enviandoNotificacion}
               cuentaPedidaExitosa={cuentaPedidaExitosa}
             />
+            )}
           </div>
         </div>
       </main>

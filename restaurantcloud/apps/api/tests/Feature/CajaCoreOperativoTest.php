@@ -11,19 +11,26 @@ use Tests\TestCase;
 class CajaCoreOperativoTest extends TestCase
 {
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
+
     private string $localId = '00000000-0000-4000-8000-000000000010';
+
     private string $cajeroId = '00000000-0000-4000-8000-000000000105';
+
     private string $mozoId = '00000000-0000-4000-8000-000000000104';
+
     private string $cocineroId = '00000000-0000-4000-8000-000000000106';
+
     private string $tokenCajero;
+
     private string $tokenMozo;
+
     private string $tokenCocina;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $rawToken = 'test_token_caja_core_' . Str::random(32);
+        $rawToken = 'test_token_caja_core_'.Str::random(32);
         $tokenHash = hash('sha256', $rawToken);
 
         $sessionPayload = [
@@ -39,7 +46,7 @@ class CajaCoreOperativoTest extends TestCase
         Redis::setex("auth:session:{$tokenHash}", 3600, json_encode($sessionPayload));
         $this->tokenCajero = $rawToken;
 
-        $rawMozo = 'test_token_mozo_' . Str::random(32);
+        $rawMozo = 'test_token_mozo_'.Str::random(32);
         $tokenHashMozo = hash('sha256', $rawMozo);
         Redis::setex("auth:session:{$tokenHashMozo}", 3600, json_encode([
             'id' => $this->mozoId,
@@ -52,7 +59,7 @@ class CajaCoreOperativoTest extends TestCase
         ]));
         $this->tokenMozo = $rawMozo;
 
-        $rawCocina = 'test_token_cocina_' . Str::random(32);
+        $rawCocina = 'test_token_cocina_'.Str::random(32);
         $tokenHashCocina = hash('sha256', $rawCocina);
         Redis::setex("auth:session:{$tokenHashCocina}", 3600, json_encode([
             'id' => $this->cocineroId,
@@ -69,7 +76,7 @@ class CajaCoreOperativoTest extends TestCase
     private function headers(): array
     {
         return [
-            'Authorization' => 'Bearer ' . $this->tokenCajero,
+            'Authorization' => 'Bearer '.$this->tokenCajero,
             'Accept' => 'application/json',
         ];
     }
@@ -77,7 +84,7 @@ class CajaCoreOperativoTest extends TestCase
     private function headersMozo(): array
     {
         return [
-            'Authorization' => 'Bearer ' . $this->tokenMozo,
+            'Authorization' => 'Bearer '.$this->tokenMozo,
             'Accept' => 'application/json',
         ];
     }
@@ -85,7 +92,7 @@ class CajaCoreOperativoTest extends TestCase
     private function headersCocina(): array
     {
         return [
-            'Authorization' => 'Bearer ' . $this->tokenCocina,
+            'Authorization' => 'Bearer '.$this->tokenCocina,
             'Accept' => 'application/json',
         ];
     }
@@ -233,6 +240,116 @@ class CajaCoreOperativoTest extends TestCase
             ]);
     }
 
+    public function test_balance_pre_arqueo_informa_el_operador_de_tarjeta_configurado_por_la_sede(): void
+    {
+        $this->cerrarCajasAbiertas();
+        $this->postJson('/api/v1/caja/apertura', ['monto_apertura' => 50.00], $this->headers());
+
+        DB::table('metodo_pago_local')
+            ->where('local_id', $this->localId)
+            ->where('codigo', 'tarjeta')
+            ->update(['datos_adicionales' => json_encode(['operador' => 'Izipay'])]);
+
+        $this->getJson('/api/v1/caja/balance-pre-arqueo', $this->headers())
+            ->assertStatus(200)
+            ->assertJsonPath('datos.operador_tarjeta', 'Izipay');
+
+        DB::table('metodo_pago_local')
+            ->where('local_id', $this->localId)
+            ->where('codigo', 'tarjeta')
+            ->update(['datos_adicionales' => json_encode([])]);
+
+        $this->getJson('/api/v1/caja/balance-pre-arqueo', $this->headers())
+            ->assertJsonPath('datos.operador_tarjeta', null);
+    }
+
+    private function abrirTurnoDeOtroCajero(): string
+    {
+        $this->cerrarCajasAbiertas();
+
+        $cajaId = (string) Str::uuid();
+        DB::table('caja')->insert([
+            'id' => $cajaId,
+            'local_id' => $this->localId,
+            'cajero_id' => $this->mozoId,
+            'monto_apertura' => 100.00,
+            'estado' => 'abierta',
+            'fecha_apertura' => now(),
+        ]);
+
+        return $cajaId;
+    }
+
+    public function test_estado_sesion_informa_el_contacto_de_administracion_de_la_sede(): void
+    {
+        $admin = DB::table('usuario')
+            ->where('local_id', $this->localId)
+            ->where('rol', 'admin_local')
+            ->where('estado', 'activo')
+            ->whereNotNull('telefono')
+            ->first();
+        $this->assertNotNull($admin, 'La sede de pruebas debe tener un administrador con celular.');
+
+        $this->getJson('/api/v1/caja/estado-sesion', $this->headers())
+            ->assertStatus(200)
+            ->assertJsonPath('datos.contacto_administracion.nombre', $admin->nombre)
+            ->assertJsonPath('datos.contacto_administracion.telefono', $admin->telefono);
+    }
+
+    public function test_notificar_turno_previo_pendiente_avisa_a_la_administracion_sin_duplicar(): void
+    {
+        $cajaPendienteId = $this->abrirTurnoDeOtroCajero();
+
+        $this->postJson('/api/v1/caja/turno-previo/notificar-administracion', [], $this->headers())
+            ->assertStatus(200)
+            ->assertJsonPath('datos.notificados', 1)
+            ->assertJsonPath('datos.ya_notificado', false);
+
+        $this->assertDatabaseHas('notificacion', [
+            'local_id' => $this->localId,
+            'rol_destinatario' => 'admin_local',
+            'tipo' => 'turno_previo_pendiente',
+            'entidad_id' => $cajaPendienteId,
+        ]);
+        $this->assertDatabaseHas('log_auditoria', [
+            'accion' => 'caja.turno_previo.aviso_administracion',
+            'entidad_id' => $cajaPendienteId,
+        ]);
+
+        $this->postJson('/api/v1/caja/turno-previo/notificar-administracion', [], $this->headers())
+            ->assertStatus(200)
+            ->assertJsonPath('datos.ya_notificado', true);
+
+        $this->assertSame(
+            1,
+            DB::table('notificacion')->where('tipo', 'turno_previo_pendiente')->where('entidad_id', $cajaPendienteId)->count()
+        );
+    }
+
+    public function test_notificar_turno_previo_falla_si_no_hay_turno_de_otro_cajero(): void
+    {
+        $this->cerrarCajasAbiertas();
+
+        $this->postJson('/api/v1/caja/turno-previo/notificar-administracion', [], $this->headers())
+            ->assertStatus(409)
+            ->assertJsonPath('errores.0.codigo', 'NO_HAY_TURNO_PREVIO_PENDIENTE');
+    }
+
+    public function test_el_turno_informa_el_rol_real_del_cajero_y_no_un_cargo_inventado(): void
+    {
+        $this->cerrarCajasAbiertas();
+
+        $this->postJson('/api/v1/caja/apertura', ['monto_apertura' => 80.00], $this->headers())
+            ->assertStatus(201)
+            ->assertJsonPath('datos.cajero_rol', 'Cajero');
+
+        $this->getJson('/api/v1/caja/estado-sesion', $this->headers())
+            ->assertJsonPath('datos.turno_activo.cajero_rol', 'Cajero');
+
+        $this->getJson('/api/v1/caja/balance-pre-arqueo', $this->headers())
+            ->assertJsonPath('datos.cajero_rol', 'Cajero');
+    }
+
     public function test_bloqueo_poka_yoke_cierre_con_mesas_activas_retorna_409(): void
     {
         $this->cerrarCajasAbiertas();
@@ -352,7 +469,7 @@ class CajaCoreOperativoTest extends TestCase
             ]);
 
         // Consultar Reporte Z especifico por ID
-        $resPorId = $this->getJson('/api/v1/caja/turnos/' . $cajaId . '/reporte-z', $this->headers());
+        $resPorId = $this->getJson('/api/v1/caja/turnos/'.$cajaId.'/reporte-z', $this->headers());
         $resPorId->assertStatus(200)
             ->assertJson([
                 'exito' => true,
@@ -373,7 +490,7 @@ class CajaCoreOperativoTest extends TestCase
         $this->assertTrue(Storage::disk('s3')->exists($archivo->object_key));
 
         // Verificar endpoint de streaming de descarga del Reporte Z
-        $resPdf = $this->get('/api/v1/caja/turnos/' . $cajaId . '/reporte-z/pdf', $this->headers());
+        $resPdf = $this->get('/api/v1/caja/turnos/'.$cajaId.'/reporte-z/pdf', $this->headers());
         $resPdf->assertStatus(200);
         $this->assertEquals('application/pdf', $resPdf->headers->get('content-type'));
     }

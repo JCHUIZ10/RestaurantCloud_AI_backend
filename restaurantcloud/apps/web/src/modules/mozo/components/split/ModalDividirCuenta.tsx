@@ -13,10 +13,19 @@ import {
   SubcuentaConfigDTO,
   PromocionSedeDTO,
   DividirCuentaResponseDTO,
+  DetalleBilleteraDigitalDTO,
 } from '@/types/mozo';
-import { mozoService } from '@/services/serviceAdapter';
+import { mozoService, cajaService } from '@/services/serviceAdapter';
 import { Paso1AsignacionItems } from './Paso1AsignacionItems';
 import { Paso2ConfiguracionComprobantes } from './Paso2ConfiguracionComprobantes';
+
+import {
+  CONSUMIDOR_FINAL_DOC,
+  CONSUMIDOR_FINAL_NOMBRE,
+  LIMITE_BOLETA_CONSUMIDOR_FINAL,
+  permiteConsumidorFinal,
+} from './consumidorFinal';
+import { DIVISOR_IGV } from '@/shared/constants/tributario';
 
 interface ModalDividirCuentaProps {
   isOpen: boolean;
@@ -33,27 +42,57 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
   onDivisionConfirmada,
   actor = 'mozo',
 }) => {
+  // El cajero usa los endpoints /caja/*, el mozo los /mozo/*
+  const splitService = actor === 'cajero' ? cajaService : mozoService;
+
   const [paso, setPaso] = useState<1 | 2>(1);
   const [cargando, setCargando] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [errorGlobal, setErrorGlobal] = useState<string | null>(null);
 
+  // Sin valores de relleno: solo se llena con lo que responde el backend
   const [mesaInfo, setMesaInfo] = useState({
-    numero: '04',
-    comensales: 4,
-    pedidoId: 'ped-149',
-    totalBruto: 100.0,
+    numero: '',
+    comensales: 0,
+    pedidoId: '',
+    totalBruto: 0,
   });
 
   const [items, setItems] = useState<ItemParaDividirDTO[]>([]);
   const [subcuentas, setSubcuentas] = useState<SubcuentaConfigDTO[]>([]);
   const [promociones, setPromociones] = useState<PromocionSedeDTO[]>([]);
+  // null = aún no se conocen (se muestran todos y el backend valida)
+  const [metodosPagoActivos, setMetodosPagoActivos] = useState<string[] | null>(null);
+  // Comisión (%) que la sede cobra por tarjeta; viene de metodo_pago_local
+  const [comisionTarjetaPct, setComisionTarjetaPct] = useState<number>(0);
+  const [detalleBilletera, setDetalleBilletera] = useState<DetalleBilleteraDigitalDTO | null>(null);
 
   useEffect(() => {
     if (isOpen && mesaId) {
       cargarDatosIniciales();
     }
   }, [isOpen, mesaId]);
+
+  // Si una subcuenta alcanza el límite, deja de ser consumidor final y debe identificarse con DNI
+  useEffect(() => {
+    const hayExcedidas = subcuentas.some(
+      (s) => s.consumidor_final_sin_doc && !permiteConsumidorFinal(s.total_neto)
+    );
+    if (!hayExcedidas) return;
+    setSubcuentas((prev) =>
+      prev.map((s) =>
+        s.consumidor_final_sin_doc && !permiteConsumidorFinal(s.total_neto)
+          ? {
+              ...s,
+              consumidor_final_sin_doc: false,
+              documento_cliente: '',
+              nombre_cliente: '',
+              direccion_cliente: '',
+            }
+          : s
+      )
+    );
+  }, [subcuentas]);
 
   const cargarDatosIniciales = async () => {
     setCargando(true);
@@ -62,9 +101,15 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
 
     try {
       // 1. Cargar ítems disponibles para dividir desde la API real
-      const resItems = await mozoService.obtenerItemsParaDividir(mesaId);
+      const resItems = await splitService.obtenerItemsParaDividir(mesaId);
       // 2. Cargar precuenta para promociones disponibles
       const resPrecuenta = await mozoService.obtenerPrecuentaMesa(mesaId);
+
+      if (!resItems.exito || !resItems.datos) {
+        setItems([]);
+        setSubcuentas([]);
+        setErrorGlobal(resItems.errores?.[0]?.mensaje || 'No se pudo cargar la comanda de la mesa.');
+      }
 
       if (resItems.exito && resItems.datos) {
         setMesaInfo({
@@ -98,8 +143,8 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
               descuento: Number(p.descuento) || 0,
               monto_recargo: Number(p.monto_recargo) || 0,
               total_neto: Number(p.total_neto) || 0,
-              base_imponible: Math.round(((Number(p.total_neto) || 0) / 1.18) * 100) / 100,
-              igv: Math.round(((Number(p.total_neto) || 0) - (Number(p.total_neto) || 0) / 1.18) * 100) / 100,
+              base_imponible: Math.round(((Number(p.total_neto) || 0) / DIVISOR_IGV) * 100) / 100,
+              igv: Math.round(((Number(p.total_neto) || 0) - (Number(p.total_neto) || 0) / DIVISOR_IGV) * 100) / 100,
             };
           });
           setSubcuentas(subsCargadas);
@@ -111,8 +156,8 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
             nombre_referencia: 'Comensal A',
             items: [],
             tipo_comprobante: 'boleta',
-            documento_cliente: '',
-            nombre_cliente: '',
+            documento_cliente: CONSUMIDOR_FINAL_DOC,
+            nombre_cliente: CONSUMIDOR_FINAL_NOMBRE,
             direccion_cliente: '',
             consumidor_final_sin_doc: true,
             medio_pago: 'efectivo',
@@ -130,11 +175,11 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
             nombre_referencia: 'Comensal B',
             items: [],
             tipo_comprobante: 'boleta',
-            documento_cliente: '',
-            nombre_cliente: '',
+            documento_cliente: CONSUMIDOR_FINAL_DOC,
+            nombre_cliente: CONSUMIDOR_FINAL_NOMBRE,
             direccion_cliente: '',
             consumidor_final_sin_doc: true,
-            medio_pago: 'billetera_digital',
+            medio_pago: 'efectivo',
             subtotal_bruto: 0,
             descuento: 0,
             monto_recargo: 0,
@@ -149,6 +194,28 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
 
       if (resPrecuenta.exito && resPrecuenta.datos) {
         setPromociones(resPrecuenta.datos.promociones_disponibles || []);
+
+        // Medios de pago habilitados en la sede: ninguna subcuenta puede usar otro
+        const activos = (resPrecuenta.datos.opciones_pago || []).map((o) => o.codigo);
+        if (activos.length > 0) {
+          setMetodosPagoActivos(activos);
+          const tarjeta = (resPrecuenta.datos.opciones_pago || []).find((o) => o.codigo === 'tarjeta');
+          setComisionTarjetaPct(Number(tarjeta?.comision_porcentaje) || 0);
+          const billetera = (resPrecuenta.datos.opciones_pago || []).find((o) => o.codigo === 'billetera_digital');
+          setDetalleBilletera(billetera?.detalle_billetera || null);
+          setSubcuentas((prev) =>
+            prev.map((s) =>
+              activos.includes(s.medio_pago)
+                ? s
+                : {
+                    ...s,
+                    medio_pago: activos.includes('efectivo') ? 'efectivo' : activos[0],
+                    total_neto: Math.round((s.total_neto - s.monto_recargo) * 100) / 100,
+                    monto_recargo: 0,
+                  }
+            )
+          );
+        }
       }
     } catch {
       setErrorGlobal('Error al cargar la comanda de la mesa.');
@@ -161,12 +228,16 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
 
   // Validación para pasar a Paso 2 (todos los ítems deben estar asignados)
   const itemsPendientes = items.filter((i) => !i.subcuenta_asignada_id);
-  const puedeAvanzarAPaso2 = itemsPendientes.length === 0 && subcuentas.some((s) => s.items.length > 0);
+  const puedeAvanzarAPaso2 = Boolean(mesaInfo.pedidoId) && itemsPendientes.length === 0 && subcuentas.some((s) => s.items.length > 0);
 
   // Validación final antes de enviar a caja
   const validarPaso2 = (): string | null => {
     for (const sub of subcuentas) {
       if (sub.items.length === 0) continue;
+
+      if (metodosPagoActivos && !metodosPagoActivos.includes(sub.medio_pago)) {
+        return `Subcuenta ${sub.numero_subcuenta}: El medio de pago seleccionado no está habilitado en esta sede.`;
+      }
 
       if (sub.tipo_comprobante === 'factura') {
         if (!sub.documento_cliente || sub.documento_cliente.length !== 11) {
@@ -175,6 +246,14 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
         if (!sub.nombre_cliente || sub.nombre_cliente.trim().length === 0) {
           return `Subcuenta ${sub.numero_subcuenta}: Consulta o ingresa la Razón Social de la empresa.`;
         }
+      }
+
+      if (
+        sub.tipo_comprobante === 'boleta' &&
+        sub.consumidor_final_sin_doc &&
+        !permiteConsumidorFinal(sub.total_neto)
+      ) {
+        return `Subcuenta ${sub.numero_subcuenta}: Las boletas desde S/ ${LIMITE_BOLETA_CONSUMIDOR_FINAL.toFixed(2)} requieren identificar al cliente con DNI.`;
       }
 
       if (sub.tipo_comprobante === 'boleta' && !sub.consumidor_final_sin_doc) {
@@ -196,6 +275,11 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
   };
 
   const handleEnviarSubcuentasACaja = async () => {
+    if (!mesaInfo.pedidoId) {
+      setErrorGlobal('No se cargó la comanda de la mesa. Cierra el modal e inténtalo de nuevo.');
+      return;
+    }
+
     const errorValidacion = validarPaso2();
     if (errorValidacion) {
       setErrorGlobal(errorValidacion);
@@ -206,10 +290,21 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
     setErrorGlobal(null);
 
     // Filtrar subcuentas activas que contengan ítems
-    const subcuentasActivas = subcuentas.filter((s) => s.items.length > 0);
+    // Las boletas de consumidor final siempre viajan con sus datos genéricos
+    const subcuentasActivas = subcuentas
+      .filter((s) => s.items.length > 0)
+      .map((s) =>
+        s.tipo_comprobante === 'boleta' && s.consumidor_final_sin_doc
+          ? {
+              ...s,
+              documento_cliente: CONSUMIDOR_FINAL_DOC,
+              nombre_cliente: CONSUMIDOR_FINAL_NOMBRE,
+            }
+          : s
+      );
 
     try {
-      const res = await mozoService.dividirCuentaMesa({
+      const res = await splitService.dividirCuentaMesa({
         mesa_id: mesaId,
         pedido_id: mesaInfo.pedidoId,
         subcuentas: subcuentasActivas,
@@ -246,13 +341,13 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
                 </span>
                 <span className="text-slate-400 text-xs">•</span>
                 <span className="text-xs text-slate-300">
-                  Mesa {mesaInfo.numero} — {actor === 'cajero' ? 'Terminal Caja POS' : 'Salón'}
+                  Mesa {mesaInfo.numero || '—'} — {actor === 'cajero' ? 'Terminal Caja POS' : 'Salón'}
                 </span>
               </div>
               <h2 className="font-serif text-lg font-bold tracking-wide flex items-center gap-2 mt-0.5">
                 <span>➗ Subdividir Comanda {actor === 'cajero' ? 'en Caja POS' : 'en Mesa'}</span>
                 <span className="text-slate-400 font-normal text-xs">
-                  (👥 {mesaInfo.comensales} Comensales • 🧾 Comanda #{mesaInfo.pedidoId.replace(/\D/g, '') || '108'} • 💰 Consumo: S/ {mesaInfo.totalBruto.toFixed(2)})
+                  (👥 {mesaInfo.comensales} Comensales • 💰 Consumo: S/ {mesaInfo.totalBruto.toFixed(2)})
                 </span>
               </h2>
             </div>
@@ -293,6 +388,9 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
                 <Paso2ConfiguracionComprobantes
                   subcuentas={subcuentas.filter((s) => s.items.length > 0)}
                   promocionesDisponibles={promociones}
+                  metodosPagoActivos={metodosPagoActivos}
+                  comisionTarjetaPct={comisionTarjetaPct}
+                  detalleBilletera={detalleBilletera}
                   onActualizarSubcuentas={(actualizadas) => {
                     // Mantener subcuentas vacías si las hubiere
                     const mapa = new Map(actualizadas.map((s) => [s.id, s]));

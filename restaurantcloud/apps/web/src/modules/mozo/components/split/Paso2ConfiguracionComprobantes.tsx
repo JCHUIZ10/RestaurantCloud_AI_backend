@@ -18,21 +18,41 @@ import {
   TipoComprobanteSplit,
   CodigoMetodoPago,
   PromocionSedeDTO,
+  DetalleBilleteraDigitalDTO,
 } from '@/types/mozo';
 import { mozoService } from '@/services/serviceAdapter';
+import {
+  CONSUMIDOR_FINAL_DOC,
+  CONSUMIDOR_FINAL_NOMBRE,
+  LIMITE_BOLETA_CONSUMIDOR_FINAL,
+  permiteConsumidorFinal,
+} from './consumidorFinal';
 import { ModalQRBilletera } from '../precuenta/ModalQRBilletera';
+import { DIVISOR_IGV } from '@/shared/constants/tributario';
 
 interface Paso2ConfiguracionComprobantesProps {
   subcuentas: SubcuentaConfigDTO[];
   promocionesDisponibles: PromocionSedeDTO[];
+  /** Códigos de medios de pago habilitados en la sede; null = desconocidos (se muestran todos). */
+  metodosPagoActivos?: string[] | null;
+  /** Comisión (%) de tarjeta configurada en la sede */
+  comisionTarjetaPct?: number;
+  /** Datos de cobro de Yape/Plin de la sede (de metodo_pago_local) */
+  detalleBilletera?: DetalleBilleteraDigitalDTO | null;
   onActualizarSubcuentas: (subcuentas: SubcuentaConfigDTO[]) => void;
 }
 
 export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComprobantesProps> = ({
   subcuentas,
   promocionesDisponibles,
+  metodosPagoActivos = null,
+  comisionTarjetaPct = 0,
+  detalleBilletera = null,
   onActualizarSubcuentas,
 }) => {
+  const medioPagoDisponible = (codigo: string): boolean =>
+    !metodosPagoActivos || metodosPagoActivos.includes(codigo);
+
   const [buscandoDoc, setBuscandoDoc] = useState<Record<string, boolean>>({});
   const [docErrores, setDocErrores] = useState<Record<string, string | null>>({});
   const [subcuentaModalQR, setSubcuentaModalQR] = useState<SubcuentaConfigDTO | null>(null);
@@ -56,16 +76,16 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
 
     const subtotalConDescuento = Math.max(0, bruto - descuento);
 
-    // Calcular comisión de pasarela (Tarjeta POS +3.5%)
+    // Comisión de tarjeta según la configuración de la sede
     let recargo = 0;
     if (medioPago === 'tarjeta') {
-      recargo = Math.round(subtotalConDescuento * 0.035 * 100) / 100;
+      recargo = Math.round(subtotalConDescuento * (comisionTarjetaPct / 100) * 100) / 100;
     }
 
     const totalNeto = Math.round((subtotalConDescuento + recargo) * 100) / 100;
 
     // Desglose SUNAT (Base + IGV 18%)
-    const baseImponible = Math.round((subtotalConDescuento / 1.18) * 100) / 100;
+    const baseImponible = Math.round((subtotalConDescuento / DIVISOR_IGV) * 100) / 100;
     const igv = Math.round((subtotalConDescuento - baseImponible) * 100) / 100;
 
     return {
@@ -146,8 +166,8 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
         return {
           ...s,
           consumidor_final_sin_doc: nuevoValor,
-          documento_cliente: nuevoValor ? '00000000' : '',
-          nombre_cliente: nuevoValor ? 'CONSUMIDOR FINAL' : '',
+          documento_cliente: nuevoValor ? CONSUMIDOR_FINAL_DOC : '',
+          nombre_cliente: nuevoValor ? CONSUMIDOR_FINAL_NOMBRE : '',
         };
       }
       return s;
@@ -472,7 +492,7 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
                       )}
 
                       {/* Checkbox Consumidor final sin doc */}
-                      {sub.total_neto < 700 && (
+                      {permiteConsumidorFinal(sub.total_neto) ? (
                         <label className="flex items-center gap-2 pt-1 border-t border-slate-200 cursor-pointer text-[11px] text-slate-600">
                           <input
                             type="checkbox"
@@ -480,8 +500,14 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
                             onChange={() => handleToggleConsumidorFinal(sub.id)}
                             className="rounded border-slate-300 text-aurea-navy focus:ring-aurea-copper"
                           />
-                          <span>Consumidor Final sin documento (&lt; S/ 700.00)</span>
+                          <span>
+                            Consumidor Final sin documento (&lt; S/ {LIMITE_BOLETA_CONSUMIDOR_FINAL.toFixed(2)})
+                          </span>
                         </label>
+                      ) : (
+                        <p className="pt-1 border-t border-slate-200 text-[11px] text-amber-700 font-medium">
+                          Desde S/ {LIMITE_BOLETA_CONSUMIDOR_FINAL.toFixed(2)} es obligatorio identificar al cliente con DNI.
+                        </p>
                       )}
                     </div>
                   )}
@@ -522,7 +548,8 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
                     <CreditCard className="w-3.5 h-3.5 text-aurea-copper" />
                     <span>Medio de Pago Previsto</span>
                   </label>
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <div className="flex gap-1.5 [&>button]:flex-1">
+                    {medioPagoDisponible('efectivo') && (
                     <button
                       type="button"
                       onClick={() => handleCambiarMedioPago(sub.id, 'efectivo')}
@@ -535,7 +562,9 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
                       <Banknote className="w-3 h-3 text-emerald-600" />
                       <span>Efectivo</span>
                     </button>
+                    )}
 
+                    {medioPagoDisponible('tarjeta') && (
                     <button
                       type="button"
                       onClick={() => handleCambiarMedioPago(sub.id, 'tarjeta')}
@@ -546,9 +575,11 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
                       }`}
                     >
                       <CreditCard className="w-3 h-3 text-sky-600" />
-                      <span>Tarjeta (+3.5%)</span>
+                      <span>Tarjeta{comisionTarjetaPct > 0 ? ` (+${comisionTarjetaPct}%)` : ''}</span>
                     </button>
+                    )}
 
+                    {medioPagoDisponible('billetera_digital') && (
                     <button
                       type="button"
                       onClick={() => handleCambiarMedioPago(sub.id, 'billetera_digital')}
@@ -561,6 +592,7 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
                       <Smartphone className="w-3 h-3 text-purple-600" />
                       <span>Yape/Plin</span>
                     </button>
+                    )}
                   </div>
 
                   {/* Detalle y Botón Ver QR para Yape / Plin */}
@@ -569,28 +601,28 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
                       <div className="flex items-center justify-between">
                         <div>
                           <span className="text-[10px] text-purple-700 font-bold uppercase block">Datos Yape / Plin</span>
-                          <span className="font-bold text-purple-950 font-mono text-sm">987 654 321</span>
-                          <span className="text-[11px] text-purple-800 ml-1.5">(Restaurant S.A.C.)</span>
+                          <span className="font-bold text-purple-950 font-mono text-sm">
+                            {detalleBilletera?.telefono || 'Sin configurar'}
+                          </span>
+                          {detalleBilletera?.titular && (
+                            <span className="text-[11px] text-purple-800 ml-1.5">({detalleBilletera.titular})</span>
+                          )}
                         </div>
                         <button
                           type="button"
+                          disabled={!detalleBilletera?.telefono}
                           onClick={() => setSubcuentaModalQR(sub)}
-                          className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+                          className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <QrCode className="w-3.5 h-3.5" />
                           <span>Ver QR</span>
                         </button>
                       </div>
-
-                      <div className="flex items-center gap-2 pt-1.5 border-t border-purple-200/70">
-                        <span className="text-[11px] text-purple-900 font-semibold shrink-0">N° Operación:</span>
-                        <input
-                          type="text"
-                          defaultValue="581902"
-                          placeholder="581902"
-                          className="flex-1 py-1 px-2.5 rounded-lg border border-purple-300 bg-white font-mono text-xs font-bold text-purple-950 focus:outline-none focus:border-purple-500"
-                        />
-                      </div>
+                      {!detalleBilletera?.telefono && (
+                        <p className="text-[11px] text-amber-700 font-medium">
+                          La sede no configuró su celular de Yape/Plin. Un administrador debe registrarlo en Formas de pago.
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -612,7 +644,7 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
 
                 {sub.monto_recargo > 0 && (
                   <div className="flex items-center justify-between text-sky-700 text-[11px]">
-                    <span>Comisión Tarjeta (+3.5%):</span>
+                    <span>Comisión Tarjeta (+{comisionTarjetaPct}%):</span>
                     <span>+ S/ {sub.monto_recargo.toFixed(2)}</span>
                   </div>
                 )}
@@ -653,12 +685,7 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
           isOpen={Boolean(subcuentaModalQR)}
           onClose={() => setSubcuentaModalQR(null)}
           monto={subcuentaModalQR.total_neto}
-          detalle={{
-            telefono: '987 654 321',
-            titular: 'Restaurant S.A.C.',
-            ruc: '20601234567',
-            monto_exacto: subcuentaModalQR.total_neto,
-          }}
+          detalle={detalleBilletera ? { ...detalleBilletera, monto_exacto: subcuentaModalQR.total_neto } : undefined}
           onConfirmarPago={(_numOp) => {
             setSubcuentaModalQR(null);
           }}

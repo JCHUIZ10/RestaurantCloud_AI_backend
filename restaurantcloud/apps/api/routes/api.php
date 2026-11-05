@@ -330,6 +330,7 @@ Route::prefix('v1')->group(function (): void {
             // CU-CAJA-01: Apertura de Turno y Estado de Sesión
             Route::get('/estado-sesion', [CajaController::class, 'getEstadoSesion']);
             Route::post('/apertura', [CajaController::class, 'apertura']);
+            Route::post('/turno-previo/notificar-administracion', [CajaController::class, 'notificarTurnoPrevioPendiente']);
 
             // CU-CAJA-02: Monitor POS y Precuenta
             Route::get('/mesas-monitor', [CajaController::class, 'getMesasMonitor']);

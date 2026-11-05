@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Domains\Archivos\Services\TenantStorageService;
+use App\Domains\Caja\Services\MetodoPagoLocalService;
 use App\Domains\Inventario\Services\StockDeduccionService;
 use App\Domains\Promociones\Services\PromocionService;
 use App\Http\Controllers\Controller;
@@ -12,9 +13,15 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class MozoController extends Controller
 {
+    /**
+     * Divisor para obtener la base imponible desde un monto con IGV (18 %) incluido.
+     */
+    private const DIVISOR_IGV = 1.18;
+
     /**
      * CU-MOZO-01: Obtener el plano del salón completo con pisos, mesas y despacho en vivo.
      */
@@ -1749,7 +1756,7 @@ class MozoController extends Controller
         });
 
         $total = (float) $items->sum('subtotal');
-        $baseImponible = round($total / 1.18, 2);
+        $baseImponible = round($total / self::DIVISOR_IGV, 2);
         $igv = round($total - $baseImponible, 2);
 
         $tieneCocinaPendiente = $itemsRaw->where('requiere_preparacion', true)->whereIn('estado', ['en_cola', 'en_preparacion'])->isNotEmpty();
@@ -1761,7 +1768,9 @@ class MozoController extends Controller
             ->orderBy('orden')
             ->get();
 
-        $opcionesPago = $metodosPagoRaw->map(function ($mp) use ($total) {
+        $metodoPagoService = app(MetodoPagoLocalService::class);
+
+        $opcionesPago = $metodosPagoRaw->map(function ($mp) use ($total, $localId, $metodoPagoService) {
             $porcentajeRecargo = $mp->codigo === 'tarjeta'
                 ? (float) $mp->comision_porcentaje
                 : 0.0;
@@ -1780,12 +1789,9 @@ class MozoController extends Controller
                 'comision_porcentaje' => $porcentajeRecargo,
                 'monto_comision' => $comision,
                 'total_estimado' => round($total + $comision, 2),
-                'detalle_billetera' => $esBilletera ? [
-                    'telefono' => $datosAdicionales['telefono'] ?? '930723537',
-                    'titular' => $datosAdicionales['titular'] ?? 'ÁUREA S.A.C.',
-                    'ruc' => $datosAdicionales['ruc'] ?? '20601234567',
-                    'monto_exacto' => round($total, 2),
-                ] : null,
+                'detalle_billetera' => $esBilletera
+                    ? $metodoPagoService->detalleBilletera($localId, $datosAdicionales, $total)
+                    : null,
                 'datos_adicionales' => $datosAdicionales,
             ];
         });
@@ -1987,6 +1993,119 @@ class MozoController extends Controller
     }
 
     /**
+     * Desde este monto (S/) una boleta exige identificar al cliente con DNI (SUNAT).
+     */
+    private const LIMITE_BOLETA_CONSUMIDOR_FINAL = 700.00;
+
+    /**
+     * Rechaza boletas de consumidor final (sin documento) cuyo total alcanza el límite.
+     *
+     * @param  array<int, array<string, mixed>>  $subcuentas
+     *
+     * @throws ValidationException
+     */
+    private function validarIdentificacionBoletasDesdeLimite(array $subcuentas): void
+    {
+        $errores = [];
+
+        foreach ($subcuentas as $indice => $sub) {
+            if ($sub['tipo_comprobante'] !== 'boleta') {
+                continue;
+            }
+
+            if ((float) $sub['total_neto'] < self::LIMITE_BOLETA_CONSUMIDOR_FINAL) {
+                continue;
+            }
+
+            $documento = (string) ($sub['documento_cliente'] ?? '');
+
+            if (! preg_match('/^\d{8}$/', $documento) || $documento === '00000000') {
+                $errores["subcuentas.{$indice}.documento_cliente"] = [
+                    'Las boletas desde S/ 700.00 requieren identificar al cliente con un DNI válido.',
+                ];
+            }
+        }
+
+        if ($errores !== []) {
+            throw ValidationException::withMessages($errores);
+        }
+    }
+
+    /**
+     * Rechaza subcuentas cuyo medio de pago no está habilitado en la sede,
+     * para que el error aparezca al dividir y no al cobrar.
+     *
+     * @param  array<int, array<string, mixed>>  $subcuentas
+     *
+     * @throws ValidationException
+     */
+    private function validarMediosPagoHabilitados(array $subcuentas, string $localId): void
+    {
+        $habilitados = DB::table('metodo_pago_local')
+            ->where('local_id', $localId)
+            ->where('activo', true)
+            ->pluck('codigo')
+            ->all();
+
+        $errores = [];
+
+        foreach ($subcuentas as $indice => $sub) {
+            if (! in_array($sub['medio_pago'], $habilitados, true)) {
+                $errores["subcuentas.{$indice}.medio_pago"] = [
+                    'El medio de pago seleccionado no está habilitado en esta sede.',
+                ];
+            }
+        }
+
+        if ($errores !== []) {
+            throw ValidationException::withMessages($errores);
+        }
+    }
+
+    /**
+     * Verifica que el recargo y el total de cada subcuenta cuadren con la comisión que la sede
+     * tiene configurada para el medio de pago, en lugar de confiar en los importes del cliente.
+     *
+     * @param  array<int, array<string, mixed>>  $subcuentas
+     *
+     * @throws ValidationException
+     */
+    private function validarImportesSubcuentas(array $subcuentas, string $localId): void
+    {
+        $comisionTarjeta = (float) DB::table('metodo_pago_local')
+            ->where('local_id', $localId)
+            ->where('codigo', 'tarjeta')
+            ->value('comision_porcentaje');
+
+        $errores = [];
+
+        foreach ($subcuentas as $indice => $sub) {
+            $baseCobro = (float) $sub['subtotal_bruto'] - (float) ($sub['descuento'] ?? 0.0);
+            $porcentaje = $sub['medio_pago'] === 'tarjeta' ? $comisionTarjeta : 0.0;
+            $recargoEsperado = round($baseCobro * ($porcentaje / 100), 2);
+            $recargoEnviado = (float) ($sub['monto_recargo'] ?? 0.0);
+
+            if (abs($recargoEnviado - $recargoEsperado) > 0.01) {
+                $errores["subcuentas.{$indice}.monto_recargo"] = [
+                    'El recargo no corresponde a la comisión configurada para este medio de pago en la sede.',
+                ];
+
+                continue;
+            }
+
+            if (abs((float) $sub['total_neto'] - round($baseCobro + $recargoEnviado, 2)) > 0.01) {
+                $errores["subcuentas.{$indice}.total_neto"] = [
+                    'El total de la subcuenta no coincide con subtotal, descuento y recargo.',
+                ];
+            }
+        }
+
+        if ($errores !== []) {
+            throw ValidationException::withMessages($errores);
+        }
+    }
+
+    /**
      * CU-MOZO-09 / CU-CAJA-04: Registrar la división de cuenta en subcuentas y pasar a cuenta_pedida.
      */
     public function dividirCuenta(string $id, Request $request): JsonResponse
@@ -2015,6 +2134,10 @@ class MozoController extends Controller
             'subcuentas.*.items.*.precio_unitario' => ['required', 'numeric', 'min:0'],
             'subcuentas.*.items.*.subtotal' => ['required', 'numeric', 'min:0'],
         ]);
+
+        $this->validarIdentificacionBoletasDesdeLimite($validated['subcuentas']);
+        $this->validarMediosPagoHabilitados($validated['subcuentas'], $localId);
+        $this->validarImportesSubcuentas($validated['subcuentas'], $localId);
 
         $mesa = DB::table('mesa')
             ->where('id', $id)

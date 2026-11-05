@@ -25,6 +25,8 @@ import {
   ComprobanteItemAnulacionDTO,
 } from '@/types/caja';
 import { cajaService } from '@/services/serviceAdapter';
+import { useAuthStore } from '@/stores/authStore';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   extraerDigitosMovilPeru,
   formatearTelefonoPeru,
@@ -62,6 +64,7 @@ export const ModalEmisionNotaCredito: React.FC<ModalEmisionNotaCreditoProps> = (
   onClose,
   onNotaCreditoEmitida,
 }) => {
+  const nombreSede = useAuthStore((s) => s.usuario?.local_nombre) || 'nuestro restaurante';
   // Estado de fases: 'formulario' (Vista 2) | 'emitido' (Vista 3)
   const [paso, setPaso] = useState<'formulario' | 'emitido'>('formulario');
   const [loading, setLoading] = useState<boolean>(true);
@@ -245,7 +248,7 @@ export const ModalEmisionNotaCredito: React.FC<ModalEmisionNotaCreditoProps> = (
     }
     setEnviandoWhatsApp(true);
     try {
-      const mensaje = `Hola ${preparacion?.cliente_nombre || 'Estimado(a)'}, aquí tienes tu Nota de Crédito oficial de ÁUREA: ${urlPublicaNC}`;
+      const mensaje = `Hola ${preparacion?.cliente_nombre || 'Estimado(a)'}, aquí tienes tu Nota de Crédito oficial de ${nombreSede}: ${urlPublicaNC}`;
       const urlWa = generarEnlaceWhatsApp(telefonoEnvio, mensaje);
       window.open(urlWa, '_blank');
       setEnviadoWhatsApp(true);
@@ -715,13 +718,19 @@ export const ModalEmisionNotaCredito: React.FC<ModalEmisionNotaCreditoProps> = (
 
               {/* Token QR Dinámico y Enlace Público con Botón Copiar */}
               <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-center gap-5">
-                {/* Gran QR Simulado */}
-                <div className="w-28 h-28 rounded-2xl bg-slate-100 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2 text-center shrink-0">
-                  <QrCode className="w-16 h-16 text-slate-800 dark:text-slate-200" />
-                  <span className="text-[9px] font-mono text-slate-500 font-bold mt-1">
-                    TOKEN DIGITAL
-                  </span>
-                </div>
+                {/* QR real del enlace público de la nota de crédito */}
+                {urlPublicaNC ? (
+                  <div className="w-28 h-28 rounded-2xl bg-white border-2 border-slate-300 dark:border-slate-700 flex items-center justify-center p-2 shrink-0">
+                    <QRCodeSVG value={urlPublicaNC} size={96} level="M" includeMargin={false} />
+                  </div>
+                ) : (
+                  <div className="w-28 h-28 rounded-2xl bg-slate-100 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2 text-center shrink-0">
+                    <QrCode className="w-16 h-16 text-slate-800 dark:text-slate-200" />
+                    <span className="text-[9px] font-mono text-slate-500 font-bold mt-1">
+                      SIN ENLACE
+                    </span>
+                  </div>
+                )}
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">

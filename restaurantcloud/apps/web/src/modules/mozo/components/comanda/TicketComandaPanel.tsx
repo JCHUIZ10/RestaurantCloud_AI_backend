@@ -15,6 +15,7 @@ import {
   ShoppingCart,
 } from 'lucide-react';
 import { ItemPedidoBorrador, ItemDetalleComandaDTO } from '@/types/mozo';
+import { DIVISOR_IGV } from '@/shared/constants/tributario';
 
 interface TicketComandaPanelProps {
   mesaNumero: string;
@@ -56,7 +57,7 @@ export const TicketComandaPanel: React.FC<TicketComandaPanelProps> = ({
     (acc, it) => acc + it.precio_unitario * it.cantidad,
     0
   );
-  const subtotalSinIgv = totalRonda / 1.18;
+  const subtotalSinIgv = totalRonda / DIVISOR_IGV;
   const igvCalculado = totalRonda - subtotalSinIgv;
 
   const totalConsolidado = totalPrevio + totalRonda;

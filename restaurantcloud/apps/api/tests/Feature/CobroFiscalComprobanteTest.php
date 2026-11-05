@@ -124,7 +124,7 @@ class CobroFiscalComprobanteTest extends TestCase
             ->where('tipo_comprobante', 'boleta')
             ->where('serie', 'B001')
             ->value('correlativo_actual');
-        $maximoEmitido = (int) DB::table('comprobante')->where('serie', 'B001')->max('correlativo');
+        $maximoEmitido = (int) DB::table('comprobante')->where('local_id', $this->localId)->where('serie', 'B001')->max('correlativo');
         $correlativoEsperado = max($acumuladoSerie, $maximoEmitido) + 1;
 
         // 3. Ejecutar POST api/v1/caja/cobrar
@@ -170,5 +170,116 @@ class CobroFiscalComprobanteTest extends TestCase
                 'estado' => 'emitido',
             ],
         ]);
+    }
+
+    private function crearPedidoCobrable(): string
+    {
+        $this->asegurarCajaAbierta();
+
+        $mesa = DB::table('mesa')->where('local_id', $this->localId)->where('estado', 'activa')->first();
+        $producto = DB::table('producto')->where('local_id', $this->localId)->first();
+
+        $pedidoId = (string) Str::uuid();
+        DB::table('pedido')->insert([
+            'id' => $pedidoId,
+            'local_id' => $this->localId,
+            'mesa_id' => $mesa->id,
+            'mozo_id' => $this->cajeroId,
+            'numero_comanda' => 998,
+            'comensales' => 1,
+            'estado' => 'cuenta_pedida',
+            'tipo_comprobante_sugerido' => 'boleta',
+            'medio_pago_sugerido' => 'efectivo',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('pedido_item')->insert([
+            'id' => (string) Str::uuid(),
+            'pedido_id' => $pedidoId,
+            'producto_id' => $producto->id,
+            'cantidad' => 1,
+            'precio_unitario' => 20.00,
+            'estado' => 'entregado',
+            'estado_pago' => 'pendiente',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $pedidoId;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function payloadCobro(string $pedidoId): array
+    {
+        return [
+            'pedido_id' => $pedidoId,
+            'tipo_comprobante' => 'boleta',
+            'medio_pago' => 'efectivo',
+            'monto_recibido' => 20.00,
+            'nombre_cliente' => 'CLIENTE DE PRUEBA',
+            'documento_cliente' => '12345678',
+        ];
+    }
+
+    public function test_el_cobro_usa_la_serie_activa_de_la_sede(): void
+    {
+        $pedidoId = $this->crearPedidoCobrable();
+
+        DB::table('comprobante_serie')
+            ->where('local_id', $this->localId)
+            ->where('tipo_comprobante', 'boleta')
+            ->update(['serie' => 'B002']);
+
+        $response = $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', $this->payloadCobro($pedidoId));
+
+        $response->assertStatus(200);
+        $this->assertSame(
+            'B002',
+            DB::table('comprobante')->where('id', $response->json('datos.comprobante_id'))->value('serie')
+        );
+    }
+
+    public function test_el_cobro_falla_con_error_claro_si_la_sede_no_tiene_serie_activa(): void
+    {
+        $pedidoId = $this->crearPedidoCobrable();
+
+        DB::table('comprobante_serie')
+            ->where('local_id', $this->localId)
+            ->where('tipo_comprobante', 'boleta')
+            ->update(['activo' => false]);
+
+        $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', $this->payloadCobro($pedidoId))
+            ->assertStatus(409)
+            ->assertJsonPath('errores.0.codigo', 'ERR_SERIE_NO_CONFIGURADA');
+    }
+
+    public function test_el_cobro_en_efectivo_registra_el_monto_recibido_y_el_vuelto(): void
+    {
+        $pedidoId = $this->crearPedidoCobrable();
+
+        $response = $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', [
+            ...$this->payloadCobro($pedidoId),
+            'monto_recibido' => 50.00,
+        ]);
+
+        $response->assertStatus(200);
+        $comprobante = DB::table('comprobante')->where('id', $response->json('datos.comprobante_id'))->first();
+        $this->assertEquals(50.00, (float) $comprobante->monto_recibido);
+        $this->assertEquals(30.00, (float) $comprobante->vuelto);
+    }
+
+    public function test_el_cobro_en_efectivo_rechaza_un_monto_recibido_menor_al_total(): void
+    {
+        $pedidoId = $this->crearPedidoCobrable();
+
+        $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', [
+            ...$this->payloadCobro($pedidoId),
+            'monto_recibido' => 10.00,
+        ])
+            ->assertStatus(422)
+            ->assertJsonPath('errores.0.codigo', 'MONTO_RECIBIDO_INSUFICIENTE');
     }
 }

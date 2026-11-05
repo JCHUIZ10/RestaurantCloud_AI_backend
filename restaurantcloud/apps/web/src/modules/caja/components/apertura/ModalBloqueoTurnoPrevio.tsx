@@ -12,11 +12,14 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { CajaTurnoDTO } from '@/types/caja';
+import { generarEnlaceWhatsApp } from '@/shared/utils';
 
 interface ModalBloqueoTurnoPrevioProps {
   isOpen: boolean;
   turnoActivo: CajaTurnoDTO | null;
-  onNotificarAdmin: () => Promise<void>;
+  /** Devuelve true si el aviso quedó registrado */
+  onNotificarAdmin: () => Promise<boolean>;
+  contactoAdministracion?: { nombre: string; telefono: string } | null;
   onCerrarSesion: () => void;
 }
 
@@ -24,6 +27,7 @@ export const ModalBloqueoTurnoPrevio: React.FC<ModalBloqueoTurnoPrevioProps> = (
   isOpen,
   turnoActivo,
   onNotificarAdmin,
+  contactoAdministracion = null,
   onCerrarSesion,
 }) => {
   const [notificado, setNotificado] = useState<boolean>(false);
@@ -33,18 +37,24 @@ export const ModalBloqueoTurnoPrevio: React.FC<ModalBloqueoTurnoPrevioProps> = (
 
   const handleNotificar = async () => {
     setIsNotificando(true);
-    await onNotificarAdmin();
+    const registrado = await onNotificarAdmin();
     setIsNotificando(false);
-    setNotificado(true);
+    if (registrado) {
+      setNotificado(true);
+    }
   };
 
-  const whatsappUrl = `https://wa.me/51987654321?text=${encodeURIComponent(
-    `Hola Mariana Ramos, en la terminal de caja el Turno #${String(
-      turnoActivo.correlativo
-    ).padStart(3, '0')} de ${
-      turnoActivo.cajero_nombre
-    } quedó pendiente de cierre. Por favor resolver en CU-ADMIN-14 para habilitar la apertura de turno.`
-  )}`;
+  // El enlace de WhatsApp solo existe si la sede (o su propietario) tiene un celular registrado
+  const whatsappUrl = contactoAdministracion
+    ? generarEnlaceWhatsApp(
+        contactoAdministracion.telefono,
+        `Hola ${contactoAdministracion.nombre}, en la terminal de caja el Turno #${String(
+          turnoActivo.correlativo
+        ).padStart(3, '0')} de ${
+          turnoActivo.cajero_nombre
+        } quedó pendiente de cierre. Por favor resolver en CU-ADMIN-14 para habilitar la apertura de turno.`
+      )
+    : '';
 
   return (
     <div
@@ -157,10 +167,11 @@ export const ModalBloqueoTurnoPrevio: React.FC<ModalBloqueoTurnoPrevioProps> = (
                 <span>Notificación enviada a Administración</span>
               </div>
               <p className="text-[11px] text-emerald-700 dark:text-emerald-300 leading-relaxed">
-                <strong>Mariana Ramos (Administradora de Sede)</strong> ha recibido la solicitud. Ella resolverá el cierre y arqueo en <strong>CU-ADMIN-14 (Flujo de Caja & Supervisar Cierres Z)</strong>.
+                <strong>{contactoAdministracion ? contactoAdministracion.nombre : 'La administración de la sede'}</strong> ha recibido la solicitud. Ella resolverá el cierre y arqueo en <strong>CU-ADMIN-14 (Flujo de Caja & Supervisar Cierres Z)</strong>.
               </p>
 
               <div className="pt-1 flex items-center gap-2 flex-wrap">
+                {whatsappUrl && (
                 <a
                   href={whatsappUrl}
                   target="_blank"
@@ -170,6 +181,7 @@ export const ModalBloqueoTurnoPrevio: React.FC<ModalBloqueoTurnoPrevioProps> = (
                   <ExternalLink className="w-3.5 h-3.5" />
                   <span>Avisar por WhatsApp</span>
                 </a>
+                )}
 
 
               </div>

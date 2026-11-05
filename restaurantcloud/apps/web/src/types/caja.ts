@@ -37,6 +37,8 @@ export interface EstadoCajaSesionDTO {
   monto_ventas_actual?: number;
   sede_nombre: string;
   correlativo_proyectado: number;
+  /** Administrador de la sede (o propietario) a quien avisar; null si ninguno tiene celular */
+  contacto_administracion?: { nombre: string; telefono: string } | null;
 }
 
 export interface AbrirCajaRequest {
@@ -79,6 +81,8 @@ export interface BalancePreArqueoDTO {
   efectivo_esperado: number;
   tarjetas_pos_total: number;
   tarjetas_operaciones: number;
+  /** Operador del POS de tarjetas configurado en la sede (ej. Niubiz), si lo registró */
+  operador_tarjeta?: string | null;
   billeteras_total: number;
   billeteras_operaciones?: number;
   efectivo_operaciones?: number;
@@ -215,6 +219,8 @@ export interface PrecuentaResponseDTO {
   promocion_activa_id?: string | null;
   tributacion_sunat: DesgloseTributarioSUNATDTO;
   opciones_cobro: OpcionCobroPrecuentaDTO[];
+  /** Serie activa de la sede por tipo de comprobante (null si no tiene) */
+  series_activas?: Partial<Record<'boleta' | 'factura' | 'nota_venta', string | null>>;
   subcuentas?: SubcuentaComandaDTO[];
   tipo_comprobante_sugerido?: 'boleta' | 'factura' | 'nota_venta';
   documento_cliente_sugerido?: string | null;
@@ -241,7 +247,7 @@ export interface ProcesarCobroFiscalRequest {
   mesa_id: string;
   subcuenta_id?: string;
   tipo_comprobante: 'boleta' | 'factura' | 'nota_venta';
-  serie: string; // ej: 'B001', 'F001', 'NV01'
+  serie?: string; // Informativa: el backend asigna la serie activa de la sede
   cliente_tipo_doc?: 'DNI' | 'RUC';
   cliente_num_doc?: string;
   cliente_nombre: string;

@@ -27,6 +27,8 @@ import { PromocionComercialSelector } from './PromocionComercialSelector';
 import { DesgloseSUNATCard } from './DesgloseSUNATCard';
 import { MetodosPagoSelector } from './MetodosPagoSelector';
 import { ModalQRBilletera } from './ModalQRBilletera';
+import { DIVISOR_IGV } from '@/shared/constants/tributario';
+import { construirOpcionesPago } from '../../utils/opcionesPago';
 
 interface ModalPrecuentaCompletaProps {
   isOpen: boolean;
@@ -56,7 +58,7 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
   const [promocionSeleccionada, setPromocionSeleccionada] = useState<PromocionSedeDTO | null>(null);
   const [metodoSeleccionado, setMetodoSeleccionado] = useState<CodigoMetodoPago>('efectivo');
   const [modalQRAbierto, setModalQRAbierto] = useState(false);
-  const [numeroOperacion, setNumeroOperacion] = useState<string>('581902');
+  const [numeroOperacion, setNumeroOperacion] = useState<string>('');
   const [enviandoNotificacion, setEnviandoNotificacion] = useState(false);
   const [tipoComprobante, setTipoComprobante] = useState<'boleta' | 'factura' | 'nota_venta'>('boleta');
   const [documentoCliente, setDocumentoCliente] = useState<string>('');
@@ -129,7 +131,7 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
       ? Math.round(consumoBruto * (porcentajePromo / 100) * 100) / 100
       : 0;
     const totalNeto = Math.round((consumoBruto - descuentoComercial) * 100) / 100;
-    const baseImponible = Math.round((totalNeto / 1.18) * 100) / 100;
+    const baseImponible = Math.round((totalNeto / DIVISOR_IGV) * 100) / 100;
     const igv = Math.round((totalNeto - baseImponible) * 100) / 100;
 
     const desgloseSUNAT: DesgloseSUNATMozoDTO = {
@@ -141,60 +143,11 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
       tasa_igv: 0.18,
     };
 
-    // Mapear los métodos de pago dinámicos desde la BD (tabla metodo_pago_local)
-    const rawOpciones = (dataOriginal as any).opciones_pago || (dataOriginal as any).opciones_cobro || [];
-    const opcionesPago: OpcionPagoMozoDTO[] = rawOpciones.length > 0
-      ? rawOpciones.map((op: any) => {
-          const comisionPct = Number(op.comision_porcentaje || 0);
-          const comision = Math.round(totalNeto * (comisionPct / 100) * 100) / 100;
-          const esBilletera = ['yape', 'plin', 'billetera_digital'].includes(op.codigo);
-
-          const detBilletera = op.detalle_billetera ? {
-            telefono: op.detalle_billetera.telefono || '930723537',
-            titular: op.detalle_billetera.titular || 'ÁUREA S.A.C.',
-            ruc: op.detalle_billetera.ruc || '20601234567',
-            monto_exacto: totalNeto,
-          } : (esBilletera ? {
-            telefono: op.datos_adicionales?.telefono || '930723537',
-            titular: op.datos_adicionales?.titular || 'ÁUREA S.A.C.',
-            ruc: op.datos_adicionales?.ruc || '20601234567',
-            monto_exacto: totalNeto,
-          } : null);
-
-          return {
-            id: op.id,
-            codigo: op.codigo,
-            nombre: op.nombre || op.metodo_pago_nombre || op.codigo,
-            icono: op.icono || 'wallet',
-            comision_porcentaje: comisionPct,
-            monto_comision: comision,
-            total_estimado: Math.round((totalNeto + comision) * 100) / 100,
-            detalle_billetera: detBilletera,
-            datos_adicionales: op.datos_adicionales,
-          };
-        })
-      : [
-          {
-            codigo: 'efectivo',
-            nombre: 'Efectivo',
-            comision_porcentaje: 0.0,
-            monto_comision: 0.0,
-            total_estimado: totalNeto,
-          },
-          {
-            codigo: 'yape',
-            nombre: 'Yape / Plin',
-            comision_porcentaje: 0.0,
-            monto_comision: 0.0,
-            total_estimado: totalNeto,
-            detalle_billetera: {
-              telefono: '930723537',
-              titular: 'ÁUREA S.A.C.',
-              ruc: '20601234567',
-              monto_exacto: totalNeto,
-            },
-          },
-        ];
+    // Medios de pago habilitados en la sede (tabla metodo_pago_local), sin opciones de reserva
+    const opcionesPago = construirOpcionesPago(
+      (dataOriginal as any).opciones_pago || (dataOriginal as any).opciones_cobro,
+      totalNeto
+    );
 
     return {
       desgloseSUNAT,
@@ -203,6 +156,14 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
       totalNeto,
     };
   }, [dataOriginal, promocionSeleccionada]);
+
+  // Si el método elegido ya no está entre los habilitados de la sede, se pasa al primero disponible
+  useEffect(() => {
+    if (!calculos || calculos.opcionesPago.length === 0) return;
+    if (!calculos.opcionesPago.some((o) => o.codigo === metodoSeleccionado)) {
+      setMetodoSeleccionado(calculos.opcionesPago[0].codigo);
+    }
+  }, [calculos, metodoSeleccionado]);
 
   // Validación Poka-Yoke de datos de comprobante para habilitar emisión de cuenta
   const validacionComprobante = useMemo(() => {
@@ -755,7 +716,12 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
                   )}
                 </div>
 
-                <MetodosPagoSelector
+                {calculos.opcionesPago.length === 0 ? (
+                  <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium">
+                  La sede no tiene medios de pago habilitados. Configúralos en Formas de pago para poder emitir la cuenta.
+                </div>
+                ) : (
+                  <MetodosPagoSelector
                   opcionesPago={calculos.opcionesPago}
                   metodoSeleccionado={metodoSeleccionado}
                   onSeleccionarMetodo={setMetodoSeleccionado}
@@ -767,6 +733,7 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
                   isComprobanteValido={validacionComprobante.valido}
                   motivoBloqueoComprobante={validacionComprobante.motivo}
                 />
+                )}
               </div>
             </div>
           )}

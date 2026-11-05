@@ -9,7 +9,6 @@ import {
   ShieldCheck,
   ArrowLeft,
   ChevronRight,
-  Sparkles,
 } from 'lucide-react';
 import { BalancePreArqueoDTO } from '@/types/caja';
 
@@ -17,14 +16,12 @@ interface BalancePreArqueoViewProps {
   balance: BalancePreArqueoDTO;
   onIniciarArqueo: () => void;
   onVolverPos: () => void;
-  onLiquidarMesasDemo?: () => void;
 }
 
 export const BalancePreArqueoView: React.FC<BalancePreArqueoViewProps> = ({
   balance,
   onIniciarArqueo,
   onVolverPos,
-  onLiquidarMesasDemo,
 }) => {
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
@@ -105,18 +102,6 @@ export const BalancePreArqueoView: React.FC<BalancePreArqueoViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            {onLiquidarMesasDemo && (
-              <button
-                type="button"
-                onClick={onLiquidarMesasDemo}
-                className="px-3 py-1.5 rounded-xl bg-rose-200 dark:bg-rose-900/60 hover:bg-rose-300 text-rose-900 dark:text-rose-100 text-xs font-semibold transition-colors flex items-center gap-1"
-                title="Liquida automáticamente las mesas para permitir el arqueo en QA"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Liquidar Mesas (QA)</span>
-              </button>
-            )}
-
             <button
               type="button"
               onClick={onVolverPos}
@@ -175,7 +160,7 @@ export const BalancePreArqueoView: React.FC<BalancePreArqueoViewProps> = ({
                   <tr>
                     <td className="py-2.5 font-sans font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                       <CreditCard className="w-3.5 h-3.5 text-sky-500" />
-                      <span>Tarjetas POS (Niubiz/Izipay)</span>
+                      <span>Tarjetas POS{balance.operador_tarjeta ? ` (${balance.operador_tarjeta})` : ''}</span>
                     </td>
                     <td className="py-2.5 text-center text-slate-500">
                       {balance.tarjetas_operaciones} {balance.tarjetas_operaciones === 1 ? 'Cobro' : 'Cobros'}

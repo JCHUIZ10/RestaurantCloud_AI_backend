@@ -26,6 +26,12 @@ import {
   generarEnlaceWhatsApp,
 } from '@/shared/utils';
 import { cajaService } from '@/services/serviceAdapter';
+import { DIVISOR_IGV } from '@/shared/constants/tributario';
+import { useAuthStore } from '@/stores/authStore';
+import {
+  LIMITE_BOLETA_CONSUMIDOR_FINAL,
+  permiteConsumidorFinal,
+} from '@/modules/mozo/components/split/consumidorFinal';
 
 interface ModalCobroFiscalPosProps {
   isOpen: boolean;
@@ -67,9 +73,12 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
   onClose,
   onComprobanteEmitido,
 }) => {
+  const nombreSede = useAuthStore((s) => s.usuario?.local_nombre) || 'nuestro restaurante';
   const [cuentas, setCuentas] = useState<CuentaFiscalItem[]>([]);
   const [indexCuentaActiva, setIndexCuentaActiva] = useState<number>(0);
   const [whatsappEnviado, setWhatsappEnviado] = useState<Record<string, boolean>>({});
+  // Texto que el cajero escribe en "Monto recibido" (efectivo), por cuenta
+  const [montoRecibidoTxt, setMontoRecibidoTxt] = useState<Record<string, string>>({});
   const [emailEnviado, setEmailEnviado] = useState<Record<string, boolean>>({});
   const [notificacionFeedback, setNotificacionFeedback] = useState<string | null>(null);
   const [cobrando, setCobrando] = useState<boolean>(false);
@@ -122,10 +131,10 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
           s.tipo_comprobante_sugerido?.toUpperCase() === 'NOTA_VENTA';
 
         const tipoComp = isFactura ? 'factura' : isNota ? 'nota_venta' : 'boleta';
-        const serie = isFactura ? 'F001' : isNota ? 'NV01' : 'B001';
+        const serie = precuenta.series_activas?.[tipoComp] || null;
 
         const totalNeto = s.total_neto;
-        const base = Math.round((totalNeto / 1.18) * 100) / 100;
+        const base = Math.round((totalNeto / DIVISOR_IGV) * 100) / 100;
         const igv = Math.round((totalNeto - base) * 100) / 100;
 
         const titular = s.titular_referencia || (isFactura ? 'Razón Social' : 'Cliente General');
@@ -145,7 +154,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
           tipo_documento: tipoDoc,
           numero_documento: numDoc,
           tipo_comprobante: tipoComp,
-          serie_numero: esCobrada ? 'Comprobante Emitido' : `Pendiente (${serie})`,
+          serie_numero: esCobrada ? 'Comprobante Emitido' : serie ? `Pendiente (${serie})` : 'Pendiente',
           total_neto: totalNeto,
           base_imponible: base,
           igv,
@@ -181,9 +190,9 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
       const totalNeto = precuenta?.total_cobro_tentativo || precuenta?.tributacion_sunat.total_neto || mesa.total_consumo || 0.0;
       const tipoComp = precuenta?.tipo_comprobante_sugerido || 'boleta';
       const isFactura = tipoComp === 'factura';
-      const serie = isFactura ? 'F001' : tipoComp === 'nota_venta' ? 'NV01' : 'B001';
+      const serie = precuenta?.series_activas?.[tipoComp as 'boleta' | 'factura' | 'nota_venta'] || null;
 
-      const base = Math.round((totalNeto / 1.18) * 100) / 100;
+      const base = Math.round((totalNeto / DIVISOR_IGV) * 100) / 100;
       const igv = Math.round((totalNeto - base) * 100) / 100;
 
       const clienteEnBd = Boolean(precuenta?.cliente_encontrado_en_bd);
@@ -194,7 +203,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
         tipo_documento: isFactura ? 'RUC' : precuenta?.documento_cliente_sugerido ? 'DNI' : 'SIN_DOC',
         numero_documento: precuenta?.documento_cliente_sugerido || '',
         tipo_comprobante: tipoComp,
-        serie_numero: `Pendiente (${serie})`,
+        serie_numero: serie ? `Pendiente (${serie})` : 'Pendiente',
         total_neto: totalNeto,
         base_imponible: base,
         igv,
@@ -225,6 +234,31 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
   const todasPagadas = cuentas.length > 0 && numPagadas === cuentas.length;
   const entregaDigitalDisponible = cuentaActiva.pagado && Boolean(cuentaActiva.token_digital);
   const quedanPendientes = cuentas.filter((c) => !c.pagado).length;
+
+  // Efectivo: el cajero registra con cuánto pagó el cliente y el vuelto se calcula en vivo
+  const requiereMontoRecibido = cuentaActiva.medio_pago === 'efectivo' && !cuentaActiva.pagado;
+  const recibidoInsuficiente =
+    requiereMontoRecibido && cuentaActiva.monto_recibido + 0.005 < cuentaActiva.total_neto;
+
+  const handleCambiarMontoRecibido = (texto: string) => {
+    const limpio = texto.replace(',', '.').replace(/[^0-9.]/g, '');
+    const recibido = Math.round((parseFloat(limpio) || 0) * 100) / 100;
+    setMontoRecibidoTxt((prev) => ({ ...prev, [cuentaActiva.id]: limpio }));
+    setCuentas((prev) =>
+      prev.map((c) =>
+        c.id === cuentaActiva.id
+          ? { ...c, monto_recibido: recibido, vuelto: Math.max(0, Math.round((recibido - c.total_neto) * 100) / 100) }
+          : c
+      )
+    );
+  };
+
+  const handleMontoExacto = () => {
+    setMontoRecibidoTxt((prev) => ({ ...prev, [cuentaActiva.id]: cuentaActiva.total_neto.toFixed(2) }));
+    setCuentas((prev) =>
+      prev.map((c) => (c.id === cuentaActiva.id ? { ...c, monto_recibido: c.total_neto, vuelto: 0 } : c))
+    );
+  };
 
   // Manejador para copiar URL del comprobante
   const handleCopiarUrl = async () => {
@@ -307,7 +341,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
       return;
     }
 
-    const mensaje = `Hola ${cuentaActiva.titular}, aquí tienes tu comprobante electrónico oficial de ÁUREA: ${cuentaActiva.url_publica}`;
+    const mensaje = `Hola ${cuentaActiva.titular}, aquí tienes tu comprobante electrónico oficial de ${nombreSede}: ${cuentaActiva.url_publica}`;
     const urlWa = generarEnlaceWhatsApp(cuentaActiva.telefono_whatsapp, mensaje);
     window.open(urlWa, '_blank');
 
@@ -362,7 +396,6 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
         pedido_id: pedidoEfectivoId,
         subcuenta_id: cuentas.length > 1 && !cuentaActiva.id.startsWith('sub-') ? cuentaActiva.id : undefined,
         tipo_comprobante: cuentaActiva.tipo_comprobante,
-        serie: cuentaActiva.tipo_comprobante === 'factura' ? 'F001' : cuentaActiva.tipo_comprobante === 'nota_venta' ? 'NV01' : 'B001',
         cliente_nombre: cuentaActiva.titular,
         cliente_num_doc: cuentaActiva.numero_documento || undefined,
         metodo_pago_codigo: cuentaActiva.medio_pago,
@@ -605,7 +638,9 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
                     </span>
                   ) : (
                     <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                      Boleta &lt; S/ 700 • Sin cliente en BD
+                      {cuentaActiva.tipo_comprobante === 'boleta' && permiteConsumidorFinal(cuentaActiva.total_neto)
+                        ? `Boleta < S/ ${LIMITE_BOLETA_CONSUMIDOR_FINAL.toFixed(0)} • Sin cliente en BD`
+                        : 'Sin cliente en BD'}
                     </span>
                   )}
                 </div>
@@ -620,10 +655,44 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
                     `Billetera Digital (Yape / Plin)${cuentaActiva.numero_operacion ? ` • Op: ${cuentaActiva.numero_operacion}` : ''}`
                   ) : cuentaActiva.medio_pago === 'tarjeta' ? (
                     'Tarjeta POS Débito/Crédito'
-                  ) : (
+                  ) : cuentaActiva.pagado ? (
                     `Efectivo • Recibido S/ ${cuentaActiva.monto_recibido.toFixed(2)} • Vuelto S/ ${cuentaActiva.vuelto.toFixed(2)}`
+                  ) : (
+                    'Efectivo'
                   )}
                 </span>
+                {requiereMontoRecibido && (
+                  <div className="mt-1.5 space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 shrink-0">
+                        Monto recibido S/
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={montoRecibidoTxt[cuentaActiva.id] ?? cuentaActiva.monto_recibido.toFixed(2)}
+                        onChange={(e) => handleCambiarMontoRecibido(e.target.value)}
+                        className="w-24 py-1 px-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs font-bold text-slate-900 dark:text-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleMontoExacto}
+                        className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-[11px] font-semibold"
+                      >
+                        Monto exacto
+                      </button>
+                    </div>
+                    {recibidoInsuficiente ? (
+                      <span className="text-[11px] font-semibold text-rose-600">
+                        El monto recibido es menor al total a cobrar.
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                        Vuelto: S/ {cuentaActiva.vuelto.toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                )}
                 <span className="text-[11px] text-slate-500">
                   Estado: {cuentaActiva.pagado ? '✓ Confirmado e Inmutable' : 'Listo para cobro'}
                 </span>
@@ -995,7 +1064,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
             ) : (
               <button
                 type="button"
-                disabled={cobrando}
+                disabled={cobrando || recibidoInsuficiente}
                 onClick={handleConfirmarPago}
                 className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 disabled:bg-amber-400 disabled:cursor-not-allowed text-white text-xs font-bold transition-all shadow-md shadow-amber-500/25 flex items-center justify-center gap-2"
               >

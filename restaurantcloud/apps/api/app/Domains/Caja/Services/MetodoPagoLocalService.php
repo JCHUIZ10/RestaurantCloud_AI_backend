@@ -48,6 +48,31 @@ class MetodoPagoLocalService
         ];
     }
 
+    /**
+     * Datos de cobro de la billetera digital (Yape/Plin) de la sede.
+     *
+     * El celular sale solo de la configuración de la sede (vacío si no lo configuró); titular y RUC,
+     * de la configuración o, si faltan, de la empresa propietaria de la sede.
+     *
+     * @param  array<string, mixed>  $datosAdicionales
+     * @return array{telefono: string, titular: string, ruc: string, monto_exacto: float}
+     */
+    public function detalleBilletera(string $localId, array $datosAdicionales, float $montoExacto): array
+    {
+        $empresa = DB::table('local as l')
+            ->join('empresa as e', 'e.id', '=', 'l.empresa_id')
+            ->where('l.id', $localId)
+            ->select('e.razon_social', 'e.ruc')
+            ->first();
+
+        return [
+            'telefono' => (string) ($datosAdicionales['telefono'] ?? ''),
+            'titular' => (string) ($datosAdicionales['titular'] ?? $empresa->razon_social ?? ''),
+            'ruc' => (string) ($datosAdicionales['ruc'] ?? $empresa->ruc ?? ''),
+            'monto_exacto' => round($montoExacto, 2),
+        ];
+    }
+
     public function actualizar(string $localId, array $items): array
     {
         $this->asegurarCatalogoBase($localId);

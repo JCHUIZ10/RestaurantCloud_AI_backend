@@ -652,6 +652,10 @@ export const realCajaService = {
     return apiPost<CajaTurnoDTO>('/caja/apertura', datos);
   },
 
+  async notificarTurnoPrevioPendiente(): Promise<ApiResponse<{ notificados: number; ya_notificado: boolean }>> {
+    return apiPost<{ notificados: number; ya_notificado: boolean }>('/caja/turno-previo/notificar-administracion', {});
+  },
+
   // CU-CAJA-02: Monitor POS y Precuenta
   async getMesasMonitor(): Promise<ApiResponse<MesaCajaMonitorDTO[]>> {
     return apiGet<MesaCajaMonitorDTO[]>('/caja/mesas-monitor');

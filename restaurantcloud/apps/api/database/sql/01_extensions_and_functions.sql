@@ -79,11 +79,12 @@ BEGIN
         RAISE EXCEPTION 'ERR_SERIE_NO_ENCONTRADA: Serie % de tipo % no activa para sede %', p_serie, p_tipo_comprobante, p_local_id;
     END IF;
 
-    -- Verificar el mayor correlativo físico ya emitido en la tabla comprobante para esta serie
+    -- Verificar el mayor correlativo físico ya emitido en esta sede para la serie
     SELECT COALESCE(MAX(correlativo), 0)
     INTO v_max_existente
     FROM comprobante
-    WHERE serie = p_serie;
+    WHERE local_id = p_local_id
+      AND serie = p_serie;
 
     -- El siguiente correlativo es estrictamente mayor tanto al acumulador de la serie como al máximo emitido
     v_siguiente := GREATEST(v_siguiente, v_max_existente) + 1;

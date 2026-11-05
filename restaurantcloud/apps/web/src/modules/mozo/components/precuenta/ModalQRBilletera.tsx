@@ -21,16 +21,39 @@ export const ModalQRBilletera: React.FC<ModalQRBilleteraProps> = ({
   onConfirmarPago,
   actor = 'mozo',
 }) => {
-  const [numeroOperacion, setNumeroOperacion] = useState('581902');
+  const [numeroOperacion, setNumeroOperacion] = useState('');
   const [copiado, setCopiado] = useState(false);
-  const [verificadoMozo, setVerificadoMozo] = useState(true);
+  // Empieza desmarcada: confirmar el pago exige validar la transferencia de forma consciente
+  const [verificadoMozo, setVerificadoMozo] = useState(false);
   const [conMontoExacto, setConMontoExacto] = useState(true);
 
   if (!isOpen) return null;
 
-  const telefono = detalle?.telefono || '930723537';
-  const titular = detalle?.titular || 'AUREA RESTAURANTE';
-  const ruc = detalle?.ruc || '20601234567';
+  // Los datos de cobro salen solo de la configuración de la sede; no hay valores de respaldo
+  const telefono = detalle?.telefono || '';
+  const titular = detalle?.titular || '';
+  const ruc = detalle?.ruc || '';
+
+  if (!telefono.trim()) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="bg-[#0B2340] border border-[#D5A06F]/40 rounded-2xl max-w-md w-full shadow-2xl p-5 space-y-4">
+          <h3 className="text-base font-serif font-bold text-[#FFF9F0]">Yape / Plin sin configurar</h3>
+          <p className="text-sm text-slate-300">
+            La sede no tiene registrado el celular de Yape/Plin. Un administrador debe configurarlo en
+            Formas de pago antes de cobrar por este medio.
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full py-2.5 px-4 rounded-xl bg-[#D5A06F] text-[#0B2340] font-bold text-xs"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Payload estándar EMVCo MPM oficial interoperable para Yape y Plin
   const qrPayload = generateYapeEmvcoPayload({
@@ -173,7 +196,7 @@ export const ModalQRBilletera: React.FC<ModalQRBilleteraProps> = ({
                 type="text"
                 value={numeroOperacion}
                 onChange={(e) => setNumeroOperacion(e.target.value)}
-                placeholder="Ej. 581902"
+                placeholder="N° del voucher de Yape/Plin"
                 className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-[#D5A06F]"
               />
             </div>

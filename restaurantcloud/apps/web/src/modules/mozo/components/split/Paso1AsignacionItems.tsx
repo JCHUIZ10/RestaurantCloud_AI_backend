@@ -11,6 +11,7 @@ import {
   Utensils,
 } from 'lucide-react';
 import { ItemParaDividirDTO, SubcuentaConfigDTO } from '@/types/mozo';
+import { CONSUMIDOR_FINAL_DOC, CONSUMIDOR_FINAL_NOMBRE } from './consumidorFinal';
 
 interface Paso1AsignacionItemsProps {
   items: ItemParaDividirDTO[];
@@ -145,8 +146,7 @@ export const Paso1AsignacionItems: React.FC<Paso1AsignacionItemsProps> = ({
   // Agregar una nueva subcuenta (hasta comensales o ilimitada)
   const handleCrearSubcuenta = () => {
     const nuevoNumero = subcuentas.length + 1;
-    const letras = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
-    const letra = letras[nuevoNumero - 1] || `${nuevoNumero}`;
+    const letras = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];    const letra = letras[nuevoNumero - 1] || `${nuevoNumero}`;
 
     const nuevaSubcuenta: SubcuentaConfigDTO = {
       id: `sub-${nuevoNumero}`,
@@ -154,7 +154,10 @@ export const Paso1AsignacionItems: React.FC<Paso1AsignacionItemsProps> = ({
       nombre_referencia: `Comensal ${letra}`,
       items: [],
       tipo_comprobante: nuevoNumero === 1 ? 'factura' : 'boleta',
-      nombre_cliente: '',
+      documento_cliente: nuevoNumero === 1 ? '' : CONSUMIDOR_FINAL_DOC,
+      nombre_cliente: nuevoNumero === 1 ? '' : CONSUMIDOR_FINAL_NOMBRE,
+      direccion_cliente: '',
+      consumidor_final_sin_doc: nuevoNumero !== 1,
       medio_pago: 'efectivo',
       subtotal_bruto: 0,
       descuento: 0,

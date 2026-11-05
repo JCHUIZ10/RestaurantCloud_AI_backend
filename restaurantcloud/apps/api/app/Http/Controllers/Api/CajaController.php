@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Domains\Caja\Jobs\GenerarComprobanteDigitalJob;
 use App\Domains\Caja\Services\ConsultaDocumentoService;
+use App\Domains\Caja\Services\MetodoPagoLocalService;
 use App\Domains\Caja\Services\ReporteZDigitalService;
 use App\Domains\Carta\Services\CartaPublicaService;
 use App\Http\Controllers\Controller;
@@ -21,6 +22,11 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CajaController extends Controller
 {
+    /**
+     * Divisor para obtener la base imponible desde un monto con IGV (18 %) incluido.
+     */
+    private const DIVISOR_IGV = 1.18;
+
     /**
      * CU-CAJA-01: Obtener estado de sesión de caja del local.
      */
@@ -42,6 +48,7 @@ class CajaController extends Controller
                 'c.local_id',
                 'c.cajero_id',
                 'u.nombre as cajero_nombre',
+                'u.rol as cajero_rol_codigo',
                 'u.correo as cajero_correo',
                 'c.correlativo',
                 'c.monto_apertura',
@@ -81,7 +88,7 @@ class CajaController extends Controller
                 'local_id' => $cajaAbierta->local_id,
                 'cajero_id' => $cajaAbierta->cajero_id,
                 'cajero_nombre' => $cajaAbierta->cajero_nombre,
-                'cajero_rol' => 'Cajero de Turno',
+                'cajero_rol' => $this->etiquetaRolUsuario($cajaAbierta->cajero_rol_codigo),
                 'correlativo' => (int) $cajaAbierta->correlativo,
                 'monto_apertura' => (float) $cajaAbierta->monto_apertura,
                 'notas_apertura' => $cajaAbierta->notas_apertura,
@@ -101,6 +108,7 @@ class CajaController extends Controller
                 'monto_ventas_actual' => $montoVentas,
                 'sede_nombre' => $sedeNombre,
                 'correlativo_proyectado' => $correlativoProyectado,
+                'contacto_administracion' => $this->contactoAdministracion($localId),
             ]);
         }
 
@@ -146,7 +154,136 @@ class CajaController extends Controller
             'monto_ventas_actual' => 0.00,
             'sede_nombre' => $sedeNombre,
             'correlativo_proyectado' => $correlativoProyectado,
+            'contacto_administracion' => $this->contactoAdministracion($localId),
         ]);
+    }
+
+    /**
+     * Rótulo legible del rol real del usuario que abrió el turno (sin inventar cargos).
+     */
+    private function etiquetaRolUsuario(?string $rol): string
+    {
+        return match ($rol) {
+            'admin_local' => 'Administrador de sede',
+            'propietario' => 'Propietario',
+            default => 'Cajero',
+        };
+    }
+
+    /**
+     * Persona a la que se avisa cuando un turno previo queda sin cerrar: el administrador activo
+     * de la sede o, si no tiene, el propietario de la empresa. Null si ninguno tiene celular.
+     *
+     * @return array{nombre: string, telefono: string}|null
+     */
+    private function contactoAdministracion(string $localId): ?array
+    {
+        $contacto = DB::table('usuario')
+            ->where('local_id', $localId)
+            ->where('rol', 'admin_local')
+            ->where('estado', 'activo')
+            ->whereNotNull('telefono')
+            ->orderBy('created_at')
+            ->first(['nombre', 'telefono']);
+
+        if (! $contacto) {
+            $empresaId = DB::table('local')->where('id', $localId)->value('empresa_id');
+
+            $contacto = DB::table('usuario')
+                ->where('empresa_id', $empresaId)
+                ->where('rol', 'propietario')
+                ->where('estado', 'activo')
+                ->whereNotNull('telefono')
+                ->orderBy('created_at')
+                ->first(['nombre', 'telefono']);
+        }
+
+        return $contacto ? ['nombre' => $contacto->nombre, 'telefono' => $contacto->telefono] : null;
+    }
+
+    /**
+     * CU-CAJA-01: Avisa a la administración que un turno anterior quedó pendiente de cierre.
+     * Deja una notificación para el administrador de la sede (o el propietario si no hay) y un
+     * registro de auditoría. No duplica el aviso si ya hay uno sin leer para el mismo turno.
+     */
+    public function notificarTurnoPrevioPendiente(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $localId = $user->local_id;
+
+        $turnoPendiente = DB::table('caja as c')
+            ->join('usuario as u', 'u.id', '=', 'c.cajero_id')
+            ->where('c.local_id', $localId)
+            ->where('c.estado', 'abierta')
+            ->where('c.cajero_id', '!=', $user->id)
+            ->select(['c.id', 'c.correlativo', 'u.nombre as cajero_nombre'])
+            ->first();
+
+        if (! $turnoPendiente) {
+            return ApiResponse::error(
+                'NO_HAY_TURNO_PREVIO_PENDIENTE',
+                'No hay un turno anterior pendiente de cierre en esta sede.',
+                409,
+            );
+        }
+
+        $empresaId = $user->empresa_id ?? DB::table('local')->where('id', $localId)->value('empresa_id');
+
+        $yaNotificado = DB::table('notificacion')
+            ->where('tipo', 'turno_previo_pendiente')
+            ->where('entidad_id', $turnoPendiente->id)
+            ->where('leida', false)
+            ->exists();
+
+        if ($yaNotificado) {
+            return ApiResponse::ok(['notificados' => 0, 'ya_notificado' => true]);
+        }
+
+        $hayAdminLocal = DB::table('usuario')
+            ->where('local_id', $localId)
+            ->where('rol', 'admin_local')
+            ->where('estado', 'activo')
+            ->exists();
+
+        $destinatarios = $hayAdminLocal ? ['admin_local'] : ['propietario'];
+        $turno = str_pad((string) $turnoPendiente->correlativo, 3, '0', STR_PAD_LEFT);
+        $ahora = now();
+
+        foreach ($destinatarios as $rol) {
+            DB::table('notificacion')->insert([
+                'id' => (string) Str::uuid(),
+                'empresa_id' => $empresaId,
+                'local_id' => $localId,
+                'usuario_id' => null,
+                'rol_destinatario' => $rol,
+                'tipo' => 'turno_previo_pendiente',
+                'prioridad' => 'alta',
+                'titulo' => "Turno #{$turno} pendiente de cierre",
+                'mensaje' => "{$user->nombre} no puede abrir turno: el Turno #{$turno} de {$turnoPendiente->cajero_nombre} sigue abierto. Resuélvelo desde Administración de caja.",
+                'entidad_tipo' => 'caja',
+                'entidad_id' => $turnoPendiente->id,
+                'leida' => false,
+                'created_at' => $ahora,
+            ]);
+        }
+
+        DB::table('log_auditoria')->insert([
+            'id' => (string) Str::uuid(),
+            'empresa_id' => $empresaId,
+            'local_id' => $localId,
+            'usuario_id' => $user->id,
+            'accion' => 'caja.turno_previo.aviso_administracion',
+            'entidad_tipo' => 'caja',
+            'entidad_id' => $turnoPendiente->id,
+            'detalle' => json_encode([
+                'turno_correlativo' => (int) $turnoPendiente->correlativo,
+                'cajero_pendiente' => $turnoPendiente->cajero_nombre,
+                'destinatarios' => $destinatarios,
+            ]),
+            'fecha' => $ahora,
+        ]);
+
+        return ApiResponse::ok(['notificados' => count($destinatarios), 'ya_notificado' => false]);
     }
 
     /**
@@ -219,7 +356,7 @@ class CajaController extends Controller
                 'local_id' => $localId,
                 'cajero_id' => $user->id,
                 'cajero_nombre' => $user->nombre,
-                'cajero_rol' => 'Cajero Titular',
+                'cajero_rol' => $this->etiquetaRolUsuario($user->rol),
                 'correlativo' => $correlativo,
                 'monto_apertura' => $montoApertura,
                 'notas_apertura' => $notas,
@@ -484,7 +621,7 @@ class CajaController extends Controller
         $totalNeto = round($consumoBruto - $descuentoAplicado, 2);
 
         // Desglose oficial SUNAT UBL 2.1
-        $baseImponible = round($totalNeto / 1.18, 2);
+        $baseImponible = round($totalNeto / self::DIVISOR_IGV, 2);
         $igv = round($totalNeto - $baseImponible, 2);
 
         // Alerta de cocina si hay platos en preparación activa
@@ -505,7 +642,9 @@ class CajaController extends Controller
             ->orderBy('orden')
             ->get();
 
-        $opcionesCobro = $metodosPago->map(function ($mp) use ($totalNeto) {
+        $metodoPagoService = app(MetodoPagoLocalService::class);
+
+        $opcionesCobro = $metodosPago->map(function ($mp) use ($totalNeto, $localId, $metodoPagoService) {
             $porcentajeRecargo = $mp->codigo === 'tarjeta'
                 ? (float) $mp->comision_porcentaje
                 : 0.0;
@@ -526,12 +665,9 @@ class CajaController extends Controller
                 'comision_porcentaje' => $porcentajeRecargo,
                 'monto_comision' => $comision,
                 'total_estimado' => round($totalNeto + $comision, 2),
-                'detalle_billetera' => $esBilletera ? [
-                    'telefono' => $datosAdicionales['telefono'] ?? '930723537',
-                    'titular' => $datosAdicionales['titular'] ?? 'ÁUREA S.A.C.',
-                    'ruc' => $datosAdicionales['ruc'] ?? '20601234567',
-                    'monto_exacto' => round($totalNeto, 2),
-                ] : null,
+                'detalle_billetera' => $esBilletera
+                    ? $metodoPagoService->detalleBilletera($localId, $datosAdicionales, $totalNeto)
+                    : null,
                 'datos_adicionales' => $datosAdicionales,
             ];
         });
@@ -677,8 +813,29 @@ class CajaController extends Controller
             'numero_operacion_tentativo' => $pedido->numero_operacion_sugerido,
             'total_cobro_tentativo' => (float) $totalCobroTentativo,
             'subcuentas' => $subcuentas->isNotEmpty() ? $subcuentas : null,
+            'series_activas' => [
+                'boleta' => $this->serieActivaDelLocal($localId, 'boleta'),
+                'factura' => $this->serieActivaDelLocal($localId, 'factura'),
+                'nota_venta' => $this->serieActivaDelLocal($localId, 'nota_venta'),
+            ],
             'generada_at' => now()->toIso8601String(),
         ]);
+    }
+
+    /**
+     * Serie activa con la que la sede emite un tipo de comprobante, o null si no tiene ninguna.
+     */
+    private function serieActivaDelLocal(string $localId, string $tipoComprobante): ?string
+    {
+        $serie = DB::table('comprobante_serie')
+            ->where('local_id', $localId)
+            ->where('tipo_comprobante', $tipoComprobante)
+            ->where('activo', true)
+            ->orderBy('created_at')
+            ->orderBy('serie')
+            ->value('serie');
+
+        return $serie !== null ? (string) $serie : null;
     }
 
     /**
@@ -845,7 +1002,7 @@ class CajaController extends Controller
                     : 0.0;
                 $montoRecargo = round($totalConsumo * ($porcentajeRecargo / 100), 2);
                 $totalCobro = round($totalConsumo + $montoRecargo, 2);
-                $baseImponible = round($totalCobro / 1.18, 2);
+                $baseImponible = round($totalCobro / self::DIVISOR_IGV, 2);
                 $igv = round($totalCobro - $baseImponible, 2);
 
                 $documentoCliente = trim((string) ($validated['documento_cliente'] ?? $subcuenta?->documento_cliente ?? ''));
@@ -930,11 +1087,15 @@ class CajaController extends Controller
                 }
 
                 // La serie se bloquea en PostgreSQL para no duplicar correlativos bajo concurrencia.
-                $serie = match ($validated['tipo_comprobante']) {
-                    'factura' => 'F001',
-                    'nota_venta' => 'NV01',
-                    default => 'B001',
-                };
+                $serie = $this->serieActivaDelLocal($localId, $validated['tipo_comprobante']);
+
+                if ($serie === null) {
+                    return ApiResponse::error(
+                        'ERR_SERIE_NO_CONFIGURADA',
+                        "La sede no tiene una serie activa para {$validated['tipo_comprobante']}.",
+                        409,
+                    );
+                }
 
                 $siguienteSerie = DB::selectOne(
                     'SELECT fn_obtener_siguiente_correlativo(CAST(? AS uuid), ?, ?) AS correlativo',
@@ -951,6 +1112,7 @@ class CajaController extends Controller
                     'pedido_id' => $pedido->id,
                     'subcuenta_id' => $subcuentaId,
                     'caja_id' => $caja->id,
+                    'local_id' => $localId,
                     'cliente_id' => $clienteId,
                     'tipo' => $validated['tipo_comprobante'],
                     'serie' => $serie,
@@ -978,7 +1140,7 @@ class CajaController extends Controller
                 // 2. Insertar líneas inmutables en comprobante_item (UBL 2.1 SUNAT)
                 foreach ($itemsToCharge as $it) {
                     $itemSubtotal = (float) $it->subtotal;
-                    $itemBase = round($itemSubtotal / 1.18, 2);
+                    $itemBase = round($itemSubtotal / self::DIVISOR_IGV, 2);
                     $itemIgv = round($itemSubtotal - $itemBase, 2);
 
                     DB::table('comprobante_item')->insert([
@@ -1536,6 +1698,7 @@ class CajaController extends Controller
                 'pedido_id' => $comp->pedido_id,
                 'subcuenta_id' => $comp->subcuenta_id,
                 'caja_id' => $caja->id,
+                'local_id' => $localId,
                 'cliente_id' => $comp->cliente_id,
                 'tipo' => 'nota_credito',
                 'serie' => $serieNC,
@@ -1769,6 +1932,7 @@ class CajaController extends Controller
                 'c.local_id',
                 'c.cajero_id',
                 'u.nombre as cajero_nombre',
+                'u.rol as cajero_rol_codigo',
                 'c.correlativo',
                 'c.monto_apertura',
                 'c.notas_apertura',
@@ -1872,11 +2036,18 @@ class CajaController extends Controller
 
         $salonAlDia = ($mesasActivasPendientes === 0);
 
+        $datosTarjeta = DB::table('metodo_pago_local')
+            ->where('local_id', $localId)
+            ->where('codigo', 'tarjeta')
+            ->value('datos_adicionales');
+        $datosTarjeta = is_string($datosTarjeta) ? json_decode($datosTarjeta, true) : (array) $datosTarjeta;
+        $operadorTarjeta = trim((string) ($datosTarjeta['operador'] ?? '')) ?: null;
+
         return ApiResponse::ok([
             'caja_id' => $caja->id,
             'turno_correlativo' => (int) $caja->correlativo,
             'cajero_nombre' => $caja->cajero_nombre,
-            'cajero_rol' => 'Cajero de Turno',
+            'cajero_rol' => $this->etiquetaRolUsuario($caja->cajero_rol_codigo),
             'fecha_apertura' => Carbon::parse($caja->fecha_apertura)->toIso8601String(),
             'monto_apertura' => $montoApertura,
             'ingresos_efectivo' => $ingresosEfectivo,
@@ -1884,6 +2055,7 @@ class CajaController extends Controller
             'efectivo_esperado' => $efectivoEsperado,
             'tarjetas_pos_total' => $tarjetasPosTotal,
             'tarjetas_operaciones' => $tarjetasOperaciones,
+            'operador_tarjeta' => $operadorTarjeta,
             'billeteras_total' => $billeterasTotal,
             'efectivo_operaciones' => $efectivoOperaciones,
             'billeteras_operaciones' => $billeterasOperaciones,

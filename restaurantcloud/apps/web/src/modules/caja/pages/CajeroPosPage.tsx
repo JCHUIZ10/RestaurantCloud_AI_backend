@@ -296,11 +296,23 @@ export const CajeroPosPage: React.FC = () => {
   };
 
   // Manejador de Notificar a Administración (Vista 2)
-  const handleNotificarAdmin = async () => {
-    showToast(
-      'info',
-      'Aviso registrado: La administración ha sido notificada para resolver el cierre del turno pendiente.'
-    );
+  const handleNotificarAdmin = async (): Promise<boolean> => {
+    try {
+      const resp = await cajaService.notificarTurnoPrevioPendiente();
+      if (resp.exito) {
+        showToast(
+          'info',
+          resp.datos?.ya_notificado
+            ? 'La administración ya fue avisada de este turno pendiente y aún no lo atiende.'
+            : 'Aviso registrado: la administración ha sido notificada para resolver el cierre del turno pendiente.'
+        );
+        return true;
+      }
+      showToast('error', resp.errores?.[0]?.mensaje || 'No se pudo avisar a la administración.');
+    } catch {
+      showToast('error', 'No se pudo avisar a la administración. Inténtalo nuevamente.');
+    }
+    return false;
   };
 
   if (loading || !session || !metricas) {
@@ -345,22 +357,9 @@ export const CajeroPosPage: React.FC = () => {
 
       {/* Contenido Base del Monitor POS (Atenuado si está bloqueado, plenamente interactivo si está desbloqueado) */}
       <div className={!isPosDesbloqueado ? 'opacity-30 pointer-events-none filter blur-[1px]' : ''}>
+        {turnoActivo ? (
         <MonitorCajaPosView
-          turnoActivo={
-            turnoActivo || {
-              id: 'turno-temp',
-              local_id: session.sede_nombre || 'local-1',
-              cajero_id: currentUserId,
-              cajero_nombre: usuario?.nombre || 'Cajero de Turno',
-              correlativo: session.correlativo_proyectado,
-              monto_apertura: 0,
-              estado: 'cerrada',
-              fecha_apertura: new Date().toISOString(),
-              total_ventas: 0,
-              monto_ventas: 0,
-              efectivo_actual: 0,
-            }
-          }
+          turnoActivo={turnoActivo}
           mesas={mesas}
           metricas={metricas}
           onAbrirPrecuenta={handleAbrirPrecuenta}
@@ -372,6 +371,10 @@ export const CajeroPosPage: React.FC = () => {
             navigate(ROUTES.CAJERO_TURNO);
           }}
         />
+        ) : (
+          // Sin turno abierto no hay monitor que mostrar: solo se ve el modal de apertura
+          <div className="min-h-[60vh]" />
+        )}
       </div>
 
       {/* VISTA 1: Modal de Apertura de Turno (Gating Central con Backdrop Oscuro 75%) */}
@@ -392,6 +395,7 @@ export const CajeroPosPage: React.FC = () => {
           isOpen={true}
           turnoActivo={turnoActivo}
           onNotificarAdmin={handleNotificarAdmin}
+          contactoAdministracion={session.contacto_administracion}
           onCerrarSesion={cerrarSesion}
         />
       )}

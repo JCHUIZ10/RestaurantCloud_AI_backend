@@ -641,6 +641,7 @@ CREATE TABLE IF NOT EXISTS comprobante (
     id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
     pedido_id UUID REFERENCES pedido(id) ON DELETE SET NULL,
     caja_id UUID NOT NULL REFERENCES caja(id) ON DELETE RESTRICT,
+    local_id UUID NOT NULL REFERENCES local(id) ON DELETE RESTRICT, -- La numeración es por sede; lo completa el trigger si falta
     cliente_id UUID REFERENCES cliente(id) ON DELETE SET NULL,
     tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('boleta', 'factura', 'nota_venta', 'nota_credito')),
     serie VARCHAR(10) NOT NULL,
@@ -672,8 +673,23 @@ CREATE TABLE IF NOT EXISTS comprobante (
     subcuenta_id UUID REFERENCES pedido_subcuenta(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_comprobante_serie_correlativo UNIQUE (serie, correlativo)
+    CONSTRAINT uq_comprobante_local_serie_correlativo UNIQUE (local_id, serie, correlativo)
 );
+
+CREATE OR REPLACE FUNCTION trg_fn_comprobante_asignar_local()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.local_id IS NULL THEN
+        SELECT local_id INTO NEW.local_id FROM caja WHERE id = NEW.caja_id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_comprobante_asignar_local ON comprobante;
+CREATE TRIGGER trg_comprobante_asignar_local
+    BEFORE INSERT ON comprobante
+    FOR EACH ROW EXECUTE FUNCTION trg_fn_comprobante_asignar_local();
 
 -- Vincular subcuenta a comprobante (CU-MOZO-09, CU-CAJA-03)
 ALTER TABLE pedido_subcuenta

@@ -144,8 +144,8 @@ CREATE INDEX IF NOT EXISTS idx_pedido_mesa_estado
 CREATE INDEX IF NOT EXISTS idx_comprobante_caja_fecha 
     ON comprobante(caja_id, fecha DESC);
 
-CREATE INDEX IF NOT EXISTS idx_comprobante_serie_correlativo 
-    ON comprobante(serie, correlativo);
+CREATE INDEX IF NOT EXISTS idx_comprobante_local_serie_correlativo
+    ON comprobante(local_id, serie, correlativo);
 
 CREATE INDEX IF NOT EXISTS idx_comprobante_subcuenta 
     ON comprobante(subcuenta_id);
