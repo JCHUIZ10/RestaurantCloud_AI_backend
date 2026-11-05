@@ -168,3 +168,4 @@ stateDiagram-v2
 - **Baja definitiva:** no hay baja ni eliminación, aunque el esquema tiene `pendiente_baja`, `eliminada` y `ejecutada_baja`.
 - **Reembolsos:** no existe flujo de reembolsos.
 - **Cambio a anual:** no se puede pasar de mensual a anual de forma inmediata (queda para la Etapa 5).
+- **Realizar pruebas de cuenta Sustpendida**: Se ha hecho pruebas manuales de estos cambios en el sistema

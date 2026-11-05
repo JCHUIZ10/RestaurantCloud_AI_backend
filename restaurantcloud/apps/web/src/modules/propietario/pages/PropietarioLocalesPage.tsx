@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LocalItemDTO,
@@ -7,6 +7,7 @@ import {
 import { propietarioLocalesService } from '../services/propietarioLocalesService';
 import { LocalesHeader } from '../components/locales/LocalesHeader';
 import { LocalesTabla } from '../components/locales/LocalesTabla';
+import { LocalesFiltrosBar, TabEstadoLocal } from '../components/locales/LocalesFiltrosBar';
 import { ModalCrearLocal } from '../components/locales/ModalCrearLocal';
 import { ModalEditarLocal } from '../components/locales/ModalEditarLocal';
 import { ModalDesactivarLocal } from '../components/locales/ModalDesactivarLocal';
@@ -29,6 +30,23 @@ export const PropietarioLocalesPage: React.FC = () => {
   const [locales, setLocales] = useState<LocalItemDTO[]>([]);
   const [cuotaPlan, setCuotaPlan] = useState<CuotaPlanLocalesDTO | null>(null);
   const [cargando, setCargando] = useState(true);
+
+  // Filtro de estado por pestaña (por defecto: activos)
+  const [tabActivo, setTabActivo] = useState<TabEstadoLocal>('activos');
+
+  // Conteos en tiempo real para las pestañas
+  const conteos = useMemo(() => ({
+    activos: locales.filter((l) => l.estado === 'activo').length,
+    desactivados: locales.filter((l) => l.estado === 'inactivo').length,
+    todos: locales.length,
+  }), [locales]);
+
+  // Lista de sedes filtrada según la pestaña activa
+  const localesFiltrados = useMemo(() => {
+    if (tabActivo === 'activos') return locales.filter((l) => l.estado === 'activo');
+    if (tabActivo === 'desactivados') return locales.filter((l) => l.estado === 'inactivo');
+    return locales;
+  }, [locales, tabActivo]);
 
   // Modales
   const [modalCrearAbierto, setModalCrearAbierto] = useState(false);
@@ -184,14 +202,50 @@ export const PropietarioLocalesPage: React.FC = () => {
           </Button>
         </div>
       ) : (
-        /* Directorio de Locales: Tabla Desktop y Tarjetas Móviles */
-        <LocalesTabla
-          locales={locales}
-          onAccederSede={handleAccederSede}
-          onEditar={(local) => setLocalAEditar(local)}
-          onDesactivar={(local) => setLocalADesactivar(local)}
-          onReactivar={handleReactivar}
-        />
+        /* Directorio de Locales: Filtros de Estado y Tabla/Tarjetas */
+        <div className="space-y-4">
+          <LocalesFiltrosBar
+            tabActivo={tabActivo}
+            onTabChange={setTabActivo}
+            conteos={conteos}
+          />
+
+          {localesFiltrados.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-aurea-copper/25 p-12 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-aurea-champagne/20 text-aurea-navy flex items-center justify-center mx-auto border border-aurea-copper/20">
+                <Building2 className="w-6 h-6 text-aurea-copper" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-serif text-base font-bold text-aurea-navy">
+                  No hay sedes {tabActivo === 'activos' ? 'activas' : tabActivo === 'desactivados' ? 'desactivadas' : ''}
+                </h4>
+                <p className="text-xs text-aurea-navy/60 max-w-sm mx-auto">
+                  {tabActivo === 'activos'
+                    ? 'No cuentas con sedes operativas en este momento. Puedes reactivar alguna sede inactiva o registrar una nueva.'
+                    : tabActivo === 'desactivados'
+                    ? 'Todas tus sedes se encuentran operativas y activas en este momento.'
+                    : 'No se encontraron registros de sedes.'}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setTabActivo('todos')}
+                className="text-xs border-aurea-copper/40 text-aurea-navy hover:bg-aurea-champagne/20"
+              >
+                Ver todas las sedes ({locales.length})
+              </Button>
+            </div>
+          ) : (
+            <LocalesTabla
+              locales={localesFiltrados}
+              onAccederSede={handleAccederSede}
+              onEditar={(local) => setLocalAEditar(local)}
+              onDesactivar={(local) => setLocalADesactivar(local)}
+              onReactivar={handleReactivar}
+            />
+          )}
+        </div>
       )}
 
       {/* Modal 1: Crear Sede (2 pasos: datos + plantilla) */}
