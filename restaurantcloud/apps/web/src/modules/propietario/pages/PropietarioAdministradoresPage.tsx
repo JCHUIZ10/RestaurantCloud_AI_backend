@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { ROUTES } from '@/router/routes.constants';
+import { Button, PageHeader } from '@/components/ui';
 import {
   AdministradorItemDTO,
   CuotaPersonalDTO,
@@ -6,7 +9,7 @@ import {
   InvitarAdminRequestDTO,
 } from '@/types/propietarioAdmins';
 import { propietarioAdminsService } from '@/services/serviceAdapter';
-import { AdminsHeader } from '../components/administradores/AdminsHeader';
+import { AdminsStatsCards } from '../components/administradores/AdminsStatsCards';
 import { AdminsTabla } from '../components/administradores/AdminsTabla';
 import {
   AdminsFiltrosBar,
@@ -20,6 +23,9 @@ import {
   AlertCircle,
   X,
   Loader2,
+  Users,
+  UserPlus,
+  Sparkles,
 } from 'lucide-react';
 
 export const PropietarioAdministradoresPage: React.FC = () => {
@@ -176,6 +182,24 @@ export const PropietarioAdministradoresPage: React.FC = () => {
     todos: administradores.length,
   }), [administradores]);
 
+  // Métricas de cobertura de sedes
+  const totalSedes = useMemo(() => {
+    if (!formularioDatos) return 0;
+    return formularioDatos.sedes_disponibles.length + formularioDatos.sedes_ocupadas.length;
+  }, [formularioDatos]);
+
+  const sedesAsignadas = useMemo(() => {
+    if (formularioDatos) return formularioDatos.sedes_ocupadas.length;
+    return administradores.filter((a) => a.estado === 'activo' && a.sede_asignada !== null).length;
+  }, [formularioDatos, administradores]);
+
+  const sedesAutogestionadas = useMemo(() => {
+    if (formularioDatos) return formularioDatos.sedes_disponibles.length;
+    return Math.max(0, totalSedes - sedesAsignadas);
+  }, [formularioDatos, totalSedes, sedesAsignadas]);
+
+  const limiteAlcanzado = cuota?.limite_alcanzado ?? false;
+
   // Filtrado reactivo en memoria: por pestaña de estado y búsqueda de texto
   const administradoresFiltrados = useMemo(() => {
     return administradores.filter((admin) => {
@@ -229,10 +253,56 @@ export const PropietarioAdministradoresPage: React.FC = () => {
         </div>
       )}
 
-      {/* Cabecera y Barra de Cuota */}
-      <AdminsHeader
+      {/* Cabecera Principal */}
+      <PageHeader
+        icono={Users}
+        titulo="Administradores de sede"
+        descripcion="Supervisa las cuentas de administración de tus sedes: invita con un enlace seguro de 24 horas y reasigna sedes titulares."
+        meta={
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-aurea-champagne/30 text-aurea-navy border border-aurea-copper/30">
+            <Sparkles className="w-3.5 h-3.5 text-aurea-copper" />
+            Plan {cuota?.plan_nombre || 'Pro'}: {cuota?.cupos_disponibles ?? 0} cupo(s) disponible(s)
+          </span>
+        }
+        acciones={
+          limiteAlcanzado ? (
+            <div className="flex flex-col items-end gap-1.5">
+              <Button
+                type="button"
+                disabled
+                leftIcon={<UserPlus className="w-4 h-4" />}
+                className="bg-tinta-200 text-tinta-500 cursor-not-allowed font-bold text-xs sm:text-sm shadow-none"
+              >
+                Invitar nuevo administrador
+              </Button>
+              <Link
+                to={ROUTES.PROPIETARIO_SUSCRIPCION}
+                className="text-xs text-aurea-copper hover:text-aurea-navy font-bold flex items-center gap-1 underline"
+              >
+                <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+                Límite alcanzado. Mejorar plan de suscripción →
+              </Link>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              onClick={() => setModalInvitarAbierto(true)}
+              leftIcon={<UserPlus className="w-4 h-4 text-aurea-copper" />}
+            >
+              Invitar nuevo administrador
+            </Button>
+          )
+        }
+      />
+
+      {/* Panel Ejecutivo de Cobertura de Sedes & Equipo */}
+      <AdminsStatsCards
+        conteos={conteos}
         cuota={cuota}
-        onAbrirInvitar={() => setModalInvitarAbierto(true)}
+        totalSedes={totalSedes}
+        sedesAsignadas={sedesAsignadas}
+        sedesAutogestionadas={sedesAutogestionadas}
+        onSeleccionarTab={setTabActivo}
       />
 
       {/* Barra de Filtros (Segmented Pill-Tabs y Buscador Rápido) */}
@@ -248,25 +318,26 @@ export const PropietarioAdministradoresPage: React.FC = () => {
       {/* Contenido Principal: Skeleton vs Tabla */}
       {cargando ? (
         <div className="bg-white rounded-3xl border-2 border-aurea-copper/20 p-12 text-center space-y-3 shadow-sm">
-          <Loader2 className="w-8 h-8 text-aurea-copper animate-spin mx-auto" />
-          <p className="text-xs font-semibold text-aurea-navy/70">
-            Consultando personal y verificando permisos en PostgreSQL...
+          <Loader2 className="w-10 h-10 animate-spin text-aurea-copper mx-auto" />
+          <h3 className="font-serif text-lg font-bold text-aurea-navy">
+            Sincronizando cuentas de administradores...
+          </h3>
+          <p className="text-xs text-tinta-500">
+            Consultando estado de sedes y vigencia de invitaciones de 24 horas.
           </p>
         </div>
       ) : (
         <AdminsTabla
           administradores={administradoresFiltrados}
           tabActivo={tabActivo}
-          busqueda={busqueda}
-          onLimpiarBusqueda={() => setBusqueda('')}
           onDesactivar={(admin) => setAdminADesactivar(admin)}
+          onVerEnlace={(admin) => setAdminAVerEnlace(admin)}
           onReenviar={handleReenviarInvitacion}
           onCancelarInvitacion={handleCancelarInvitacion}
-          onVerEnlace={(admin) => setAdminAVerEnlace(admin)}
         />
       )}
 
-      {/* Modales */}
+      {/* Modales del Caso de Uso */}
       <ModalInvitarAdmin
         abierto={modalInvitarAbierto}
         cuota={cuota}
