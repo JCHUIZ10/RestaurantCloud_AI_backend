@@ -32,6 +32,7 @@ export const ROUTES = {
   PROPIETARIO_ADMINISTRADORES: '/propietario/administradores',
   PROPIETARIO_SUSCRIPCION: '/propietario/suscripcion',
   PROPIETARIO_CAMBIAR_PLAN: '/propietario/cambiar-plan',
+  PROPIETARIO_CONSERVAR_RECURSOS: '/propietario/suscripcion/conservar',
   // [PRÓXIMO ENTREGABLE - FASE 2]: Incidentes empresa (supervisión corporativa multi-sede)
   PROPIETARIO_INCIDENTES: '/propietario/incidentes',
 

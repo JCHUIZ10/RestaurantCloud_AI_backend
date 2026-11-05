@@ -41,6 +41,7 @@ import { PropietarioLocalesPage } from '@/modules/propietario/pages/PropietarioL
 import { PropietarioAdministradoresPage } from '@/modules/propietario/pages/PropietarioAdministradoresPage';
 import { PropietarioSuscripcionPage } from '@/modules/propietario/pages/PropietarioSuscripcionPage';
 import { PropietarioCambiarPlanPage } from '@/modules/propietario/pages/PropietarioCambiarPlanPage';
+import { PropietarioConservarRecursosPage } from '@/modules/propietario/pages/PropietarioConservarRecursosPage';
 import { CajeroPosPage } from '@/modules/caja/pages/CajeroPosPage';
 import { CajeroTurnoCierrePage } from '@/modules/caja/pages/CajeroTurnoCierrePage';
 import { SaasTenantsPage } from '@/modules/saas/pages/SaasTenantsPage';
@@ -185,6 +186,10 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
       {
         path: 'cambiar-plan',
         element: <PropietarioCambiarPlanPage />,
+      },
+      {
+        path: 'suscripcion/conservar',
+        element: <PropietarioConservarRecursosPage />,
       },
       // [PRÓXIMO ENTREGABLE - FASE 2]: Incidentes de la Empresa (CU-PROP-06)
       {

@@ -530,6 +530,8 @@ class CambioPlanTest extends TestCase
     {
         [$antiguo] = $this->agregarLocales(3);
         $piso = $this->agregarPiso($antiguo);
+        DB::table('mesa')->insert(['id' => (string) Str::uuid(), 'local_id' => $antiguo, 'piso_id' => $piso, 'numero' => '01',
+            'capacidad' => 6, 'forma' => 'redonda', 'posicion_x' => 2, 'posicion_y' => 1, 'estado' => 'activa']);
         $this->programar(1, 'mensual')->assertOk();
 
         $this->getJson('/api/v1/propietario/suscripcion/recursos-conciliacion', $this->headers())
@@ -539,6 +541,9 @@ class CambioPlanTest extends TestCase
             ->assertJsonPath('datos.plan_destino.limites.max_locales', 1)
             ->assertJsonPath('datos.seleccion_guardada', false)
             ->assertJsonPath('datos.locales.0.pisos.0.id', $piso)
+            ->assertJsonPath('datos.locales.0.pisos.0.columnas', 4)
+            ->assertJsonPath('datos.locales.0.pisos.0.mesas.0.posicion_x', 2)
+            ->assertJsonPath('datos.locales.0.pisos.0.mesas.0.capacidad', 6)
             ->assertJsonPath('datos.seleccion.locales_ids', [$antiguo])
             ->assertJsonPath('datos.seleccion.pisos_ids', [$piso]);
     }

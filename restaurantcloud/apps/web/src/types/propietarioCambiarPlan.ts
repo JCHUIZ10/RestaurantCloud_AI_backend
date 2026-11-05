@@ -159,11 +159,17 @@ export interface SeleccionConservarDTO {
 export interface MesaConciliacionDTO {
   id: string;
   numero: string;
+  capacidad: number;
+  forma: 'cuadrada' | 'redonda' | 'rectangular';
+  posicion_x: number;
+  posicion_y: number;
 }
 
 export interface PisoConciliacionDTO {
   id: string;
   nombre: string;
+  columnas: number;
+  filas: number;
   mesas: MesaConciliacionDTO[];
 }
 

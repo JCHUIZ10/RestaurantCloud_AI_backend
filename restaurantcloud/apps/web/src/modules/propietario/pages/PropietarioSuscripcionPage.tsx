@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '@/router/routes.constants';
 import type { SetupMetodoPagoDTO, SuscripcionDashboardDTO } from '@/types/propietarioSuscripcion';
 import { propietarioSuscripcionService } from '../services/propietarioSuscripcionService';
 import { SuscripcionHeader } from '../components/suscripcion/SuscripcionHeader';
@@ -7,7 +9,6 @@ import { PlanActualCard } from '../components/suscripcion/PlanActualCard';
 import { MetodoPagoCard } from '../components/suscripcion/MetodoPagoCard';
 import { HistorialFacturasTabla } from '../components/suscripcion/HistorialFacturasTabla';
 import { ModalActualizarTarjeta } from '../components/suscripcion/ModalActualizarTarjeta';
-import { ModalAsistenteDowngrade } from '../components/cambiar-plan/ModalAsistenteDowngrade';
 import { useToast } from '@/components/ui';
 import { Loader2, AlertCircle } from 'lucide-react';
 
@@ -24,7 +25,7 @@ export const PropietarioSuscripcionPage: React.FC = () => {
   const [errorTarjeta, setErrorTarjeta] = useState<string | null>(null);
   const [pagando, setPagando] = useState(false);
   const [cancelandoCambio, setCancelandoCambio] = useState(false);
-  const [asistenteAbierto, setAsistenteAbierto] = useState(false);
+  const navigate = useNavigate();
 
   const cargarDatos = useCallback(async () => {
     try {
@@ -181,7 +182,7 @@ export const PropietarioSuscripcionPage: React.FC = () => {
             usoRecursos={dashboard.uso_recursos}
             cancelandoCambio={cancelandoCambio}
             onCancelarCambio={handleCancelarCambio}
-            onElegirConservar={() => setAsistenteAbierto(true)}
+            onElegirConservar={() => navigate(ROUTES.PROPIETARIO_CONSERVAR_RECURSOS)}
           />
         </div>
 
@@ -196,15 +197,6 @@ export const PropietarioSuscripcionPage: React.FC = () => {
 
       <HistorialFacturasTabla facturas={dashboard.historial_pagos} />
 
-      <ModalAsistenteDowngrade
-        abierto={asistenteAbierto}
-        onCerrar={() => setAsistenteAbierto(false)}
-        onGuardado={() => {
-          setAsistenteAbierto(false);
-          toast.mostrar('Selección guardada. Se aplicará cuando entre el nuevo plan.', 'ok');
-          cargarDatos();
-        }}
-      />
 
       <ModalActualizarTarjeta
         abierto={modalTarjetaAbierto}

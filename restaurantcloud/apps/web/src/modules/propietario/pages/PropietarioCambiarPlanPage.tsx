@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type {
   EjecutarUpgradeResponseDTO,
   PlanesComparativaResponseDTO,
@@ -11,7 +12,6 @@ import { MatrizComparativaPlanes } from '../components/cambiar-plan/MatrizCompar
 import { ModalUpgradeProrrateo } from '../components/cambiar-plan/ModalUpgradeProrrateo';
 import { ModalProgramarCambio } from '../components/cambiar-plan/ModalProgramarCambio';
 import { BannerCambioProgramado } from '../components/cambiar-plan/BannerCambioProgramado';
-import { ModalAsistenteDowngrade } from '../components/cambiar-plan/ModalAsistenteDowngrade';
 import { ConsumoRecursosRealTime } from '../components/suscripcion/ConsumoRecursosRealTime';
 import { ROUTES } from '@/router/routes.constants';
 import { Button, PageHeader, useToast } from '@/components/ui';
@@ -44,7 +44,7 @@ export const PropietarioCambiarPlanPage: React.FC = () => {
   const [planUpgradeId, setPlanUpgradeId] = useState<number | null>(null);
   const [planCambioId, setPlanCambioId] = useState<number | null>(null);
   const [cancelandoCambio, setCancelandoCambio] = useState(false);
-  const [asistenteAbierto, setAsistenteAbierto] = useState(false);
+  const navigate = useNavigate();
   const [mostrarDetalleRecursos, setMostrarDetalleRecursos] = useState(false);
   const toast = useToast();
 
@@ -167,7 +167,10 @@ export const PropietarioCambiarPlanPage: React.FC = () => {
       `Cambio a Plan ${datos.plan_destino} (${datos.ciclo}) programado para el ${formatearFecha(datos.fecha_efectiva)}. Hasta entonces sigues con tu plan actual.`,
       'ok'
     );
-    if (datos.recursos_excedidos.length > 0) setAsistenteAbierto(true);
+    if (datos.recursos_excedidos.length > 0) {
+      navigate(ROUTES.PROPIETARIO_CONSERVAR_RECURSOS);
+      return;
+    }
     cargarDatos();
   };
 
@@ -204,7 +207,7 @@ export const PropietarioCambiarPlanPage: React.FC = () => {
           seleccionGuardada={plan_actual.proximo_plan.seleccion_guardada}
           cancelando={cancelandoCambio}
           onCancelar={handleCancelarCambio}
-          onElegirConservar={() => setAsistenteAbierto(true)}
+          onElegirConservar={() => navigate(ROUTES.PROPIETARIO_CONSERVAR_RECURSOS)}
         />
       )}
 
@@ -392,16 +395,6 @@ export const PropietarioCambiarPlanPage: React.FC = () => {
         fechaRenovacion={plan_actual.fecha_renovacion}
         onCerrar={() => setPlanCambioId(null)}
         onProgramado={handleCambioProgramado}
-      />
-
-      <ModalAsistenteDowngrade
-        abierto={asistenteAbierto}
-        onCerrar={() => setAsistenteAbierto(false)}
-        onGuardado={() => {
-          setAsistenteAbierto(false);
-          toast.mostrar('Selección guardada. Se aplicará cuando entre el nuevo plan.', 'ok');
-          cargarDatos();
-        }}
       />
 
       <ModalUpgradeProrrateo

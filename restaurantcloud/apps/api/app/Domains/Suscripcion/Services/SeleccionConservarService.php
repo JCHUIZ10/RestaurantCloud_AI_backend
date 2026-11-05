@@ -174,9 +174,9 @@ class SeleccionConservarService
         $ids = $locales->pluck('id')->all();
 
         $pisos = DB::table('piso')->whereIn('local_id', $ids)->where('estado', 'activo')
-            ->orderBy('created_at')->orderBy('id')->get(['id', 'local_id', 'nombre']);
+            ->orderBy('created_at')->orderBy('id')->get(['id', 'local_id', 'nombre', 'columnas', 'filas']);
         $mesas = DB::table('mesa')->whereIn('local_id', $ids)->where('estado', '!=', 'inactiva')
-            ->orderBy('created_at')->orderBy('id')->get(['id', 'piso_id', 'numero']);
+            ->orderBy('created_at')->orderBy('id')->get(['id', 'piso_id', 'numero', 'capacidad', 'forma', 'posicion_x', 'posicion_y']);
         $personal = DB::table('usuario')->where('empresa_id', $empresaId)->whereIn('local_id', $ids)
             ->where('estado', 'activo')->where('rol', '!=', 'propietario')
             ->orderBy('created_at')->orderBy('id')->get(['id', 'local_id', 'nombre', 'rol']);
@@ -204,9 +204,15 @@ class SeleccionConservarService
                 'pisos' => $pisos->where('local_id', $local->id)->map(fn ($piso): array => [
                     'id' => $piso->id,
                     'nombre' => $piso->nombre,
+                    'columnas' => (int) $piso->columnas,
+                    'filas' => (int) $piso->filas,
                     'mesas' => $mesas->where('piso_id', $piso->id)->map(fn ($mesa): array => [
                         'id' => $mesa->id,
                         'numero' => $mesa->numero,
+                        'capacidad' => (int) $mesa->capacidad,
+                        'forma' => $mesa->forma,
+                        'posicion_x' => (int) $mesa->posicion_x,
+                        'posicion_y' => (int) $mesa->posicion_y,
                     ])->values()->all(),
                 ])->values()->all(),
                 'personal' => $personal->where('local_id', $local->id)->map(fn ($persona): array => [
