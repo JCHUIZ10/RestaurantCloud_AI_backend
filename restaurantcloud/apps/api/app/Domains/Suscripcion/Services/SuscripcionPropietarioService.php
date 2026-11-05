@@ -4,6 +4,7 @@ namespace App\Domains\Suscripcion\Services;
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Lectura de "Mi suscripción" del propietario (CU-PROP-02): empresa, plan,
@@ -11,6 +12,8 @@ use Illuminate\Support\Facades\DB;
  */
 class SuscripcionPropietarioService
 {
+    public function __construct(private StripeGatewayService $stripe, private UsoRecursosEmpresa $uso) {}
+
     /**
      * @return array<string, mixed>|null Estructura de SuscripcionDashboardDTO del frontend.
      */
@@ -26,9 +29,8 @@ class SuscripcionPropietarioService
             ?: DB::table('suscripcion')->where('empresa_id', $empresaId)->latest('created_at')->first();
 
         $plan = DB::table('plan')->where('id', $suscripcion->plan_id ?? $empresa->plan_id)->first();
-        $proximoPlan = ! empty($suscripcion?->proximo_plan_id)
-            ? DB::table('plan')->where('id', $suscripcion->proximo_plan_id)->first()
-            : null;
+        $cambio = $suscripcion ? CambioProgramado::de($suscripcion) : null;
+        $proximoPlan = $cambio ? DB::table('plan')->where('id', $cambio['plan_id'])->first() : null;
 
         $estado = $suscripcion->estado ?? 'activa';
 
@@ -54,22 +56,18 @@ class SuscripcionPropietarioService
                     'id' => (int) $proximoPlan->id,
                     'nombre' => $proximoPlan->nombre,
                     'precio_mensual' => (float) $proximoPlan->precio_mensual,
+                    'ciclo' => $cambio['ciclo'],
+                    'precio' => (float) ($cambio['ciclo'] === 'anual' ? $proximoPlan->precio_anual : $proximoPlan->precio_mensual),
                     'fecha_efectiva' => $this->iso($suscripcion->fecha_fin_periodo),
+                    'dias_restantes' => PeriodoFacturacion::diasRestantes($suscripcion),
+                    'seleccion_guardada' => $cambio['seleccion'] !== null,
+                    'hay_excedentes' => $this->uso->supera($empresaId, $proximoPlan),
                 ] : null,
             ],
             'suscripcion_estado' => $estado,
-            // La tarjeta vive en Stripe; se expondrá cuando se consulte el Customer.
-            'metodo_pago' => null,
+            'metodo_pago' => $this->metodoPago($empresa, $estado),
             'uso_recursos' => $this->usoRecursos($empresaId, $plan),
-            'estado_cobro' => [
-                'al_dia' => $estado === 'activa',
-                'en_periodo_gracia' => $estado === 'en_gracia',
-                'dias_gracia_restantes' => (int) ($suscripcion->dias_gracia_restantes ?? 5),
-                'fecha_corte_gracia' => $this->iso($suscripcion->fecha_corte_gracia ?? null),
-                'monto_pendiente' => $estado === 'en_gracia' ? (float) $plan->precio_mensual : 0.0,
-                'ultimo_error_cobro' => $suscripcion->ultimo_error_cobro ?? null,
-                'reintentos_fallidos' => (int) ($suscripcion->reintentos_stripe_conteo ?? 0),
-            ],
+            'estado_cobro' => $this->estadoCobro($suscripcion, $plan, $estado),
             'historial_pagos' => $this->historialPagos($empresaId, $plan->nombre),
         ];
     }
@@ -77,19 +75,92 @@ class SuscripcionPropietarioService
     /**
      * @return array<string, mixed>
      */
-    private function usoRecursos(string $empresaId, object $plan): array
+    private function estadoCobro(?object $suscripcion, object $plan, string $estado): array
     {
-        $locales = DB::table('local')->where('empresa_id', $empresaId)->where('estado', 'activo')->count();
-        $mesas = DB::table('mesa')
-            ->join('local', 'local.id', '=', 'mesa.local_id')
-            ->where('local.empresa_id', $empresaId)
-            ->count();
-        $usuarios = DB::table('usuario')->where('empresa_id', $empresaId)->where('estado', 'activo')->count();
+        $pendiente = in_array($estado, ['en_gracia', 'suspendida'], true);
+        $corte = $suscripcion?->fecha_corte_gracia ? Carbon::parse($suscripcion->fecha_corte_gracia) : null;
+        $cambio = $suscripcion ? CambioProgramado::de($suscripcion) : null;
+        $planCobro = $cambio ? (DB::table('plan')->where('id', $cambio['plan_id'])->first() ?: $plan) : $plan;
+        $importe = ($cambio['ciclo'] ?? $suscripcion->ciclo_facturacion ?? 'mensual') === 'anual'
+            ? (float) $planCobro->precio_anual
+            : (float) $planCobro->precio_mensual;
 
         return [
-            'locales' => $this->metrica($locales, (int) $plan->max_locales),
-            'mesas' => $this->metrica($mesas, (int) $plan->max_mesas),
-            'usuarios_personal' => $this->metrica($usuarios, (int) $plan->max_usuarios),
+            'al_dia' => $estado === 'activa',
+            'en_periodo_gracia' => $estado === 'en_gracia',
+            'dias_gracia_restantes' => $estado === 'en_gracia' && $corte
+                ? (int) max(0, min(5, ceil(now()->floatDiffInDays($corte, false))))
+                : 0,
+            'fecha_corte_gracia' => $this->iso($corte),
+            'monto_pendiente' => $pendiente ? $importe : 0.0,
+            'ultimo_error_cobro' => $suscripcion->ultimo_error_cobro ?? null,
+            'reintentos_fallidos' => (int) ($suscripcion->reintentos_stripe_conteo ?? 0),
+        ];
+    }
+
+    /**
+     * Tarjeta predeterminada en Stripe; null si la empresa no paga con tarjeta o Stripe no responde.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function metodoPago(object $empresa, string $estadoSuscripcion): ?array
+    {
+        if (empty($empresa->stripe_customer_id)) {
+            return null;
+        }
+
+        try {
+            $tarjeta = $this->stripe->obtenerTarjetaPredeterminada($empresa->stripe_customer_id);
+        } catch (\Throwable $e) {
+            Log::warning("No se pudo consultar la tarjeta de Stripe de la empresa {$empresa->id}: {$e->getMessage()}");
+
+            return null;
+        }
+
+        if (! $tarjeta) {
+            return null;
+        }
+
+        $marca = in_array($tarjeta['marca'], ['visa', 'mastercard', 'amex'], true) ? $tarjeta['marca'] : 'otro';
+        $venceEn = Carbon::create($tarjeta['exp_ano'], $tarjeta['exp_mes'], 1)->endOfMonth();
+
+        return [
+            'marca' => $marca,
+            'ultimos_4' => $tarjeta['ultimos_4'],
+            'exp_mes' => $tarjeta['exp_mes'],
+            'exp_ano' => $tarjeta['exp_ano'],
+            'titular' => $tarjeta['titular'],
+            'proximo_a_vencer' => $venceEn->lte(now()->addDays(30)),
+            'estado_cobro_tarjeta' => in_array($estadoSuscripcion, ['en_gracia', 'suspendida'], true) ? 'rechazado' : 'al_dia',
+        ];
+    }
+
+    /**
+     * Los locales se miden por empresa; pisos, mesas y personal por local, por eso las métricas
+     * globales muestran el local más cargado y `por_local` el detalle de cada sede.
+     *
+     * @return array<string, mixed>
+     */
+    private function usoRecursos(string $empresaId, object $plan): array
+    {
+        $uso = $this->uso->contar($empresaId);
+        $porLocal = collect($uso['por_local']);
+        $maxPisos = (int) $plan->max_pisos;
+        $maxMesas = (int) $plan->max_mesas;
+        $maxUsuarios = (int) $plan->max_usuarios;
+
+        return [
+            'locales' => $this->metrica($uso['locales'], (int) $plan->max_locales),
+            'pisos' => $this->metrica((int) $porLocal->max('pisos'), $maxPisos),
+            'mesas' => $this->metrica((int) $porLocal->max('mesas'), $maxMesas),
+            'usuarios_personal' => $this->metrica((int) $porLocal->max('usuarios'), $maxUsuarios),
+            'por_local' => $porLocal->map(fn (array $local): array => [
+                'local_id' => $local['local_id'],
+                'nombre' => $local['nombre'],
+                'pisos' => $this->metrica($local['pisos'], $maxPisos),
+                'mesas' => $this->metrica($local['mesas'], $maxMesas),
+                'usuarios_personal' => $this->metrica($local['usuarios'], $maxUsuarios),
+            ])->all(),
             'incluye_reservas' => (bool) $plan->incluye_reservas,
             'incluye_reportes_avanzados' => (bool) $plan->incluye_reportes_avanzados,
             'incluye_asistente_ia' => (bool) $plan->incluye_asistente_ia,

@@ -6,6 +6,7 @@ use Stripe\Customer;
 use Stripe\Event;
 use Stripe\Exception\InvalidRequestException;
 use Stripe\PaymentIntent;
+use Stripe\PaymentMethod;
 use Stripe\SetupIntent;
 use Stripe\StripeClient;
 use Stripe\Webhook;
@@ -40,6 +41,32 @@ class StripeGatewayService
         }
 
         return $this->client;
+    }
+
+    /**
+     * Tarjeta predeterminada del cliente en Stripe, o null si no tiene ninguna.
+     *
+     * @return array{marca: string, ultimos_4: string, exp_mes: int, exp_ano: int, titular: string}|null
+     */
+    public function obtenerTarjetaPredeterminada(string $customerId): ?array
+    {
+        $cliente = $this->getClient()->customers->retrieve($customerId, [
+            'expand' => ['invoice_settings.default_payment_method'],
+        ]);
+
+        $metodo = $cliente->invoice_settings->default_payment_method ?? null;
+
+        if (! is_object($metodo) || empty($metodo->card)) {
+            return null;
+        }
+
+        return [
+            'marca' => (string) $metodo->card->brand,
+            'ultimos_4' => (string) $metodo->card->last4,
+            'exp_mes' => (int) $metodo->card->exp_month,
+            'exp_ano' => (int) $metodo->card->exp_year,
+            'titular' => (string) ($metodo->billing_details->name ?? $cliente->name ?? ''),
+        ];
     }
 
     /**
@@ -86,10 +113,67 @@ class StripeGatewayService
         string $descripcion = 'RestaurantCloud SaaS - Suscripción Inicial',
         ?string $idempotencyKey = null
     ): PaymentIntent {
-        $client = $this->getClient();
-
         // 1. Vincular el método de pago al Customer y establecerlo como predeterminado
+        $finalPaymentMethodId = $this->establecerMetodoPredeterminado($customerId, $paymentMethodId);
+
+        // 2. Ejecutar el cobro inmediato con confirmación en servidor
+        return $this->getClient()->paymentIntents->create([
+            'amount' => (int) round($monto * 100), // En céntimos
+            'currency' => strtolower($moneda),
+            'customer' => $customerId,
+            'payment_method' => $finalPaymentMethodId,
+            'off_session' => true,
+            'confirm' => true,
+            'description' => $descripcion,
+            'metadata' => [
+                'tipo_cobro' => 'alta_suscripcion_inicial',
+            ],
+        ], $idempotencyKey ? ['idempotency_key' => $idempotencyKey] : null);
+    }
+
+    /**
+     * Cobro recurrente (renovación o regularización) contra la tarjeta predeterminada
+     * del cliente, sin intervención del usuario. Si el banco exige autenticación
+     * (3DS) el PaymentIntent queda en `requires_action` y se trata como cobro fallido.
+     */
+    public function cobrarRenovacion(
+        string $customerId,
+        float $monto,
+        string $descripcion,
+        string $idempotencyKey,
+        string $moneda = 'pen'
+    ): PaymentIntent {
+        $client = $this->getClient();
+        $cliente = $client->customers->retrieve($customerId);
+        $metodoId = $cliente->invoice_settings->default_payment_method ?? null;
+
+        if (empty($metodoId)) {
+            throw new \RuntimeException('La empresa no tiene una tarjeta predeterminada registrada.');
+        }
+
+        return $client->paymentIntents->create([
+            'amount' => (int) round($monto * 100),
+            'currency' => strtolower($moneda),
+            'customer' => $customerId,
+            'payment_method' => is_object($metodoId) ? $metodoId->id : $metodoId,
+            'off_session' => true,
+            'confirm' => true,
+            'description' => $descripcion,
+            'metadata' => [
+                'tipo_cobro' => 'renovacion_suscripcion',
+            ],
+        ], ['idempotency_key' => $idempotencyKey]);
+    }
+
+    /**
+     * Vincula el método de pago al cliente (si aún no lo está) y lo fija como
+     * predeterminado para los cobros futuros. Devuelve el id final del método.
+     */
+    public function establecerMetodoPredeterminado(string $customerId, string $paymentMethodId): string
+    {
+        $client = $this->getClient();
         $finalPaymentMethodId = $paymentMethodId;
+
         try {
             $pm = $client->paymentMethods->attach($paymentMethodId, [
                 'customer' => $customerId,
@@ -108,19 +192,15 @@ class StripeGatewayService
             ],
         ]);
 
-        // 2. Ejecutar el cobro inmediato con confirmación en servidor
-        return $client->paymentIntents->create([
-            'amount' => (int) round($monto * 100), // En céntimos
-            'currency' => strtolower($moneda),
-            'customer' => $customerId,
-            'payment_method' => $finalPaymentMethodId,
-            'off_session' => true,
-            'confirm' => true,
-            'description' => $descripcion,
-            'metadata' => [
-                'tipo_cobro' => 'alta_suscripcion_inicial',
-            ],
-        ], $idempotencyKey ? ['idempotency_key' => $idempotencyKey] : null);
+        return $finalPaymentMethodId;
+    }
+
+    /**
+     * Método de pago de Stripe tal como lo confirmó el navegador (para validarlo antes de usarlo).
+     */
+    public function recuperarMetodoPago(string $paymentMethodId): PaymentMethod
+    {
+        return $this->getClient()->paymentMethods->retrieve($paymentMethodId);
     }
 
     /**

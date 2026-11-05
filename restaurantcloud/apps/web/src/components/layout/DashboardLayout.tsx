@@ -18,6 +18,7 @@ import {
   Flame,
   Wallet,
   ArrowLeft,
+  CreditCard
 } from 'lucide-react';
 import { ROUTES } from '@/router/routes.constants';
 import { ETIQUETA_ROL, homeDeRol, iniciales } from '@/router/accesoPorRol';
@@ -41,8 +42,7 @@ const LINKS_SAAS: EnlaceMenu[] = [
 const LINKS_PROPIETARIO: EnlaceMenu[] = [
   { label: 'Mis sedes', href: ROUTES.PROPIETARIO_SEDES, icon: Building2 },
   { label: 'Administradores', href: ROUTES.PROPIETARIO_ADMINISTRADORES, icon: Users },
-  // Diferido para próxima unidad:
-  // { label: 'Suscripción', href: ROUTES.PROPIETARIO_SUSCRIPCION, icon: CreditCard },
+  { label: 'Suscripción', href: ROUTES.PROPIETARIO_SUSCRIPCION, icon: CreditCard },
 ];
 
 // Consola Admin de Local. El Panel del Local, Políticas de Reserva, Incidentes, Reportes

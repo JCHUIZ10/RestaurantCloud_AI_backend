@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Domains\Suscripcion\Services\CobroSuscripcionService;
 use App\Support\ApiResponse;
 use Closure;
 use Illuminate\Http\Request;
@@ -36,6 +37,17 @@ class TenantContext
             return ApiResponse::error(
                 'CONTEXTO_TENANT_INCOMPLETO',
                 'La sesión no contiene una empresa válida.',
+                403
+            );
+        }
+
+        // Empresa suspendida por falta de pago: solo queda disponible "Mi suscripción" para regularizar.
+        if ($user->empresa_id
+            && CobroSuscripcionService::estadoEmpresa((string) $user->empresa_id) === 'suspendida'
+            && ! $request->is('api/v1/propietario/suscripcion*', 'api/v1/auth/*')) {
+            return ApiResponse::error(
+                'EMPRESA_SUSPENDIDA',
+                'El acceso de tu empresa está suspendido por falta de pago. Regulariza tu suscripción para continuar.',
                 403
             );
         }

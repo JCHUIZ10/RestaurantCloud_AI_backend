@@ -1,9 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  SuscripcionDashboardDTO,
-  MetodoPagoDTO,
-} from '@/types/propietarioSuscripcion';
+import type { SetupMetodoPagoDTO, SuscripcionDashboardDTO } from '@/types/propietarioSuscripcion';
 import { propietarioSuscripcionService } from '../services/propietarioSuscripcionService';
 import { SuscripcionHeader } from '../components/suscripcion/SuscripcionHeader';
 import { DunningBannerAlerta } from '../components/suscripcion/DunningBannerAlerta';
@@ -11,83 +7,123 @@ import { PlanActualCard } from '../components/suscripcion/PlanActualCard';
 import { MetodoPagoCard } from '../components/suscripcion/MetodoPagoCard';
 import { HistorialFacturasTabla } from '../components/suscripcion/HistorialFacturasTabla';
 import { ModalActualizarTarjeta } from '../components/suscripcion/ModalActualizarTarjeta';
-import { ModalCambiarPlanPreview } from '../components/suscripcion/ModalCambiarPlanPreview';
-import { DemoSuscripcionWidget } from '../components/suscripcion/DemoSuscripcionWidget';
-import { ROUTES } from '@/router/routes.constants';
-import { Loader2, CheckCircle2, AlertCircle, X, Info } from 'lucide-react';
-import { SoloDemo } from '@/components/ui';
-import { cn } from '@/shared/utils';
+import { ModalAsistenteDowngrade } from '../components/cambiar-plan/ModalAsistenteDowngrade';
+import { useToast } from '@/components/ui';
+import { Loader2, AlertCircle } from 'lucide-react';
+
+const MENSAJE_CONEXION = 'No pudimos conectar con el servidor. Intenta nuevamente.';
 
 export const PropietarioSuscripcionPage: React.FC = () => {
-  const navigate = useNavigate();
+  const toast = useToast();
   const [dashboard, setDashboard] = useState<SuscripcionDashboardDTO | null>(null);
   const [cargando, setCargando] = useState(true);
 
-  // Modales
   const [modalTarjetaAbierto, setModalTarjetaAbierto] = useState(false);
-  const [modalPlanAbierto, setModalPlanAbierto] = useState(false);
+  const [setup, setSetup] = useState<SetupMetodoPagoDTO | null>(null);
+  const [cargandoSetup, setCargandoSetup] = useState(false);
+  const [errorTarjeta, setErrorTarjeta] = useState<string | null>(null);
+  const [pagando, setPagando] = useState(false);
+  const [cancelandoCambio, setCancelandoCambio] = useState(false);
+  const [asistenteAbierto, setAsistenteAbierto] = useState(false);
 
-  // Toast
-  const [toast, setToast] = useState<{
-    tipo: 'success' | 'error' | 'info';
-    mensaje: string;
-  } | null>(null);
-
-  const mostrarToast = useCallback((tipo: 'success' | 'error' | 'info', mensaje: string) => {
-    setToast({ tipo, mensaje });
-  }, []);
-
-  useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(null), 4500);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
-
-  // Carga inicial y refresco
   const cargarDatos = useCallback(async () => {
-    setCargando(true);
     try {
       const res = await propietarioSuscripcionService.getDashboardSuscripcion();
-      if (res.exito && res.datos) {
-        setDashboard(res.datos);
-      } else {
-        mostrarToast('error', 'No se pudo obtener los datos de la suscripción.');
-      }
+      setDashboard(res.exito && res.datos ? res.datos : null);
     } catch {
-      mostrarToast('error', 'Error al conectar con el servicio de suscripción.');
+      setDashboard(null);
     } finally {
       setCargando(false);
     }
-  }, [mostrarToast]);
+  }, []);
 
   useEffect(() => {
     cargarDatos();
   }, [cargarDatos]);
 
-  // Handler tras actualizar tarjeta
-  const handleExitoTarjeta = (metodo: MetodoPagoDTO, cobroRegularizado: boolean) => {
-    cargarDatos();
-    if (cobroRegularizado) {
-      mostrarToast(
-        'success',
-        '¡Tarjeta actualizada con éxito! El saldo pendiente de S/ 80.00 ha sido cobrado y tu suscripción está al día.'
+  // Pide a la API un SetupIntent nuevo; cada tarjeta confirmada consume el anterior
+  const prepararFormularioTarjeta = useCallback(async () => {
+    setCargandoSetup(true);
+    setSetup(null);
+    try {
+      const res = await propietarioSuscripcionService.iniciarCambioTarjeta();
+      if (res.exito && res.datos) {
+        setSetup(res.datos);
+      } else {
+        setErrorTarjeta(res.errores?.[0]?.mensaje ?? 'No pudimos preparar el formulario de tarjeta.');
+      }
+    } catch {
+      setErrorTarjeta(MENSAJE_CONEXION);
+    } finally {
+      setCargandoSetup(false);
+    }
+  }, []);
+
+  const abrirModalTarjeta = () => {
+    setErrorTarjeta(null);
+    setModalTarjetaAbierto(true);
+    prepararFormularioTarjeta();
+  };
+
+  const cerrarModalTarjeta = () => {
+    setModalTarjetaAbierto(false);
+    setSetup(null);
+    setErrorTarjeta(null);
+  };
+
+  const handleTarjetaConfirmada = async (paymentMethodId: string) => {
+    setErrorTarjeta(null);
+
+    try {
+      const res = await propietarioSuscripcionService.confirmarTarjeta(paymentMethodId);
+
+      if (res.exito) {
+        toast.mostrar(res.datos.mensaje, 'ok');
+        cerrarModalTarjeta();
+        await cargarDatos();
+        return;
+      }
+
+      setErrorTarjeta(res.errores?.[0]?.mensaje ?? 'No se pudo actualizar la tarjeta.');
+    } catch {
+      setErrorTarjeta(MENSAJE_CONEXION);
+    }
+
+    // El SetupIntent usado ya no admite otra tarjeta; se prepara uno nuevo para reintentar.
+    // Si la tarjeta sí se guardó (cobro pendiente rechazado), el dashboard debe reflejarla.
+    await Promise.all([prepararFormularioTarjeta(), cargarDatos()]);
+  };
+
+  const handlePagarAhora = async () => {
+    setPagando(true);
+    try {
+      const res = await propietarioSuscripcionService.reintentarCobroPendiente();
+      toast.mostrar(
+        res.exito ? res.datos.mensaje : (res.errores?.[0]?.mensaje ?? 'No se pudo procesar el cobro.'),
+        res.exito ? 'ok' : 'error'
       );
-    } else {
-      mostrarToast(
-        'success',
-        `Método de pago actualizado: ${metodo.marca.toUpperCase()} terminada en ${metodo.ultimos_4}.`
-      );
+    } catch {
+      toast.mostrar(MENSAJE_CONEXION, 'error');
+    } finally {
+      setPagando(false);
+      await cargarDatos();
     }
   };
 
-  // Handler cambio de plan solicitado en preview
-  const handleSolicitarCambioPlan = (nombrePlan: string) => {
-    setModalPlanAbierto(false);
-    mostrarToast(
-      'info',
-      `Solicitud de cambio a ${nombrePlan} registrada. Pronto podrás formalizar la transacción con prorrateo automático.`
-    );
+  const handleCancelarCambio = async () => {
+    setCancelandoCambio(true);
+    try {
+      const res = await propietarioSuscripcionService.cancelarCambioProgramado();
+      toast.mostrar(
+        res.exito ? res.datos.mensaje : (res.errores?.[0]?.mensaje ?? 'No se pudo cancelar el cambio.'),
+        res.exito ? 'ok' : 'error'
+      );
+    } catch {
+      toast.mostrar(MENSAJE_CONEXION, 'error');
+    } finally {
+      setCancelandoCambio(false);
+      await cargarDatos();
+    }
   };
 
   if (cargando && !dashboard) {
@@ -97,9 +133,6 @@ export const PropietarioSuscripcionPage: React.FC = () => {
         <h2 className="font-serif text-xl font-bold text-aurea-navy">
           Cargando suscripción y facturación...
         </h2>
-        <p className="text-xs text-slate-500 mt-1">
-          Sincronizando estado con Stripe Billing y base de datos...
-        </p>
       </div>
     );
   }
@@ -109,10 +142,13 @@ export const PropietarioSuscripcionPage: React.FC = () => {
       <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center">
         <AlertCircle className="w-10 h-10 text-red-500 mb-3" />
         <h2 className="font-serif text-xl font-bold text-aurea-navy">
-          No se pudo cargar la suscripción
+          No pudimos cargar la información de suscripción
         </h2>
         <button
-          onClick={cargarDatos}
+          onClick={() => {
+            setCargando(true);
+            cargarDatos();
+          }}
           className="mt-4 px-4 py-2 bg-aurea-navy text-white text-xs font-bold rounded-lg shadow"
         >
           Reintentar
@@ -123,61 +159,29 @@ export const PropietarioSuscripcionPage: React.FC = () => {
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-16">
-      {/* Toast Flotante */}
-      {toast && (
-        <div
-          role="status"
-          aria-live="polite"
-          className={cn(
-            'fixed top-5 left-4 right-4 sm:left-auto sm:right-5 z-50 flex items-start gap-3 p-4 rounded-xl shadow-xl border text-xs font-medium sm:max-w-md animate-slideDown',
-            toast.tipo === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-              : toast.tipo === 'info'
-              ? 'bg-blue-50 border-blue-200 text-blue-900'
-              : 'bg-red-50 border-red-200 text-red-900'
-          )}
-        >
-          {toast.tipo === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" aria-hidden="true" />
-          ) : toast.tipo === 'info' ? (
-            <Info className="w-5 h-5 text-blue-600 shrink-0" aria-hidden="true" />
-          ) : (
-            <AlertCircle className="w-5 h-5 text-red-600 shrink-0" aria-hidden="true" />
-          )}
-          <span className="flex-1 leading-snug">{toast.mensaje}</span>
-          <button
-            type="button"
-            onClick={() => setToast(null)}
-            className="text-tinta-400 hover:text-tinta-700 shrink-0"
-            aria-label="Cerrar notificación"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* 1. Header con estado y migas de pan */}
       <SuscripcionHeader
         plan={dashboard.plan}
         estadoSuscripcion={dashboard.suscripcion_estado}
         estadoCobro={dashboard.estado_cobro}
-        onAbrirCambiarPlan={() => navigate(ROUTES.PROPIETARIO_CAMBIAR_PLAN)}
       />
 
-      {/* 2. Banner de Dunning / Periodo de Gracia / Suspensión */}
       <DunningBannerAlerta
         estadoSuscripcion={dashboard.suscripcion_estado}
         estadoCobro={dashboard.estado_cobro}
-        onActualizarTarjeta={() => setModalTarjetaAbierto(true)}
+        tieneTarjeta={dashboard.metodo_pago !== null}
+        pagando={pagando}
+        onActualizarTarjeta={abrirModalTarjeta}
+        onPagarAhora={handlePagarAhora}
       />
 
-      {/* 3. Rejilla Principal: Plan Actual & Recursos + Tarjeta de Crédito */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         <div className="lg:col-span-7 flex flex-col">
           <PlanActualCard
             plan={dashboard.plan}
             usoRecursos={dashboard.uso_recursos}
-            onCambiarPlan={() => navigate(ROUTES.PROPIETARIO_CAMBIAR_PLAN)}
+            cancelandoCambio={cancelandoCambio}
+            onCancelarCambio={handleCancelarCambio}
+            onElegirConservar={() => setAsistenteAbierto(true)}
           />
         </div>
 
@@ -185,38 +189,37 @@ export const PropietarioSuscripcionPage: React.FC = () => {
           <MetodoPagoCard
             metodoPago={dashboard.metodo_pago}
             estadoCobro={dashboard.estado_cobro}
-            onActualizarTarjeta={() => setModalTarjetaAbierto(true)}
+            onActualizarTarjeta={abrirModalTarjeta}
           />
         </div>
       </div>
 
-      {/* 4. Historial de Facturas y Comprobantes Descargables */}
       <HistorialFacturasTabla facturas={dashboard.historial_pagos} />
 
-      {/* 5. Modales */}
+      <ModalAsistenteDowngrade
+        abierto={asistenteAbierto}
+        onCerrar={() => setAsistenteAbierto(false)}
+        onGuardado={() => {
+          setAsistenteAbierto(false);
+          toast.mostrar('Selección guardada. Se aplicará cuando entre el nuevo plan.', 'ok');
+          cargarDatos();
+        }}
+      />
+
       <ModalActualizarTarjeta
         abierto={modalTarjetaAbierto}
-        estadoCobro={dashboard.estado_cobro}
-        onCerrar={() => setModalTarjetaAbierto(false)}
-        onExito={handleExitoTarjeta}
+        setup={setup}
+        cargandoSetup={cargandoSetup}
+        montoPendiente={dashboard.estado_cobro.monto_pendiente}
+        titularInicial={dashboard.metodo_pago?.titular}
+        error={errorTarjeta}
+        onTarjetaConfirmada={handleTarjetaConfirmada}
+        onReintentarPreparacion={() => {
+          setErrorTarjeta(null);
+          prepararFormularioTarjeta();
+        }}
+        onCerrar={cerrarModalTarjeta}
       />
-
-      <ModalCambiarPlanPreview
-        abierto={modalPlanAbierto}
-        planActual={dashboard.plan}
-        onCerrar={() => setModalPlanAbierto(false)}
-        onSolicitarCambio={handleSolicitarCambioPlan}
-      />
-
-      {/* 6. QA Sandbox Widget */}
-      <SoloDemo>
-        <DemoSuscripcionWidget
-          estadoSuscripcion={dashboard.suscripcion_estado}
-          estadoCobro={dashboard.estado_cobro}
-          metodoPago={dashboard.metodo_pago}
-          onActualizar={cargarDatos}
-        />
-      </SoloDemo>
     </div>
   );
 };

@@ -1,20 +1,18 @@
 import React from 'react';
 import { PlanSuscripcionDTO, EstadoSuscripcion, EstadoCobroDunningDTO } from '@/types/propietarioSuscripcion';
-import { Button, PageHeader } from '@/components/ui';
-import { Sparkles, ShieldCheck, AlertTriangle, CreditCard } from 'lucide-react';
+import { PageHeader } from '@/components/ui';
+import { ShieldCheck, AlertTriangle, CreditCard } from 'lucide-react';
 
 interface SuscripcionHeaderProps {
   plan: PlanSuscripcionDTO | null;
   estadoSuscripcion: EstadoSuscripcion;
   estadoCobro: EstadoCobroDunningDTO | null;
-  onAbrirCambiarPlan: () => void;
 }
 
 export const SuscripcionHeader: React.FC<SuscripcionHeaderProps> = ({
   plan,
   estadoSuscripcion,
   estadoCobro,
-  onAbrirCambiarPlan,
 }) => {
   const renderBadgeEstado = () => {
     if (estadoSuscripcion === 'suspendida') {
@@ -52,21 +50,11 @@ export const SuscripcionHeader: React.FC<SuscripcionHeaderProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           {plan && (
             <span className="text-xs font-mono font-semibold text-aurea-navy bg-aurea-champagne/40 px-2.5 py-1 rounded-full border border-aurea-copper/30">
-              Plan {plan.nombre} • S/ {plan.precio_mensual.toFixed(2)}/mes
+              Plan {plan.nombre} • S/ {(plan.periodicidad === 'anual' ? plan.precio_anual : plan.precio_mensual).toFixed(2)}/{plan.periodicidad === 'anual' ? 'año' : 'mes'}
             </span>
           )}
           {renderBadgeEstado()}
         </div>
-      }
-      acciones={
-        <Button
-          type="button"
-          onClick={onAbrirCambiarPlan}
-          className="bg-aurea-navy text-white hover:bg-aurea-navy/90 font-bold text-xs sm:text-sm py-2 px-4 shadow-md hover:shadow-lg transition-all flex items-center gap-2"
-        >
-          <Sparkles className="w-4 h-4 text-aurea-champagne" aria-hidden="true" />
-          <span>Cambiar de plan</span>
-        </Button>
       }
     />
   );

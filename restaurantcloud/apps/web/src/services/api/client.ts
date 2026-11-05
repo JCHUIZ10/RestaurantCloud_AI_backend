@@ -35,6 +35,27 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+const RUTA_SUSCRIPCION = '/propietario/suscripcion';
+
+/**
+ * Empresa suspendida por falta de pago: el propietario solo conserva "Mi suscripción",
+ * donde puede actualizar la tarjeta y regularizar. Cualquier otra pantalla lo lleva allí.
+ */
+function redirigirSiEmpresaSuspendida(error: { response?: { status?: number; data?: { errores?: Array<{ codigo?: string }> } } }): void {
+  if (error.response?.status !== 403 || error.response.data?.errores?.[0]?.codigo !== 'EMPRESA_SUSPENDIDA') {
+    return;
+  }
+
+  try {
+    const rol = JSON.parse(localStorage.getItem('auth_usuario') ?? 'null')?.rol;
+    if (rol === 'propietario' && !window.location.pathname.startsWith(RUTA_SUSCRIPCION)) {
+      window.location.assign(RUTA_SUSCRIPCION);
+    }
+  } catch {
+    // Sin datos de sesión legibles no hay a dónde redirigir
+  }
+}
+
 apiClient.interceptors.response.use(
   (response) => {
     // Log en desarrollo
@@ -61,6 +82,8 @@ apiClient.interceptors.response.use(
         }
       );
     }
+
+    redirigirSiEmpresaSuspendida(error);
 
     const originalRequest = error.config;
     // Si falla 401 en una ruta protegida (y no es intento de login ni refresh)
@@ -140,12 +163,16 @@ export async function apiPatch<T>(
  * `token` permite descargar con una sesión que aún no se guardó en localStorage
  * (p. ej. la constancia en el Paso 5 del registro).
  */
-export async function apiDescargarPdf(url: string, nombreArchivo: string, token?: string | null): Promise<void> {
+export async function apiObtenerPdf(url: string, token?: string | null): Promise<Blob> {
   const response = await apiClient.get(url, {
     responseType: 'blob',
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
-  const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+  return new Blob([response.data], { type: 'application/pdf' });
+}
+
+export function guardarBlobComoArchivo(blob: Blob, nombreArchivo: string): void {
+  const blobUrl = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = blobUrl;
   link.download = nombreArchivo;
@@ -153,6 +180,10 @@ export async function apiDescargarPdf(url: string, nombreArchivo: string, token?
   link.click();
   document.body.removeChild(link);
   window.URL.revokeObjectURL(blobUrl);
+}
+
+export async function apiDescargarPdf(url: string, nombreArchivo: string, token?: string | null): Promise<void> {
+  guardarBlobComoArchivo(await apiObtenerPdf(url, token), nombreArchivo);
 }
 
 export async function apiDelete<T>(

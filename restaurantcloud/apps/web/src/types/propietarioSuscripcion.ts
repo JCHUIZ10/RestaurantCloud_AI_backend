@@ -8,6 +8,7 @@
 
 import type { ApiResponse } from './api';
 
+export type PeriodicidadCambio = 'mensual' | 'anual';
 export type EstadoSuscripcion = 'activa' | 'en_gracia' | 'pendiente_ajuste' | 'cancelada' | 'suspendida';
 export type EstadoPagoSaaS = 'exitoso' | 'fallido' | 'reembolsado';
 
@@ -28,12 +29,17 @@ export interface PlanSuscripcionDTO {
   precio_mensual: number;
   precio_anual: number;
   periodicidad: 'mensual' | 'anual';
-  proximo_cobro: string;
+  proximo_cobro: string | null;
   proximo_plan?: {
     id: number;
     nombre: string;
     precio_mensual: number;
-    fecha_efectiva: string;
+    ciclo: PeriodicidadCambio;
+    precio: number;
+    fecha_efectiva: string | null;
+    dias_restantes: number;
+    seleccion_guardada: boolean;
+    hay_excedentes: boolean;
   } | null;
 }
 
@@ -54,10 +60,21 @@ export interface MetricaRecursoDTO {
   limite_alcanzado: boolean;
 }
 
-export interface UsoRecursosDTO {
-  locales: MetricaRecursoDTO;
+export interface UsoSedeDTO {
+  local_id: string;
+  nombre: string;
+  pisos: MetricaRecursoDTO;
   mesas: MetricaRecursoDTO;
   usuarios_personal: MetricaRecursoDTO;
+}
+
+/** Los locales se miden por empresa; pisos, mesas y personal por sede (la métrica global es la de la sede más cargada). */
+export interface UsoRecursosDTO {
+  locales: MetricaRecursoDTO;
+  pisos: MetricaRecursoDTO;
+  mesas: MetricaRecursoDTO;
+  usuarios_personal: MetricaRecursoDTO;
+  por_local: UsoSedeDTO[];
   incluye_reservas: boolean;
   incluye_reportes_avanzados: boolean;
   incluye_asistente_ia: boolean;
@@ -97,27 +114,25 @@ export interface SuscripcionDashboardDTO {
   historial_pagos: FacturaSuscripcionDTO[];
 }
 
-export interface SetupMetodoPagoResponseDTO {
+
+export type SuscripcionDashboardApiResponse = ApiResponse<SuscripcionDashboardDTO>;
+
+export interface SetupMetodoPagoDTO {
   client_secret: string;
   stripe_public_key: string;
 }
 
-export interface ConfirmarTarjetaRequestDTO {
-  numero_tarjeta: string;
-  mes_expiracion: number;
-  ano_expiracion: number;
-  cvc: string;
-  titular: string;
-  stripe_payment_method_id?: string;
-}
-
-export interface ConfirmarTarjetaResponseDTO {
+export interface ConfirmarMetodoPagoResponseDTO {
   mensaje: string;
-  metodo_pago: MetodoPagoDTO;
+  metodo_pago: MetodoPagoDTO | null;
   cobro_pendiente_regularizado: boolean;
-  nuevo_pago_id?: string;
 }
 
-export type SuscripcionDashboardApiResponse = ApiResponse<SuscripcionDashboardDTO>;
-export type SetupMetodoPagoApiResponse = ApiResponse<SetupMetodoPagoResponseDTO>;
-export type ConfirmarTarjetaApiResponse = ApiResponse<ConfirmarTarjetaResponseDTO>;
+export interface ReintentarCobroResponseDTO {
+  mensaje: string;
+  cobro_pendiente_regularizado: boolean;
+}
+
+export type SetupMetodoPagoApiResponse = ApiResponse<SetupMetodoPagoDTO>;
+export type ConfirmarMetodoPagoApiResponse = ApiResponse<ConfirmarMetodoPagoResponseDTO>;
+export type ReintentarCobroApiResponse = ApiResponse<ReintentarCobroResponseDTO>;

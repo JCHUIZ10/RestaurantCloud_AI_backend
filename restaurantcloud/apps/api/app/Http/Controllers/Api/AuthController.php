@@ -100,7 +100,7 @@ class AuthController extends Controller
                 $empresa = $u->empresa_id ? DB::table('empresa')->where('id', $u->empresa_id)->first() : null;
                 $local = $u->local_id ? DB::table('local')->where('id', $u->local_id)->first() : null;
 
-                $empresaActiva = $empresa ? ($empresa->estado === 'activa') : true;
+                $empresaActiva = $empresa ? $this->empresaPermiteAcceso($empresa, $u->rol) : true;
 
                 return [
                     'usuario_id' => $u->id,
@@ -170,7 +170,7 @@ class AuthController extends Controller
 
         if ($user->empresa_id) {
             $empresa = DB::table('empresa')->where('id', $user->empresa_id)->first();
-            if ($empresa && $empresa->estado !== 'activa') {
+            if ($empresa && ! $this->empresaPermiteAcceso($empresa, $user->rol)) {
                 return ApiResponse::error(
                     'EMPRESA_SUSPENDIDA',
                     'El acceso a esta empresa se encuentra suspendido.',
@@ -237,6 +237,16 @@ class AuthController extends Controller
 
         // Generar y almacenar nueva sesión
         return $this->generarRespuestaSesionExitosa($user, $refreshToken);
+    }
+
+    /**
+     * Una empresa suspendida por falta de pago solo admite al propietario, que debe poder
+     * entrar a "Mi suscripción" para regularizar; el resto del personal sigue bloqueado.
+     */
+    private function empresaPermiteAcceso(object $empresa, string $rol): bool
+    {
+        return $empresa->estado === 'activa'
+            || ($empresa->estado === 'suspendida' && $rol === 'propietario');
     }
 
     /**

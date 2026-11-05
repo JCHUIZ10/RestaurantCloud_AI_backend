@@ -1,18 +1,24 @@
 import React from 'react';
 import { EstadoSuscripcion, EstadoCobroDunningDTO } from '@/types/propietarioSuscripcion';
-import { AlertTriangle, ShieldAlert, CreditCard, Clock, CheckCircle } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import { AlertTriangle, ShieldAlert, Clock, CheckCircle } from 'lucide-react';
+import { Button } from '@/components/ui';
 
 interface DunningBannerAlertaProps {
   estadoSuscripcion: EstadoSuscripcion;
   estadoCobro: EstadoCobroDunningDTO | null;
+  tieneTarjeta: boolean;
+  pagando: boolean;
   onActualizarTarjeta: () => void;
+  onPagarAhora: () => void;
 }
 
 export const DunningBannerAlerta: React.FC<DunningBannerAlertaProps> = ({
   estadoSuscripcion,
   estadoCobro,
+  tieneTarjeta,
+  pagando,
   onActualizarTarjeta,
+  onPagarAhora,
 }) => {
   const esSuspendida = estadoSuscripcion === 'suspendida';
   const esEnGracia =
@@ -21,6 +27,19 @@ export const DunningBannerAlerta: React.FC<DunningBannerAlertaProps> = ({
   if (!esSuspendida && !esEnGracia) {
     return null;
   }
+
+  const acciones = (
+    <div className="flex flex-col gap-2 shrink-0 md:min-w-[15rem]">
+      {tieneTarjeta && (
+        <Button variant="primary" loading={pagando} onClick={onPagarAhora}>
+          Pagar ahora
+        </Button>
+      )}
+      <Button variant={tieneTarjeta ? "outline" : "primary"} disabled={pagando} onClick={onActualizarTarjeta}>
+        Actualizar tarjeta y pagar
+      </Button>
+    </div>
+  );
 
   if (esSuspendida) {
     return (
@@ -44,7 +63,7 @@ export const DunningBannerAlerta: React.FC<DunningBannerAlertaProps> = ({
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-red-800 mt-1 max-w-2xl leading-relaxed">
-                El periodo de gracia de 5 días ha finalizado sin recibir el pago de la suscripción (S/ {estadoCobro?.monto_pendiente ? estadoCobro.monto_pendiente.toFixed(2) : '80.00'}). Las funciones de comanda, KDS y carta QR se encuentran temporalmente pausadas.
+                El periodo de gracia de 5 días ha finalizado sin recibir el pago de la suscripción {estadoCobro?.monto_pendiente ? `(S/ ${estadoCobro.monto_pendiente.toFixed(2)})` : ''}. Las funciones de comanda, KDS y carta QR se encuentran temporalmente pausadas.
               </p>
               {estadoCobro?.ultimo_error_cobro && (
                 <p className="text-xs font-mono text-red-700 bg-red-100/70 rounded px-2.5 py-1 mt-2 inline-block border border-red-200">
@@ -54,16 +73,7 @@ export const DunningBannerAlerta: React.FC<DunningBannerAlertaProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch md:items-center gap-2.5 shrink-0">
-            <Button
-              type="button"
-              onClick={onActualizarTarjeta}
-              className="bg-red-700 hover:bg-red-800 text-white font-bold text-xs sm:text-sm py-2.5 px-4 shadow-md flex items-center justify-center gap-2"
-            >
-              <CreditCard className="w-4 h-4" />
-              <span>Reactivar con Nueva Tarjeta</span>
-            </Button>
-          </div>
+          {acciones}
         </div>
       </section>
     );
@@ -71,7 +81,7 @@ export const DunningBannerAlerta: React.FC<DunningBannerAlertaProps> = ({
 
   // Caso: Periodo de Gracia (Dunning)
   const diasRestantes = estadoCobro?.dias_gracia_restantes ?? 5;
-  const montoPendiente = estadoCobro?.monto_pendiente ?? 80.0;
+  const montoPendiente = estadoCobro?.monto_pendiente ?? 0;
 
   return (
     <section
@@ -87,7 +97,7 @@ export const DunningBannerAlerta: React.FC<DunningBannerAlertaProps> = ({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="font-sans font-bold text-base sm:text-lg text-amber-950">
-                Atención: No pudimos procesar tu último cobro mensual de S/{' '}
+                Atención: No pudimos procesar tu último cobro de S/{' '}
                 {montoPendiente.toFixed(2)}
               </h2>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-200/80 text-amber-900 border border-amber-300">
@@ -114,16 +124,7 @@ export const DunningBannerAlerta: React.FC<DunningBannerAlertaProps> = ({
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch md:items-center gap-2.5 shrink-0">
-          <Button
-            type="button"
-            onClick={onActualizarTarjeta}
-            className="bg-amber-800 hover:bg-amber-900 text-white font-bold text-xs sm:text-sm py-2.5 px-4 shadow-md flex items-center justify-center gap-2"
-          >
-            <CreditCard className="w-4 h-4 text-amber-200" />
-            <span>Actualizar Tarjeta Ahora</span>
-          </Button>
-        </div>
+        {acciones}
       </div>
     </section>
   );

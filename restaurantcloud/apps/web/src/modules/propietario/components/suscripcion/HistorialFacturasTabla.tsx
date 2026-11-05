@@ -3,12 +3,13 @@ import { FacturaSuscripcionDTO } from '@/types/propietarioSuscripcion';
 import { propietarioSuscripcionService } from '../../services/propietarioSuscripcionService';
 import {
   FileText,
-  Download,
+  Eye,
   CheckCircle2,
   XCircle,
   Receipt,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { ModalVistaPdf } from '@/components/pdf/ModalVistaPdf';
 
 interface HistorialFacturasTablaProps {
   facturas: FacturaSuscripcionDTO[];
@@ -17,16 +18,7 @@ interface HistorialFacturasTablaProps {
 export const HistorialFacturasTabla: React.FC<HistorialFacturasTablaProps> = ({
   facturas,
 }) => {
-  const [errorDescarga, setErrorDescarga] = useState<string | null>(null);
-
-  const handleDescargar = async (factura: FacturaSuscripcionDTO) => {
-    setErrorDescarga(null);
-    try {
-      await propietarioSuscripcionService.descargarFactura(factura);
-    } catch {
-      setErrorDescarga(`No se pudo descargar la constancia ${factura.numero_comprobante}. Intenta nuevamente en unos minutos.`);
-    }
-  };
+  const [facturaVista, setFacturaVista] = useState<FacturaSuscripcionDTO | null>(null);
 
   const renderEstadoBadge = (estado: FacturaSuscripcionDTO['estado']) => {
     switch (estado) {
@@ -94,10 +86,6 @@ export const HistorialFacturasTabla: React.FC<HistorialFacturasTablaProps> = ({
         </div>
       </div>
 
-      {errorDescarga && (
-        <p className="mt-3 text-xs text-red-700">{errorDescarga}</p>
-      )}
-
       {/* Vista de Escritorio (Tabla md en adelante) */}
       <div className="hidden md:block overflow-x-auto mt-4">
         <table className="w-full text-left border-collapse">
@@ -140,13 +128,13 @@ export const HistorialFacturasTabla: React.FC<HistorialFacturasTablaProps> = ({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => handleDescargar(fac)}
+                    onClick={() => setFacturaVista(fac)}
                     className="border-slate-200 hover:border-aurea-copper hover:text-aurea-copper text-slate-700 text-xs font-semibold py-1 px-2.5 inline-flex items-center gap-1.5"
                     disabled={fac.estado !== 'exitoso'}
-                    title={`Descargar constancia ${fac.numero_comprobante}`}
+                    title={`Ver constancia ${fac.numero_comprobante}`}
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Descargar PDF</span>
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Ver PDF</span>
                   </Button>
                 </td>
               </tr>
@@ -187,16 +175,24 @@ export const HistorialFacturasTabla: React.FC<HistorialFacturasTablaProps> = ({
             <Button
               type="button"
               variant="outline"
-              onClick={() => handleDescargar(fac)}
+              onClick={() => setFacturaVista(fac)}
               disabled={fac.estado !== 'exitoso'}
               className="w-full border-slate-200 hover:border-aurea-copper hover:text-aurea-copper text-xs font-semibold py-2 flex items-center justify-center gap-1.5"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>Descargar constancia PDF</span>
+              <Eye className="w-3.5 h-3.5" />
+              <span>Ver constancia PDF</span>
             </Button>
           </div>
         ))}
       </div>
+
+      <ModalVistaPdf
+        abierto={facturaVista !== null}
+        titulo={facturaVista ? `Constancia ${facturaVista.numero_comprobante}` : 'Constancia'}
+        nombreArchivo={facturaVista ? `Constancia-${facturaVista.numero_comprobante}.pdf` : 'Constancia.pdf'}
+        cargarPdf={() => propietarioSuscripcionService.obtenerConstancia(facturaVista!)}
+        onCerrar={() => setFacturaVista(null)}
+      />
     </section>
   );
 };

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Saas;
 
+use App\Domains\Suscripcion\Services\CobroSuscripcionService;
 use App\Domains\Tenant\Services\TenantProvisioningService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
@@ -264,16 +265,19 @@ class SaasTenantController extends Controller
         $mesasCount = DB::table('mesa')
             ->join('local', 'local.id', '=', 'mesa.local_id')
             ->where('local.empresa_id', $empresa->id)
+            ->where('mesa.estado', '!=', 'inactiva')
             ->count();
-        $usuariosCount = DB::table('usuario')->where('empresa_id', $empresa->id)->where('estado', 'activo')->count();
+        $usuariosCount = DB::table('usuario')->where('empresa_id', $empresa->id)->where('estado', 'activo')
+            ->where('rol', '!=', 'propietario')->whereNotNull('local_id')->count();
+        $locales = $plan ? (int) $plan->max_locales : 3;
 
         $consumo = [
             'locales_actuales' => $localesCount,
             'locales_limite' => $plan ? (int) $plan->max_locales : 3,
             'mesas_actuales' => $mesasCount,
-            'mesas_limite' => $plan ? (int) $plan->max_mesas : 30,
+            'mesas_limite' => $plan ? (int) $plan->max_mesas * $locales : 30,
             'usuarios_actuales' => $usuariosCount,
-            'usuarios_limite' => $plan ? (int) $plan->max_usuarios : 15,
+            'usuarios_limite' => $plan ? (int) $plan->max_usuarios * $locales : 15,
         ];
 
         $diasGracia = $suscripcion ? (int) $suscripcion->dias_gracia_restantes : 5;
@@ -338,6 +342,8 @@ class SaasTenantController extends Controller
             'dias_gracia_restantes' => 0,
             'updated_at' => now(),
         ]);
+
+        CobroSuscripcionService::olvidarEstadoEmpresa($id);
 
         return ApiResponse::ok([
             'empresa_id' => $id,
