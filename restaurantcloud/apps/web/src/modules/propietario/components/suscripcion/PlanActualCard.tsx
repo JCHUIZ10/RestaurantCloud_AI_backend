@@ -1,40 +1,39 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
+import { ROUTES } from '@/router/routes.constants';
+import { BannerCambioProgramado } from '../cambiar-plan/BannerCambioProgramado';
 import { PlanSuscripcionDTO, UsoRecursosDTO } from '@/types/propietarioSuscripcion';
-import { Button } from '@/components/ui/Button';
+import { ConsumoRecursosRealTime } from './ConsumoRecursosRealTime';
 import {
   Sparkles,
-  Building2,
-  Users,
-  Grid,
   CheckCircle2,
   Calendar,
-  Layers,
-  ArrowUpRight,
+  XCircle,
 } from 'lucide-react';
 
 interface PlanActualCardProps {
   plan: PlanSuscripcionDTO;
   usoRecursos: UsoRecursosDTO;
-  onCambiarPlan: () => void;
+  cancelandoCambio: boolean;
+  onCancelarCambio: () => void;
+  onElegirConservar: () => void;
 }
 
 export const PlanActualCard: React.FC<PlanActualCardProps> = ({
   plan,
   usoRecursos,
-  onCambiarPlan,
+  cancelandoCambio,
+  onCancelarCambio,
+  onElegirConservar,
 }) => {
+  const esAnual = plan.periodicidad === 'anual';
+
   // Formatear fecha próximo cobro
-  const fechaProximoCobro = new Date(plan.proximo_cobro).toLocaleDateString('es-PE', {
+  const fechaProximoCobro = !plan.proximo_cobro ? '—' : new Date(plan.proximo_cobro).toLocaleDateString('es-PE', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
   });
-
-  const getProgressColor = (porcentaje: number, limite: boolean) => {
-    if (limite || porcentaje >= 90) return 'bg-amber-500';
-    if (porcentaje >= 75) return 'bg-aurea-copper';
-    return 'bg-aurea-navy';
-  };
 
   return (
     <article className="rounded-2xl border border-aurea-navy/10 bg-white p-6 sm:p-7 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between">
@@ -59,22 +58,31 @@ export const PlanActualCard: React.FC<PlanActualCardProps> = ({
 
             <div className="mt-1 flex items-baseline gap-1.5">
               <span className="text-2xl sm:text-3xl font-extrabold text-aurea-navy tracking-tight font-sans">
-                S/ {plan.precio_mensual.toFixed(2)}
+                S/ {(esAnual ? plan.precio_anual : plan.precio_mensual).toFixed(2)}
               </span>
-              <span className="text-sm font-medium text-slate-500">/ mes (facturación recurrente)</span>
+              <span className="text-sm font-medium text-slate-500">
+                {esAnual ? '/ año (facturación anual)' : '/ mes (facturación recurrente)'}
+              </span>
             </div>
 
             {plan.proximo_plan && (
-              <div className="mt-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-amber-700 shrink-0" />
-                <span>
-                  Downgrade programado a <strong>Plan {plan.proximo_plan.nombre}</strong> a partir del <strong>01/Nov/2026</strong>.
-                </span>
+              <div className="mt-4">
+                <BannerCambioProgramado
+                  nombrePlan={plan.proximo_plan.nombre}
+                  ciclo={plan.proximo_plan.ciclo}
+                  fechaEfectiva={plan.proximo_plan.fecha_efectiva}
+                  diasRestantes={plan.proximo_plan.dias_restantes}
+                  hayExcedentes={plan.proximo_plan.hay_excedentes}
+                  seleccionGuardada={plan.proximo_plan.seleccion_guardada}
+                  cancelando={cancelandoCambio}
+                  onCancelar={onCancelarCambio}
+                  onElegirConservar={onElegirConservar}
+                />
               </div>
             )}
           </div>
 
-          <div className="flex flex-col sm:items-end gap-2">
+          <div className="flex flex-col sm:items-end gap-2 shrink-0">
             <div className="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
               <Calendar className="w-4 h-4 text-aurea-copper shrink-0" />
               <span>
@@ -82,147 +90,51 @@ export const PlanActualCard: React.FC<PlanActualCardProps> = ({
                 <strong className="text-aurea-navy font-semibold">{fechaProximoCobro}</strong>
               </span>
             </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onCambiarPlan}
-              className="text-xs font-bold border-aurea-navy/20 text-aurea-navy hover:bg-aurea-navy/5 flex items-center gap-1.5 w-full sm:w-auto justify-center"
-            >
-              <span>Mejorar Plan</span>
-              <ArrowUpRight className="w-3.5 h-3.5 text-aurea-copper" />
-            </Button>
           </div>
         </div>
 
         {/* Consumo de Recursos en Tiempo Real */}
         <div className="py-6 border-b border-slate-100">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 font-mono flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-aurea-copper" />
-              Consumo de Recursos en Tiempo Real
-            </h3>
-            <span className="text-[11px] text-slate-400 font-mono">Sincronizado con BD</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Medidor Locales */}
-            <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-600 mb-1.5">
-                  <span className="flex items-center gap-1.5">
-                    <Building2 className="w-4 h-4 text-aurea-copper" />
-                    Locales / Sedes
-                  </span>
-                  <span className="font-mono text-aurea-navy font-bold">
-                    {usoRecursos.locales.usados} / {usoRecursos.locales.maximo}
-                  </span>
-                </div>
-                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden mt-2">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${getProgressColor(
-                      usoRecursos.locales.porcentaje,
-                      usoRecursos.locales.limite_alcanzado
-                    )}`}
-                    style={{ width: `${usoRecursos.locales.porcentaje}%` }}
-                  />
-                </div>
-              </div>
-              <p className="text-[11px] text-slate-500 mt-3 flex items-center justify-between">
-                <span>{usoRecursos.locales.porcentaje}% utilizado</span>
-                {usoRecursos.locales.limite_alcanzado && (
-                  <span className="text-amber-600 font-bold">Límite alcanzado</span>
-                )}
-              </p>
-            </div>
-
-            {/* Medidor Mesas */}
-            <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-600 mb-1.5">
-                  <span className="flex items-center gap-1.5">
-                    <Grid className="w-4 h-4 text-aurea-copper" />
-                    Mesas Activas
-                  </span>
-                  <span className="font-mono text-aurea-navy font-bold">
-                    {usoRecursos.mesas.usados} / {usoRecursos.mesas.maximo}
-                  </span>
-                </div>
-                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden mt-2">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${getProgressColor(
-                      usoRecursos.mesas.porcentaje,
-                      usoRecursos.mesas.limite_alcanzado
-                    )}`}
-                    style={{ width: `${usoRecursos.mesas.porcentaje}%` }}
-                  />
-                </div>
-              </div>
-              <p className="text-[11px] text-slate-500 mt-3 flex items-center justify-between">
-                <span>{usoRecursos.mesas.porcentaje}% utilizado</span>
-                {usoRecursos.mesas.limite_alcanzado && (
-                  <span className="text-amber-600 font-bold">Límite alcanzado</span>
-                )}
-              </p>
-            </div>
-
-            {/* Medidor Colaboradores */}
-            <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-600 mb-1.5">
-                  <span className="flex items-center gap-1.5">
-                    <Users className="w-4 h-4 text-aurea-copper" />
-                    Personal & Admins
-                  </span>
-                  <span className="font-mono text-aurea-navy font-bold">
-                    {usoRecursos.usuarios_personal.usados} / {usoRecursos.usuarios_personal.maximo}
-                  </span>
-                </div>
-                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden mt-2">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${getProgressColor(
-                      usoRecursos.usuarios_personal.porcentaje,
-                      usoRecursos.usuarios_personal.limite_alcanzado
-                    )}`}
-                    style={{ width: `${usoRecursos.usuarios_personal.porcentaje}%` }}
-                  />
-                </div>
-              </div>
-              <p className="text-[11px] text-slate-500 mt-3 flex items-center justify-between">
-                <span>{usoRecursos.usuarios_personal.porcentaje}% utilizado</span>
-                {usoRecursos.usuarios_personal.limite_alcanzado && (
-                  <span className="text-amber-600 font-bold">Límite alcanzado</span>
-                )}
-              </p>
-            </div>
-          </div>
+          <ConsumoRecursosRealTime usoRecursos={usoRecursos} />
         </div>
 
-        {/* Módulos y Capacidades del Plan */}
+        {/* Funciones incluidas en el plan, según los flags reales del plan contratado */}
         <div className="pt-6">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 font-mono mb-3">
-            Capacidades Pro Habilitadas
+            Funciones del Plan {plan.nombre}
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-700">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>KDS Cocina & Stock Rápido</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-700">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Carta Digital & Pedidos QR</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-700">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Asistente IA Predictivo</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-700">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Facturación SUNAT Integrada</span>
-            </div>
+            {[
+              [usoRecursos.incluye_reservas, 'Módulo de reservas'],
+              [usoRecursos.incluye_reportes_avanzados, 'Reportes avanzados'],
+              [usoRecursos.incluye_asistente_ia, 'Asistente IA de salón'],
+              [usoRecursos.incluye_prediccion_ia, 'Predicción de demanda IA'],
+            ].map(([incluido, texto]) => (
+              <div
+                key={texto as string}
+                className={`flex items-center gap-2 text-xs font-medium ${
+                  incluido ? 'text-slate-700' : 'text-slate-400'
+                }`}
+              >
+                {incluido ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                ) : (
+                  <XCircle className="w-4 h-4 text-slate-300 shrink-0" />
+                )}
+                <span>{texto as string}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
+
+      <Link
+        to={ROUTES.PROPIETARIO_CAMBIAR_PLAN}
+        className="mt-6 inline-flex items-center justify-center gap-2 rounded-full border border-aurea-copper/50 bg-white px-4 py-2.5 text-sm font-semibold text-aurea-navy shadow-sm transition-colors hover:bg-aurea-champagne/25"
+      >
+        <Sparkles className="w-4 h-4 text-aurea-copper" />
+        Comparar y cambiar de plan
+      </Link>
     </article>
   );
 };
