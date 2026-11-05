@@ -11,8 +11,11 @@ use Tests\TestCase;
 class AdministradorTest extends TestCase
 {
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
+
     private string $propietarioId = '00000000-0000-4000-8000-000000000101';
+
     private string $propietarioCorreo = 'propietario@aurea.local';
+
     private string $tokenPropietario;
 
     protected function setUp(): void
@@ -20,7 +23,7 @@ class AdministradorTest extends TestCase
         parent::setUp();
 
         // Crear sesión de prueba en Redis para el Propietario
-        $rawToken = 'test_token_' . Str::random(32);
+        $rawToken = 'test_token_'.Str::random(32);
         $tokenHash = hash('sha256', $rawToken);
 
         $sessionPayload = [
@@ -37,10 +40,10 @@ class AdministradorTest extends TestCase
         $this->tokenPropietario = $rawToken;
     }
 
-    private function headers(string $token = null): array
+    private function headers(?string $token = null): array
     {
         return [
-            'Authorization' => 'Bearer ' . ($token ?: $this->tokenPropietario),
+            'Authorization' => 'Bearer '.($token ?: $this->tokenPropietario),
             'Accept' => 'application/json',
         ];
     }
@@ -91,7 +94,7 @@ class AdministradorTest extends TestCase
      */
     public function test_propietario_puede_invitar_administrador_exitosamente_sin_sede(): void
     {
-        $correo = 'carlos.invitado.' . Str::random(6) . '@aurea.pe';
+        $correo = 'carlos.invitado.'.Str::random(6).'@aurea.pe';
         $payload = [
             'nombre' => 'Carlos Ramos',
             'correo' => $correo,
@@ -167,7 +170,7 @@ class AdministradorTest extends TestCase
     {
         $payload = [
             'nombre' => 'Juan Perez',
-            'correo' => 'juan.' . Str::random(5) . '@aurea.pe',
+            'correo' => 'juan.'.Str::random(5).'@aurea.pe',
             'telefono' => '123456789', // No inicia con 9
         ];
 
@@ -184,7 +187,7 @@ class AdministradorTest extends TestCase
     public function test_reenviar_invitacion_respeta_cooldown_de_60_segundos(): void
     {
         // 1. Crear usuario invitado
-        $correo = 'carlos.reenvio.' . Str::random(6) . '@aurea.pe';
+        $correo = 'carlos.reenvio.'.Str::random(6).'@aurea.pe';
         $resCreate = $this->postJson('/api/v1/propietario/administradores', [
             'nombre' => 'Carlos Reenvio',
             'correo' => $correo,
@@ -220,7 +223,7 @@ class AdministradorTest extends TestCase
     public function test_propietario_puede_cancelar_invitacion_pendiente(): void
     {
         // 1. Crear invitado
-        $correo = 'cancelar.' . Str::random(6) . '@aurea.pe';
+        $correo = 'cancelar.'.Str::random(6).'@aurea.pe';
         $resCreate = $this->postJson('/api/v1/propietario/administradores', [
             'nombre' => 'Para Cancelar',
             'correo' => $correo,
@@ -271,7 +274,7 @@ class AdministradorTest extends TestCase
     public function test_rol_no_autorizado_es_rechazado(): void
     {
         // Sesión como 'mozo'
-        $mozoToken = 'mozo_token_' . Str::random(32);
+        $mozoToken = 'mozo_token_'.Str::random(32);
         $mozoHash = hash('sha256', $mozoToken);
         Redis::setex("auth:session:{$mozoHash}", 3600, json_encode([
             'id' => '00000000-0000-4000-8000-000000000103',

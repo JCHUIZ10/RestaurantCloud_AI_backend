@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Propietario;
 
-use App\Domains\Archivos\Services\TenantStorageService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Storage;
@@ -12,9 +11,13 @@ use Tests\TestCase;
 class LocalTest extends TestCase
 {
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
+
     private string $localMirafloresId = '00000000-0000-4000-8000-000000000010';
+
     private string $propietarioId = '00000000-0000-4000-8000-000000000101';
+
     private string $propietarioCorreo = 'propietario@aurea.local';
+
     private string $tokenPropietario;
 
     protected function setUp(): void
@@ -22,7 +25,7 @@ class LocalTest extends TestCase
         parent::setUp();
 
         // Crear sesión de prueba en Redis para el Propietario
-        $rawToken = 'test_token_prop_' . Str::random(32);
+        $rawToken = 'test_token_prop_'.Str::random(32);
         $tokenHash = hash('sha256', $rawToken);
 
         $sessionPayload = [
@@ -45,10 +48,10 @@ class LocalTest extends TestCase
             ->delete();
     }
 
-    private function headers(string $token = null): array
+    private function headers(?string $token = null): array
     {
         return [
-            'Authorization' => 'Bearer ' . ($token ?: $this->tokenPropietario),
+            'Authorization' => 'Bearer '.($token ?: $this->tokenPropietario),
             'Accept' => 'application/json',
         ];
     }
@@ -142,7 +145,7 @@ class LocalTest extends TestCase
      */
     public function test_propietario_puede_crear_local_con_plantilla_chifa_e_inicializar_minio(): void
     {
-        $slugTest = 'test-api-chifa-' . time();
+        $slugTest = 'test-api-chifa-'.time();
 
         $payload = [
             'nombre' => 'Chifa Central Lima',
@@ -259,7 +262,7 @@ class LocalTest extends TestCase
      */
     public function test_mozo_no_puede_acceder_a_rutas_de_propietario(): void
     {
-        $rawTokenMozo = 'test_token_mozo_' . Str::random(32);
+        $rawTokenMozo = 'test_token_mozo_'.Str::random(32);
         $tokenHashMozo = hash('sha256', $rawTokenMozo);
 
         $sessionMozo = [
@@ -307,7 +310,7 @@ class LocalTest extends TestCase
     public function test_desvincular_administrador_lo_desactiva_y_revoca_sesion(): void
     {
         $adminId = (string) Str::uuid();
-        $correo = 'admin.desvincular.' . Str::random(5) . '@aurea.pe';
+        $correo = 'admin.desvincular.'.Str::random(5).'@aurea.pe';
 
         // 1. Crear admin activo vinculado a Miraflores
         DB::table('usuario')->insert([
@@ -356,7 +359,7 @@ class LocalTest extends TestCase
     public function test_asignar_administrador_inactivo_a_local_lo_activa(): void
     {
         $adminId = (string) Str::uuid();
-        $correo = 'admin.reactivar.' . Str::random(5) . '@aurea.pe';
+        $correo = 'admin.reactivar.'.Str::random(5).'@aurea.pe';
 
         // 1. Crear admin inactivo sin local asignado
         DB::table('usuario')->insert([

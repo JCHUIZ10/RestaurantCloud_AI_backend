@@ -11,8 +11,11 @@ use Tests\TestCase;
 class LocalServiceTest extends TestCase
 {
     private LocalService $service;
+
     private TenantStorageService $storageService;
+
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
+
     private string $localMirafloresId = '00000000-0000-4000-8000-000000000010';
 
     protected function setUp(): void
@@ -89,7 +92,7 @@ class LocalServiceTest extends TestCase
      */
     public function test_aprovisionar_local_con_plantilla_polleria_crea_ecosistema_completo_y_minio(): void
     {
-        $slugTest = 'test-sede-polleria-' . time();
+        $slugTest = 'test-sede-polleria-'.time();
 
         $datos = [
             'nombre' => 'Test Pollería Brasas',
