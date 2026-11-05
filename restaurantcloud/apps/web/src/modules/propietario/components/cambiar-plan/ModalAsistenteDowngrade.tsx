@@ -1,738 +1,450 @@
-import React, { useState, useEffect } from 'react';
-import {
-  RecursosConciliacionResponseDTO,
-  ProgramarDowngradeResponseDTO,
+import React, { useEffect, useState } from 'react';
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, ListChecks, Loader2, Lock } from 'lucide-react';
+import { Button, Modal } from '@/components/ui';
+import type {
+  LocalConciliacionDTO,
+  RecursosConciliacionDTO,
+  SeleccionConservarDTO,
 } from '@/types/propietarioCambiarPlan';
 import { propietarioSuscripcionService } from '../../services/propietarioSuscripcionService';
-import { Button } from '@/components/ui/Button';
-import {
-  X,
-  Building2,
-  Layers,
-  Grid,
-  Users,
-  CheckCircle2,
-  ChevronRight,
-  ChevronLeft,
-  Info,
-  Shield,
-  Loader2,
-  Calendar,
-  AlertTriangle,
-} from 'lucide-react';
 
 interface ModalAsistenteDowngradeProps {
   abierto: boolean;
-  nuevoPlanId: number;
   onCerrar: () => void;
-  onDowngradeProgramado: (res: ProgramarDowngradeResponseDTO) => void;
+  /** Se invoca al guardar la selección para que la página recargue sus datos */
+  onGuardado: () => void;
 }
 
-export const ModalAsistenteDowngrade: React.FC<ModalAsistenteDowngradeProps> = ({
-  abierto,
-  nuevoPlanId,
-  onCerrar,
-  onDowngradeProgramado,
-}) => {
-  const [paso, setPaso] = useState<1 | 2 | 3 | 4 | 5>(1);
-  const [datosRecursos, setDatosRecursos] = useState<RecursosConciliacionResponseDTO | null>(null);
-  const [cargando, setCargando] = useState(true);
+interface Seleccion {
+  locales: Set<string>;
+  pisos: Set<string>;
+  mesas: Set<string>;
+  usuarios: Set<string>;
+}
+
+const PASOS = ['Locales', 'Detalle por sede', 'Resumen'] as const;
+const ROL: Record<string, string> = { mozo: 'Mozo', cocina: 'Cocina', cajero: 'Cajero', admin_local: 'Administrador' };
+
+const aConjuntos = (s: SeleccionConservarDTO): Seleccion => ({
+  locales: new Set(s.locales_ids),
+  pisos: new Set(s.pisos_ids),
+  mesas: new Set(s.mesas_ids),
+  usuarios: new Set(s.usuarios_ids),
+});
+
+const contar = (ids: string[], conjunto: Set<string>) => ids.filter((id) => conjunto.has(id)).length;
+
+const formatearFecha = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
+
+const Contador: React.FC<{ usados: number; maximo: number }> = ({ usados, maximo }) => (
+  <span className={`font-mono text-xs font-bold ${usados >= maximo ? 'text-amber-700' : 'text-aurea-navy'}`}>
+    {usados} / {maximo}
+  </span>
+);
+
+/** Deja elegir qué locales, ambientes, mesas y personal siguen activos cuando entre el plan más pequeño. */
+export const ModalAsistenteDowngrade: React.FC<ModalAsistenteDowngradeProps> = ({ abierto, onCerrar, onGuardado }) => {
+  const [datos, setDatos] = useState<RecursosConciliacionDTO | null>(null);
+  const [sel, setSel] = useState<Seleccion | null>(null);
+  const [paso, setPaso] = useState(0);
+  const [sedeId, setSedeId] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  // Estados de selección del Wizard
-  const [localSeleccionadoId, setLocalSeleccionadoId] = useState<string>('');
-  const [pisoSeleccionadoId, setPisoSeleccionadoId] = useState<string>('');
-  const [mesasSeleccionadasIds, setMesasSeleccionadasIds] = useState<string[]>([]);
-  const [usuariosSeleccionadosIds, setUsuariosSeleccionadosIds] = useState<string[]>([]);
-
-  // Límites según el wireframe para Starter
-  const LIMITE_MESAS_STARTER = 10;
-  const LIMITE_USUARIOS_STARTER = 3;
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!abierto) return;
-
     let cancelado = false;
     setCargando(true);
-    setPaso(1);
-    setErrorMsg(null);
-
+    setError(null);
+    setPaso(0);
     propietarioSuscripcionService
-      .getRecursosConciliacion(nuevoPlanId)
+      .getRecursosConciliacion()
       .then((res) => {
-        if (!cancelado && res.exito && res.datos) {
-          setDatosRecursos(res.datos);
-
-          // Defaults iniciales
-          const localDefault = res.datos.arbol_locales[0];
-          setLocalSeleccionadoId(localDefault.id);
-
-          const pisoDefault = localDefault.pisos[0];
-          setPisoSeleccionadoId(pisoDefault.id);
-
-          // Mesas por defecto (primeras 10)
-          const mesasInit = pisoDefault.mesas.slice(0, LIMITE_MESAS_STARTER).map((m) => m.id);
-          setMesasSeleccionadasIds(mesasInit);
-
-          // Usuarios por defecto (propietario + 2 colaboradores)
-          const propUser = res.datos.usuarios_staff.find((u) => u.protegido)?.id || 'usr-prop-01';
-          const otrosUsers = res.datos.usuarios_staff
-            .filter((u) => !u.protegido)
-            .slice(0, LIMITE_USUARIOS_STARTER - 1)
-            .map((u) => u.id);
-          setUsuariosSeleccionadosIds([propUser, ...otrosUsers]);
+        if (cancelado) return;
+        if (res.exito && res.datos) {
+          setDatos(res.datos);
+          setSel(aConjuntos(res.datos.seleccion));
+        } else {
+          setDatos(null);
+          setError(res.errores?.[0]?.mensaje ?? 'No se pudieron cargar tus recursos.');
         }
       })
       .catch(() => {
-        if (!cancelado) setErrorMsg('No se pudo cargar el árbol de recursos.');
+        if (!cancelado) setError('No pudimos conectar con el servidor. Intenta nuevamente.');
       })
       .finally(() => {
         if (!cancelado) setCargando(false);
       });
-
     return () => {
       cancelado = true;
     };
-  }, [abierto, nuevoPlanId]);
+  }, [abierto]);
 
-  if (!abierto) return null;
+  const limites = datos?.plan_destino.limites;
 
-  // Local actual activo
-  const localActivo = datosRecursos?.arbol_locales.find((l) => l.id === localSeleccionadoId);
-  // Piso actual activo
-  const pisoActivo = localActivo?.pisos.find((p) => p.id === pisoSeleccionadoId);
-
-  // Manejo de cambio de local
-  const handleCambiarLocal = (localId: string) => {
-    setLocalSeleccionadoId(localId);
-    const nuevoLocal = datosRecursos?.arbol_locales.find((l) => l.id === localId);
-    if (nuevoLocal && nuevoLocal.pisos.length > 0) {
-      const nuevoPiso = nuevoLocal.pisos[0];
-      setPisoSeleccionadoId(nuevoPiso.id);
-      setMesasSeleccionadasIds(nuevoPiso.mesas.slice(0, LIMITE_MESAS_STARTER).map((m) => m.id));
-    }
-  };
-
-  // Manejo de cambio de piso
-  const handleCambiarPiso = (pisoId: string) => {
-    setPisoSeleccionadoId(pisoId);
-    const nuevoPiso = localActivo?.pisos.find((p) => p.id === pisoId);
-    if (nuevoPiso) {
-      setMesasSeleccionadasIds(nuevoPiso.mesas.slice(0, LIMITE_MESAS_STARTER).map((m) => m.id));
-    }
-  };
-
-  // Manejo toggle mesa
-  const handleToggleMesa = (mesaId: string) => {
-    if (mesasSeleccionadasIds.includes(mesaId)) {
-      setMesasSeleccionadasIds(mesasSeleccionadasIds.filter((id) => id !== mesaId));
-    } else {
-      if (mesasSeleccionadasIds.length >= LIMITE_MESAS_STARTER) {
-        return; // tope alcanzado
+  const alternarLocal = (local: LocalConciliacionDTO) => {
+    if (!limites) return;
+    setSel((prev) => {
+      if (!prev) return prev;
+      const siguiente: Seleccion = {
+        locales: new Set(prev.locales),
+        pisos: new Set(prev.pisos),
+        mesas: new Set(prev.mesas),
+        usuarios: new Set(prev.usuarios),
+      };
+      if (siguiente.locales.has(local.id)) {
+        siguiente.locales.delete(local.id);
+        local.pisos.forEach((p) => {
+          siguiente.pisos.delete(p.id);
+          p.mesas.forEach((m) => siguiente.mesas.delete(m.id));
+        });
+        local.personal.forEach((u) => siguiente.usuarios.delete(u.id));
+      } else if (siguiente.locales.size < limites.max_locales) {
+        siguiente.locales.add(local.id);
+        const pisos = local.pisos.slice(0, limites.max_pisos);
+        pisos.forEach((p) => siguiente.pisos.add(p.id));
+        pisos
+          .flatMap((p) => p.mesas)
+          .slice(0, limites.max_mesas)
+          .forEach((m) => siguiente.mesas.add(m.id));
+        [...local.personal.filter((u) => u.protegido), ...local.personal.filter((u) => !u.protegido)]
+          .slice(0, limites.max_usuarios)
+          .forEach((u) => siguiente.usuarios.add(u.id));
       }
-      setMesasSeleccionadasIds([...mesasSeleccionadasIds, mesaId]);
-    }
+      return siguiente;
+    });
   };
 
-  // Manejo toggle usuario
-  const handleToggleUsuario = (userId: string, protegido: boolean) => {
-    if (protegido) return; // Cuenta de propietario no se puede desactivar
-    if (usuariosSeleccionadosIds.includes(userId)) {
-      setUsuariosSeleccionadosIds(usuariosSeleccionadosIds.filter((id) => id !== userId));
-    } else {
-      if (usuariosSeleccionadosIds.length >= LIMITE_USUARIOS_STARTER) {
-        return; // tope alcanzado
+  const alternar = (
+    campo: 'pisos' | 'mesas' | 'usuarios',
+    id: string,
+    idsDelLocal: string[],
+    maximo: number,
+    hijos: { campo: 'mesas'; ids: string[] } | null = null
+  ) => {
+    setSel((prev) => {
+      if (!prev) return prev;
+      const conjunto = new Set(prev[campo]);
+      const siguiente = { ...prev, [campo]: conjunto };
+      if (conjunto.has(id)) {
+        conjunto.delete(id);
+        if (hijos) {
+          const mesas = new Set(prev.mesas);
+          hijos.ids.forEach((hijo) => mesas.delete(hijo));
+          siguiente.mesas = mesas;
+        }
+      } else if (contar(idsDelLocal, conjunto) < maximo) {
+        conjunto.add(id);
       }
-      setUsuariosSeleccionadosIds([...usuariosSeleccionadosIds, userId]);
-    }
+      return siguiente;
+    });
   };
 
-  // Confirmar y programar en backend
-  const handleConfirmarDowngrade = async () => {
+  const guardar = async () => {
+    if (!sel) return;
     setGuardando(true);
-    setErrorMsg(null);
+    setError(null);
     try {
-      const res = await propietarioSuscripcionService.programarDowngrade({
-        nuevo_plan_id: nuevoPlanId,
-        config_downgrade: {
-          local_id_activo: localSeleccionadoId,
-          piso_id_activo: pisoSeleccionadoId,
-          mesas_ids_activas: mesasSeleccionadasIds,
-          usuarios_ids_activos: usuariosSeleccionadosIds,
-        },
+      const res = await propietarioSuscripcionService.guardarSeleccionConservar({
+        locales_ids: [...sel.locales],
+        pisos_ids: [...sel.pisos],
+        mesas_ids: [...sel.mesas],
+        usuarios_ids: [...sel.usuarios],
       });
-
-      if (res.exito && res.datos) {
-        onDowngradeProgramado(res.datos);
-      } else {
-        setErrorMsg(res.errores?.[0]?.mensaje || 'Error al programar el cambio de plan.');
+      if (res.exito) {
+        onGuardado();
+        return;
       }
+      setError(res.errores?.[0]?.mensaje ?? 'No se pudo guardar la selección.');
     } catch {
-      setErrorMsg('Error de conexión al programar el Subscription Schedule con Stripe.');
+      setError('No pudimos conectar con el servidor. Intenta nuevamente.');
     } finally {
       setGuardando(false);
     }
   };
 
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="modal-downgrade-wizard-titulo"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn"
-    >
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-aurea-navy/15 overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Header */}
-        <div className="bg-aurea-navy p-5 text-white flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-400/30">
-              <AlertTriangle className="w-5 h-5 text-amber-300" />
-            </div>
-            <div>
-              <h2
-                id="modal-downgrade-wizard-titulo"
-                className="font-serif text-lg font-bold tracking-tight text-white"
+  const sedesConservadas = datos && sel ? datos.locales.filter((l) => sel.locales.has(l.id)) : [];
+  const sedeActual = sedesConservadas.find((l) => l.id === sedeId) ?? sedesConservadas[0] ?? null;
+  const sinLocales = sel !== null && sel.locales.size === 0;
+
+  const pie = (
+    <>
+      <Button variant="ghost" disabled={guardando} onClick={onCerrar}>
+        Cerrar
+      </Button>
+      {paso > 0 && (
+        <Button variant="outline" disabled={guardando} leftIcon={<ArrowLeft className="w-4 h-4" />} onClick={() => setPaso(paso - 1)}>
+          Atrás
+        </Button>
+      )}
+      {paso < PASOS.length - 1 ? (
+        <Button disabled={!datos || sinLocales} onClick={() => setPaso(paso + 1)}>
+          Siguiente <ArrowRight className="w-4 h-4 ml-1" />
+        </Button>
+      ) : (
+        <Button loading={guardando} disabled={!datos || sinLocales} leftIcon={<CheckCircle2 className="w-4 h-4" />} onClick={guardar}>
+          Guardar selección
+        </Button>
+      )}
+    </>
+  );
+
+  const cuerpoPaso = () => {
+    if (!datos || !sel || !limites) return null;
+
+    if (paso === 0) {
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-xs text-slate-600">
+            <span>
+              El Plan {datos.plan_destino.nombre} admite hasta {limites.max_locales}{' '}
+              {limites.max_locales === 1 ? 'local' : 'locales'}.
+            </span>
+            <Contador usados={sel.locales.size} maximo={limites.max_locales} />
+          </div>
+          {datos.locales.map((local) => {
+            const elegido = sel.locales.has(local.id);
+            const bloqueado = !elegido && sel.locales.size >= limites.max_locales;
+            return (
+              <label
+                key={local.id}
+                className={`flex items-center justify-between gap-3 p-3 rounded-xl border ${
+                  elegido ? 'border-aurea-navy bg-aurea-ivory/60' : 'border-slate-200'
+                } ${bloqueado ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
               >
-                Asistente de Conciliación de Recursos — Downgrade a Plan Starter
-              </h2>
-              <p className="text-xs text-slate-300">
-                Ajuste jerárquico no-destructivo para preservar tus datos históricos
-              </p>
+                <span className="flex items-center gap-3 text-sm">
+                  <input type="checkbox" checked={elegido} disabled={bloqueado} onChange={() => alternarLocal(local)} />
+                  <strong className="text-aurea-navy">{local.nombre}</strong>
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  {local.pisos.length} ambientes · {local.pisos.reduce((n, p) => n + p.mesas.length, 0)} mesas ·{' '}
+                  {local.personal.length} personas
+                </span>
+              </label>
+            );
+          })}
+          <p className="text-[11px] text-slate-500">
+            Los locales que no elijas pasan a inactivos con todo lo que contienen; no se borra ningún dato.
+          </p>
+        </div>
+      );
+    }
+
+    if (paso === 1 && sedeActual) {
+      const idsPisos = sedeActual.pisos.map((p) => p.id);
+      const idsMesas = sedeActual.pisos.flatMap((p) => p.mesas.map((m) => m.id));
+      const idsPersonal = sedeActual.personal.map((u) => u.id);
+      const pisosElegidos = sedeActual.pisos.filter((p) => sel.pisos.has(p.id));
+
+      return (
+        <div className="space-y-5">
+          {sedesConservadas.length > 1 && (
+            <div role="tablist" aria-label="Sede" className="flex flex-wrap gap-2">
+              {sedesConservadas.map((sede) => (
+                <button
+                  key={sede.id}
+                  role="tab"
+                  type="button"
+                  aria-selected={sede.id === sedeActual.id}
+                  onClick={() => setSedeId(sede.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold border ${
+                    sede.id === sedeActual.id ? 'bg-aurea-navy text-white border-aurea-navy' : 'border-slate-300 text-slate-600'
+                  }`}
+                >
+                  {sede.nombre}
+                </button>
+              ))}
             </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={onCerrar}
-            disabled={guardando}
-            aria-label="Cerrar asistente"
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Banner Informativo Superior */}
-        <div className="px-6 py-3 bg-amber-50 border-b border-amber-200/80 text-xs text-amber-900 flex items-start gap-2.5">
-          <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-          <div className="leading-relaxed">
-            Tu <strong>Plan Pro</strong> se mantiene activo y con todas sus funciones hasta el{' '}
-            <strong>31 de Octubre de 2026</strong>. Elige los recursos que seguirán activos el{' '}
-            <strong>01 de Noviembre</strong>. <em>No se borrarán ventas pasadas ni comandas históricas.</em>
-          </div>
-        </div>
-
-        {/* Stepper Progress Header */}
-        <div className="px-6 py-3 bg-slate-50 border-b border-slate-200">
-          <div className="grid grid-cols-5 gap-1 text-[11px] font-semibold text-slate-500">
-            <button
-              type="button"
-              onClick={() => setPaso(1)}
-              className={`flex items-center gap-1 py-1 px-2 rounded-md transition-all ${
-                paso === 1
-                  ? 'bg-aurea-navy text-white font-bold'
-                  : paso > 1
-                  ? 'text-emerald-700 font-medium'
-                  : ''
-              }`}
-            >
-              {paso > 1 ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <span>1.</span>}
-              <span>Locales</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setPaso(2)}
-              className={`flex items-center gap-1 py-1 px-2 rounded-md transition-all ${
-                paso === 2
-                  ? 'bg-aurea-navy text-white font-bold'
-                  : paso > 2
-                  ? 'text-emerald-700 font-medium'
-                  : ''
-              }`}
-            >
-              {paso > 2 ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <span>2.</span>}
-              <span>Pisos</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setPaso(3)}
-              className={`flex items-center gap-1 py-1 px-2 rounded-md transition-all ${
-                paso === 3
-                  ? 'bg-aurea-navy text-white font-bold'
-                  : paso > 3
-                  ? 'text-emerald-700 font-medium'
-                  : ''
-              }`}
-            >
-              {paso > 3 ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <span>3.</span>}
-              <span>Mesas</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setPaso(4)}
-              className={`flex items-center gap-1 py-1 px-2 rounded-md transition-all ${
-                paso === 4
-                  ? 'bg-aurea-navy text-white font-bold'
-                  : paso > 4
-                  ? 'text-emerald-700 font-medium'
-                  : ''
-              }`}
-            >
-              {paso > 4 ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <span>4.</span>}
-              <span>Personal</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setPaso(5)}
-              className={`flex items-center gap-1 py-1 px-2 rounded-md transition-all ${
-                paso === 5 ? 'bg-aurea-navy text-white font-bold' : ''
-              }`}
-            >
-              <span>5.</span>
-              <span>Resumen</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Body Wizard */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1">
-          {cargando ? (
-            <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
-              <Loader2 className="w-8 h-8 animate-spin text-aurea-navy" />
-              <p className="text-xs font-semibold text-slate-600">
-                Cargando sedes, pisos, mesas y personal de Áurea...
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* PASO 1: LOCALES */}
-              {paso === 1 && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-serif text-base font-bold text-aurea-navy flex items-center gap-2">
-                        <Building2 className="w-4 h-4 text-aurea-copper" />
-                        <span>Paso 1: Selecciona la Sede que permanecerá activa (1 de 1)</span>
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        El Plan Starter permite únicamente 1 local activo. La sede excluida pasará a inactiva el 01/Nov.
-                      </p>
-                    </div>
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
-                      1 / 1 seleccionado
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
-                    {datosRecursos?.arbol_locales.map((local) => {
-                      const seleccionado = local.id === localSeleccionadoId;
-                      return (
-                        <div
-                          key={local.id}
-                          onClick={() => handleCambiarLocal(local.id)}
-                          className={`cursor-pointer rounded-xl border p-4 transition-all flex flex-col justify-between ${
-                            seleccionado
-                              ? 'border-2 border-aurea-navy bg-white shadow-md ring-2 ring-aurea-navy/10'
-                              : 'border-slate-200 bg-slate-50/50 hover:bg-white'
-                          }`}
-                        >
-                          <div>
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="font-bold text-sm text-slate-900">
-                                {local.nombre}
-                              </span>
-                              {local.es_casa_matriz && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-aurea-champagne/40 text-aurea-navy">
-                                  Casa Matriz
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-slate-500">
-                              {local.pisos.length} {local.pisos.length === 1 ? 'piso' : 'pisos'},{' '}
-                              {local.pisos.reduce((acc, p) => acc + p.mesas.length, 0)} mesas operativas
-                            </p>
-                          </div>
-
-                          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                            <span
-                              className={`font-semibold ${
-                                seleccionado ? 'text-emerald-700' : 'text-slate-400'
-                              }`}
-                            >
-                              {seleccionado ? '✓ Seguirá Activo' : 'Pasará a Inactivo'}
-                            </span>
-                            <input
-                              type="radio"
-                              name="local_activo"
-                              checked={seleccionado}
-                              onChange={() => handleCambiarLocal(local.id)}
-                              className="text-aurea-navy focus:ring-aurea-navy"
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* PASO 2: PISOS */}
-              {paso === 2 && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-serif text-base font-bold text-aurea-navy flex items-center gap-2">
-                        <Layers className="w-4 h-4 text-aurea-copper" />
-                        <span>Paso 2: Selecciona el Piso de {localActivo?.nombre} (1 de 1)</span>
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        El Plan Starter permite 1 piso por sede. Los ambientes no seleccionados se pausarán.
-                      </p>
-                    </div>
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
-                      1 / 1 seleccionado
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
-                    {localActivo?.pisos.map((piso) => {
-                      const seleccionado = piso.id === pisoSeleccionadoId;
-                      return (
-                        <div
-                          key={piso.id}
-                          onClick={() => handleCambiarPiso(piso.id)}
-                          className={`cursor-pointer rounded-xl border p-4 transition-all flex flex-col justify-between ${
-                            seleccionado
-                              ? 'border-2 border-aurea-navy bg-white shadow-md ring-2 ring-aurea-navy/10'
-                              : 'border-slate-200 bg-slate-50/50 hover:bg-white'
-                          }`}
-                        >
-                          <div>
-                            <span className="font-bold text-sm text-slate-900 block mb-1">
-                              {piso.nombre}
-                            </span>
-                            <span className="text-xs text-slate-500">
-                              {piso.mesas.length} mesas registradas
-                            </span>
-                          </div>
-
-                          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                            <span
-                              className={`font-semibold ${
-                                seleccionado ? 'text-emerald-700' : 'text-slate-400'
-                              }`}
-                            >
-                              {seleccionado ? '✓ Piso Activo' : 'Piso Pausado'}
-                            </span>
-                            <input
-                              type="radio"
-                              name="piso_activo"
-                              checked={seleccionado}
-                              onChange={() => handleCambiarPiso(piso.id)}
-                              className="text-aurea-navy focus:ring-aurea-navy"
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* PASO 3: MESAS */}
-              {paso === 3 && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-serif text-base font-bold text-aurea-navy flex items-center gap-2">
-                        <Grid className="w-4 h-4 text-aurea-copper" />
-                        <span>Paso 3: Selecciona las Mesas del {pisoActivo?.nombre}</span>
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Selecciona hasta {LIMITE_MESAS_STARTER} mesas activas para atención al comensal.
-                      </p>
-                    </div>
-
-                    <div className="text-right">
-                      <span
-                        className={`text-xs font-bold px-3 py-1 rounded-full ${
-                          mesasSeleccionadasIds.length === LIMITE_MESAS_STARTER
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                            : 'bg-amber-100 text-amber-800 border border-amber-300'
-                        }`}
-                      >
-                        {mesasSeleccionadasIds.length} de {LIMITE_MESAS_STARTER} seleccionadas
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Barra visual de progreso */}
-                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                    <div
-                      className="bg-aurea-navy h-full transition-all duration-300"
-                      style={{
-                        width: `${Math.min(
-                          100,
-                          (mesasSeleccionadasIds.length / LIMITE_MESAS_STARTER) * 100
-                        )}%`,
-                      }}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-2 max-h-60 overflow-y-auto pr-1">
-                    {pisoActivo?.mesas.map((mesa) => {
-                      const seleccionada = mesasSeleccionadasIds.includes(mesa.id);
-                      const deshabilitada =
-                        !seleccionada && mesasSeleccionadasIds.length >= LIMITE_MESAS_STARTER;
-
-                      return (
-                        <div
-                          key={mesa.id}
-                          onClick={() => !deshabilitada && handleToggleMesa(mesa.id)}
-                          className={`p-3 rounded-xl border text-xs flex items-center justify-between transition-all ${
-                            deshabilitada
-                              ? 'opacity-40 cursor-not-allowed bg-slate-100 border-slate-200'
-                              : seleccionada
-                              ? 'cursor-pointer border-aurea-navy bg-white shadow-xs font-semibold'
-                              : 'cursor-pointer border-slate-200 bg-slate-50 hover:bg-white'
-                          }`}
-                        >
-                          <div>
-                            <span className="font-bold text-slate-800 block">{mesa.etiqueta}</span>
-                            <span className="text-[11px] text-slate-500">
-                              Cap: {mesa.capacidad} personas
-                            </span>
-                          </div>
-
-                          <input
-                            type="checkbox"
-                            checked={seleccionada}
-                            disabled={deshabilitada}
-                            onChange={() => handleToggleMesa(mesa.id)}
-                            className="text-aurea-navy rounded focus:ring-aurea-navy cursor-pointer"
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* PASO 4: PERSONAL */}
-              {paso === 4 && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-serif text-base font-bold text-aurea-navy flex items-center gap-2">
-                        <Users className="w-4 h-4 text-aurea-copper" />
-                        <span>Paso 4: Selecciona Colaboradores Activos</span>
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        El Plan Starter permite hasta {LIMITE_USUARIOS_STARTER} cuentas de colaboradores activas.
-                      </p>
-                    </div>
-
-                    <span
-                      className={`text-xs font-bold px-3 py-1 rounded-full ${
-                        usuariosSeleccionadosIds.length === LIMITE_USUARIOS_STARTER
-                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                          : 'bg-amber-100 text-amber-800 border border-amber-300'
-                      }`}
-                    >
-                      {usuariosSeleccionadosIds.length} de {LIMITE_USUARIOS_STARTER} seleccionados
-                    </span>
-                  </div>
-
-                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                    {datosRecursos?.usuarios_staff.map((usuario) => {
-                      const seleccionada = usuariosSeleccionadosIds.includes(usuario.id);
-                      const deshabilitada =
-                        !seleccionada &&
-                        usuariosSeleccionadosIds.length >= LIMITE_USUARIOS_STARTER;
-
-                      return (
-                        <div
-                          key={usuario.id}
-                          onClick={() =>
-                            !usuario.protegido &&
-                            !deshabilitada &&
-                            handleToggleUsuario(usuario.id, usuario.protegido)
-                          }
-                          className={`p-3 rounded-xl border text-xs flex items-center justify-between transition-all ${
-                            usuario.protegido
-                              ? 'bg-amber-50/70 border-amber-200 cursor-default'
-                              : deshabilitada
-                              ? 'opacity-40 cursor-not-allowed bg-slate-100 border-slate-200'
-                              : seleccionada
-                              ? 'cursor-pointer border-aurea-navy bg-white shadow-xs'
-                              : 'cursor-pointer border-slate-200 bg-slate-50 hover:bg-white'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-700 uppercase">
-                              {usuario.nombre.substring(0, 2)}
-                            </div>
-                            <div>
-                              <div className="font-bold text-slate-800 flex items-center gap-2">
-                                <span>{usuario.nombre}</span>
-                                {usuario.protegido && (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 flex items-center gap-1">
-                                    <Shield className="w-3 h-3" />
-                                    Protegido / Inmutable
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-[11px] text-slate-500">
-                                {usuario.rol.toUpperCase()} • {usuario.email}{' '}
-                                {usuario.local_asignado && `(${usuario.local_asignado})`}
-                              </div>
-                            </div>
-                          </div>
-
-                          <input
-                            type="checkbox"
-                            checked={seleccionada}
-                            disabled={usuario.protegido || deshabilitada}
-                            onChange={() => handleToggleUsuario(usuario.id, usuario.protegido)}
-                            className="text-aurea-navy rounded focus:ring-aurea-navy cursor-pointer disabled:opacity-75"
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* PASO 5: RESUMEN Y CONFIRMACIÓN */}
-              {paso === 5 && (
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-serif text-base font-bold text-aurea-navy flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>Paso 5: Resumen de Configuración Programada</span>
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Verifica la conciliación de recursos antes de registrar el schedule en Stripe.
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3 text-xs">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                      <span className="text-slate-500 font-medium">Sede Activa a partir del 01/Nov:</span>
-                      <strong className="text-slate-900 font-bold">{localActivo?.nombre}</strong>
-                    </div>
-
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                      <span className="text-slate-500 font-medium">Piso Activo:</span>
-                      <strong className="text-slate-900 font-bold">{pisoActivo?.nombre}</strong>
-                    </div>
-
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                      <span className="text-slate-500 font-medium">Mesas que continuarán operativas:</span>
-                      <strong className="text-slate-900 font-bold">
-                        {mesasSeleccionadasIds.length} mesas seleccionadas
-                      </strong>
-                    </div>
-
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                      <span className="text-slate-500 font-medium">Colaboradores con acceso activo:</span>
-                      <strong className="text-slate-900 font-bold">
-                        {usuariosSeleccionadosIds.length} cuentas (Rodrigo + colaboradores)
-                      </strong>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1 font-semibold text-emerald-800">
-                      <span>Tarifa Starter desde 01/Nov:</span>
-                      <span className="text-sm font-sans font-extrabold text-aurea-navy">
-                        S/ 99.00 PEN / mes
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-start gap-2">
-                    <Calendar className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-                    <div>
-                      <strong>Garantía de Continuidad:</strong> Tu operación seguirá en Plan Pro con todos sus locales y mesas hasta el último segundo del 31/Octubre. Podrás revertir este cambio en cualquier momento antes de esa fecha.
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Mensaje de Error */}
-              {errorMsg && (
-                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700">
-                  {errorMsg}
-                </div>
-              )}
-            </>
           )}
-        </div>
 
-        {/* Footer */}
-        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-          <div>
-            {paso > 1 ? (
-              <Button
-                type="button"
-                variant="outline"
-                disabled={guardando}
-                onClick={() => setPaso((prev) => (prev - 1) as any)}
-                className="text-xs font-semibold text-slate-600 flex items-center gap-1.5"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span>Anterior</span>
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                disabled={guardando}
-                onClick={onCerrar}
-                className="text-xs font-semibold text-slate-600"
-              >
-                Cancelar
-              </Button>
-            )}
-          </div>
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Ambientes</h4>
+              <Contador usados={contar(idsPisos, sel.pisos)} maximo={limites.max_pisos} />
+            </div>
+            <div className="space-y-2">
+              {sedeActual.pisos.length === 0 && <p className="text-xs text-slate-400">Esta sede no tiene ambientes.</p>}
+              {sedeActual.pisos.map((piso) => {
+                const elegido = sel.pisos.has(piso.id);
+                const bloqueado = !elegido && contar(idsPisos, sel.pisos) >= limites.max_pisos;
+                return (
+                  <label
+                    key={piso.id}
+                    className={`flex items-center gap-3 p-2.5 rounded-lg border text-sm ${
+                      elegido ? 'border-aurea-navy bg-aurea-ivory/60' : 'border-slate-200'
+                    } ${bloqueado ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={elegido}
+                      disabled={bloqueado}
+                      onChange={() =>
+                        alternar('pisos', piso.id, idsPisos, limites.max_pisos, { campo: 'mesas', ids: piso.mesas.map((m) => m.id) })
+                      }
+                    />
+                    <span className="font-medium">{piso.nombre}</span>
+                    <span className="ml-auto text-[11px] text-slate-500">{piso.mesas.length} mesas</span>
+                  </label>
+                );
+              })}
+            </div>
+          </section>
 
-          <div className="flex items-center gap-2">
-            {paso < 5 ? (
-              <Button
-                type="button"
-                onClick={() => setPaso((prev) => (prev + 1) as any)}
-                className="bg-aurea-navy hover:bg-aurea-navy/90 text-white text-xs font-bold flex items-center gap-1.5 px-4 shadow-sm"
-              >
-                <span>Siguiente</span>
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                disabled={guardando}
-                onClick={handleConfirmarDowngrade}
-                className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md flex items-center gap-2 px-5"
-              >
-                {guardando ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    <span>Programando en Stripe...</span>
-                  </>
-                ) : (
-                  <>
-                    <Calendar className="w-4 h-4 text-white" />
-                    <span>Programar Downgrade para el 01/Nov</span>
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Mesas</h4>
+              <Contador usados={contar(idsMesas, sel.mesas)} maximo={limites.max_mesas} />
+            </div>
+            {pisosElegidos.length === 0 && <p className="text-xs text-slate-400">Elige un ambiente para ver sus mesas.</p>}
+            <div className="space-y-3">
+              {pisosElegidos.map((piso) => (
+                <div key={piso.id}>
+                  <p className="text-[11px] font-semibold text-slate-500 mb-1">{piso.nombre}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {piso.mesas.map((mesa) => {
+                      const elegida = sel.mesas.has(mesa.id);
+                      const bloqueada = !elegida && contar(idsMesas, sel.mesas) >= limites.max_mesas;
+                      return (
+                        <label
+                          key={mesa.id}
+                          className={`px-2.5 py-1 rounded-md border text-xs font-mono ${
+                            elegida ? 'border-aurea-navy bg-aurea-ivory/60 font-bold' : 'border-slate-200'
+                          } ${bloqueada ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="sr-only"
+                            checked={elegida}
+                            disabled={bloqueada}
+                            onChange={() => alternar('mesas', mesa.id, idsMesas, limites.max_mesas)}
+                          />
+                          {mesa.numero}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Personal</h4>
+              <Contador usados={contar(idsPersonal, sel.usuarios)} maximo={limites.max_usuarios} />
+            </div>
+            <div className="space-y-2">
+              {sedeActual.personal.length === 0 && <p className="text-xs text-slate-400">Esta sede no tiene personal activo.</p>}
+              {sedeActual.personal.map((persona) => {
+                const elegido = sel.usuarios.has(persona.id);
+                const bloqueado = persona.protegido || (!elegido && contar(idsPersonal, sel.usuarios) >= limites.max_usuarios);
+                return (
+                  <label
+                    key={persona.id}
+                    className={`flex items-center gap-3 p-2.5 rounded-lg border text-sm ${
+                      elegido ? 'border-aurea-navy bg-aurea-ivory/60' : 'border-slate-200'
+                    } ${bloqueado ? 'cursor-not-allowed' : 'cursor-pointer'} ${bloqueado && !persona.protegido ? 'opacity-50' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={elegido}
+                      disabled={bloqueado}
+                      onChange={() => alternar('usuarios', persona.id, idsPersonal, limites.max_usuarios)}
+                    />
+                    <span className="font-medium">{persona.nombre}</span>
+                    <span className="text-[11px] text-slate-500">{ROL[persona.rol] ?? persona.rol}</span>
+                    {persona.protegido && (
+                      <span className="ml-auto flex items-center gap-1 text-[11px] text-slate-500">
+                        <Lock className="w-3 h-3" /> Siempre se conserva
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+          </section>
         </div>
+      );
+    }
+
+    const todosPisos = datos.locales.flatMap((l) => l.pisos);
+    const filas = [
+      { etiqueta: 'Locales', activos: datos.locales.length, conservados: sel.locales.size },
+      { etiqueta: 'Ambientes', activos: todosPisos.length, conservados: sel.pisos.size },
+      { etiqueta: 'Mesas', activos: todosPisos.reduce((n, p) => n + p.mesas.length, 0), conservados: sel.mesas.size },
+      { etiqueta: 'Personal', activos: datos.locales.reduce((n, l) => n + l.personal.length, 0), conservados: sel.usuarios.size },
+    ];
+
+    return (
+      <div className="space-y-4">
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <table className="w-full text-left text-xs min-w-[20rem]">
+            <thead className="bg-slate-50 text-slate-500 font-bold">
+              <tr>
+                <th className="py-2 px-3">Recurso</th>
+                <th className="py-2 px-3 text-right">Seguirán activos</th>
+                <th className="py-2 px-3 text-right">Pasarán a inactivos</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filas.map((f) => (
+                <tr key={f.etiqueta}>
+                  <th scope="row" className="py-2 px-3 font-semibold text-aurea-navy">{f.etiqueta}</th>
+                  <td className="py-2 px-3 text-right font-mono">{f.conservados}</td>
+                  <td className="py-2 px-3 text-right font-mono text-amber-700">{Math.max(0, f.activos - f.conservados)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs text-slate-600 leading-relaxed">
+          Esto se aplica el <strong>{formatearFecha(datos.fecha_efectiva)}</strong>, cuando se cobre el Plan{' '}
+          {datos.plan_destino.nombre}. Si dejas cupo libre, se completa con lo más antiguo. Lo que pase a inactivo no se borra:
+          podrás reactivarlo si vuelves a un plan con más capacidad. Puedes cambiar esta selección hasta esa fecha.
+        </p>
       </div>
-    </div>
+    );
+  };
+
+  return (
+    <Modal
+      abierto={abierto}
+      onCerrar={onCerrar}
+      cerrable={!guardando}
+      icono={ListChecks}
+      etiqueta="Qué conservar"
+      titulo={datos ? `Elige qué conservar en el Plan ${datos.plan_destino.nombre}` : 'Elige qué conservar'}
+      descripcion="Hasta el cambio sigues con todo activo. Aquí decides qué seguirá funcionando después."
+      tamano="xl"
+      pie={pie}
+    >
+      <div className="space-y-4">
+        <ol className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider" aria-label="Pasos">
+          {PASOS.map((nombre, i) => (
+            <li key={nombre} aria-current={i === paso ? 'step' : undefined} className={i === paso ? 'text-aurea-navy' : 'text-slate-400'}>
+              {i + 1}. {nombre}
+              {i < PASOS.length - 1 && <span className="mx-2 text-slate-300">/</span>}
+            </li>
+          ))}
+        </ol>
+
+        {cargando && (
+          <div className="flex items-center justify-center py-10 text-slate-500">
+            <Loader2 className="w-6 h-6 animate-spin" />
+          </div>
+        )}
+
+        {!cargando && cuerpoPaso()}
+
+        {error && (
+          <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            {error}
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 };
