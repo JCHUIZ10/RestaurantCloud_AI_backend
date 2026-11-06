@@ -81,6 +81,12 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
   const [montoRecibidoTxt, setMontoRecibidoTxt] = useState<Record<string, string>>({});
   const [emailEnviado, setEmailEnviado] = useState<Record<string, boolean>>({});
   const [notificacionFeedback, setNotificacionFeedback] = useState<string | null>(null);
+  // Solo los avisos de éxito se pintan en verde; cualquier otro mensaje es un error o advertencia
+  const [avisoEsExito, setAvisoEsExito] = useState<boolean>(false);
+  const mostrarAviso = (mensaje: string | null, exito = false) => {
+    setAvisoEsExito(exito);
+    setNotificacionFeedback(mensaje);
+  };
   const [cobrando, setCobrando] = useState<boolean>(false);
   const [ultimoCobroResponse, setUltimoCobroResponse] = useState<ProcesarCobroFiscalResponseDTO | null>(null);
 
@@ -114,7 +120,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
     mesaIdInicializadaRef.current = mesa.id;
     setWhatsappEnviado({});
     setEmailEnviado({});
-    setNotificacionFeedback(null);
+    mostrarAviso(null);
     setEditandoWhatsappId(null);
     setEditandoEmailId(null);
     setCobrando(false);
@@ -263,7 +269,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
   // Manejador para copiar URL del comprobante
   const handleCopiarUrl = async () => {
     if (!entregaDigitalDisponible || !cuentaActiva.url_publica) {
-      setNotificacionFeedback('El enlace del comprobante estará disponible al confirmar el pago.');
+      mostrarAviso('El enlace del comprobante estará disponible al confirmar el pago.');
       return;
     }
 
@@ -297,11 +303,11 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
   const handleGuardarWhatsapp = () => {
     const digits = extraerDigitosMovilPeru(inputWhatsappTemp);
     if (digits.length > 0 && digits.length !== 9) {
-      setNotificacionFeedback('El número celular en el Perú debe tener exactamente 9 dígitos.');
+      mostrarAviso('El número celular en el Perú debe tener exactamente 9 dígitos.');
       return;
     }
     if (digits.length === 9 && !digits.startsWith('9')) {
-      setNotificacionFeedback('El número celular en el Perú debe comenzar con el dígito 9.');
+      mostrarAviso('El número celular en el Perú debe comenzar con el dígito 9.');
       return;
     }
     const formatted = digits ? ('+51 ' + formatearTelefonoPeru(digits)) : '';
@@ -331,13 +337,13 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
   // Enviar WhatsApp asistido con enlace canónico wa.me según estandar_telefono_whatsapp.md
   const handleEnviarWhatsApp = (cuentaId: string) => {
     if (!entregaDigitalDisponible || !cuentaActiva.url_publica) {
-      setNotificacionFeedback('El envío por WhatsApp se habilitará al confirmar el comprobante.');
+      mostrarAviso('El envío por WhatsApp se habilitará al confirmar el comprobante.');
       return;
     }
 
     const digits = extraerDigitosMovilPeru(cuentaActiva.telefono_whatsapp || '');
     if (!digits || digits.length !== 9) {
-      setNotificacionFeedback('Por favor registra un número celular válido de 9 dígitos para enviar.');
+      mostrarAviso('Por favor registra un número celular válido de 9 dígitos para enviar.');
       return;
     }
 
@@ -346,25 +352,25 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
     window.open(urlWa, '_blank');
 
     setWhatsappEnviado((prev) => ({ ...prev, [cuentaId]: true }));
-    setNotificacionFeedback('Comprobante abierto para envío por WhatsApp.');
-    setTimeout(() => setNotificacionFeedback(null), 3500);
+    mostrarAviso('Comprobante abierto para envío por WhatsApp.', true);
+    setTimeout(() => mostrarAviso(null), 3500);
   };
 
   // Enviar Email asistido
   const handleEnviarEmail = (cuentaId: string) => {
     if (!entregaDigitalDisponible) {
-      setNotificacionFeedback('El envío por correo se habilitará al confirmar el comprobante.');
+      mostrarAviso('El envío por correo se habilitará al confirmar el comprobante.');
       return;
     }
 
     if (!cuentaActiva.correo) {
-      setNotificacionFeedback('Por favor registra un correo electrónico.');
+      mostrarAviso('Por favor registra un correo electrónico.');
       return;
     }
 
     setEmailEnviado((prev) => ({ ...prev, [cuentaId]: true }));
-    setNotificacionFeedback(`Comprobante programado para envío a ${cuentaActiva.correo}.`);
-    setTimeout(() => setNotificacionFeedback(null), 3500);
+    mostrarAviso(`Comprobante programado para envío a ${cuentaActiva.correo}.`, true);
+    setTimeout(() => mostrarAviso(null), 3500);
   };
 
   // Confirmar Pago de la Cuenta Activa
@@ -382,19 +388,19 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
 
     const pedidoEfectivoId = precuenta?.pedido_id || mesa.pedido_id;
     if (!pedidoEfectivoId) {
-      setNotificacionFeedback('No se identificó un pedido activo asociado a esta mesa.');
+      mostrarAviso('No se identificó un pedido activo asociado a esta mesa.');
       return;
     }
 
     setCobrando(true);
-    setNotificacionFeedback(null);
+    mostrarAviso(null);
 
     let res;
     try {
       res = await cajaService.emitirComprobanteFiscal({
         mesa_id: mesa.id,
         pedido_id: pedidoEfectivoId,
-        subcuenta_id: cuentas.length > 1 && !cuentaActiva.id.startsWith('sub-') ? cuentaActiva.id : undefined,
+        subcuenta_id: (precuenta?.subcuentas?.length ?? 0) > 0 && !cuentaActiva.id.startsWith('sub-') ? cuentaActiva.id : undefined,
         tipo_comprobante: cuentaActiva.tipo_comprobante,
         cliente_nombre: cuentaActiva.titular,
         cliente_num_doc: cuentaActiva.numero_documento || undefined,
@@ -408,14 +414,14 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
       const msg = error.response?.data?.errores?.[0]?.mensaje ||
         error.response?.data?.message ||
         'No se pudo emitir el comprobante. Intenta nuevamente.';
-      setNotificacionFeedback(msg);
+      mostrarAviso(msg);
       return;
     }
 
     setCobrando(false);
 
     if (!res.exito || !res.datos) {
-      setNotificacionFeedback(res.errores?.[0]?.mensaje || 'No se pudo emitir el comprobante.');
+      mostrarAviso(res.errores?.[0]?.mensaje || 'No se pudo emitir el comprobante.');
       return;
     }
 
@@ -438,8 +444,8 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
     setCuentas(cuentasActualizadas);
     setUltimoCobroResponse(res.datos);
 
-    setNotificacionFeedback(`Comprobante ${res.datos.serie_numero} emitido exitosamente.`);
-    setTimeout(() => setNotificacionFeedback(null), 4000);
+    mostrarAviso(`Comprobante ${res.datos.serie_numero} emitido exitosamente.`, true);
+    setTimeout(() => mostrarAviso(null), 4000);
   };
 
   // Avanzar a la siguiente subcuenta pendiente sin cerrar el modal
@@ -452,7 +458,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
       setIndexCuentaActiva(sigIdx);
       setEditandoWhatsappId(null);
       setEditandoEmailId(null);
-      setNotificacionFeedback(null);
+      mostrarAviso(null);
     }
   };
 
@@ -549,9 +555,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
         {/* FEEDBACK TOAST DE ENVÍO O ERROR */}
         {notificacionFeedback && (
           <div className={`text-white text-xs font-bold px-4 py-2 text-center animate-in slide-in-from-top-2 flex items-center justify-center gap-2 shrink-0 ${
-            notificacionFeedback.includes('No se pudo') || notificacionFeedback.includes('Error')
-              ? 'bg-rose-600'
-              : 'bg-emerald-600'
+            avisoEsExito ? 'bg-emerald-600' : 'bg-rose-600'
           }`}>
             <Check className="w-4 h-4" />
             <span>{notificacionFeedback}</span>
