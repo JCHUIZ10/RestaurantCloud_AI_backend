@@ -28,7 +28,7 @@ import {
   permiteConsumidorFinal,
 } from './consumidorFinal';
 import { ModalQRBilletera } from '../precuenta/ModalQRBilletera';
-import { DIVISOR_IGV } from '@/shared/constants/tributario';
+import { calcularMontosSubcuenta, subcuentaSinImporte, MONTO_MINIMO_SUBCUENTA } from './montosSubcuenta';
 
 interface Paso2ConfiguracionComprobantesProps {
   subcuentas: SubcuentaConfigDTO[];
@@ -57,56 +57,16 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
   const [docErrores, setDocErrores] = useState<Record<string, string | null>>({});
   const [subcuentaModalQR, setSubcuentaModalQR] = useState<SubcuentaConfigDTO | null>(null);
 
-  // Recalcular montos de una subcuenta cuando cambian promos, pasarela o comprobante
-  const recalcularSubcuenta = (
-    sub: SubcuentaConfigDTO,
-    promoId: string | null,
-    medioPago: CodigoMetodoPago
-  ): SubcuentaConfigDTO => {
-    const bruto = sub.items.reduce((acc, it) => acc + it.subtotal, 0);
-
-    // Calcular descuento de promoción
-    let descuento = 0;
-    if (promoId) {
-      const promo = promocionesDisponibles.find((p) => p.id === promoId);
-      if (promo) {
-        descuento = Math.round(((bruto * promo.porcentaje_descuento) / 100) * 100) / 100;
-      }
-    }
-
-    const subtotalConDescuento = Math.max(0, bruto - descuento);
-
-    // Comisión de tarjeta según la configuración de la sede
-    let recargo = 0;
-    if (medioPago === 'tarjeta') {
-      recargo = Math.round(subtotalConDescuento * (comisionTarjetaPct / 100) * 100) / 100;
-    }
-
-    const totalNeto = Math.round((subtotalConDescuento + recargo) * 100) / 100;
-
-    // Desglose SUNAT (Base + IGV 18%)
-    const baseImponible = Math.round((subtotalConDescuento / DIVISOR_IGV) * 100) / 100;
-    const igv = Math.round((subtotalConDescuento - baseImponible) * 100) / 100;
-
-    return {
-      ...sub,
-      promocion_id: promoId,
-      medio_pago: medioPago,
-      subtotal_bruto: bruto,
-      descuento,
-      monto_recargo: recargo,
-      total_neto: totalNeto,
-      base_imponible: baseImponible,
-      igv,
-    };
-  };
-
   // Cambio de Promoción en una subcuenta
   const handleCambiarPromocion = (subId: string, promoId: string) => {
     const valorPromo = promoId === 'sin_promo' ? null : promoId;
     const actualizadas = subcuentas.map((s) => {
       if (s.id === subId) {
-        return recalcularSubcuenta(s, valorPromo, s.medio_pago);
+        return calcularMontosSubcuenta(
+          { ...s, promocion_id: valorPromo },
+          promocionesDisponibles,
+          comisionTarjetaPct
+        );
       }
       return s;
     });
@@ -136,7 +96,11 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
   const handleCambiarMedioPago = (subId: string, medio: CodigoMetodoPago) => {
     const actualizadas = subcuentas.map((s) => {
       if (s.id === subId) {
-        return recalcularSubcuenta(s, s.promocion_id || null, medio);
+        return calcularMontosSubcuenta(
+          { ...s, medio_pago: medio },
+          promocionesDisponibles,
+          comisionTarjetaPct
+        );
       }
       return s;
     });
@@ -325,6 +289,16 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
                     ))}
                   </div>
                 </div>
+
+                {subcuentaSinImporte(sub) && (
+                  <p className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-800 font-medium flex items-start gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>
+                      Esta subcuenta no tiene importe a pagar (mínimo S/ {MONTO_MINIMO_SUBCUENTA.toFixed(2)}).
+                      Vuelve al paso 1 y agrega un producto con precio, o quita la promoción.
+                    </span>
+                  </p>
+                )}
 
                 {/* BLOQUE A: Promoción Comercial Independiente (CU-ADMIN-17) */}
                 <div>

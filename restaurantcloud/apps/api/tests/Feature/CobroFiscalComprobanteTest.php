@@ -271,6 +271,112 @@ class CobroFiscalComprobanteTest extends TestCase
         $this->assertEquals(30.00, (float) $comprobante->vuelto);
     }
 
+    /**
+     * Crea un pedido con una única subcuenta pendiente, tal como la deja dividirCuenta
+     * (su total ya incluye el descuento y la comisión acordados en mesa).
+     *
+     * @return array{0: string, 1: string} [pedidoId, subcuentaId]
+     */
+    private function crearPedidoConSubcuenta(float $bruto, float $descuento, float $recargo, string $medioPago): array
+    {
+        $this->asegurarCajaAbierta();
+
+        $mesa = DB::table('mesa')->where('local_id', $this->localId)->where('estado', 'activa')->first();
+        $producto = DB::table('producto')->where('local_id', $this->localId)->first();
+
+        $pedidoId = (string) Str::uuid();
+        DB::table('pedido')->insert([
+            'id' => $pedidoId,
+            'local_id' => $this->localId,
+            'mesa_id' => $mesa->id,
+            'mozo_id' => $this->cajeroId,
+            'numero_comanda' => 997,
+            'comensales' => 2,
+            'estado' => 'cuenta_pedida',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $pedidoItemId = (string) Str::uuid();
+        DB::table('pedido_item')->insert([
+            'id' => $pedidoItemId,
+            'pedido_id' => $pedidoId,
+            'producto_id' => $producto->id,
+            'cantidad' => 1,
+            'precio_unitario' => $bruto,
+            'estado' => 'entregado',
+            'estado_pago' => 'pendiente',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $subcuentaId = (string) Str::uuid();
+        DB::table('pedido_subcuenta')->insert([
+            'id' => $subcuentaId,
+            'pedido_id' => $pedidoId,
+            'numero_subcuenta' => 1,
+            'tipo_comprobante' => 'boleta',
+            'documento_cliente' => '12345678',
+            'nombre_cliente' => 'CLIENTE DE PRUEBA',
+            'medio_pago' => $medioPago,
+            'subtotal_bruto' => $bruto,
+            'descuento' => $descuento,
+            'monto_recargo' => $recargo,
+            'total' => round($bruto - $descuento + $recargo, 2),
+            'estado' => 'pendiente',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('pedido_subcuenta_item')->insert([
+            'id' => (string) Str::uuid(),
+            'subcuenta_id' => $subcuentaId,
+            'pedido_item_id' => $pedidoItemId,
+            'cantidad' => 1,
+            'precio_unitario' => $bruto,
+            'subtotal' => $bruto,
+            'created_at' => now(),
+        ]);
+
+        return [$pedidoId, $subcuentaId];
+    }
+
+    public function test_el_cobro_de_una_subcuenta_con_tarjeta_no_duplica_la_comision(): void
+    {
+        DB::table('metodo_pago_local')
+            ->where('local_id', $this->localId)->where('codigo', 'tarjeta')
+            ->update(['activo' => true, 'comision_porcentaje' => 1.00]);
+
+        // Consumo 19.00 + comisión 1% (0.19) = 19.19, como lo acordó el mozo al dividir la cuenta.
+        [$pedidoId, $subcuentaId] = $this->crearPedidoConSubcuenta(19.00, 0.0, 0.19, 'tarjeta');
+
+        $response = $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', [
+            ...$this->payloadCobro($pedidoId),
+            'subcuenta_id' => $subcuentaId,
+            'medio_pago' => 'tarjeta',
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertEquals(19.19, $response->json('datos.total_cobrado'));
+        $this->assertEquals(19.00, $response->json('datos.subtotal_consumo'));
+        $this->assertEquals(0.19, $response->json('datos.monto_recargo'));
+    }
+
+    public function test_el_cobro_de_una_subcuenta_con_descuento_cobra_el_total_acordado(): void
+    {
+        [$pedidoId, $subcuentaId] = $this->crearPedidoConSubcuenta(100.00, 10.00, 0.0, 'efectivo');
+
+        $response = $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', [
+            ...$this->payloadCobro($pedidoId),
+            'subcuenta_id' => $subcuentaId,
+            'monto_recibido' => 100.00,
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertEquals(90.00, $response->json('datos.total_cobrado'));
+        $this->assertEquals(90.00, $response->json('datos.subtotal_consumo'));
+    }
+
     public function test_el_cobro_en_efectivo_rechaza_un_monto_recibido_menor_al_total(): void
     {
         $pedidoId = $this->crearPedidoCobrable();

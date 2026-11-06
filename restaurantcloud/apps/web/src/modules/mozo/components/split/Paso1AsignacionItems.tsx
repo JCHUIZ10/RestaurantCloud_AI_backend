@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { ItemParaDividirDTO, SubcuentaConfigDTO } from '@/types/mozo';
 import { CONSUMIDOR_FINAL_DOC, CONSUMIDOR_FINAL_NOMBRE } from './consumidorFinal';
+import { subcuentaSinImporte } from './montosSubcuenta';
 
 interface Paso1AsignacionItemsProps {
   items: ItemParaDividirDTO[];
@@ -416,6 +417,12 @@ export const Paso1AsignacionItems: React.FC<Paso1AsignacionItemsProps> = ({
                     )}
                   </div>
                 </div>
+
+                {subcuentaSinImporte(sub) && (
+                  <div className="mb-2 p-2 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-800 font-medium">
+                    Solo productos de S/ 0.00: agrega un producto con precio a esta subcuenta.
+                  </div>
+                )}
 
                 {/* Ítems asignados a esta subcuenta */}
                 {sub.items.length === 0 ? (

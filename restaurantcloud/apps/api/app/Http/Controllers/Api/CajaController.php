@@ -996,7 +996,11 @@ class CajaController extends Controller
                     return ApiResponse::error('NO_HAY_ITEMS_PENDIENTES', 'No existen consumos pendientes por cobrar.', 400);
                 }
 
-                $totalConsumo = $subcuenta ? (float) $subcuenta->total : (float) $itemsToCharge->sum('subtotal');
+                // El total de la subcuenta ya incluye la comisión acordada en mesa: se quita para
+                // que el recargo se calcule una sola vez más abajo, con el medio de pago real.
+                $totalConsumo = $subcuenta
+                    ? round((float) $subcuenta->total - (float) $subcuenta->monto_recargo, 2)
+                    : (float) $itemsToCharge->sum('subtotal');
                 $porcentajeRecargo = $metodoPago->codigo === 'tarjeta'
                     ? (float) $metodoPago->comision_porcentaje
                     : 0.0;

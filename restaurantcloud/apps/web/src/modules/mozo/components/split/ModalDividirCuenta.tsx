@@ -26,6 +26,11 @@ import {
   permiteConsumidorFinal,
 } from './consumidorFinal';
 import { DIVISOR_IGV } from '@/shared/constants/tributario';
+import {
+  calcularMontosSubcuenta,
+  subcuentaSinImporte,
+  MONTO_MINIMO_SUBCUENTA,
+} from './montosSubcuenta';
 
 interface ModalDividirCuentaProps {
   isOpen: boolean;
@@ -228,12 +233,22 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
 
   // Validación para pasar a Paso 2 (todos los ítems deben estar asignados)
   const itemsPendientes = items.filter((i) => !i.subcuenta_asignada_id);
-  const puedeAvanzarAPaso2 = Boolean(mesaInfo.pedidoId) && itemsPendientes.length === 0 && subcuentas.some((s) => s.items.length > 0);
+  const subcuentasSinImporte = subcuentas.filter(subcuentaSinImporte);
+  const puedeAvanzarAPaso2 =
+    Boolean(mesaInfo.pedidoId) &&
+    itemsPendientes.length === 0 &&
+    subcuentas.some((s) => s.items.length > 0) &&
+    subcuentasSinImporte.length === 0;
+  const mensajeSinImporte = `Debe tener un importe mínimo de S/ ${MONTO_MINIMO_SUBCUENTA.toFixed(2)}. Los productos de S/ 0.00 deben acompañar a un producto con precio.`;
 
   // Validación final antes de enviar a caja
   const validarPaso2 = (): string | null => {
     for (const sub of subcuentas) {
       if (sub.items.length === 0) continue;
+
+      if (subcuentaSinImporte(sub)) {
+        return `Subcuenta ${sub.numero_subcuenta}: ${mensajeSinImporte}`;
+      }
 
       if (metodosPagoActivos && !metodosPagoActivos.includes(sub.medio_pago)) {
         return `Subcuenta ${sub.numero_subcuenta}: El medio de pago seleccionado no está habilitado en esta sede.`;
@@ -433,12 +448,21 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
+            {paso === 1 && subcuentasSinImporte.length > 0 && (
+              <p className="text-[11px] text-amber-700 font-medium max-w-[360px] text-right">
+                Subcuenta {subcuentasSinImporte.map((s) => s.numero_subcuenta).join(', ')}: {mensajeSinImporte}
+              </p>
+            )}
             {paso === 1 ? (
               <button
                 type="button"
                 disabled={!puedeAvanzarAPaso2}
                 onClick={() => {
                   setErrorGlobal(null);
+                  // Recalcula descuento, recargo, base e IGV de todas las subcuentas
+                  setSubcuentas((prev) =>
+                    prev.map((s) => calcularMontosSubcuenta(s, promociones, comisionTarjetaPct))
+                  );
                   setPaso(2);
                 }}
                 className={`py-2.5 px-5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 min-h-[46px] shadow-sm ${

@@ -2160,15 +2160,18 @@ class MozoController extends Controller
             'subcuentas.*.direccion_cliente' => ['nullable', 'string', 'max:255'],
             'subcuentas.*.medio_pago' => ['required', 'string', 'in:efectivo,tarjeta,billetera_digital'],
             'subcuentas.*.promocion_id' => ['nullable', 'uuid'],
-            'subcuentas.*.subtotal_bruto' => ['required', 'numeric', 'min:0.01'],
+            'subcuentas.*.subtotal_bruto' => ['required', 'numeric', 'gt:0'],
             'subcuentas.*.descuento' => ['nullable', 'numeric', 'min:0'],
             'subcuentas.*.monto_recargo' => ['nullable', 'numeric', 'min:0'],
-            'subcuentas.*.total_neto' => ['required', 'numeric', 'min:0.01'],
+            'subcuentas.*.total_neto' => ['required', 'numeric', 'min:0.10'],
             'subcuentas.*.items' => ['required', 'array', 'min:1'],
             'subcuentas.*.items.*.pedido_item_id' => ['required', 'string'],
             'subcuentas.*.items.*.cantidad' => ['required', 'integer', 'min:1'],
             'subcuentas.*.items.*.precio_unitario' => ['required', 'numeric', 'min:0'],
             'subcuentas.*.items.*.subtotal' => ['required', 'numeric', 'min:0'],
+        ], [
+            'subcuentas.*.subtotal_bruto.gt' => 'Cada subcuenta debe incluir al menos un producto con precio; los productos de S/ 0.00 deben acompañar a otro.',
+            'subcuentas.*.total_neto.min' => 'El total a pagar de cada subcuenta debe ser como mínimo S/ 0.10.',
         ]);
 
         $this->validarIdentificacionBoletasDesdeLimite($validated['subcuentas']);
