@@ -342,7 +342,7 @@ export interface DetalleBilleteraDigitalDTO {
   telefono: string;
   titular: string;
   ruc: string;
-  qr_imagen_url?: string;
+  qr_payload: string;
   monto_exacto: number;
 }
 
@@ -401,7 +401,8 @@ export interface SolicitarCuentaRequest {
   mesa_id: string;
   metodo_pago: CodigoMetodoPago;
   numero_operacion?: string | null;
-  monto_declarado: number;
+  /** El mozo validó la transferencia en la pantalla del cliente (obligatorio con Yape/Plin) */
+  pago_verificado?: boolean;
   promocion_id?: string | null;
   tipo_comprobante?: 'boleta' | 'factura' | 'nota_venta';
   documento_cliente?: string | null;
@@ -528,6 +529,10 @@ export interface SubcuentaConfigDTO {
   consumidor_final_sin_doc?: boolean;
   promocion_id?: string | null;
   medio_pago: CodigoMetodoPago;
+  /** N° de operación de Yape/Plin, solo con medio_pago billetera_digital */
+  numero_operacion?: string | null;
+  /** Transferencia validada por quien divide la cuenta; Yape/Plin no avanza sin ella */
+  pago_verificado?: boolean;
   subtotal_bruto: number;
   descuento: number;
   monto_recargo: number;

@@ -26,6 +26,7 @@ import {
   permiteConsumidorFinal,
 } from './consumidorFinal';
 import { DIVISOR_IGV } from '@/shared/constants/tributario';
+import { mensajeDeErrorApi } from '@/shared/utils';
 import {
   calcularMontosSubcuenta,
   subcuentaSinImporte,
@@ -239,6 +240,9 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
     itemsPendientes.length === 0 &&
     subcuentas.some((s) => s.items.length > 0) &&
     subcuentasSinImporte.length === 0;
+  const subcuentasPendientesDeVerificar = subcuentas.filter(
+    (s) => s.items.length > 0 && s.medio_pago === 'billetera_digital' && !s.pago_verificado
+  );
   const mensajeSinImporte = `Debe tener un importe mínimo de S/ ${MONTO_MINIMO_SUBCUENTA.toFixed(2)}. Los productos de S/ 0.00 deben acompañar a un producto con precio.`;
 
   // Validación final antes de enviar a caja
@@ -252,6 +256,10 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
 
       if (metodosPagoActivos && !metodosPagoActivos.includes(sub.medio_pago)) {
         return `Subcuenta ${sub.numero_subcuenta}: El medio de pago seleccionado no está habilitado en esta sede.`;
+      }
+
+      if (sub.medio_pago === 'billetera_digital' && (!sub.pago_verificado || !sub.numero_operacion)) {
+        return `Subcuenta ${sub.numero_subcuenta}: Verifica el pago con Yape/Plin e ingresa el N° de operación.`;
       }
 
       if (sub.tipo_comprobante === 'factura') {
@@ -331,8 +339,8 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
       } else {
         setErrorGlobal(res.errores?.[0]?.mensaje || 'Error al enviar las subcuentas.');
       }
-    } catch {
-      setErrorGlobal('Error de red al procesar la división de la comanda.');
+    } catch (err) {
+      setErrorGlobal(mensajeDeErrorApi(err, 'Error de red al procesar la división de la comanda.'));
     } finally {
       setEnviando(false);
     }
@@ -453,6 +461,12 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
                 Subcuenta {subcuentasSinImporte.map((s) => s.numero_subcuenta).join(', ')}: {mensajeSinImporte}
               </p>
             )}
+            {paso === 2 && subcuentasPendientesDeVerificar.length > 0 && (
+              <p className="text-[11px] text-amber-700 font-medium max-w-[360px] text-right">
+                Subcuenta {subcuentasPendientesDeVerificar.map((s) => s.numero_subcuenta).join(', ')}: verifica el pago
+                con Yape/Plin e ingresa el N° de operación para continuar.
+              </p>
+            )}
             {paso === 1 ? (
               <button
                 type="button"
@@ -460,8 +474,13 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
                 onClick={() => {
                   setErrorGlobal(null);
                   // Recalcula descuento, recargo, base e IGV de todas las subcuentas
+                  // Los ítems pudieron cambiar: todo pago por Yape/Plin se verifica de nuevo en el paso 2
                   setSubcuentas((prev) =>
-                    prev.map((s) => calcularMontosSubcuenta(s, promociones, comisionTarjetaPct))
+                    prev.map((s) => ({
+                      ...calcularMontosSubcuenta(s, promociones, comisionTarjetaPct),
+                      numero_operacion: null,
+                      pago_verificado: false,
+                    }))
                   );
                   setPaso(2);
                 }}
@@ -477,9 +496,9 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
             ) : (
               <button
                 type="button"
-                disabled={enviando}
+                disabled={enviando || subcuentasPendientesDeVerificar.length > 0}
                 onClick={handleEnviarSubcuentasACaja}
-                className="py-2.5 px-5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 transition-all flex items-center justify-center gap-2 min-h-[46px] shadow-md active:scale-98 font-mono"
+                className="py-2.5 px-5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 transition-all flex items-center justify-center gap-2 min-h-[46px] shadow-md active:scale-98 font-mono disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {enviando ? (
                   <>

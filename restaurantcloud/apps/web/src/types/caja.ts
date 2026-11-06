@@ -189,6 +189,7 @@ export interface SubcuentaComandaDTO {
   tipo_comprobante?: 'boleta' | 'factura' | 'nota_venta';
   tipo_comprobante_sugerido?: string;
   medio_pago_tentativo?: string;
+  numero_operacion_tentativo?: string | null;
   subtotal_bruto?: number;
   descuento?: number;
   total_neto: number;

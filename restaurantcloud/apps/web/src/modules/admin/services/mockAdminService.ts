@@ -3691,7 +3691,7 @@ export const SEMILLAS_METODOS_PAGO_AUREA: MetodoPagoLocalDTO[] = [
       titular: 'Inversiones Gastronómicas del Sur S.A.C.',
       ruc: '20601234567',
       instrucciones_cajero: 'Verificar confirmación de pago y código de operación de 6 dígitos',
-      qr_url: '',
+      qr_payload: '00020101021126180014com.bcp.example5204000053036045802PE5909RESTAURANTE6004LIMA63047C44',
     },
     icono: 'smartphone',
     orden: 3,

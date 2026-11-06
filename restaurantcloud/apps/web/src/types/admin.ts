@@ -1517,7 +1517,8 @@ export interface DatosAdicionalesMetodoPago {
   banco?: string;
   cuenta?: string;
   cci?: string;
-  qr_url?: string;
+  /** Contenido del QR oficial de Yape/Plin (EMVCo), leído de la imagen que sube el local */
+  qr_payload?: string;
   instrucciones_cajero?: string;
   ruc?: string;
   [key: string]: any;

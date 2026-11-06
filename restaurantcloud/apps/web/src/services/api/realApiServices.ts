@@ -717,6 +717,7 @@ export const realCajaService = {
       tipo_comprobante: datos.tipo_comprobante,
       medio_pago: datos.metodo_pago_codigo,
       monto_recibido: datos.monto_recibido,
+      numero_operacion: datos.referencia_pago,
       documento_cliente: datos.cliente_num_doc,
       nombre_cliente: datos.cliente_nombre,
       telefono_envio: datos.telefono_envio,

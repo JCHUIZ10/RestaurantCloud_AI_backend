@@ -14,6 +14,8 @@ export function formatPEN(amount: number): string {
 }
 
 export * from './emvcoQr';
+export * from './numeroOperacion';
+export * from './errorApi';
 export * from './whatsapp';
 export * from './sunat';
 export * from './comprimirImagen';

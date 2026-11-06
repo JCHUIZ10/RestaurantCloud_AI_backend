@@ -30,6 +30,9 @@ import {
 import { ModalQRBilletera } from '../precuenta/ModalQRBilletera';
 import { calcularMontosSubcuenta, subcuentaSinImporte, MONTO_MINIMO_SUBCUENTA } from './montosSubcuenta';
 
+/** El importe o el medio de pago cambió: el pago por Yape/Plin debe volver a verificarse */
+const SIN_VERIFICACION = { numero_operacion: null, pago_verificado: false } as const;
+
 interface Paso2ConfiguracionComprobantesProps {
   subcuentas: SubcuentaConfigDTO[];
   promocionesDisponibles: PromocionSedeDTO[];
@@ -56,6 +59,7 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
   const [buscandoDoc, setBuscandoDoc] = useState<Record<string, boolean>>({});
   const [docErrores, setDocErrores] = useState<Record<string, string | null>>({});
   const [subcuentaModalQR, setSubcuentaModalQR] = useState<SubcuentaConfigDTO | null>(null);
+  const [errorNumeroOperacion, setErrorNumeroOperacion] = useState<string | null>(null);
 
   // Cambio de Promoción en una subcuenta
   const handleCambiarPromocion = (subId: string, promoId: string) => {
@@ -63,7 +67,7 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
     const actualizadas = subcuentas.map((s) => {
       if (s.id === subId) {
         return calcularMontosSubcuenta(
-          { ...s, promocion_id: valorPromo },
+          { ...s, promocion_id: valorPromo, ...SIN_VERIFICACION },
           promocionesDisponibles,
           comisionTarjetaPct
         );
@@ -97,7 +101,7 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
     const actualizadas = subcuentas.map((s) => {
       if (s.id === subId) {
         return calcularMontosSubcuenta(
-          { ...s, medio_pago: medio },
+          { ...s, medio_pago: medio, ...SIN_VERIFICACION },
           promocionesDisponibles,
           comisionTarjetaPct
         );
@@ -105,6 +109,25 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
       return s;
     });
     onActualizarSubcuentas(actualizadas);
+  };
+
+  // El mozo validó la transferencia de la subcuenta con el N° de operación de la constancia
+  const handleConfirmarPagoBilletera = (numOp: string) => {
+    if (!subcuentaModalQR) return;
+
+    const repetida = subcuentas.some((s) => s.id !== subcuentaModalQR.id && s.numero_operacion === numOp);
+    if (repetida) {
+      setErrorNumeroOperacion('Este N° de operación ya está registrado en otra subcuenta.');
+      return;
+    }
+
+    onActualizarSubcuentas(
+      subcuentas.map((s) =>
+        s.id === subcuentaModalQR.id ? { ...s, numero_operacion: numOp, pago_verificado: true } : s
+      )
+    );
+    setErrorNumeroOperacion(null);
+    setSubcuentaModalQR(null);
   };
 
   // Cambio de texto en inputs
@@ -576,7 +599,9 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
                         <div>
                           <span className="text-[10px] text-purple-700 font-bold uppercase block">Datos Yape / Plin</span>
                           <span className="font-bold text-purple-950 font-mono text-sm">
-                            {detalleBilletera?.telefono || 'Sin configurar'}
+                            {detalleBilletera?.qr_payload
+                              ? detalleBilletera.telefono || 'QR configurado'
+                              : 'Sin configurar'}
                           </span>
                           {detalleBilletera?.titular && (
                             <span className="text-[11px] text-purple-800 ml-1.5">({detalleBilletera.titular})</span>
@@ -584,17 +609,27 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
                         </div>
                         <button
                           type="button"
-                          disabled={!detalleBilletera?.telefono}
+                          disabled={!detalleBilletera?.qr_payload}
                           onClick={() => setSubcuentaModalQR(sub)}
                           className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <QrCode className="w-3.5 h-3.5" />
-                          <span>Ver QR</span>
+                          <span>{sub.pago_verificado ? 'Ver QR' : 'Cobrar con QR'}</span>
                         </button>
                       </div>
-                      {!detalleBilletera?.telefono && (
+                      {sub.pago_verificado ? (
+                        <p className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          Pago verificado · Op. {sub.numero_operacion}
+                        </p>
+                      ) : (
                         <p className="text-[11px] text-amber-700 font-medium">
-                          La sede no configuró su celular de Yape/Plin. Un administrador debe registrarlo en Formas de pago.
+                          Pendiente de verificar: registra el N° de operación de la constancia del cliente.
+                        </p>
+                      )}
+                      {!detalleBilletera?.qr_payload && (
+                        <p className="text-[11px] text-amber-700 font-medium">
+                          La sede no configuró su QR de Yape/Plin. Un administrador debe subirlo en Formas de pago.
                         </p>
                       )}
                     </div>
@@ -657,12 +692,14 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
       {subcuentaModalQR && (
         <ModalQRBilletera
           isOpen={Boolean(subcuentaModalQR)}
-          onClose={() => setSubcuentaModalQR(null)}
+          onClose={() => {
+            setSubcuentaModalQR(null);
+            setErrorNumeroOperacion(null);
+          }}
           monto={subcuentaModalQR.total_neto}
           detalle={detalleBilletera ? { ...detalleBilletera, monto_exacto: subcuentaModalQR.total_neto } : undefined}
-          onConfirmarPago={(_numOp) => {
-            setSubcuentaModalQR(null);
-          }}
+          onConfirmarPago={handleConfirmarPagoBilletera}
+          errorExterno={errorNumeroOperacion}
         />
       )}
     </div>

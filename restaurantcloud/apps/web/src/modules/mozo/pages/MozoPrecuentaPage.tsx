@@ -17,6 +17,7 @@ import { ModalQRBilletera } from '../components/precuenta/ModalQRBilletera';
 import { ROUTES } from '@/router/routes.constants';
 import { DIVISOR_IGV, MONTO_MINIMO_COMPROBANTE } from '@/shared/constants/tributario';
 import { construirOpcionesPago } from '../utils/opcionesPago';
+import { mensajeDeErrorApi } from '@/shared/utils';
 
 export const MozoPrecuentaPage: React.FC = () => {
   const { mesaId = 'mesa-04' } = useParams<{ mesaId: string }>();
@@ -30,7 +31,7 @@ export const MozoPrecuentaPage: React.FC = () => {
   const [promocionSeleccionada, setPromocionSeleccionada] = useState<PromocionSedeDTO | null>(null);
   const [metodoSeleccionado, setMetodoSeleccionado] = useState<CodigoMetodoPago>('efectivo');
   const [modalQRAbierto, setModalQRAbierto] = useState(false);
-  const [numeroOperacion, setNumeroOperacion] = useState<string>('');
+  const [errorPagoBilletera, setErrorPagoBilletera] = useState<string | null>(null);
   const [enviandoNotificacion, setEnviandoNotificacion] = useState(false);
   const [cuentaPedidaExitosa, setCuentaPedidaExitosa] = useState(false);
 
@@ -107,33 +108,54 @@ export const MozoPrecuentaPage: React.FC = () => {
   }, [calculos, metodoSeleccionado]);
 
   // Manejador para notificar a caja
-  const handleNotificarCaja = async (numOp?: string) => {
-    if (!calculos || enviandoNotificacion) return;
+  // Devuelve true si la cuenta quedó registrada
+  const handleNotificarCaja = async (numOp?: string): Promise<boolean> => {
+    if (!calculos || enviandoNotificacion) return false;
 
-    const opToUse = numOp || (metodoSeleccionado === 'billetera_digital' ? numeroOperacion : null);
+    const esBilletera = metodoSeleccionado === 'billetera_digital';
+
+    // Yape/Plin solo se registra desde el modal del QR, que exige el N° de operación y
+    // la validación del pago: el botón principal no puede saltarse esa verificación.
+    if (esBilletera && !numOp) {
+      setErrorPagoBilletera(null);
+      setModalQRAbierto(true);
+      return false;
+    }
 
     setEnviandoNotificacion(true);
+    setErrorPagoBilletera(null);
     try {
       const res = await mozoService.solicitarCuentaMesaConDetalle({
         mesa_id: mesaId,
         metodo_pago: metodoSeleccionado,
-        numero_operacion: opToUse,
-        monto_declarado: calculos.totalNeto,
+        numero_operacion: esBilletera ? numOp : null,
+        pago_verificado: esBilletera ? true : undefined,
         promocion_id: promocionSeleccionada?.id || null,
       });
 
       if (res.exito) {
         setCuentaPedidaExitosa(true);
+        return true;
       }
+
+      if (esBilletera) {
+        setErrorPagoBilletera(res.errores?.[0]?.mensaje || 'No se pudo registrar el pago con Yape/Plin.');
+      }
+      return false;
+    } catch (err) {
+      if (!esBilletera) throw err;
+      setErrorPagoBilletera(mensajeDeErrorApi(err, 'No se pudo registrar el pago con Yape/Plin.'));
+      return false;
     } finally {
       setEnviandoNotificacion(false);
     }
   };
 
-  const handleConfirmarQRPago = (numOp: string) => {
-    setNumeroOperacion(numOp);
-    setModalQRAbierto(false);
-    handleNotificarCaja(numOp);
+  const handleConfirmarQRPago = async (numOp: string) => {
+    // El modal solo se cierra si el servidor aceptó el número (por ejemplo, no estaba ya usado)
+    if (await handleNotificarCaja(numOp)) {
+      setModalQRAbierto(false);
+    }
   };
 
   if (cargando) {
@@ -250,10 +272,15 @@ export const MozoPrecuentaPage: React.FC = () => {
       {/* 3. Modal de Código QR para Billetera Digital (Yape / Plin) */}
       <ModalQRBilletera
         isOpen={modalQRAbierto}
-        onClose={() => setModalQRAbierto(false)}
+        onClose={() => {
+          setModalQRAbierto(false);
+          setErrorPagoBilletera(null);
+        }}
         detalle={calculos.opcionesPago.find((o) => o.codigo === 'billetera_digital')?.detalle_billetera}
         monto={calculos.totalNeto}
         onConfirmarPago={handleConfirmarQRPago}
+        errorExterno={errorPagoBilletera}
+        enviando={enviandoNotificacion}
       />
     </div>
   );

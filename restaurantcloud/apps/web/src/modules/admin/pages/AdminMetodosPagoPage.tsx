@@ -104,16 +104,11 @@ export const AdminMetodosPagoPage: React.FC = () => {
         }
 
         // 2. Activación condicionada de Billetera Digital (Yape / Plin)
-        // No se puede habilitar si no tiene configurado un número celular de 9 dígitos
+        // No se puede habilitar si no tiene cargado el QR oficial de Yape / Plin
         if (nuevoActivo && codigo === 'billetera_digital') {
-          const tel = (
-            metodoActual.datos_adicionales?.telefono ||
-            metodoActual.datos_adicionales?.telefono_billetera ||
-            ''
-          ).replace(/\D/g, '');
-          if (tel.length < 9) {
+          if (!metodoActual.datos_adicionales?.qr_payload) {
             mostrarToast(
-              'Para activar Yape / Plin, primero registra el celular del local.',
+              'Para activar Yape / Plin, primero sube el QR oficial del local.',
               'info'
             );
             setModalBilleteraOpen(true);

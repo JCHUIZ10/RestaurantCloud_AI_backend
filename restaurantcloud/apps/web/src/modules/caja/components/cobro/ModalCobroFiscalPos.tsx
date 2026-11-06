@@ -24,6 +24,9 @@ import {
   extraerDigitosMovilPeru,
   formatearTelefonoPeru,
   generarEnlaceWhatsApp,
+  esNumeroOperacionValido,
+  normalizarNumeroOperacion,
+  mensajeDeErrorApi,
 } from '@/shared/utils';
 import { cajaService } from '@/services/serviceAdapter';
 import { DIVISOR_IGV } from '@/shared/constants/tributario';
@@ -165,7 +168,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
           base_imponible: base,
           igv,
           medio_pago: medio,
-          numero_operacion: '',
+          numero_operacion: s.numero_operacion_tentativo || '',
           monto_recibido: totalNeto,
           vuelto: 0,
           token_digital: '',
@@ -245,6 +248,16 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
   const requiereMontoRecibido = cuentaActiva.medio_pago === 'efectivo' && !cuentaActiva.pagado;
   const recibidoInsuficiente =
     requiereMontoRecibido && cuentaActiva.monto_recibido + 0.005 < cuentaActiva.total_neto;
+
+  // Yape/Plin: el cajero confirma (o corrige) el N° de operación antes de emitir el comprobante
+  const requiereNumeroOperacion = cuentaActiva.medio_pago === 'billetera_digital' && !cuentaActiva.pagado;
+  const numeroOperacionInvalido = requiereNumeroOperacion && !esNumeroOperacionValido(cuentaActiva.numero_operacion);
+
+  const handleCambiarNumeroOperacion = (texto: string) => {
+    setCuentas((prev) =>
+      prev.map((c) => (c.id === cuentaActiva.id ? { ...c, numero_operacion: texto.toUpperCase() } : c))
+    );
+  };
 
   const handleCambiarMontoRecibido = (texto: string) => {
     const limpio = texto.replace(',', '.').replace(/[^0-9.]/g, '');
@@ -406,15 +419,16 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
         cliente_num_doc: cuentaActiva.numero_documento || undefined,
         metodo_pago_codigo: cuentaActiva.medio_pago,
         monto_recibido: cuentaActiva.monto_recibido,
+        referencia_pago:
+          cuentaActiva.medio_pago === 'billetera_digital'
+            ? normalizarNumeroOperacion(cuentaActiva.numero_operacion)
+            : undefined,
         telefono_envio: cuentaActiva.telefono_whatsapp ? cuentaActiva.telefono_whatsapp.trim() : undefined,
         email_envio: cuentaActiva.correo ? cuentaActiva.correo.trim() : undefined,
       });
     } catch (error: any) {
       setCobrando(false);
-      const msg = error.response?.data?.errores?.[0]?.mensaje ||
-        error.response?.data?.message ||
-        'No se pudo emitir el comprobante. Intenta nuevamente.';
-      mostrarAviso(msg);
+      mostrarAviso(mensajeDeErrorApi(error, 'No se pudo emitir el comprobante. Intenta nuevamente.'));
       return;
     }
 
@@ -665,6 +679,41 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
                     'Efectivo'
                   )}
                 </span>
+                {requiereNumeroOperacion && (
+                  <div className="mt-1.5 space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <label
+                        htmlFor="cobro-numero-operacion"
+                        className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 shrink-0"
+                      >
+                        N° de operación
+                      </label>
+                      <input
+                        id="cobro-numero-operacion"
+                        type="text"
+                        value={cuentaActiva.numero_operacion}
+                        onChange={(e) => handleCambiarNumeroOperacion(e.target.value)}
+                        maxLength={30}
+                        autoComplete="off"
+                        aria-invalid={numeroOperacionInvalido}
+                        className={`w-40 py-1 px-2 rounded-lg border bg-white dark:bg-slate-900 font-mono text-xs font-bold uppercase text-slate-900 dark:text-white ${
+                          numeroOperacionInvalido
+                            ? 'border-rose-400'
+                            : 'border-slate-300 dark:border-slate-700'
+                        }`}
+                      />
+                    </div>
+                    <span
+                      className={`text-[11px] font-semibold block ${
+                        numeroOperacionInvalido ? 'text-rose-600' : 'text-slate-500'
+                      }`}
+                    >
+                      {numeroOperacionInvalido
+                        ? 'Ingresa el N° de operación (4 a 30 letras o números) para emitir.'
+                        : 'Compáralo con la notificación de Yape/Plin del local antes de emitir.'}
+                    </span>
+                  </div>
+                )}
                 {requiereMontoRecibido && (
                   <div className="mt-1.5 space-y-1">
                     <div className="flex items-center gap-1.5">
@@ -1068,7 +1117,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
             ) : (
               <button
                 type="button"
-                disabled={cobrando || recibidoInsuficiente}
+                disabled={cobrando || recibidoInsuficiente || numeroOperacionInvalido}
                 onClick={handleConfirmarPago}
                 className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 disabled:bg-amber-400 disabled:cursor-not-allowed text-white text-xs font-bold transition-all shadow-md shadow-amber-500/25 flex items-center justify-center gap-2"
               >
