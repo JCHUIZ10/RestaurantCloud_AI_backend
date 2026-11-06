@@ -559,6 +559,7 @@ CREATE TABLE IF NOT EXISTS pedido_subcuenta (
     direccion_cliente VARCHAR(255),
     metodo_pago_id UUID REFERENCES metodo_pago_local(id) ON DELETE RESTRICT,
     medio_pago VARCHAR(30) NOT NULL CHECK (medio_pago IN ('efectivo', 'tarjeta', 'billetera_digital')),
+    numero_operacion_sugerido VARCHAR(100) DEFAULT NULL, -- N° de operación Yape/Plin validado por el mozo
     subtotal_bruto DECIMAL(10, 2) NOT NULL CHECK (subtotal_bruto > 0),
     descuento DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     monto_recargo DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
@@ -652,6 +653,7 @@ CREATE TABLE IF NOT EXISTS comprobante (
     email_envio VARCHAR(100),
     metodo_pago_id UUID REFERENCES metodo_pago_local(id) ON DELETE SET NULL,
     medio_pago VARCHAR(30) NOT NULL CHECK (medio_pago IN ('tarjeta', 'billetera_digital', 'efectivo')),
+    numero_operacion VARCHAR(30), -- N° de operación Yape/Plin; único por sede entre comprobantes emitidos
     subtotal_consumo DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     descuento DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     porcentaje_recargo DECIMAL(5, 2) NOT NULL DEFAULT 0.00,

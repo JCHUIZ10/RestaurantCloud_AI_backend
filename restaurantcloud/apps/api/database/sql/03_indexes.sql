@@ -147,8 +147,13 @@ CREATE INDEX IF NOT EXISTS idx_comprobante_caja_fecha
 CREATE INDEX IF NOT EXISTS idx_comprobante_local_serie_correlativo
     ON comprobante(local_id, serie, correlativo);
 
-CREATE INDEX IF NOT EXISTS idx_comprobante_subcuenta 
+CREATE INDEX IF NOT EXISTS idx_comprobante_subcuenta
     ON comprobante(subcuenta_id);
+
+-- Un N° de operación Yape/Plin no puede respaldar dos comprobantes emitidos de la misma sede
+CREATE UNIQUE INDEX IF NOT EXISTS uq_comprobante_local_numero_operacion
+    ON comprobante(local_id, numero_operacion)
+    WHERE numero_operacion IS NOT NULL AND estado = 'emitido';
 
 CREATE INDEX IF NOT EXISTS idx_pedido_subcuenta_comprobante_id 
     ON pedido_subcuenta(comprobante_id);

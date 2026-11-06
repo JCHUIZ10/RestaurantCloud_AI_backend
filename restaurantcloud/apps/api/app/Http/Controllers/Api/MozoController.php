@@ -758,6 +758,7 @@ class MozoController extends Controller
             'medio_pago' => ['nullable', 'string'],
             'metodo_pago' => ['nullable', 'string'],
             'numero_operacion' => ['nullable', 'string', 'max:100'],
+            'pago_verificado' => ['nullable', 'boolean'],
             'tipo_comprobante' => ['nullable', 'in:boleta,factura,nota_venta'],
             'tipo_comprobante_sugerido' => ['nullable', 'in:boleta,factura,nota_venta'],
             'documento_cliente' => ['nullable', 'string', 'max:20'],
@@ -815,7 +816,29 @@ class MozoController extends Controller
                 ? 'billetera_digital'
                 : (in_array($medioPagoRaw, ['efectivo', 'tarjeta'], true) ? $medioPagoRaw : null);
         }
-        $numeroOperacion = $preferencias['numero_operacion'] ?? null;
+        $numeroOperacion = null;
+
+        if ($medioPago === 'billetera_digital') {
+            $metodosPago = app(MetodoPagoLocalService::class);
+            $numeroOperacion = $metodosPago->normalizarNumeroOperacion($preferencias['numero_operacion'] ?? null);
+
+            if (! $metodosPago->numeroOperacionValido($numeroOperacion)) {
+                throw ValidationException::withMessages([
+                    'numero_operacion' => ['Ingresa el N° de operación de Yape/Plin (4 a 30 letras o números).'],
+                ]);
+            }
+            if (! ($preferencias['pago_verificado'] ?? false)) {
+                throw ValidationException::withMessages([
+                    'pago_verificado' => ['Confirma que validaste la transferencia en la pantalla del cliente.'],
+                ]);
+            }
+
+            try {
+                $metodosPago->asegurarNumeroOperacionLibre($localId, $numeroOperacion);
+            } catch (\DomainException $e) {
+                throw ValidationException::withMessages(['numero_operacion' => [$e->getMessage()]]);
+            }
+        }
 
         $updateData = [
             'precuenta_generada_at' => now(),
@@ -830,7 +853,8 @@ class MozoController extends Controller
         if ($medioPago !== null) {
             $updateData['medio_pago_sugerido'] = $medioPago;
         }
-        if ($numeroOperacion !== null) {
+        if ($medioPago !== null) {
+            // Un medio que no es billetera descarta el número que quedó de un intento anterior
             $updateData['numero_operacion_sugerido'] = $numeroOperacion;
         }
 
@@ -2219,6 +2243,67 @@ class MozoController extends Controller
     }
 
     /**
+     * Cada subcuenta en Yape/Plin exige un N° de operación válido, validado por quien la envía,
+     * sin repetirse entre subcuentas ni en comprobantes ya emitidos de la sede. Las demás
+     * subcuentas no llevan número. Devuelve las subcuentas con el número normalizado.
+     *
+     * @param  array<int, array<string, mixed>>  $subcuentas
+     * @return array<int, array<string, mixed>>
+     *
+     * @throws ValidationException
+     */
+    private function validarNumerosOperacionBilletera(array $subcuentas, string $localId): array
+    {
+        $metodosPago = app(MetodoPagoLocalService::class);
+        $errores = [];
+        $vistos = [];
+
+        foreach ($subcuentas as $indice => $sub) {
+            if ($sub['medio_pago'] !== 'billetera_digital') {
+                $subcuentas[$indice]['numero_operacion'] = null;
+
+                continue;
+            }
+
+            $numero = $metodosPago->normalizarNumeroOperacion($sub['numero_operacion'] ?? null);
+            $campo = "subcuentas.{$indice}.numero_operacion";
+
+            if (! $metodosPago->numeroOperacionValido($numero)) {
+                $errores[$campo] = ['Ingresa el N° de operación de Yape/Plin de esta subcuenta (4 a 30 letras o números).'];
+
+                continue;
+            }
+            if (! ($sub['pago_verificado'] ?? false)) {
+                $errores["subcuentas.{$indice}.pago_verificado"] = ['Confirma que validaste la transferencia de esta subcuenta.'];
+
+                continue;
+            }
+            if (isset($vistos[$numero])) {
+                $errores[$campo] = ['Este N° de operación está repetido en otra subcuenta.'];
+
+                continue;
+            }
+            $vistos[$numero] = true;
+
+            try {
+                $metodosPago->asegurarNumeroOperacionLibre($localId, $numero);
+            } catch (\DomainException $e) {
+                $errores[$campo] = [$e->getMessage()];
+
+                continue;
+            }
+
+            $subcuentas[$indice]['numero_operacion'] = $numero;
+        }
+
+        if ($errores !== []) {
+            throw ValidationException::withMessages($errores);
+        }
+
+        return $subcuentas;
+    }
+
+    /**
      * CU-MOZO-09 / CU-CAJA-04: Registrar la división de cuenta en subcuentas y pasar a cuenta_pedida.
      */
     public function dividirCuenta(string $id, Request $request): JsonResponse
@@ -2236,6 +2321,8 @@ class MozoController extends Controller
             'subcuentas.*.nombre_cliente' => ['required', 'string', 'max:150'],
             'subcuentas.*.direccion_cliente' => ['nullable', 'string', 'max:255'],
             'subcuentas.*.medio_pago' => ['required', 'string', 'in:efectivo,tarjeta,billetera_digital'],
+            'subcuentas.*.numero_operacion' => ['nullable', 'string', 'max:100'],
+            'subcuentas.*.pago_verificado' => ['nullable', 'boolean'],
             'subcuentas.*.promocion_id' => ['nullable', 'uuid'],
             'subcuentas.*.subtotal_bruto' => ['required', 'numeric', 'gt:0'],
             'subcuentas.*.descuento' => ['nullable', 'numeric', 'min:0'],
@@ -2253,6 +2340,7 @@ class MozoController extends Controller
 
         $this->validarIdentificacionBoletasDesdeLimite($validated['subcuentas']);
         $this->validarMediosPagoHabilitados($validated['subcuentas'], $localId);
+        $validated['subcuentas'] = $this->validarNumerosOperacionBilletera($validated['subcuentas'], $localId);
         $this->validarImportesSubcuentas($validated['subcuentas'], $localId);
 
         $mesa = DB::table('mesa')
@@ -2319,6 +2407,7 @@ class MozoController extends Controller
                     'nombre_cliente' => $sub['nombre_cliente'],
                     'direccion_cliente' => $sub['direccion_cliente'] ?? null,
                     'medio_pago' => $sub['medio_pago'],
+                    'numero_operacion_sugerido' => $sub['numero_operacion'] ?? null,
                     'subtotal_bruto' => $subtotalBruto,
                     'descuento' => $descuento,
                     'monto_recargo' => $montoRecargo,

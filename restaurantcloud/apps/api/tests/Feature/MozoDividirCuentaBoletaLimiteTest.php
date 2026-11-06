@@ -43,7 +43,7 @@ class MozoDividirCuentaBoletaLimiteTest extends TestCase
         string $medioPago = 'efectivo',
         float $recargo = 0.0,
     ): array {
-        return [
+        $subcuenta = [
             'numero_subcuenta' => $numero,
             'tipo_comprobante' => 'boleta',
             'documento_cliente' => $documento,
@@ -59,6 +59,14 @@ class MozoDividirCuentaBoletaLimiteTest extends TestCase
                 'subtotal' => $total,
             ]],
         ];
+
+        // Yape/Plin viaja con el N° de operación y la verificación del pago
+        if ($medioPago === 'billetera_digital') {
+            $subcuenta['numero_operacion'] = 'YAPE'.str_pad((string) $numero, 6, '0', STR_PAD_LEFT);
+            $subcuenta['pago_verificado'] = true;
+        }
+
+        return $subcuenta;
     }
 
     /**
@@ -129,6 +137,50 @@ class MozoDividirCuentaBoletaLimiteTest extends TestCase
             $this->subcuenta(1, 30.00, '00000000', 'CONSUMIDOR FINAL'),
             $this->subcuenta(2, 15.00, '00000000', 'CONSUMIDOR FINAL', 'billetera_digital'),
         ])->assertStatus(404);
+    }
+
+    private function habilitarBilletera(): void
+    {
+        DB::table('metodo_pago_local')
+            ->where('local_id', $this->localId)
+            ->where('codigo', 'billetera_digital')
+            ->update(['activo' => true]);
+    }
+
+    public function test_rechaza_una_subcuenta_yape_sin_numero_de_operacion(): void
+    {
+        $this->habilitarBilletera();
+        $yape = $this->subcuenta(2, 15.00, '00000000', 'CONSUMIDOR FINAL', 'billetera_digital');
+        unset($yape['numero_operacion']);
+
+        $this->dividir([$this->subcuenta(1, 30.00, '00000000', 'CONSUMIDOR FINAL'), $yape])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['subcuentas.1.numero_operacion'])
+            ->assertJsonMissingValidationErrors(['subcuentas.0.numero_operacion']);
+    }
+
+    public function test_rechaza_una_subcuenta_yape_sin_verificar_el_pago(): void
+    {
+        $this->habilitarBilletera();
+        $yape = $this->subcuenta(2, 15.00, '00000000', 'CONSUMIDOR FINAL', 'billetera_digital');
+        $yape['pago_verificado'] = false;
+
+        $this->dividir([$this->subcuenta(1, 30.00, '00000000', 'CONSUMIDOR FINAL'), $yape])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['subcuentas.1.pago_verificado']);
+    }
+
+    public function test_rechaza_numeros_de_operacion_repetidos_entre_subcuentas(): void
+    {
+        $this->habilitarBilletera();
+        $primera = $this->subcuenta(1, 30.00, '00000000', 'CONSUMIDOR FINAL', 'billetera_digital');
+        $segunda = $this->subcuenta(2, 15.00, '00000000', 'CONSUMIDOR FINAL', 'billetera_digital');
+        $segunda['numero_operacion'] = ' '.strtolower($primera['numero_operacion']).' ';
+
+        $this->dividir([$primera, $segunda])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['subcuentas.1.numero_operacion'])
+            ->assertJsonMissingValidationErrors(['subcuentas.0.numero_operacion']);
     }
 
     public function test_acepta_recargo_de_tarjeta_igual_a_la_comision_de_la_sede(): void

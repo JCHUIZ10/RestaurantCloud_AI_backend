@@ -341,6 +341,112 @@ class CobroFiscalComprobanteTest extends TestCase
         return [$pedidoId, $subcuentaId];
     }
 
+    private function habilitarBilletera(): void
+    {
+        DB::table('metodo_pago_local')
+            ->where('local_id', $this->localId)->where('codigo', 'billetera_digital')
+            ->update(['activo' => true]);
+    }
+
+    private function crearPedidoCobrableConYape(): string
+    {
+        $this->habilitarBilletera();
+        $pedidoId = $this->crearPedidoCobrable();
+        DB::table('pedido')->where('id', $pedidoId)->update(['medio_pago_sugerido' => 'billetera_digital']);
+
+        return $pedidoId;
+    }
+
+    public function test_el_cobro_con_yape_exige_un_numero_de_operacion_valido(): void
+    {
+        $pedidoId = $this->crearPedidoCobrableConYape();
+
+        foreach ([null, '', '12'] as $numero) {
+            $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', [
+                ...$this->payloadCobro($pedidoId),
+                'medio_pago' => 'billetera_digital',
+                'numero_operacion' => $numero,
+            ])
+                ->assertStatus(422)
+                ->assertJsonPath('errores.0.codigo', 'NUMERO_OPERACION_INVALIDO');
+        }
+
+        $this->assertSame(0, DB::table('comprobante')->where('pedido_id', $pedidoId)->count());
+    }
+
+    public function test_el_cobro_con_yape_guarda_el_numero_de_operacion_normalizado(): void
+    {
+        $pedidoId = $this->crearPedidoCobrableConYape();
+
+        $response = $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', [
+            ...$this->payloadCobro($pedidoId),
+            'medio_pago' => 'billetera_digital',
+            'numero_operacion' => ' yp 7788-99 ',
+        ]);
+
+        $response->assertStatus(200);
+        $comprobante = DB::table('comprobante')->where('id', $response->json('datos.comprobante_id'))->first();
+        $this->assertSame('billetera_digital', $comprobante->medio_pago);
+        $this->assertSame('YP7788-99', $comprobante->numero_operacion);
+    }
+
+    public function test_un_numero_de_operacion_no_puede_respaldar_dos_comprobantes_de_la_sede(): void
+    {
+        $primerPedido = $this->crearPedidoCobrableConYape();
+        $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', [
+            ...$this->payloadCobro($primerPedido),
+            'medio_pago' => 'billetera_digital',
+            'numero_operacion' => 'OP445566',
+        ])->assertStatus(200);
+
+        $segundoPedido = $this->crearPedidoCobrableConYape();
+        $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', [
+            ...$this->payloadCobro($segundoPedido),
+            'medio_pago' => 'billetera_digital',
+            'numero_operacion' => 'op445566',
+        ])
+            ->assertStatus(409)
+            ->assertJsonPath('errores.0.codigo', 'NUMERO_OPERACION_DUPLICADO');
+
+        $this->assertSame(0, DB::table('comprobante')->where('pedido_id', $segundoPedido)->count());
+    }
+
+    public function test_el_cobro_de_una_subcuenta_yape_registra_su_numero_de_operacion(): void
+    {
+        $this->habilitarBilletera();
+        [$pedidoId, $subcuentaId] = $this->crearPedidoConSubcuenta(20.00, 0.0, 0.0, 'billetera_digital');
+
+        $response = $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', [
+            ...$this->payloadCobro($pedidoId),
+            'subcuenta_id' => $subcuentaId,
+            'medio_pago' => 'billetera_digital',
+            'numero_operacion' => 'SUB123456',
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertSame(
+            'SUB123456',
+            DB::table('comprobante')->where('id', $response->json('datos.comprobante_id'))->value('numero_operacion')
+        );
+    }
+
+    public function test_caja_no_puede_cambiar_el_medio_de_pago_de_una_subcuenta(): void
+    {
+        $this->habilitarBilletera();
+        [$pedidoId, $subcuentaId] = $this->crearPedidoConSubcuenta(20.00, 0.0, 0.0, 'billetera_digital');
+
+        // Cobrarla como efectivo evitaría exigir el N° de operación de Yape/Plin
+        $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', [
+            ...$this->payloadCobro($pedidoId),
+            'subcuenta_id' => $subcuentaId,
+            'medio_pago' => 'efectivo',
+        ])
+            ->assertStatus(422)
+            ->assertJsonPath('errores.0.codigo', 'MEDIO_PAGO_NO_COINCIDE');
+
+        $this->assertSame('pendiente', DB::table('pedido_subcuenta')->where('id', $subcuentaId)->value('estado'));
+    }
+
     public function test_el_cobro_de_una_subcuenta_con_tarjeta_no_duplica_la_comision(): void
     {
         DB::table('metodo_pago_local')

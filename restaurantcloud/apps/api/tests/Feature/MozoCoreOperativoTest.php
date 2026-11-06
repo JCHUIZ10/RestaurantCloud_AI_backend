@@ -272,7 +272,7 @@ class MozoCoreOperativoTest extends TestCase
             'nombre_cliente' => 'INVERSIONES GASTRONOMICAS S.A.C.',
             'metodo_pago' => 'billetera_digital',
             'numero_operacion' => '894712',
-            'monto_declarado' => 30.0,
+            'pago_verificado' => true,
         ];
 
         $res = $this->postJson("/api/v1/mozo/mesas/{$mesaId}/solicitar-cuenta", $payload, $this->headers());
@@ -290,6 +290,46 @@ class MozoCoreOperativoTest extends TestCase
         $this->assertEquals('billetera_digital', $pedidoDB->medio_pago_sugerido);
         $this->assertEquals('894712', $pedidoDB->numero_operacion_sugerido);
         $this->assertNotNull($pedidoDB->precuenta_generada_at);
+    }
+
+    public function test_solicitar_cuenta_con_yape_exige_numero_de_operacion_y_pago_verificado(): void
+    {
+        $mesaId = $this->crearMesa('92');
+        $pedidoId = $this->crearPedido($mesaId);
+        $this->crearPedidoItem($pedidoId, $this->crearProducto('Ceviche', 30.0), 1, 30.0);
+        $url = "/api/v1/mozo/mesas/{$mesaId}/solicitar-cuenta";
+
+        // Sin número de operación
+        $this->postJson($url, ['metodo_pago' => 'yape', 'pago_verificado' => true], $this->headers())
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['numero_operacion']);
+
+        // Número con formato inválido
+        $this->postJson($url, ['metodo_pago' => 'billetera_digital', 'numero_operacion' => '12', 'pago_verificado' => true], $this->headers())
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['numero_operacion']);
+
+        // Sin validar la transferencia en la pantalla del cliente
+        $this->postJson($url, ['metodo_pago' => 'plin', 'numero_operacion' => '894712'], $this->headers())
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['pago_verificado']);
+
+        $this->assertEquals('enviado', DB::table('pedido')->where('id', $pedidoId)->value('estado'));
+    }
+
+    public function test_solicitar_cuenta_guarda_el_numero_normalizado_y_lo_descarta_en_otro_medio(): void
+    {
+        $mesaId = $this->crearMesa('91');
+        $pedidoId = $this->crearPedido($mesaId);
+        $this->crearPedidoItem($pedidoId, $this->crearProducto('Lomo Saltado', 30.0), 1, 30.0);
+        $url = "/api/v1/mozo/mesas/{$mesaId}/solicitar-cuenta";
+
+        $this->postJson($url, ['metodo_pago' => 'yape', 'numero_operacion' => ' ab 1234 ', 'pago_verificado' => true], $this->headers())
+            ->assertStatus(200);
+        $this->assertSame('AB1234', DB::table('pedido')->where('id', $pedidoId)->value('numero_operacion_sugerido'));
+
+        $this->postJson($url, ['metodo_pago' => 'efectivo'], $this->headers())->assertStatus(200);
+        $this->assertNull(DB::table('pedido')->where('id', $pedidoId)->value('numero_operacion_sugerido'));
     }
 
     public function test_solicitar_cuenta_rechaza_una_cuenta_con_solo_productos_de_cero_soles(): void

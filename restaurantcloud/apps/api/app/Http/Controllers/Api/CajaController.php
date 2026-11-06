@@ -9,6 +9,7 @@ use App\Domains\Caja\Services\ReporteZDigitalService;
 use App\Domains\Carta\Services\CartaPublicaService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Filesystem\AwsS3V3Adapter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -732,6 +733,7 @@ class CajaController extends Controller
                 'tipo_comprobante' => $s->tipo_comprobante,
                 'documento_identidad' => $s->documento_cliente,
                 'medio_pago_tentativo' => $s->medio_pago,
+                'numero_operacion_tentativo' => $s->numero_operacion_sugerido,
                 'total_neto' => (float) $s->total,
                 'estado' => $s->estado,
                 'estado_pago' => $s->estado,
@@ -902,6 +904,7 @@ class CajaController extends Controller
             'telefono_envio' => ['nullable', 'string', 'max:20'],
             'email_envio' => ['nullable', 'email', 'max:100'],
             'subcuenta_id' => ['nullable', 'uuid'],
+            'numero_operacion' => ['nullable', 'string', 'max:100'],
         ]);
 
         try {
@@ -1014,6 +1017,37 @@ class CajaController extends Controller
 
                 if ($itemsToCharge->isEmpty()) {
                     return ApiResponse::error('NO_HAY_ITEMS_PENDIENTES', 'No existen consumos pendientes por cobrar.', 400);
+                }
+
+                // El medio de una subcuenta lo define Mozo al dividir; Caja no puede cambiarlo
+                // (por ejemplo a efectivo para evitar el N° de operación de Yape/Plin).
+                if ($subcuenta !== null && $subcuenta->medio_pago !== $validated['medio_pago']) {
+                    return ApiResponse::error(
+                        'MEDIO_PAGO_NO_COINCIDE',
+                        'El medio de pago no coincide con el definido para la subcuenta.',
+                        422,
+                    );
+                }
+
+                // Yape/Plin exige el N° de operación de la constancia del cliente, único por sede.
+                $metodosPagoLocal = app(MetodoPagoLocalService::class);
+                $numeroOperacion = null;
+                if ($validated['medio_pago'] === 'billetera_digital') {
+                    $numeroOperacion = $metodosPagoLocal->normalizarNumeroOperacion($validated['numero_operacion'] ?? null);
+
+                    if (! $metodosPagoLocal->numeroOperacionValido($numeroOperacion)) {
+                        return ApiResponse::error(
+                            'NUMERO_OPERACION_INVALIDO',
+                            'Ingresa el N° de operación de Yape/Plin (4 a 30 letras o números).',
+                            422,
+                        );
+                    }
+
+                    try {
+                        $metodosPagoLocal->asegurarNumeroOperacionLibre($localId, $numeroOperacion);
+                    } catch (\DomainException $e) {
+                        return ApiResponse::error('NUMERO_OPERACION_DUPLICADO', $e->getMessage(), 409);
+                    }
                 }
 
                 // El total de la subcuenta ya incluye la comisión acordada en mesa: se quita para
@@ -1155,6 +1189,7 @@ class CajaController extends Controller
                     'email_envio' => $validated['email_envio'] ?? null,
                     'metodo_pago_id' => $metodoPago->id,
                     'medio_pago' => $validated['medio_pago'],
+                    'numero_operacion' => $numeroOperacion,
                     'subtotal_consumo' => $totalConsumo,
                     'porcentaje_recargo' => $porcentajeRecargo,
                     'monto_recargo' => $montoRecargo,
@@ -1325,6 +1360,17 @@ class CajaController extends Controller
                 ]);
             });
         } catch (\Throwable $e) {
+            // Dos cobros simultáneos con la misma constancia: gana uno y el otro cae en el índice único
+            if ($e instanceof UniqueConstraintViolationException
+                && str_contains($e->getMessage(), 'uq_comprobante_local_numero_operacion')
+            ) {
+                return ApiResponse::error(
+                    'NUMERO_OPERACION_DUPLICADO',
+                    'Este N° de operación ya se registró en otro comprobante de la sede.',
+                    409
+                );
+            }
+
             Log::error('Error al emitir cobro fiscal: '.$e->getMessage(), [
                 'user_id' => $user->id,
                 'pedido_id' => $validated['pedido_id'] ?? null,
