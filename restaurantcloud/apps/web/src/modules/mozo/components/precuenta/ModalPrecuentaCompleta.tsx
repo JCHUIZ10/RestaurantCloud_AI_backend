@@ -379,6 +379,22 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
           </div>
         )}
 
+        {/* Banner Superior Poka-Yoke de Monto Mínimo / Validación de Comprobante */}
+        {calculos && calculos.totalNeto < MONTO_MINIMO_COMPROBANTE && (
+          <div className="bg-amber-500/20 border-b border-amber-500/40 px-5 py-3 text-amber-200 text-xs sm:text-sm flex items-start sm:items-center justify-between gap-3 shrink-0 animate-fadeIn">
+            <div className="flex items-start sm:items-center space-x-2.5">
+              <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
+              <div className="leading-relaxed">
+                <span className="font-bold text-amber-300">Validación de Emisión: </span>
+                <span className="text-amber-100">{validacionComprobante.motivo}</span>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-400/25 text-amber-300 border border-amber-400/40 shrink-0 uppercase tracking-wider">
+              Bloqueante
+            </span>
+          </div>
+        )}
+
         {/* 3. Contenido Principal Scrollable con Grid de 2 Columnas */}
         <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-5">
           {cargando ? (
@@ -741,7 +757,6 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
                   cuentaPedidaExitosa={cuentaPedidaExitosa}
                   actor={actorFinal}
                   isComprobanteValido={validacionComprobante.valido}
-                  motivoBloqueoComprobante={validacionComprobante.motivo}
                 />
                 )}
               </div>
