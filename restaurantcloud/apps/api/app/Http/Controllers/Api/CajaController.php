@@ -960,21 +960,6 @@ class CajaController extends Controller
                     );
                 }
 
-                // Consultar ítems a cobrar con filtro anti-sobrecobro
-                $itemsQuery = DB::table('pedido_item as pi')
-                    ->join('producto as pr', 'pr.id', '=', 'pi.producto_id')
-                    ->where('pi.pedido_id', $pedido->id)
-                    ->where('pi.estado', '!=', 'anulado')
-                    ->where('pi.estado_pago', 'pendiente')
-                    ->select([
-                        'pi.id',
-                        'pi.producto_id',
-                        'pr.nombre as producto_nombre',
-                        'pi.cantidad',
-                        'pi.precio_unitario',
-                        DB::raw('(pi.cantidad * pi.precio_unitario) as subtotal'),
-                    ]);
-
                 $subcuentaId = $validated['subcuenta_id'] ?? null;
                 $subcuenta = null;
                 if ($subcuentaId) {
@@ -988,14 +973,44 @@ class CajaController extends Controller
                         return ApiResponse::error('SUBCUENTA_NO_ENCONTRADA', 'La subcuenta no pertenece al pedido.', 404);
                     }
 
-                    $subcuentaItemIds = DB::table('pedido_subcuenta_item')
-                        ->where('subcuenta_id', $subcuentaId)
-                        ->pluck('pedido_item_id');
+                    if ($subcuenta->estado !== 'pendiente') {
+                        return ApiResponse::error('SUBCUENTA_YA_COBRADA', 'La subcuenta ya fue cobrada o anulada.', 409);
+                    }
 
-                    $itemsQuery->whereIn('pi.id', $subcuentaItemIds);
+                    // Una subcuenta cobra solo las unidades que le fueron asignadas: varias
+                    // subcuentas pueden repartirse un mismo pedido_item, por lo que su
+                    // estado_pago no decide si la subcuenta sigue pendiente.
+                    $itemsToCharge = DB::table('pedido_subcuenta_item as psi')
+                        ->join('pedido_item as pi', 'pi.id', '=', 'psi.pedido_item_id')
+                        ->join('producto as pr', 'pr.id', '=', 'pi.producto_id')
+                        ->where('psi.subcuenta_id', $subcuentaId)
+                        ->where('pi.estado', '!=', 'anulado')
+                        ->select([
+                            'pi.id',
+                            'pi.producto_id',
+                            'pr.nombre as producto_nombre',
+                            'psi.cantidad',
+                            'psi.precio_unitario',
+                            'psi.subtotal',
+                        ])
+                        ->get();
+                } else {
+                    // Consultar ítems a cobrar con filtro anti-sobrecobro
+                    $itemsToCharge = DB::table('pedido_item as pi')
+                        ->join('producto as pr', 'pr.id', '=', 'pi.producto_id')
+                        ->where('pi.pedido_id', $pedido->id)
+                        ->where('pi.estado', '!=', 'anulado')
+                        ->where('pi.estado_pago', 'pendiente')
+                        ->select([
+                            'pi.id',
+                            'pi.producto_id',
+                            'pr.nombre as producto_nombre',
+                            'pi.cantidad',
+                            'pi.precio_unitario',
+                            DB::raw('(pi.cantidad * pi.precio_unitario) as subtotal'),
+                        ])
+                        ->get();
                 }
-
-                $itemsToCharge = $itemsQuery->get();
 
                 if ($itemsToCharge->isEmpty()) {
                     return ApiResponse::error('NO_HAY_ITEMS_PENDIENTES', 'No existen consumos pendientes por cobrar.', 400);
@@ -1175,21 +1190,37 @@ class CajaController extends Controller
                     ]);
                 }
 
-                // 3. Marcar ítems cobrados con inmunidad financiera
-                DB::table('pedido_item')
-                    ->whereIn('id', $itemsToCharge->pluck('id'))
-                    ->update([
-                        'estado_pago' => 'cobrado',
-                        'updated_at' => now(),
-                    ]);
-
-                // 4. Si era subcuenta, marcarla como cobrada
+                // 3 y 4. Marcar lo cobrado con inmunidad financiera
                 if ($subcuentaId) {
                     DB::table('pedido_subcuenta')->where('id', $subcuentaId)->update([
                         'estado' => 'cobrado',
                         'comprobante_id' => $comprobanteId,
                         'updated_at' => now(),
                     ]);
+
+                    // Un ítem pasa a cobrado solo cuando las subcuentas cobradas cubren todas sus unidades.
+                    foreach ($itemsToCharge->pluck('id')->unique() as $pedidoItemId) {
+                        $unidadesCobradas = (int) DB::table('pedido_subcuenta_item as psi')
+                            ->join('pedido_subcuenta as ps', 'ps.id', '=', 'psi.subcuenta_id')
+                            ->where('psi.pedido_item_id', $pedidoItemId)
+                            ->where('ps.estado', 'cobrado')
+                            ->sum('psi.cantidad');
+
+                        DB::table('pedido_item')
+                            ->where('id', $pedidoItemId)
+                            ->where('cantidad', '<=', $unidadesCobradas)
+                            ->update([
+                                'estado_pago' => 'cobrado',
+                                'updated_at' => now(),
+                            ]);
+                    }
+                } else {
+                    DB::table('pedido_item')
+                        ->whereIn('id', $itemsToCharge->pluck('id'))
+                        ->update([
+                            'estado_pago' => 'cobrado',
+                            'updated_at' => now(),
+                        ]);
                 }
 
                 // 5. Registrar movimiento de ingreso en caja_movimiento

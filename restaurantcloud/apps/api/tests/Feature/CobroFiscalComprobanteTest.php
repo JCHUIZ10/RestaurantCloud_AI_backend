@@ -377,6 +377,104 @@ class CobroFiscalComprobanteTest extends TestCase
         $this->assertEquals(90.00, $response->json('datos.subtotal_consumo'));
     }
 
+    public function test_un_item_repartido_entre_subcuentas_se_cobra_por_unidades_asignadas(): void
+    {
+        $this->asegurarCajaAbierta();
+
+        $mesa = DB::table('mesa')->where('local_id', $this->localId)->where('estado', 'activa')->first();
+        $producto = DB::table('producto')->where('local_id', $this->localId)->first();
+
+        $pedidoId = (string) Str::uuid();
+        DB::table('pedido')->insert([
+            'id' => $pedidoId,
+            'local_id' => $this->localId,
+            'mesa_id' => $mesa->id,
+            'mozo_id' => $this->cajeroId,
+            'numero_comanda' => 996,
+            'comensales' => 3,
+            'estado' => 'cuenta_pedida',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $pedidoItemId = (string) Str::uuid();
+        DB::table('pedido_item')->insert([
+            'id' => $pedidoItemId,
+            'pedido_id' => $pedidoId,
+            'producto_id' => $producto->id,
+            'cantidad' => 3,
+            'precio_unitario' => 19.00,
+            'estado' => 'entregado',
+            'estado_pago' => 'pendiente',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $subcuentaIds = [];
+        foreach ([1, 2, 3] as $numero) {
+            $subcuentaId = (string) Str::uuid();
+            $subcuentaIds[] = $subcuentaId;
+
+            DB::table('pedido_subcuenta')->insert([
+                'id' => $subcuentaId,
+                'pedido_id' => $pedidoId,
+                'numero_subcuenta' => $numero,
+                'tipo_comprobante' => 'boleta',
+                'documento_cliente' => '12345678',
+                'nombre_cliente' => 'CLIENTE DE PRUEBA',
+                'medio_pago' => 'efectivo',
+                'subtotal_bruto' => 19.00,
+                'descuento' => 0,
+                'monto_recargo' => 0,
+                'total' => 19.00,
+                'estado' => 'pendiente',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            DB::table('pedido_subcuenta_item')->insert([
+                'id' => (string) Str::uuid(),
+                'subcuenta_id' => $subcuentaId,
+                'pedido_item_id' => $pedidoItemId,
+                'cantidad' => 1,
+                'precio_unitario' => 19.00,
+                'subtotal' => 19.00,
+                'created_at' => now(),
+            ]);
+        }
+
+        foreach ($subcuentaIds as $indice => $subcuentaId) {
+            $response = $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', [
+                ...$this->payloadCobro($pedidoId),
+                'subcuenta_id' => $subcuentaId,
+            ]);
+
+            $response->assertStatus(200);
+            $this->assertEquals(19.00, $response->json('datos.total_cobrado'));
+
+            $lineas = DB::table('comprobante_item')
+                ->where('comprobante_id', $response->json('datos.comprobante_id'))
+                ->get();
+            $this->assertCount(1, $lineas);
+            $this->assertEquals(1, $lineas[0]->cantidad);
+            $this->assertEquals(19.00, $lineas[0]->subtotal);
+
+            $esUltima = $indice === count($subcuentaIds) - 1;
+            $this->assertSame(
+                $esUltima ? 'cobrado' : 'pendiente',
+                DB::table('pedido_item')->where('id', $pedidoItemId)->value('estado_pago'),
+            );
+            $this->assertSame($esUltima, $response->json('datos.pedido_cerrado'));
+        }
+
+        $this->assertSame('cobrado', DB::table('pedido')->where('id', $pedidoId)->value('estado'));
+
+        $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', [
+            ...$this->payloadCobro($pedidoId),
+            'subcuenta_id' => $subcuentaIds[0],
+        ])->assertStatus(409);
+    }
+
     public function test_el_cobro_rechaza_un_comprobante_con_total_menor_al_minimo(): void
     {
         $pedidoId = $this->crearPedidoCobrable();
