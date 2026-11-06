@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -465,9 +466,12 @@ class MozoController extends Controller
                 return ApiResponse::error('ERR_MESA_NO_DISPONIBLE', 'La mesa o su ambiente no están disponibles.', 409);
             }
 
+            // El pedido de un grupo de mesas unidas vive siempre en la mesa titular
+            $mesaEfectivaId = $mesa->mesa_principal_id ?? $mesa->id;
+
             // Verificar si ya tiene pedido activo
             $pedidoExistente = DB::table('pedido')
-                ->where('mesa_id', $mesa->id)
+                ->where('mesa_id', $mesaEfectivaId)
                 ->whereIn('estado', ['enviado', 'cuenta_pedida', 'borrador'])
                 ->first();
 
@@ -489,7 +493,7 @@ class MozoController extends Controller
                 'id' => $pedidoId,
                 'local_id' => $localId,
                 'numero_comanda' => $siguienteComanda,
-                'mesa_id' => $mesa->id,
+                'mesa_id' => $mesaEfectivaId,
                 'mozo_id' => $user->id,
                 'estado' => 'enviado',
                 'comensales' => $comensales,
@@ -1613,8 +1617,10 @@ class MozoController extends Controller
                 return ApiResponse::error('ERR_MESA_NO_DISPONIBLE', 'La mesa o su ambiente no están disponibles.', 409);
             }
 
+            $mesaEfectivaId = $mesa->mesa_principal_id ?? $mesa->id;
+
             $pedidoExistente = DB::table('pedido')
-                ->where('mesa_id', $validated['mesa_id'])
+                ->where('mesa_id', $mesaEfectivaId)
                 ->whereIn('estado', ['enviado', 'cuenta_pedida', 'borrador'])
                 ->first();
 
@@ -1637,7 +1643,7 @@ class MozoController extends Controller
                     'id' => $pedidoId,
                     'local_id' => $localId,
                     'numero_comanda' => $siguienteComanda,
-                    'mesa_id' => $validated['mesa_id'],
+                    'mesa_id' => $mesaEfectivaId,
                     'mozo_id' => $user->id,
                     'estado' => 'enviado',
                     'comensales' => $comensales,
@@ -1694,6 +1700,16 @@ class MozoController extends Controller
                     $itemsCocina++;
                 } else {
                     $itemsSalon++;
+                }
+            }
+
+            // Una ronda nueva con platos de cocina reabre el pedido en el KDS (anula el "despachado" previo)
+            if ($pedidoExistente && $itemsCocina > 0) {
+                try {
+                    Redis::del("kds:despachado:{$localId}:{$pedidoId}");
+                    Redis::zrem("kds:despachados_set:{$localId}", $pedidoId);
+                } catch (\Throwable $e) {
+                    // Redis no disponible: getComandas igualmente ignora el despachado si hay ítems pendientes
                 }
             }
 
@@ -1922,7 +1938,7 @@ class MozoController extends Controller
         }
 
         $pedido = DB::table('pedido')
-            ->where('mesa_id', $mesa->id)
+            ->where('mesa_id', $mesa->mesa_principal_id ?? $mesa->id)
             ->where('local_id', $localId)
             ->whereIn('estado', ['enviado', 'cuenta_pedida', 'borrador'])
             ->orderBy('created_at', 'desc')
@@ -2171,7 +2187,7 @@ class MozoController extends Controller
         return DB::transaction(function () use ($validated, $mesa, $localId) {
             $pedido = DB::table('pedido')
                 ->where('id', $validated['pedido_id'])
-                ->where('mesa_id', $mesa->id)
+                ->where('mesa_id', $mesa->mesa_principal_id ?? $mesa->id)
                 ->where('local_id', $localId)
                 ->lockForUpdate()
                 ->first();

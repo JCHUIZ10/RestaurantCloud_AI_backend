@@ -259,7 +259,7 @@ class InsumoService
         // Semáforo cromático canónico
         $semaforo = 'optimo';
         if ($stockActual == 0) {
-            $semaforo = 'sin_stock';
+            $semaforo = 'agotado';
         } elseif ($stockActual <= $stockMinimo) {
             $semaforo = 'critico';
         } elseif ($stockActual <= ($stockMinimo * 1.5)) {

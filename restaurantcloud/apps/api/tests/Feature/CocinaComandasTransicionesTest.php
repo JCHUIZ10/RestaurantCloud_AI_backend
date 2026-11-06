@@ -343,6 +343,28 @@ class CocinaComandasTransicionesTest extends TestCase
         $this->assertContains($pedidoId, $despachadosIds, 'Debe aparecer en la bandeja de auditoría de los últimos 30m');
     }
 
+    public function test_ronda_nueva_en_pedido_despachado_reaparece_en_comandas_activas(): void
+    {
+        $insumoId = $this->crearInsumoTest('Lomo Ronda', 6.0);
+        $prodId = $this->crearProductoTest('Lomo Saltado Ronda');
+        $this->asociarReceta($prodId, $insumoId, 0.300);
+
+        $mesaId = $this->crearMesaTest('M-06');
+        $pedidoId = $this->crearPedidoTest($mesaId);
+        $this->crearPedidoItem($pedidoId, $prodId, 1, 'en_cola');
+
+        $this->postJson("/api/v1/cocina/pedidos/{$pedidoId}/despachar", [], $this->headers())->assertStatus(200);
+
+        $ids = collect($this->getJson('/api/v1/cocina/comandas', $this->headers())->json('datos'))->pluck('pedido_id')->all();
+        $this->assertNotContains($pedidoId, $ids);
+
+        // Segunda ronda sobre el mismo pedido ya despachado
+        $this->crearPedidoItem($pedidoId, $prodId, 1, 'en_cola');
+
+        $ids = collect($this->getJson('/api/v1/cocina/comandas', $this->headers())->json('datos'))->pluck('pedido_id')->all();
+        $this->assertContains($pedidoId, $ids, 'La ronda nueva debe verse en el KDS aunque el pedido se haya despachado antes');
+    }
+
     public function test_deshacer_item_ya_servido_por_mozo_retorna_409_sin_restituir_stock(): void
     {
         $insumoId = $this->crearInsumoTest('Pulpo', 4.0);

@@ -10,15 +10,18 @@ use Tests\TestCase;
 class MozoMesasUnionTest extends TestCase
 {
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
+
     private string $localId = '00000000-0000-4000-8000-000000000010';
+
     private string $mozoId = '00000000-0000-4000-8000-000000000102';
+
     private string $tokenMozo;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $rawToken = 'test_token_union_' . Str::random(32);
+        $rawToken = 'test_token_union_'.Str::random(32);
         $tokenHash = hash('sha256', $rawToken);
 
         $sessionPayload = [
@@ -38,7 +41,7 @@ class MozoMesasUnionTest extends TestCase
     private function headers(): array
     {
         return [
-            'Authorization' => 'Bearer ' . $this->tokenMozo,
+            'Authorization' => 'Bearer '.$this->tokenMozo,
             'Accept' => 'application/json',
         ];
     }
@@ -49,7 +52,7 @@ class MozoMesasUnionTest extends TestCase
         DB::table('piso')->insert([
             'id' => $pisoId,
             'local_id' => $this->localId,
-            'nombre' => 'Piso ' . Str::random(4),
+            'nombre' => 'Piso '.Str::random(4),
             'columnas' => 5,
             'filas' => 3,
             'estado' => 'activo',
@@ -88,7 +91,7 @@ class MozoMesasUnionTest extends TestCase
         DB::table('categoria_producto')->insert([
             'id' => $catId,
             'local_id' => $this->localId,
-            'nombre' => 'Cat ' . Str::random(4),
+            'nombre' => 'Cat '.Str::random(4),
             'orden' => 1,
             'activa' => true,
             'created_at' => now(),
@@ -100,7 +103,7 @@ class MozoMesasUnionTest extends TestCase
             'id' => $prodId,
             'categoria_id' => $catId,
             'local_id' => $this->localId,
-            'nombre' => 'Lomo Test ' . Str::random(4),
+            'nombre' => 'Lomo Test '.Str::random(4),
             'precio' => 42.0,
             'disponibilidad' => 'disponible',
             'requiere_preparacion' => true,
@@ -526,5 +529,81 @@ class MozoMesasUnionTest extends TestCase
         $this->assertNull($dto94['etiqueta_union']);
         $this->assertNull($dto94['mesa_principal_id']);
         $this->assertNull($dto94['pedido_id']);
+    }
+
+    public function test_comanda_enviada_desde_mesa_anexa_se_guarda_en_titular_y_detalle_coincide(): void
+    {
+        if (! DB::table('caja')->where('local_id', $this->localId)->where('estado', 'abierta')->exists()) {
+            DB::table('caja')->insert([
+                'id' => (string) Str::uuid(),
+                'local_id' => $this->localId,
+                'cajero_id' => '00000000-0000-4000-8000-000000000105',
+                'monto_apertura' => 250.00,
+                'estado' => 'abierta',
+                'fecha_apertura' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        $piso = $this->crearPiso();
+        $titular = $this->crearMesa($piso, '95');
+        $anexa = $this->crearMesa($piso, '96');
+
+        $this->postJson('/api/v1/mozo/mesas/unir', [
+            'mesa_titular_id' => $titular,
+            'mesas_secundarias_ids' => [$anexa],
+        ], $this->headers())->assertStatus(200);
+
+        $catId = (string) Str::uuid();
+        DB::table('categoria_producto')->insert([
+            'id' => $catId,
+            'local_id' => $this->localId,
+            'nombre' => 'Cat '.Str::random(4),
+            'orden' => 1,
+            'activa' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $prodId = (string) Str::uuid();
+        DB::table('producto')->insert([
+            'id' => $prodId,
+            'categoria_id' => $catId,
+            'local_id' => $this->localId,
+            'nombre' => 'Plato Anexa '.Str::random(4),
+            'precio' => 30.0,
+            'disponibilidad' => 'disponible',
+            'requiere_preparacion' => true,
+            'activo' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // El mozo toca la mesa anexa y envía la comanda
+        $this->postJson("/api/v1/mozo/mesas/{$anexa}/pedidos", [
+            'items' => [['producto_id' => $prodId, 'cantidad' => 2]],
+        ], $this->headers())->assertSuccessful();
+
+        $this->assertSame(0, DB::table('pedido')->where('mesa_id', $anexa)->count());
+        $this->assertSame(1, DB::table('pedido')->where('mesa_id', $titular)->count());
+
+        // Simula un despacho previo al pase y envía una segunda ronda: debe reabrir el pedido en el KDS
+        $pedidoId = DB::table('pedido')->where('mesa_id', $titular)->value('id');
+        $llave = "kds:despachado:{$this->localId}:{$pedidoId}";
+        Redis::setex($llave, 1800, now()->toIso8601String());
+
+        $this->postJson("/api/v1/mozo/mesas/{$titular}/pedidos", [
+            'items' => [['producto_id' => $prodId, 'cantidad' => 1]],
+        ], $this->headers())->assertSuccessful();
+
+        $this->assertEquals(0, Redis::exists($llave));
+
+        foreach ([$titular, $anexa] as $mesaId) {
+            $detalle = $this->getJson("/api/v1/mozo/mesas/{$mesaId}/detalle", $this->headers());
+            $detalle->assertStatus(200)
+                ->assertJsonPath('datos.estado', 'ocupada')
+                ->assertJsonCount(2, 'datos.items')
+                ->assertJsonPath('datos.items.0.cantidad', 2);
+        }
     }
 }

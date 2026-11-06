@@ -77,7 +77,7 @@ const TagUnidad: React.FC<{ unidad: UnidadInsumo }> = ({ unidad }) => {
 };
 
 const Existencias: React.FC<{ ins: InsumoAdminDTO }> = ({ ins }) => {
-  const sem = SEMAFORO[ins.nivel_semaforo];
+  const sem = SEMAFORO[ins.nivel_semaforo] ?? SEMAFORO.agotado;
   // La barra llena equivale al doble del mínimo
   const maxGrafico = Math.max(ins.stock_minimo * 2, ins.stock_actual, 1);
   const porcentaje = Math.min(100, Math.round((ins.stock_actual / maxGrafico) * 100));

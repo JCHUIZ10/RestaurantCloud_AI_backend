@@ -110,7 +110,17 @@ class CocinaController extends Controller
             $despachadoKey = "kds:despachado:{$localId}:{$p->pedido_id}";
             try {
                 if (Redis::get($despachadoKey)) {
-                    continue; // Ya despachado, no satura la pantalla activa
+                    // Despachado: se oculta salvo que haya platos nuevos pendientes (ronda posterior al despacho)
+                    $tienePendientes = DB::table('pedido_item as pi')
+                        ->join('producto as pr', 'pr.id', '=', 'pi.producto_id')
+                        ->where('pi.pedido_id', $p->pedido_id)
+                        ->where('pr.requiere_preparacion', true)
+                        ->whereIn('pi.estado', ['en_cola', 'en_preparacion'])
+                        ->exists();
+
+                    if (! $tienePendientes) {
+                        continue; // Ya despachado, no satura la pantalla activa
+                    }
                 }
             } catch (\Throwable $e) {
                 // Si Redis no responde, continúa con la verificación en base de datos
