@@ -83,7 +83,7 @@ class ProductoController extends Controller
             'categoria_id' => ['required', 'uuid'],
             'nombre' => ['required', 'string', 'min:2', 'max:100'],
             'descripcion' => ['nullable', 'string', 'max:2000'],
-            'precio' => ['required', 'numeric', 'min:0.01', 'max:999999.99'],
+            'precio' => ['required', 'numeric', 'min:0', 'max:999999.99'],
             'requiere_preparacion' => ['required', 'boolean'],
             'receta' => ['nullable', 'array'],
             'receta.*.insumo_id' => ['required', 'uuid'],

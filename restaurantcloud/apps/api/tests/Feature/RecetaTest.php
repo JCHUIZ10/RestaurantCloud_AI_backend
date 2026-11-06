@@ -400,4 +400,99 @@ class RecetaTest extends TestCase
         DB::table('producto')->where('id', $productoId)->delete();
         DB::table('insumo')->where('id', $insumoId)->delete();
     }
+
+    /**
+     * Test 6: Crear producto con precio cero (alimentos de acompañamiento / cortesía).
+     */
+    public function test_crear_producto_con_precio_cero_para_alimentos_de_acompanamiento(): void
+    {
+        $categoria = DB::table('categoria_producto')
+            ->where('local_id', $this->localId)
+            ->first();
+        $this->assertNotNull($categoria);
+
+        $payload = [
+            'categoria_id' => $categoria->id,
+            'nombre' => 'Acompañamiento Salsa ' . Str::random(4),
+            'precio' => 0,
+            'requiere_preparacion' => false,
+        ];
+
+        $response = $this->postJson('/api/v1/admin/productos', $payload, $this->headers());
+        $response->assertStatus(201);
+        $this->assertEquals(0.0, (float) $response->json('datos.precio'));
+
+        $productoId = $response->json('datos.id');
+
+        $productoEnBd = DB::table('producto')->where('id', $productoId)->first();
+        $this->assertNotNull($productoEnBd);
+        $this->assertEquals(0.0, (float) $productoEnBd->precio);
+
+        // Limpieza
+        DB::table('producto')->where('id', $productoId)->delete();
+    }
+
+    /**
+     * Test 7: Actualizar producto existente a precio cero.
+     */
+    public function test_actualizar_producto_con_precio_cero(): void
+    {
+        $categoria = DB::table('categoria_producto')
+            ->where('local_id', $this->localId)
+            ->first();
+        $this->assertNotNull($categoria);
+
+        $productoId = (string) Str::uuid();
+        DB::table('producto')->insert([
+            'id' => $productoId,
+            'local_id' => $this->localId,
+            'categoria_id' => $categoria->id,
+            'nombre' => 'Plato Base Test ' . Str::random(4),
+            'precio' => 12.00,
+            'costo_estandar' => 0.00,
+            'requiere_preparacion' => false,
+            'disponibilidad' => 'disponible',
+            'activo' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $payload = [
+            'categoria_id' => $categoria->id,
+            'nombre' => 'Acompañamiento Editado ' . Str::random(4),
+            'precio' => 0,
+            'requiere_preparacion' => false,
+        ];
+
+        $response = $this->patchJson("/api/v1/admin/productos/{$productoId}", $payload, $this->headers());
+        $response->assertStatus(200);
+        $this->assertEquals(0.0, (float) $response->json('datos.precio'));
+
+        $productoEnBd = DB::table('producto')->where('id', $productoId)->first();
+        $this->assertEquals(0.0, (float) $productoEnBd->precio);
+
+        // Limpieza
+        DB::table('producto')->where('id', $productoId)->delete();
+    }
+
+    /**
+     * Test 8: Rechazar precio negativo (menor a cero).
+     */
+    public function test_rechaza_producto_con_precio_negativo(): void
+    {
+        $categoria = DB::table('categoria_producto')
+            ->where('local_id', $this->localId)
+            ->first();
+        $this->assertNotNull($categoria);
+
+        $payload = [
+            'categoria_id' => $categoria->id,
+            'nombre' => 'Plato Invalido ' . Str::random(4),
+            'precio' => -1.00,
+            'requiere_preparacion' => false,
+        ];
+
+        $response = $this->postJson('/api/v1/admin/productos', $payload, $this->headers());
+        $response->assertStatus(422);
+    }
 }

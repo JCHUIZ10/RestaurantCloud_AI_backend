@@ -99,7 +99,7 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
   const [categoriaId, setCategoriaId] = useState('');
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  const [precio, setPrecio] = useState<number>(25.0);
+  const [precio, setPrecio] = useState<number | string>(25.0);
   const [requierePreparacion, setRequierePreparacion] = useState(true);
   const [foto, setFoto] = useState<SeleccionFotoPlato>(FOTO_SIN_CAMBIOS);
   // Plato ya guardado cuyo paso de foto falló: el reintento lo actualiza en vez de duplicarlo.
@@ -206,9 +206,15 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
     return acc + dosis * ins.costo_unitario;
   }, 0);
 
-  const utilidadTeorica = Math.max(0, precio - costoTotalTeorico);
+  const precioNumerico = typeof precio === 'number' ? precio : (parseFloat(precio) || 0);
+  const esPrecioInvalido = (() => {
+    const v = typeof precio === 'number' ? precio : (precio.trim() === '' ? NaN : Number(precio));
+    return isNaN(v) || v < 0;
+  })();
+
+  const utilidadTeorica = Math.max(0, precioNumerico - costoTotalTeorico);
   const margenBrutoPct =
-    precio > 0 ? Number((((precio - costoTotalTeorico) / precio) * 100).toFixed(1)) : 0;
+    precioNumerico > 0 ? Number((((precioNumerico - costoTotalTeorico) / precioNumerico) * 100).toFixed(1)) : 0;
 
   // Métodos de manipulación de receta
   const handleAgregarInsumo = () => {
@@ -261,8 +267,8 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
       document.getElementById(`${idForm}-nombre`)?.focus();
       return;
     }
-    if (precio <= 0) {
-      setErrorValidacion('El precio de venta debe ser mayor a 0 Soles.');
+    if (esPrecioInvalido) {
+      setErrorValidacion('El precio de venta debe ser mayor o igual a 0 Soles.');
       scrollAlInicioModal('smooth');
       document.getElementById(`${idForm}-precio`)?.focus();
       return;
@@ -279,6 +285,12 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
     // Salvaguarda: si por algún evento del DOM se dispara submit en el paso 1, avanzar al paso 2 en lugar de guardar
     if (habilitarReceta && pasoActual !== 2) {
       handleAvanzarPaso(e);
+      return;
+    }
+
+    if (esPrecioInvalido) {
+      setErrorValidacion('El precio de venta debe ser mayor o igual a 0 Soles.');
+      scrollAlInicioModal('smooth');
       return;
     }
 
@@ -319,7 +331,7 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
       categoria_id: categoriaId,
       nombre: nombre.trim(),
       descripcion: descripcion.trim() || undefined,
-      precio: Number(precio),
+      precio: Number(precioNumerico.toFixed(2)),
       requiere_preparacion: requierePreparacion,
       receta: payloadReceta,
     };
@@ -384,7 +396,7 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
         <dl className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
           <div className="px-3 py-2 rounded-xl bg-white border border-aurea-champagne/70">
             <dt className="text-xs text-aurea-navy/60">Precio</dt>
-            <dd className="font-serif font-bold text-aurea-navy tabular-nums">S/ {precio.toFixed(2)}</dd>
+            <dd className="font-serif font-bold text-aurea-navy tabular-nums">S/ {precioNumerico.toFixed(2)}</dd>
           </div>
           <div className="px-3 py-2 rounded-xl bg-white border border-aurea-champagne/70">
             <dt className="text-xs text-aurea-navy/60">Costo receta</dt>
@@ -573,19 +585,21 @@ export const ModalCrearEditarProducto: React.FC<ModalCrearEditarProductoProps> =
                   <input
                     id={`${idForm}-precio`}
                     type="number"
-                    step="0.5"
-                    min="0.1"
+                    step="any"
+                    min="0"
                     inputMode="decimal"
                     value={precio}
                     onChange={(e) => {
-                      setPrecio(Math.max(0, parseFloat(e.target.value) || 0));
+                      const val = e.target.value;
+                      if (val.startsWith('-')) return;
+                      setPrecio(val);
                       if (errorValidacion) setErrorValidacion(null);
                     }}
                     required
                     className={cn(
                       CLASE_CONTROL,
                       'pl-9 font-serif font-bold',
-                      errorValidacion && precio <= 0 && 'border-estado-error-500 focus:border-estado-error-600 ring-1 ring-estado-error-500'
+                      errorValidacion && esPrecioInvalido && 'border-estado-error-500 focus:border-estado-error-600 ring-1 ring-estado-error-500'
                     )}
                   />
                 </div>
