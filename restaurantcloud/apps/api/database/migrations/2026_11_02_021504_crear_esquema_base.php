@@ -25,6 +25,7 @@ return new class extends Migration
         '05_views_analytics.sql',
         '06_seed_initial_data.sql',
         '08_inventory_functions.sql',
+        '09_seed_ubigeo_peru.sql',
     ];
 
     public function up(): void

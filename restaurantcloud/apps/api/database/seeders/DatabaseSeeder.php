@@ -9,8 +9,9 @@ class DatabaseSeeder extends Seeder
     /**
      * Seed the application's database.
      *
-     * Planes, ubigeo y Admin SaaS forman parte del esquema base (06_seed_initial_data.sql);
-     * aquí solo se cargan los datos demo de desarrollo y tests.
+     * Planes y Admin SaaS forman parte de 06_seed_initial_data.sql;
+     * el catálogo nacional UBIGEO forma parte de 09_seed_ubigeo_peru.sql (esquema base).
+     * Ambos se cargan en la migración base; aquí solo se cargan los datos demo de desarrollo y tests.
      */
     public function run(): void
     {

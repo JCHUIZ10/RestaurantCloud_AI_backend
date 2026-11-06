@@ -6,10 +6,10 @@ API Laravel modular (ver `../README.md` para la estructura general). Este docume
 
 Las migraciones de Laravel son la **única fuente de verdad** del esquema. Todo cambio de tablas, índices, políticas RLS, vistas o funciones entra como una migración nueva.
 
-- `database/sql/01…08_*.sql`: esquema canónico al 2026-11-02 (antes `infra/sql`, que cargaba `docker-entrypoint-initdb.d`).
-- `database/migrations/2026_11_02_021504_crear_esquema_base.php`: ejecuta 01–06 y 08 sobre una BD vacía. Si la BD ya tiene el esquema (creada antes con initdb), solo se registra como aplicada.
+- `database/sql/01…09_*.sql`: esquema canónico al 2026-11-02 (antes `infra/sql`, que cargaba `docker-entrypoint-initdb.d`).
+- `database/migrations/2026_11_02_021504_crear_esquema_base.php`: ejecuta 01–06, 08 y 09 sobre una BD vacía. Si la BD ya tiene el esquema (creada antes con initdb), solo se registra como aplicada.
 - Las migraciones posteriores aplican cambios incrementales y deben funcionar tanto en BDs nuevas como existentes (`IF NOT EXISTS`, `CREATE OR REPLACE`).
-- `06_seed_initial_data.sql` (planes, ubigeo, Admin SaaS) es parte del esquema base porque toda instalación lo necesita. `07_seed_local_aurea_completo.sql` es solo demo y lo carga `LocalAureaDemoSeeder`.
+- `06_seed_initial_data.sql` (planes, Admin SaaS) y `09_seed_ubigeo_peru.sql` (catálogo nacional UBIGEO de 25 departamentos, 196 provincias y 1,891 distritos) son parte del esquema base porque toda instalación los necesita. `07_seed_local_aurea_completo.sql` es solo demo y lo carga `LocalAureaDemoSeeder`.
 
 No edites los archivos de `database/sql` para cambiar una BD existente: no se vuelven a ejecutar. Se mantienen como referencia legible del esquema base.
 
