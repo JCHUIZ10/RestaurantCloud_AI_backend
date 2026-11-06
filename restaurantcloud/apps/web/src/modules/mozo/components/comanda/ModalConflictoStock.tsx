@@ -7,6 +7,7 @@ interface ModalConflictoStockProps {
   conflicto: ConflictoStockDTO | null;
   onCerrar: () => void;
   onQuitarYEnviarRestantes: (productoId: string) => void;
+  onAjustarYEnviar: (productoId: string, cantidadMaxima: number) => void;
   onVolverACatalogo: () => void;
 }
 
@@ -15,9 +16,14 @@ export const ModalConflictoStock: React.FC<ModalConflictoStockProps> = ({
   conflicto,
   onCerrar,
   onQuitarYEnviarRestantes,
+  onAjustarYEnviar,
   onVolverACatalogo,
 }) => {
   if (!abierto || !conflicto) return null;
+
+  const esStockInsuficiente = conflicto.codigo === 'ERR_STOCK_INSUFICIENTE';
+  const disponibles = conflicto.raciones_disponibles ?? 0;
+  const puedeAjustar = esStockInsuficiente && disponibles > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-xs animate-fade-in">
@@ -28,10 +34,12 @@ export const ModalConflictoStock: React.FC<ModalConflictoStockProps> = ({
             <AlertTriangle className="w-5 h-5 text-amber-300 animate-pulse" />
             <div>
               <h2 className="text-sm font-bold tracking-tight">
-                Conflicto de Stock al Enviar a Cocina
+                Conflicto de Stock al Enviar la Comanda
               </h2>
               <p className="text-[11px] text-rose-100">
-                Respuesta del servidor: 409 Conflict (ERR_PRODUCTO_AGOTADO)
+                {esStockInsuficiente
+                  ? 'La cantidad pedida supera el stock disponible'
+                  : 'El producto se agotó mientras armabas la comanda'}
               </p>
             </div>
           </div>
@@ -50,18 +58,22 @@ export const ModalConflictoStock: React.FC<ModalConflictoStockProps> = ({
           <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-950 space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="font-bold text-sm text-rose-900">
-                Plato Agotado: {conflicto.producto_nombre}
+                {esStockInsuficiente ? 'Stock Insuficiente' : 'Plato Agotado'}: {conflicto.producto_nombre}
               </span>
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-rose-200/80 text-rose-900 border border-rose-300">
-                409 CONFLICT
-              </span>
+              {esStockInsuficiente && (
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-rose-200/80 text-rose-900 border border-rose-300">
+                  Pides {conflicto.cantidad_solicitada ?? '?'} · Quedan {disponibles}
+                </span>
+              )}
             </div>
             <p className="text-slate-700 leading-relaxed">
               {conflicto.mensaje}
             </p>
-            <p className="text-[11px] font-medium text-rose-800">
-              Insumo reportado agotado en cocina: <strong>{conflicto.insumo_critico}</strong>
-            </p>
+            {conflicto.insumo_critico && (
+              <p className="text-[11px] font-medium text-rose-800">
+                Insumo limitante: <strong>{conflicto.insumo_critico}</strong>
+              </p>
+            )}
           </div>
 
           <p className="text-slate-600 font-medium">
@@ -70,6 +82,25 @@ export const ModalConflictoStock: React.FC<ModalConflictoStockProps> = ({
 
           {/* Opciones de resolución rápida */}
           <div className="space-y-2">
+            {/* Opción 0: Ajustar la cantidad al stock real y enviar */}
+            {puedeAjustar && (
+              <button
+                onClick={() => onAjustarYEnviar(conflicto.producto_id, disponibles)}
+                className="w-full p-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-left transition-all flex items-start gap-3 shadow-xs active:scale-99"
+              >
+                <Check className="w-4 h-4 text-emerald-200 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs">
+                    Ajustar {conflicto.producto_nombre} a {disponibles}{' '}
+                    {disponibles === 1 ? 'unidad' : 'unidades'} y Enviar la Comanda
+                  </p>
+                  <p className="text-[11px] font-normal text-emerald-100">
+                    Despacha lo que sí hay en stock y el resto de la comanda sin cambios.
+                  </p>
+                </div>
+              </button>
+            )}
+
             {/* Opción 1: Quitar plato y enviar el resto */}
             <button
               onClick={() => onQuitarYEnviarRestantes(conflicto.producto_id)}

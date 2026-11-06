@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ShoppingBag, ChevronUp, Check } from 'lucide-react';
+import { ShoppingBag, ChevronUp, Check, AlertTriangle } from 'lucide-react';
 import {
   CatalogoProductosMozoDTO,
   HistorialMesaComandaDTO,
   ItemPedidoBorrador,
   ProductoCatalogoMozoDTO,
   ConflictoStockDTO,
+  CodigoConflictoStock,
 } from '@/types/mozo';
+import type { AppError } from '@/types/api';
 import { mozoService } from '@/services/serviceAdapter';
 import { ComandaHeader } from '../components/comanda/ComandaHeader';
 import { CatalogoCartaGrid } from '../components/comanda/CatalogoCartaGrid';
@@ -15,6 +17,20 @@ import { TicketComandaPanel } from '../components/comanda/TicketComandaPanel';
 import { ModalNotaCocina } from '../components/comanda/ModalNotaCocina';
 import { ModalConflictoStock } from '../components/comanda/ModalConflictoStock';
 import { ROUTES } from '@/router/routes.constants';
+
+const CODIGOS_CONFLICTO_STOCK: CodigoConflictoStock[] = [
+  'ERR_PRODUCTO_AGOTADO',
+  'ERR_STOCK_INSUFICIENTE',
+];
+
+/** Error 409 del backend con los campos extra del producto en conflicto. */
+type ErrorEnvioPedido = AppError & {
+  producto_id?: string;
+  producto_nombre?: string;
+  insumo_limitante?: string;
+  cantidad_solicitada?: number;
+  raciones_disponibles?: number;
+};
 
 export const MozoComandaPage: React.FC = () => {
   const { mesaId = 'mesa-04' } = useParams<{ mesaId: string }>();
@@ -40,6 +56,12 @@ export const MozoComandaPage: React.FC = () => {
   // Estados interactivos
   const [ticketMovilAbierto, setTicketMovilAbierto] = useState<boolean>(false);
   const [toastExito, setToastExito] = useState<string | null>(null);
+  const [toastError, setToastError] = useState<string | null>(null);
+
+  const mostrarToastError = (mensaje: string) => {
+    setToastError(mensaje);
+    setTimeout(() => setToastError(null), 4500);
+  };
 
   // Cargar datos iniciales
   const cargarDatos = useCallback(async () => {
@@ -130,51 +152,65 @@ export const MozoComandaPage: React.FC = () => {
   };
 
   // 4. Confirmación y Envío a Cocina KDS
-  const handleConfirmarEnvio = async () => {
-    if (esCuentaPedida || itemsBorrador.length === 0) return;
+  const enviarBorrador = async (items: ItemPedidoBorrador[], mensajeExito: string) => {
+    if (items.length === 0) return;
 
     setEnviando(true);
     try {
-      const payload = {
+      const res = await mozoService.enviarPedidoCocina({
         mesa_id: mesaId,
         comensales: historial?.comensales || 4,
         numero_ronda: rondaActual,
-        items: itemsBorrador.map((it) => ({
+        items: items.map((it) => ({
           producto_id: it.producto_id,
           cantidad: it.cantidad,
           nota_cocina: it.nota_cocina,
         })),
-      };
-
-      const res = await mozoService.enviarPedidoCocina(payload);
+      });
 
       if (!res.exito) {
-        if (res.errores?.[0]?.codigo === 'ERR_CAJA_NO_ABIERTA') {
+        const error = res.errores?.[0] as ErrorEnvioPedido | undefined;
+
+        if (error?.codigo === 'ERR_CAJA_NO_ABIERTA') {
           navigate(ROUTES.MOZO_MESAS);
           return;
         }
 
-        // Manejo de Error 409 Conflict (Vista 4)
-        setConflictoStock({
-          producto_id: 'prod-mar-01',
-          producto_nombre: 'Ceviche Clásico de Corvina',
-          insumo_critico: 'Pescado Blanco (Corvina Fresca)',
-          mensaje:
-            res.errores?.[0]?.mensaje ||
-            'El insumo crítico se agotó en cocina hace segundos. La preparación no es posible.',
-        });
-        setModalConflictoAbierto(true);
+        // Error 409 de stock: el modal se arma con el producto real que reportó el servidor
+        if (
+          error?.producto_id &&
+          CODIGOS_CONFLICTO_STOCK.includes(error.codigo as CodigoConflictoStock)
+        ) {
+          setConflictoStock({
+            codigo: error.codigo as CodigoConflictoStock,
+            producto_id: error.producto_id,
+            producto_nombre: error.producto_nombre || 'Producto',
+            insumo_critico: error.insumo_limitante,
+            mensaje: error.mensaje,
+            cantidad_solicitada: error.cantidad_solicitada,
+            raciones_disponibles: error.raciones_disponibles,
+          });
+          setModalConflictoAbierto(true);
+          return;
+        }
+
+        mostrarToastError(error?.mensaje || 'No se pudo enviar la comanda. Intenta nuevamente.');
         return;
       }
 
       // Éxito: retroalimentación multisensorial y redirección al plano
-      setToastExito('¡Comanda despachada a cocina y salón exitosamente!');
+      setToastExito(mensajeExito);
       setTimeout(() => {
         navigate(ROUTES.MOZO_MESAS);
       }, 1200);
     } finally {
       setEnviando(false);
     }
+  };
+
+  const handleConfirmarEnvio = async () => {
+    if (esCuentaPedida) return;
+    await enviarBorrador(itemsBorrador, '¡Comanda despachada a cocina y salón exitosamente!');
   };
 
   // 5. Resolución de Conflicto 409
@@ -185,28 +221,23 @@ export const MozoComandaPage: React.FC = () => {
     const itemsLimpios = itemsBorrador.filter((it) => it.producto_id !== productoIdAgotado);
     setItemsBorrador(itemsLimpios);
 
-    if (itemsLimpios.length > 0) {
-      setEnviando(true);
-      try {
-        const payload = {
-          mesa_id: mesaId,
-          comensales: historial?.comensales || 4,
-          numero_ronda: rondaActual,
-          items: itemsLimpios.map((it) => ({
-            producto_id: it.producto_id,
-            cantidad: it.cantidad,
-            nota_cocina: it.nota_cocina,
-          })),
-        };
-        const res = await mozoService.enviarPedidoCocina(payload);
-        if (res.exito) {
-          setToastExito('Platos restantes enviados a cocina exitosamente.');
-          setTimeout(() => navigate(ROUTES.MOZO_MESAS), 1200);
-        }
-      } finally {
-        setEnviando(false);
-      }
-    }
+    await enviarBorrador(itemsLimpios, 'Platos restantes enviados a cocina exitosamente.');
+  };
+
+  const handleAjustarYEnviar = async (productoId: string, cantidadMaxima: number) => {
+    setModalConflictoAbierto(false);
+
+    // Limitamos el producto al stock real; si no queda ninguna unidad, sale del borrador
+    const itemsAjustados = itemsBorrador
+      .map((it) =>
+        it.producto_id === productoId
+          ? { ...it, cantidad: Math.min(it.cantidad, cantidadMaxima) }
+          : it
+      )
+      .filter((it) => it.cantidad > 0);
+    setItemsBorrador(itemsAjustados);
+
+    await enviarBorrador(itemsAjustados, 'Comanda ajustada al stock disponible y enviada.');
   };
 
   // 6. Descartar borrador
@@ -236,6 +267,13 @@ export const MozoComandaPage: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-100">
+      {toastError && (
+        <div className="fixed top-4 right-4 z-50 max-w-sm px-4 py-3 rounded-xl bg-rose-700 text-white shadow-2xl flex items-center gap-2 border border-rose-500">
+          <AlertTriangle className="w-4 h-4 text-rose-200 shrink-0" />
+          <span className="text-xs sm:text-sm font-bold">{toastError}</span>
+        </div>
+      )}
+
       {/* Toast de confirmación háptica */}
       {toastExito && (
         <div className="fixed top-4 right-4 z-50 px-4 py-3 rounded-xl bg-emerald-700 text-white shadow-2xl flex items-center gap-2 border border-emerald-500 animate-bounce-slow">
@@ -367,6 +405,7 @@ export const MozoComandaPage: React.FC = () => {
         conflicto={conflictoStock}
         onCerrar={() => setModalConflictoAbierto(false)}
         onQuitarYEnviarRestantes={handleQuitarYEnviarRestantes}
+        onAjustarYEnviar={handleAjustarYEnviar}
         onVolverACatalogo={() => setModalConflictoAbierto(false)}
       />
     </div>

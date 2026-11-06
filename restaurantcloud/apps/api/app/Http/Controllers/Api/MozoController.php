@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Domains\Archivos\Services\TenantStorageService;
 use App\Domains\Caja\Services\MetodoPagoLocalService;
 use App\Domains\Inventario\Services\StockDeduccionService;
+use App\Domains\Inventario\Services\ValidacionStockPedidoService;
 use App\Domains\Promociones\Services\PromocionService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
@@ -1673,6 +1674,14 @@ class MozoController extends Controller
                 );
             }
 
+            // Despacho directo: rechazar antes de insertar si la cantidad supera el stock real de insumos.
+            $conflictoStock = app(ValidacionStockPedidoService::class)
+                ->validarDespachoDirecto($localId, $validated['items']);
+
+            if ($conflictoStock !== null) {
+                return $this->respuestaStockInsuficiente($conflictoStock);
+            }
+
             $comensales = $validated['comensales'] ?? ($pedidoExistente?->comensales ?? $mesa->capacidad ?: 2);
             $pedidoId = $pedidoExistente ? $pedidoExistente->id : (string) Str::uuid();
 
@@ -1763,6 +1772,32 @@ class MozoController extends Controller
                 'mensaje' => "Comanda enviada exitosamente ({$itemsCocina} a cocina, {$itemsSalon} a salón).",
             ], 201);
         });
+    }
+
+    /**
+     * Respuesta 409 cuando la cantidad pedida de un producto de despacho directo supera el stock.
+     *
+     * @param  array{producto_id: string, producto_nombre: string, cantidad_solicitada: int, raciones_disponibles: int, insumo_limitante: string}  $conflicto
+     */
+    private function respuestaStockInsuficiente(array $conflicto): JsonResponse
+    {
+        $disponibles = $conflicto['raciones_disponibles'];
+        $mensaje = $disponibles > 0
+            ? "Stock insuficiente de '{$conflicto['producto_nombre']}': se solicitaron {$conflicto['cantidad_solicitada']} y solo quedan {$disponibles}."
+            : "El producto '{$conflicto['producto_nombre']}' se agotó: no quedan unidades disponibles.";
+
+        return response()->json([
+            'exito' => false,
+            'datos' => null,
+            'errores' => [
+                [
+                    'codigo' => 'ERR_STOCK_INSUFICIENTE',
+                    'mensaje' => $mensaje,
+                    ...$conflicto,
+                ],
+            ],
+            'meta' => ['timestamp' => now()->toIso8601String()],
+        ], 409);
     }
 
     /**

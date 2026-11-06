@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 class CocinaStockDeduccionTest extends TestCase
@@ -437,5 +438,140 @@ class CocinaStockDeduccionTest extends TestCase
         $this->assertNotNull($pedidoItemDB);
         $this->assertEquals('listo', $pedidoItemDB->estado);
         $this->assertTrue((bool) $pedidoItemDB->stock_descontado);
+    }
+
+    private function enviarPedido(string $mesaId, array $items): TestResponse
+    {
+        return $this->postJson('/api/v1/mozo/pedidos', [
+            'mesa_id' => $mesaId,
+            'comensales' => 2,
+            'items' => $items,
+        ], $this->headers());
+    }
+
+    /**
+     * Test 6: Pedir más unidades de despacho directo que el stock real se rechaza sin escribir nada.
+     */
+    public function test_despacho_directo_rechaza_cantidad_mayor_al_stock(): void
+    {
+        $insumoId = $this->crearInsumoTest('Gaseosa Botella', 1.000, 'und');
+        $prodId = $this->crearProductoConReceta('Gaseosa Personal', [
+            ['insumo_id' => $insumoId, 'cantidad_descuenta' => 1.000],
+        ], false);
+
+        $this->asegurarCajaAbierta();
+        $mesaId = $this->crearMesaTest();
+
+        $this->enviarPedido($mesaId, [['producto_id' => $prodId, 'cantidad' => 3]])
+            ->assertStatus(409)
+            ->assertJsonPath('errores.0.codigo', 'ERR_STOCK_INSUFICIENTE')
+            ->assertJsonPath('errores.0.producto_id', $prodId)
+            ->assertJsonPath('errores.0.cantidad_solicitada', 3)
+            ->assertJsonPath('errores.0.raciones_disponibles', 1);
+
+        $this->assertEquals(1.000, (float) DB::table('insumo')->where('id', $insumoId)->value('stock_actual'));
+        $this->assertSame(0, DB::table('pedido')->where('mesa_id', $mesaId)->count());
+        $this->assertSame(0, DB::table('pedido_item')->where('producto_id', $prodId)->count());
+    }
+
+    /**
+     * Test 7: Pedir exactamente el stock disponible se acepta y deja el insumo en cero.
+     */
+    public function test_despacho_directo_acepta_cantidad_igual_al_stock(): void
+    {
+        $insumoId = $this->crearInsumoTest('Gaseosa Botella', 3.000, 'und');
+        $prodId = $this->crearProductoConReceta('Gaseosa Personal', [
+            ['insumo_id' => $insumoId, 'cantidad_descuenta' => 1.000],
+        ], false);
+
+        $this->asegurarCajaAbierta();
+        $mesaId = $this->crearMesaTest();
+
+        $this->enviarPedido($mesaId, [['producto_id' => $prodId, 'cantidad' => 3]])->assertStatus(201);
+
+        $this->assertEquals(0.000, (float) DB::table('insumo')->where('id', $insumoId)->value('stock_actual'));
+    }
+
+    /**
+     * Test 8: Líneas repetidas del mismo producto se validan en conjunto.
+     */
+    public function test_despacho_directo_suma_lineas_repetidas_del_mismo_producto(): void
+    {
+        $insumoId = $this->crearInsumoTest('Gaseosa Botella', 2.000, 'und');
+        $prodId = $this->crearProductoConReceta('Gaseosa Personal', [
+            ['insumo_id' => $insumoId, 'cantidad_descuenta' => 1.000],
+        ], false);
+
+        $this->asegurarCajaAbierta();
+        $mesaId = $this->crearMesaTest();
+
+        $this->enviarPedido($mesaId, [
+            ['producto_id' => $prodId, 'cantidad' => 1],
+            ['producto_id' => $prodId, 'cantidad' => 2],
+        ])
+            ->assertStatus(409)
+            ->assertJsonPath('errores.0.codigo', 'ERR_STOCK_INSUFICIENTE')
+            ->assertJsonPath('errores.0.cantidad_solicitada', 3)
+            ->assertJsonPath('errores.0.raciones_disponibles', 2);
+
+        $this->assertEquals(2.000, (float) DB::table('insumo')->where('id', $insumoId)->value('stock_actual'));
+    }
+
+    /**
+     * Test 9: Dos productos distintos que comparten insumo no pueden superarlo entre ambos.
+     */
+    public function test_despacho_directo_valida_insumo_compartido_entre_productos(): void
+    {
+        $insumoId = $this->crearInsumoTest('Cerveza Botella', 3.000, 'und');
+        $prodSueltaId = $this->crearProductoConReceta('Cerveza Suelta', [
+            ['insumo_id' => $insumoId, 'cantidad_descuenta' => 1.000],
+        ], false);
+        $prodDobleId = $this->crearProductoConReceta('Cerveza Doble', [
+            ['insumo_id' => $insumoId, 'cantidad_descuenta' => 2.000],
+        ], false);
+
+        $this->asegurarCajaAbierta();
+        $mesaId = $this->crearMesaTest();
+
+        $this->enviarPedido($mesaId, [
+            ['producto_id' => $prodSueltaId, 'cantidad' => 2],
+            ['producto_id' => $prodDobleId, 'cantidad' => 1],
+        ])
+            ->assertStatus(409)
+            ->assertJsonPath('errores.0.producto_id', $prodDobleId)
+            ->assertJsonPath('errores.0.raciones_disponibles', 0);
+
+        $this->assertEquals(3.000, (float) DB::table('insumo')->where('id', $insumoId)->value('stock_actual'));
+    }
+
+    /**
+     * Test 10: Los platos de cocina mantienen la política de no bloqueo aunque falte stock.
+     */
+    public function test_plato_de_cocina_no_se_bloquea_por_stock_insuficiente(): void
+    {
+        $insumoId = $this->crearInsumoTest('Pescado', 1.000);
+        $prodId = $this->crearProductoConReceta('Ceviche', [
+            ['insumo_id' => $insumoId, 'cantidad_descuenta' => 1.000],
+        ], true);
+
+        $this->asegurarCajaAbierta();
+        $mesaId = $this->crearMesaTest();
+
+        $this->enviarPedido($mesaId, [['producto_id' => $prodId, 'cantidad' => 3]])->assertStatus(201);
+
+        $this->assertEquals(1.000, (float) DB::table('insumo')->where('id', $insumoId)->value('stock_actual'));
+    }
+
+    /**
+     * Test 11: Un producto de despacho directo sin receta no tiene control de stock.
+     */
+    public function test_despacho_directo_sin_receta_no_se_valida(): void
+    {
+        $prodId = $this->crearProductoConReceta('Agua Sin Receta', [], false);
+
+        $this->asegurarCajaAbierta();
+        $mesaId = $this->crearMesaTest();
+
+        $this->enviarPedido($mesaId, [['producto_id' => $prodId, 'cantidad' => 5]])->assertStatus(201);
     }
 }

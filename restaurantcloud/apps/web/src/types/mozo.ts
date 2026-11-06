@@ -283,11 +283,18 @@ export interface PedidoConfirmadoDTO {
   mensaje: string;
 }
 
+export type CodigoConflictoStock = 'ERR_PRODUCTO_AGOTADO' | 'ERR_STOCK_INSUFICIENTE';
+
 export interface ConflictoStockDTO {
+  codigo: CodigoConflictoStock;
   producto_id: string;
   producto_nombre: string;
-  insumo_critico: string;
+  insumo_critico?: string;
   mensaje: string;
+  /** Solo en ERR_STOCK_INSUFICIENTE: unidades pedidas de ese producto. */
+  cantidad_solicitada?: number;
+  /** Solo en ERR_STOCK_INSUFICIENTE: unidades totales de ese producto que sí se pueden despachar. */
+  raciones_disponibles?: number;
 }
 
 export interface HistorialMesaComandaDTO {
