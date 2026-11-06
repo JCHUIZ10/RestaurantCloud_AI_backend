@@ -65,6 +65,8 @@ export const CocinaKdsPage: React.FC = () => {
   const [platoEnResolucion, setPlatoEnResolucion] = useState<PlatoDisponibilidadDTO | null>(null);
   const [itemsEnFuegoResolucion, setItemsEnFuegoResolucion] = useState<ItemEnFuegoResolucionDTO[]>([]);
   const [alertaStockToast, setAlertaStockToast] = useState<AlertaStockInsuficienteSSE | null>(null);
+  // Aviso breve cuando una acción del pase pierde la carrera contra el mozo u otra estación
+  const [avisoKds, setAvisoKds] = useState<string | null>(null);
 
   // Reloj digital en vivo
   const [horaActual, setHoraActual] = useState(
@@ -202,12 +204,34 @@ export const CocinaKdsPage: React.FC = () => {
     }
   }, []);
 
+  const mostrarAvisoKds = useCallback((mensaje: string) => {
+    setAvisoKds(mensaje);
+    setTimeout(() => setAvisoKds(null), 4000);
+  }, []);
+
+  // Ante un conflicto de estado (409/422) el servidor manda: avisar y resincronizar comandas
+  const resincronizarTrasConflicto = useCallback(
+    async (mensaje: string) => {
+      mostrarAvisoKds(mensaje);
+      const resCom = await cocinaService.obtenerComandas();
+      if (resCom.exito) setComandas(resCom.datos);
+      actualizarConsolidado();
+    },
+    [mostrarAvisoKds, actualizarConsolidado]
+  );
+
   // Manejador: Cambiar estado de plato (En Fuego o Listo)
   const handleCambiarEstadoItem = async (
     itemId: string,
     nuevoEstado: 'en_preparacion' | 'listo'
   ) => {
     const res = await cocinaService.cambiarEstadoItem(itemId, nuevoEstado);
+    if (!res.exito) {
+      await resincronizarTrasConflicto(
+        res.errores?.[0]?.mensaje || 'No se pudo actualizar el plato; se recargó el estado actual.'
+      );
+      return;
+    }
     if (res.exito) {
       if (res.datos.alerta_stock) {
         setAlertaStockToast(res.datos.alerta_stock);
@@ -243,6 +267,15 @@ export const CocinaKdsPage: React.FC = () => {
   // Manejador: Deshacer "Listo" dentro de los 30s
   const handleDeshacerListo = async (itemId: string) => {
     const res = await cocinaService.deshacerListoItem(itemId);
+    if (!res.exito) {
+      const error = res.errores?.[0];
+      const mensaje =
+        error?.codigo === 'ITEM_YA_SERVIDO'
+          ? 'El mozo ya retiró este plato del pase; no se puede deshacer.'
+          : error?.mensaje || 'No se pudo deshacer el plato.';
+      await resincronizarTrasConflicto(mensaje);
+      return;
+    }
     if (res.exito) {
       setComandas((prev) =>
         prev.map((comanda) => ({
@@ -586,6 +619,17 @@ export const CocinaKdsPage: React.FC = () => {
         onCerrar={() => setAlertaStockToast(null)}
         onAbrirDisponibilidad={() => setModalDisponibilidadAbierto(true)}
       />
+
+      {/* Aviso de conflicto en el pase (p. ej. deshacer sobre un plato ya servido por el mozo) */}
+      {avisoKds && (
+        <div
+          role="status"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md rounded-xl bg-slate-900 border border-amber-500/60 px-4 py-3 shadow-xl text-amber-200 text-sm font-semibold flex items-center gap-2"
+        >
+          <AlertCircle className="h-4 w-4 text-amber-400 shrink-0" />
+          <span>{avisoKds}</span>
+        </div>
+      )}
     </div>
   );
 };

@@ -10,15 +10,18 @@ use Tests\TestCase;
 class MozoCoreOperativoTest extends TestCase
 {
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
+
     private string $localId = '00000000-0000-4000-8000-000000000010';
+
     private string $mozoId = '00000000-0000-4000-8000-000000000102';
+
     private string $tokenMozo;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $rawToken = 'test_token_mozo_' . Str::random(32);
+        $rawToken = 'test_token_mozo_'.Str::random(32);
         $tokenHash = hash('sha256', $rawToken);
 
         $sessionPayload = [
@@ -38,7 +41,7 @@ class MozoCoreOperativoTest extends TestCase
     private function headers(): array
     {
         return [
-            'Authorization' => 'Bearer ' . $this->tokenMozo,
+            'Authorization' => 'Bearer '.$this->tokenMozo,
             'Accept' => 'application/json',
         ];
     }
@@ -49,7 +52,7 @@ class MozoCoreOperativoTest extends TestCase
         DB::table('piso')->insert([
             'id' => $pisoId,
             'local_id' => $this->localId,
-            'nombre' => 'Piso Mozo ' . Str::random(4),
+            'nombre' => 'Piso Mozo '.Str::random(4),
             'columnas' => 5,
             'filas' => 3,
             'estado' => 'activo',
@@ -83,7 +86,7 @@ class MozoCoreOperativoTest extends TestCase
         DB::table('categoria_producto')->insert([
             'id' => $catId,
             'local_id' => $this->localId,
-            'nombre' => 'Cat ' . Str::random(4),
+            'nombre' => 'Cat '.Str::random(4),
             'orden' => 1,
             'activa' => true,
             'created_at' => now(),
@@ -95,7 +98,7 @@ class MozoCoreOperativoTest extends TestCase
             'id' => $prodId,
             'categoria_id' => $catId,
             'local_id' => $this->localId,
-            'nombre' => $nombre . ' ' . Str::random(4),
+            'nombre' => $nombre.' '.Str::random(4),
             'descripcion' => 'Plato de prueba',
             'precio' => $precio,
             'foto_url' => null,
@@ -334,5 +337,53 @@ class MozoCoreOperativoTest extends TestCase
             ->assertJsonPath('exito', true)
             ->assertJsonPath('datos.origen', 'bd_local')
             ->assertJsonPath('datos.existe_en_bd', true);
+    }
+
+    private function crearItemEnEstado(string $estado): string
+    {
+        $mesaId = $this->crearMesa('S-'.Str::random(3));
+        $pedidoId = $this->crearPedido($mesaId);
+        $itemId = $this->crearPedidoItem($pedidoId, $this->crearProducto('Causa Limeña'), 1, 30.0);
+
+        DB::table('pedido_item')->where('id', $itemId)->update([
+            'estado' => $estado,
+            'fecha_inicio_coccion' => now()->subMinutes(5),
+            'fecha_listo_cocina' => in_array($estado, ['listo', 'entregado'], true) ? now()->subSeconds(10) : null,
+        ]);
+
+        return $itemId;
+    }
+
+    public function test_marcar_servido_item_listo_lo_entrega(): void
+    {
+        $itemId = $this->crearItemEnEstado('listo');
+
+        $this->patchJson("/api/v1/mozo/items/{$itemId}/servido", [], $this->headers())
+            ->assertStatus(200)
+            ->assertJsonPath('datos.estado', 'entregado');
+
+        $this->assertEquals('entregado', DB::table('pedido_item')->where('id', $itemId)->value('estado'));
+    }
+
+    public function test_marcar_servido_item_revertido_por_cocina_retorna_409(): void
+    {
+        $itemId = $this->crearItemEnEstado('en_preparacion');
+
+        $response = $this->patchJson("/api/v1/mozo/items/{$itemId}/servido", [], $this->headers());
+
+        $response->assertStatus(409)
+            ->assertJsonPath('errores.0.codigo', 'ITEM_NO_DISPONIBLE_EN_PASE')
+            ->assertJsonPath('errores.0.detalles.estado_actual', 'en_preparacion');
+
+        $this->assertEquals('en_preparacion', DB::table('pedido_item')->where('id', $itemId)->value('estado'));
+    }
+
+    public function test_marcar_servido_item_ya_entregado_es_idempotente(): void
+    {
+        $itemId = $this->crearItemEnEstado('entregado');
+
+        $this->patchJson("/api/v1/mozo/items/{$itemId}/servido", [], $this->headers())
+            ->assertStatus(200)
+            ->assertJsonPath('datos.estado', 'entregado');
     }
 }

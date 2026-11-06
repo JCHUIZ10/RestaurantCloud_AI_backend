@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   PlanoCompletoMozoDTO,
   MesaCardDTO,
@@ -29,7 +29,7 @@ import { generarEnlaceWhatsApp } from '@/shared/utils/whatsapp';
 import { ModalResolucionIncidencia } from '../components/quiebre/ModalResolucionIncidencia';
 import { ModalSustitucionCarta } from '../components/quiebre/ModalSustitucionCarta';
 import { ModalAnulacionQuiebre } from '../components/quiebre/ModalAnulacionQuiebre';
-import { Bell, ChevronRight, Check } from 'lucide-react';
+import { AlertTriangle, Bell, ChevronRight, Check } from 'lucide-react';
 import { CajaCerradaBloqueoView } from '@/components/feedback/CajaCerradaBloqueoView';
 
 export const MozoMesasPage: React.FC = () => {
@@ -91,11 +91,17 @@ export const MozoMesasPage: React.FC = () => {
   const [modalResolucionQuiebreAbierto, setModalResolucionQuiebreAbierto] = useState(false);
   const [modalSustitucionCartaAbierto, setModalSustitucionCartaAbierto] = useState(false);
   const [modalAnulacionQuiebreAbierto, setModalAnulacionQuiebreAbierto] = useState(false);
-  const [toastNotificacion, setToastNotificacion] = useState<string | null>(null);
+  const [toastNotificacion, setToastNotificacion] = useState<{
+    mensaje: string;
+    tipo: 'exito' | 'advertencia';
+  } | null>(null);
+  const temporizadorToastRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const mostrarToast = (mensaje: string) => {
-    setToastNotificacion(mensaje);
-    setTimeout(() => setToastNotificacion(null), 3500);
+  // 'exito' (verde) confirma una operación; 'advertencia' (ámbar) informa un error o conflicto
+  const mostrarToast = (mensaje: string, tipo: 'exito' | 'advertencia' = 'exito') => {
+    if (temporizadorToastRef.current) clearTimeout(temporizadorToastRef.current);
+    setToastNotificacion({ mensaje, tipo });
+    temporizadorToastRef.current = setTimeout(() => setToastNotificacion(null), 3500);
   };
 
   // Carga inicial y Short Polling en segundo plano (cada 3.5 segundos)
@@ -192,30 +198,22 @@ export const MozoMesasPage: React.FC = () => {
 
   // Abrir Ficha de Reserva para mesa bloqueada (CU-MOZO-05)
   const handleAbrirFichaReserva = async (mesa: MesaCardDTO) => {
-    const hoyStr = new Date().toISOString().split('T')[0];
+    // Fecha local (toISOString devolvería la fecha UTC y en la noche de Lima caería en el día siguiente)
+    const hoyStr = new Date().toLocaleDateString('en-CA');
     const res = await mozoService.obtenerReservas(hoyStr, 'todos');
-    let encontrada: ReservaCardDTO | undefined;
-    if (res.exito && res.datos) {
-      encontrada = (res.datos as ReservaCardDTO[]).find((r) => r.mesa_ids.includes(mesa.id));
+
+    if (!res.exito) {
+      mostrarToast(res.errores?.[0]?.mensaje || 'No se pudo consultar la reserva de la mesa.', 'advertencia');
+      return;
     }
 
+    const encontrada = (res.datos ?? []).find((r) => r.mesa_ids.includes(mesa.id));
+
     if (!encontrada) {
-      encontrada = {
-        id: 'res-mesa-' + mesa.id,
-        cliente_nombre: mesa.reserva_cliente || 'Familia Gómez',
-        cliente_telefono: '+51 987 654 321',
-        fecha_hora: new Date().toISOString(),
-        hora_texto: mesa.reserva_hora || '14:00',
-        minutos_restantes: mesa.minutos_para_reserva || 20,
-        num_personas: mesa.capacidad || 4,
-        mesas_etiqueta: `Mesa ${mesa.numero}`,
-        mesa_ids: [mesa.id],
-        estado: 'bloqueada',
-        notas: 'Reserva activa en salón',
-        en_tolerancia: true,
-        tolerancia_expiro: false,
-        created_at: new Date().toISOString(),
-      };
+      // La mesa quedó bloqueada pero la reserva ya no existe (cancelada, no-show o vencida): resincronizar
+      mostrarToast(`La reserva de la Mesa ${mesa.numero} ya no está vigente. Se actualizó el plano.`, 'advertencia');
+      await cargarPlano(pisoActivoId, true);
+      return;
     }
 
     setReservaFichaSeleccionada(encontrada);
@@ -226,9 +224,9 @@ export const MozoMesasPage: React.FC = () => {
     const res = await mozoService.sentarReserva(reserva.id);
     if (res.exito) {
       await cargarPlano(pisoActivoId, true);
-      mostrarToast(`✓ ${reserva.cliente_nombre} sentados. Comanda abierta.`);
+      mostrarToast(`${reserva.cliente_nombre} sentados. Comanda abierta.`);
     } else {
-      mostrarToast(res.errores?.[0]?.mensaje || 'Error al sentar comensales');
+      mostrarToast(res.errores?.[0]?.mensaje || 'Error al sentar comensales', 'advertencia');
     }
   };
 
@@ -236,9 +234,9 @@ export const MozoMesasPage: React.FC = () => {
     const res = await mozoService.registrarNoShow(reservaId, motivo);
     if (res.exito) {
       await cargarPlano(pisoActivoId, true);
-      mostrarToast('⚠️ Inasistencia registrada. Mesa liberada inmediatamente a LIBRE.');
+      mostrarToast('Inasistencia registrada. Mesa liberada inmediatamente a LIBRE.', 'advertencia');
     } else {
-      mostrarToast(res.errores?.[0]?.mensaje || 'Error al registrar inasistencia');
+      mostrarToast(res.errores?.[0]?.mensaje || 'Error al registrar inasistencia', 'advertencia');
     }
   };
 
@@ -248,7 +246,7 @@ export const MozoMesasPage: React.FC = () => {
       await cargarPlano(pisoActivoId, true);
       mostrarToast('Reserva cancelada correctamente. Mesa liberada.');
     } else {
-      mostrarToast(res.errores?.[0]?.mensaje || 'Error al cancelar reserva');
+      mostrarToast(res.errores?.[0]?.mensaje || 'Error al cancelar reserva', 'advertencia');
     }
   };
 
@@ -274,7 +272,23 @@ export const MozoMesasPage: React.FC = () => {
 
   // Marcar ítem servido
   const handleMarcarServido = async (itemId: string) => {
-    await mozoService.marcarItemServido(itemId);
+    const res = await mozoService.marcarItemServido(itemId);
+
+    if (!res.exito) {
+      const error = res.errores?.[0];
+      if (error?.codigo === 'ITEM_NO_DISPONIBLE_EN_PASE') {
+        // Cocina deshizo el "Listo": el plato ya no está en el pase
+        mostrarToast('Cocina regresó este plato al fuego; aún no está listo para servir.', 'advertencia');
+      } else {
+        mostrarToast(`${error?.mensaje || 'No se pudo marcar el producto como servido.'}`, 'advertencia');
+      }
+      await cargarPlano(pisoActivoId, true);
+      if (detalleMesa) {
+        const detRes = await mozoService.obtenerDetalleMesa(detalleMesa.mesa_id);
+        if (detRes.exito) setDetalleMesa(detRes.datos);
+      }
+      return;
+    }
 
     // Actualizamos lista de despacho en vivo
     setPlanoData((prev) => {
@@ -292,9 +306,7 @@ export const MozoMesasPage: React.FC = () => {
         return {
           ...prev,
           items: prev.items.map((i) =>
-            i.id === itemId || i.producto_nombre === 'Inca Kola 500ml' // Simulación vinculada
-              ? { ...i, estado: 'entregado' as const }
-              : i
+            i.id === itemId ? { ...i, estado: 'entregado' as const } : i
           ),
         };
       });
@@ -356,9 +368,9 @@ export const MozoMesasPage: React.FC = () => {
           capacidad: res.datos?.capacidad_total || prev.capacidad,
         };
       });
-      mostrarToast(`✓ Mesas unidas exitosamente: ${res.datos?.label_unificado || 'Grupo unificado'}`);
+      mostrarToast(`Mesas unidas exitosamente: ${res.datos?.label_unificado || 'Grupo unificado'}`);
     } else {
-      mostrarToast(`⚠️ Error al unir mesas: ${res.errores?.[0]?.mensaje || 'No se pudo completar la unión'}`);
+      mostrarToast(`Error al unir mesas: ${res.errores?.[0]?.mensaje || 'No se pudo completar la unión'}`, 'advertencia');
     }
   };
 
@@ -392,9 +404,9 @@ export const MozoMesasPage: React.FC = () => {
           setDetalleMesa(detRes.datos);
         }
       }
-      mostrarToast(res.datos?.mensaje || '✓ Mesas desvinculadas exitosamente.');
+      mostrarToast(res.datos?.mensaje || 'Mesas desvinculadas exitosamente.');
     } else {
-      mostrarToast(`⚠️ Error al separar mesas: ${res.errores?.[0]?.mensaje || 'No se pudo separar'}`);
+      mostrarToast(`Error al separar mesas: ${res.errores?.[0]?.mensaje || 'No se pudo separar'}`, 'advertencia');
     }
   };
 
@@ -443,16 +455,16 @@ export const MozoMesasPage: React.FC = () => {
         setDrawerAbierto(false);
         setMesaSeleccionada(null);
         setDetalleMesa(null);
-        mostrarToast('✓ Plato anulado. La mesa quedó sin consumos activos y ha sido liberada.');
+        mostrarToast('Plato anulado. La mesa quedó sin consumos activos y ha sido liberada.');
       } else {
         const detRes = await mozoService.obtenerDetalleMesa(detalleMesa.mesa_id);
         if (detRes.exito) {
           setDetalleMesa(detRes.datos);
         }
-        mostrarToast(res.datos?.mensaje || '✓ Plato anulado exitosamente.');
+        mostrarToast(res.datos?.mensaje || 'Plato anulado exitosamente.');
       }
     } else {
-      mostrarToast(`⚠️ No se pudo anular el plato: ${res.errores?.[0]?.mensaje || 'Error desconocido'}`);
+      mostrarToast(`No se pudo anular el plato: ${res.errores?.[0]?.mensaje || 'Error desconocido'}`, 'advertencia');
     }
   };
 
@@ -474,9 +486,9 @@ export const MozoMesasPage: React.FC = () => {
       setDrawerAbierto(false);
       setMesaSeleccionada(null);
       setDetalleMesa(null);
-      mostrarToast(res.datos?.mensaje || '✓ Comanda completa anulada y mesa liberada con éxito.');
+      mostrarToast(res.datos?.mensaje || 'Comanda completa anulada y mesa liberada con éxito.');
     } else {
-      mostrarToast(`⚠️ No se pudo anular la comanda: ${res.errores?.[0]?.mensaje || 'Error desconocido'}`);
+      mostrarToast(`No se pudo anular la comanda: ${res.errores?.[0]?.mensaje || 'Error desconocido'}`, 'advertencia');
     }
   };
 
@@ -487,9 +499,9 @@ export const MozoMesasPage: React.FC = () => {
       setDrawerAbierto(false);
       setMesaSeleccionada(null);
       setDetalleMesa(null);
-      mostrarToast(res.datos?.mensaje || '✓ Mesa(s) liberada(s) con éxito (cliente se retiró sin consumo).');
+      mostrarToast(res.datos?.mensaje || 'Mesa(s) liberada(s) con éxito (cliente se retiró sin consumo).');
     } else {
-      mostrarToast(`⚠️ No se pudo liberar la mesa: ${res.errores?.[0]?.mensaje || 'Error desconocido'}`);
+      mostrarToast(`No se pudo liberar la mesa: ${res.errores?.[0]?.mensaje || 'Error desconocido'}`, 'advertencia');
     }
   };
 
@@ -601,7 +613,7 @@ export const MozoMesasPage: React.FC = () => {
 
     if (!res.exito) {
       const errorMsg = res.errores?.[0]?.mensaje || 'No se pudo sustituir el plato en cocina.';
-      mostrarToast(`⚠️ Error: ${errorMsg}`);
+      mostrarToast(`Error: ${errorMsg}`, 'advertencia');
       throw new Error(errorMsg);
     }
 
@@ -616,7 +628,7 @@ export const MozoMesasPage: React.FC = () => {
       if (detRes.exito) setDetalleMesa(detRes.datos);
     }
 
-    mostrarToast(`✓ Sustituido por "${res.datos.nuevo_producto}". Enviado a Cocina con prioridad.`);
+    mostrarToast(`Sustituido por "${res.datos.nuevo_producto}". Enviado a Cocina con prioridad.`);
   };
 
   const handleConfirmarAnulacionQuiebre = async (payload: AnularPorQuiebreRequestDTO) => {
@@ -629,7 +641,7 @@ export const MozoMesasPage: React.FC = () => {
 
     if (!res.exito) {
       const errorMsg = res.errores?.[0]?.mensaje || 'No se pudo anular el plato por quiebre.';
-      mostrarToast(`⚠️ Error: ${errorMsg}`);
+      mostrarToast(`Error: ${errorMsg}`, 'advertencia');
       throw new Error(errorMsg);
     }
 
@@ -650,7 +662,7 @@ export const MozoMesasPage: React.FC = () => {
       }
     }
 
-    mostrarToast(`✓ Plato anulado (S/ ${res.datos.monto_anulado.toFixed(2)} descontados). Sin merma imputada.`);
+    mostrarToast(`Plato anulado (S/ ${res.datos.monto_anulado.toFixed(2)} descontados). Sin merma imputada.`);
   };
 
   if (planoData && planoData.caja_abierta === false) {
@@ -686,9 +698,20 @@ export const MozoMesasPage: React.FC = () => {
 
       {/* Toast reactivo flotante de confirmación */}
       {toastNotificacion && (
-        <div className="fixed top-4 right-4 z-50 rounded-xl bg-slate-900 border border-emerald-500/50 p-3 shadow-xl text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-top-3 duration-300">
-          <Check className="h-4 w-4 text-emerald-400 shrink-0" />
-          <span>{toastNotificacion}</span>
+        <div
+          role="status"
+          className={`fixed top-4 right-4 z-50 rounded-xl bg-slate-900 border p-3 shadow-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-top-3 duration-300 ${
+            toastNotificacion.tipo === 'advertencia'
+              ? 'border-amber-500/60 text-amber-300'
+              : 'border-emerald-500/50 text-emerald-300'
+          }`}
+        >
+          {toastNotificacion.tipo === 'advertencia' ? (
+            <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+          ) : (
+            <Check className="h-4 w-4 text-emerald-400 shrink-0" />
+          )}
+          <span>{toastNotificacion.mensaje}</span>
         </div>
       )}
 

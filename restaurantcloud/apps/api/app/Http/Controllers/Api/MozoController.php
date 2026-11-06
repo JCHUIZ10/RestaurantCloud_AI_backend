@@ -691,29 +691,49 @@ class MozoController extends Controller
     {
         $user = $request->user();
 
-        $item = DB::table('pedido_item as pi')
-            ->join('pedido as p', 'p.id', '=', 'pi.pedido_id')
-            ->where('pi.id', $id)
-            ->where('p.local_id', $user->local_id)
-            ->select('pi.id', 'pi.estado')
-            ->first();
+        return DB::transaction(function () use ($id, $user) {
+            // Bloqueo de fila: serializa con el "Deshacer" de 30 s del KDS sobre el mismo ítem.
+            $item = DB::table('pedido_item')
+                ->where('id', $id)
+                ->whereIn('pedido_id', DB::table('pedido')->select('id')->where('local_id', $user->local_id))
+                ->lockForUpdate()
+                ->first();
 
-        if (! $item) {
-            return ApiResponse::error('Ítem de pedido no encontrado.', 404);
-        }
+            if (! $item) {
+                return ApiResponse::error('ITEM_NO_ENCONTRADO', 'Ítem de pedido no encontrado.', 404);
+            }
 
-        DB::table('pedido_item')
-            ->where('id', $id)
-            ->update([
+            // Idempotente ante doble toque o reintento de red.
+            if ($item->estado === 'entregado') {
+                return ApiResponse::ok([
+                    'item_id' => $id,
+                    'estado' => 'entregado',
+                    'mensaje' => 'El ítem ya estaba marcado como servido.',
+                ]);
+            }
+
+            if ($item->estado !== 'listo') {
+                return ApiResponse::error(
+                    'ITEM_NO_DISPONIBLE_EN_PASE',
+                    'Cocina regresó este plato al fuego o aún no está listo para servir.',
+                    409,
+                    ['estado_actual' => $item->estado],
+                );
+            }
+
+            DB::table('pedido_item')
+                ->where('id', $id)
+                ->update([
+                    'estado' => 'entregado',
+                    'updated_at' => now(),
+                ]);
+
+            return ApiResponse::ok([
+                'item_id' => $id,
                 'estado' => 'entregado',
-                'updated_at' => now(),
+                'mensaje' => 'Ítem marcado como servido al comensal.',
             ]);
-
-        return ApiResponse::ok([
-            'item_id' => $id,
-            'estado' => 'entregado',
-            'mensaje' => 'Ítem marcado como servido al comensal.',
-        ]);
+        });
     }
 
     /**

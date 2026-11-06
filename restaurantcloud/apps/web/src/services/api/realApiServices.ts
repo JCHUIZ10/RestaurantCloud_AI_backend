@@ -1,8 +1,24 @@
+import axios from 'axios';
 import { apiClient, apiGet, apiPost, apiPatch, apiPut, apiDelete } from './client';
 import { realPlanoService } from './planoService';
 import { extraerDigitosMovilPeru } from '@/shared/utils';
 import type { CatalogoCartaPublicoDTO } from '@/types/carta';
 import type { ApiResponse } from '@/types/api';
+
+/**
+ * Los conflictos de negocio del backend (409/422) llegan como excepción de axios.
+ * Se devuelven como ApiResponse con exito=false para que la interfaz pueda mostrar el mensaje.
+ */
+async function conContratoDeError<T>(request: Promise<ApiResponse<T>>): Promise<ApiResponse<T>> {
+  try {
+    return await request;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.data?.exito === false) {
+      return error.response.data as ApiResponse<T>;
+    }
+    throw error;
+  }
+}
 import type {
   PlanoCompletoMozoDTO,
   CrearPedidoRequest,
@@ -317,7 +333,9 @@ export const realMozoService = {
   },
 
   async marcarItemServido(itemId: string): Promise<ApiResponse<{ item_id: string; estado: string; mensaje: string }>> {
-    return apiPatch<{ item_id: string; estado: string; mensaje: string }>(`/mozo/items/${itemId}/servido`);
+    return conContratoDeError(
+      apiPatch<{ item_id: string; estado: string; mensaje: string }>(`/mozo/items/${itemId}/servido`)
+    );
   },
 
   async solicitarCuenta(mesaId: string): Promise<ApiResponse<{ mesa_id: string; pedido_id: string; mensaje: string }>> {
@@ -574,11 +592,11 @@ export const realCocinaService = {
 
   // CU-COCINA-02: Transiciones, Deshacer 30s, Despacho Completo y Recall
   async cambiarEstadoItem(itemId: string, estado: string): Promise<ApiResponse<any>> {
-    return apiPatch<any>(`/cocina/items/${itemId}/estado`, { estado });
+    return conContratoDeError(apiPatch<any>(`/cocina/items/${itemId}/estado`, { estado }));
   },
 
   async deshacerListoItem(itemId: string): Promise<ApiResponse<any>> {
-    return apiPost<any>(`/cocina/items/${itemId}/deshacer`);
+    return conContratoDeError(apiPost<any>(`/cocina/items/${itemId}/deshacer`));
   },
 
   async despacharComandaCompleta(pedidoId: string): Promise<ApiResponse<any>> {

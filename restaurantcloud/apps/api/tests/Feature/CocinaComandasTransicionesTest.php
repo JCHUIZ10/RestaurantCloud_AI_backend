@@ -10,15 +10,18 @@ use Tests\TestCase;
 class CocinaComandasTransicionesTest extends TestCase
 {
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
+
     private string $localId = '00000000-0000-4000-8000-000000000010';
+
     private string $cocineroId = '00000000-0000-4000-8000-000000000103';
+
     private string $tokenCocinero;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $rawToken = 'test_token_comandas_' . Str::random(32);
+        $rawToken = 'test_token_comandas_'.Str::random(32);
         $tokenHash = hash('sha256', $rawToken);
 
         $sessionPayload = [
@@ -38,7 +41,7 @@ class CocinaComandasTransicionesTest extends TestCase
     private function headers(): array
     {
         return [
-            'Authorization' => 'Bearer ' . $this->tokenCocinero,
+            'Authorization' => 'Bearer '.$this->tokenCocinero,
             'Accept' => 'application/json',
         ];
     }
@@ -49,7 +52,7 @@ class CocinaComandasTransicionesTest extends TestCase
         DB::table('insumo')->insert([
             'id' => $id,
             'local_id' => $this->localId,
-            'nombre' => $nombre . ' ' . Str::random(6),
+            'nombre' => $nombre.' '.Str::random(6),
             'unidad_medida' => 'kg',
             'stock_actual' => $stock,
             'stock_minimo' => 1.0,
@@ -68,7 +71,7 @@ class CocinaComandasTransicionesTest extends TestCase
         DB::table('categoria_producto')->insert([
             'id' => $catId,
             'local_id' => $this->localId,
-            'nombre' => 'Partida ' . Str::random(5),
+            'nombre' => 'Partida '.Str::random(5),
             'orden' => 1,
             'activa' => true,
             'created_at' => now(),
@@ -80,7 +83,7 @@ class CocinaComandasTransicionesTest extends TestCase
             'id' => $prodId,
             'local_id' => $this->localId,
             'categoria_id' => $catId,
-            'nombre' => $nombre . ' ' . Str::random(5),
+            'nombre' => $nombre.' '.Str::random(5),
             'precio' => 45.00,
             'disponibilidad' => 'disponible',
             'requiere_preparacion' => $requiereCocina,
@@ -108,7 +111,7 @@ class CocinaComandasTransicionesTest extends TestCase
         DB::table('piso')->insert([
             'id' => $pisoId,
             'local_id' => $this->localId,
-            'nombre' => 'Salón ' . Str::random(4),
+            'nombre' => 'Salón '.Str::random(4),
             'columnas' => 5,
             'filas' => 3,
             'estado' => 'activo',
@@ -338,5 +341,91 @@ class CocinaComandasTransicionesTest extends TestCase
         $resDespachados->assertStatus(200);
         $despachadosIds = collect($resDespachados->json('datos'))->pluck('pedido_id')->all();
         $this->assertContains($pedidoId, $despachadosIds, 'Debe aparecer en la bandeja de auditoría de los últimos 30m');
+    }
+
+    public function test_deshacer_item_ya_servido_por_mozo_retorna_409_sin_restituir_stock(): void
+    {
+        $insumoId = $this->crearInsumoTest('Pulpo', 4.0);
+        $prodId = $this->crearProductoTest('Pulpo al Olivo');
+        $this->asociarReceta($prodId, $insumoId, 0.200);
+
+        $mesaId = $this->crearMesaTest('M-05');
+        $pedidoId = $this->crearPedidoTest($mesaId);
+        $itemId = $this->crearPedidoItem($pedidoId, $prodId, 1, 'en_preparacion');
+
+        $this->patchJson("/api/v1/cocina/items/{$itemId}/estado", ['estado' => 'listo'], $this->headers())
+            ->assertStatus(200);
+
+        // El mozo retira el plato del pase dentro de la ventana de 30 s
+        DB::table('pedido_item')->where('id', $itemId)->update(['estado' => 'entregado']);
+
+        $response = $this->postJson("/api/v1/cocina/items/{$itemId}/deshacer", [], $this->headers());
+
+        $response->assertStatus(409);
+        $response->assertJsonPath('errores.0.codigo', 'ITEM_YA_SERVIDO');
+
+        $itemDb = DB::table('pedido_item')->where('id', $itemId)->first();
+        $this->assertEquals('entregado', $itemDb->estado);
+        $this->assertTrue((bool) $itemDb->stock_descontado);
+        $this->assertEquals(3.800, (float) DB::table('insumo')->where('id', $insumoId)->value('stock_actual'));
+    }
+
+    public function test_cambiar_estado_de_listo_a_preparacion_retorna_409_y_no_altera_stock(): void
+    {
+        $insumoId = $this->crearInsumoTest('Lomo Fino', 4.0);
+        $prodId = $this->crearProductoTest('Lomo Saltado');
+        $this->asociarReceta($prodId, $insumoId, 0.200);
+
+        $mesaId = $this->crearMesaTest('M-06');
+        $pedidoId = $this->crearPedidoTest($mesaId);
+        $itemId = $this->crearPedidoItem($pedidoId, $prodId, 1, 'en_preparacion');
+
+        $this->patchJson("/api/v1/cocina/items/{$itemId}/estado", ['estado' => 'listo'], $this->headers())
+            ->assertStatus(200);
+
+        $response = $this->patchJson("/api/v1/cocina/items/{$itemId}/estado", [
+            'estado' => 'en_preparacion',
+        ], $this->headers());
+
+        $response->assertStatus(409);
+        $response->assertJsonPath('errores.0.codigo', 'TRANSICION_NO_PERMITIDA');
+        $response->assertJsonPath('errores.0.detalles.estado_actual', 'listo');
+
+        $this->assertEquals('listo', DB::table('pedido_item')->where('id', $itemId)->value('estado'));
+        $this->assertEquals(3.800, (float) DB::table('insumo')->where('id', $insumoId)->value('stock_actual'));
+    }
+
+    public function test_cocina_no_puede_marcar_item_como_entregado(): void
+    {
+        $prodId = $this->crearProductoTest('Arroz con Mariscos');
+        $mesaId = $this->crearMesaTest('M-07');
+        $pedidoId = $this->crearPedidoTest($mesaId);
+        $itemId = $this->crearPedidoItem($pedidoId, $prodId, 1, 'en_preparacion');
+
+        $response = $this->patchJson("/api/v1/cocina/items/{$itemId}/estado", [
+            'estado' => 'entregado',
+        ], $this->headers());
+
+        $response->assertStatus(422);
+        $this->assertEquals('en_preparacion', DB::table('pedido_item')->where('id', $itemId)->value('estado'));
+    }
+
+    public function test_marcar_listo_dos_veces_es_idempotente_y_descuenta_stock_una_vez(): void
+    {
+        $insumoId = $this->crearInsumoTest('Pollo', 4.0);
+        $prodId = $this->crearProductoTest('Ají de Gallina');
+        $this->asociarReceta($prodId, $insumoId, 0.200);
+
+        $mesaId = $this->crearMesaTest('M-08');
+        $pedidoId = $this->crearPedidoTest($mesaId);
+        $itemId = $this->crearPedidoItem($pedidoId, $prodId, 1, 'en_preparacion');
+
+        $this->patchJson("/api/v1/cocina/items/{$itemId}/estado", ['estado' => 'listo'], $this->headers())
+            ->assertStatus(200);
+        $this->patchJson("/api/v1/cocina/items/{$itemId}/estado", ['estado' => 'listo'], $this->headers())
+            ->assertStatus(200)
+            ->assertJsonPath('datos.estado', 'listo');
+
+        $this->assertEquals(3.800, (float) DB::table('insumo')->where('id', $insumoId)->value('stock_actual'));
     }
 }

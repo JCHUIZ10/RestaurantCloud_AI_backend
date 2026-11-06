@@ -17,6 +17,17 @@ use Illuminate\Support\Str;
 class CocinaController extends Controller
 {
     /**
+     * Transiciones de cocción permitidas desde el KDS (estado actual => estados destino).
+     * Regresar "listo" al fuego solo es posible mediante deshacerItem (ventana de 30 s con restitución de stock).
+     *
+     * @var array<string, list<string>>
+     */
+    private const TRANSICIONES_COCINA = [
+        'en_cola' => ['en_preparacion', 'listo'],
+        'en_preparacion' => ['listo'],
+    ];
+
+    /**
      * CU-COCINA-01: Obtiene la configuración de sede para el KDS (tiempos de semáforo y sonido).
      */
     public function getConfiguracion(Request $request): JsonResponse
@@ -211,71 +222,103 @@ class CocinaController extends Controller
     public function cambiarEstadoItem(Request $request, string $itemId): JsonResponse
     {
         $validated = $request->validate([
-            'estado' => ['required', 'string', 'in:en_cola,en_preparacion,listo,entregado'],
+            'estado' => ['required', 'string', 'in:en_preparacion,listo'],
         ]);
 
-        $item = DB::table('pedido_item')->where('id', $itemId)->first();
-
-        if (! $item) {
-            return ApiResponse::error('ITEM_NO_ENCONTRADO', 'El plato solicitado no existe.', 404);
-        }
-
         $nuevoEstado = $validated['estado'];
-        $now = now();
-        $updateData = [
-            'estado' => $nuevoEstado,
-            'updated_at' => $now,
-        ];
+        $user = $request->user();
 
-        $deduccionStock = null;
-        $alertaStock = null;
+        return DB::transaction(function () use ($itemId, $nuevoEstado, $user) {
+            $item = $this->bloquearItemDelLocal($itemId, $user->local_id);
 
-        if ($nuevoEstado === 'en_preparacion') {
-            $updateData['fecha_inicio_coccion'] = $item->fecha_inicio_coccion ?: $now;
-            $updateData['fecha_listo_cocina'] = null;
-        } elseif ($nuevoEstado === 'listo') {
-            // Cumplir con chk_cocina_tiempos_coherentes
-            $inicioCoccion = $item->fecha_inicio_coccion ? Carbon::parse($item->fecha_inicio_coccion) : $now;
-            $listo = $inicioCoccion->gt($now) ? $inicioCoccion : $now;
-            $updateData['fecha_inicio_coccion'] = $inicioCoccion;
-            $updateData['fecha_listo_cocina'] = $listo;
-            // Deducción culinaria atómica de receta en bodega
-            $deduccionStock = app(StockDeduccionService::class)->descontarRecetaItem($itemId, $request->user()->id);
+            if (! $item) {
+                return ApiResponse::error('ITEM_NO_ENCONTRADO', 'El plato solicitado no existe.', 404);
+            }
 
-            // Si se generaron quiebres de inventario, armar alerta para el frontend
-            if (! empty($deduccionStock['insumos_descontados'])) {
-                foreach ($deduccionStock['insumos_descontados'] as $insDesc) {
-                    if ((float) ($insDesc['stock_nuevo'] ?? 1) <= 0) {
-                        $alertaStock = [
-                            'insumo_id' => $insDesc['insumo_id'] ?? null,
-                            'nombre_insumo' => $insDesc['insumo_nombre'] ?? 'Insumo culinario',
-                            'platos_afectados' => $deduccionStock['quiebres_generados'] ?? [],
-                            'stock_actual' => (float) ($insDesc['stock_nuevo'] ?? 0),
-                            'timestamp' => now()->toIso8601String(),
-                        ];
-                        break;
+            $esIdempotente = $item->estado === $nuevoEstado;
+
+            if (! $esIdempotente && ! in_array($nuevoEstado, self::TRANSICIONES_COCINA[$item->estado] ?? [], true)) {
+                return ApiResponse::error(
+                    'TRANSICION_NO_PERMITIDA',
+                    $item->estado === 'listo' && $nuevoEstado === 'en_preparacion'
+                        ? 'Para regresar un plato listo al fuego use la opción Deshacer.'
+                        : 'El plato ya cambió de estado y no admite esta acción.',
+                    409,
+                    ['estado_actual' => $item->estado],
+                );
+            }
+
+            $now = now();
+            $updateData = [
+                'estado' => $nuevoEstado,
+                'updated_at' => $now,
+            ];
+
+            $deduccionStock = null;
+            $alertaStock = null;
+
+            if ($nuevoEstado === 'en_preparacion') {
+                $updateData['fecha_inicio_coccion'] = $item->fecha_inicio_coccion ?: $now;
+                $updateData['fecha_listo_cocina'] = null;
+            } elseif ($esIdempotente) {
+                $updateData['fecha_inicio_coccion'] = $item->fecha_inicio_coccion;
+                $updateData['fecha_listo_cocina'] = $item->fecha_listo_cocina;
+            } else {
+                // Cumplir con chk_cocina_tiempos_coherentes
+                $inicioCoccion = $item->fecha_inicio_coccion ? Carbon::parse($item->fecha_inicio_coccion) : $now;
+                $listo = $inicioCoccion->gt($now) ? $inicioCoccion : $now;
+                $updateData['fecha_inicio_coccion'] = $inicioCoccion;
+                $updateData['fecha_listo_cocina'] = $listo;
+                // Deducción culinaria atómica de receta en bodega
+                $deduccionStock = app(StockDeduccionService::class)->descontarRecetaItem($itemId, $user->id);
+
+                // Si se generaron quiebres de inventario, armar alerta para el frontend
+                if (! empty($deduccionStock['insumos_descontados'])) {
+                    foreach ($deduccionStock['insumos_descontados'] as $insDesc) {
+                        if ((float) ($insDesc['stock_nuevo'] ?? 1) <= 0) {
+                            $alertaStock = [
+                                'insumo_id' => $insDesc['insumo_id'] ?? null,
+                                'nombre_insumo' => $insDesc['insumo_nombre'] ?? 'Insumo culinario',
+                                'platos_afectados' => $deduccionStock['quiebres_generados'] ?? [],
+                                'stock_actual' => (float) ($insDesc['stock_nuevo'] ?? 0),
+                                'timestamp' => now()->toIso8601String(),
+                            ];
+                            break;
+                        }
                     }
                 }
             }
-        } elseif ($nuevoEstado === 'en_cola') {
-            $updateData['fecha_inicio_coccion'] = null;
-            $updateData['fecha_listo_cocina'] = null;
-        }
 
-        DB::table('pedido_item')->where('id', $itemId)->update($updateData);
+            if (! $esIdempotente) {
+                DB::table('pedido_item')->where('id', $itemId)->update($updateData);
+            }
 
-        return ApiResponse::ok([
-            'item_id' => $itemId,
-            'pedido_id' => $item->pedido_id,
-            'estado' => $nuevoEstado,
-            'fecha_inicio_coccion' => isset($updateData['fecha_inicio_coccion']) ? Carbon::parse($updateData['fecha_inicio_coccion'])->toIso8601String() : null,
-            'fecha_listo_cocina' => isset($updateData['fecha_listo_cocina']) ? Carbon::parse($updateData['fecha_listo_cocina'])->toIso8601String() : null,
-            'puede_deshacer' => $nuevoEstado === 'listo',
-            'segundos_deshacer' => 30,
-            'deduccion_stock' => $deduccionStock,
-            'alerta_stock' => $alertaStock,
-            'mensaje' => 'Estado del plato actualizado con éxito.',
-        ]);
+            return ApiResponse::ok([
+                'item_id' => $itemId,
+                'pedido_id' => $item->pedido_id,
+                'estado' => $nuevoEstado,
+                'fecha_inicio_coccion' => $updateData['fecha_inicio_coccion'] ? Carbon::parse($updateData['fecha_inicio_coccion'])->toIso8601String() : null,
+                'fecha_listo_cocina' => $updateData['fecha_listo_cocina'] ? Carbon::parse($updateData['fecha_listo_cocina'])->toIso8601String() : null,
+                'puede_deshacer' => $nuevoEstado === 'listo',
+                'segundos_deshacer' => 30,
+                'deduccion_stock' => $deduccionStock,
+                'alerta_stock' => $alertaStock,
+                'mensaje' => 'Estado del plato actualizado con éxito.',
+            ]);
+        });
+    }
+
+    /**
+     * Bloquea (SELECT ... FOR UPDATE) un ítem de pedido perteneciente al local indicado.
+     * Serializa las transiciones concurrentes del pase entre Cocina (listo / deshacer) y Mozo (servido).
+     */
+    private function bloquearItemDelLocal(string $itemId, string $localId): ?object
+    {
+        return DB::table('pedido_item')
+            ->where('id', $itemId)
+            ->whereIn('pedido_id', DB::table('pedido')->select('id')->where('local_id', $localId))
+            ->lockForUpdate()
+            ->first();
     }
 
     /**
@@ -283,43 +326,57 @@ class CocinaController extends Controller
      */
     public function deshacerItem(Request $request, string $itemId): JsonResponse
     {
-        $item = DB::table('pedido_item')->where('id', $itemId)->first();
+        $user = $request->user();
 
-        if (! $item) {
-            return ApiResponse::error('ITEM_NO_ENCONTRADO', 'El plato no existe.', 404);
-        }
+        return DB::transaction(function () use ($itemId, $user) {
+            $item = $this->bloquearItemDelLocal($itemId, $user->local_id);
 
-        if ($item->estado !== 'listo') {
-            return ApiResponse::error('NO_REVERSIBLE', 'Solo se puede deshacer un plato en estado listo.', 422);
-        }
+            if (! $item) {
+                return ApiResponse::error('ITEM_NO_ENCONTRADO', 'El plato no existe.', 404);
+            }
 
-        // Validación estricta de la ventana de seguridad de 30 segundos
-        if ($item->fecha_listo_cocina) {
-            $segundosDesdeListo = abs(now()->diffInSeconds(Carbon::parse($item->fecha_listo_cocina)));
-            if ($segundosDesdeListo > 30) {
+            // El mozo ya retiró el plato del pase: el hecho físico prevalece sobre el deshacer.
+            if ($item->estado === 'entregado') {
                 return ApiResponse::error(
-                    'VENTANA_DESHACER_EXPIRADA',
-                    'La ventana de 30 segundos para deshacer este plato ha expirado.',
-                    422
+                    'ITEM_YA_SERVIDO',
+                    'El mozo ya retiró este plato del pase; no es posible deshacer.',
+                    409,
+                    ['estado_actual' => $item->estado],
                 );
             }
-        }
 
-        $reversion = app(StockDeduccionService::class)->revertirRecetaItem($itemId, $request->user()->id);
+            if ($item->estado !== 'listo') {
+                return ApiResponse::error('NO_REVERSIBLE', 'Solo se puede deshacer un plato en estado listo.', 422);
+            }
 
-        DB::table('pedido_item')->where('id', $itemId)->update([
-            'estado' => 'en_preparacion',
-            'fecha_listo_cocina' => null,
-            'updated_at' => now(),
-        ]);
+            // Validación estricta de la ventana de seguridad de 30 segundos
+            if ($item->fecha_listo_cocina) {
+                $segundosDesdeListo = abs(now()->diffInSeconds(Carbon::parse($item->fecha_listo_cocina)));
+                if ($segundosDesdeListo > 30) {
+                    return ApiResponse::error(
+                        'VENTANA_DESHACER_EXPIRADA',
+                        'La ventana de 30 segundos para deshacer este plato ha expirado.',
+                        422
+                    );
+                }
+            }
 
-        return ApiResponse::ok([
-            'item_id' => $itemId,
-            'estado_restaurado' => 'en_preparacion',
-            'insumos_restaurados' => count($reversion['insumos_restituidos'] ?? []),
-            'detalles_restitucion' => $reversion,
-            'mensaje' => 'Plato regresó a preparación en fogones (Deshacer exitoso).',
-        ]);
+            $reversion = app(StockDeduccionService::class)->revertirRecetaItem($itemId, $user->id);
+
+            DB::table('pedido_item')->where('id', $itemId)->update([
+                'estado' => 'en_preparacion',
+                'fecha_listo_cocina' => null,
+                'updated_at' => now(),
+            ]);
+
+            return ApiResponse::ok([
+                'item_id' => $itemId,
+                'estado_restaurado' => 'en_preparacion',
+                'insumos_restaurados' => count($reversion['insumos_restituidos'] ?? []),
+                'detalles_restitucion' => $reversion,
+                'mensaje' => 'Plato regresó a preparación en fogones (Deshacer exitoso).',
+            ]);
+        });
     }
 
     /**
