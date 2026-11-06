@@ -536,6 +536,7 @@ class FichaCompraService
                     'p.id as plato_id',
                     'p.nombre as plato_nombre',
                     'cp.nombre as categoria_nombre',
+                    'p.precio as plato_precio',
                 ])
                 ->get();
 
@@ -551,10 +552,21 @@ class FichaCompraService
                     ->exists();
 
                 if (! $tieneInsumosFaltantes) {
+                    $insumosReposicionados = DB::table('producto_insumo as pi')
+                        ->join('insumo as i', 'i.id', '=', 'pi.insumo_id')
+                        ->where('pi.producto_id', $cand->plato_id)
+                        ->whereIn('pi.insumo_id', $insumosActualizadosIds)
+                        ->orderBy('i.nombre')
+                        ->pluck('i.nombre')
+                        ->values()
+                        ->all();
+
                     $platosReactivables[] = [
                         'id' => $cand->plato_id,
                         'nombre' => $cand->plato_nombre,
-                        'categoria' => $cand->categoria_nombre,
+                        'categoria_nombre' => $cand->categoria_nombre,
+                        'precio' => (float) $cand->plato_precio,
+                        'insumos_reposicionados' => $insumosReposicionados,
                     ];
                 }
             }
