@@ -1315,6 +1315,15 @@ class CajaController extends Controller
                         'estado' => 'activa',
                         'updated_at' => now(),
                     ]);
+
+                    // Al cerrar el pedido se disuelve la unión: las mesas secundarias quedan libres.
+                    DB::table('mesa')
+                        ->where('local_id', $localId)
+                        ->where('mesa_principal_id', $pedido->mesa_id)
+                        ->update([
+                            'mesa_principal_id' => null,
+                            'updated_at' => now(),
+                        ]);
                 }
 
                 $quedanPendientes = ! $pedidoCerrado;
