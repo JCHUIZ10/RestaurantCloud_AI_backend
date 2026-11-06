@@ -64,7 +64,7 @@ export const ModalEmisionNotaCredito: React.FC<ModalEmisionNotaCreditoProps> = (
   onClose,
   onNotaCreditoEmitida,
 }) => {
-  const nombreSede = useAuthStore((s) => s.usuario?.local_nombre) || 'nuestro restaurante';
+  const nombreSede = useAuthStore((s) => s.usuario?.local?.nombre) || 'nuestro restaurante';
   // Estado de fases: 'formulario' (Vista 2) | 'emitido' (Vista 3)
   const [paso, setPaso] = useState<'formulario' | 'emitido'>('formulario');
   const [loading, setLoading] = useState<boolean>(true);

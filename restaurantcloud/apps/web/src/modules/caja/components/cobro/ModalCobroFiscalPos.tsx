@@ -73,7 +73,7 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
   onClose,
   onComprobanteEmitido,
 }) => {
-  const nombreSede = useAuthStore((s) => s.usuario?.local_nombre) || 'nuestro restaurante';
+  const nombreSede = useAuthStore((s) => s.usuario?.local?.nombre) || 'nuestro restaurante';
   const [cuentas, setCuentas] = useState<CuentaFiscalItem[]>([]);
   const [indexCuentaActiva, setIndexCuentaActiva] = useState<number>(0);
   const [whatsappEnviado, setWhatsappEnviado] = useState<Record<string, boolean>>({});
