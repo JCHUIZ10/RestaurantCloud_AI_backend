@@ -292,6 +292,31 @@ class MozoCoreOperativoTest extends TestCase
         $this->assertNotNull($pedidoDB->precuenta_generada_at);
     }
 
+    public function test_solicitar_cuenta_rechaza_una_cuenta_con_solo_productos_de_cero_soles(): void
+    {
+        $mesaId = $this->crearMesa('94');
+        $pedidoId = $this->crearPedido($mesaId);
+        $prodId = $this->crearProducto('Sopa de Casa', 0.0);
+        $this->crearPedidoItem($pedidoId, $prodId, 1, 0.0);
+
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/solicitar-cuenta", [], $this->headers())
+            ->assertStatus(422)
+            ->assertJsonPath('errores.0.mensaje', 'El total a pagar debe ser como mínimo S/ 0.10. Los productos de S/ 0.00 deben acompañar a un producto con precio.');
+
+        $this->assertEquals('enviado', DB::table('pedido')->where('id', $pedidoId)->value('estado'));
+    }
+
+    public function test_solicitar_cuenta_acepta_un_producto_de_cero_soles_junto_a_uno_con_precio(): void
+    {
+        $mesaId = $this->crearMesa('93');
+        $pedidoId = $this->crearPedido($mesaId);
+        $this->crearPedidoItem($pedidoId, $this->crearProducto('Sopa de Casa', 0.0), 1, 0.0);
+        $this->crearPedidoItem($pedidoId, $this->crearProducto('Chaufa', 19.0), 1, 19.0);
+
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/solicitar-cuenta", [], $this->headers())
+            ->assertStatus(200);
+    }
+
     public function test_get_precuenta_mesa_retorna_estructura_completa_con_promociones_y_items(): void
     {
         $mesaId = $this->crearMesa('97');

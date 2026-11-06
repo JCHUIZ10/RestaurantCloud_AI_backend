@@ -377,6 +377,22 @@ class CobroFiscalComprobanteTest extends TestCase
         $this->assertEquals(90.00, $response->json('datos.subtotal_consumo'));
     }
 
+    public function test_el_cobro_rechaza_un_comprobante_con_total_menor_al_minimo(): void
+    {
+        $pedidoId = $this->crearPedidoCobrable();
+
+        DB::table('pedido_item')->where('pedido_id', $pedidoId)->update(['precio_unitario' => 0.00]);
+
+        $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', [
+            ...$this->payloadCobro($pedidoId),
+            'monto_recibido' => 0.00,
+        ])
+            ->assertStatus(422)
+            ->assertJsonPath('errores.0.codigo', 'IMPORTE_MINIMO_NO_ALCANZADO');
+
+        $this->assertEquals(0, DB::table('comprobante')->where('pedido_id', $pedidoId)->count());
+    }
+
     public function test_el_cobro_en_efectivo_rechaza_un_monto_recibido_menor_al_total(): void
     {
         $pedidoId = $this->crearPedidoCobrable();

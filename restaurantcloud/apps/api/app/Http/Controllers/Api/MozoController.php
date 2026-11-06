@@ -24,6 +24,11 @@ class MozoController extends Controller
     private const DIVISOR_IGV = 1.18;
 
     /**
+     * Importe mínimo (S/) a pagar en un comprobante: la moneda más pequeña en circulación.
+     */
+    private const IMPORTE_MINIMO_COMPROBANTE = 0.10;
+
+    /**
      * CU-MOZO-01: Obtener el plano del salón completo con pisos, mesas y despacho en vivo.
      */
     public function getPlano(Request $request): JsonResponse
@@ -789,6 +794,19 @@ class MozoController extends Controller
 
         $promocionId = $preferencias['promocion_id'] ?? $pedido->promocion_id;
 
+        // Una cuenta ya dividida valida el importe de cada subcuenta en dividirCuenta.
+        $cuentaDividida = DB::table('pedido_subcuenta')
+            ->where('pedido_id', $pedido->id)
+            ->where('estado', '!=', 'anulado')
+            ->exists();
+
+        if (! $cuentaDividida && $this->importeNetoPedido($pedido->id, $promocionId) < self::IMPORTE_MINIMO_COMPROBANTE) {
+            return ApiResponse::error(
+                'El total a pagar debe ser como mínimo S/ 0.10. Los productos de S/ 0.00 deben acompañar a un producto con precio.',
+                422
+            );
+        }
+
         $medioPagoRaw = $preferencias['metodo_pago'] ?? $preferencias['medio_pago'] ?? null;
         $medioPago = null;
         if ($medioPagoRaw !== null) {
@@ -824,6 +842,30 @@ class MozoController extends Controller
             'pedido_id' => $pedido->id,
             'mensaje' => 'Cuenta solicitada exitosamente. Se ha alertado al personal de Caja.',
         ]);
+    }
+
+    /**
+     * Importe a pagar de la cuenta completa: consumo de los ítems no anulados menos
+     * el descuento de la promoción elegida (porcentaje o monto fijo).
+     */
+    private function importeNetoPedido(string $pedidoId, ?string $promocionId): float
+    {
+        $bruto = round((float) DB::table('pedido_item')
+            ->where('pedido_id', $pedidoId)
+            ->where('estado', '!=', 'anulado')
+            ->sum(DB::raw('cantidad * precio_unitario')), 2);
+
+        $descuento = 0.0;
+        if ($promocionId !== null) {
+            $promocion = DB::table('promocion')->where('id', $promocionId)->first();
+            if ($promocion) {
+                $descuento = $promocion->tipo_descuento === 'porcentaje'
+                    ? round($bruto * ((float) $promocion->valor / 100), 2)
+                    : min((float) $promocion->valor, $bruto);
+            }
+        }
+
+        return round($bruto - $descuento, 2);
     }
 
     /**

@@ -19,7 +19,6 @@ import type {
   PromocionSedeDTO,
   CodigoMetodoPago,
   DesgloseSUNATMozoDTO,
-  OpcionPagoMozoDTO,
   EstadoMesaOperativo,
 } from '../../../../types/mozo';
 import { PrecuentaConsolidadoCard } from './PrecuentaConsolidadoCard';
@@ -27,7 +26,7 @@ import { PromocionComercialSelector } from './PromocionComercialSelector';
 import { DesgloseSUNATCard } from './DesgloseSUNATCard';
 import { MetodosPagoSelector } from './MetodosPagoSelector';
 import { ModalQRBilletera } from './ModalQRBilletera';
-import { DIVISOR_IGV } from '@/shared/constants/tributario';
+import { DIVISOR_IGV, MONTO_MINIMO_COMPROBANTE } from '@/shared/constants/tributario';
 import { construirOpcionesPago } from '../../utils/opcionesPago';
 
 interface ModalPrecuentaCompletaProps {
@@ -168,6 +167,17 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
   // Validación Poka-Yoke de datos de comprobante para habilitar emisión de cuenta
   const validacionComprobante = useMemo(() => {
     if (!calculos) return { valido: false, motivo: 'Calculando precuenta...' };
+
+    if (calculos.totalNeto < MONTO_MINIMO_COMPROBANTE) {
+      return {
+        valido: false,
+        motivo:
+          `El total a pagar debe ser como mínimo S/ ${MONTO_MINIMO_COMPROBANTE.toFixed(2)}. Los productos de S/ 0.00 deben acompañar a un producto con precio.` +
+          (calculos.consumoBruto === 0
+            ? ' Si la mesa consumió solo cortesías, usa "Anular Comanda Completa" en el detalle de la mesa para liberarla.'
+            : ''),
+      };
+    }
 
     if (tipoComprobante === 'factura') {
       const docClean = documentoCliente.trim().replace(/\D/g, '');

@@ -7,7 +7,6 @@ import type {
   PromocionSedeDTO,
   CodigoMetodoPago,
   DesgloseSUNATMozoDTO,
-  OpcionPagoMozoDTO,
 } from '../../../types/mozo';
 import { PrecuentaHeader } from '../components/precuenta/PrecuentaHeader';
 import { PrecuentaConsolidadoCard } from '../components/precuenta/PrecuentaConsolidadoCard';
@@ -16,7 +15,7 @@ import { DesgloseSUNATCard } from '../components/precuenta/DesgloseSUNATCard';
 import { MetodosPagoSelector } from '../components/precuenta/MetodosPagoSelector';
 import { ModalQRBilletera } from '../components/precuenta/ModalQRBilletera';
 import { ROUTES } from '@/router/routes.constants';
-import { DIVISOR_IGV } from '@/shared/constants/tributario';
+import { DIVISOR_IGV, MONTO_MINIMO_COMPROBANTE } from '@/shared/constants/tributario';
 import { construirOpcionesPago } from '../utils/opcionesPago';
 
 export const MozoPrecuentaPage: React.FC = () => {
@@ -235,6 +234,13 @@ export const MozoPrecuentaPage: React.FC = () => {
               onNotificarCaja={() => handleNotificarCaja()}
               enviandoNotificacion={enviandoNotificacion}
               cuentaPedidaExitosa={cuentaPedidaExitosa}
+              isComprobanteValido={calculos.totalNeto >= MONTO_MINIMO_COMPROBANTE}
+              motivoBloqueoComprobante={
+                `El total a pagar debe ser como mínimo S/ ${MONTO_MINIMO_COMPROBANTE.toFixed(2)}. Los productos de S/ 0.00 deben acompañar a un producto con precio.` +
+                (calculos.consumoBruto === 0
+                  ? ' Si la mesa consumió solo cortesías, usa "Anular Comanda Completa" en el detalle de la mesa para liberarla.'
+                  : '')
+              }
             />
             )}
           </div>

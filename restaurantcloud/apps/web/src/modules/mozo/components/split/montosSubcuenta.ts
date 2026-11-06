@@ -1,8 +1,8 @@
 import { SubcuentaConfigDTO, PromocionSedeDTO } from '@/types/mozo';
-import { DIVISOR_IGV } from '@/shared/constants/tributario';
+import { DIVISOR_IGV, MONTO_MINIMO_COMPROBANTE } from '@/shared/constants/tributario';
 
-/** Monto mínimo (S/) que debe pagar una subcuenta: la moneda más pequeña en circulación. */
-export const MONTO_MINIMO_SUBCUENTA = 0.1;
+/** Monto mínimo (S/) que debe pagar una subcuenta. */
+export const MONTO_MINIMO_SUBCUENTA = MONTO_MINIMO_COMPROBANTE;
 
 const aCentimos = (valor: number): number => Math.round(valor * 100) / 100;
 

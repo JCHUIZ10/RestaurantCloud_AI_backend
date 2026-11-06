@@ -28,6 +28,11 @@ class CajaController extends Controller
     private const DIVISOR_IGV = 1.18;
 
     /**
+     * Importe mínimo (S/) a pagar en un comprobante: la moneda más pequeña en circulación.
+     */
+    private const IMPORTE_MINIMO_COMPROBANTE = 0.10;
+
+    /**
      * CU-CAJA-01: Obtener estado de sesión de caja del local.
      */
     public function getEstadoSesion(Request $request): JsonResponse
@@ -1008,6 +1013,14 @@ class CajaController extends Controller
                 $totalCobro = round($totalConsumo + $montoRecargo, 2);
                 $baseImponible = round($totalCobro / self::DIVISOR_IGV, 2);
                 $igv = round($totalCobro - $baseImponible, 2);
+
+                if ($totalCobro < self::IMPORTE_MINIMO_COMPROBANTE) {
+                    return ApiResponse::error(
+                        'IMPORTE_MINIMO_NO_ALCANZADO',
+                        'El total a pagar debe ser como mínimo S/ 0.10. Los productos de S/ 0.00 deben acompañar a un producto con precio.',
+                        422,
+                    );
+                }
 
                 $documentoCliente = trim((string) ($validated['documento_cliente'] ?? $subcuenta?->documento_cliente ?? ''));
                 $nombreCliente = trim((string) ($validated['nombre_cliente'] ?? $subcuenta?->nombre_cliente ?? ''));
