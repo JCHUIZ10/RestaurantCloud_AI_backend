@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   AlertTriangle,
@@ -9,7 +9,7 @@ import {
   HelpCircle,
   Trash2,
 } from 'lucide-react';
-import { mensajeDeErrorApi } from '@/shared/utils/errorApi';
+import { codigoDeErrorApi, mensajeDeErrorApi } from '@/shared/utils/errorApi';
 import { ItemDetalleComandaDTO, AnularItemRequestDTO, MotivoCategoriaItem } from '@/types/mozo';
 
 interface ModalAnularItemProps {
@@ -31,6 +31,15 @@ export const ModalAnularItem: React.FC<ModalAnularItemProps> = ({
   const [motivoDetalle, setMotivoDetalle] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Aviso del backend: la mesa quedaría solo con productos sin cobro; requiere confirmación
+  const [avisoSaldo, setAvisoSaldo] = useState<string | null>(null);
+  const [saldoConfirmado, setSaldoConfirmado] = useState(false);
+
+  // Cada apertura del modal parte sin avisos de intentos anteriores
+  useEffect(() => {
+    setAvisoSaldo(null);
+    setSaldoConfirmado(false);
+  }, [isOpen, item?.id]);
 
   if (!isOpen || !item) return null;
 
@@ -69,9 +78,16 @@ export const ModalAnularItem: React.FC<ModalAnularItemProps> = ({
       await onConfirmarAnulacion({
         motivo_categoria: motivoCategoria,
         motivo_detalle: motivoDetalle.trim(),
+        ...(saldoConfirmado ? { confirmar_saldo_minimo: true } : {}),
       });
+      setAvisoSaldo(null);
+      setSaldoConfirmado(false);
       onClose();
     } catch (err: unknown) {
+      if (codigoDeErrorApi(err) === 'SALDO_BAJO_MINIMO') {
+        setAvisoSaldo(mensajeDeErrorApi(err, 'La mesa quedaría solo con productos sin cobro.'));
+        return;
+      }
       setErrorMsg(mensajeDeErrorApi(err, 'Error al registrar la anulación del plato'));
     } finally {
       setEnviando(false);
@@ -218,6 +234,23 @@ export const ModalAnularItem: React.FC<ModalAnularItemProps> = ({
             </span>
           </div>
 
+          {avisoSaldo && (
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 space-y-2">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span className="text-[11px] leading-relaxed">{avisoSaldo}</span>
+              </div>
+              <label className="flex items-center gap-2 font-semibold text-[11px] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={saldoConfirmado}
+                  onChange={(e) => setSaldoConfirmado(e.target.checked)}
+                />
+                Entiendo, anular de todos modos
+              </label>
+            </div>
+          )}
+
           {errorMsg && (
             <div className="p-2.5 rounded-xl bg-rose-100 border border-rose-300 text-rose-900 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-rose-700 shrink-0" />
@@ -238,9 +271,9 @@ export const ModalAnularItem: React.FC<ModalAnularItemProps> = ({
 
             <button
               type="submit"
-              disabled={enviando || motivoDetalle.trim().length < 10}
+              disabled={enviando || motivoDetalle.trim().length < 10 || (avisoSaldo !== null && !saldoConfirmado)}
               className={`py-2 px-4 rounded-xl font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-98 ${
-                enviando || motivoDetalle.trim().length < 10
+                enviando || motivoDetalle.trim().length < 10 || (avisoSaldo !== null && !saldoConfirmado)
                   ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
                   : esMerma
                   ? 'bg-amber-600 hover:bg-amber-700 text-white'

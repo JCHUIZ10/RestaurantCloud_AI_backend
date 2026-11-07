@@ -3,6 +3,11 @@
  * de Laravel (`errors`: primer mensaje del primer campo) o `message`. Si no hay ninguno,
  * devuelve el texto por defecto.
  */
+/** Código de negocio del error (`errores[0].codigo`), si la API lo envió. */
+export function codigoDeErrorApi(error: unknown): string | undefined {
+  return (error as { response?: { data?: any } } | null)?.response?.data?.errores?.[0]?.codigo;
+}
+
 export function mensajeDeErrorApi(error: unknown, porDefecto: string): string {
   const data = (error as { response?: { data?: any } } | null)?.response?.data;
   if (!data) return porDefecto;

@@ -2550,6 +2550,7 @@ class MozoController extends Controller
         $validated = $request->validate([
             'motivo_categoria' => 'required|string',
             'motivo_detalle' => 'required|string|min:10',
+            'confirmar_saldo_minimo' => 'sometimes|boolean',
         ]);
 
         [$titular, $etiquetaUnion] = $this->resolverMesaTitularYEtiqueta($id, $localId);
@@ -2582,6 +2583,27 @@ class MozoController extends Controller
 
         if ($bloqueo = app(ReglasCobroItemService::class)->bloqueoDeAnulacion($item)) {
             return ApiResponse::error($bloqueo['codigo'], $bloqueo['mensaje'], 422);
+        }
+
+        // Si lo que queda en la mesa no alcanza el mínimo cobrable, se pide confirmación
+        // explícita: no podrá solicitarse la cuenta hasta agregar un plato con precio.
+        $subtotalItem = round((int) $item->cantidad * (float) $item->precio_unitario, 2);
+        if ($subtotalItem > 0 && ! $request->boolean('confirmar_saldo_minimo')) {
+            $activos = DB::table('pedido_item')
+                ->where('pedido_id', $item->pedido_id)
+                ->where('estado', '!=', 'anulado')
+                ->where('id', '!=', $item->id)
+                ->get();
+            $saldo = round((float) $activos->sum(fn ($it) => (int) $it->cantidad * (float) $it->precio_unitario), 2);
+
+            if ($activos->isNotEmpty() && $saldo < self::IMPORTE_MINIMO_COMPROBANTE) {
+                return ApiResponse::error(
+                    'SALDO_BAJO_MINIMO',
+                    'Al anular este plato la mesa quedaría solo con productos sin cobro (S/ '.number_format($saldo, 2).'). No podrás solicitar la cuenta hasta agregar un plato con precio o anular los restantes.',
+                    409,
+                    ['saldo_restante' => $saldo, 'platos_restantes' => $activos->count()],
+                );
+            }
         }
 
         $producto = DB::table('producto')->where('id', $item->producto_id)->first();

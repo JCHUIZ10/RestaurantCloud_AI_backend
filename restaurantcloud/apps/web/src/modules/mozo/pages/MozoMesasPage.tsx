@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { mensajeDeErrorApi } from '@/shared/utils/errorApi';
+import { codigoDeErrorApi, mensajeDeErrorApi } from '@/shared/utils/errorApi';
 import {
   PlanoCompletoMozoDTO,
   MesaCardDTO,
@@ -453,6 +453,10 @@ export const MozoMesasPage: React.FC = () => {
       );
     } catch (err) {
       // El API responde 4xx (p. ej. plato ya cobrado) y axios lanza: se avisa y se mantiene el modal abierto
+      // El saldo bajo el mínimo no es un fallo: el modal pide confirmación y reenvía
+      if (codigoDeErrorApi(err) === 'SALDO_BAJO_MINIMO') {
+        throw err;
+      }
       mostrarToast(`No se pudo anular el plato: ${mensajeDeErrorApi(err, 'Error desconocido')}`, 'advertencia');
       // El drawer pudo quedar desactualizado (p. ej. la cuenta ya fue pedida): se recarga
       await cargarPlano(pisoActivoId, true);

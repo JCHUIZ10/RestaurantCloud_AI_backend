@@ -623,6 +623,8 @@ export type MotivoCategoriaComanda =
 export interface AnularItemRequestDTO {
   motivo_categoria: MotivoCategoriaItem;
   motivo_detalle: string;
+  /** Confirma anular aunque la mesa quede solo con productos sin cobro (< S/ 0.10). */
+  confirmar_saldo_minimo?: boolean;
 }
 
 export interface AnularPedidoCompletoRequestDTO {

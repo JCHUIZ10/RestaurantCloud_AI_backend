@@ -507,6 +507,52 @@ class MozoAnulacionAuditoriaTest extends TestCase
             ->assertOk();
     }
 
+    public function test_anular_el_ultimo_plato_con_precio_pide_confirmacion_si_quedan_solo_cortesias(): void
+    {
+        $mesaId = $this->crearMesa($this->crearPiso(), '16');
+        $pedidoId = $this->crearPedido($mesaId);
+        $conPrecio = $this->agregarItem($pedidoId, $this->crearProducto(30.0), 1, 30.0, 'entregado');
+        $cortesia = $this->agregarItem($pedidoId, $this->crearProducto(0.0), 1, 0.0, 'entregado');
+
+        $payload = [
+            'motivo_categoria' => 'error_toma',
+            'motivo_detalle' => 'Se registró el plato por error en la mesa',
+        ];
+
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/items/{$conPrecio}/anular", $payload, $this->headers())
+            ->assertStatus(409)
+            ->assertJsonPath('errores.0.codigo', 'SALDO_BAJO_MINIMO');
+        $this->assertSame('entregado', DB::table('pedido_item')->where('id', $conPrecio)->value('estado'));
+
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/items/{$conPrecio}/anular", $payload + ['confirmar_saldo_minimo' => true], $this->headers())
+            ->assertOk();
+        $this->assertSame('anulado', DB::table('pedido_item')->where('id', $conPrecio)->value('estado'));
+        $this->assertSame('entregado', DB::table('pedido_item')->where('id', $cortesia)->value('estado'));
+    }
+
+    public function test_anular_un_plato_no_pide_confirmacion_si_el_saldo_restante_es_cobrable_o_nulo(): void
+    {
+        $mesaId = $this->crearMesa($this->crearPiso(), '17');
+        $pedidoId = $this->crearPedido($mesaId);
+        $prodId = $this->crearProducto(30.0);
+        $primero = $this->agregarItem($pedidoId, $prodId, 1, 30.0, 'entregado');
+        $segundo = $this->agregarItem($pedidoId, $prodId, 1, 30.0, 'entregado');
+
+        $payload = [
+            'motivo_categoria' => 'error_toma',
+            'motivo_detalle' => 'Se registró el plato por error en la mesa',
+        ];
+
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/items/{$primero}/anular", $payload, $this->headers())
+            ->assertOk()
+            ->assertJsonPath('datos.mesa_liberada', false);
+
+        // El último plato vacía el pedido: libera la mesa sin pedir confirmación.
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/items/{$segundo}/anular", $payload, $this->headers())
+            ->assertOk()
+            ->assertJsonPath('datos.mesa_liberada', true);
+    }
+
     public function test_no_se_reabre_una_cuenta_con_platos_cobrados(): void
     {
         $mesaId = $this->crearMesa($this->crearPiso(), '15');
