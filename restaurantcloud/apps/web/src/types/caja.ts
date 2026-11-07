@@ -121,7 +121,10 @@ export interface ReporteZDTO {
   efectivo_real_contado: number;
   discrepancia: number;
   comentario_discrepancia?: string;
+  /** Efectivo cobrado en bruto (incluye lo luego anulado con NC): base de la conciliación de gaveta */
   total_ventas_efectivo: number;
+  /** Efectivo neto de anulaciones: el que suma, junto a tarjeta y billetera, al total facturado neto */
+  total_efectivo_neto?: number;
   total_tarjetas_pos: number;
   total_billeteras_digital: number;
   otros_medios_total?: number;
@@ -333,7 +336,11 @@ export interface ComprobanteHistorialItemDTO {
   comanda_numero: number;
   cliente_nombre: string;
   cliente_documento?: string;
-  medio_pago: 'efectivo' | 'tarjeta' | 'billetera_digital';
+  medio_pago: MedioPagoCodigo;
+  /** Nombre del método de pago configurado por la sede (ej. "Yape / Plin") */
+  metodo_pago_nombre?: string;
+  /** N° de operación de Yape/Plin, si el cobro lo registró */
+  numero_operacion?: string | null;
   total: number;
   base_imponible: number;
   igv: number;
@@ -342,21 +349,112 @@ export interface ComprobanteHistorialItemDTO {
   url_publica_qr: string;
   telefono_envio?: string;
   email_envio?: string;
-  // Si fue anulado mediante Nota de Crédito
+  // Si fue anulado mediante Nota de Crédito (o, en una NC, su propio motivo)
   nota_credito_id?: string;
   nota_credito_serie_numero?: string;
   nota_credito_token?: string;
   motivo_codigo_sunat?: MotivoNotaCreditoSUNAT;
+  motivo_texto?: string | null;
   sustento_motivo?: string;
   // Si este registro es una Nota de Crédito
   comprobante_modificado_id?: string;
   documento_modificado?: string;
+  documento_modificado_token?: string | null;
 }
 
+export type MedioPagoCodigo = 'efectivo' | 'tarjeta' | 'billetera_digital';
+export type EstadoHistorialComprobantes = 'vigente' | 'anulado' | 'nota_credito' | 'todos';
+
 export interface FiltrosHistorialComprobantesDTO {
-  estado: 'vigente' | 'anulado' | 'todos';
+  estado: EstadoHistorialComprobantes;
   tipo: 'todos' | 'boleta' | 'factura' | 'nota_venta' | 'nota_credito';
+  medio_pago?: 'todos' | MedioPagoCodigo;
   q?: string;
+  pagina?: number;
+  limite?: number;
+}
+
+export interface ResumenMedioPagoDTO {
+  codigo: MedioPagoCodigo;
+  nombre: string;
+  /** Neto de ventas vigentes: lo anulado con NC ya no cuenta */
+  neto: number;
+  operaciones: number;
+}
+
+/** Totales del turno: no dependen de ningún filtro del listado */
+export interface ResumenTurnoComprobantesDTO {
+  por_medio: ResumenMedioPagoDTO[];
+  efectivo: {
+    ingresos_brutos: number;
+    operaciones_brutas: number;
+    egresos: number;
+    esperado: number;
+  };
+  vigentes_count: number;
+  anulados_count: number;
+  notas_credito: { count: number; monto: number };
+  total_neto: number;
+  base_imponible: number;
+  igv: number;
+  efectivo_gaveta: number;
+}
+
+export interface PaginacionHistorialDTO {
+  total: number;
+  pagina: number;
+  limite: number;
+  total_paginas: number;
+}
+
+export interface HistorialComprobantesResponseDTO {
+  turno: {
+    caja_id: string;
+    correlativo: number;
+    cajero_nombre: string;
+    fecha_apertura: string;
+    monto_apertura: number;
+  };
+  resumen: ResumenTurnoComprobantesDTO;
+  comprobantes: ComprobanteHistorialItemDTO[];
+  paginacion: PaginacionHistorialDTO;
+}
+
+export interface ComprobanteDetalleDTO extends ComprobanteHistorialItemDTO {
+  desglose: {
+    subtotal_consumo: number;
+    descuento: number;
+    promocion_nombre?: string | null;
+    porcentaje_recargo: number;
+    monto_recargo: number;
+    base_imponible: number;
+    igv: number;
+    total: number;
+    monto_recibido?: number | null;
+    vuelto?: number | null;
+  };
+  items: { descripcion: string; cantidad: number; precio_unitario: number; subtotal: number }[];
+  impreso: boolean;
+  /** Presente en un comprobante anulado: la NC que lo anuló */
+  nota_credito?: {
+    id: string;
+    serie_numero: string;
+    fecha: string;
+    motivo_codigo_sunat?: MotivoNotaCreditoSUNAT | null;
+    motivo_texto?: string | null;
+    sustento_motivo?: string | null;
+    token?: string | null;
+  } | null;
+  /** Presente en una NC: el comprobante que modifica */
+  documento_afectado?: {
+    id: string;
+    serie_numero: string;
+    tipo_comprobante: 'boleta' | 'factura' | 'nota_venta';
+    token?: string | null;
+    motivo_codigo_sunat?: MotivoNotaCreditoSUNAT | null;
+    motivo_texto?: string | null;
+    sustento_motivo?: string | null;
+  } | null;
 }
 
 export interface PrepararAnulacionResponseDTO {

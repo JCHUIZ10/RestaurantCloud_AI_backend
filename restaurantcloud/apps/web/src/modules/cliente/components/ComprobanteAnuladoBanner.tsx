@@ -1,8 +1,9 @@
-import { AlertTriangle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { AlertTriangle, ArrowUpRight } from 'lucide-react';
 import type { NotaCreditoReferenciaDTO } from '@/types/comprobante';
 
 interface ComprobanteAnuladoBannerProps {
-  notaCredito?: NotaCreditoReferenciaDTO;
+  notaCredito?: NotaCreditoReferenciaDTO | null;
   serieNumeroComprobante: string;
 }
 
@@ -32,9 +33,19 @@ export const ComprobanteAnuladoBanner: React.FC<ComprobanteAnuladoBannerProps> =
             <span className="font-semibold text-rose-900">
               Modificado por Nota de Crédito:
             </span>
-            <span className="font-mono font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-800">
-              {notaCredito.serie_numero}
-            </span>
+            {notaCredito.url_publica ? (
+              <Link
+                to={notaCredito.url_publica}
+                className="inline-flex items-center gap-1 font-mono font-bold px-2 py-0.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 transition-colors"
+              >
+                {notaCredito.serie_numero}
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </Link>
+            ) : (
+              <span className="font-mono font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-800">
+                {notaCredito.serie_numero}
+              </span>
+            )}
           </div>
 
           <div className="text-[11px] text-rose-800/80 space-y-0.5">
@@ -42,13 +53,17 @@ export const ComprobanteAnuladoBanner: React.FC<ComprobanteAnuladoBannerProps> =
               <span className="font-semibold">Fecha de anulación: </span>
               {new Date(notaCredito.fecha).toLocaleDateString('es-PE')} • {new Date(notaCredito.fecha).toLocaleTimeString('es-PE')}
             </p>
-            <p>
-              <span className="font-semibold">Motivo SUNAT ({notaCredito.motivo_codigo}): </span>
-              {notaCredito.motivo_texto}
-            </p>
-            <p className="italic pt-0.5 text-rose-900">
-              "{notaCredito.sustento}"
-            </p>
+            {notaCredito.motivo_codigo && (
+              <p>
+                <span className="font-semibold">Motivo SUNAT ({notaCredito.motivo_codigo}): </span>
+                {notaCredito.motivo_texto}
+              </p>
+            )}
+            {notaCredito.sustento && (
+              <p className="italic pt-0.5 text-rose-900">
+                "{notaCredito.sustento}"
+              </p>
+            )}
           </div>
         </div>
       )}

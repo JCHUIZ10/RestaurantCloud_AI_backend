@@ -16,6 +16,9 @@ export const ComprobanteTicketMobile: React.FC<ComprobanteTicketMobileProps> = (
   enlaceCopiado,
 }) => {
   const isAnulado = comprobante.estado === 'anulado';
+  // Una NC se guarda con montos negativos; el ticket muestra el monto acreditado en positivo
+  const esNotaCredito = comprobante.tipo === 'nota_credito';
+  const monto = (valor: number) => formatPEN(esNotaCredito ? Math.abs(valor) : valor);
   const pdfDisponible = comprobante.documento_digital?.pdf_disponible ?? true;
   const urlPdf = comprobante.documento_digital?.url_descarga_pdf;
   const whatsappUrl = `https://wa.me/51${comprobante.emisor.telefono}?text=Hola%20${encodeURIComponent(
@@ -81,10 +84,12 @@ export const ComprobanteTicketMobile: React.FC<ComprobanteTicketMobileProps> = (
               className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
                 isAnulado
                   ? 'bg-rose-100 text-rose-800 border-rose-200'
+                  : esNotaCredito
+                  ? 'bg-amber-100 text-amber-900 border-amber-300'
                   : 'bg-emerald-50 text-emerald-700 border-emerald-200'
               }`}
             >
-              {isAnulado ? '✕ ANULADO' : '✓ EMITIDO'}
+              {isAnulado ? '✕ ANULADO' : esNotaCredito ? 'NOTA DE CRÉDITO' : '✓ EMITIDO'}
             </span>
             {comprobante.cliente.mesa_codigo && (
               <span className="text-[11px] text-aurea-copper font-medium block mt-1">
@@ -147,36 +152,36 @@ export const ComprobanteTicketMobile: React.FC<ComprobanteTicketMobileProps> = (
         <div className="pt-3 border-t-2 border-dashed border-aurea-copper/30 space-y-1.5 text-xs">
           <div className="flex justify-between text-aurea-navy/70">
             <span>Subtotal Consumo:</span>
-            <span>{formatPEN(comprobante.totales.subtotal_consumo)}</span>
+            <span>{monto(comprobante.totales.subtotal_consumo)}</span>
           </div>
 
-          {comprobante.totales.descuento > 0 && (
+          {Math.abs(comprobante.totales.descuento) > 0 && (
             <div className="flex justify-between text-rose-600 font-medium">
               <span>{comprobante.totales.descuento_motivo || 'Descuento Aplicado'}:</span>
-              <span>- {formatPEN(comprobante.totales.descuento)}</span>
+              <span>- {monto(comprobante.totales.descuento)}</span>
             </div>
           )}
 
           <div className="flex justify-between text-aurea-navy/70">
             <span>Op. Gravada:</span>
-            <span>{formatPEN(comprobante.totales.base_imponible)}</span>
+            <span>{monto(comprobante.totales.base_imponible)}</span>
           </div>
 
           <div className="flex justify-between text-aurea-navy/70">
             <span>I.G.V. (18.00%):</span>
-            <span>{formatPEN(comprobante.totales.igv)}</span>
+            <span>{monto(comprobante.totales.igv)}</span>
           </div>
 
           <div className="pt-2 border-t border-aurea-copper/20 flex justify-between items-baseline text-aurea-navy">
-            <span className="font-serif text-base font-bold">TOTAL PAGADO:</span>
+            <span className="font-serif text-base font-bold">{esNotaCredito ? 'MONTO ACREDITADO:' : 'TOTAL PAGADO:'}</span>
             <span className="font-sans text-xl font-black text-aurea-navy">
-              {formatPEN(comprobante.totales.total)}
+              {monto(comprobante.totales.total)}
             </span>
           </div>
 
           {/* Medio de pago */}
           <div className="pt-1 text-[11px] text-aurea-copper font-medium text-center">
-            Medio de pago: {comprobante.pago.metodo_nombre}
+            {esNotaCredito ? 'Medio de pago original' : 'Medio de pago'}: {comprobante.pago.metodo_nombre}
             {comprobante.pago.numero_operacion && ` • Op. #${comprobante.pago.numero_operacion}`}
           </div>
         </div>

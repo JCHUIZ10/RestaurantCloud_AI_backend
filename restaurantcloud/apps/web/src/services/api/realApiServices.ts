@@ -74,8 +74,9 @@ import type {
   ClienteFiscalLookupDTO,
   ProcesarCobroFiscalRequest,
   ProcesarCobroFiscalResponseDTO,
-  ComprobanteHistorialItemDTO,
+  ComprobanteDetalleDTO,
   FiltrosHistorialComprobantesDTO,
+  HistorialComprobantesResponseDTO,
   PrepararAnulacionResponseDTO,
   EmitirNotaCreditoRequest,
   EmitirNotaCreditoResponseDTO,
@@ -778,23 +779,33 @@ export const realCajaService = {
   },
 
   // CU-CAJA-04: Gestión de Comprobantes, Anulaciones y Notas de Crédito
-  async getComprobantesTurno(
-    filtros: FiltrosHistorialComprobantesDTO = { estado: 'todos', tipo: 'todos' }
-  ): Promise<ApiResponse<ComprobanteHistorialItemDTO[]>> {
+  /** Historial paginado del turno con el resumen por medio de pago (página de comprobantes). */
+  async getHistorialComprobantes(
+    filtros: FiltrosHistorialComprobantesDTO
+  ): Promise<ApiResponse<HistorialComprobantesResponseDTO>> {
     const params = new URLSearchParams();
-    if (filtros.estado) params.append('estado', filtros.estado);
-    if (filtros.tipo && filtros.tipo !== 'todos') params.append('tipo', filtros.tipo);
+    params.append('estado', filtros.estado);
+    if (filtros.tipo !== 'todos') params.append('tipo', filtros.tipo);
+    if (filtros.medio_pago && filtros.medio_pago !== 'todos') params.append('medio_pago', filtros.medio_pago);
     if (filtros.q) params.append('q', filtros.q);
-    const qs = params.toString();
-    const res = await apiGet<ComprobanteHistorialItemDTO[]>(`/caja/comprobantes${qs ? `?${qs}` : ''}`);
+    if (filtros.pagina) params.append('pagina', String(filtros.pagina));
+    if (filtros.limite) params.append('limite', String(filtros.limite));
+
+    const res = await conContratoDeError(
+      apiGet<HistorialComprobantesResponseDTO>(`/caja/comprobantes?${params.toString()}`)
+    );
     if (res.exito && res.datos) {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      res.datos = res.datos.map((c) => ({
+      res.datos.comprobantes = res.datos.comprobantes.map((c) => ({
         ...c,
         url_publica_qr: c.token_digital ? `${origin}/c/${c.token_digital}` : c.url_publica_qr,
       }));
     }
     return res;
+  },
+
+  async getDetalleComprobante(id: string): Promise<ApiResponse<ComprobanteDetalleDTO>> {
+    return conContratoDeError(apiGet<ComprobanteDetalleDTO>(`/caja/comprobantes/${id}`));
   },
 
   async prepararAnulacionComprobante(id: string): Promise<ApiResponse<PrepararAnulacionResponseDTO>> {

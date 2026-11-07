@@ -153,7 +153,7 @@ export const BalancePreArqueoView: React.FC<BalancePreArqueoViewProps> = ({
                     <td className="py-2.5 text-right text-emerald-600">+ S/ {balance.ingresos_efectivo.toFixed(2)}</td>
                     <td className="py-2.5 text-right text-rose-500">- S/ {balance.egresos_devolucion_nc.toFixed(2)}</td>
                     <td className="py-2.5 text-right font-bold text-slate-900 dark:text-white">
-                      S/ {balance.efectivo_esperado.toFixed(2)}
+                      S/ {(balance.ingresos_efectivo - balance.egresos_devolucion_nc).toFixed(2)}
                     </td>
                   </tr>
 

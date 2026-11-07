@@ -9,6 +9,9 @@ interface ComprobanteFacturaA4Props {
 
 export const ComprobanteFacturaA4: React.FC<ComprobanteFacturaA4Props> = ({ comprobante }) => {
   const isAnulado = comprobante.estado === 'anulado';
+  // Una NC se guarda con montos negativos; el documento muestra el monto acreditado en positivo
+  const esNotaCredito = comprobante.tipo === 'nota_credito';
+  const monto = (valor: number) => formatPEN(esNotaCredito ? Math.abs(valor) : valor);
 
   return (
     <div className="bg-white rounded-3xl p-8 sm:p-10 border-2 border-aurea-copper/25 shadow-xl relative overflow-hidden select-none">
@@ -142,7 +145,7 @@ export const ComprobanteFacturaA4: React.FC<ComprobanteFacturaA4Props> = ({ comp
               Representación impresa oficial generada según resolución SUNAT.
             </p>
             <p className="text-[11px] text-aurea-copper font-medium pt-0.5">
-              Medio de Pago: <span className="font-semibold text-aurea-navy">{comprobante.pago.metodo_nombre}</span>
+              {esNotaCredito ? 'Medio de pago original' : 'Medio de Pago'}: <span className="font-semibold text-aurea-navy">{comprobante.pago.metodo_nombre}</span>
             </p>
           </div>
         </div>
@@ -151,30 +154,30 @@ export const ComprobanteFacturaA4: React.FC<ComprobanteFacturaA4Props> = ({ comp
         <div className="md:col-span-5 space-y-2 text-xs font-sans">
           <div className="flex justify-between text-aurea-navy/70">
             <span>Subtotal Consumo:</span>
-            <span className="font-mono">{formatPEN(comprobante.totales.subtotal_consumo)}</span>
+            <span className="font-mono">{monto(comprobante.totales.subtotal_consumo)}</span>
           </div>
 
-          {comprobante.totales.descuento > 0 && (
+          {Math.abs(comprobante.totales.descuento) > 0 && (
             <div className="flex justify-between text-rose-600 font-medium">
               <span>{comprobante.totales.descuento_motivo || 'Descuento'}:</span>
-              <span className="font-mono">- {formatPEN(comprobante.totales.descuento)}</span>
+              <span className="font-mono">- {monto(comprobante.totales.descuento)}</span>
             </div>
           )}
 
           <div className="flex justify-between text-aurea-navy/70">
             <span>Operación Gravada:</span>
-            <span className="font-mono">{formatPEN(comprobante.totales.base_imponible)}</span>
+            <span className="font-mono">{monto(comprobante.totales.base_imponible)}</span>
           </div>
 
           <div className="flex justify-between text-aurea-navy/70">
             <span>I.G.V. (18.00%):</span>
-            <span className="font-mono">{formatPEN(comprobante.totales.igv)}</span>
+            <span className="font-mono">{monto(comprobante.totales.igv)}</span>
           </div>
 
           <div className="pt-2 border-t-2 border-aurea-navy flex justify-between items-baseline text-aurea-navy">
-            <span className="font-serif text-base font-bold">TOTAL A PAGAR:</span>
+            <span className="font-serif text-base font-bold">{esNotaCredito ? 'MONTO ACREDITADO:' : 'TOTAL A PAGAR:'}</span>
             <span className="font-sans text-2xl font-black text-aurea-navy">
-              {formatPEN(comprobante.totales.total)}
+              {monto(comprobante.totales.total)}
             </span>
           </div>
         </div>

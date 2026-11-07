@@ -44,6 +44,7 @@ import { PropietarioCambiarPlanPage } from '@/modules/propietario/pages/Propieta
 import { PropietarioConservarRecursosPage } from '@/modules/propietario/pages/PropietarioConservarRecursosPage';
 import { CajeroPosPage } from '@/modules/caja/pages/CajeroPosPage';
 import { CajeroTurnoCierrePage } from '@/modules/caja/pages/CajeroTurnoCierrePage';
+import { CajeroComprobantesPage } from '@/modules/caja/pages/CajeroComprobantesPage';
 import { SaasTenantsPage } from '@/modules/saas/pages/SaasTenantsPage';
 import { SaasTenantOnboardingPage } from '@/modules/saas/pages/SaasTenantOnboardingPage';
 
@@ -432,6 +433,10 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
       {
         path: 'apertura',
         element: <Navigate to={ROUTES.CAJERO_POS} replace />,
+      },
+      {
+        path: 'comprobantes',
+        element: <CajeroComprobantesPage />,
       },
       {
         path: 'turno',

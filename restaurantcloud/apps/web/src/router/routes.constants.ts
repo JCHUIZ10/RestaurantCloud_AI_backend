@@ -70,6 +70,7 @@ export const ROUTES = {
   CAJERO_POS: '/cajero/pos',
   CAJERO_APERTURA: '/cajero/apertura',
   CAJERO_TURNO: '/cajero/turno',
+  CAJERO_COMPROBANTES: '/cajero/comprobantes',
 
   // Consola Global Admin SaaS
   // [ACTIVO PRIMER AVANCE]:

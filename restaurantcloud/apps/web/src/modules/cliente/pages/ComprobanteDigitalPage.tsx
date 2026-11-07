@@ -7,6 +7,7 @@ import { ComprobanteTicketMobile } from '../components/ComprobanteTicketMobile';
 import { ComprobanteFacturaA4 } from '../components/ComprobanteFacturaA4';
 import { ComprobanteSidebarDesktop } from '../components/ComprobanteSidebarDesktop';
 import { ComprobanteAnuladoBanner } from '../components/ComprobanteAnuladoBanner';
+import { ComprobanteNotaCreditoBanner } from '../components/ComprobanteNotaCreditoBanner';
 import { ComprobanteZeroDeadEnd } from '../components/ComprobanteZeroDeadEnd';
 import { DemoComprobantesWidget } from '../components/DemoComprobantesWidget';
 import type { ComprobantePublicoDTO } from '@/types/comprobante';
@@ -128,6 +129,13 @@ export const ComprobanteDigitalPage: React.FC = () => {
             notaCredito={comprobante.nota_credito}
             serieNumeroComprobante={comprobante.serie_numero}
           />
+        </div>
+      )}
+
+      {/* Aviso de Nota de Crédito con el documento que modifica */}
+      {comprobante.tipo === 'nota_credito' && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+          <ComprobanteNotaCreditoBanner documentoAfectado={comprobante.documento_afectado} />
         </div>
       )}
 

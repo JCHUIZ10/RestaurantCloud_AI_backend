@@ -104,7 +104,7 @@ export const MonitorCajaPosView: React.FC<MonitorCajaPosViewProps> = ({
               EFECTIVO EN GAVETA
             </span>
             <span className="text-lg font-mono font-bold text-slate-900 dark:text-white">
-              S/ {(turnoActivo.efectivo_actual || turnoActivo.monto_apertura).toFixed(2)}
+              S/ {(turnoActivo.efectivo_actual ?? turnoActivo.monto_apertura).toFixed(2)}
             </span>
           </div>
 

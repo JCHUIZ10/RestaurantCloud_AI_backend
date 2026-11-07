@@ -15,6 +15,7 @@ export const ComprobanteSidebarDesktop: React.FC<ComprobanteSidebarDesktopProps>
   enlaceCopiado,
 }) => {
   const isAnulado = comprobante.estado === 'anulado';
+  const esNotaCredito = comprobante.tipo === 'nota_credito';
   const pdfDisponible = comprobante.documento_digital?.pdf_disponible ?? true;
   const urlPdf = comprobante.documento_digital?.url_descarga_pdf;
 
@@ -41,21 +42,31 @@ export const ComprobanteSidebarDesktop: React.FC<ComprobanteSidebarDesktopProps>
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
               isAnulado
                 ? 'bg-rose-100 text-rose-800 border-rose-200'
+                : esNotaCredito
+                ? 'bg-amber-100 text-amber-900 border-amber-300'
                 : 'bg-emerald-50 text-emerald-700 border-emerald-200'
             }`}
           >
             <span
               className={`w-2 h-2 rounded-full ${
-                isAnulado ? 'bg-rose-500' : 'bg-emerald-500 animate-pulse'
+                isAnulado ? 'bg-rose-500' : esNotaCredito ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse'
               }`}
             />
-            <span>{isAnulado ? 'Comprobante Anulado' : 'Comprobante Emitido'}</span>
+            <span>
+              {isAnulado ? 'Comprobante Anulado' : esNotaCredito ? 'Nota de Crédito Emitida' : 'Comprobante Emitido'}
+            </span>
           </span>
         </div>
 
         <p className="text-xs text-aurea-navy/70 leading-relaxed font-sans">
           {isAnulado
-            ? 'Este comprobante fue modificado por una Nota de Crédito tributaria.'
+            ? comprobante.nota_credito
+              ? `Este comprobante fue modificado por la Nota de Crédito ${comprobante.nota_credito.serie_numero}.`
+              : 'Este comprobante fue modificado por una Nota de Crédito tributaria.'
+            : esNotaCredito
+            ? comprobante.documento_afectado
+              ? `Esta nota de crédito modifica el comprobante ${comprobante.documento_afectado.serie_numero}.`
+              : 'Esta nota de crédito acredita el monto de un comprobante emitido anteriormente.'
             : 'Comprobante validado electrónicamente. Documento oficial listo para descarga.'}
         </p>
       </div>

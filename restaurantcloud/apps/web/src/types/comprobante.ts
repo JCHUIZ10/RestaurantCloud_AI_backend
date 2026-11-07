@@ -56,10 +56,22 @@ export interface PagoComprobanteDTO {
 export interface NotaCreditoReferenciaDTO {
   serie_numero: string;    // Ej: "BC01-0000042"
   fecha: string;          // ISO 8601
-  motivo_codigo: string;  // Catálogo 09 SUNAT (01: anulación de la operación)
-  motivo_texto: string;   // "Anulación de la operación (Cambio a Factura con RUC)"
-  sustento: string;       // "Comensal solicitó cambio a Factura corporativa con RUC"
-  url_publica?: string;
+  motivo_codigo?: string | null;  // Catálogo 09 SUNAT (01: anulación de la operación)
+  motivo_texto?: string | null;   // "Anulación de la operación (Cambio a Factura con RUC)"
+  sustento?: string | null;       // "Comensal solicitó cambio a Factura corporativa con RUC"
+  url_publica?: string;   // Ruta relativa al comprobante público de la NC: "/c/{token}"
+}
+
+/** Comprobante que una nota de crédito modifica (solo viene cuando el documento es una NC). */
+export interface DocumentoAfectadoDTO {
+  serie_numero: string;   // Ej: "B001-00000123"
+  tipo: TipoComprobante;
+  tipo_label: string;
+  fecha: string;          // ISO 8601
+  motivo_codigo?: string | null;
+  motivo_texto?: string | null;
+  sustento?: string | null;
+  url_publica: string;    // Ruta relativa al comprobante público original: "/c/{token}"
 }
 
 export interface ComprobantePublicoDTO {
@@ -78,7 +90,8 @@ export interface ComprobantePublicoDTO {
   items: ItemComprobanteDTO[];
   totales: LiquidacionComprobanteDTO;
   pago: PagoComprobanteDTO;
-  nota_credito?: NotaCreditoReferenciaDTO;
+  nota_credito?: NotaCreditoReferenciaDTO | null;
+  documento_afectado?: DocumentoAfectadoDTO | null;
   url_carta_digital: string;
   documento_digital?: {
     estado: 'generando' | 'disponible' | 'fallido';
