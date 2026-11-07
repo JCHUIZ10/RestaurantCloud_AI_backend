@@ -608,4 +608,146 @@ class CobroFiscalComprobanteTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('errores.0.codigo', 'MONTO_RECIBIDO_INSUFICIENTE');
     }
+
+    public function test_el_cobro_final_se_rechaza_si_hay_un_plato_en_preparacion(): void
+    {
+        $pedidoId = $this->crearPedidoCobrable();
+        DB::table('pedido_item')->where('pedido_id', $pedidoId)->update(['estado' => 'en_preparacion']);
+
+        $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', $this->payloadCobro($pedidoId))
+            ->assertStatus(409)
+            ->assertJsonPath('errores.0.codigo', 'PEDIDO_CON_PLATOS_PENDIENTES');
+
+        $this->assertSame(0, DB::table('comprobante')->where('pedido_id', $pedidoId)->count());
+        $this->assertSame('cuenta_pedida', DB::table('pedido')->where('id', $pedidoId)->value('estado'));
+        $this->assertSame('pendiente', DB::table('pedido_item')->where('pedido_id', $pedidoId)->value('estado_pago'));
+    }
+
+    public function test_el_cobro_final_se_rechaza_si_un_plato_listo_no_fue_servido(): void
+    {
+        $pedidoId = $this->crearPedidoCobrable();
+        DB::table('pedido_item')->where('pedido_id', $pedidoId)->update(['estado' => 'listo']);
+
+        $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', $this->payloadCobro($pedidoId))
+            ->assertStatus(409)
+            ->assertJsonPath('errores.0.codigo', 'PEDIDO_CON_PLATOS_PENDIENTES');
+    }
+
+    public function test_la_ultima_subcuenta_no_se_cobra_con_platos_sin_servir(): void
+    {
+        [$pedidoId, $subcuentaId] = $this->crearPedidoConSubcuenta(20.00, 0.00, 0.00, 'efectivo');
+        DB::table('pedido_item')->where('pedido_id', $pedidoId)->update(['estado' => 'listo']);
+
+        $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', [
+            ...$this->payloadCobro($pedidoId),
+            'subcuenta_id' => $subcuentaId,
+        ])
+            ->assertStatus(409)
+            ->assertJsonPath('errores.0.codigo', 'PEDIDO_CON_PLATOS_PENDIENTES');
+    }
+
+    public function test_una_subcuenta_intermedia_se_cobra_aunque_otros_platos_sigan_sin_servir(): void
+    {
+        [$pedidoId, $subcuentaId] = $this->crearPedidoConSubcuenta(20.00, 0.00, 0.00, 'efectivo');
+        $producto = DB::table('producto')->where('local_id', $this->localId)->first();
+
+        $itemPendienteId = (string) Str::uuid();
+        DB::table('pedido_item')->insert([
+            'id' => $itemPendienteId,
+            'pedido_id' => $pedidoId,
+            'producto_id' => $producto->id,
+            'cantidad' => 1,
+            'precio_unitario' => 15.00,
+            'estado' => 'en_preparacion',
+            'estado_pago' => 'pendiente',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $segundaSubcuentaId = (string) Str::uuid();
+        DB::table('pedido_subcuenta')->insert([
+            'id' => $segundaSubcuentaId,
+            'pedido_id' => $pedidoId,
+            'numero_subcuenta' => 2,
+            'tipo_comprobante' => 'boleta',
+            'nombre_cliente' => 'OTRO CLIENTE',
+            'medio_pago' => 'efectivo',
+            'subtotal_bruto' => 15.00,
+            'descuento' => 0.00,
+            'monto_recargo' => 0.00,
+            'total' => 15.00,
+            'estado' => 'pendiente',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('pedido_subcuenta_item')->insert([
+            'id' => (string) Str::uuid(),
+            'subcuenta_id' => $segundaSubcuentaId,
+            'pedido_item_id' => $itemPendienteId,
+            'cantidad' => 1,
+            'precio_unitario' => 15.00,
+            'subtotal' => 15.00,
+            'created_at' => now(),
+        ]);
+
+        $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', [
+            ...$this->payloadCobro($pedidoId),
+            'subcuenta_id' => $subcuentaId,
+        ])->assertStatus(200)->assertJsonPath('datos.pedido_cerrado', false);
+
+        $this->assertSame('cuenta_pedida', DB::table('pedido')->where('id', $pedidoId)->value('estado'));
+    }
+
+    public function test_una_subcuenta_intermedia_no_se_cobra_si_sus_propios_platos_estan_sin_servir(): void
+    {
+        [$pedidoId, $subcuentaId] = $this->crearPedidoConSubcuenta(20.00, 0.00, 0.00, 'efectivo');
+        DB::table('pedido_item')->where('pedido_id', $pedidoId)->update(['estado' => 'en_preparacion']);
+
+        // Segunda subcuenta pendiente: la primera ya no es la que cierra la cuenta.
+        $segundaSubcuentaId = (string) Str::uuid();
+        DB::table('pedido_subcuenta')->insert([
+            'id' => $segundaSubcuentaId,
+            'pedido_id' => $pedidoId,
+            'numero_subcuenta' => 2,
+            'tipo_comprobante' => 'boleta',
+            'nombre_cliente' => 'OTRO CLIENTE',
+            'medio_pago' => 'efectivo',
+            'subtotal_bruto' => 15.00,
+            'descuento' => 0.00,
+            'monto_recargo' => 0.00,
+            'total' => 15.00,
+            'estado' => 'pendiente',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', [
+            ...$this->payloadCobro($pedidoId),
+            'subcuenta_id' => $subcuentaId,
+        ])
+            ->assertStatus(409)
+            ->assertJsonPath('errores.0.codigo', 'SUBCUENTA_CON_PLATOS_PENDIENTES');
+
+        $this->assertSame('pendiente', DB::table('pedido_subcuenta')->where('id', $subcuentaId)->value('estado'));
+
+        $mesaId = DB::table('pedido')->where('id', $pedidoId)->value('mesa_id');
+        $subcuentas = collect(
+            $this->withHeaders($this->headers())->getJson("/api/v1/caja/mesas/{$mesaId}/cuenta")
+                ->assertOk()->json('datos.subcuentas')
+        );
+        $this->assertSame(1, $subcuentas->firstWhere('id', $subcuentaId)['items_pendientes_servicio']);
+        $this->assertSame(0, $subcuentas->firstWhere('id', $segundaSubcuentaId)['items_pendientes_servicio']);
+    }
+
+    public function test_la_precuenta_de_caja_informa_el_bloqueo_por_platos_sin_servir(): void
+    {
+        $pedidoId = $this->crearPedidoCobrable();
+        DB::table('pedido_item')->where('pedido_id', $pedidoId)->update(['estado' => 'en_cola']);
+        $mesaId = DB::table('pedido')->where('id', $pedidoId)->value('mesa_id');
+
+        $this->withHeaders($this->headers())->getJson("/api/v1/caja/mesas/{$mesaId}/cuenta")
+            ->assertOk()
+            ->assertJsonPath('datos.cobro_final_bloqueado', true)
+            ->assertJsonPath('datos.items_pendientes_servicio', 1);
+    }
 }

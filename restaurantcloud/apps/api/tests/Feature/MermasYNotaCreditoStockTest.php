@@ -10,15 +10,18 @@ use Tests\TestCase;
 class MermasYNotaCreditoStockTest extends TestCase
 {
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
+
     private string $localId = '00000000-0000-4000-8000-000000000010';
+
     private string $cajeroId = '00000000-0000-4000-8000-000000000105';
+
     private string $tokenCajero;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $rawToken = 'test_token_caja_nc_' . Str::random(32);
+        $rawToken = 'test_token_caja_nc_'.Str::random(32);
         $tokenHash = hash('sha256', $rawToken);
 
         $sessionPayload = [
@@ -38,7 +41,7 @@ class MermasYNotaCreditoStockTest extends TestCase
     private function headers(): array
     {
         return [
-            'Authorization' => 'Bearer ' . $this->tokenCajero,
+            'Authorization' => 'Bearer '.$this->tokenCajero,
             'Accept' => 'application/json',
         ];
     }
@@ -49,7 +52,7 @@ class MermasYNotaCreditoStockTest extends TestCase
         DB::table('piso')->insert([
             'id' => $pisoId,
             'local_id' => $this->localId,
-            'nombre' => 'Piso Caja ' . Str::random(4),
+            'nombre' => 'Piso Caja '.Str::random(4),
             'columnas' => 5,
             'filas' => 3,
             'estado' => 'activo',
@@ -124,7 +127,7 @@ class MermasYNotaCreditoStockTest extends TestCase
         DB::table('insumo')->insert([
             'id' => $insumoId,
             'local_id' => $this->localId,
-            'nombre' => 'Insumo ' . Str::random(6),
+            'nombre' => 'Insumo '.Str::random(6),
             'unidad_medida' => $unidad,
             'stock_actual' => $stockInicial,
             'stock_minimo' => 5.0,
@@ -143,7 +146,7 @@ class MermasYNotaCreditoStockTest extends TestCase
         DB::table('categoria_producto')->insert([
             'id' => $catId,
             'local_id' => $this->localId,
-            'nombre' => 'Cat ' . Str::random(4),
+            'nombre' => 'Cat '.Str::random(4),
             'orden' => 1,
             'activa' => true,
             'created_at' => now(),
@@ -155,7 +158,7 @@ class MermasYNotaCreditoStockTest extends TestCase
             'id' => $prodId,
             'categoria_id' => $catId,
             'local_id' => $this->localId,
-            'nombre' => ($requierePreparacion ? 'Plato ' : 'Bebida ') . Str::random(4),
+            'nombre' => ($requierePreparacion ? 'Plato ' : 'Bebida ').Str::random(4),
             'precio' => $precio,
             'costo_estandar' => $costoEstandar,
             'disponibilidad' => 'disponible',
@@ -466,6 +469,55 @@ class MermasYNotaCreditoStockTest extends TestCase
     /**
      * Prueba 3: Idempotencia - No permite anular un comprobante que ya fue anulado.
      */
+    public function test_la_nota_de_credito_con_la_mesa_en_servicio_devuelve_el_consumo_a_pendiente(): void
+    {
+        $cajaId = $this->crearCajaAbierta(300.00);
+        $mesaId = $this->crearMesa($this->crearPiso(), 'M05');
+        $prodId = $this->crearProducto(40.00, 15.00, true);
+
+        $pedidoId = $this->crearPedido($mesaId);
+        DB::table('pedido')->where('id', $pedidoId)->update(['estado' => 'cuenta_pedida']);
+        $itemId = $this->crearPedidoItem($pedidoId, $prodId, 1, 40.00, 'entregado', false);
+
+        $comprobanteId = $this->crearComprobante($cajaId, $pedidoId, 'boleta', 'B001', 40.00, 'efectivo');
+        $this->registrarComprobanteItem($comprobanteId, $itemId, $prodId, 'Plato Fondo', 1, 40.00);
+
+        $this->withHeaders($this->headers())
+            ->postJson("/api/v1/caja/comprobantes/{$comprobanteId}/nota-credito", [
+                'motivo_codigo_sunat' => '01',
+                'sustento_motivo' => 'Comensal devuelve el plato antes de cerrar la cuenta',
+                'devolucion_metodo' => 'efectivo',
+            ])
+            ->assertStatus(200);
+
+        $this->assertSame('pendiente', DB::table('pedido_item')->where('id', $itemId)->value('estado_pago'));
+        $this->assertSame('cuenta_pedida', DB::table('pedido')->where('id', $pedidoId)->value('estado'));
+    }
+
+    public function test_la_nota_de_credito_de_una_cuenta_ya_cerrada_anula_el_pedido_y_no_reabre_consumos(): void
+    {
+        $cajaId = $this->crearCajaAbierta(300.00);
+        $mesaId = $this->crearMesa($this->crearPiso(), 'M06');
+        $prodId = $this->crearProducto(40.00, 15.00, true);
+
+        $pedidoId = $this->crearPedido($mesaId);
+        $itemId = $this->crearPedidoItem($pedidoId, $prodId, 1, 40.00, 'entregado', false);
+
+        $comprobanteId = $this->crearComprobante($cajaId, $pedidoId, 'boleta', 'B001', 40.00, 'efectivo');
+        $this->registrarComprobanteItem($comprobanteId, $itemId, $prodId, 'Plato Fondo', 1, 40.00);
+
+        $this->withHeaders($this->headers())
+            ->postJson("/api/v1/caja/comprobantes/{$comprobanteId}/nota-credito", [
+                'motivo_codigo_sunat' => '01',
+                'sustento_motivo' => 'Anulación de una cuenta que ya había sido cerrada',
+                'devolucion_metodo' => 'efectivo',
+            ])
+            ->assertStatus(200);
+
+        $this->assertSame('anulado', DB::table('pedido')->where('id', $pedidoId)->value('estado'));
+        $this->assertSame('cobrado', DB::table('pedido_item')->where('id', $itemId)->value('estado_pago'));
+    }
+
     public function test_no_permite_anular_comprobante_ya_anulado_idempotencia(): void
     {
         $cajaId = $this->crearCajaAbierta(200.00);

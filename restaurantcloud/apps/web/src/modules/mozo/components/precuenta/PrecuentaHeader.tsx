@@ -88,17 +88,17 @@ export const PrecuentaHeader: React.FC<PrecuentaHeaderProps> = ({
           </div>
         </div>
 
-        {/* Banner Informativo No Bloqueante de Cocina */}
+        {/* Aviso: el cobro final se bloquea hasta servir todo */}
         {tieneCocinaPendiente && (
           <div className="mt-3 p-2.5 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs flex items-center justify-between gap-2 shadow-inner">
             <div className="flex items-center space-x-2">
               <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
               <span>
-                <strong>Aviso de cocina:</strong> {alertaCocina || "Hay platos en preparación para esta mesa."} Puede presentar la precuenta pero verifique el pase antes del cobro final.
+                <strong>Cobro final bloqueado:</strong> {alertaCocina || "Hay platos sin servir en esta mesa."} Puede presentar la precuenta, pero caja no podrá cerrar la cuenta hasta que todo esté servido o anulado.
               </span>
             </div>
             <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-semibold uppercase bg-amber-400/20 text-amber-300 border border-amber-400/30 shrink-0">
-              No Bloqueante
+              Bloquea el cobro final
             </span>
           </div>
         )}

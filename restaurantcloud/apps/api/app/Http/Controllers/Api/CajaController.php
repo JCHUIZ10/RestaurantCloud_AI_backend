@@ -6,6 +6,7 @@ use App\Domains\Caja\Jobs\GenerarComprobanteDigitalJob;
 use App\Domains\Caja\Services\ConsultaDocumentoService;
 use App\Domains\Caja\Services\MetodoPagoLocalService;
 use App\Domains\Caja\Services\ReporteZDigitalService;
+use App\Domains\Caja\Services\ServicioPendienteService;
 use App\Domains\Carta\Services\CartaPublicaService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
@@ -636,8 +637,10 @@ class CajaController extends Controller
             ->whereIn('estado_cocina', ['en_cola', 'en_preparacion'])
             ->isNotEmpty();
 
-        $alertaCocina = $tieneCocinaPendiente
-            ? 'Existen platos en preparación que aún no han sido despachados por cocina.'
+        $servicioPendiente = app(ServicioPendienteService::class);
+        $itemsPendientesServicio = $servicioPendiente->contarPendientes($pedido->id);
+        $alertaCocina = $itemsPendientesServicio > 0
+            ? $servicioPendiente->mensajeBloqueo($itemsPendientesServicio)
             : null;
 
         // Opciones de cobro según métodos de pago activos
@@ -710,6 +713,12 @@ class CajaController extends Controller
             ->get();
 
         $subcuentas = $subcuentasRaw->map(function ($s) use ($user) {
+            $pendientesServicioSubcuenta = $s->estado === 'pendiente'
+                ? app(ServicioPendienteService::class)->contarPendientesDeItems(
+                    DB::table('pedido_subcuenta_item')->where('subcuenta_id', $s->id)->pluck('pedido_item_id')
+                )
+                : 0;
+
             $clienteSubcuentaEnBd = false;
             $telSubcuenta = '';
             $emailSubcuenta = '';
@@ -737,6 +746,7 @@ class CajaController extends Controller
                 'total_neto' => (float) $s->total,
                 'estado' => $s->estado,
                 'estado_pago' => $s->estado,
+                'items_pendientes_servicio' => $pendientesServicioSubcuenta,
                 'cliente_encontrado_en_bd' => $clienteSubcuentaEnBd,
                 'telefono_sugerido' => $telSubcuenta,
                 'email_sugerido' => $emailSubcuenta,
@@ -797,6 +807,8 @@ class CajaController extends Controller
             'items' => $items,
             'tiene_cocina_pendiente' => $tieneCocinaPendiente,
             'alerta_cocina' => $alertaCocina,
+            'items_pendientes_servicio' => $itemsPendientesServicio,
+            'cobro_final_bloqueado' => $itemsPendientesServicio > 0,
             'promociones_disponibles' => $promociones,
             'promocion_activa' => $promocionActiva,
             'promocion_activa_id' => $pedido->promocion_id,
@@ -1017,6 +1029,43 @@ class CajaController extends Controller
 
                 if ($itemsToCharge->isEmpty()) {
                     return ApiResponse::error('NO_HAY_ITEMS_PENDIENTES', 'No existen consumos pendientes por cobrar.', 400);
+                }
+
+                // El pago es al final: el cobro que cierra la cuenta exige todo servido o anulado.
+                $cierraPedido = $subcuenta === null
+                    || ! DB::table('pedido_subcuenta')
+                        ->where('pedido_id', $pedido->id)
+                        ->where('estado', 'pendiente')
+                        ->where('id', '!=', $subcuenta->id)
+                        ->exists();
+
+                if ($cierraPedido) {
+                    $servicioPendiente = app(ServicioPendienteService::class);
+                    $pendientesServicio = $servicioPendiente->contarPendientes($pedido->id);
+
+                    if ($pendientesServicio > 0) {
+                        return ApiResponse::error(
+                            'PEDIDO_CON_PLATOS_PENDIENTES',
+                            "No se puede cerrar la cuenta: hay {$pendientesServicio} plato(s) sin servir (en cocina o en el pase). Márcalos como servidos o anúlalos antes del cobro final.",
+                            409,
+                            ['items_pendientes' => $pendientesServicio],
+                        );
+                    }
+                }
+
+                // Cobro por subcuenta: tampoco se cobra lo que aún no salió de cocina o del pase.
+                if ($subcuenta !== null) {
+                    $pendientesSubcuenta = app(ServicioPendienteService::class)
+                        ->contarPendientesDeItems($itemsToCharge->pluck('id'));
+
+                    if ($pendientesSubcuenta > 0) {
+                        return ApiResponse::error(
+                            'SUBCUENTA_CON_PLATOS_PENDIENTES',
+                            "No se puede cobrar esta subcuenta: tiene {$pendientesSubcuenta} plato(s) sin servir (en cocina o en el pase). Cóbrala cuando estén servidos o anúlalos.",
+                            409,
+                            ['items_pendientes' => $pendientesSubcuenta],
+                        );
+                    }
                 }
 
                 // El medio de una subcuenta lo define Mozo al dividir; Caja no puede cambiarlo
@@ -1902,13 +1951,26 @@ class CajaController extends Controller
             }
 
             if ($comp->pedido_id) {
+                $estadoPedido = DB::table('pedido')->where('id', $comp->pedido_id)->value('estado');
+
+                // Con la mesa aún en servicio, el dinero devuelto vuelve a ser consumo por cobrar:
+                // el pedido sigue vivo (salón y KDS lo ven) y el plato puede anularse o cobrarse otra vez.
+                if (in_array($estadoPedido, ['borrador', 'enviado', 'cuenta_pedida'], true)) {
+                    DB::table('pedido_item')
+                        ->whereIn('id', $originalItems->pluck('pedido_item_id')->filter()->unique())
+                        ->update([
+                            'estado_pago' => 'pendiente',
+                            'updated_at' => now(),
+                        ]);
+                }
+
                 $tieneOtrosComprobantesVigentes = DB::table('comprobante')
                     ->where('pedido_id', $comp->pedido_id)
                     ->where('tipo', '!=', 'nota_credito')
                     ->where('estado', 'emitido')
                     ->exists();
 
-                if (! $tieneOtrosComprobantesVigentes) {
+                if (! $tieneOtrosComprobantesVigentes && ! in_array($estadoPedido, ['borrador', 'enviado', 'cuenta_pedida'], true)) {
                     DB::table('pedido')->where('id', $comp->pedido_id)->update([
                         'estado' => 'anulado',
                         'updated_at' => now(),

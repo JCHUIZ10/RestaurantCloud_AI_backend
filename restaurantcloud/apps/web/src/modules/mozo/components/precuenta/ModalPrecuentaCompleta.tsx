@@ -387,12 +387,12 @@ export const ModalPrecuentaCompleta: React.FC<ModalPrecuentaCompletaProps> = ({
         </div>
 
         {/* 2. Banner de Estado y Aviso No Bloqueante de Cocina */}
-        {dataOriginal?.tiene_cocina_pendiente && (
+        {(dataOriginal?.cobro_final_bloqueado || dataOriginal?.tiene_cocina_pendiente) && (
           <div className="bg-amber-500/15 border-b border-amber-500/30 px-5 py-2.5 text-amber-200 text-xs flex items-center justify-between shrink-0">
             <div className="flex items-center space-x-2">
               <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
               <span>
-                <strong>Aviso de cocina:</strong> {dataOriginal.alerta_cocina || "1 plato en preparación."} Puede presentar la precuenta al cliente, pero valide el pase antes del cobro final.
+                <strong>Cobro final bloqueado:</strong> {dataOriginal.alerta_cocina || "Hay platos sin servir."} Puede presentar la precuenta al cliente, pero caja no podrá cerrar la cuenta hasta que todo esté servido o anulado.
               </span>
             </div>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30 shrink-0 hidden sm:inline-block">

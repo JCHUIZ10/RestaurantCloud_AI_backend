@@ -244,6 +244,15 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
   const entregaDigitalDisponible = cuentaActiva.pagado && Boolean(cuentaActiva.token_digital);
   const quedanPendientes = cuentas.filter((c) => !c.pagado).length;
 
+  // El pago es al final: el cobro que cierra la cuenta exige todos los platos servidos o anulados
+  // y cada subcuenta exige que sus propios platos estén servidos.
+  const pendientesSubcuentaActiva =
+    precuenta?.subcuentas?.find((s) => s.id === cuentaActiva.id)?.items_pendientes_servicio ?? 0;
+  const cobroFinalBloqueado =
+    !cuentaActiva.pagado &&
+    (pendientesSubcuentaActiva > 0 ||
+      (Boolean(precuenta?.cobro_final_bloqueado) && quedanPendientes <= 1));
+
   // Efectivo: el cajero registra con cuánto pagó el cliente y el vuelto se calcula en vivo
   const requiereMontoRecibido = cuentaActiva.medio_pago === 'efectivo' && !cuentaActiva.pagado;
   const recibidoInsuficiente =
@@ -1117,7 +1126,8 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
             ) : (
               <button
                 type="button"
-                disabled={cobrando || recibidoInsuficiente || numeroOperacionInvalido}
+                disabled={cobrando || recibidoInsuficiente || numeroOperacionInvalido || cobroFinalBloqueado}
+                title={cobroFinalBloqueado ? precuenta?.alerta_cocina : undefined}
                 onClick={handleConfirmarPago}
                 className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 disabled:bg-amber-400 disabled:cursor-not-allowed text-white text-xs font-bold transition-all shadow-md shadow-amber-500/25 flex items-center justify-center gap-2"
               >
@@ -1126,6 +1136,8 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span>Emitiendo Comprobante...</span>
                   </>
+                ) : cobroFinalBloqueado ? (
+                  <span>Cobro bloqueado: platos sin servir</span>
                 ) : (
                   <>
                     <Check className="w-4 h-4" />

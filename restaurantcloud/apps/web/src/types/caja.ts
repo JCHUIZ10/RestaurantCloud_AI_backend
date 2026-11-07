@@ -185,6 +185,8 @@ export interface SubcuentaComandaDTO {
   numero_subcuenta: number;
   nombre_titular?: string;
   titular_referencia?: string;
+  /** Platos de esta subcuenta aún en cocina o en el pase (bloquean su cobro). */
+  items_pendientes_servicio?: number;
   documento_identidad?: string;
   tipo_comprobante?: 'boleta' | 'factura' | 'nota_venta';
   tipo_comprobante_sugerido?: string;
@@ -216,6 +218,8 @@ export interface PrecuentaResponseDTO {
   items: PrecuentaItemDTO[];
   tiene_cocina_pendiente: boolean;
   alerta_cocina?: string;
+  items_pendientes_servicio?: number;
+  cobro_final_bloqueado?: boolean;
   promociones_disponibles: PromocionAplicableDTO[];
   promocion_activa_id?: string | null;
   tributacion_sunat: DesgloseTributarioSUNATDTO;

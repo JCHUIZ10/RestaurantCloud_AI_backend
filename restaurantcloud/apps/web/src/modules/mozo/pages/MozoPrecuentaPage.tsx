@@ -200,7 +200,7 @@ export const MozoPrecuentaPage: React.FC = () => {
         mozoNombre={dataOriginal.mozo_nombre}
         comensales={dataOriginal.comensales}
         minutosEnMesa={dataOriginal.minutos_en_mesa}
-        tieneCocinaPendiente={Boolean(dataOriginal.tiene_cocina_pendiente)}
+        tieneCocinaPendiente={Boolean(dataOriginal.cobro_final_bloqueado || dataOriginal.tiene_cocina_pendiente)}
         alertaCocina={dataOriginal.alerta_cocina}
       />
 
