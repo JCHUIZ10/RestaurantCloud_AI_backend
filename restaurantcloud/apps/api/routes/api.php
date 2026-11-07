@@ -266,6 +266,7 @@ Route::prefix('v1')->group(function (): void {
             // CU-MOZO-06: Anulación de Ãtems y Comandas con AuditorÃ­a y Merma
             Route::post('/mesas/{id}/items/{itemId}/anular', [MozoController::class, 'anularItem']);
             Route::post('/mesas/{id}/anular-comanda', [MozoController::class, 'anularComanda']);
+            Route::post('/mesas/{id}/reabrir-cuenta', [MozoController::class, 'reabrirCuenta']);
 
             // CU-MOZO-07: Quiebres de Cocina y Sustitución de Carta
             Route::get('/mesas/{id}/items/{itemId}/catalogo-sustitucion', [MozoController::class, 'getCatalogoSustitucion']);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { mensajeDeErrorApi } from '@/shared/utils/errorApi';
 import {
   PlanoCompletoMozoDTO,
   MesaCardDTO,
@@ -443,11 +444,24 @@ export const MozoMesasPage: React.FC = () => {
   const handleConfirmarAnulacionItem = async (request: AnularItemRequestDTO) => {
     if (!itemParaAnular || !detalleMesa) return;
 
-    const res = await mozoService.anularItemComanda(
-      detalleMesa.mesa_id,
-      itemParaAnular.id,
-      request
-    );
+    let res;
+    try {
+      res = await mozoService.anularItemComanda(
+        detalleMesa.mesa_id,
+        itemParaAnular.id,
+        request
+      );
+    } catch (err) {
+      // El API responde 4xx (p. ej. plato ya cobrado) y axios lanza: se avisa y se mantiene el modal abierto
+      mostrarToast(`No se pudo anular el plato: ${mensajeDeErrorApi(err, 'Error desconocido')}`, 'advertencia');
+      // El drawer pudo quedar desactualizado (p. ej. la cuenta ya fue pedida): se recarga
+      await cargarPlano(pisoActivoId, true);
+      const detActual = await mozoService.obtenerDetalleMesa(detalleMesa.mesa_id);
+      if (detActual.exito) {
+        setDetalleMesa(detActual.datos);
+      }
+      throw err;
+    }
 
     if (res.exito) {
       await cargarPlano(pisoActivoId, true);
@@ -476,10 +490,16 @@ export const MozoMesasPage: React.FC = () => {
   const handleConfirmarAnulacionComanda = async (request: AnularPedidoCompletoRequestDTO) => {
     if (!mesaParaAnularComandaId) return;
 
-    const res = await mozoService.anularComandaCompleta(
-      mesaParaAnularComandaId,
-      request
-    );
+    let res;
+    try {
+      res = await mozoService.anularComandaCompleta(
+        mesaParaAnularComandaId,
+        request
+      );
+    } catch (err) {
+      mostrarToast(`No se pudo anular la comanda: ${mensajeDeErrorApi(err, 'Error desconocido')}`, 'advertencia');
+      throw err;
+    }
 
     if (res.exito) {
       await cargarPlano(pisoActivoId, true);
@@ -489,6 +509,24 @@ export const MozoMesasPage: React.FC = () => {
       mostrarToast(res.datos?.mensaje || 'Comanda completa anulada y mesa liberada con éxito.');
     } else {
       mostrarToast(`No se pudo anular la comanda: ${res.errores?.[0]?.mensaje || 'Error desconocido'}`, 'advertencia');
+    }
+  };
+
+  const handleReabrirCuenta = async (mesaId: string) => {
+    try {
+      const res = await mozoService.reabrirCuenta(mesaId);
+      if (!res.exito) {
+        mostrarToast(`No se pudo reabrir la cuenta: ${res.errores?.[0]?.mensaje || 'Error desconocido'}`, 'advertencia');
+        return;
+      }
+      await cargarPlano(pisoActivoId, true);
+      const detRes = await mozoService.obtenerDetalleMesa(mesaId);
+      if (detRes.exito) {
+        setDetalleMesa(detRes.datos);
+      }
+      mostrarToast(res.datos?.mensaje || 'Cuenta reabierta. La mesa vuelve a estar en servicio.');
+    } catch (err) {
+      mostrarToast(`No se pudo reabrir la cuenta: ${mensajeDeErrorApi(err, 'Error desconocido')}`, 'advertencia');
     }
   };
 
@@ -637,7 +675,13 @@ export const MozoMesasPage: React.FC = () => {
     }
     const { mesaId, itemId } = incidenciaActiva;
 
-    const res = await mozoService.anularPorQuiebreCocina(mesaId, itemId, payload);
+    let res;
+    try {
+      res = await mozoService.anularPorQuiebreCocina(mesaId, itemId, payload);
+    } catch (err) {
+      mostrarToast(`Error: ${mensajeDeErrorApi(err, 'No se pudo anular el plato por quiebre.')}`, 'advertencia');
+      throw err;
+    }
 
     if (!res.exito) {
       const errorMsg = res.errores?.[0]?.mensaje || 'No se pudo anular el plato por quiebre.';
@@ -821,6 +865,7 @@ export const MozoMesasPage: React.FC = () => {
         onAtenderQuiebre={handleAtenderQuiebreDesdeDrawer}
         onSustituirPlato={handleSustituirPlatoDesdeDrawer}
         onAnularPorQuiebre={handleAnularQuiebreDesdeDrawer}
+        onReabrirCuenta={handleReabrirCuenta}
       />
 
       {/* 4. Modal Completo de Precuenta Digital en Salón (CU-MOZO-08) */}

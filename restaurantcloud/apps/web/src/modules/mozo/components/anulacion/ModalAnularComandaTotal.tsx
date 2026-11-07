@@ -1,3 +1,4 @@
+import { mensajeDeErrorApi } from '@/shared/utils/errorApi';
 import React, { useState } from 'react';
 import { X, AlertOctagon, AlertTriangle, CheckSquare, Square, Trash2, ArrowLeft } from 'lucide-react';
 import { AnularPedidoCompletoRequestDTO, MotivoCategoriaComanda } from '@/types/mozo';
@@ -58,7 +59,7 @@ export const ModalAnularComandaTotal: React.FC<ModalAnularComandaTotalProps> = (
       });
       onClose();
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : 'Error al anular la comanda completa');
+      setErrorMsg(mensajeDeErrorApi(err, 'Error al anular la comanda completa'));
     } finally {
       setEnviando(false);
     }

@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Domains\Archivos\Services\TenantStorageService;
 use App\Domains\Caja\Services\MetodoPagoLocalService;
+use App\Domains\Caja\Services\ReglasCobroItemService;
+use App\Domains\Caja\Services\ServicioPendienteService;
 use App\Domains\Inventario\Services\StockDeduccionService;
 use App\Domains\Inventario\Services\ValidacionStockPedidoService;
 use App\Domains\Promociones\Services\PromocionService;
@@ -613,6 +615,7 @@ class MozoController extends Controller
                 'pi.nota_cocina',
                 'prod.requiere_preparacion',
                 'pi.estado',
+                'pi.estado_pago',
                 'pi.numero_ronda',
                 'pi.updated_at',
             ])
@@ -634,6 +637,7 @@ class MozoController extends Controller
                 'requiere_preparacion' => (bool) $it->requiere_preparacion,
                 'tipo_despacho' => $it->requiere_preparacion ? 'cocina' : 'directo_salon',
                 'estado' => $it->estado,
+                'estado_pago' => $it->estado_pago,
                 'minutos_en_estado' => $minutosEstado,
                 'numero_ronda' => (int) $it->numero_ronda,
             ];
@@ -1897,6 +1901,8 @@ class MozoController extends Controller
         $igv = round($total - $baseImponible, 2);
 
         $tieneCocinaPendiente = $itemsRaw->where('requiere_preparacion', true)->whereIn('estado', ['en_cola', 'en_preparacion'])->isNotEmpty();
+        $servicioPendiente = app(ServicioPendienteService::class);
+        $itemsPendientesServicio = $servicioPendiente->contarPendientesEn($itemsRaw);
 
         $metodosPagoRaw = DB::table('metodo_pago_local')
             ->where('local_id', $localId)
@@ -1999,7 +2005,9 @@ class MozoController extends Controller
             'items' => $items->values(),
             'consumos' => $items->values(),
             'tiene_cocina_pendiente' => $tieneCocinaPendiente,
-            'alerta_cocina' => $tieneCocinaPendiente ? 'Existen platos pendientes de salida en cocina.' : null,
+            'alerta_cocina' => $itemsPendientesServicio > 0 ? $servicioPendiente->mensajeBloqueo($itemsPendientesServicio) : null,
+            'items_pendientes_servicio' => $itemsPendientesServicio,
+            'cobro_final_bloqueado' => $itemsPendientesServicio > 0,
             'promociones_disponibles' => $promociones,
             'promocion_activa' => $promocionActiva,
             'tributacion_sunat' => [
@@ -2568,6 +2576,14 @@ class MozoController extends Controller
             return ApiResponse::error('PEDIDO_CERRADO', 'No se pueden anular platos de un pedido cobrado o anulado.', 422);
         }
 
+        if ($item->pedido_estado === 'cuenta_pedida') {
+            return $this->errorCuentaPedida();
+        }
+
+        if ($bloqueo = app(ReglasCobroItemService::class)->bloqueoDeAnulacion($item)) {
+            return ApiResponse::error($bloqueo['codigo'], $bloqueo['mensaje'], 422);
+        }
+
         $producto = DB::table('producto')->where('id', $item->producto_id)->first();
         $estadoAnterior = $item->estado;
         $esMerma = in_array($estadoAnterior, ['listo', 'entregado']);
@@ -2709,6 +2725,87 @@ class MozoController extends Controller
         });
     }
 
+    private function errorCuentaPedida(): JsonResponse
+    {
+        return ApiResponse::error(
+            'CUENTA_PEDIDA',
+            'La cuenta ya fue solicitada: no se pueden anular platos mientras está en cobro. Reabre la cuenta si necesitas modificarla.',
+            422,
+        );
+    }
+
+    /**
+     * Devuelve una mesa en CUENTA PEDIDA al servicio (enviado) para poder modificar la comanda.
+     * Solo es posible si aún no se cobró nada; las subcuentas pendientes se descartan.
+     */
+    public function reabrirCuenta(string $id, Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $localId = $user->local_id;
+
+        [$titular, $etiquetaUnion] = $this->resolverMesaTitularYEtiqueta($id, $localId);
+        if (! $titular) {
+            return ApiResponse::error('MESA_NO_ENCONTRADA', 'Mesa no encontrada.', 404);
+        }
+
+        return DB::transaction(function () use ($titular, $etiquetaUnion, $user, $localId) {
+            $pedido = DB::table('pedido')
+                ->where('mesa_id', $titular->id)
+                ->where('local_id', $localId)
+                ->whereIn('estado', ['enviado', 'cuenta_pedida', 'borrador'])
+                ->latest('created_at')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $pedido || $pedido->estado !== 'cuenta_pedida') {
+                return ApiResponse::error('CUENTA_NO_PEDIDA', 'La mesa no tiene una cuenta pedida que reabrir.', 422);
+            }
+
+            $hayCobros = DB::table('pedido_subcuenta')
+                ->where('pedido_id', $pedido->id)
+                ->where('estado', 'cobrado')
+                ->exists();
+
+            if ($hayCobros || app(ReglasCobroItemService::class)->bloqueoDeAnulacionDelPedido($pedido->id)) {
+                return ApiResponse::error(
+                    'CUENTA_CON_COBROS',
+                    'La cuenta ya tiene cobros registrados; para devolver un plato pagado, caja debe emitir una nota de crédito.',
+                    422,
+                );
+            }
+
+            DB::table('pedido_subcuenta')
+                ->where('pedido_id', $pedido->id)
+                ->where('estado', 'pendiente')
+                ->delete();
+
+            DB::table('pedido')->where('id', $pedido->id)->update([
+                'estado' => 'enviado',
+                'precuenta_generada_at' => null,
+                'updated_at' => now(),
+            ]);
+
+            DB::table('log_auditoria')->insert([
+                'id' => (string) Str::uuid(),
+                'empresa_id' => $user->empresa_id ?? DB::table('local')->where('id', $localId)->value('empresa_id'),
+                'local_id' => $localId,
+                'usuario_id' => $user->id,
+                'accion' => 'REAPERTURA_CUENTA',
+                'entidad_tipo' => 'pedido',
+                'entidad_id' => $pedido->id,
+                'detalle' => json_encode(['mesa_id' => $titular->id, 'mesa_numero' => $etiquetaUnion]),
+                'fecha' => now(),
+            ]);
+
+            return ApiResponse::ok([
+                'pedido_id' => $pedido->id,
+                'mesa_id' => $titular->id,
+                'estado_mesa' => 'ocupada',
+                'mensaje' => 'Cuenta reabierta. La mesa vuelve a estar en servicio.',
+            ]);
+        });
+    }
+
     /**
      * CU-MOZO-06: Anular la comanda completa de una mesa y liberarla de inmediato.
      */
@@ -2737,6 +2834,16 @@ class MozoController extends Controller
 
         if (! $pedido) {
             return ApiResponse::error('NO_PEDIDO_ACTIVO', 'La mesa no cuenta con un pedido activo para anular.', 422);
+        }
+
+        if ($pedido->estado === 'cuenta_pedida') {
+            return $this->errorCuentaPedida();
+        }
+
+        if ($bloqueo = app(ReglasCobroItemService::class)->bloqueoDeAnulacionDelPedido($pedido->id)) {
+            $codigo = $bloqueo['codigo'] === 'ITEM_YA_COBRADO' ? 'PEDIDO_CON_COBROS' : $bloqueo['codigo'];
+
+            return ApiResponse::error($codigo, $bloqueo['mensaje'], 422);
         }
 
         $items = DB::table('pedido_item')
@@ -3067,6 +3174,10 @@ class MozoController extends Controller
             return ApiResponse::error('PEDIDO_CERRADO', 'No se pueden sustituir platos en un pedido cerrado o anulado.', 422);
         }
 
+        if ($bloqueo = app(ReglasCobroItemService::class)->bloqueoDeAnulacion($item)) {
+            return ApiResponse::error($bloqueo['codigo'], $bloqueo['mensaje'], 422);
+        }
+
         $nuevoProd = DB::table('producto')
             ->where('id', $validated['nuevo_producto_id'])
             ->where('local_id', $localId)
@@ -3219,6 +3330,10 @@ class MozoController extends Controller
 
         if (in_array($item->pedido_estado, ['cobrado', 'anulado'])) {
             return ApiResponse::error('PEDIDO_CERRADO', 'No se pueden anular platos de un pedido cerrado o anulado.', 422);
+        }
+
+        if ($bloqueo = app(ReglasCobroItemService::class)->bloqueoDeAnulacion($item)) {
+            return ApiResponse::error($bloqueo['codigo'], $bloqueo['mensaje'], 422);
         }
 
         return DB::transaction(function () use (

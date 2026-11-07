@@ -463,6 +463,11 @@ export const realMozoService = {
     return apiPost<PedidoAnuladoResponseDTO>(`/mozo/mesas/${mesaId}/anular-comanda`, request);
   },
 
+  /** Devuelve una mesa en CUENTA PEDIDA al servicio (solo si aún no hay cobros). */
+  async reabrirCuenta(mesaId: string): Promise<ApiResponse<{ mensaje: string }>> {
+    return apiPost<{ mensaje: string }>(`/mozo/mesas/${mesaId}/reabrir-cuenta`, {});
+  },
+
   // CU-MOZO-05: Gestión Integral de Reservas y Recepción en Salón
   async obtenerPoliticasReserva(): Promise<ApiResponse<PoliticasReservaDTO>> {
     return apiGet<PoliticasReservaDTO>('/mozo/reservas/politicas');

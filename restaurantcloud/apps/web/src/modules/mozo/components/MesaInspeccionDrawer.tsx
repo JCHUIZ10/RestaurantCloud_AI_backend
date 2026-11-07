@@ -36,6 +36,7 @@ interface MesaInspeccionDrawerProps {
   onAtenderQuiebre?: (item: ItemDetalleComandaDTO) => void;
   onSustituirPlato?: (item: ItemDetalleComandaDTO) => void;
   onAnularPorQuiebre?: (item: ItemDetalleComandaDTO) => void;
+  onReabrirCuenta?: (mesaId: string) => void;
 }
 
 export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
@@ -54,6 +55,7 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
   onAtenderQuiebre,
   onSustituirPlato,
   onAnularPorQuiebre,
+  onReabrirCuenta,
 }) => {
   const navigate = useNavigate();
   const [modalConfirmarLiberar, setModalConfirmarLiberar] = React.useState(false);
@@ -228,7 +230,16 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
                       </div>
 
                       {/* Bloque especial de resolución para platos con quiebre (CU-MOZO-07) */}
-                      {item.estado === 'no_disponible' ? (
+                      {item.estado_pago === 'cobrado' ? (
+                        <div className="mt-1.5 pt-1.5 border-t border-emerald-100 flex items-center justify-between gap-2">
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 shrink-0">
+                            ✓ PAGADO
+                          </span>
+                          <span className="text-[10px] text-slate-500 text-right">
+                            Para devolverlo, caja debe emitir una nota de crédito.
+                          </span>
+                        </div>
+                      ) : item.estado === 'no_disponible' ? (
                         <div className="mt-2 pt-2 border-t border-amber-200 bg-amber-50/90 -mx-2.5 -mb-2.5 p-2.5 rounded-b-xl space-y-2">
                           <p className="text-[11px] font-bold text-amber-900 flex items-center gap-1">
                             <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
@@ -337,7 +348,16 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
                       )}
 
                       {/* Botón de anulación táctica para bebidas / salón */}
-                      {!esCuentaPedida && onAbrirModalAnular && (
+                      {item.estado_pago === 'cobrado' ? (
+                        <div className="mt-1.5 pt-1.5 border-t border-emerald-100 flex items-center justify-between gap-2">
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 shrink-0">
+                            ✓ PAGADO
+                          </span>
+                          <span className="text-[10px] text-slate-500 text-right">
+                            Para devolverlo, caja debe emitir una nota de crédito.
+                          </span>
+                        </div>
+                      ) : !esCuentaPedida && onAbrirModalAnular && (
                         <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between">
                           <span className="text-[10px] text-slate-400 font-mono">
                             {item.estado === 'entregado' ? '⚠️ Califica como merma' : 'Salón'}
@@ -473,14 +493,24 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
             </>
           ) : (
             esCuentaPedida ? (
-              /* En CUENTA PEDIDA: Solo mostrar acción única y prominente de Ver Cuenta (visión limpia) */
-              <button
-                onClick={() => detalle?.mesa_id && onSolicitarOVerCuenta(detalle.mesa_id)}
-                className="w-full py-3.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md active:scale-98 bg-amber-500 hover:bg-amber-600 text-slate-950 border border-amber-400 font-bold"
-              >
-                <Receipt className="w-4 h-4 text-slate-950" />
-                <span>🧾 Ver Precuenta Digital / Comprobante (Mesa en Ámbar)</span>
-              </button>
+              /* En CUENTA PEDIDA: Ver Cuenta y, mientras no haya cobros, reabrirla para corregir la comanda */
+              <>
+                <button
+                  onClick={() => detalle?.mesa_id && onSolicitarOVerCuenta(detalle.mesa_id)}
+                  className="w-full py-3.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md active:scale-98 bg-amber-500 hover:bg-amber-600 text-slate-950 border border-amber-400 font-bold"
+                >
+                  <Receipt className="w-4 h-4 text-slate-950" />
+                  <span>🧾 Ver Precuenta Digital / Comprobante (Mesa en Ámbar)</span>
+                </button>
+                {onReabrirCuenta && !detalle?.items.some((i) => i.estado_pago === 'cobrado') && (
+                  <button
+                    onClick={() => detalle?.mesa_id && onReabrirCuenta(detalle.mesa_id)}
+                    className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition-all flex items-center justify-center gap-2 active:scale-98"
+                  >
+                    <span>↩ Reabrir cuenta para modificar la comanda</span>
+                  </button>
+                )}
+              </>
             ) : (
               <>
                 {/* Botón Primario: Tomar Más Pedidos / Adicionales (CU-MOZO-02) */}
@@ -546,7 +576,13 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
                 {detalle?.items && detalle.items.length > 0 && onAbrirModalAnularComanda && (
                   <button
                     onClick={() => detalle?.mesa_id && onAbrirModalAnularComanda(detalle.mesa_id)}
-                    className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 hover:border-rose-300 transition-all flex items-center justify-center gap-1.5 active:scale-98"
+                    disabled={detalle.items.some((i) => i.estado_pago === 'cobrado')}
+                    title={
+                      detalle.items.some((i) => i.estado_pago === 'cobrado')
+                        ? 'Hay platos ya pagados: caja debe emitir la nota de crédito antes de anular la comanda.'
+                        : undefined
+                    }
+                    className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-rose-50 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed text-rose-800 border border-rose-200 hover:border-rose-300 transition-all flex items-center justify-center gap-1.5 active:scale-98"
                   >
                     <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
                     <span>⚠️ Anular Comanda Completa de Mesa {detalle.numero}</span>

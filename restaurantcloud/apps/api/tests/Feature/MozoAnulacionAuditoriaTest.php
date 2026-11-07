@@ -10,15 +10,18 @@ use Tests\TestCase;
 class MozoAnulacionAuditoriaTest extends TestCase
 {
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
+
     private string $localId = '00000000-0000-4000-8000-000000000010';
+
     private string $mozoId = '00000000-0000-4000-8000-000000000102';
+
     private string $tokenMozo;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $rawToken = 'test_token_anulacion_' . Str::random(32);
+        $rawToken = 'test_token_anulacion_'.Str::random(32);
         $tokenHash = hash('sha256', $rawToken);
 
         $sessionPayload = [
@@ -38,7 +41,7 @@ class MozoAnulacionAuditoriaTest extends TestCase
     private function headers(): array
     {
         return [
-            'Authorization' => 'Bearer ' . $this->tokenMozo,
+            'Authorization' => 'Bearer '.$this->tokenMozo,
             'Accept' => 'application/json',
         ];
     }
@@ -49,7 +52,7 @@ class MozoAnulacionAuditoriaTest extends TestCase
         DB::table('piso')->insert([
             'id' => $pisoId,
             'local_id' => $this->localId,
-            'nombre' => 'Piso ' . Str::random(4),
+            'nombre' => 'Piso '.Str::random(4),
             'columnas' => 5,
             'filas' => 3,
             'estado' => 'activo',
@@ -88,7 +91,7 @@ class MozoAnulacionAuditoriaTest extends TestCase
         DB::table('categoria_producto')->insert([
             'id' => $catId,
             'local_id' => $this->localId,
-            'nombre' => 'Cat ' . Str::random(4),
+            'nombre' => 'Cat '.Str::random(4),
             'orden' => 1,
             'activa' => true,
             'created_at' => now(),
@@ -100,7 +103,7 @@ class MozoAnulacionAuditoriaTest extends TestCase
             'id' => $prodId,
             'categoria_id' => $catId,
             'local_id' => $this->localId,
-            'nombre' => 'Plato ' . Str::random(4),
+            'nombre' => 'Plato '.Str::random(4),
             'precio' => $precio,
             'costo_estandar' => $costoEstandar,
             'disponibilidad' => 'disponible',
@@ -403,6 +406,178 @@ class MozoAnulacionAuditoriaTest extends TestCase
         $response->assertStatus(422);
     }
 
+    public function test_rechaza_anular_un_plato_ya_cobrado_por_subcuenta(): void
+    {
+        $pisoId = $this->crearPiso();
+        $mesaId = $this->crearMesa($pisoId, '09');
+        $pedidoId = $this->crearPedido($mesaId);
+
+        $prodId = $this->crearProducto(30.0);
+        $itemCobrado = $this->agregarItem($pedidoId, $prodId, 1, 30.0, 'entregado');
+        $itemPendiente = $this->agregarItem($pedidoId, $prodId, 1, 30.0, 'entregado');
+        DB::table('pedido_item')->where('id', $itemCobrado)->update(['estado_pago' => 'cobrado']);
+
+        $payload = [
+            'motivo_categoria' => 'error_toma',
+            'motivo_detalle' => 'Intento de anular un plato que ya fue pagado',
+        ];
+
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/items/{$itemCobrado}/anular", $payload, $this->headers())
+            ->assertStatus(422)
+            ->assertJsonPath('errores.0.codigo', 'ITEM_YA_COBRADO');
+
+        $this->assertSame('entregado', DB::table('pedido_item')->where('id', $itemCobrado)->value('estado'));
+        $this->assertSame(0, DB::table('pedido_anulacion')->where('pedido_item_id', $itemCobrado)->count());
+
+        // Los platos aún sin cobrar siguen pudiendo anularse
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/items/{$itemPendiente}/anular", $payload, $this->headers())
+            ->assertStatus(200);
+    }
+
+    public function test_rechaza_anular_la_comanda_completa_si_hay_un_plato_cobrado(): void
+    {
+        $mesaId = $this->crearMesa($this->crearPiso(), '10');
+        $pedidoId = $this->crearPedido($mesaId);
+        $prodId = $this->crearProducto(30.0);
+        $itemCobrado = $this->agregarItem($pedidoId, $prodId, 1, 30.0, 'entregado');
+        $itemLibre = $this->agregarItem($pedidoId, $prodId, 1, 30.0, 'entregado');
+        DB::table('pedido_item')->where('id', $itemCobrado)->update(['estado_pago' => 'cobrado']);
+
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/anular-comanda", [
+            'motivo_categoria' => 'error_toma',
+            'motivo_detalle' => 'Intento de anular una comanda con un plato pagado',
+            'confirmar_vacio' => true,
+        ], $this->headers())
+            ->assertStatus(422)
+            ->assertJsonPath('errores.0.codigo', 'PEDIDO_CON_COBROS');
+
+        $this->assertSame('entregado', DB::table('pedido_item')->where('id', $itemLibre)->value('estado'));
+        $this->assertSame('enviado', DB::table('pedido')->where('id', $pedidoId)->value('estado'));
+    }
+
+    public function test_rechaza_anular_o_sustituir_por_quiebre_un_plato_cobrado(): void
+    {
+        $mesaId = $this->crearMesa($this->crearPiso(), '11');
+        $pedidoId = $this->crearPedido($mesaId);
+        $prodId = $this->crearProducto(30.0);
+        $itemId = $this->agregarItem($pedidoId, $prodId, 1, 30.0, 'no_disponible');
+        DB::table('pedido_item')->where('id', $itemId)->update(['estado_pago' => 'cobrado']);
+
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/items/{$itemId}/anular-quiebre", [
+            'motivo_detalle' => 'Insumo agotado en cocina',
+        ], $this->headers())
+            ->assertStatus(422)
+            ->assertJsonPath('errores.0.codigo', 'ITEM_YA_COBRADO');
+
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/items/{$itemId}/sustituir", [
+            'nuevo_producto_id' => $prodId,
+        ], $this->headers())
+            ->assertStatus(422)
+            ->assertJsonPath('errores.0.codigo', 'ITEM_YA_COBRADO');
+
+        $this->assertSame('no_disponible', DB::table('pedido_item')->where('id', $itemId)->value('estado'));
+    }
+
+    public function test_no_se_anula_un_plato_con_la_cuenta_pedida_y_reabrirla_lo_permite(): void
+    {
+        $mesaId = $this->crearMesa($this->crearPiso(), '14');
+        $pedidoId = $this->crearPedido($mesaId);
+        $prodId = $this->crearProducto(30.0);
+        $itemId = $this->agregarItem($pedidoId, $prodId, 1, 30.0, 'entregado');
+        DB::table('pedido')->where('id', $pedidoId)->update([
+            'estado' => 'cuenta_pedida',
+            'precuenta_generada_at' => now(),
+        ]);
+
+        $payload = [
+            'motivo_categoria' => 'error_toma',
+            'motivo_detalle' => 'Intento de anular con la cuenta ya pedida',
+        ];
+
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/items/{$itemId}/anular", $payload, $this->headers())
+            ->assertStatus(422)
+            ->assertJsonPath('errores.0.codigo', 'CUENTA_PEDIDA');
+        $this->assertSame('entregado', DB::table('pedido_item')->where('id', $itemId)->value('estado'));
+
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/reabrir-cuenta", [], $this->headers())->assertOk();
+        $this->assertSame('enviado', DB::table('pedido')->where('id', $pedidoId)->value('estado'));
+        $this->assertNull(DB::table('pedido')->where('id', $pedidoId)->value('precuenta_generada_at'));
+
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/items/{$itemId}/anular", $payload, $this->headers())
+            ->assertOk();
+    }
+
+    public function test_no_se_reabre_una_cuenta_con_platos_cobrados(): void
+    {
+        $mesaId = $this->crearMesa($this->crearPiso(), '15');
+        $pedidoId = $this->crearPedido($mesaId);
+        $prodId = $this->crearProducto(30.0);
+        $itemId = $this->agregarItem($pedidoId, $prodId, 1, 30.0, 'entregado');
+        DB::table('pedido_item')->where('id', $itemId)->update(['estado_pago' => 'cobrado']);
+        DB::table('pedido')->where('id', $pedidoId)->update(['estado' => 'cuenta_pedida']);
+
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/reabrir-cuenta", [], $this->headers())
+            ->assertStatus(422)
+            ->assertJsonPath('errores.0.codigo', 'CUENTA_CON_COBROS');
+        $this->assertSame('cuenta_pedida', DB::table('pedido')->where('id', $pedidoId)->value('estado'));
+    }
+
+    public function test_rechaza_anular_un_plato_asignado_a_una_subcuenta_pendiente(): void
+    {
+        $mesaId = $this->crearMesa($this->crearPiso(), '12');
+        $pedidoId = $this->crearPedido($mesaId);
+        $prodId = $this->crearProducto(30.0);
+        $itemId = $this->agregarItem($pedidoId, $prodId, 1, 30.0, 'entregado');
+
+        $subcuentaId = (string) Str::uuid();
+        DB::table('pedido_subcuenta')->insert([
+            'id' => $subcuentaId,
+            'pedido_id' => $pedidoId,
+            'numero_subcuenta' => 2,
+            'tipo_comprobante' => 'boleta',
+            'nombre_cliente' => 'CLIENTE DE PRUEBA',
+            'medio_pago' => 'efectivo',
+            'subtotal_bruto' => 30.0,
+            'descuento' => 0.0,
+            'monto_recargo' => 0.0,
+            'total' => 30.0,
+            'estado' => 'pendiente',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('pedido_subcuenta_item')->insert([
+            'id' => (string) Str::uuid(),
+            'subcuenta_id' => $subcuentaId,
+            'pedido_item_id' => $itemId,
+            'cantidad' => 1,
+            'precio_unitario' => 30.0,
+            'subtotal' => 30.0,
+            'created_at' => now(),
+        ]);
+
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/items/{$itemId}/anular", [
+            'motivo_categoria' => 'error_toma',
+            'motivo_detalle' => 'Intento de anular un plato repartido en una subcuenta',
+        ], $this->headers())
+            ->assertStatus(422)
+            ->assertJsonPath('errores.0.codigo', 'ITEM_EN_SUBCUENTA_PENDIENTE');
+
+        $this->assertSame('entregado', DB::table('pedido_item')->where('id', $itemId)->value('estado'));
+    }
+
+    public function test_el_detalle_de_mesa_informa_el_estado_de_pago_de_cada_plato(): void
+    {
+        $mesaId = $this->crearMesa($this->crearPiso(), '13');
+        $pedidoId = $this->crearPedido($mesaId);
+        $prodId = $this->crearProducto(30.0);
+        $itemId = $this->agregarItem($pedidoId, $prodId, 1, 30.0, 'entregado');
+        DB::table('pedido_item')->where('id', $itemId)->update(['estado_pago' => 'cobrado']);
+
+        $this->getJson("/api/v1/mozo/mesas/{$mesaId}/detalle", $this->headers())
+            ->assertOk()
+            ->assertJsonPath('datos.items.0.estado_pago', 'cobrado');
+    }
+
     public function test_anular_item_en_cola_con_stock_descontado_restituye_insumos_automaticamente(): void
     {
         $pisoId = $this->crearPiso();
@@ -414,7 +589,7 @@ class MozoAnulacionAuditoriaTest extends TestCase
         DB::table('insumo')->insert([
             'id' => $insumoId,
             'local_id' => $this->localId,
-            'nombre' => 'Lomo Fino Test ' . Str::random(4),
+            'nombre' => 'Lomo Fino Test '.Str::random(4),
             'unidad_medida' => 'kg',
             'stock_actual' => 9.500,
             'stock_minimo' => 2.000,
@@ -483,7 +658,7 @@ class MozoAnulacionAuditoriaTest extends TestCase
         DB::table('insumo')->insert([
             'id' => $insumoId,
             'local_id' => $this->localId,
-            'nombre' => 'Pollo Brasa Test ' . Str::random(4),
+            'nombre' => 'Pollo Brasa Test '.Str::random(4),
             'unidad_medida' => 'und',
             'stock_actual' => 8.000,
             'stock_minimo' => 2.000,

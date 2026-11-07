@@ -9,6 +9,7 @@ import {
   HelpCircle,
   Trash2,
 } from 'lucide-react';
+import { mensajeDeErrorApi } from '@/shared/utils/errorApi';
 import { ItemDetalleComandaDTO, AnularItemRequestDTO, MotivoCategoriaItem } from '@/types/mozo';
 
 interface ModalAnularItemProps {
@@ -71,7 +72,7 @@ export const ModalAnularItem: React.FC<ModalAnularItemProps> = ({
       });
       onClose();
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : 'Error al registrar la anulación del plato');
+      setErrorMsg(mensajeDeErrorApi(err, 'Error al registrar la anulación del plato'));
     } finally {
       setEnviando(false);
     }

@@ -113,6 +113,7 @@ stateDiagram-v2
 ### Regla 1: Política de Bloqueo y Adiciones en `cuenta_pedida`
 - **Propósito:** Evitar descalces de caja y confusiones entre el cajero y el mozo mientras se cuenta dinero o se procesa el cobro.
 - **Comportamiento en Cocina:** Si la comanda pasa a `cuenta_pedida`, la cocina **no se detiene**. Los platos en preparación pueden pasar a `listo` y `entregado` sin restricciones.
+- **Cobro final:** aunque se pida la cuenta, el cobro que **cierra** el pedido se rechaza (`PEDIDO_CON_PLATOS_PENDIENTES`, 409) mientras exista algún ítem en `en_cola`, `en_preparacion`, `listo` o `no_disponible`. Deben estar `entregado` o `anulado`.
 - **Comportamiento en Salón:**
   - Mientras el pedido esté en `cuenta_pedida`, la app de mozo muestra la comanda en modo "Cuenta Solicitada" e inhibe la adición accidental de platos.
   - **Segunda Ronda:** Si los comensales deciden pedir más platos (ej. postres, cafés o tragos) tras haber pedido la cuenta, se aplica la acción explícita **"Reabrir Comanda"**:
@@ -144,6 +145,7 @@ stateDiagram-v2
   1. El pedido matriz pasa al estado `cobrado` (todos los ítems no anulados tienen `estado_pago = 'cobrado'`), **O**
   2. El pedido es `anulado` sin consumo (liberación sin consumo autorizada).
 - No se permite liberar una mesa si existen consumos pendientes de cobro.
+- Tampoco se cierra el pedido ni se libera la mesa si quedan platos sin servir: el pago es siempre **al final**. Las subcuentas intermedias sí pueden cobrarse antes; solo la última (o el cobro consolidado) exige todo servido o anulado.
 
 ---
 
@@ -151,3 +153,12 @@ stateDiagram-v2
 - La tabla `pedido_subcuenta` funciona como un organizador dinámico de salón para distribuir consumos antes de pagar.
 - La fuente de verdad jurídica y financiera final es siempre el `comprobante` y su detalle `comprobante_item`.
 - Si una subcuenta no se llega a pagar y se decide cancelar la división para cobrar todo junto, la subcuenta pasa a `anulado` sin afectar la comanda madre.
+
+
+---
+
+### Regla 6: Un plato cobrado solo se revierte con nota de crédito
+- Salón (anular plato, anular comanda completa, sustituir o anular por quiebre) **rechaza** cualquier plato con `estado_pago = 'cobrado'` o respaldado por un comprobante `emitido` (`ITEM_YA_COBRADO` / `PEDIDO_CON_COBROS`, 422). El drawer de mesa lo muestra como "Pagado" y oculta las acciones de anulación.
+- Un plato asignado a una subcuenta `pendiente` tampoco se retira (`ITEM_EN_SUBCUENTA_PENDIENTE`), porque el cobro usaría el total ya congelado. Si no hay subcuentas cobradas, se vuelve a dividir la cuenta; si las hay, caja debe emitir primero la nota de crédito de esa subcuenta.
+- **Flujo de reversión:** Caja emite la nota de crédito del comprobante → la subcuenta queda `anulado` y, si la mesa sigue en servicio (`enviado`/`cuenta_pedida`), los platos del comprobante vuelven a `estado_pago = 'pendiente'` y el pedido **no** se anula (salón y KDS lo siguen viendo) → el mozo ya puede anularlos o caja volver a cobrarlos.
+- Si el pedido ya estaba `cobrado` (cuenta cerrada y mesa liberada), la nota de crédito conserva su comportamiento: sin comprobantes vigentes el pedido pasa a `anulado`.

@@ -155,6 +155,8 @@ export interface ItemDetalleComandaDTO {
   requiere_preparacion: boolean;
   tipo_despacho: TipoDespacho;
   estado: EstadoItemCocina;
+  /** Condición de pago del consumo: un plato cobrado solo se revierte con nota de crédito. */
+  estado_pago?: 'pendiente' | 'cobrado';
   minutos_en_estado: number;
   numero_ronda: number;
 }
@@ -389,6 +391,8 @@ export interface PrecuentaMozoResponseDTO {
   items: PrecuentaItemDTO[];
   tiene_cocina_pendiente: boolean;
   alerta_cocina?: string | null;
+  items_pendientes_servicio?: number;
+  cobro_final_bloqueado?: boolean;
   promociones_disponibles: PromocionSedeDTO[];
   promocion_activa?: PromocionSedeDTO | null;
   tributacion_sunat: DesgloseSUNATMozoDTO;
