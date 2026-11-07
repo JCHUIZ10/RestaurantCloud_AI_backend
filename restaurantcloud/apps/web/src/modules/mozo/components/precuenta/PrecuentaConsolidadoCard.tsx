@@ -1,44 +1,13 @@
 import React from 'react';
-import { Receipt, CheckCircle, Clock, Utensils } from 'lucide-react';
-import type { PrecuentaItemDTO, EstadoItemCocina } from '../../../../types/mozo';
+import { Receipt } from 'lucide-react';
+import type { PrecuentaItemDTO } from '../../../../types/mozo';
+import { EstadoCocinaBadge } from './EstadoCocinaBadge';
 
 interface PrecuentaConsolidadoCardProps {
   items: PrecuentaItemDTO[];
 }
 
 export const PrecuentaConsolidadoCard: React.FC<PrecuentaConsolidadoCardProps> = ({ items }) => {
-  const renderEstadoBadge = (estado: EstadoItemCocina) => {
-    switch (estado) {
-      case 'entregado':
-        return (
-          <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-            <CheckCircle className="w-2.5 h-2.5" />
-            <span>Servido</span>
-          </span>
-        );
-      case 'listo':
-        return (
-          <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-500/15 text-blue-300 border border-blue-500/30">
-            <Utensils className="w-2.5 h-2.5" />
-            <span>Listo en pase</span>
-          </span>
-        );
-      case 'en_preparacion':
-        return (
-          <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-            <Clock className="w-2.5 h-2.5" />
-            <span>En cocina</span>
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-500/15 text-slate-300 border border-slate-500/30">
-            <span>Pendiente</span>
-          </span>
-        );
-    }
-  };
-
   return (
     <div className="bg-[#0B2340]/90 rounded-xl border border-[#D5A06F]/30 shadow-lg overflow-hidden backdrop-blur-sm">
       <div className="px-4 py-3 border-b border-[#D5A06F]/20 bg-[#0B2340] flex items-center justify-between">
@@ -67,7 +36,7 @@ export const PrecuentaConsolidadoCard: React.FC<PrecuentaConsolidadoCardProps> =
                   <span className="font-medium text-slate-100">
                     {item.nombre || item.producto_nombre || 'Producto'}
                   </span>
-                  {renderEstadoBadge(item.estado_cocina)}
+                  <EstadoCocinaBadge estado={item.estado_cocina} />
                 </div>
                 {item.nota_cocina && (
                   <p className="text-xs text-[#D5A06F]/80 italic mt-0.5">

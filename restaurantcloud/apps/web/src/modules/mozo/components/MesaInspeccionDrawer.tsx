@@ -500,7 +500,7 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
                   className="w-full py-3.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md active:scale-98 bg-amber-500 hover:bg-amber-600 text-slate-950 border border-amber-400 font-bold"
                 >
                   <Receipt className="w-4 h-4 text-slate-950" />
-                  <span>🧾 Ver Precuenta Digital / Comprobante (Mesa en Ámbar)</span>
+                  <span>{detalle?.es_cuenta_dividida ? 'Ver precuenta por subcuentas' : 'Ver precuenta'}</span>
                 </button>
                 {onReabrirCuenta && !detalle?.items.some((i) => i.estado_pago === 'cobrado') && (
                   <button

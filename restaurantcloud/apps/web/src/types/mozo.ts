@@ -379,6 +379,27 @@ export interface PrecuentaSubcuentaDTO {
   estado: string;
   estado_pago?: string;
   medio_pago_tentativo?: string;
+  documento_cliente?: string | null;
+  numero_operacion?: string | null;
+  subtotal_bruto?: number;
+  descuento?: number;
+  monto_recargo?: number;
+  base_imponible?: number;
+  igv?: number;
+  /** Platos de esta subcuenta aún en cocina o en el pase. */
+  items_pendientes_servicio?: number;
+  items?: PrecuentaItemDTO[];
+}
+
+/** Datos con los que la mesa pidió la cuenta (cuenta única); null si aún no la pidió. */
+export interface CuentaRegistradaDTO {
+  registrada_at?: string | null;
+  tipo_comprobante: 'boleta' | 'factura' | 'nota_venta';
+  documento_cliente?: string | null;
+  nombre_cliente?: string | null;
+  consumidor_final: boolean;
+  medio_pago?: CodigoMetodoPago | null;
+  numero_operacion?: string | null;
 }
 
 export interface PrecuentaMozoResponseDTO {
@@ -399,6 +420,7 @@ export interface PrecuentaMozoResponseDTO {
   opciones_pago: OpcionPagoMozoDTO[];
   calculada_at: string;
   subcuentas?: PrecuentaSubcuentaDTO[] | null;
+  cuenta_registrada?: CuentaRegistradaDTO | null;
 }
 
 export interface SolicitarCuentaRequest {

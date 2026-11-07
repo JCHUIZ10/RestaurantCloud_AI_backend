@@ -18,6 +18,7 @@ import { PlanoMesasGrid } from '../components/PlanoMesasGrid';
 import { SidebarDespachoVivo } from '../components/SidebarDespachoVivo';
 import { MesaInspeccionDrawer } from '../components/MesaInspeccionDrawer';
 import { ModalPrecuentaCompleta } from '../components/precuenta/ModalPrecuentaCompleta';
+import { ModalPrecuentaPedida } from '../components/precuenta/pedida/ModalPrecuentaPedida';
 import { ModalUnirMesas } from '../components/salon/ModalUnirMesas';
 import { ModalSepararMesas } from '../components/salon/ModalSepararMesas';
 import { ModalBloqueoSeparacion } from '../components/salon/ModalBloqueoSeparacion';
@@ -48,6 +49,8 @@ export const MozoMesasPage: React.FC = () => {
   // Estado para el Modal Completo de Precuenta Digital en Salón (CU-MOZO-08)
   const [modalPrecuentaAbierto, setModalPrecuentaAbierto] = useState(false);
   const [mesaPrecuentaId, setMesaPrecuentaId] = useState<string | null>(null);
+  // Vista de solo lectura para mesas que ya pidieron la cuenta (única o dividida)
+  const [modalPrecuentaPedidaAbierto, setModalPrecuentaPedidaAbierto] = useState(false);
 
   // Estados para Unión y Desvinculación de Mesas (CU-MOZO-04)
   const [modalUnirAbierto, setModalUnirAbierto] = useState(false);
@@ -314,10 +317,18 @@ export const MozoMesasPage: React.FC = () => {
     }
   };
 
-  // Solicitar o Ver Cuenta (Abre el modal de precuenta completa para revisión)
+  // Solicitar o Ver Cuenta: mesa con cuenta ya pedida -> vista de lo registrado; si no, formulario para registrarla
   const handleSolicitarOVerCuenta = (mesaId: string) => {
+    const estadoMesa =
+      planoData?.mesas.find((m) => m.id === mesaId)?.estado ??
+      (detalleMesa?.mesa_id === mesaId ? detalleMesa.estado : undefined);
+
     setMesaPrecuentaId(mesaId);
-    setModalPrecuentaAbierto(true);
+    if (estadoMesa === 'cuenta_pedida') {
+      setModalPrecuentaPedidaAbierto(true);
+    } else {
+      setModalPrecuentaAbierto(true);
+    }
   };
 
   // Se ejecuta ÚNICAMENTE cuando el mozo pulsa "Confirmar y Notificar a Caja" dentro del modal
@@ -516,12 +527,12 @@ export const MozoMesasPage: React.FC = () => {
     }
   };
 
-  const handleReabrirCuenta = async (mesaId: string) => {
+  const handleReabrirCuenta = async (mesaId: string): Promise<boolean> => {
     try {
       const res = await mozoService.reabrirCuenta(mesaId);
       if (!res.exito) {
         mostrarToast(`No se pudo reabrir la cuenta: ${res.errores?.[0]?.mensaje || 'Error desconocido'}`, 'advertencia');
-        return;
+        return false;
       }
       await cargarPlano(pisoActivoId, true);
       const detRes = await mozoService.obtenerDetalleMesa(mesaId);
@@ -529,8 +540,17 @@ export const MozoMesasPage: React.FC = () => {
         setDetalleMesa(detRes.datos);
       }
       mostrarToast(res.datos?.mensaje || 'Cuenta reabierta. La mesa vuelve a estar en servicio.');
+      return true;
     } catch (err) {
       mostrarToast(`No se pudo reabrir la cuenta: ${mensajeDeErrorApi(err, 'Error desconocido')}`, 'advertencia');
+      return false;
+    }
+  };
+
+  // Reabrir desde la vista de cuenta pedida: el modal se cierra solo si el servidor aceptó
+  const handleReabrirDesdePrecuentaPedida = async (mesaId: string) => {
+    if (await handleReabrirCuenta(mesaId)) {
+      setModalPrecuentaPedidaAbierto(false);
     }
   };
 
@@ -883,6 +903,21 @@ export const MozoMesasPage: React.FC = () => {
           }
           onCuentaNotificada={handleCuentaNotificadaDesdeModal}
           actor="mozo"
+        />
+      )}
+
+      {/* 4b. Vista de solo lectura de la precuenta ya pedida (cuenta única o dividida) */}
+      {modalPrecuentaPedidaAbierto && mesaPrecuentaId && (
+        <ModalPrecuentaPedida
+          isOpen={modalPrecuentaPedidaAbierto}
+          onClose={() => setModalPrecuentaPedidaAbierto(false)}
+          mesaId={mesaPrecuentaId}
+          onReabrirCuenta={
+            detalleMesa?.mesa_id === mesaPrecuentaId &&
+            !detalleMesa.items.some((i) => i.estado_pago === 'cobrado')
+              ? handleReabrirDesdePrecuentaPedida
+              : undefined
+          }
         />
       )}
 

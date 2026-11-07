@@ -1977,7 +1977,31 @@ class MozoController extends Controller
             ->orderBy('numero_subcuenta')
             ->get();
 
-        $subcuentas = $subcuentasRaw->map(function ($s) {
+        $itemsPorSubcuenta = $subcuentasRaw->isEmpty()
+            ? collect()
+            : DB::table('pedido_subcuenta_item as psi')
+                ->join('pedido_item as pi', 'pi.id', '=', 'psi.pedido_item_id')
+                ->join('producto as prod', 'prod.id', '=', 'pi.producto_id')
+                ->whereIn('psi.subcuenta_id', $subcuentasRaw->pluck('id'))
+                ->select([
+                    'psi.subcuenta_id',
+                    'psi.pedido_item_id',
+                    'prod.nombre as producto_nombre',
+                    'pi.producto_id',
+                    'pi.nota_cocina',
+                    'pi.estado as estado_cocina',
+                    'psi.cantidad',
+                    'psi.precio_unitario',
+                    'psi.subtotal',
+                ])
+                ->get()
+                ->groupBy('subcuenta_id');
+
+        $subcuentas = $subcuentasRaw->map(function ($s) use ($itemsPorSubcuenta, $servicioPendiente) {
+            $itemsSubcuenta = $itemsPorSubcuenta->get($s->id, collect());
+            $total = (float) $s->total;
+            $baseSubcuenta = round($total / self::DIVISOR_IGV, 2);
+
             return [
                 'id' => $s->id,
                 'numero_subcuenta' => (int) $s->numero_subcuenta,
@@ -1986,14 +2010,50 @@ class MozoController extends Controller
                 'titular_referencia' => $s->nombre_cliente,
                 'tipo_comprobante' => $s->tipo_comprobante,
                 'tipo_comprobante_sugerido' => strtoupper($s->tipo_comprobante),
-                'total_neto' => (float) $s->total,
+                'documento_cliente' => $s->documento_cliente,
+                'numero_operacion' => $s->numero_operacion_sugerido,
+                'total_neto' => $total,
+                'subtotal_bruto' => (float) $s->subtotal_bruto,
+                'descuento' => (float) $s->descuento,
+                'monto_recargo' => (float) $s->monto_recargo,
+                'base_imponible' => $baseSubcuenta,
+                'igv' => round($total - $baseSubcuenta, 2),
                 'estado' => $s->estado,
                 'estado_pago' => $s->estado,
                 'medio_pago_tentativo' => $s->medio_pago,
+                'items_pendientes_servicio' => $s->estado === 'pendiente'
+                    ? $servicioPendiente->contarPendientesDeItems($itemsSubcuenta->pluck('pedido_item_id'))
+                    : 0,
+                'items' => $itemsSubcuenta->map(fn ($it) => [
+                    'id' => $it->pedido_item_id,
+                    'producto_id' => $it->producto_id,
+                    'nombre' => $it->producto_nombre,
+                    'producto_nombre' => $it->producto_nombre,
+                    'nota_cocina' => $it->nota_cocina,
+                    'cantidad' => (int) $it->cantidad,
+                    'precio_unitario' => (float) $it->precio_unitario,
+                    'subtotal' => (float) $it->subtotal,
+                    'estado_cocina' => $it->estado_cocina,
+                ])->values(),
             ];
         });
 
+        $cuentaRegistrada = null;
+        if (! empty($pedido->precuenta_generada_at) || $pedido->estado === 'cuenta_pedida') {
+            $documentoRegistrado = $pedido->documento_cliente_sugerido;
+            $cuentaRegistrada = [
+                'registrada_at' => $pedido->precuenta_generada_at,
+                'tipo_comprobante' => $pedido->tipo_comprobante_sugerido ?? 'boleta',
+                'documento_cliente' => $documentoRegistrado,
+                'nombre_cliente' => $pedido->nombre_cliente_sugerido,
+                'consumidor_final' => $documentoRegistrado === '00000000',
+                'medio_pago' => $pedido->medio_pago_sugerido,
+                'numero_operacion' => $pedido->numero_operacion_sugerido,
+            ];
+        }
+
         return ApiResponse::ok([
+            'cuenta_registrada' => $cuentaRegistrada,
             'mesa_id' => $mesa->id,
             'mesa_numero' => $mesa->numero,
             'ambiente' => $mesa->ambiente_nombre,

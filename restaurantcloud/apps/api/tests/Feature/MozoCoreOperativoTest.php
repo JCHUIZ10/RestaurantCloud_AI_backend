@@ -377,6 +377,92 @@ class MozoCoreOperativoTest extends TestCase
         $this->assertNotEmpty($res->json('datos.opciones_pago'));
         $this->assertArrayHasKey('promociones_disponibles', $res->json('datos'));
         $this->assertArrayHasKey('minutos_en_mesa', $res->json('datos'));
+        $this->assertNull($res->json('datos.cuenta_registrada'));
+    }
+
+    public function test_get_precuenta_mesa_en_cuenta_pedida_incluye_cuenta_registrada(): void
+    {
+        $mesaId = $this->crearMesa('98');
+        $pedidoId = $this->crearPedido($mesaId);
+        $prodId = $this->crearProducto('Arroz con Mariscos', 52.0);
+        $this->crearPedidoItem($pedidoId, $prodId, 1, 52.0);
+
+        DB::table('pedido')->where('id', $pedidoId)->update([
+            'estado' => 'cuenta_pedida',
+            'precuenta_generada_at' => now(),
+            'tipo_comprobante_sugerido' => 'factura',
+            'documento_cliente_sugerido' => '20123456789',
+            'nombre_cliente_sugerido' => 'EMPRESA DEMO SAC',
+            'medio_pago_sugerido' => 'efectivo',
+        ]);
+
+        $res = $this->getJson("/api/v1/mozo/mesas/{$mesaId}/precuenta", $this->headers());
+
+        $res->assertStatus(200)
+            ->assertJsonPath('exito', true)
+            ->assertJsonPath('datos.cuenta_registrada.tipo_comprobante', 'factura')
+            ->assertJsonPath('datos.cuenta_registrada.documento_cliente', '20123456789')
+            ->assertJsonPath('datos.cuenta_registrada.nombre_cliente', 'EMPRESA DEMO SAC')
+            ->assertJsonPath('datos.cuenta_registrada.medio_pago', 'efectivo')
+            ->assertJsonPath('datos.cuenta_registrada.consumidor_final', false);
+    }
+
+    public function test_get_precuenta_mesa_dividida_incluye_platos_por_subcuenta(): void
+    {
+        $mesaId = $this->crearMesa('99');
+        $pedidoId = $this->crearPedido($mesaId);
+        $prodA = $this->crearProducto('Lomo Saltado', 45.0);
+        $prodB = $this->crearProducto('Ceviche Mixto', 38.0);
+        $itemA = $this->crearPedidoItem($pedidoId, $prodA, 1, 45.0);
+        $itemB = $this->crearPedidoItem($pedidoId, $prodB, 2, 38.0);
+
+        $subA = (string) Str::uuid();
+        $subB = (string) Str::uuid();
+        foreach ([[$subA, 1, 45.0, $itemA, 1, 45.0], [$subB, 2, 76.0, $itemB, 2, 38.0]] as [$subId, $numero, $total, $itemId, $cantidad, $precio]) {
+            DB::table('pedido_subcuenta')->insert([
+                'id' => $subId,
+                'pedido_id' => $pedidoId,
+                'numero_subcuenta' => $numero,
+                'tipo_comprobante' => 'boleta',
+                'documento_cliente' => '72819201',
+                'nombre_cliente' => "Comensal {$numero}",
+                'medio_pago' => 'efectivo',
+                'subtotal_bruto' => $total,
+                'descuento' => 0.0,
+                'monto_recargo' => 0.0,
+                'total' => $total,
+                'estado' => 'pendiente',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            DB::table('pedido_subcuenta_item')->insert([
+                'id' => (string) Str::uuid(),
+                'subcuenta_id' => $subId,
+                'pedido_item_id' => $itemId,
+                'cantidad' => $cantidad,
+                'precio_unitario' => $precio,
+                'subtotal' => $cantidad * $precio,
+                'created_at' => now(),
+            ]);
+        }
+
+        $res = $this->getJson("/api/v1/mozo/mesas/{$mesaId}/precuenta", $this->headers());
+
+        $res->assertStatus(200)->assertJsonPath('exito', true);
+
+        $subcuentas = collect($res->json('datos.subcuentas'));
+        $this->assertCount(2, $subcuentas);
+
+        $primera = $subcuentas->firstWhere('numero_subcuenta', 1);
+        $this->assertCount(1, $primera['items']);
+        $this->assertEquals(45.0, $primera['items'][0]['subtotal']);
+        $this->assertSame('72819201', $primera['documento_cliente']);
+        $this->assertSame(1, $primera['items_pendientes_servicio']);
+
+        $segunda = $subcuentas->firstWhere('numero_subcuenta', 2);
+        $this->assertCount(1, $segunda['items']);
+        $this->assertSame(2, $segunda['items'][0]['cantidad']);
+        $this->assertEquals(76.0, $segunda['items'][0]['subtotal']);
     }
 
     public function test_mozo_puede_consultar_cliente_fiscal_sin_error_403(): void
