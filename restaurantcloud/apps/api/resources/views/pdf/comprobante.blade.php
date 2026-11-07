@@ -12,6 +12,12 @@
     </style>
 </head>
 <body>
+    @php
+        $esNotaCredito = $comprobante->tipo === 'nota_credito';
+        $afectado = $referencia['documento_afectado'] ?? null;
+        // Una NC se guarda con montos negativos; el documento impreso muestra el monto acreditado en positivo.
+        $monto = fn ($valor) => number_format($esNotaCredito ? abs((float) $valor) : (float) $valor, 2);
+    @endphp
     <table class="header" style="margin-top: 0; border: 0;">
         <tr>
             <td style="border: 0; width: 63%; padding: 0;">
@@ -21,7 +27,7 @@
                 <div class="muted">{{ $comprobante->local_distrito }}, {{ $comprobante->local_ciudad }}</div>
             </td>
             <td class="right" style="border: 0; padding: 0;">
-                <h2>{{ strtoupper(str_replace('_', ' ', $comprobante->tipo)) }}</h2>
+                <h2>{{ $esNotaCredito ? 'NOTA DE CRÉDITO ELECTRÓNICA' : strtoupper(str_replace('_', ' ', $comprobante->tipo)) }}</h2>
                 <strong>{{ $comprobante->serie }}-{{ str_pad($comprobante->correlativo, 8, '0', STR_PAD_LEFT) }}</strong>
                 <div class="muted">Emitido: {{ \Carbon\Carbon::parse($comprobante->fecha)->format('d/m/Y H:i') }}</div>
             </td>
@@ -37,7 +43,19 @@
             <strong>Mesa:</strong> {{ $comprobante->mesa_numero }}
         @endif
     </p>
-
+    @if($esNotaCredito && $afectado)
+        <table style="margin-top: 0;">
+            <tr><th colspan="2">Documento que modifica</th></tr>
+            <tr><td style="width: 30%;">Comprobante</td><td><strong>{{ $afectado['serie_numero'] }}</strong> · {{ $afectado['tipo_label'] }}</td></tr>
+            <tr><td>Emitido el</td><td>{{ \Carbon\Carbon::parse($afectado['fecha'])->format('d/m/Y H:i') }}</td></tr>
+            @if($afectado['motivo_codigo'])
+                <tr><td>Motivo (catálogo 09 SUNAT)</td><td>{{ $afectado['motivo_codigo'] }}{{ $afectado['motivo_texto'] ? ' — '.$afectado['motivo_texto'] : '' }}</td></tr>
+            @endif
+            @if($afectado['sustento'])
+                <tr><td>Sustento</td><td>{{ $afectado['sustento'] }}</td></tr>
+            @endif
+        </table>
+    @endif
     <table>
         <thead><tr><th>Descripción</th><th class="right">Cant.</th><th class="right">P. unitario</th><th class="right">Importe</th></tr></thead>
         <tbody>
@@ -48,12 +66,12 @@
     </table>
 
     <table style="width: 42%; margin-left: auto;">
-        <tr><td>Base imponible</td><td class="right">S/ {{ number_format($comprobante->base_imponible, 2) }}</td></tr>
-        <tr><td>IGV</td><td class="right">S/ {{ number_format($comprobante->igv, 2) }}</td></tr>
-        @if((float) $comprobante->monto_recargo > 0)
-            <tr><td>Recargo</td><td class="right">S/ {{ number_format($comprobante->monto_recargo, 2) }}</td></tr>
+        <tr><td>Base imponible</td><td class="right">S/ {{ $monto($comprobante->base_imponible) }}</td></tr>
+        <tr><td>IGV</td><td class="right">S/ {{ $monto($comprobante->igv) }}</td></tr>
+        @if(abs((float) $comprobante->monto_recargo) > 0)
+            <tr><td>Recargo</td><td class="right">S/ {{ $monto($comprobante->monto_recargo) }}</td></tr>
         @endif
-        <tr class="total"><td>TOTAL</td><td class="right">S/ {{ number_format($comprobante->total, 2) }}</td></tr>
+        <tr class="total"><td>{{ $esNotaCredito ? 'MONTO ACREDITADO' : 'TOTAL' }}</td><td class="right">S/ {{ $monto($comprobante->total) }}</td></tr>
     </table>
 
     <p class="muted center" style="margin-top: 32px;">Representación digital interna generada por RestaurantCloud.</p>

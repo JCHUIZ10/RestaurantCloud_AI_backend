@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Domains\Caja\Services\ComprobanteDigitalService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
@@ -578,7 +579,7 @@ class MermasYNotaCreditoStockTest extends TestCase
         $resTodos = $this->withHeaders($this->headers())
             ->getJson('/api/v1/caja/comprobantes?estado=todos');
         $resTodos->assertStatus(200);
-        $datos = $resTodos->json('datos');
+        $datos = $resTodos->json('datos.comprobantes');
         $this->assertNotEmpty($datos);
 
         $facturaAnulada = collect($datos)->firstWhere('id', $comprobanteId);
@@ -595,9 +596,316 @@ class MermasYNotaCreditoStockTest extends TestCase
         $resAnulados = $this->withHeaders($this->headers())
             ->getJson('/api/v1/caja/comprobantes?estado=anulado');
         $resAnulados->assertStatus(200);
-        foreach ($resAnulados->json('datos') as $comp) {
+        foreach ($resAnulados->json('datos.comprobantes') as $comp) {
             $this->assertEquals('anulado', $comp['estado']);
         }
+    }
+
+    /**
+     * Crea una venta cobrada con un ítem y devuelve el id del comprobante.
+     */
+    private function crearVenta(string $cajaId, string $tipo, string $serie, float $total, string $medioPago = 'efectivo'): string
+    {
+        $mesaId = $this->crearMesa($this->crearPiso(), 'H'.Str::upper(Str::random(3)));
+        $prodId = $this->crearProducto($total, $total / 3, true);
+        $pedidoId = $this->crearPedido($mesaId);
+        $itemId = $this->crearPedidoItem($pedidoId, $prodId, 1, $total);
+        $comprobanteId = $this->crearComprobante($cajaId, $pedidoId, $tipo, $serie, $total, $medioPago);
+        $this->registrarComprobanteItem($comprobanteId, $itemId, $prodId, 'Consumo '.$serie, 1, $total);
+
+        return $comprobanteId;
+    }
+
+    private function anularConNotaCredito(string $comprobanteId, string $motivo = '02'): void
+    {
+        $this->withHeaders($this->headers())
+            ->postJson("/api/v1/caja/comprobantes/{$comprobanteId}/nota-credito", [
+                'motivo_codigo_sunat' => $motivo,
+                'sustento_motivo' => 'Sustento de prueba para la nota de crédito',
+                'devolucion_metodo' => 'efectivo',
+            ])->assertStatus(200);
+    }
+
+    /**
+     * Prueba 4b: El filtro de notas de crédito las lista aunque no sean "vigentes" y conservan su motivo.
+     */
+    public function test_filtro_notas_de_credito_lista_las_nc_con_su_motivo_y_documento_afectado(): void
+    {
+        $cajaId = $this->crearCajaAbierta();
+        $facturaId = $this->crearVenta($cajaId, 'factura', 'F001', 30.00);
+        $this->anularConNotaCredito($facturaId, '06');
+        $tokenFactura = DB::table('comprobante')->where('id', $facturaId)->value('token_qr');
+
+        $res = $this->withHeaders($this->headers())->getJson('/api/v1/caja/comprobantes?estado=nota_credito');
+        $res->assertStatus(200);
+
+        $filas = $res->json('datos.comprobantes');
+        $this->assertCount(1, $filas);
+        $nc = $filas[0];
+        $this->assertEquals('nota_credito', $nc['tipo_comprobante']);
+        $this->assertEquals('06', $nc['motivo_codigo_sunat']);
+        $this->assertEquals('Devolución total', $nc['motivo_texto']);
+        $this->assertEquals('Sustento de prueba para la nota de crédito', $nc['sustento_motivo']);
+        $this->assertNotNull($nc['documento_modificado']);
+        $this->assertEquals($tokenFactura, $nc['documento_modificado_token']);
+
+        // El original anulado expone el motivo de la NC que lo anuló
+        $anulados = $this->withHeaders($this->headers())->getJson('/api/v1/caja/comprobantes?estado=anulado')->json('datos.comprobantes');
+        $this->assertCount(1, $anulados);
+        $this->assertEquals('06', $anulados[0]['motivo_codigo_sunat']);
+        $this->assertEquals($nc['serie_numero'], $anulados[0]['nota_credito_serie_numero']);
+    }
+
+    /**
+     * Prueba 4c: El resumen del turno no depende de los filtros y el neto no cuenta lo anulado.
+     */
+    public function test_resumen_del_turno_es_independiente_de_los_filtros_y_el_neto_descuenta_la_nc(): void
+    {
+        $cajaId = $this->crearCajaAbierta(200.00);
+        $this->crearVenta($cajaId, 'boleta', 'B001', 50.00, 'efectivo');
+        $this->crearVenta($cajaId, 'boleta', 'B001', 40.00, 'tarjeta');
+        $yapeId = $this->crearVenta($cajaId, 'boleta', 'B001', 25.00, 'billetera_digital');
+        DB::table('comprobante')->where('id', $yapeId)->update(['numero_operacion' => 'OP123456']);
+        $facturaId = $this->crearVenta($cajaId, 'factura', 'F001', 30.00, 'efectivo');
+        $this->anularConNotaCredito($facturaId);
+
+        $sinFiltros = $this->withHeaders($this->headers())->getJson('/api/v1/caja/comprobantes')->assertStatus(200);
+        $resumen = $sinFiltros->json('datos.resumen');
+
+        $porMedio = collect($resumen['por_medio'])->keyBy('codigo');
+        $this->assertEquals(50.00, $porMedio['efectivo']['neto']);
+        $this->assertEquals(1, $porMedio['efectivo']['operaciones']);
+        $this->assertEquals(40.00, $porMedio['tarjeta']['neto']);
+        $this->assertEquals(25.00, $porMedio['billetera_digital']['neto']);
+        $this->assertEquals(115.00, $resumen['total_neto']);
+        $this->assertEquals(3, $resumen['vigentes_count']);
+        $this->assertEquals(1, $resumen['anulados_count']);
+        $this->assertEquals(1, $resumen['notas_credito']['count']);
+        $this->assertEquals(30.00, $resumen['notas_credito']['monto']);
+
+        $filtrado = $this->withHeaders($this->headers())
+            ->getJson('/api/v1/caja/comprobantes?estado=anulado&medio_pago=efectivo')
+            ->assertStatus(200);
+        $this->assertEquals($resumen, $filtrado->json('datos.resumen'));
+
+        // El filtro por medio de pago acota las filas, con el N° de operación y el nombre del método
+        $soloYape = $this->withHeaders($this->headers())
+            ->getJson('/api/v1/caja/comprobantes?estado=vigente&medio_pago=billetera_digital')
+            ->json('datos.comprobantes');
+        $this->assertCount(1, $soloYape);
+        $this->assertEquals('OP123456', $soloYape[0]['numero_operacion']);
+        $this->assertEquals('Yape / Plin', $soloYape[0]['metodo_pago_nombre']);
+    }
+
+    /**
+     * Prueba 4d: El listado se pagina en el servidor.
+     */
+    public function test_listado_de_comprobantes_se_pagina_en_el_servidor(): void
+    {
+        $cajaId = $this->crearCajaAbierta();
+        foreach (range(1, 3) as $indice) {
+            $this->crearVenta($cajaId, 'boleta', 'B001', 10.00 + $indice);
+        }
+
+        $pagina1 = $this->withHeaders($this->headers())->getJson('/api/v1/caja/comprobantes?limite=2&pagina=1');
+        $this->assertCount(2, $pagina1->json('datos.comprobantes'));
+        $this->assertEquals(3, $pagina1->json('datos.paginacion.total'));
+        $this->assertEquals(2, $pagina1->json('datos.paginacion.total_paginas'));
+
+        $pagina2 = $this->withHeaders($this->headers())->getJson('/api/v1/caja/comprobantes?limite=2&pagina=2');
+        $this->assertCount(1, $pagina2->json('datos.comprobantes'));
+
+        // Una página fuera de rango devuelve la última
+        $fuera = $this->withHeaders($this->headers())->getJson('/api/v1/caja/comprobantes?limite=2&pagina=9');
+        $this->assertEquals(2, $fuera->json('datos.paginacion.pagina'));
+
+        $this->withHeaders($this->headers())->getJson('/api/v1/caja/comprobantes?limite=500')->assertStatus(422);
+    }
+
+    /**
+     * Prueba 4e: El detalle devuelve el desglose y la referencia fiscal cruzada; no expone otros turnos.
+     */
+    public function test_detalle_de_comprobante_incluye_desglose_y_referencia_cruzada(): void
+    {
+        $cajaId = $this->crearCajaAbierta();
+        $boletaId = $this->crearVenta($cajaId, 'boleta', 'B001', 59.00);
+        $this->anularConNotaCredito($boletaId, '01');
+        $ncId = DB::table('comprobante')->where('comprobante_modificado_id', $boletaId)->value('id');
+
+        $original = $this->withHeaders($this->headers())->getJson("/api/v1/caja/comprobantes/{$boletaId}")
+            ->assertStatus(200)->json('datos');
+        $this->assertEquals('anulado', $original['estado']);
+        $this->assertEquals(59.00, $original['desglose']['total']);
+        $this->assertCount(1, $original['items']);
+        $this->assertEquals('Anulación de la operación', $original['nota_credito']['motivo_texto']);
+        $this->assertNull($original['documento_afectado']);
+
+        $nc = $this->withHeaders($this->headers())->getJson("/api/v1/caja/comprobantes/{$ncId}")
+            ->assertStatus(200)->json('datos');
+        $this->assertEquals(-59.00, $nc['desglose']['total']);
+        $this->assertEquals($original['serie_numero'], $nc['documento_afectado']['serie_numero']);
+        $this->assertEquals('01', $nc['documento_afectado']['motivo_codigo_sunat']);
+        $this->assertNull($nc['nota_credito']);
+
+        // Un comprobante de un turno anterior no se puede consultar
+        $this->crearCajaAbierta();
+        $this->withHeaders($this->headers())->getJson("/api/v1/caja/comprobantes/{$boletaId}")->assertStatus(404);
+        $this->withHeaders($this->headers())->getJson('/api/v1/caja/comprobantes/no-es-uuid')->assertStatus(404);
+    }
+
+    /**
+     * Escenario común: apertura 200; efectivo 50 + factura de efectivo 30 (luego anulada con NC); tarjeta 40.
+     * Gaveta real: 200 + 50 + 30 - 30 = 250. Neto facturado: 50 + 40 = 90.
+     */
+    private function crearTurnoConNotaCreditoEnEfectivo(): void
+    {
+        $cajaId = $this->crearCajaAbierta(200.00);
+        $this->crearVenta($cajaId, 'boleta', 'B001', 50.00, 'efectivo');
+        $this->crearVenta($cajaId, 'boleta', 'B001', 40.00, 'tarjeta');
+        $facturaId = $this->crearVenta($cajaId, 'factura', 'F001', 30.00, 'efectivo');
+        $this->anularConNotaCredito($facturaId);
+    }
+
+    /**
+     * Prueba 4f: El balance pre-arqueo cuadra con una NC en efectivo: neto sin doble descuento y gaveta esperada real.
+     */
+    public function test_balance_pre_arqueo_con_nota_de_credito_calcula_el_neto_y_la_gaveta_correctos(): void
+    {
+        $this->crearTurnoConNotaCreditoEnEfectivo();
+
+        $res = $this->withHeaders($this->headers())->getJson('/api/v1/caja/balance-pre-arqueo')->assertStatus(200);
+        $d = $res->json('datos');
+
+        // Conciliación de gaveta: Fondo + Ingresos brutos - Devoluciones = Esperado
+        $this->assertEquals(80.00, $d['ingresos_efectivo']);
+        $this->assertEquals(30.00, $d['egresos_devolucion_nc']);
+        $this->assertEquals(250.00, $d['efectivo_esperado']);
+        $this->assertEquals($d['efectivo_esperado'], $d['monto_apertura'] + $d['ingresos_efectivo'] - $d['egresos_devolucion_nc']);
+        $this->assertEquals(2, $d['efectivo_operaciones']);
+
+        // Lo esperado coincide con el saldo real de los movimientos de la gaveta
+        $saldoGaveta = 200.00 + (float) DB::table('caja_movimiento')
+            ->where('caja_id', DB::table('caja')->where('estado', 'abierta')->where('local_id', $this->localId)->value('id'))
+            ->where('metodo_pago', 'efectivo')->where('tipo', '!=', 'apertura')->sum('monto');
+        $this->assertEquals($saldoGaveta, $d['efectivo_esperado']);
+
+        // Totales facturados: el neto no resta la NC dos veces y la tabla suma
+        $this->assertEquals(90.00, $d['total_facturado_neto']);
+        $this->assertEquals(2, $d['total_comprobantes']);
+        $this->assertEquals(1, $d['notas_credito_count']);
+        $this->assertEquals(1, $d['comprobantes_anulados_count']);
+        $this->assertEquals(120.00, $d['total_ingresos_brutos']);
+        $this->assertEquals(30.00, $d['total_egresos']);
+        $this->assertEquals($d['total_facturado_neto'], $d['total_ingresos_brutos'] - $d['total_egresos']);
+        $this->assertEquals(40.00, $d['tarjetas_pos_total']);
+    }
+
+    /**
+     * Prueba 4g: El cierre de turno usa las mismas cifras que el pre-arqueo (sin discrepancia fantasma) y las deja en el Reporte Z.
+     */
+    public function test_cierre_de_turno_con_nota_de_credito_coincide_con_el_pre_arqueo(): void
+    {
+        $this->crearTurnoConNotaCreditoEnEfectivo();
+        DB::table('pedido')
+            ->where('local_id', $this->localId)
+            ->whereIn('estado', ['borrador', 'enviado', 'cuenta_pedida'])
+            ->update(['estado' => 'cobrado', 'updated_at' => now()]);
+
+        $balance = $this->withHeaders($this->headers())->getJson('/api/v1/caja/balance-pre-arqueo')->json('datos');
+
+        // El cajero cuenta exactamente lo que hay en la gaveta
+        $cierre = $this->withHeaders($this->headers())
+            ->postJson('/api/v1/caja/cierre', ['monto_real_fisico' => 250.00])
+            ->assertStatus(200);
+        $z = $cierre->json('datos');
+
+        $this->assertEquals(0.00, $z['discrepancia']);
+        $this->assertEquals($balance['efectivo_esperado'], $z['efectivo_esperado']);
+        $this->assertEquals($balance['total_facturado_neto'], $z['total_neto_facturado']);
+        $this->assertEquals($balance['ingresos_efectivo'], $z['total_ventas_efectivo']);
+        $this->assertEquals($balance['egresos_devolucion_nc'], $z['total_devoluciones_efectivo']);
+        $this->assertEquals($balance['tarjetas_pos_total'], $z['total_tarjetas_pos']);
+        $this->assertEquals(1, $z['notas_credito_emitidas']);
+
+        // Fondo + Ventas efectivo - Devoluciones = Esperado, y los medios suman el neto facturado
+        $this->assertEquals($z['efectivo_esperado'], $z['monto_apertura'] + $z['total_ventas_efectivo'] - $z['total_devoluciones_efectivo']);
+        $this->assertEquals(
+            $z['total_neto_facturado'],
+            $z['total_efectivo_neto'] + $z['total_tarjetas_pos'] + $z['total_billeteras_digital'] + $z['otros_medios_total']
+        );
+    }
+
+    /**
+     * Prueba 4h: La vista pública enlaza el comprobante anulado con su NC, y la NC con el documento que modifica.
+     */
+    public function test_vista_publica_cruza_el_comprobante_anulado_con_su_nota_de_credito(): void
+    {
+        $cajaId = $this->crearCajaAbierta();
+        $boletaId = $this->crearVenta($cajaId, 'boleta', 'B001', 59.00);
+        $libreId = $this->crearVenta($cajaId, 'boleta', 'B001', 20.00);
+        $this->anularConNotaCredito($boletaId, '01');
+
+        $boleta = DB::table('comprobante')->where('id', $boletaId)->first();
+        $nc = DB::table('comprobante')->where('comprobante_modificado_id', $boletaId)->first();
+
+        // Original anulado: expone la NC con su motivo y un enlace a ella
+        $publicoOriginal = $this->getJson("/api/v1/public/comprobantes/{$boleta->token_qr}")->assertStatus(200)->json('datos');
+        $this->assertEquals('anulado', $publicoOriginal['estado']);
+        $this->assertNull($publicoOriginal['documento_afectado']);
+        $this->assertEquals($nc->serie.'-'.str_pad((string) $nc->correlativo, 8, '0', STR_PAD_LEFT), $publicoOriginal['nota_credito']['serie_numero']);
+        $this->assertEquals('01', $publicoOriginal['nota_credito']['motivo_codigo']);
+        $this->assertEquals('Anulación de la operación', $publicoOriginal['nota_credito']['motivo_texto']);
+        $this->assertEquals('Sustento de prueba para la nota de crédito', $publicoOriginal['nota_credito']['sustento']);
+        $this->assertEquals("/c/{$nc->token_qr}", $publicoOriginal['nota_credito']['url_publica']);
+
+        // La NC: tipo propio, montos negativos tal como se guardan y referencia al documento que modifica
+        $publicoNc = $this->getJson("/api/v1/public/comprobantes/{$nc->token_qr}")->assertStatus(200)->json('datos');
+        $this->assertEquals('nota_credito', $publicoNc['tipo']);
+        $this->assertEquals('Nota de Credito Electronica', $publicoNc['tipo_label']);
+        $this->assertEquals('emitido', $publicoNc['estado']);
+        $this->assertNull($publicoNc['nota_credito']);
+        $this->assertEquals(-59.00, $publicoNc['totales']['total']);
+        $this->assertEquals($publicoOriginal['serie_numero'], $publicoNc['documento_afectado']['serie_numero']);
+        $this->assertEquals('boleta', $publicoNc['documento_afectado']['tipo']);
+        $this->assertEquals('01', $publicoNc['documento_afectado']['motivo_codigo']);
+        $this->assertEquals("/c/{$boleta->token_qr}", $publicoNc['documento_afectado']['url_publica']);
+
+        // Un comprobante vigente no trae ninguna referencia
+        $libre = DB::table('comprobante')->where('id', $libreId)->first();
+        $publicoLibre = $this->getJson("/api/v1/public/comprobantes/{$libre->token_qr}")->assertStatus(200)->json('datos');
+        $this->assertNull($publicoLibre['nota_credito']);
+        $this->assertNull($publicoLibre['documento_afectado']);
+    }
+
+    /**
+     * Prueba 4i: El PDF de una NC se titula como tal, cita el documento que modifica y acredita montos en positivo.
+     */
+    public function test_pdf_de_nota_de_credito_cita_el_documento_modificado_y_acredita_en_positivo(): void
+    {
+        $cajaId = $this->crearCajaAbierta();
+        $facturaId = $this->crearVenta($cajaId, 'factura', 'F001', 59.00);
+        $ventaId = $this->crearVenta($cajaId, 'boleta', 'B001', 20.00);
+        $this->anularConNotaCredito($facturaId, '02');
+
+        $servicio = app(ComprobanteDigitalService::class);
+        $factura = $servicio->obtenerComprobante($facturaId);
+        $ncId = DB::table('comprobante')->where('comprobante_modificado_id', $facturaId)->value('id');
+
+        $html = $servicio->renderizarHtml($servicio->obtenerComprobante($ncId));
+        $this->assertStringContainsString('NOTA DE CRÉDITO ELECTRÓNICA', $html);
+        $this->assertStringContainsString('Documento que modifica', $html);
+        $this->assertStringContainsString($factura->serie.'-'.str_pad((string) $factura->correlativo, 8, '0', STR_PAD_LEFT), $html);
+        $this->assertStringContainsString('02 — Anulación por error en el RUC', $html);
+        $this->assertStringContainsString('MONTO ACREDITADO', $html);
+        $this->assertStringContainsString('S/ 59.00', $html);
+        $this->assertStringNotContainsString('-59.00', $html);
+
+        // Una venta normal conserva su formato
+        $htmlVenta = $servicio->renderizarHtml($servicio->obtenerComprobante($ventaId));
+        $this->assertStringContainsString('BOLETA', $htmlVenta);
+        $this->assertStringContainsString('TOTAL', $htmlVenta);
+        $this->assertStringNotContainsString('Documento que modifica', $htmlVenta);
+        $this->assertStringNotContainsString('MONTO ACREDITADO', $htmlVenta);
     }
 
     /**

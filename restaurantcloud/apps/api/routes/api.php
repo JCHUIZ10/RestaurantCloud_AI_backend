@@ -350,6 +350,7 @@ Route::prefix('v1')->group(function (): void {
 
             // CU-CAJA-04: Gestión de Comprobantes, Anulaciones y Notas de Crédito SUNAT
             Route::get('/comprobantes', [CajaController::class, 'getComprobantesTurno']);
+            Route::get('/comprobantes/{id}', [CajaController::class, 'getDetalleComprobante']);
             Route::get('/comprobantes/{id}/preparar-anulacion', [CajaController::class, 'prepararAnulacionComprobante']);
             Route::post('/comprobantes/{id}/nota-credito', [CajaController::class, 'emitirNotaCredito']);
             Route::patch('/comprobantes/{id}/contacto', [CajaController::class, 'actualizarContactoComprobante']);

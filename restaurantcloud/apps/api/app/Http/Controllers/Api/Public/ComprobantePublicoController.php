@@ -46,10 +46,12 @@ class ComprobantePublicoController
                 'importe_total' => (float) $item->subtotal,
             ]);
 
+        $referencia = $this->service->referenciaFiscal($comprobante);
+
         return ApiResponse::ok([
             'token' => $comprobante->token_qr,
             'tipo' => $comprobante->tipo,
-            'tipo_label' => $this->tipoLabel($comprobante->tipo),
+            'tipo_label' => $this->service->tipoLabel($comprobante->tipo),
             'serie' => $comprobante->serie,
             'correlativo' => (int) $comprobante->correlativo,
             'serie_numero' => $comprobante->serie.'-'.str_pad((string) $comprobante->correlativo, 8, '0', STR_PAD_LEFT),
@@ -94,6 +96,8 @@ class ComprobantePublicoController
                 'monto_recibido' => (float) $comprobante->monto_recibido,
                 'vuelto' => (float) $comprobante->vuelto,
             ],
+            'nota_credito' => $referencia['nota_credito'],
+            'documento_afectado' => $referencia['documento_afectado'],
             'url_carta_digital' => "/sede/{$comprobante->local_slug}/carta",
         ]);
     }
@@ -179,16 +183,6 @@ class ComprobantePublicoController
             ->whereNull('deleted_at')
             ->latest('created_at')
             ->first();
-    }
-
-    private function tipoLabel(string $tipo): string
-    {
-        return match ($tipo) {
-            'factura' => 'Factura Electronica',
-            'nota_venta' => 'Nota de Venta',
-            'nota_credito' => 'Nota de Credito Electronica',
-            default => 'Boleta de Venta Electronica',
-        };
     }
 
     private function tipoDocumento(?string $documento): ?string

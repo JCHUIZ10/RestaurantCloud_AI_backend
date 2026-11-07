@@ -103,7 +103,7 @@
         </thead>
         <tbody>
             <tr>
-                <td>S/ {{ number_format((float) ($reporte['total_ventas_efectivo'] ?? 0), 2) }}</td>
+                <td>S/ {{ number_format((float) ($reporte['total_efectivo_neto'] ?? $reporte['total_ventas_efectivo'] ?? 0), 2) }}</td>
                 <td>S/ {{ number_format((float) ($reporte['total_tarjetas_pos'] ?? 0), 2) }}</td>
                 <td>S/ {{ number_format((float) ($reporte['total_billeteras_digital'] ?? 0), 2) }}</td>
                 <td>S/ {{ number_format((float) ($reporte['otros_medios_total'] ?? 0), 2) }}</td>

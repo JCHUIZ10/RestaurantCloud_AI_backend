@@ -6,6 +6,7 @@ use App\Domains\Archivos\Services\TenantStorageService;
 use App\Models\Archivo;
 use Dompdf\Dompdf;
 use Dompdf\Options;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -40,21 +41,7 @@ class ComprobanteDigitalService
             throw new RuntimeException('No se encontro el comprobante para generar su documento digital.');
         }
 
-        $items = DB::table('comprobante_item')
-            ->where('comprobante_id', $comprobanteId)
-            ->orderBy('created_at')
-            ->get()
-            ->map(fn ($item) => [
-                'descripcion' => $item->descripcion,
-                'cantidad' => (int) $item->cantidad,
-                'precio_unitario' => (float) $item->precio_unitario,
-                'subtotal' => (float) $item->subtotal,
-            ]);
-
-        $html = view('pdf.comprobante', [
-            'comprobante' => $comprobante,
-            'items' => $items,
-        ])->render();
+        $html = $this->renderizarHtml($comprobante);
 
         if (class_exists(Dompdf::class) && class_exists(Options::class)) {
             $options = new Options;
@@ -114,6 +101,109 @@ class ComprobanteDigitalService
 
             throw $exception;
         }
+    }
+
+    /**
+     * HTML de la representación impresa. Una nota de crédito incluye el documento que modifica.
+     */
+    public function renderizarHtml(object $comprobante): string
+    {
+        $items = DB::table('comprobante_item')
+            ->where('comprobante_id', $comprobante->id)
+            ->orderBy('created_at')
+            ->get()
+            ->map(fn ($item) => [
+                'descripcion' => $item->descripcion,
+                'cantidad' => (int) $item->cantidad,
+                'precio_unitario' => (float) $item->precio_unitario,
+                'subtotal' => (float) $item->subtotal,
+            ]);
+
+        return view('pdf.comprobante', [
+            'comprobante' => $comprobante,
+            'items' => $items,
+            'referencia' => $this->referenciaFiscal($comprobante),
+        ])->render();
+    }
+
+    /**
+     * Referencia fiscal cruzada entre un comprobante anulado y su nota de crédito.
+     *
+     * - Un comprobante anulado devuelve la NC que lo anuló en `nota_credito`.
+     * - Una nota de crédito devuelve el comprobante que modifica en `documento_afectado`.
+     * - Cualquier otro comprobante devuelve ambos en null.
+     *
+     * @return array{nota_credito: array<string, mixed>|null, documento_afectado: array<string, mixed>|null}
+     */
+    public function referenciaFiscal(object $comprobante): array
+    {
+        $referencia = ['nota_credito' => null, 'documento_afectado' => null];
+
+        if ($comprobante->tipo === 'nota_credito') {
+            $original = $comprobante->comprobante_modificado_id
+                ? DB::table('comprobante')->where('id', $comprobante->comprobante_modificado_id)->first()
+                : null;
+
+            if ($original) {
+                $referencia['documento_afectado'] = [
+                    'serie_numero' => $this->serieNumero($original),
+                    'tipo' => $original->tipo,
+                    'tipo_label' => $this->tipoLabel($original->tipo),
+                    'fecha' => Carbon::parse($original->fecha)->toIso8601String(),
+                    'token' => (string) $original->token_qr,
+                    'url_publica' => "/c/{$original->token_qr}",
+                    ...$this->motivo($comprobante->motivo_codigo_sunat, $comprobante->sustento_motivo),
+                ];
+            }
+
+            return $referencia;
+        }
+
+        if ($comprobante->estado === 'anulado') {
+            $nota = DB::table('comprobante')
+                ->where('comprobante_modificado_id', $comprobante->id)
+                ->where('tipo', 'nota_credito')
+                ->first();
+
+            if ($nota) {
+                $referencia['nota_credito'] = [
+                    'serie_numero' => $this->serieNumero($nota),
+                    'fecha' => Carbon::parse($nota->fecha)->toIso8601String(),
+                    'token' => (string) $nota->token_qr,
+                    'url_publica' => "/c/{$nota->token_qr}",
+                    ...$this->motivo($nota->motivo_codigo_sunat, $nota->sustento_motivo),
+                ];
+            }
+        }
+
+        return $referencia;
+    }
+
+    public function tipoLabel(string $tipo): string
+    {
+        return match ($tipo) {
+            'factura' => 'Factura Electronica',
+            'nota_venta' => 'Nota de Venta',
+            'nota_credito' => 'Nota de Credito Electronica',
+            default => 'Boleta de Venta Electronica',
+        };
+    }
+
+    private function serieNumero(object $comprobante): string
+    {
+        return $comprobante->serie.'-'.str_pad((string) $comprobante->correlativo, 8, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * @return array{motivo_codigo: string|null, motivo_texto: string|null, sustento: string|null}
+     */
+    private function motivo(?string $codigo, ?string $sustento): array
+    {
+        return [
+            'motivo_codigo' => $codigo,
+            'motivo_texto' => $codigo !== null ? (HistorialComprobantesService::MOTIVOS_SUNAT[$codigo] ?? null) : null,
+            'sustento' => $sustento,
+        ];
     }
 
     public function obtenerComprobante(string $comprobanteId): ?object
