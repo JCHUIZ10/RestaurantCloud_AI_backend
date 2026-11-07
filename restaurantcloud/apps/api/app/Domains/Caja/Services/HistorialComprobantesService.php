@@ -40,7 +40,7 @@ class HistorialComprobantesService
      * son notas de crédito: no hay que restarles nada más.
      *
      * @return array{
-     *     por_medio: list<array{codigo: string, nombre: string, neto: float, operaciones: int}>,
+     *     por_medio: list<array{codigo: string, nombre: string, neto: float, operaciones: int, activo: bool, mostrar: bool}>,
      *     efectivo: array{ingresos_brutos: float, operaciones_brutas: int, egresos: float, esperado: float},
      *     vigentes_count: int,
      *     anulados_count: int,
@@ -60,16 +60,17 @@ class HistorialComprobantesService
         $emitidos = $todos->where('estado', 'emitido');
         $ventas = $emitidos->where('tipo', '!=', 'nota_credito');
         $notasCredito = $emitidos->where('tipo', 'nota_credito');
-        $nombres = $this->nombresMedio((string) $caja->local_id);
-
         $porMedio = [];
-        foreach ($nombres as $codigo => $nombre) {
+        foreach ($this->configuracionMedios((string) $caja->local_id) as $codigo => $medio) {
             $delMedio = $ventas->where('medio_pago', $codigo);
             $porMedio[] = [
                 'codigo' => $codigo,
-                'nombre' => $nombre,
+                'nombre' => $medio['nombre'],
                 'neto' => round((float) $delMedio->sum('total'), 2),
                 'operaciones' => $delMedio->count(),
+                'activo' => $medio['activo'],
+                // Un medio desactivado en plena jornada sigue visible si ya se cobró con él en este turno
+                'mostrar' => $medio['activo'] || $todos->where('medio_pago', $codigo)->isNotEmpty(),
             ];
         }
 
@@ -345,18 +346,28 @@ class HistorialComprobantesService
     }
 
     /**
-     * Nombre configurado por la sede para cada medio de pago operativo.
+     * Nombre y estado (activo o desactivado) que la sede dio a cada medio de pago operativo.
+     * Sin configuración guardada rige la de una sede nueva: efectivo y tarjeta activos, billetera no.
      *
-     * @return array<string, string>
+     * @return array<string, array{nombre: string, activo: bool}>
      */
-    private function nombresMedio(string $localId): array
+    private function configuracionMedios(string $localId): array
     {
         $guardados = DB::table('metodo_pago_local')
             ->where('local_id', $localId)
             ->whereIn('codigo', array_keys(self::NOMBRES_MEDIO_DEFECTO))
-            ->pluck('nombre', 'codigo')
-            ->all();
+            ->get(['codigo', 'nombre', 'activo'])
+            ->keyBy('codigo');
 
-        return array_merge(self::NOMBRES_MEDIO_DEFECTO, $guardados);
+        $configuracion = [];
+        foreach (self::NOMBRES_MEDIO_DEFECTO as $codigo => $nombreDefecto) {
+            $guardado = $guardados->get($codigo);
+            $configuracion[$codigo] = [
+                'nombre' => $guardado->nombre ?? $nombreDefecto,
+                'activo' => $guardado ? (bool) $guardado->activo : $codigo !== 'billetera_digital',
+            ];
+        }
+
+        return $configuracion;
     }
 }

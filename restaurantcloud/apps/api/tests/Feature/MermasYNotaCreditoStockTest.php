@@ -909,6 +909,42 @@ class MermasYNotaCreditoStockTest extends TestCase
     }
 
     /**
+     * Prueba 4j: Un medio de pago desactivado se oculta del resumen y de los filtros, salvo que ya se haya cobrado con él en el turno.
+     */
+    public function test_medio_de_pago_desactivado_se_oculta_salvo_que_tenga_cobros_en_el_turno(): void
+    {
+        $cajaId = $this->crearCajaAbierta();
+        DB::table('metodo_pago_local')->updateOrInsert(
+            ['local_id' => $this->localId, 'codigo' => 'billetera_digital'],
+            ['nombre' => 'Yape / Plin', 'activo' => false, 'orden' => 3]
+        );
+        $this->crearVenta($cajaId, 'boleta', 'B001', 20.00, 'efectivo');
+
+        $medios = fn () => collect(
+            $this->withHeaders($this->headers())->getJson('/api/v1/caja/comprobantes')->assertStatus(200)->json('datos.resumen.por_medio')
+        )->keyBy('codigo');
+
+        // Desactivado y sin cobros: no se muestra, pero sigue en la lista para que el arqueo lo encuentre
+        $this->assertFalse($medios()['billetera_digital']['mostrar']);
+        $this->assertFalse($medios()['billetera_digital']['activo']);
+        $this->assertTrue($medios()['efectivo']['mostrar']);
+        $this->assertTrue($medios()['tarjeta']['mostrar']);
+
+        // Desactivado pero con un cobro en este turno: sigue visible para no ocultar ventas reales
+        $this->crearVenta($cajaId, 'boleta', 'B001', 15.00, 'billetera_digital');
+        $this->assertTrue($medios()['billetera_digital']['mostrar']);
+        $this->assertFalse($medios()['billetera_digital']['activo']);
+        $this->assertEquals(15.00, $medios()['billetera_digital']['neto']);
+
+        // Activado: se muestra aunque no haya cobros
+        $otraCaja = $this->crearCajaAbierta();
+        DB::table('metodo_pago_local')
+            ->where('local_id', $this->localId)->where('codigo', 'billetera_digital')->update(['activo' => true]);
+        $this->assertTrue($medios()['billetera_digital']['mostrar']);
+        $this->assertNotSame($cajaId, $otraCaja);
+    }
+
+    /**
      * Prueba 5: Actualizar información de contacto (WhatsApp / Correo) para entrega asistida.
      */
     public function test_actualizar_contacto_comprobante(): void

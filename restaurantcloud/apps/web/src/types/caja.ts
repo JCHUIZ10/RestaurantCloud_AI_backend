@@ -380,6 +380,13 @@ export interface ResumenMedioPagoDTO {
   /** Neto de ventas vigentes: lo anulado con NC ya no cuenta */
   neto: number;
   operaciones: number;
+  /** El medio está activado en la configuración de la sede */
+  activo: boolean;
+  /**
+   * Si debe mostrarse en pantalla: está activo, o ya se cobró con él en este turno
+   * (desactivarlo a mitad de jornada no oculta las ventas ya hechas).
+   */
+  mostrar: boolean;
 }
 
 /** Totales del turno: no dependen de ningún filtro del listado */

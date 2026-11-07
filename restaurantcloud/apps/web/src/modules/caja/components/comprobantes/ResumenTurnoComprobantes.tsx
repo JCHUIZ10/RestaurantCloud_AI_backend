@@ -4,6 +4,13 @@ import { formatPEN, cn } from '@/shared/utils';
 import type { MedioPagoCodigo, ResumenTurnoComprobantesDTO } from '@/types/caja';
 import { ICONOS_MEDIO_PAGO } from './comprobanteFormato';
 
+/** Tarjetas en una sola fila en pantallas anchas: los medios visibles más las tres de totales. */
+const COLUMNAS_2XL: Record<number, string> = {
+  1: '2xl:grid-cols-4',
+  2: '2xl:grid-cols-5',
+  3: '2xl:grid-cols-6',
+};
+
 interface ResumenTurnoComprobantesProps {
   resumen: ResumenTurnoComprobantesDTO;
   medioActivo: 'todos' | MedioPagoCodigo;
@@ -19,10 +26,16 @@ export const ResumenTurnoComprobantes: React.FC<ResumenTurnoComprobantesProps> =
   medioActivo,
   onSeleccionarMedio,
 }) => {
+  // Solo los medios activos de la sede (o con cobros en este turno); el resto de tarjetas se acomoda al total
+  const medios = resumen.por_medio.filter((medio) => medio.mostrar);
+
   return (
-    <section aria-label="Resumen del turno" className="grid grid-cols-1 sm:grid-cols-3 2xl:grid-cols-6 gap-3">
+    <section
+      aria-label="Resumen del turno"
+      className={cn('grid grid-cols-1 sm:grid-cols-3 gap-3', COLUMNAS_2XL[medios.length] ?? 'sm:grid-cols-3')}
+    >
       <>
-        {resumen.por_medio.map((medio) => {
+        {medios.map((medio) => {
           const Icono = ICONOS_MEDIO_PAGO[medio.codigo];
           const activo = medioActivo === medio.codigo;
 

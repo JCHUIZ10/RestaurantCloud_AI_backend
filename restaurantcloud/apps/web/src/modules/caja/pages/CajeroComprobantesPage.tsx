@@ -297,7 +297,7 @@ export const CajeroComprobantesPage: React.FC = () => {
             estado={estado}
             tipo={tipo}
             medio={medio}
-            medios={datos.resumen.por_medio}
+            medios={datos.resumen.por_medio.filter((m) => m.mostrar)}
             busqueda={busqueda}
             conteos={{
               vigentes: datos.resumen.vigentes_count,
