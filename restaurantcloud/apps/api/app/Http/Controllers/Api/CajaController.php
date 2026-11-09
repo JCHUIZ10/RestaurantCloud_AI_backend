@@ -655,9 +655,7 @@ class CajaController extends Controller
         $metodoPagoService = app(MetodoPagoLocalService::class);
 
         $opcionesCobro = $metodosPago->map(function ($mp) use ($totalNeto, $localId, $metodoPagoService) {
-            $porcentajeRecargo = $mp->codigo === 'tarjeta'
-                ? (float) $mp->comision_porcentaje
-                : 0.0;
+            $porcentajeRecargo = MetodoPagoLocalService::porcentajeRecargo($mp->codigo, $mp->comision_porcentaje);
             $comision = round($totalNeto * ($porcentajeRecargo / 100), 2);
             $datosAdicionales = is_string($mp->datos_adicionales)
                 ? json_decode($mp->datos_adicionales, true)
@@ -676,7 +674,7 @@ class CajaController extends Controller
                 'monto_comision' => $comision,
                 'total_estimado' => round($totalNeto + $comision, 2),
                 'detalle_billetera' => $esBilletera
-                    ? $metodoPagoService->detalleBilletera($localId, $datosAdicionales, $totalNeto)
+                    ? $metodoPagoService->detalleBilletera($localId, $datosAdicionales, round($totalNeto + $comision, 2))
                     : null,
                 'datos_adicionales' => $datosAdicionales,
             ];
@@ -1105,9 +1103,7 @@ class CajaController extends Controller
                 $totalConsumo = $subcuenta
                     ? round((float) $subcuenta->total - (float) $subcuenta->monto_recargo, 2)
                     : (float) $itemsToCharge->sum('subtotal');
-                $porcentajeRecargo = $metodoPago->codigo === 'tarjeta'
-                    ? (float) $metodoPago->comision_porcentaje
-                    : 0.0;
+                $porcentajeRecargo = MetodoPagoLocalService::porcentajeRecargo($metodoPago->codigo, $metodoPago->comision_porcentaje);
                 $montoRecargo = round($totalConsumo * ($porcentajeRecargo / 100), 2);
                 $totalCobro = round($totalConsumo + $montoRecargo, 2);
                 $baseImponible = round($totalCobro / self::DIVISOR_IGV, 2);
@@ -1708,6 +1704,11 @@ class CajaController extends Controller
             'cliente_nombre' => $comp->nombre_cliente,
             'cliente_numero_doc' => $comp->documento_cliente,
             'medio_pago_codigo' => $comp->medio_pago,
+            'devolucion_metodo_sugerido' => match ($comp->medio_pago) {
+                'efectivo' => 'efectivo',
+                'tarjeta' => 'extorno_tarjeta',
+                default => 'transferencia',
+            },
             'total_original' => (float) $comp->total,
             'base_imponible' => (float) $comp->base_imponible,
             'igv' => (float) $comp->igv,
@@ -1767,6 +1768,21 @@ class CajaController extends Controller
 
             if ($comp->tipo === 'nota_credito') {
                 return ApiResponse::error('OPERACION_INVALIDA', 'No se puede emitir una nota de crédito sobre otra nota de crédito.', 422);
+            }
+
+            // La devolución sale de la gaveta solo si la venta entró por la gaveta: una venta de tarjeta o billetera
+            // se extorna o transfiere, y una venta en efectivo se devuelve en efectivo. Mezclarlos descuadraría
+            // el efectivo esperado frente al neto por medio de pago.
+            $ventaEnEfectivo = $comp->medio_pago === 'efectivo';
+            $devuelveEnEfectivo = $validated['devolucion_metodo'] === 'efectivo';
+            if ($ventaEnEfectivo !== $devuelveEnEfectivo) {
+                return ApiResponse::error(
+                    'ERR_DEVOLUCION_INCONSISTENTE',
+                    $ventaEnEfectivo
+                        ? 'Una venta cobrada en efectivo solo puede devolverse en efectivo desde la gaveta.'
+                        : 'Una venta cobrada con '.($comp->medio_pago ?? 'otro medio').' no puede devolverse en efectivo de la gaveta; use extorno o transferencia.',
+                    422
+                );
             }
 
             $serieNC = match ($comp->tipo) {
@@ -1858,7 +1874,7 @@ class CajaController extends Controller
                 ]);
 
             // 4. Registrar egreso en gaveta de caja si corresponde a efectivo
-            if ($validated['devolucion_metodo'] === 'efectivo' || $comp->medio_pago === 'efectivo') {
+            if ($devuelveEnEfectivo) {
                 DB::table('caja_movimiento')->insert([
                     'id' => (string) Str::uuid(),
                     'caja_id' => $caja->id,
@@ -2102,9 +2118,25 @@ class CajaController extends Controller
             ->count();
 
         $notasCreditoCount = (int) $resumen['notas_credito']['count'];
+        $efectivoNc = (int) $porMedio['efectivo']['notas_credito'];
+        $tarjetasNc = (int) $porMedio['tarjeta']['notas_credito'];
+        $billeterasNc = (int) $porMedio['billetera_digital']['notas_credito'];
+        $otrosNc = max(0, $notasCreditoCount - $efectivoNc - $tarjetasNc - $billeterasNc);
         $comprobantesAnuladosCount = (int) $resumen['anulados_count'];
 
-        $totalIngresosBrutos = round($ingresosEfectivo + $tarjetasPosTotal + $billeterasTotal + $otrosCobrosTotal, 2);
+        // Desglose por medio con la misma semántica en todas las filas: bruto - devoluciones = neto.
+        // "Otros" se obtiene por diferencia con los totales del turno (cobros en medios fuera del catálogo).
+        $efectivoBruto = (float) $porMedio['efectivo']['bruto'];
+        $efectivoDevoluciones = (float) $porMedio['efectivo']['devoluciones'];
+        $tarjetasBruto = (float) $porMedio['tarjeta']['bruto'];
+        $tarjetasDevoluciones = (float) $porMedio['tarjeta']['devoluciones'];
+        $billeterasBruto = (float) $porMedio['billetera_digital']['bruto'];
+        $billeterasDevoluciones = (float) $porMedio['billetera_digital']['devoluciones'];
+        $otrosBruto = round((float) $resumen['total_bruto'] - $efectivoBruto - $tarjetasBruto - $billeterasBruto, 2);
+        $otrosDevoluciones = round((float) $resumen['total_devoluciones'] - $efectivoDevoluciones - $tarjetasDevoluciones - $billeterasDevoluciones, 2);
+
+        $totalIngresosBrutos = round((float) $resumen['total_bruto'], 2);
+        $totalDevoluciones = round((float) $resumen['total_devoluciones'], 2);
         $totalEgresos = round($egresosDevolucionNC, 2);
 
         $salonAlDia = ($mesasActivasPendientes === 0);
@@ -2134,9 +2166,31 @@ class CajaController extends Controller
             'billeteras_operaciones' => $billeterasOperaciones,
             'otros_cobros_total' => $otrosCobrosTotal,
             'otros_operaciones' => $otrosOperaciones,
+            // Solo condiciona qué filas se dibujan: los totales de arriba se envían siempre (en 0 si el medio está oculto)
+            'medios_visibles' => $resumen['medios_visibles'],
+            'notas_credito_detalle' => $resumen['notas_credito_detalle'],
+            'tarjetas_recargo' => (float) $porMedio['tarjeta']['recargo'],
+            'billeteras_recargo' => (float) $porMedio['billetera_digital']['recargo'],
+            'total_recargos' => (float) $resumen['total_recargos'],
+            'ingreso_consumo' => (float) $resumen['ingreso_consumo'],
+            'efectivo_neto' => round((float) $porMedio['efectivo']['neto'], 2),
+            'efectivo_devoluciones' => $efectivoDevoluciones,
+            'tarjetas_bruto' => $tarjetasBruto,
+            'tarjetas_devoluciones' => $tarjetasDevoluciones,
+            'billeteras_bruto' => $billeterasBruto,
+            'billeteras_devoluciones' => $billeterasDevoluciones,
+            'otros_bruto' => $otrosBruto,
+            'otros_devoluciones' => $otrosDevoluciones,
             'total_ingresos_brutos' => $totalIngresosBrutos,
+            'total_devoluciones' => $totalDevoluciones,
             'total_egresos' => $totalEgresos,
             'notas_credito_count' => $notasCreditoCount,
+            'efectivo_nc' => $efectivoNc,
+            'tarjetas_nc' => $tarjetasNc,
+            'billeteras_nc' => $billeterasNc,
+            'otros_nc' => $otrosNc,
+            'tarjetas_cobros_brutos' => (int) $porMedio['tarjeta']['operaciones_brutas'],
+            'billeteras_cobros_brutos' => (int) $porMedio['billetera_digital']['operaciones_brutas'],
             'comprobantes_anulados_count' => $comprobantesAnuladosCount,
             'total_facturado_neto' => round($totalFacturadoNeto, 2),
             'base_imponible' => round($baseImponible, 2),
@@ -2162,133 +2216,153 @@ class CajaController extends Controller
             'notas_cierre' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $caja = DB::table('caja as c')
-            ->join('usuario as u', 'u.id', '=', 'c.cajero_id')
-            ->where('c.local_id', $localId)
-            ->where('c.estado', 'abierta')
-            ->select(['c.*', 'u.nombre as cajero_nombre'])
-            ->first();
-
-        if (! $caja) {
-            return ApiResponse::error('ERR_CAJA_NO_ABIERTA', 'No existe un turno de caja abierto en esta sede para cerrar.', 409);
-        }
-
-        // Regla Poka-Yoke: no cerrar con mesas activas o con comensales
-        $mesasActivasPendientes = (int) DB::table('pedido as p')
-            ->where('p.local_id', $localId)
-            ->whereIn('p.estado', ['borrador', 'enviado', 'cuenta_pedida'])
-            ->count();
-
-        if ($mesasActivasPendientes > 0) {
-            return ApiResponse::error(
-                'ERR_SALON_CON_MESAS_ACTIVAS',
-                "No se puede cerrar caja: existen {$mesasActivasPendientes} mesas con pedidos activos pendientes de cobro en el salón.",
-                409
-            );
-        }
-
         $montoRealFisico = (float) $validated['monto_real_fisico'];
-
-        $comprobantes = DB::table('comprobante')
-            ->where('caja_id', $caja->id)
-            ->where('estado', 'emitido')
-            ->get();
-
-        $resumen = $historial->resumenTurno($caja);
-        $porMedio = collect($resumen['por_medio'])->keyBy('codigo');
-
-        $ingresosEfectivo = (float) $resumen['efectivo']['ingresos_brutos'];
-        $egresosDevolucionNC = (float) $resumen['efectivo']['egresos'];
-        $montoApertura = (float) $caja->monto_apertura;
-        $efectivoEsperado = (float) $resumen['efectivo']['esperado'];
-        $discrepancia = round($montoRealFisico - $efectivoEsperado, 2);
-
         $comentarioDiscrepancia = isset($validated['comentario_discrepancia']) ? trim($validated['comentario_discrepancia']) : null;
-
-        // Validación de justificación obligatoria si hay discrepancia (mínimo 10 caracteres)
-        if (abs($discrepancia) > 0.001) {
-            if (empty($comentarioDiscrepancia) || mb_strlen($comentarioDiscrepancia) < 10) {
-                return ApiResponse::error(
-                    'ERR_DISCREPANCIA_SIN_JUSTIFICAR',
-                    'Existe una diferencia entre el efectivo real y el esperado; el comentario justificativo es obligatorio (mínimo 10 caracteres).',
-                    422
-                );
-            }
-        }
-
-        $aperturaTime = Carbon::parse($caja->fecha_apertura);
-        $cierreTime = now();
-        $diff = $aperturaTime->diff($cierreTime);
-        $duracionStr = sprintf('%dh %02dm %02ds', $diff->h + ($diff->days * 24), $diff->i, $diff->s);
-
-        $boletasEmitidas = (int) $comprobantes->where('tipo', 'boleta')->count();
-        $facturasEmitidas = (int) $comprobantes->where('tipo', 'factura')->count();
-        $notasVentaEmitidas = (int) $comprobantes->where('tipo', 'nota_venta')->count();
-        $notasCreditoEmitidas = (int) DB::table('comprobante')->where('caja_id', $caja->id)->where('tipo', 'nota_credito')->count();
-        $comprobantesAnulados = (int) DB::table('comprobante')->where('caja_id', $caja->id)->where('estado', 'anulado')->count();
-
-        $tarjetasPosTotal = (float) $porMedio['tarjeta']['neto'];
-        $billeterasTotal = (float) $porMedio['billetera_digital']['neto'];
-        $otrosCobrosTotal = round((float) $resumen['total_neto'] - (float) $porMedio['efectivo']['neto'] - $tarjetasPosTotal - $billeterasTotal, 2);
-
-        $totalNetoFacturado = (float) $resumen['total_neto'];
-        $baseImponible = (float) $resumen['base_imponible'];
-        $igv18 = (float) $resumen['igv'];
-
-        $local = DB::table('local as l')
-            ->join('empresa as e', 'e.id', '=', 'l.empresa_id')
-            ->where('l.id', $localId)
-            ->select(['l.nombre as local_nombre', 'e.ruc as empresa_ruc', 'e.id as empresa_id'])
-            ->first();
-        $localNombre = $local ? $local->local_nombre : 'Áurea';
-        $empresaRuc = $local ? $local->empresa_ruc : '20609876543';
-        $empresaId = $local ? $local->empresa_id : (string) Str::uuid();
-
         $notasCierre = isset($validated['notas_cierre']) ? trim($validated['notas_cierre']) : null;
 
-        $reporteZ = [
-            'caja_id' => $caja->id,
-            'turno_correlativo' => (int) $caja->correlativo,
-            'local_nombre' => $localNombre,
-            'empresa_ruc' => $empresaRuc,
-            'cajero_nombre' => $caja->cajero_nombre ?? $user->nombre,
-            'fecha_apertura' => Carbon::parse($caja->fecha_apertura)->toIso8601String(),
-            'fecha_cierre' => $cierreTime->toIso8601String(),
-            'duracion_turno' => $duracionStr,
-            'monto_apertura' => $montoApertura,
-            'efectivo_esperado' => $efectivoEsperado,
-            'efectivo_real_contado' => $montoRealFisico,
-            'discrepancia' => $discrepancia,
-            'comentario_discrepancia' => $comentarioDiscrepancia,
-            'total_ventas_efectivo' => $ingresosEfectivo,
-            'total_efectivo_neto' => round((float) $porMedio['efectivo']['neto'], 2),
-            'total_tarjetas_pos' => $tarjetasPosTotal,
-            'total_billeteras_digital' => $billeterasTotal,
-            'otros_medios_total' => $otrosCobrosTotal,
-            'total_devoluciones_efectivo' => round($egresosDevolucionNC, 2),
-            'total_neto_facturado' => round($totalNetoFacturado, 2),
-            'base_imponible_gravada' => round($baseImponible, 2),
-            'igv_18' => round($igv18, 2),
-            'boletas_emitidas' => $boletasEmitidas,
-            'facturas_emitidas' => $facturasEmitidas,
-            'notas_venta_emitidas' => $notasVentaEmitidas,
-            'notas_credito_emitidas' => $notasCreditoEmitidas,
-            'comprobantes_anulados' => $comprobantesAnulados,
-            'notas_cierre' => $notasCierre,
-            'url_descarga_pdf' => "/api/v1/caja/turnos/{$caja->id}/reporte-z/pdf",
-        ];
+        // Todo el cierre ocurre bajo un bloqueo de la fila de caja: dos cierres simultáneos (dos pestañas,
+        // cajero y admin_local) se serializan y el segundo ya encuentra el turno cerrado, así que no se
+        // duplica el Reporte Z ni su registro de auditoría. El resumen se calcula dentro del bloqueo para
+        // que las cifras del Z correspondan exactamente al estado que se cierra.
+        $resultado = DB::transaction(function () use ($user, $localId, $historial, $montoRealFisico, $comentarioDiscrepancia, $notasCierre) {
+            $caja = DB::table('caja')
+                ->where('local_id', $localId)
+                ->where('estado', 'abierta')
+                ->lockForUpdate()
+                ->first();
 
-        $cierreResult = DB::transaction(function () use ($caja, $localId, $user, $montoRealFisico, $efectivoEsperado, $discrepancia, $comentarioDiscrepancia, $notasCierre, $reporteZ) {
-            DB::table('caja')->where('id', $caja->id)->update([
-                'estado' => 'cerrada',
-                'fecha_cierre' => now(),
-                'monto_esperado' => $efectivoEsperado,
-                'monto_real' => $montoRealFisico,
+            if (! $caja) {
+                return ApiResponse::error('ERR_CAJA_NO_ABIERTA', 'No existe un turno de caja abierto en esta sede para cerrar.', 409);
+            }
+
+            $cajeroNombre = DB::table('usuario')->where('id', $caja->cajero_id)->value('nombre');
+
+            // Regla Poka-Yoke: no cerrar con mesas activas o con comensales
+            $mesasActivasPendientes = (int) DB::table('pedido as p')
+                ->where('p.local_id', $localId)
+                ->whereIn('p.estado', ['borrador', 'enviado', 'cuenta_pedida'])
+                ->count();
+
+            if ($mesasActivasPendientes > 0) {
+                return ApiResponse::error(
+                    'ERR_SALON_CON_MESAS_ACTIVAS',
+                    "No se puede cerrar caja: existen {$mesasActivasPendientes} mesas con pedidos activos pendientes de cobro en el salón.",
+                    409
+                );
+            }
+
+            $comprobantes = DB::table('comprobante')
+                ->where('caja_id', $caja->id)
+                ->where('estado', 'emitido')
+                ->get();
+
+            $resumen = $historial->resumenTurno($caja);
+            $porMedio = collect($resumen['por_medio'])->keyBy('codigo');
+
+            $ingresosEfectivo = (float) $resumen['efectivo']['ingresos_brutos'];
+            $egresosDevolucionNC = (float) $resumen['efectivo']['egresos'];
+            $montoApertura = (float) $caja->monto_apertura;
+            $efectivoEsperado = (float) $resumen['efectivo']['esperado'];
+            $discrepancia = round($montoRealFisico - $efectivoEsperado, 2);
+
+            // Validación de justificación obligatoria si hay discrepancia (mínimo 10 caracteres)
+            if (abs($discrepancia) > 0.001) {
+                if (empty($comentarioDiscrepancia) || mb_strlen($comentarioDiscrepancia) < 10) {
+                    return ApiResponse::error(
+                        'ERR_DISCREPANCIA_SIN_JUSTIFICAR',
+                        'Existe una diferencia entre el efectivo real y el esperado; el comentario justificativo es obligatorio (mínimo 10 caracteres).',
+                        422
+                    );
+                }
+            }
+
+            $aperturaTime = Carbon::parse($caja->fecha_apertura);
+            $cierreTime = now();
+            $diff = $aperturaTime->diff($cierreTime);
+            $duracionStr = sprintf('%dh %02dm %02ds', $diff->h + ($diff->days * 24), $diff->i, $diff->s);
+
+            $boletasEmitidas = (int) $comprobantes->where('tipo', 'boleta')->count();
+            $facturasEmitidas = (int) $comprobantes->where('tipo', 'factura')->count();
+            $notasVentaEmitidas = (int) $comprobantes->where('tipo', 'nota_venta')->count();
+            $notasCreditoEmitidas = (int) DB::table('comprobante')->where('caja_id', $caja->id)->where('tipo', 'nota_credito')->count();
+            $comprobantesAnulados = (int) DB::table('comprobante')->where('caja_id', $caja->id)->where('estado', 'anulado')->count();
+
+            $tarjetasPosTotal = (float) $porMedio['tarjeta']['neto'];
+            $billeterasTotal = (float) $porMedio['billetera_digital']['neto'];
+            $otrosCobrosTotal = round((float) $resumen['total_neto'] - (float) $porMedio['efectivo']['neto'] - $tarjetasPosTotal - $billeterasTotal, 2);
+
+            $totalNetoFacturado = (float) $resumen['total_neto'];
+            $baseImponible = (float) $resumen['base_imponible'];
+            $igv18 = (float) $resumen['igv'];
+
+            $local = DB::table('local as l')
+                ->join('empresa as e', 'e.id', '=', 'l.empresa_id')
+                ->where('l.id', $localId)
+                ->select(['l.nombre as local_nombre', 'e.ruc as empresa_ruc', 'e.id as empresa_id'])
+                ->first();
+            $localNombre = $local ? $local->local_nombre : 'Áurea';
+            $empresaRuc = $local ? $local->empresa_ruc : '20609876543';
+            $empresaId = $local ? $local->empresa_id : (string) Str::uuid();
+
+            $reporteZ = [
+                'caja_id' => $caja->id,
+                'turno_correlativo' => (int) $caja->correlativo,
+                'local_nombre' => $localNombre,
+                'empresa_ruc' => $empresaRuc,
+                'cajero_nombre' => $cajeroNombre ?? $user->nombre,
+                'fecha_apertura' => $aperturaTime->toIso8601String(),
+                'fecha_cierre' => $cierreTime->toIso8601String(),
+                'duracion_turno' => $duracionStr,
+                'monto_apertura' => $montoApertura,
+                'efectivo_esperado' => $efectivoEsperado,
+                'efectivo_real_contado' => $montoRealFisico,
                 'discrepancia' => $discrepancia,
                 'comentario_discrepancia' => $comentarioDiscrepancia,
+                'total_ventas_efectivo' => $ingresosEfectivo,
+                'total_efectivo_neto' => round((float) $porMedio['efectivo']['neto'], 2),
+                'total_tarjetas_pos' => $tarjetasPosTotal,
+                'total_billeteras_digital' => $billeterasTotal,
+                'otros_medios_total' => $otrosCobrosTotal,
+                // Medios que se mostraron ese día: el Reporte Z queda inmutable con ellos
+                'medios_visibles' => $resumen['medios_visibles'],
+                'notas_credito_detalle' => $resumen['notas_credito_detalle'],
+                'ventas_por_tipo' => $resumen['por_tipo'],
+                'descuentos_turno' => $resumen['descuentos'],
+                'recargo_tarjetas' => (float) $porMedio['tarjeta']['recargo'],
+                'recargo_billeteras' => (float) $porMedio['billetera_digital']['recargo'],
+                'total_recargos' => (float) $resumen['total_recargos'],
+                'ingreso_consumo' => (float) $resumen['ingreso_consumo'],
+                'total_devoluciones_efectivo' => round($egresosDevolucionNC, 2),
+                'total_neto_facturado' => round($totalNetoFacturado, 2),
+                'base_imponible_gravada' => round($baseImponible, 2),
+                'igv_18' => round($igv18, 2),
+                'boletas_emitidas' => $boletasEmitidas,
+                'facturas_emitidas' => $facturasEmitidas,
+                'notas_venta_emitidas' => $notasVentaEmitidas,
+                'notas_credito_emitidas' => $notasCreditoEmitidas,
+                'comprobantes_anulados' => $comprobantesAnulados,
                 'notas_cierre' => $notasCierre,
-                'updated_at' => now(),
-            ]);
+                'url_descarga_pdf' => "/api/v1/caja/turnos/{$caja->id}/reporte-z/pdf",
+            ];
+
+            // El estado en la condición es una segunda defensa: si la fila ya no está abierta, no se cierra dos veces.
+            $filasCerradas = DB::table('caja')
+                ->where('id', $caja->id)
+                ->where('estado', 'abierta')
+                ->update([
+                    'estado' => 'cerrada',
+                    'fecha_cierre' => $cierreTime,
+                    'monto_esperado' => $efectivoEsperado,
+                    'monto_real' => $montoRealFisico,
+                    'discrepancia' => $discrepancia,
+                    'comentario_discrepancia' => $comentarioDiscrepancia,
+                    'notas_cierre' => $notasCierre,
+                    'updated_at' => now(),
+                ]);
+
+            if ($filasCerradas !== 1) {
+                return ApiResponse::error('ERR_CAJA_NO_ABIERTA', 'No existe un turno de caja abierto en esta sede para cerrar.', 409);
+            }
 
             DB::table('caja_movimiento')->insert([
                 'id' => (string) Str::uuid(),
@@ -2310,26 +2384,34 @@ class CajaController extends Controller
                 'created_at' => now(),
             ]);
 
-            return $reporteZ;
+            return ['reporte_z' => $reporteZ, 'empresa_id' => $empresaId, 'caja_id' => $caja->id];
         });
 
-        // Generar y persistir inmutablemente el PDF del Reporte Z en MinIO bajo reportes-z
+        // Los errores de negocio salen del bloqueo como respuesta ya armada
+        if ($resultado instanceof JsonResponse) {
+            return $resultado;
+        }
+
+        $reporteZ = $resultado['reporte_z'];
+
+        // Generar y persistir inmutablemente el PDF del Reporte Z en MinIO bajo reportes-z.
+        // Va fuera de la transacción: si falla, el cierre ya está confirmado y el PDF se regenera bajo demanda.
         try {
             app(ReporteZDigitalService::class)->generarPdf(
-                $caja->id,
+                $resultado['caja_id'],
                 $reporteZ,
-                $empresaId,
+                $resultado['empresa_id'],
                 $localId,
                 $user->id
             );
         } catch (\Throwable $e) {
             Log::warning('No se pudo guardar el PDF de Reporte Z en MinIO: '.$e->getMessage(), [
-                'caja_id' => $caja->id,
+                'caja_id' => $resultado['caja_id'],
                 'local_id' => $localId,
             ]);
         }
 
-        return ApiResponse::ok($cierreResult);
+        return ApiResponse::ok($reporteZ);
     }
 
     /**

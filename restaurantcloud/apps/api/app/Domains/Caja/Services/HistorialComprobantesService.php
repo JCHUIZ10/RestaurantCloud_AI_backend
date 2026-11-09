@@ -40,12 +40,15 @@ class HistorialComprobantesService
      * son notas de crédito: no hay que restarles nada más.
      *
      * @return array{
-     *     por_medio: list<array{codigo: string, nombre: string, neto: float, operaciones: int, activo: bool, mostrar: bool}>,
+     *     medios_visibles: list<string>,
+     *     por_medio: list<array{codigo: string, nombre: string, bruto: float, devoluciones: float, neto: float, operaciones: int, activo: bool, mostrar: bool}>,
      *     efectivo: array{ingresos_brutos: float, operaciones_brutas: int, egresos: float, esperado: float},
      *     vigentes_count: int,
      *     anulados_count: int,
      *     notas_credito: array{count: int, monto: float},
      *     total_neto: float,
+     *     total_bruto: float,
+     *     total_devoluciones: float,
      *     base_imponible: float,
      *     igv: float,
      *     efectivo_gaveta: float
@@ -55,19 +58,32 @@ class HistorialComprobantesService
     {
         $todos = DB::table('comprobante')
             ->where('caja_id', $caja->id)
-            ->get(['medio_pago', 'tipo', 'estado', 'total', 'base_imponible', 'igv']);
+            ->get(['medio_pago', 'tipo', 'estado', 'total', 'descuento', 'monto_recargo', 'base_imponible', 'igv']);
 
         $emitidos = $todos->where('estado', 'emitido');
         $ventas = $emitidos->where('tipo', '!=', 'nota_credito');
         $notasCredito = $emitidos->where('tipo', 'nota_credito');
+        // Ventas brutas: todo lo vendido, incluso lo que luego se anuló con una nota de crédito.
+        $ventasBrutas = $todos->where('tipo', '!=', 'nota_credito');
         $porMedio = [];
         foreach ($this->configuracionMedios((string) $caja->local_id) as $codigo => $medio) {
             $delMedio = $ventas->where('medio_pago', $codigo);
+            $neto = round((float) $delMedio->sum('total'), 2);
+            $bruto = round((float) $ventasBrutas->where('medio_pago', $codigo)->sum('total'), 2);
             $porMedio[] = [
                 'codigo' => $codigo,
                 'nombre' => $medio['nombre'],
-                'neto' => round((float) $delMedio->sum('total'), 2),
+                // Por medio siempre se cumple bruto - devoluciones = neto
+                'bruto' => $bruto,
+                'devoluciones' => round($bruto - $neto, 2),
+                'neto' => $neto,
+                // Recargo vigente cobrado al cliente por usar el medio (las ventas anuladas por NC ya no cuentan)
+                'recargo' => round((float) $delMedio->sum('monto_recargo'), 2),
                 'operaciones' => $delMedio->count(),
+                // Cobros brutos (incluye los anulados por NC), coherentes con la columna Ingresos
+                'operaciones_brutas' => $ventasBrutas->where('medio_pago', $codigo)->count(),
+                // La NC copia el medio de la venta que anula, así que se cuenta bajo el mismo medio
+                'notas_credito' => $notasCredito->where('medio_pago', $codigo)->count(),
                 'activo' => $medio['activo'],
                 // Un medio desactivado en plena jornada sigue visible si ya se cobró con él en este turno
                 'mostrar' => $medio['activo'] || $todos->where('medio_pago', $codigo)->isNotEmpty(),
@@ -91,7 +107,70 @@ class HistorialComprobantesService
             ->whereIn('tipo', ['egreso_devolucion', 'egreso_gasto_manual'])
             ->sum(DB::raw('ABS(monto)')), 2);
 
+        // Códigos que el cierre de turno muestra: efectivo siempre (la gaveta siempre se cuadra) y el resto
+        // solo si está activo o ya tuvo cobros en el turno. Un medio oculto siempre tiene neto 0.
+        $mediosVisibles = ['efectivo'];
+        foreach ($porMedio as $medio) {
+            if ($medio['codigo'] !== 'efectivo' && $medio['mostrar']) {
+                $mediosVisibles[] = $medio['codigo'];
+            }
+        }
+
+        // Detalle de cada NC del turno: qué comprobante anula, por qué medio, motivo y monto
+        $notasCreditoDetalle = DB::table('comprobante as nc')
+            ->leftJoin('comprobante as orig', 'orig.id', '=', 'nc.comprobante_modificado_id')
+            ->where('nc.caja_id', $caja->id)
+            ->where('nc.tipo', 'nota_credito')
+            ->where('nc.estado', 'emitido')
+            ->orderBy('nc.fecha')
+            ->get([
+                'nc.serie', 'nc.correlativo', 'nc.medio_pago', 'nc.total', 'nc.fecha',
+                'nc.motivo_codigo_sunat', 'nc.sustento_motivo',
+                'orig.serie as orig_serie', 'orig.correlativo as orig_correlativo',
+            ])
+            ->map(fn ($nc): array => [
+                'documento' => $this->serieNumero($nc->serie, $nc->correlativo),
+                'documento_modificado' => $nc->orig_serie ? $this->serieNumero($nc->orig_serie, $nc->orig_correlativo) : null,
+                'medio_pago' => $nc->medio_pago,
+                'motivo_codigo_sunat' => $nc->motivo_codigo_sunat,
+                'motivo_texto' => $this->motivoTexto($nc->motivo_codigo_sunat),
+                'sustento_motivo' => $nc->sustento_motivo,
+                'monto' => round(abs((float) $nc->total), 2),
+                // Solo la devolución en efectivo sale de la gaveta (la fase 3 garantiza medio y devolución coherentes)
+                'afecta_gaveta' => $nc->medio_pago === 'efectivo',
+                'fecha' => Carbon::parse($nc->fecha)->toIso8601String(),
+            ])
+            ->values()
+            ->all();
+
+        // Recargos (comisión de tarjeta o pasarela) y lo que queda tras descontarlos del cobrado neto
+        $totalRecargos = round((float) $ventas->sum('monto_recargo'), 2);
+
+        // Ventas vigentes por tipo de comprobante (las notas de venta no son comprobante SUNAT)
+        $porTipo = [];
+        foreach (['boleta', 'factura', 'nota_venta'] as $tipo) {
+            $delTipo = $ventas->where('tipo', $tipo);
+            $porTipo[] = [
+                'tipo' => $tipo,
+                'cantidad' => $delTipo->count(),
+                'monto' => round((float) $delTipo->sum('total'), 2),
+            ];
+        }
+
+        // Descuentos comerciales de las ventas vigentes
+        $conDescuento = $ventas->filter(fn ($c): bool => (float) $c->descuento > 0.0);
+        $descuentos = [
+            'total' => round((float) $conDescuento->sum('descuento'), 2),
+            'comprobantes' => $conDescuento->count(),
+        ];
+
         return [
+            'por_tipo' => $porTipo,
+            'descuentos' => $descuentos,
+            'total_recargos' => $totalRecargos,
+            'ingreso_consumo' => round((float) $ventas->sum('total') - $totalRecargos, 2),
+            'medios_visibles' => $mediosVisibles,
+            'notas_credito_detalle' => $notasCreditoDetalle,
             'por_medio' => $porMedio,
             'efectivo' => [
                 'ingresos_brutos' => $ingresosBrutos,
@@ -106,6 +185,8 @@ class HistorialComprobantesService
                 'monto' => round(abs((float) $notasCredito->sum('total')), 2),
             ],
             'total_neto' => round((float) $ventas->sum('total'), 2),
+            'total_bruto' => round((float) $ventasBrutas->sum('total'), 2),
+            'total_devoluciones' => round((float) $ventasBrutas->sum('total') - (float) $ventas->sum('total'), 2),
             'base_imponible' => round((float) $ventas->sum('base_imponible'), 2),
             'igv' => round((float) $ventas->sum('igv'), 2),
             'efectivo_gaveta' => round((float) $caja->monto_apertura + $movimientosEfectivo, 2),

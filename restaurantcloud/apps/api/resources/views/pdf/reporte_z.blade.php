@@ -92,21 +92,39 @@
 
     <!-- Bloque 2: Recaudación por Método de Pago -->
     <h3>2. Total Recaudado por Método de Pago</h3>
+    @php
+        // Un Z anterior a esta regla no trae la lista: se muestran todas las columnas como cuando se cerró.
+        $mediosVisibles = $reporte['medios_visibles'] ?? null;
+        $verMedio = fn (string $codigo): bool => $mediosVisibles === null || in_array($codigo, $mediosVisibles, true);
+        $verOtros = $mediosVisibles === null || (float) ($reporte['otros_medios_total'] ?? 0) !== 0.0;
+    @endphp
     <table>
         <thead>
             <tr>
                 <th>Efectivo Gaveta</th>
-                <th>Tarjetas POS</th>
-                <th>Billeteras Digitales</th>
-                <th>Otros Medios</th>
+                @if($verMedio('tarjeta'))
+                    <th>Tarjetas POS</th>
+                @endif
+                @if($verMedio('billetera_digital'))
+                    <th>Billeteras Digitales</th>
+                @endif
+                @if($verOtros)
+                    <th>Otros Medios</th>
+                @endif
             </tr>
         </thead>
         <tbody>
             <tr>
                 <td>S/ {{ number_format((float) ($reporte['total_efectivo_neto'] ?? $reporte['total_ventas_efectivo'] ?? 0), 2) }}</td>
-                <td>S/ {{ number_format((float) ($reporte['total_tarjetas_pos'] ?? 0), 2) }}</td>
-                <td>S/ {{ number_format((float) ($reporte['total_billeteras_digital'] ?? 0), 2) }}</td>
-                <td>S/ {{ number_format((float) ($reporte['otros_medios_total'] ?? 0), 2) }}</td>
+                @if($verMedio('tarjeta'))
+                    <td>S/ {{ number_format((float) ($reporte['total_tarjetas_pos'] ?? 0), 2) }}</td>
+                @endif
+                @if($verMedio('billetera_digital'))
+                    <td>S/ {{ number_format((float) ($reporte['total_billeteras_digital'] ?? 0), 2) }}</td>
+                @endif
+                @if($verOtros)
+                    <td>S/ {{ number_format((float) ($reporte['otros_medios_total'] ?? 0), 2) }}</td>
+                @endif
             </tr>
         </tbody>
     </table>
@@ -117,6 +135,38 @@
             <td class="right bold" style="font-size: 13px;">S/ {{ number_format((float) ($reporte['total_neto_facturado'] ?? 0), 2) }}</td>
         </tr>
     </table>
+
+    <!-- Consumo vs recargos (solo si el Z lo guardó y hubo recargos) -->
+    @if((float) ($reporte['total_recargos'] ?? 0) > 0)
+        <h3>Del Total Cobrado: Consumo y Recargos</h3>
+        <table>
+            <tbody>
+                <tr>
+                    <td>Cobrado neto (todos los medios)</td>
+                    <td class="right bold">S/ {{ number_format((float) ($reporte['total_neto_facturado'] ?? 0), 2) }}</td>
+                </tr>
+                @if((float) ($reporte['recargo_tarjetas'] ?? 0) > 0)
+                    <tr>
+                        <td>&minus; Recargo por uso de tarjeta</td>
+                        <td class="right">S/ {{ number_format((float) $reporte['recargo_tarjetas'], 2) }}</td>
+                    </tr>
+                @endif
+                @if((float) ($reporte['recargo_billeteras'] ?? 0) > 0)
+                    <tr>
+                        <td>&minus; Recargo por uso de Yape / Plin</td>
+                        <td class="right">S/ {{ number_format((float) $reporte['recargo_billeteras'], 2) }}</td>
+                    </tr>
+                @endif
+                <tr>
+                    <td class="bold">= Ingreso por consumo</td>
+                    <td class="right bold">S/ {{ number_format((float) ($reporte['ingreso_consumo'] ?? 0), 2) }}</td>
+                </tr>
+            </tbody>
+        </table>
+        <div style="font-size: 7.5px; color: #64748b; margin-top: 3px;">
+            Recargo cobrado al cliente según el porcentaje configurado; la liquidación real del banco o la pasarela puede variar.
+        </div>
+    @endif
 
     <!-- Bloque 3: Resumen Tributario Oficial SUNAT -->
     <h3>3. Resumen Tributario Oficial SUNAT</h3>
@@ -146,6 +196,76 @@
         <span class="tag"><strong>{{ $reporte['notas_credito_emitidas'] ?? 0 }}</strong> Notas de Crédito</span>
         <span class="tag"><strong>{{ $reporte['comprobantes_anulados'] ?? 0 }}</strong> Anulados</span>
     </div>
+
+    <!-- Ventas vigentes por tipo de comprobante y descuentos (solo si el Z lo guardó al cerrar) -->
+    @if(!empty($reporte['ventas_por_tipo']))
+        @php
+            $etiquetaTipo = ['boleta' => 'Boletas', 'factura' => 'Facturas', 'nota_venta' => 'Notas de venta (documento interno, no SUNAT)'];
+        @endphp
+        <h3>Ventas Vigentes por Tipo de Comprobante</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 60%;">Tipo</th>
+                    <th style="width: 15%;" class="right">Cantidad</th>
+                    <th style="width: 25%;" class="right">Monto</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($reporte['ventas_por_tipo'] as $t)
+                    <tr>
+                        <td>{{ $etiquetaTipo[$t['tipo'] ?? ''] ?? ($t['tipo'] ?? '') }}</td>
+                        <td class="right">{{ $t['cantidad'] ?? 0 }}</td>
+                        <td class="right">S/ {{ number_format((float) ($t['monto'] ?? 0), 2) }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+        @if((float) ($reporte['descuentos_turno']['total'] ?? 0) > 0)
+            <div style="font-size: 8.5px; margin-top: 4px;">
+                Descuentos y promociones aplicados: <strong>S/ {{ number_format((float) $reporte['descuentos_turno']['total'], 2) }}</strong>
+                en {{ (int) ($reporte['descuentos_turno']['comprobantes'] ?? 0) }} comprobante(s).
+            </div>
+        @endif
+    @endif
+
+    <!-- Detalle de notas de crédito (solo si el Z lo guardó al cerrar) -->
+    @if(!empty($reporte['notas_credito_detalle']))
+        @php
+            $etiquetaMedio = ['efectivo' => 'Efectivo', 'tarjeta' => 'Tarjeta', 'billetera_digital' => 'Yape / Plin'];
+        @endphp
+        <h3>Detalle de Notas de Crédito del Turno</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 20%;">Nota de crédito</th>
+                    <th style="width: 20%;">Anula a</th>
+                    <th style="width: 20%;">Medio</th>
+                    <th style="width: 25%;">Motivo</th>
+                    <th style="width: 15%;" class="right">Monto</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($reporte['notas_credito_detalle'] as $nc)
+                    <tr>
+                        <td>{{ $nc['documento'] ?? '' }}</td>
+                        <td>{{ $nc['documento_modificado'] ?? '—' }}</td>
+                        <td>
+                            {{ $etiquetaMedio[$nc['medio_pago'] ?? ''] ?? ($nc['medio_pago'] ?? '') }}<br>
+                            <span style="font-size: 7.5px; color: #64748b;">{{ !empty($nc['afecta_gaveta']) ? 'Salió de la gaveta' : 'No afecta la gaveta' }}</span>
+                        </td>
+                        <td>
+                            {{ $nc['motivo_texto'] ?? ($nc['motivo_codigo_sunat'] ?? '—') }}
+                            @if(!empty($nc['sustento_motivo']))
+                                <br><span style="font-size: 7.5px; color: #64748b;">{{ $nc['sustento_motivo'] }}</span>
+                            @endif
+                        </td>
+                        <td class="right">- S/ {{ number_format((float) ($nc['monto'] ?? 0), 2) }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
 
     <!-- Bloque 5: Notas de Cierre -->
     @if(!empty($reporte['notas_cierre']))

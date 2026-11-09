@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   CreditCard,
   Smartphone,
@@ -8,6 +8,7 @@ import {
   X,
 } from 'lucide-react';
 import { BalancePreArqueoDTO, CerrarCajaRequest } from '@/types/caja';
+import { esMedioVisible } from '../../utils/mediosVisibles';
 
 interface ModalArqueoConteoProps {
   isOpen: boolean;
@@ -24,18 +25,48 @@ export const ModalArqueoConteo: React.FC<ModalArqueoConteoProps> = ({
   onConfirmarCierre,
   isSubmitting = false,
 }) => {
+  // El campo nace autorrellenado con el esperado vigente para que el cajero detecte de inmediato
+  // cualquier diferencia. La página monta este modal solo al abrirlo, así que el valor es siempre fresco.
   const [montoContado, setMontoContado] = useState<string>(
     balance.efectivo_esperado.toFixed(2)
   );
+  const [montoEditado, setMontoEditado] = useState<boolean>(false);
+  const esperadoInicialRef = useRef<number>(balance.efectivo_esperado);
   const [comentarioDiscrepancia, setComentarioDiscrepancia] = useState<string>('');
   const [notasCierre, setNotasCierre] = useState<string>(
     `Turno entregado sin novedades. Fondo S/ ${balance.monto_apertura.toFixed(2)} listo en gaveta.`
   );
 
+  // Si el esperado cambia con el modal abierto (cobros nuevos), el campo lo sigue mientras el cajero
+  // no lo haya tocado; si ya escribió, se respeta su dato y solo se recalcula la discrepancia.
+  useEffect(() => {
+    if (!montoEditado) {
+      setMontoContado(balance.efectivo_esperado.toFixed(2));
+    }
+  }, [balance.efectivo_esperado, montoEditado]);
+
+  // Atajo F9: confirma el cierre. Usa requestSubmit para pasar por la misma validación que el botón.
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F9') {
+        e.preventDefault();
+        formRef.current?.requestSubmit();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const montoNumero = parseFloat(montoContado) || 0;
+  const montoValido = montoContado.trim() !== '' && !isNaN(parseFloat(montoContado)) && parseFloat(montoContado) >= 0;
   const esperado = balance.efectivo_esperado;
+  const mostrarTarjetas = esMedioVisible(balance.medios_visibles, 'tarjeta');
+  const mostrarBilleteras = esMedioVisible(balance.medios_visibles, 'billetera_digital');
+  const esperadoCambio = Math.abs(esperado - esperadoInicialRef.current) > 0.001;
   const discrepancia = Math.round((montoNumero - esperado) * 100) / 100;
   const tieneDiscrepancia = Math.abs(discrepancia) > 0.001;
 
@@ -45,7 +76,8 @@ export const ModalArqueoConteo: React.FC<ModalArqueoConteoProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isNaN(montoNumero) || montoNumero < 0) return;
+    if (isSubmitting) return;
+    if (!montoValido) return;
     if (!comentarioValido) return;
 
     onConfirmarCierre({
@@ -74,7 +106,6 @@ export const ModalArqueoConteo: React.FC<ModalArqueoConteoProps> = ({
                 <span className="text-[10px] font-mono uppercase tracking-wider text-aurea-copper font-bold bg-aurea-copper/10 px-2 py-0.5 rounded-md border border-aurea-copper/30">
                   Cierre Formal Z • CU-CAJA-05
                 </span>
-                <span className="text-xs text-slate-400">Terminal: POS-01</span>
               </div>
               <h2 id="modal-arqueo-title" className="text-lg font-bold font-serif text-white tracking-tight mt-0.5">
                 Arqueo Físico de Efectivo y Cierre de Turno #{String(balance.turno_correlativo).padStart(3, '0')}
@@ -99,7 +130,7 @@ export const ModalArqueoConteo: React.FC<ModalArqueoConteoProps> = ({
         </div>
 
         {/* Formulario de Conteo y Arqueo en 2 Columnas */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 flex-1">
+        <form ref={formRef} onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 flex-1">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Columna 1: Resumen de Flujo de Efectivo del Sistema */}
             <div className="space-y-4">
@@ -148,13 +179,15 @@ export const ModalArqueoConteo: React.FC<ModalArqueoConteoProps> = ({
                 </div>
               </div>
 
-              {/* Conciliación de Medios Electrónicos */}
+              {/* Conciliación de Medios Electrónicos: solo los medios activos o con cobros en el turno */}
+              {(mostrarTarjetas || mostrarBilleteras) && (
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200/80 dark:border-slate-800 space-y-2.5">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 block font-mono">
                   2. CONCILIACIÓN DE MEDIOS ELECTRÓNICOS
                 </span>
 
                 <div className="space-y-2 text-xs font-mono">
+                  {mostrarTarjetas && (
                   <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <CreditCard className="w-4 h-4 text-sky-500" />
@@ -172,6 +205,9 @@ export const ModalArqueoConteo: React.FC<ModalArqueoConteoProps> = ({
                     </div>
                   </div>
 
+                  )}
+
+                  {mostrarBilleteras && (
                   <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Smartphone className="w-4 h-4 text-purple-500" />
@@ -183,13 +219,15 @@ export const ModalArqueoConteo: React.FC<ModalArqueoConteoProps> = ({
                       <span className="font-bold text-slate-900 dark:text-white">
                         S/ {balance.billeteras_total.toFixed(2)}
                       </span>
-                      <span className="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 text-[10px] font-sans font-bold">
-                        ✓ Verificado
+                      <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-sans font-bold">
+                        Registrado en sistema
                       </span>
                     </div>
                   </div>
+                  )}
                 </div>
               </div>
+              )}
             </div>
 
             {/* Columna 2: Conteo Físico Real en Gaveta & Discrepancia */}
@@ -209,16 +247,32 @@ export const ModalArqueoConteo: React.FC<ModalArqueoConteoProps> = ({
                   </span>
                   <input
                     type="number"
-                    step="0.10"
+                    step="0.01"
                     min="0"
                     value={montoContado}
-                    onChange={(e) => setMontoContado(e.target.value)}
+                    onChange={(e) => {
+                      setMontoEditado(true);
+                      setMontoContado(e.target.value);
+                    }}
                     placeholder="0.00"
                     className="w-full pl-24 pr-4 py-3 rounded-2xl border border-slate-300 dark:border-slate-700 text-3xl font-mono font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 focus:outline-none focus:border-aurea-copper focus:ring-2 focus:ring-aurea-copper/20"
                     required
                     autoFocus
                   />
                 </div>
+
+                {esperadoCambio && (
+                  <div
+                    role="status"
+                    className="p-2.5 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-300 dark:border-sky-800 text-sky-800 dark:text-sky-200 text-[11px] font-sans flex items-center gap-2"
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <span>
+                      El efectivo esperado se actualizó a <strong>S/ {esperado.toFixed(2)}</strong> (al abrir el arqueo era S/ {esperadoInicialRef.current.toFixed(2)}).
+                      {montoEditado ? ' Revise el monto contado.' : ' El monto se ajustó automáticamente.'}
+                    </span>
+                  </div>
+                )}
 
                 {/* Caja de Estado de Discrepancia Reactiva */}
                 {!tieneDiscrepancia ? (
@@ -320,7 +374,7 @@ export const ModalArqueoConteo: React.FC<ModalArqueoConteoProps> = ({
 
             <button
               type="submit"
-              disabled={isSubmitting || !comentarioValido}
+              disabled={isSubmitting || !comentarioValido || !montoValido}
               className="w-full sm:w-auto px-7 py-3 rounded-2xl bg-aurea-navy hover:bg-slate-800 active:scale-95 text-white font-bold text-xs transition-all shadow-lg shadow-aurea-navy/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group border border-aurea-copper/30"
             >
               {isSubmitting ? (

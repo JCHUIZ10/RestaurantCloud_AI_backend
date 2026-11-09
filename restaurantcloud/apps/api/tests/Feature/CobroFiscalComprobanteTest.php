@@ -468,6 +468,32 @@ class CobroFiscalComprobanteTest extends TestCase
         $this->assertEquals(0.19, $response->json('datos.monto_recargo'));
     }
 
+    public function test_el_cobro_de_una_subcuenta_con_billetera_aplica_el_recargo_configurado(): void
+    {
+        DB::table('metodo_pago_local')
+            ->where('local_id', $this->localId)->where('codigo', 'billetera_digital')
+            ->update(['activo' => true, 'comision_porcentaje' => 2.00]);
+
+        // Consumo 50.00 + recargo 2% (1.00) = 51.00
+        [$pedidoId, $subcuentaId] = $this->crearPedidoConSubcuenta(50.00, 0.0, 1.00, 'billetera_digital');
+
+        $response = $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', [
+            ...$this->payloadCobro($pedidoId),
+            'subcuenta_id' => $subcuentaId,
+            'medio_pago' => 'billetera_digital',
+            'numero_operacion' => 'YP445566',
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertEquals(51.00, $response->json('datos.total_cobrado'));
+        $this->assertEquals(50.00, $response->json('datos.subtotal_consumo'));
+        $this->assertEquals(1.00, $response->json('datos.monto_recargo'));
+
+        $comprobante = DB::table('comprobante')->where('id', $response->json('datos.comprobante_id'))->first();
+        $this->assertSame('billetera_digital', $comprobante->medio_pago);
+        $this->assertEquals(2.00, (float) $comprobante->porcentaje_recargo);
+    }
+
     public function test_el_cobro_de_una_subcuenta_con_descuento_cobra_el_total_acordado(): void
     {
         [$pedidoId, $subcuentaId] = $this->crearPedidoConSubcuenta(100.00, 10.00, 0.0, 'efectivo');

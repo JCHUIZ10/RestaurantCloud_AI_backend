@@ -70,7 +70,7 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
   // null = aún no se conocen (se muestran todos y el backend valida)
   const [metodosPagoActivos, setMetodosPagoActivos] = useState<string[] | null>(null);
   // Comisión (%) que la sede cobra por tarjeta; viene de metodo_pago_local
-  const [comisionTarjetaPct, setComisionTarjetaPct] = useState<number>(0);
+  const [comisionPorMedio, setComisionPorMedio] = useState<Record<string, number>>({});
   const [detalleBilletera, setDetalleBilletera] = useState<DetalleBilleteraDigitalDTO | null>(null);
 
   useEffect(() => {
@@ -205,8 +205,11 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
         const activos = (resPrecuenta.datos.opciones_pago || []).map((o) => o.codigo);
         if (activos.length > 0) {
           setMetodosPagoActivos(activos);
-          const tarjeta = (resPrecuenta.datos.opciones_pago || []).find((o) => o.codigo === 'tarjeta');
-          setComisionTarjetaPct(Number(tarjeta?.comision_porcentaje) || 0);
+          setComisionPorMedio(
+            Object.fromEntries(
+              (resPrecuenta.datos.opciones_pago || []).map((o) => [o.codigo, Number(o.comision_porcentaje) || 0])
+            )
+          );
           const billetera = (resPrecuenta.datos.opciones_pago || []).find((o) => o.codigo === 'billetera_digital');
           setDetalleBilletera(billetera?.detalle_billetera || null);
           setSubcuentas((prev) =>
@@ -412,7 +415,7 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
                   subcuentas={subcuentas.filter((s) => s.items.length > 0)}
                   promocionesDisponibles={promociones}
                   metodosPagoActivos={metodosPagoActivos}
-                  comisionTarjetaPct={comisionTarjetaPct}
+                  comisionPorMedio={comisionPorMedio}
                   detalleBilletera={detalleBilletera}
                   onActualizarSubcuentas={(actualizadas) => {
                     // Mantener subcuentas vacías si las hubiere
@@ -477,7 +480,7 @@ export const ModalDividirCuenta: React.FC<ModalDividirCuentaProps> = ({
                   // Los ítems pudieron cambiar: todo pago por Yape/Plin se verifica de nuevo en el paso 2
                   setSubcuentas((prev) =>
                     prev.map((s) => ({
-                      ...calcularMontosSubcuenta(s, promociones, comisionTarjetaPct),
+                      ...calcularMontosSubcuenta(s, promociones, comisionPorMedio),
                       numero_operacion: null,
                       pago_verificado: false,
                     }))

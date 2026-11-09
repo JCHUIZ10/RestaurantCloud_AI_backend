@@ -9,6 +9,18 @@ class MetodoPagoLocalService
 {
     private const CODIGOS_OPERATIVOS = ['efectivo', 'tarjeta', 'billetera_digital'];
 
+    /** Medios que pueden llevar un recargo al cliente (comisión de la pasarela o del POS). */
+    public const MEDIOS_CON_RECARGO = ['tarjeta', 'billetera_digital'];
+
+    /**
+     * Porcentaje de recargo que se cobra al cliente por usar un medio. Única regla del sistema:
+     * efectivo nunca lleva recargo y el resto lo toma de la configuración de la sede.
+     */
+    public static function porcentajeRecargo(string $codigo, float|string|null $comisionPorcentaje): float
+    {
+        return in_array($codigo, self::MEDIOS_CON_RECARGO, true) ? (float) $comisionPorcentaje : 0.0;
+    }
+
     /** Formato del N° de operación de Yape/Plin ya normalizado (mayúsculas, sin espacios). */
     public const REGEX_NUMERO_OPERACION = '/^[A-Z0-9-]{4,30}$/';
 
@@ -139,10 +151,6 @@ class MetodoPagoLocalService
 
         $tarjeta = $porCodigo->get('tarjeta');
         $billetera = $porCodigo->get('billetera_digital');
-        if ((float) $billetera['comision_porcentaje'] !== 0.0) {
-            throw new \DomainException('Billetera digital no admite recargos.');
-        }
-
         if ($billetera['activo']) {
             $datosBilletera = $billetera['datos_adicionales'] ?? [];
 
@@ -163,9 +171,7 @@ class MetodoPagoLocalService
                     ->where('codigo', $item['codigo'])
                     ->update([
                         'activo' => $item['activo'],
-                        'comision_porcentaje' => $item['codigo'] === 'tarjeta'
-                            ? $item['comision_porcentaje']
-                            : 0,
+                        'comision_porcentaje' => self::porcentajeRecargo($item['codigo'], $item['comision_porcentaje']),
                         'datos_adicionales' => json_encode($item['datos_adicionales'] ?? []),
                         'updated_at' => now(),
                     ]);

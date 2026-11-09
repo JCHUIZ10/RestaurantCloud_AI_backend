@@ -106,7 +106,10 @@ export const ModalEmisionNotaCredito: React.FC<ModalEmisionNotaCreditoProps> = (
         setPreparacion(res.datos);
         setTelefonoEnvio(res.datos.telefono_envio || '');
         setEmailEnvio(res.datos.email_envio || '');
-        setDevolucionMetodo(res.datos.medio_pago_codigo === 'efectivo' ? 'efectivo' : 'extorno_tarjeta');
+        setDevolucionMetodo(
+          res.datos.devolucion_metodo_sugerido ??
+            (res.datos.medio_pago_codigo === 'efectivo' ? 'efectivo' : 'extorno_tarjeta')
+        );
         setSustento('');
         const itemsList: ComprobanteItemAnulacionDTO[] = res.datos.items || [];
         const elegibles = itemsList

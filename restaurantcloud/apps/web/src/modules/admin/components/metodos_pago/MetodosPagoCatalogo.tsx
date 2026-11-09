@@ -105,6 +105,53 @@ export const MetodosPagoCatalogo: React.FC<MetodosPagoCatalogoProps> = ({
     onCambiarComision(codigo, Math.min(50.0, Math.max(0.0, Math.round(num * 100) / 100)));
   };
 
+  // Control de recargo al cliente (porcentaje por usar el medio). Se reutiliza en tarjeta y billetera.
+  const controlRecargo = (m: MetodoPagoLocalDTO, medio: string) => (
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div>
+          <span className="font-semibold text-tinta-700 block">Recargo al cliente</span>
+          <span className="text-tinta-500">
+            {m.comision_porcentaje > 0 ? `+S/ ${m.comision_porcentaje.toFixed(2)} por cada S/ 100` : 'Sin recargo'}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 ml-auto">
+          <button
+            type="button"
+            onClick={() => ajustarComision(m, -0.5)}
+            disabled={!m.activo || m.comision_porcentaje <= 0}
+            aria-label="Bajar recargo 0.5%"
+            className="w-10 h-10 rounded-xl bg-white border border-tinta-300 text-tinta-700 hover:bg-tinta-100 active:scale-95 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center shadow-sm transition-all"
+          >
+            <Minus className="w-4 h-4" aria-hidden="true" />
+          </button>
+          <div className="relative">
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              max="50"
+              inputMode="decimal"
+              disabled={!m.activo}
+              value={m.comision_porcentaje}
+              onChange={(e) => handleInputComision(m.codigo, e.target.value)}
+              aria-label={`Recargo con ${medio} en porcentaje`}
+              className="w-20 h-10 appearance-none [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none text-center text-base md:text-sm font-mono font-bold pr-4 bg-white rounded-xl border border-tinta-300 text-tinta-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-tinta-100"
+            />
+            <span className="text-xs text-tinta-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">%</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => ajustarComision(m, 0.5)}
+            disabled={!m.activo || m.comision_porcentaje >= 50}
+            aria-label="Subir recargo 0.5%"
+            className="w-10 h-10 rounded-xl bg-white border border-tinta-300 text-tinta-700 hover:bg-tinta-100 active:scale-95 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center shadow-sm transition-all"
+          >
+            <Plus className="w-4 h-4" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+  );
+
   // Pie de cada tarjeta según el método: recargo, celular o cuenta
   const pie = (m: MetodoPagoLocalDTO) => {
     const d = m.datos_adicionales;
@@ -117,53 +164,11 @@ export const MetodosPagoCatalogo: React.FC<MetodosPagoCatalogoProps> = ({
           </div>
         );
       case 'tarjeta':
-        return (
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div>
-              <span className="font-semibold text-tinta-700 block">Recargo al cliente</span>
-              <span className="text-tinta-500">
-                {m.comision_porcentaje > 0 ? `+S/ ${m.comision_porcentaje.toFixed(2)} por cada S/ 100` : 'Sin recargo'}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 ml-auto">
-              <button
-                type="button"
-                onClick={() => ajustarComision(m, -0.5)}
-                disabled={!m.activo || m.comision_porcentaje <= 0}
-                aria-label="Bajar recargo 0.5%"
-                className="w-10 h-10 rounded-xl bg-white border border-tinta-300 text-tinta-700 hover:bg-tinta-100 active:scale-95 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center shadow-sm transition-all"
-              >
-                <Minus className="w-4 h-4" aria-hidden="true" />
-              </button>
-              <div className="relative">
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="50"
-                  inputMode="decimal"
-                  disabled={!m.activo}
-                  value={m.comision_porcentaje}
-                  onChange={(e) => handleInputComision(m.codigo, e.target.value)}
-                  aria-label="Recargo con tarjeta en porcentaje"
-                  className="w-20 h-10 appearance-none [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none text-center text-base md:text-sm font-mono font-bold pr-4 bg-white rounded-xl border border-tinta-300 text-tinta-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-tinta-100"
-                />
-                <span className="text-xs text-tinta-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">%</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => ajustarComision(m, 0.5)}
-                disabled={!m.activo || m.comision_porcentaje >= 50}
-                aria-label="Subir recargo 0.5%"
-                className="w-10 h-10 rounded-xl bg-white border border-tinta-300 text-tinta-700 hover:bg-tinta-100 active:scale-95 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center shadow-sm transition-all"
-              >
-                <Plus className="w-4 h-4" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-        );
+        return controlRecargo(m, 'tarjeta');
       case 'billetera_digital':
         return (
+          <div className="space-y-3">
+            {controlRecargo(m, 'billetera digital')}
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
             <div className="min-w-0">
               <p className="text-tinta-700">
@@ -182,6 +187,7 @@ export const MetodosPagoCatalogo: React.FC<MetodosPagoCatalogoProps> = ({
               <Settings className="w-4 h-4 text-purple-600" aria-hidden="true" />
               Celular y QR
             </button>
+          </div>
           </div>
         );
       case 'transferencia': {

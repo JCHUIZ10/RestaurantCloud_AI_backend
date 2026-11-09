@@ -69,6 +69,20 @@ export interface CajaMetricasPosDTO {
   porcentaje_ocupacion: number;
 }
 
+/** Nota de crédito emitida en el turno (detalle para auditoría del cierre) */
+export interface NotaCreditoTurnoDTO {
+  documento: string;
+  documento_modificado: string | null;
+  medio_pago: string;
+  motivo_codigo_sunat: string | null;
+  motivo_texto: string | null;
+  sustento_motivo: string | null;
+  monto: number;
+  /** true si la devolución salió de la gaveta (solo efectivo) */
+  afecta_gaveta: boolean;
+  fecha: string;
+}
+
 export interface BalancePreArqueoDTO {
   caja_id: string;
   turno_correlativo: number;
@@ -88,13 +102,43 @@ export interface BalancePreArqueoDTO {
   efectivo_operaciones?: number;
   otros_cobros_total: number;
   otros_operaciones?: number;
+  /** Medios cuya fila se muestra (activos o con cobros en el turno); efectivo siempre. Ausente = mostrar todos */
+  medios_visibles?: string[];
+  /** Detalle de las NC del turno (ausente en respuestas antiguas) */
+  notas_credito_detalle?: NotaCreditoTurnoDTO[];
+  /** Recargos cobrados al cliente por medio (vigentes) y lo que queda del cobrado neto sin ellos */
+  tarjetas_recargo?: number;
+  billeteras_recargo?: number;
+  total_recargos?: number;
+  ingreso_consumo?: number;
+  /** Desglose por medio: en cada fila bruto - devoluciones = neto (ausente en respuestas antiguas) */
+  efectivo_neto?: number;
+  efectivo_devoluciones?: number;
+  tarjetas_bruto?: number;
+  tarjetas_devoluciones?: number;
+  billeteras_bruto?: number;
+  billeteras_devoluciones?: number;
+  otros_bruto?: number;
+  otros_devoluciones?: number;
   total_facturado_neto: number;
+  /** Bruto de todos los medios (incluye lo luego anulado con NC) */
   total_ingresos_brutos?: number;
+  /** Total anulado con NC en todos los medios */
+  total_devoluciones?: number;
+  /** Salidas de efectivo de la gaveta (devoluciones en efectivo y gastos): solo para la conciliación de gaveta */
   total_egresos?: number;
   base_imponible: number;
   igv_18: number;
   total_comprobantes: number;
   notas_credito_count?: number;
+  /** Notas de crédito del turno por medio de pago (la NC hereda el medio del comprobante que anula) */
+  efectivo_nc?: number;
+  tarjetas_nc?: number;
+  billeteras_nc?: number;
+  otros_nc?: number;
+  /** Cobros brutos por medio (incluye los anulados), coherentes con la columna Ingresos */
+  tarjetas_cobros_brutos?: number;
+  billeteras_cobros_brutos?: number;
   comprobantes_anulados_count?: number;
   mesas_activas_pendientes: number;
   salon_al_dia: boolean;
@@ -128,6 +172,18 @@ export interface ReporteZDTO {
   total_tarjetas_pos: number;
   total_billeteras_digital: number;
   otros_medios_total?: number;
+  /** Medios que se mostraron al cerrar el turno. Ausente (Z antiguo) = mostrar todos */
+  /** Detalle de las NC del turno, congelado al cerrar (ausente en Z antiguos) */
+  notas_credito_detalle?: NotaCreditoTurnoDTO[];
+  /** Ventas vigentes por tipo de comprobante y descuentos comerciales del turno (ausentes en Z antiguos) */
+  ventas_por_tipo?: { tipo: 'boleta' | 'factura' | 'nota_venta'; cantidad: number; monto: number }[];
+  descuentos_turno?: { total: number; comprobantes: number };
+  /** Recargos del turno por medio y total; ingreso_consumo = total neto facturado - recargos (ausentes en Z antiguos) */
+  recargo_tarjetas?: number;
+  recargo_billeteras?: number;
+  total_recargos?: number;
+  ingreso_consumo?: number;
+  medios_visibles?: string[];
   total_devoluciones_efectivo?: number;
   total_neto_facturado: number;
   base_imponible_gravada: number;
@@ -477,6 +533,8 @@ export interface PrepararAnulacionResponseDTO {
   cliente_nombre: string;
   cliente_numero_doc?: string;
   medio_pago_codigo: 'efectivo' | 'tarjeta' | 'billetera_digital';
+  /** Método de devolución coherente con el medio original, fijado por el backend (efectivo solo para ventas en efectivo) */
+  devolucion_metodo_sugerido?: 'efectivo' | 'extorno_tarjeta' | 'transferencia';
   total_original: number;
   base_imponible: number;
   igv: number;

@@ -836,6 +836,441 @@ class MermasYNotaCreditoStockTest extends TestCase
     }
 
     /**
+     * Prueba 4g-bis: Cerrar el mismo turno dos veces no duplica el Reporte Z, su auditoría ni el movimiento de cierre.
+     */
+    public function test_cerrar_turno_dos_veces_no_duplica_el_reporte_z(): void
+    {
+        $this->crearTurnoConNotaCreditoEnEfectivo();
+        $cajaId = DB::table('caja')->where('local_id', $this->localId)->where('estado', 'abierta')->value('id');
+        DB::table('pedido')
+            ->where('local_id', $this->localId)
+            ->whereIn('estado', ['borrador', 'enviado', 'cuenta_pedida'])
+            ->update(['estado' => 'cobrado', 'updated_at' => now()]);
+
+        $this->withHeaders($this->headers())
+            ->postJson('/api/v1/caja/cierre', ['monto_real_fisico' => 250.00])
+            ->assertStatus(200);
+
+        // Segundo intento (otra pestaña, otro usuario): el turno ya no está abierto
+        $this->withHeaders($this->headers())
+            ->postJson('/api/v1/caja/cierre', ['monto_real_fisico' => 250.00])
+            ->assertStatus(409)
+            ->assertJsonPath('errores.0.codigo', 'ERR_CAJA_NO_ABIERTA');
+
+        $this->assertSame(1, DB::table('auditoria_caja_cierre')->where('caja_id', $cajaId)->count());
+        $this->assertSame(1, DB::table('caja_movimiento')->where('caja_id', $cajaId)->where('tipo', 'cierre')->count());
+        $this->assertSame('cerrada', DB::table('caja')->where('id', $cajaId)->value('estado'));
+    }
+
+    private function emitirNotaCreditoRaw(string $comprobanteId, string $devolucionMetodo)
+    {
+        return $this->withHeaders($this->headers())
+            ->postJson("/api/v1/caja/comprobantes/{$comprobanteId}/nota-credito", [
+                'motivo_codigo_sunat' => '01',
+                'sustento_motivo' => 'Sustento de prueba para la nota de crédito',
+                'devolucion_metodo' => $devolucionMetodo,
+            ]);
+    }
+
+    /**
+     * Prueba 4g-ter: Una venta de tarjeta no puede devolverse en efectivo de la gaveta.
+     */
+    public function test_nota_de_credito_rechaza_devolver_en_efectivo_una_venta_de_tarjeta(): void
+    {
+        $cajaId = $this->crearCajaAbierta(200.00);
+        $ventaId = $this->crearVenta($cajaId, 'boleta', 'B001', 40.00, 'tarjeta');
+
+        $this->emitirNotaCreditoRaw($ventaId, 'efectivo')
+            ->assertStatus(422)
+            ->assertJsonPath('errores.0.codigo', 'ERR_DEVOLUCION_INCONSISTENTE');
+
+        $this->assertSame('emitido', DB::table('comprobante')->where('id', $ventaId)->value('estado'));
+        $this->assertSame(0, DB::table('comprobante')->where('caja_id', $cajaId)->where('tipo', 'nota_credito')->count());
+        $this->assertSame(0, DB::table('caja_movimiento')->where('caja_id', $cajaId)->where('tipo', 'egreso_devolucion')->count());
+    }
+
+    /**
+     * Prueba 4g-quater: Una venta en efectivo no puede "devolverse" por extorno: el dinero está en la gaveta.
+     */
+    public function test_nota_de_credito_rechaza_extorno_para_una_venta_en_efectivo(): void
+    {
+        $cajaId = $this->crearCajaAbierta(200.00);
+        $ventaId = $this->crearVenta($cajaId, 'boleta', 'B001', 25.00, 'efectivo');
+
+        $this->emitirNotaCreditoRaw($ventaId, 'extorno_tarjeta')
+            ->assertStatus(422)
+            ->assertJsonPath('errores.0.codigo', 'ERR_DEVOLUCION_INCONSISTENTE');
+
+        $this->assertSame('emitido', DB::table('comprobante')->where('id', $ventaId)->value('estado'));
+        $this->assertSame(0, DB::table('caja_movimiento')->where('caja_id', $cajaId)->where('tipo', 'egreso_devolucion')->count());
+    }
+
+    /**
+     * Prueba 4g-quinquies: Extornar una venta de tarjeta no toca la gaveta, pero sí aparece como devolución de la fila Tarjeta.
+     */
+    public function test_nota_de_credito_de_tarjeta_con_extorno_no_toca_la_gaveta(): void
+    {
+        $cajaId = $this->crearCajaAbierta(200.00);
+        $this->crearVenta($cajaId, 'boleta', 'B001', 50.00, 'efectivo');
+        $tarjetaId = $this->crearVenta($cajaId, 'boleta', 'B001', 40.00, 'tarjeta');
+
+        $antes = $this->withHeaders($this->headers())->getJson('/api/v1/caja/balance-pre-arqueo')->json('datos');
+
+        $this->emitirNotaCreditoRaw($tarjetaId, 'extorno_tarjeta')->assertStatus(200);
+
+        $despues = $this->withHeaders($this->headers())->getJson('/api/v1/caja/balance-pre-arqueo')->json('datos');
+
+        $this->assertEquals($antes['efectivo_esperado'], $despues['efectivo_esperado']);
+        $this->assertEquals(0.00, $despues['egresos_devolucion_nc']);
+        $this->assertEquals(40.00, $despues['tarjetas_bruto']);
+        $this->assertEquals(40.00, $despues['tarjetas_devoluciones']);
+        $this->assertEquals(0.00, $despues['tarjetas_pos_total']);
+    }
+
+    /**
+     * Prueba 4g-sexies: Por cada medio bruto - devoluciones = neto, la suma de filas es el total facturado y el Z repite el mismo efectivo neto.
+     */
+    public function test_balance_pre_arqueo_desglosa_bruto_devoluciones_y_neto_y_cuadra_con_el_z(): void
+    {
+        $cajaId = $this->crearCajaAbierta(200.00);
+        $this->crearVenta($cajaId, 'boleta', 'B001', 50.00, 'efectivo');
+        $efectivoAnuladoId = $this->crearVenta($cajaId, 'factura', 'F001', 30.00, 'efectivo');
+        $this->crearVenta($cajaId, 'boleta', 'B001', 40.00, 'tarjeta');
+        $tarjetaAnuladaId = $this->crearVenta($cajaId, 'boleta', 'B001', 20.00, 'tarjeta');
+        $this->crearVenta($cajaId, 'boleta', 'B001', 15.00, 'billetera_digital');
+
+        $this->emitirNotaCreditoRaw($efectivoAnuladoId, 'efectivo')->assertStatus(200);
+        $this->emitirNotaCreditoRaw($tarjetaAnuladaId, 'extorno_tarjeta')->assertStatus(200);
+
+        $b = $this->withHeaders($this->headers())->getJson('/api/v1/caja/balance-pre-arqueo')->assertStatus(200)->json('datos');
+
+        // Efectivo: 80 vendidos, 30 devueltos, 50 netos
+        $this->assertEquals(80.00, $b['ingresos_efectivo']);
+        $this->assertEquals(30.00, $b['efectivo_devoluciones']);
+        $this->assertEquals(50.00, $b['efectivo_neto']);
+        // Tarjeta: 60 vendidos, 20 extornados, 40 netos
+        $this->assertEquals(60.00, $b['tarjetas_bruto']);
+        $this->assertEquals(20.00, $b['tarjetas_devoluciones']);
+        $this->assertEquals(40.00, $b['tarjetas_pos_total']);
+        $this->assertEquals(15.00, $b['billeteras_total']);
+        $this->assertEquals(0.00, $b['otros_cobros_total']);
+
+        // Cada NC se cuenta bajo el medio de la venta que anula, no en la fila de efectivo
+        $this->assertSame(2, $b['notas_credito_count']);
+        $this->assertSame(1, $b['efectivo_nc']);
+        $this->assertSame(1, $b['tarjetas_nc']);
+        $this->assertSame(0, $b['billeteras_nc']);
+        $this->assertSame(0, $b['otros_nc']);
+        // Los cobros de la fila son brutos, como la columna Ingresos (la venta anulada sigue contando)
+        $this->assertSame(2, $b['tarjetas_cobros_brutos']);
+        $this->assertSame(1, $b['billeteras_cobros_brutos']);
+
+        // En cada fila bruto - devoluciones = neto, y las filas suman el total facturado
+        $this->assertEquals($b['efectivo_neto'], $b['ingresos_efectivo'] - $b['efectivo_devoluciones']);
+        $this->assertEquals($b['tarjetas_pos_total'], $b['tarjetas_bruto'] - $b['tarjetas_devoluciones']);
+        $this->assertEquals($b['billeteras_total'], $b['billeteras_bruto'] - $b['billeteras_devoluciones']);
+        $this->assertEquals(
+            $b['total_facturado_neto'],
+            $b['efectivo_neto'] + $b['tarjetas_pos_total'] + $b['billeteras_total'] + $b['otros_cobros_total']
+        );
+        $this->assertEquals($b['total_facturado_neto'], $b['total_ingresos_brutos'] - $b['total_devoluciones']);
+
+        // La conciliación de gaveta sigue siendo fondo + ingresos - egresos
+        $this->assertEquals(200.00 + 80.00 - 30.00, $b['efectivo_esperado']);
+
+        // El cierre repite las mismas cifras en el Reporte Z
+        DB::table('pedido')
+            ->where('local_id', $this->localId)
+            ->whereIn('estado', ['borrador', 'enviado', 'cuenta_pedida'])
+            ->update(['estado' => 'cobrado', 'updated_at' => now()]);
+
+        $z = $this->withHeaders($this->headers())
+            ->postJson('/api/v1/caja/cierre', ['monto_real_fisico' => 250.00])
+            ->assertStatus(200)
+            ->json('datos');
+
+        $this->assertEquals($b['efectivo_neto'], $z['total_efectivo_neto']);
+        $this->assertEquals($b['tarjetas_pos_total'], $z['total_tarjetas_pos']);
+        $this->assertEquals($b['billeteras_total'], $z['total_billeteras_digital']);
+        $this->assertEquals($b['total_facturado_neto'], $z['total_neto_facturado']);
+    }
+
+    private function configurarMedioPago(string $codigo, string $nombre, bool $activo, int $orden): void
+    {
+        DB::table('metodo_pago_local')->updateOrInsert(
+            ['local_id' => $this->localId, 'codigo' => $codigo],
+            ['nombre' => $nombre, 'activo' => $activo, 'orden' => $orden]
+        );
+    }
+
+    private function balancePreArqueo(): array
+    {
+        return $this->withHeaders($this->headers())->getJson('/api/v1/caja/balance-pre-arqueo')->assertStatus(200)->json('datos');
+    }
+
+    private function marcarPedidosCobrados(): void
+    {
+        DB::table('pedido')
+            ->where('local_id', $this->localId)
+            ->whereIn('estado', ['borrador', 'enviado', 'cuenta_pedida'])
+            ->update(['estado' => 'cobrado', 'updated_at' => now()]);
+    }
+
+    /**
+     * Prueba 4i: El balance omite el medio desactivado sin cobros, pero sus totales y el cuadre no cambian.
+     */
+    public function test_balance_pre_arqueo_omite_de_medios_visibles_el_medio_desactivado_sin_cobros(): void
+    {
+        $cajaId = $this->crearCajaAbierta(200.00);
+        $this->configurarMedioPago('billetera_digital', 'Yape / Plin', false, 3);
+        $this->crearVenta($cajaId, 'boleta', 'B001', 50.00, 'efectivo');
+        $this->crearVenta($cajaId, 'boleta', 'B001', 40.00, 'tarjeta');
+
+        $b = $this->balancePreArqueo();
+
+        $this->assertSame(['efectivo', 'tarjeta'], $b['medios_visibles']);
+        // Se oculta la fila, no el cálculo: el campo sigue en la respuesta, en cero
+        $this->assertArrayHasKey('billeteras_total', $b);
+        $this->assertEquals(0.00, $b['billeteras_total']);
+        $this->assertEquals(0.00, $b['otros_cobros_total']);
+        // Las filas visibles suman el total facturado, y la gaveta no depende de la visibilidad
+        $this->assertEquals($b['total_facturado_neto'], $b['efectivo_neto'] + $b['tarjetas_pos_total']);
+        $this->assertEquals(200.00 + 50.00 - 0.00, $b['efectivo_esperado']);
+    }
+
+    /**
+     * Prueba 4j: Un medio desactivado reaparece si hubo cobros (aunque luego se anularan) o si se activa; el efectivo siempre está.
+     */
+    public function test_medios_visibles_incluye_el_medio_con_cobros_o_activo_y_siempre_el_efectivo(): void
+    {
+        $cajaId = $this->crearCajaAbierta(200.00);
+        $this->configurarMedioPago('billetera_digital', 'Yape / Plin', false, 3);
+        $this->configurarMedioPago('efectivo', 'Efectivo', false, 1);
+
+        // Efectivo desactivado y sin ventas: igual se muestra, la gaveta siempre se cuadra
+        $this->assertSame(['efectivo', 'tarjeta'], $this->balancePreArqueo()['medios_visibles']);
+
+        // Cobro en un medio desactivado: no se oculta una venta real, ni siquiera si luego se anula con NC
+        $billeteraId = $this->crearVenta($cajaId, 'boleta', 'B001', 15.00, 'billetera_digital');
+        $this->assertContains('billetera_digital', $this->balancePreArqueo()['medios_visibles']);
+
+        $this->emitirNotaCreditoRaw($billeteraId, 'transferencia')->assertStatus(200);
+        $b = $this->balancePreArqueo();
+        $this->assertContains('billetera_digital', $b['medios_visibles']);
+        $this->assertEquals(0.00, $b['billeteras_total']);
+        $this->assertEquals(15.00, $b['billeteras_devoluciones']);
+
+        // Medio activado: también se muestra, aunque no tenga cobros
+        $this->configurarMedioPago('billetera_digital', 'Yape / Plin', true, 3);
+        $this->assertContains('billetera_digital', $this->balancePreArqueo()['medios_visibles']);
+    }
+
+    /**
+     * Prueba 4k: El Reporte Z guarda los medios que se mostraron y no cambia aunque después se reconfigure la sede.
+     */
+    public function test_cierre_guarda_medios_visibles_en_el_reporte_z_inmutable(): void
+    {
+        $cajaId = $this->crearCajaAbierta(200.00);
+        $this->configurarMedioPago('billetera_digital', 'Yape / Plin', false, 3);
+        $this->crearVenta($cajaId, 'boleta', 'B001', 50.00, 'efectivo');
+        $this->crearVenta($cajaId, 'boleta', 'B001', 40.00, 'tarjeta');
+        $this->marcarPedidosCobrados();
+
+        $balance = $this->balancePreArqueo();
+        $z = $this->withHeaders($this->headers())
+            ->postJson('/api/v1/caja/cierre', ['monto_real_fisico' => 250.00])
+            ->assertStatus(200)
+            ->json('datos');
+
+        $this->assertSame(['efectivo', 'tarjeta'], $z['medios_visibles']);
+        $this->assertSame($balance['medios_visibles'], $z['medios_visibles']);
+        // Los totales por medio siguen en el reporte (la billetera en cero) y cuadran con el neto
+        $this->assertEquals(0.00, $z['total_billeteras_digital']);
+        $this->assertEquals(
+            $z['total_neto_facturado'],
+            $z['total_efectivo_neto'] + $z['total_tarjetas_pos'] + $z['total_billeteras_digital'] + $z['otros_medios_total']
+        );
+
+        $guardado = json_decode(DB::table('auditoria_caja_cierre')->where('caja_id', $cajaId)->value('reporte_z_json'), true);
+        $this->assertSame(['efectivo', 'tarjeta'], $guardado['medios_visibles']);
+
+        // Reconfigurar la sede después del cierre no altera el reporte archivado
+        $this->configurarMedioPago('billetera_digital', 'Yape / Plin', true, 3);
+        $this->withHeaders($this->headers())
+            ->getJson("/api/v1/caja/turnos/{$cajaId}/reporte-z")
+            ->assertStatus(200)
+            ->assertJsonPath('datos.medios_visibles', ['efectivo', 'tarjeta']);
+    }
+
+    /**
+     * Prueba 4l: El PDF del Reporte Z omite las columnas de medios no visibles y un Z antiguo (sin la lista) las muestra todas.
+     */
+    public function test_pdf_del_reporte_z_oculta_columnas_de_medios_no_visibles(): void
+    {
+        $cajaId = $this->crearCajaAbierta(200.00);
+        $this->configurarMedioPago('billetera_digital', 'Yape / Plin', false, 3);
+        $this->crearVenta($cajaId, 'boleta', 'B001', 50.00, 'efectivo');
+        $this->crearVenta($cajaId, 'boleta', 'B001', 40.00, 'tarjeta');
+        $this->marcarPedidosCobrados();
+
+        $z = $this->withHeaders($this->headers())
+            ->postJson('/api/v1/caja/cierre', ['monto_real_fisico' => 250.00])
+            ->assertStatus(200)
+            ->json('datos');
+
+        $html = view('pdf.reporte_z', ['reporte' => $z])->render();
+        $this->assertStringContainsString('Efectivo Gaveta', $html);
+        $this->assertStringContainsString('Tarjetas POS', $html);
+        $this->assertStringNotContainsString('Billeteras Digitales', $html);
+        $this->assertStringNotContainsString('Otros Medios', $html);
+
+        // Lista completa: aparece la billetera
+        $htmlCompleto = view('pdf.reporte_z', ['reporte' => array_merge($z, ['medios_visibles' => ['efectivo', 'tarjeta', 'billetera_digital']])])->render();
+        $this->assertStringContainsString('Billeteras Digitales', $htmlCompleto);
+
+        // Z cerrado antes de la regla (sin el campo): se ve como siempre, con todas las columnas
+        $zAntiguo = $z;
+        unset($zAntiguo['medios_visibles']);
+        $htmlAntiguo = view('pdf.reporte_z', ['reporte' => $zAntiguo])->render();
+        $this->assertStringContainsString('Tarjetas POS', $htmlAntiguo);
+        $this->assertStringContainsString('Billeteras Digitales', $htmlAntiguo);
+        $this->assertStringContainsString('Otros Medios', $htmlAntiguo);
+    }
+
+    public function test_recargos_separan_consumo_de_recargo_en_balance_z_y_pdf(): void
+    {
+        $cajaId = $this->crearCajaAbierta(100.00);
+        $this->crearVenta($cajaId, 'boleta', 'B001', 50.00, 'efectivo');
+        $tarjetaId = $this->crearVenta($cajaId, 'boleta', 'B001', 104.00, 'tarjeta');      // consumo 100 + 4 %
+        $billeteraId = $this->crearVenta($cajaId, 'boleta', 'B001', 51.00, 'billetera_digital'); // consumo 50 + 2 %
+        $anuladaId = $this->crearVenta($cajaId, 'boleta', 'B001', 52.00, 'tarjeta');       // consumo 50 + 4 %, se anula
+        DB::table('comprobante')->where('id', $tarjetaId)->update(['monto_recargo' => 4.00]);
+        DB::table('comprobante')->where('id', $billeteraId)->update(['monto_recargo' => 1.00]);
+        DB::table('comprobante')->where('id', $anuladaId)->update(['monto_recargo' => 2.00]);
+        $this->emitirNotaCreditoRaw($anuladaId, 'extorno_tarjeta')->assertStatus(200);
+
+        $b = $this->withHeaders($this->headers())->getJson('/api/v1/caja/balance-pre-arqueo')->assertStatus(200)->json('datos');
+
+        // La venta anulada no deja recargo vigente
+        $this->assertEquals(4.00, $b['tarjetas_recargo']);
+        $this->assertEquals(1.00, $b['billeteras_recargo']);
+        $this->assertEquals(5.00, $b['total_recargos']);
+        $this->assertEquals(205.00, $b['total_facturado_neto']);
+        $this->assertEquals(200.00, $b['ingreso_consumo']);
+
+        $this->marcarPedidosCobrados();
+        $z = $this->withHeaders($this->headers())
+            ->postJson('/api/v1/caja/cierre', ['monto_real_fisico' => 150.00])
+            ->assertStatus(200)
+            ->json('datos');
+
+        $this->assertEquals(4.00, $z['recargo_tarjetas']);
+        $this->assertEquals(1.00, $z['recargo_billeteras']);
+        $this->assertEquals(200.00, $z['ingreso_consumo']);
+
+        $html = view('pdf.reporte_z', ['reporte' => $z])->render();
+        $this->assertStringContainsString('Consumo y Recargos', $html);
+        $this->assertStringContainsString('Recargo por uso de tarjeta', $html);
+        $this->assertStringContainsString('Recargo por uso de Yape', $html);
+
+        // Sin recargos (o Z antiguo sin los campos) el bloque no aparece
+        unset($z['total_recargos']);
+        $this->assertStringNotContainsString('Consumo y Recargos', view('pdf.reporte_z', ['reporte' => $z])->render());
+    }
+
+    public function test_sin_recargos_el_balance_no_los_reporta(): void
+    {
+        $cajaId = $this->crearCajaAbierta(100.00);
+        $this->crearVenta($cajaId, 'boleta', 'B001', 40.00, 'tarjeta');
+
+        $b = $this->withHeaders($this->headers())->getJson('/api/v1/caja/balance-pre-arqueo')->assertStatus(200)->json('datos');
+
+        $this->assertEquals(0.00, $b['total_recargos']);
+        $this->assertEquals($b['total_facturado_neto'], $b['ingreso_consumo']);
+    }
+
+    public function test_z_resume_ventas_por_tipo_y_descuentos_solo_de_lo_vigente(): void
+    {
+        $cajaId = $this->crearCajaAbierta(100.00);
+        $this->crearVenta($cajaId, 'boleta', 'B001', 40.00);
+        $conDescuentoId = $this->crearVenta($cajaId, 'boleta', 'B001', 90.00);
+        $this->crearVenta($cajaId, 'factura', 'F001', 60.00);
+        $this->crearVenta($cajaId, 'nota_venta', 'NV01', 25.00);
+        $anuladaId = $this->crearVenta($cajaId, 'boleta', 'B001', 30.00);
+        DB::table('comprobante')->where('id', $conDescuentoId)->update(['descuento' => 10.00]);
+        DB::table('comprobante')->where('id', $anuladaId)->update(['descuento' => 5.00]);
+        $this->emitirNotaCreditoRaw($anuladaId, 'efectivo')->assertStatus(200);
+
+        $this->marcarPedidosCobrados();
+        $z = $this->withHeaders($this->headers())
+            ->postJson('/api/v1/caja/cierre', ['monto_real_fisico' => 315.00])
+            ->assertStatus(200)
+            ->json('datos');
+
+        $porTipo = collect($z['ventas_por_tipo'])->keyBy('tipo');
+        // La boleta anulada con NC no cuenta como venta vigente
+        $this->assertSame(2, $porTipo['boleta']['cantidad']);
+        $this->assertEquals(130.00, $porTipo['boleta']['monto']);
+        $this->assertSame(1, $porTipo['factura']['cantidad']);
+        $this->assertEquals(60.00, $porTipo['factura']['monto']);
+        $this->assertSame(1, $porTipo['nota_venta']['cantidad']);
+        $this->assertEquals(25.00, $porTipo['nota_venta']['monto']);
+        $this->assertEquals(215.00, $porTipo->sum('monto'));
+        $this->assertEquals($z['total_neto_facturado'], $porTipo->sum('monto'));
+
+        // El descuento de la venta anulada tampoco cuenta
+        $this->assertEquals(10.00, $z['descuentos_turno']['total']);
+        $this->assertSame(1, $z['descuentos_turno']['comprobantes']);
+
+        $html = view('pdf.reporte_z', ['reporte' => $z])->render();
+        $this->assertStringContainsString('Ventas Vigentes por Tipo de Comprobante', $html);
+        $this->assertStringContainsString('documento interno, no SUNAT', $html);
+        $this->assertStringContainsString('Descuentos y promociones aplicados', $html);
+
+        // Z antiguo sin los campos: la sección no aparece
+        unset($z['ventas_por_tipo'], $z['descuentos_turno']);
+        $this->assertStringNotContainsString('Ventas Vigentes por Tipo', view('pdf.reporte_z', ['reporte' => $z])->render());
+    }
+
+    public function test_detalle_de_notas_de_credito_en_balance_z_y_pdf(): void
+    {
+        $cajaId = $this->crearCajaAbierta(200.00);
+        $efectivoId = $this->crearVenta($cajaId, 'boleta', 'B001', 30.00, 'efectivo');
+        $tarjetaId = $this->crearVenta($cajaId, 'boleta', 'B001', 20.00, 'tarjeta');
+        $this->crearVenta($cajaId, 'boleta', 'B001', 50.00, 'efectivo');
+        $this->emitirNotaCreditoRaw($efectivoId, 'efectivo')->assertStatus(200);
+        $this->emitirNotaCreditoRaw($tarjetaId, 'extorno_tarjeta')->assertStatus(200);
+
+        $b = $this->withHeaders($this->headers())->getJson('/api/v1/caja/balance-pre-arqueo')->assertStatus(200)->json('datos');
+
+        $this->assertCount(2, $b['notas_credito_detalle']);
+        $porMedio = collect($b['notas_credito_detalle'])->keyBy('medio_pago');
+        $this->assertEquals(30.00, $porMedio['efectivo']['monto']);
+        $this->assertTrue($porMedio['efectivo']['afecta_gaveta']);
+        $this->assertEquals(20.00, $porMedio['tarjeta']['monto']);
+        $this->assertFalse($porMedio['tarjeta']['afecta_gaveta']);
+        // Cada NC cita el comprobante que anula
+        $this->assertStringStartsWith('B001-', $porMedio['efectivo']['documento_modificado']);
+
+        $this->marcarPedidosCobrados();
+        $z = $this->withHeaders($this->headers())
+            ->postJson('/api/v1/caja/cierre', ['monto_real_fisico' => 250.00])
+            ->assertStatus(200)
+            ->json('datos');
+
+        // El Z congela el detalle y el PDF lo imprime
+        $this->assertSame($b['notas_credito_detalle'], $z['notas_credito_detalle']);
+        $html = view('pdf.reporte_z', ['reporte' => $z])->render();
+        $this->assertStringContainsString('Detalle de Notas de Crédito', $html);
+        $this->assertStringContainsString($porMedio['efectivo']['documento'], $html);
+        $this->assertStringContainsString('Salió de la gaveta', $html);
+
+        // Z antiguo o turno sin NC: la sección no aparece
+        unset($z['notas_credito_detalle']);
+        $this->assertStringNotContainsString('Detalle de Notas de Crédito', view('pdf.reporte_z', ['reporte' => $z])->render());
+    }
+
+    /**
      * Prueba 4h: La vista pública enlaza el comprobante anulado con su NC, y la NC con el documento que modifica.
      */
     public function test_vista_publica_cruza_el_comprobante_anulado_con_su_nota_de_credito(): void

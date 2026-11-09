@@ -11,6 +11,9 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { BalancePreArqueoDTO } from '@/types/caja';
+import { esMedioVisible } from '../../utils/mediosVisibles';
+import { DetalleNotasCreditoTurno } from './DetalleNotasCreditoTurno';
+import { ResumenRecargosTurno } from './ResumenRecargosTurno';
 
 interface BalancePreArqueoViewProps {
   balance: BalancePreArqueoDTO;
@@ -23,6 +26,32 @@ export const BalancePreArqueoView: React.FC<BalancePreArqueoViewProps> = ({
   onIniciarArqueo,
   onVolverPos,
 }) => {
+  // Cada fila usa la misma semántica: Ingresos = bruto, Devoluciones = anulado con NC, Neto = bruto - devoluciones.
+  // Si el backend es anterior al desglose se usa el cálculo previo.
+  const efectivoDevoluciones = balance.efectivo_devoluciones ?? balance.egresos_devolucion_nc;
+  const efectivoNeto = balance.efectivo_neto ?? balance.ingresos_efectivo - balance.egresos_devolucion_nc;
+  const tarjetasBruto = balance.tarjetas_bruto ?? balance.tarjetas_pos_total;
+  const tarjetasDevoluciones = balance.tarjetas_devoluciones ?? 0;
+  const billeterasBruto = balance.billeteras_bruto ?? balance.billeteras_total;
+  const billeterasDevoluciones = balance.billeteras_devoluciones ?? 0;
+  const otrosBruto = balance.otros_bruto ?? balance.otros_cobros_total;
+  const otrosDevoluciones = balance.otros_devoluciones ?? 0;
+  const totalIngresos =
+    balance.total_ingresos_brutos ??
+    balance.ingresos_efectivo + tarjetasBruto + billeterasBruto + otrosBruto;
+  const totalDevoluciones =
+    balance.total_devoluciones ??
+    efectivoDevoluciones + tarjetasDevoluciones + billeterasDevoluciones + otrosDevoluciones;
+  const mostrarTarjetas = esMedioVisible(balance.medios_visibles, 'tarjeta');
+  const mostrarBilleteras = esMedioVisible(balance.medios_visibles, 'billetera_digital');
+  // "Otros" solo existe si hubo cobros fuera del catálogo; un cobro de S/ 0 también cuenta como cobro
+  const mostrarOtros =
+    balance.otros_cobros_total !== 0 || otrosBruto !== 0 || (balance.otros_operaciones ?? 0) > 0;
+  const claseDevolucion = (monto: number) => (monto > 0 ? 'text-rose-500' : 'text-slate-400');
+  // "N cobros" y, solo si ese medio tuvo notas de crédito, "· M NC"
+  const textoOperaciones = (cobros: number, nc: number | undefined) =>
+    `${cobros} ${cobros === 1 ? 'cobro' : 'cobros'}${(nc ?? 0) > 0 ? ` · ${nc} NC` : ''}`;
+
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
       {/* Cabecera Principal de Balance Pre-Arqueo */}
@@ -148,59 +177,65 @@ export const BalancePreArqueoView: React.FC<BalancePreArqueoViewProps> = ({
                       <span>Efectivo Gaveta</span>
                     </td>
                     <td className="py-2.5 text-center text-slate-500">
-                      {balance.efectivo_operaciones ?? 0} Cob{(balance.notas_credito_count ?? 0) > 0 ? ` / ${balance.notas_credito_count} NC` : ''}
+                      {textoOperaciones(balance.efectivo_operaciones ?? 0, balance.efectivo_nc)}
                     </td>
                     <td className="py-2.5 text-right text-emerald-600">+ S/ {balance.ingresos_efectivo.toFixed(2)}</td>
-                    <td className="py-2.5 text-right text-rose-500">- S/ {balance.egresos_devolucion_nc.toFixed(2)}</td>
+                    <td className={`py-2.5 text-right ${claseDevolucion(efectivoDevoluciones)}`}>- S/ {efectivoDevoluciones.toFixed(2)}</td>
                     <td className="py-2.5 text-right font-bold text-slate-900 dark:text-white">
-                      S/ {(balance.ingresos_efectivo - balance.egresos_devolucion_nc).toFixed(2)}
+                      S/ {efectivoNeto.toFixed(2)}
                     </td>
                   </tr>
 
+                  {mostrarTarjetas && (
                   <tr>
                     <td className="py-2.5 font-sans font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                       <CreditCard className="w-3.5 h-3.5 text-sky-500" />
                       <span>Tarjetas POS{balance.operador_tarjeta ? ` (${balance.operador_tarjeta})` : ''}</span>
                     </td>
                     <td className="py-2.5 text-center text-slate-500">
-                      {balance.tarjetas_operaciones} {balance.tarjetas_operaciones === 1 ? 'Cobro' : 'Cobros'}
+                      {textoOperaciones(balance.tarjetas_cobros_brutos ?? balance.tarjetas_operaciones, balance.tarjetas_nc)}
                     </td>
-                    <td className="py-2.5 text-right text-emerald-600">+ S/ {balance.tarjetas_pos_total.toFixed(2)}</td>
-                    <td className="py-2.5 text-right text-slate-400">S/ 0.00</td>
+                    <td className="py-2.5 text-right text-emerald-600">+ S/ {tarjetasBruto.toFixed(2)}</td>
+                    <td className={`py-2.5 text-right ${claseDevolucion(tarjetasDevoluciones)}`}>- S/ {tarjetasDevoluciones.toFixed(2)}</td>
                     <td className="py-2.5 text-right font-bold text-slate-900 dark:text-white">
                       S/ {balance.tarjetas_pos_total.toFixed(2)}
                     </td>
                   </tr>
+                  )}
 
+                  {mostrarBilleteras && (
                   <tr>
                     <td className="py-2.5 font-sans font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                       <Smartphone className="w-3.5 h-3.5 text-purple-500" />
                       <span>Billeteras Yape / Plin</span>
                     </td>
                     <td className="py-2.5 text-center text-slate-500">
-                      {balance.billeteras_operaciones ?? 0} {(balance.billeteras_operaciones ?? 0) === 1 ? 'Cobro' : 'Cobros'}
+                      {textoOperaciones(balance.billeteras_cobros_brutos ?? balance.billeteras_operaciones ?? 0, balance.billeteras_nc)}
                     </td>
-                    <td className="py-2.5 text-right text-emerald-600">+ S/ {balance.billeteras_total.toFixed(2)}</td>
-                    <td className="py-2.5 text-right text-slate-400">S/ 0.00</td>
+                    <td className="py-2.5 text-right text-emerald-600">+ S/ {billeterasBruto.toFixed(2)}</td>
+                    <td className={`py-2.5 text-right ${claseDevolucion(billeterasDevoluciones)}`}>- S/ {billeterasDevoluciones.toFixed(2)}</td>
                     <td className="py-2.5 text-right font-bold text-slate-900 dark:text-white">
                       S/ {balance.billeteras_total.toFixed(2)}
                     </td>
                   </tr>
+                  )}
 
+                  {mostrarOtros && (
                   <tr>
                     <td className="py-2.5 font-sans font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                       <Receipt className="w-3.5 h-3.5 text-amber-500" />
                       <span>Otros Cobros / Transferencias</span>
                     </td>
                     <td className="py-2.5 text-center text-slate-500">
-                      {balance.otros_operaciones ?? 0} {(balance.otros_operaciones ?? 0) === 1 ? 'Cobro' : 'Cobros'}
+                      {textoOperaciones(balance.otros_operaciones ?? 0, balance.otros_nc)}
                     </td>
-                    <td className="py-2.5 text-right text-emerald-600">+ S/ {balance.otros_cobros_total.toFixed(2)}</td>
-                    <td className="py-2.5 text-right text-slate-400">S/ 0.00</td>
+                    <td className="py-2.5 text-right text-emerald-600">+ S/ {otrosBruto.toFixed(2)}</td>
+                    <td className={`py-2.5 text-right ${claseDevolucion(otrosDevoluciones)}`}>- S/ {otrosDevoluciones.toFixed(2)}</td>
                     <td className="py-2.5 text-right font-bold text-slate-900 dark:text-white">
                       S/ {balance.otros_cobros_total.toFixed(2)}
                     </td>
                   </tr>
+                  )}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-slate-200 dark:border-slate-700 font-bold text-xs">
@@ -209,10 +244,10 @@ export const BalancePreArqueoView: React.FC<BalancePreArqueoViewProps> = ({
                     </td>
                     <td className="pt-3 text-center text-slate-500">{balance.total_comprobantes} Docs</td>
                     <td className="pt-3 text-right text-emerald-600">
-                      + S/ {(balance.total_ingresos_brutos ?? (balance.ingresos_efectivo + balance.tarjetas_pos_total + balance.billeteras_total + balance.otros_cobros_total)).toFixed(2)}
+                      + S/ {totalIngresos.toFixed(2)}
                     </td>
                     <td className="pt-3 text-right text-rose-500">
-                      - S/ {(balance.total_egresos ?? balance.egresos_devolucion_nc).toFixed(2)}
+                      - S/ {totalDevoluciones.toFixed(2)}
                     </td>
                     <td className="pt-3 text-right text-base text-emerald-600 dark:text-emerald-400">
                       S/ {balance.total_facturado_neto.toFixed(2)}
@@ -222,6 +257,17 @@ export const BalancePreArqueoView: React.FC<BalancePreArqueoViewProps> = ({
               </table>
             </div>
           </div>
+
+          {/* Consumo vs recargos del turno (solo si hubo recargos) */}
+          {(balance.total_recargos ?? 0) > 0 && (
+            <ResumenRecargosTurno
+              totalNeto={balance.total_facturado_neto}
+              recargoTarjetas={balance.tarjetas_recargo ?? 0}
+              recargoBilleteras={balance.billeteras_recargo ?? 0}
+              totalRecargos={balance.total_recargos ?? 0}
+              ingresoConsumo={balance.ingreso_consumo ?? balance.total_facturado_neto}
+            />
+          )}
 
           {/* Bloque 2: Desglose Fiscal Oficial SUNAT Perú */}
           <div className="p-4 rounded-3xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 space-y-2">
@@ -305,6 +351,19 @@ export const BalancePreArqueoView: React.FC<BalancePreArqueoViewProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Detalle de notas de crédito del turno (solo si hubo) */}
+          {(balance.notas_credito_detalle?.length ?? 0) > 0 && (
+            <details className="group rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+              <summary className="cursor-pointer select-none px-5 py-3 text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                <span>Notas de crédito del turno ({balance.notas_credito_detalle?.length})</span>
+                <span className="text-[10px] font-normal text-slate-400 group-open:hidden">Ver detalle</span>
+              </summary>
+              <div className="px-5 pb-4">
+                <DetalleNotasCreditoTurno notas={balance.notas_credito_detalle ?? []} porPagina={5} />
+              </div>
+            </details>
+          )}
 
           {/* Tarjeta de Inicio de Arqueo y Botones CTA */}
           <div className="p-5 rounded-3xl bg-gradient-to-br from-slate-900 to-aurea-navy text-white shadow-xl space-y-4">

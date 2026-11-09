@@ -1914,9 +1914,7 @@ class MozoController extends Controller
         $metodoPagoService = app(MetodoPagoLocalService::class);
 
         $opcionesPago = $metodosPagoRaw->map(function ($mp) use ($total, $localId, $metodoPagoService) {
-            $porcentajeRecargo = $mp->codigo === 'tarjeta'
-                ? (float) $mp->comision_porcentaje
-                : 0.0;
+            $porcentajeRecargo = MetodoPagoLocalService::porcentajeRecargo($mp->codigo, $mp->comision_porcentaje);
             $comision = round($total * ($porcentajeRecargo / 100), 2);
             $datosAdicionales = is_string($mp->datos_adicionales)
                 ? json_decode($mp->datos_adicionales, true)
@@ -1933,7 +1931,7 @@ class MozoController extends Controller
                 'monto_comision' => $comision,
                 'total_estimado' => round($total + $comision, 2),
                 'detalle_billetera' => $esBilletera
-                    ? $metodoPagoService->detalleBilletera($localId, $datosAdicionales, $total)
+                    ? $metodoPagoService->detalleBilletera($localId, $datosAdicionales, round($total + $comision, 2))
                     : null,
                 'datos_adicionales' => $datosAdicionales,
             ];
@@ -2277,16 +2275,18 @@ class MozoController extends Controller
      */
     private function validarImportesSubcuentas(array $subcuentas, string $localId): void
     {
-        $comisionTarjeta = (float) DB::table('metodo_pago_local')
+        $comisionesPorMedio = DB::table('metodo_pago_local')
             ->where('local_id', $localId)
-            ->where('codigo', 'tarjeta')
-            ->value('comision_porcentaje');
+            ->pluck('comision_porcentaje', 'codigo');
 
         $errores = [];
 
         foreach ($subcuentas as $indice => $sub) {
             $baseCobro = (float) $sub['subtotal_bruto'] - (float) ($sub['descuento'] ?? 0.0);
-            $porcentaje = $sub['medio_pago'] === 'tarjeta' ? $comisionTarjeta : 0.0;
+            $porcentaje = MetodoPagoLocalService::porcentajeRecargo(
+                $sub['medio_pago'],
+                $comisionesPorMedio[$sub['medio_pago']] ?? 0
+            );
             $recargoEsperado = round($baseCobro * ($porcentaje / 100), 2);
             $recargoEnviado = (float) ($sub['monto_recargo'] ?? 0.0);
 

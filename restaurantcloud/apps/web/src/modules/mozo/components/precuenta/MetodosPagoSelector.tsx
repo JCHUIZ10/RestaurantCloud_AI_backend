@@ -52,15 +52,9 @@ export const MetodosPagoSelector: React.FC<MetodosPagoSelectorProps> = ({
     }
   };
 
-  const getSubtitulo = (opcion: OpcionPagoMozoDTO) => {
-    if (opcion.comision_porcentaje === 0) {
-      if (['yape', 'plin', 'billetera_digital'].includes(opcion.codigo)) {
-        return 'Yape o Plin directo (0%)';
-      }
-      return 'Sin recargo bancario (0%)';
-    }
-    return `+${opcion.comision_porcentaje}% recargo de comisión POS`;
-  };
+  // Sin recargo no se muestra nada: un "0%" solo genera dudas
+  const getSubtitulo = (opcion: OpcionPagoMozoDTO): string | null =>
+    opcion.comision_porcentaje > 0 ? `+${opcion.comision_porcentaje}% recargo por uso del medio` : null;
 
   return (
     <div className="bg-[#0B2340]/90 rounded-xl border border-[#D5A06F]/30 p-5 shadow-lg backdrop-blur-sm space-y-4">
@@ -106,9 +100,11 @@ export const MetodosPagoSelector: React.FC<MetodosPagoSelectorProps> = ({
                 <h3 className="font-semibold text-xs sm:text-sm text-slate-100">
                   {opcion.nombre}
                 </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  {getSubtitulo(opcion)}
-                </p>
+                {getSubtitulo(opcion) && (
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {getSubtitulo(opcion)}
+                  </p>
+                )}
               </div>
 
               <div className="mt-3 pt-2 border-t border-white/10 flex items-baseline justify-between">

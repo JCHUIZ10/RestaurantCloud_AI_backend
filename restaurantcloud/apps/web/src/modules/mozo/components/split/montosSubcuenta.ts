@@ -7,13 +7,13 @@ export const MONTO_MINIMO_SUBCUENTA = MONTO_MINIMO_COMPROBANTE;
 const aCentimos = (valor: number): number => Math.round(valor * 100) / 100;
 
 /**
- * Recalcula bruto, descuento, comisión de tarjeta, total y desglose SUNAT (base + IGV)
+ * Recalcula bruto, descuento, recargo del medio de pago, total y desglose SUNAT (base + IGV)
  * de una subcuenta a partir de sus ítems, su promoción y su medio de pago.
  */
 export const calcularMontosSubcuenta = (
   sub: SubcuentaConfigDTO,
   promociones: PromocionSedeDTO[],
-  comisionTarjetaPct: number
+  comisionPorMedio: Partial<Record<string, number>>
 ): SubcuentaConfigDTO => {
   const bruto = sub.items.reduce((acc, it) => acc + it.subtotal, 0);
 
@@ -26,10 +26,8 @@ export const calcularMontosSubcuenta = (
   }
 
   const subtotalConDescuento = Math.max(0, bruto - descuento);
-  const recargo =
-    sub.medio_pago === 'tarjeta'
-      ? aCentimos(subtotalConDescuento * (comisionTarjetaPct / 100))
-      : 0;
+  // Cada medio lleva el recargo que la sede configuró para él (efectivo no tiene)
+  const recargo = aCentimos(subtotalConDescuento * ((comisionPorMedio[sub.medio_pago] ?? 0) / 100));
 
   const totalNeto = aCentimos(subtotalConDescuento + recargo);
   // Mismo criterio que el cobro en caja: la comisión forma parte del importe gravado.

@@ -39,7 +39,7 @@ interface Paso2ConfiguracionComprobantesProps {
   /** Códigos de medios de pago habilitados en la sede; null = desconocidos (se muestran todos). */
   metodosPagoActivos?: string[] | null;
   /** Comisión (%) de tarjeta configurada en la sede */
-  comisionTarjetaPct?: number;
+  comisionPorMedio?: Record<string, number>;
   /** Datos de cobro de Yape/Plin de la sede (de metodo_pago_local) */
   detalleBilletera?: DetalleBilleteraDigitalDTO | null;
   onActualizarSubcuentas: (subcuentas: SubcuentaConfigDTO[]) => void;
@@ -49,7 +49,7 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
   subcuentas,
   promocionesDisponibles,
   metodosPagoActivos = null,
-  comisionTarjetaPct = 0,
+  comisionPorMedio = {},
   detalleBilletera = null,
   onActualizarSubcuentas,
 }) => {
@@ -69,7 +69,7 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
         return calcularMontosSubcuenta(
           { ...s, promocion_id: valorPromo, ...SIN_VERIFICACION },
           promocionesDisponibles,
-          comisionTarjetaPct
+          comisionPorMedio
         );
       }
       return s;
@@ -103,7 +103,7 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
         return calcularMontosSubcuenta(
           { ...s, medio_pago: medio, ...SIN_VERIFICACION },
           promocionesDisponibles,
-          comisionTarjetaPct
+          comisionPorMedio
         );
       }
       return s;
@@ -572,7 +572,7 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
                       }`}
                     >
                       <CreditCard className="w-3 h-3 text-sky-600" />
-                      <span>Tarjeta{comisionTarjetaPct > 0 ? ` (+${comisionTarjetaPct}%)` : ''}</span>
+                      <span>Tarjeta{(comisionPorMedio.tarjeta ?? 0) > 0 ? ` (+${comisionPorMedio.tarjeta}%)` : ''}</span>
                     </button>
                     )}
 
@@ -587,7 +587,7 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
                       }`}
                     >
                       <Smartphone className="w-3 h-3 text-purple-600" />
-                      <span>Yape/Plin</span>
+                      <span>Yape/Plin{(comisionPorMedio.billetera_digital ?? 0) > 0 ? ` (+${comisionPorMedio.billetera_digital}%)` : ''}</span>
                     </button>
                     )}
                   </div>
@@ -653,7 +653,9 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
 
                 {sub.monto_recargo > 0 && (
                   <div className="flex items-center justify-between text-sky-700 text-[11px]">
-                    <span>Comisión Tarjeta (+{comisionTarjetaPct}%):</span>
+                    <span>
+                      {sub.medio_pago === 'tarjeta' ? 'Comisión Tarjeta' : 'Recargo Yape/Plin'} (+{comisionPorMedio[sub.medio_pago] ?? 0}%):
+                    </span>
                     <span>+ S/ {sub.monto_recargo.toFixed(2)}</span>
                   </div>
                 )}

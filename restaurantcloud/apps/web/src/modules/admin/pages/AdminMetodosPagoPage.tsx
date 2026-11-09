@@ -144,11 +144,9 @@ export const AdminMetodosPagoPage: React.FC = () => {
       setMetodosBorrador((prev) =>
         prev.map((m) => {
           if (m.codigo !== codigo) return m;
-          // Efectivo siempre 0.00%
+          // Efectivo siempre 0.00%; tarjeta y billetera digital admiten recargo
           const finalComision =
-            IS_REAL_API && codigo !== 'tarjeta'
-              ? 0.0
-              : codigo === 'efectivo'
+            codigo === 'efectivo'
               ? 0.0
               : Math.min(50.0, Math.max(0.0, comision));
           return { ...m, comision_porcentaje: finalComision };

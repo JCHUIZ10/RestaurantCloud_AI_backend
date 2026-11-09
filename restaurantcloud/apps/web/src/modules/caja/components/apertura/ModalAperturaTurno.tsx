@@ -41,7 +41,7 @@ export const ModalAperturaTurno: React.FC<ModalAperturaTurnoProps> = ({
         .join('')
     : 'CJ';
 
-  const [monto, setMonto] = useState<string>('300.00');
+  const [monto, setMonto] = useState<string>('0.00');
   const [notas, setNotas] = useState<string>('');
   const [errorMonto, setErrorMonto] = useState<string | null>(null);
 

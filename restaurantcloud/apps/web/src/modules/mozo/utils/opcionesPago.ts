@@ -15,8 +15,10 @@ export const construirOpcionesPago = (
     const comisionPct = Number(op.comision_porcentaje || 0);
     const comision = Math.round(totalNeto * (comisionPct / 100) * 100) / 100;
 
+    // El QR cobra el total con el recargo del medio, no solo el consumo
+    const totalEstimado = Math.round((totalNeto + comision) * 100) / 100;
     const detalleBilletera = op.detalle_billetera
-      ? { ...op.detalle_billetera, monto_exacto: totalNeto }
+      ? { ...op.detalle_billetera, monto_exacto: totalEstimado }
       : null;
 
     return {
@@ -26,7 +28,7 @@ export const construirOpcionesPago = (
       icono: op.icono || 'wallet',
       comision_porcentaje: comisionPct,
       monto_comision: comision,
-      total_estimado: Math.round((totalNeto + comision) * 100) / 100,
+      total_estimado: totalEstimado,
       detalle_billetera: detalleBilletera,
       datos_adicionales: op.datos_adicionales,
     };

@@ -80,6 +80,40 @@ class MetodoPagoDetalleBilleteraTest extends TestCase
         }
     }
 
+    public function test_guarda_el_recargo_de_billetera(): void
+    {
+        DB::beginTransaction();
+        try {
+            $items = $this->items(['qr_payload' => self::QR_VALIDO]);
+            $items[2]['comision_porcentaje'] = 2.5;
+
+            $catalogo = app(MetodoPagoLocalService::class)->actualizar($this->localId, $items);
+            $porCodigo = collect($catalogo['metodos'])->keyBy('codigo');
+
+            $this->assertEquals(2.5, $porCodigo['billetera_digital']['comision_porcentaje']);
+            $this->assertEquals(0.0, $porCodigo['efectivo']['comision_porcentaje']);
+        } finally {
+            DB::rollBack();
+        }
+    }
+
+    public function test_efectivo_sigue_sin_admitir_recargo(): void
+    {
+        $items = $this->items(['qr_payload' => self::QR_VALIDO]);
+        $items[0]['comision_porcentaje'] = 5;
+
+        $this->expectException(\DomainException::class);
+
+        app(MetodoPagoLocalService::class)->actualizar($this->localId, $items);
+    }
+
+    public function test_el_porcentaje_de_recargo_solo_aplica_a_tarjeta_y_billetera(): void
+    {
+        $this->assertSame(3.0, MetodoPagoLocalService::porcentajeRecargo('tarjeta', '3.00'));
+        $this->assertSame(2.0, MetodoPagoLocalService::porcentajeRecargo('billetera_digital', 2));
+        $this->assertSame(0.0, MetodoPagoLocalService::porcentajeRecargo('efectivo', 9));
+    }
+
     public function test_rechaza_un_celular_invalido_si_se_envia(): void
     {
         $this->expectException(\LogicException::class);
