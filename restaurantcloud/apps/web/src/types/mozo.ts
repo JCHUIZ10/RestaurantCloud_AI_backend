@@ -689,6 +689,35 @@ export interface PedidoAnuladoResponseDTO {
 
 export type EstadoReserva = 'confirmada' | 'bloqueada' | 'atendida' | 'cancelada' | 'no_show';
 
+export type TurnoReserva = 'almuerzo' | 'cena';
+
+export interface FranjaReservaDTO {
+  hora: string; // "14:30"
+  fecha_hora: string; // "2026-11-09T14:30:00" (hora local del local, sin desfase)
+}
+
+export interface TurnoOperativoDTO {
+  nombre: string;
+  inicio: string; // "12:00"
+  fin: string; // "16:00" ("00:30" si cruza la medianoche)
+  cruza_medianoche: boolean;
+  desde: string; // ISO 8601
+  hasta: string; // ISO 8601
+  franjas: FranjaReservaDTO[]; // Horas de llegada válidas (hasta fin − duración de la reserva)
+}
+
+/** Jornada de una fecha: horario semanal combinado con feriados, cierres y horarios especiales. */
+export interface JornadaReservaDTO {
+  fecha: string;
+  atiende: boolean;
+  cerrado_por_excepcion: boolean;
+  motivo_excepcion: string | null;
+  es_horario_especial: boolean;
+  excepcion_id: string | null;
+  turnos: Record<TurnoReserva, TurnoOperativoDTO | null>;
+  rango_dia: { desde: string; hasta: string };
+}
+
 export interface PoliticasReservaDTO {
   duracion_reserva_min: number;
   buffer_reserva_min: number;
@@ -696,6 +725,11 @@ export interface PoliticasReservaDTO {
   tolerancia_no_show_min: number;
   permite_reservas_online: boolean;
   max_dias_anticipacion: number;
+  fecha: string; // Fecha consultada
+  fecha_operativa: string; // Jornada en curso (sigue siendo "ayer" durante un turno que cruza la medianoche)
+  turno_actual: TurnoReserva;
+  jornada: JornadaReservaDTO;
+  turnos_operativos: Record<TurnoReserva, TurnoOperativoDTO | null>;
 }
 
 export interface ReservaCardDTO {
@@ -729,6 +763,7 @@ export interface MesasDisponiblesResponseDTO {
   fecha_hora_solicitada: string;
   num_personas: number;
   mesas: MesaDisponibleReservaDTO[];
+  bloqueo_horario?: string | null; // Motivo si la hora cae fuera del horario o en un día cerrado
 }
 
 export interface CrearReservaRequestDTO {

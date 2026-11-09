@@ -73,6 +73,7 @@ export const MozoMesasPage: React.FC = () => {
 
   // Estados para Ficha de Reserva (CU-MOZO-05)
   const [modalFichaReservaAbierto, setModalFichaReservaAbierto] = useState(false);
+  const [toleranciaFichaReserva, setToleranciaFichaReserva] = useState(15);
   const [reservaFichaSeleccionada, setReservaFichaSeleccionada] = useState<ReservaCardDTO | null>(null);
 
   // Estado para Drawer de Despacho en Móvil (< 1024px)
@@ -202,57 +203,69 @@ export const MozoMesasPage: React.FC = () => {
 
   // Abrir Ficha de Reserva para mesa bloqueada (CU-MOZO-05)
   const handleAbrirFichaReserva = async (mesa: MesaCardDTO) => {
-    // Fecha local (toISOString devolvería la fecha UTC y en la noche de Lima caería en el día siguiente)
-    const hoyStr = new Date().toLocaleDateString('en-CA');
-    const res = await mozoService.obtenerReservas(hoyStr, 'todos');
+    try {
+      // La jornada en curso la decide el servidor (pasada la medianoche sigue siendo la del turno nocturno)
+      const politicas = await mozoService.obtenerPoliticasReserva();
+      const fechaJornada = politicas.datos?.fecha_operativa ?? new Date().toLocaleDateString('en-CA');
+      setToleranciaFichaReserva(politicas.datos?.tolerancia_no_show_min ?? 15);
 
-    if (!res.exito) {
-      mostrarToast(res.errores?.[0]?.mensaje || 'No se pudo consultar la reserva de la mesa.', 'advertencia');
-      return;
-    }
+      const res = await mozoService.obtenerReservas(fechaJornada, 'todos');
+      const encontrada = (res.datos ?? []).find(
+        (r) => r.mesa_ids.includes(mesa.id) && (r.estado === 'confirmada' || r.estado === 'bloqueada')
+      );
 
-    const encontrada = (res.datos ?? []).find((r) => r.mesa_ids.includes(mesa.id));
+      if (!encontrada) {
+        // La mesa quedó bloqueada pero la reserva ya no existe (cancelada, no-show o vencida): resincronizar
+        mostrarToast(`La reserva de la Mesa ${mesa.numero} ya no está vigente. Se actualizó el plano.`, 'advertencia');
+        await cargarPlano(pisoActivoId, true);
+        return;
+      }
 
-    if (!encontrada) {
-      // La mesa quedó bloqueada pero la reserva ya no existe (cancelada, no-show o vencida): resincronizar
-      mostrarToast(`La reserva de la Mesa ${mesa.numero} ya no está vigente. Se actualizó el plano.`, 'advertencia');
-      await cargarPlano(pisoActivoId, true);
-      return;
-    }
-
-    setReservaFichaSeleccionada(encontrada);
-    setModalFichaReservaAbierto(true);
-  };
-
-  const handleSentarDesdeFicha = async (reserva: ReservaCardDTO) => {
-    const res = await mozoService.sentarReserva(reserva.id);
-    if (res.exito) {
-      await cargarPlano(pisoActivoId, true);
-      mostrarToast(`${reserva.cliente_nombre} sentados. Comanda abierta.`);
-    } else {
-      mostrarToast(res.errores?.[0]?.mensaje || 'Error al sentar comensales', 'advertencia');
+      setReservaFichaSeleccionada(encontrada);
+      setModalFichaReservaAbierto(true);
+    } catch (error) {
+      mostrarToast(mensajeDeErrorApi(error, 'No se pudo consultar la reserva de la mesa.'), 'advertencia');
     }
   };
 
-  const handleNoShowDesdeFicha = async (reservaId: string, motivo: string) => {
-    const res = await mozoService.registrarNoShow(reservaId, motivo);
-    if (res.exito) {
+  /** Ejecuta una acción de la ficha de reserva; devuelve true si la API la aceptó. */
+  const ejecutarAccionReserva = async (
+    accion: () => Promise<{ exito: boolean }>,
+    mensajeExito: string,
+    mensajeError: string
+  ): Promise<boolean> => {
+    try {
+      const res = await accion();
+      if (!res.exito) throw new Error();
       await cargarPlano(pisoActivoId, true);
-      mostrarToast('Inasistencia registrada. Mesa liberada inmediatamente a LIBRE.', 'advertencia');
-    } else {
-      mostrarToast(res.errores?.[0]?.mensaje || 'Error al registrar inasistencia', 'advertencia');
+      mostrarToast(mensajeExito);
+      return true;
+    } catch (error) {
+      mostrarToast(mensajeDeErrorApi(error, mensajeError), 'advertencia');
+      return false;
     }
   };
 
-  const handleCancelarReservaDesdeFicha = async (reservaId: string, motivo: string) => {
-    const res = await mozoService.cancelarReserva(reservaId, motivo);
-    if (res.exito) {
-      await cargarPlano(pisoActivoId, true);
-      mostrarToast('Reserva cancelada correctamente. Mesa liberada.');
-    } else {
-      mostrarToast(res.errores?.[0]?.mensaje || 'Error al cancelar reserva', 'advertencia');
-    }
-  };
+  const handleSentarDesdeFicha = (reserva: ReservaCardDTO) =>
+    ejecutarAccionReserva(
+      () => mozoService.sentarReserva(reserva.id),
+      `${reserva.cliente_nombre} sentados. Comanda abierta.`,
+      'No se pudo sentar a los comensales.'
+    );
+
+  const handleNoShowDesdeFicha = (reservaId: string, motivo: string) =>
+    ejecutarAccionReserva(
+      () => mozoService.registrarNoShow(reservaId, motivo),
+      'Inasistencia registrada. La mesa quedó libre.',
+      'No se pudo registrar la inasistencia.'
+    );
+
+  const handleCancelarReservaDesdeFicha = (reservaId: string, motivo: string) =>
+    ejecutarAccionReserva(
+      () => mozoService.cancelarReserva(reservaId, motivo),
+      'Reserva cancelada correctamente. Mesa liberada.',
+      'No se pudo cancelar la reserva.'
+    );
 
   // Sentar comensales y abrir comanda
   const handleAbrirMesa = async (mesa: MesaCardDTO) => {
@@ -997,6 +1010,7 @@ export const MozoMesasPage: React.FC = () => {
       <ModalFichaReserva
         abierto={modalFichaReservaAbierto}
         reserva={reservaFichaSeleccionada}
+        toleranciaMin={toleranciaFichaReserva}
         onCerrar={() => {
           setModalFichaReservaAbierto(false);
           setReservaFichaSeleccionada(null);
@@ -1005,8 +1019,9 @@ export const MozoMesasPage: React.FC = () => {
         onRegistrarNoShow={handleNoShowDesdeFicha}
         onCancelarReserva={handleCancelarReservaDesdeFicha}
         onEnviarWhatsApp={(res) => {
-          const mensaje = `Hola ${res.cliente_nombre}, le saludamos de RestaurantCloud AI para confirmar su reserva de hoy a las ${res.hora_texto}.`;
-          window.open(generarEnlaceWhatsApp(res.cliente_telefono, mensaje), '_blank');
+          const mensaje = `Hola ${res.cliente_nombre}, le escribimos para confirmar su reserva de hoy a las ${res.hora_texto} para ${res.num_personas} personas en ${res.mesas_etiqueta}. ¿Nos confirma su asistencia?`;
+          const url = generarEnlaceWhatsApp(res.cliente_telefono, mensaje);
+          if (url) window.open(url, '_blank');
         }}
       />
 

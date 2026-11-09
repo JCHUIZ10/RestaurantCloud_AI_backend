@@ -19,3 +19,4 @@ export * from './errorApi';
 export * from './whatsapp';
 export * from './sunat';
 export * from './comprimirImagen';
+export * from './fechaLocal';

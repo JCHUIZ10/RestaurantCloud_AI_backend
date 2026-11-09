@@ -4,28 +4,31 @@ import { CalendarCheck2, Clock, CheckCircle2, UserX } from 'lucide-react';
 interface ReservasKPICardsProps {
   totalReservas: number;
   proximasEnUnaHora: number;
-  atendidasHoy: number;
-  inasistenciasHoy: number;
+  atendidas: number;
+  inasistencias: number;
+  /** Nombre del turno visible (ej. "Almuerzo"), para rotular las métricas. */
+  etiquetaTurno: string;
 }
 
 export const ReservasKPICards: React.FC<ReservasKPICardsProps> = ({
   totalReservas,
   proximasEnUnaHora,
-  atendidasHoy,
-  inasistenciasHoy,
+  atendidas,
+  inasistencias,
+  etiquetaTurno,
 }) => {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-      {/* KPI 1: Reservas de Hoy */}
+      {/* KPI 1: Reservas del turno */}
       <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
         <div>
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Reservas de Hoy
+            Reservas del Turno
           </span>
           <div className="font-serif text-2xl sm:text-3xl font-bold text-aurea-navy mt-0.5">
             {totalReservas}
           </div>
-          <div className="text-[11px] text-slate-500 font-medium">Agendadas en el día</div>
+          <div className="text-[11px] text-slate-500 font-medium">Agendadas en {etiquetaTurno}</div>
         </div>
         <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-aurea-navy">
           <CalendarCheck2 className="w-5 h-5" />
@@ -48,30 +51,30 @@ export const ReservasKPICards: React.FC<ReservasKPICardsProps> = ({
         </div>
       </div>
 
-      {/* KPI 3: Atendidas Hoy */}
+      {/* KPI 3: Reservas atendidas */}
       <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-emerald-200 shadow-2xs flex items-center justify-between bg-gradient-to-br from-white to-emerald-50/40">
         <div>
           <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-            Comensales Atendidos
+            Reservas Atendidas
           </span>
           <div className="font-serif text-2xl sm:text-3xl font-bold text-emerald-900 mt-0.5">
-            {atendidasHoy}
+            {atendidas}
           </div>
-          <div className="text-[11px] text-emerald-700 font-medium">En mesa activa</div>
+          <div className="text-[11px] text-emerald-700 font-medium">Comensales ya sentados</div>
         </div>
         <div className="w-10 h-10 rounded-xl bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-700">
           <CheckCircle2 className="w-5 h-5" />
         </div>
       </div>
 
-      {/* KPI 4: Inasistencias del Día */}
+      {/* KPI 4: Inasistencias y cancelaciones */}
       <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-rose-200 shadow-2xs flex items-center justify-between bg-gradient-to-br from-white to-rose-50/40">
         <div>
           <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700">
-            Inasistencias del Día
+            Inasistencias / Canceladas
           </span>
           <div className="font-serif text-2xl sm:text-3xl font-bold text-rose-900 mt-0.5">
-            {inasistenciasHoy}
+            {inasistencias}
           </div>
           <div className="text-[11px] text-rose-700 font-medium">Mesas liberadas</div>
         </div>

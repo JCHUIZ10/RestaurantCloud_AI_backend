@@ -470,8 +470,9 @@ export const realMozoService = {
   },
 
   // CU-MOZO-05: Gestión Integral de Reservas y Recepción en Salón
-  async obtenerPoliticasReserva(): Promise<ApiResponse<PoliticasReservaDTO>> {
-    return apiGet<PoliticasReservaDTO>('/mozo/reservas/politicas');
+  /** Políticas del local y jornada de la fecha indicada (por defecto, la jornada en curso). */
+  async obtenerPoliticasReserva(fecha?: string): Promise<ApiResponse<PoliticasReservaDTO>> {
+    return apiGet<PoliticasReservaDTO>('/mozo/reservas/politicas', fecha ? { fecha } : undefined);
   },
 
   async obtenerReservas(

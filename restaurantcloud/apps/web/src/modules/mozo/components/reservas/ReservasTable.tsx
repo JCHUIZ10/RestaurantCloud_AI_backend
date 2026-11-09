@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Clock, Phone, MessageSquare, User, Check, Eye, ArrowUpRight } from 'lucide-react';
 import { ReservaCardDTO } from '@/types/mozo';
 import { useNavigate } from 'react-router-dom';
@@ -6,18 +6,32 @@ import { ROUTES } from '@/router/routes.constants';
 
 interface ReservasTableProps {
   reservas: ReservaCardDTO[];
-  onSentarReserva: (reserva: ReservaCardDTO) => void;
+  /** Solo se recibe a comensales de la jornada en curso. */
+  permiteSentar: boolean;
+  onSentarReserva: (reserva: ReservaCardDTO) => Promise<boolean>;
   onAbrirFicha: (reserva: ReservaCardDTO) => void;
   onAbrirWhatsApp: (reserva: ReservaCardDTO) => void;
 }
 
 export const ReservasTable: React.FC<ReservasTableProps> = ({
   reservas,
+  permiteSentar,
   onSentarReserva,
   onAbrirFicha,
   onAbrirWhatsApp,
 }) => {
   const navigate = useNavigate();
+  const [sentandoId, setSentandoId] = useState<string | null>(null);
+
+  const handleSentar = async (reserva: ReservaCardDTO) => {
+    if (sentandoId) return;
+    setSentandoId(reserva.id);
+    try {
+      await onSentarReserva(reserva);
+    } finally {
+      setSentandoId(null);
+    }
+  };
 
   // Badge de anticipación relativo a la hora de cita
   const renderAnticipacionBadge = (reserva: ReservaCardDTO) => {
@@ -43,7 +57,15 @@ export const ReservasTable: React.FC<ReservasTableProps> = ({
       );
     }
 
-    if (reserva.minutos_restantes <= 0) {
+    if (reserva.minutos_restantes === 0) {
+      return (
+        <span className="text-[10px] text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded font-bold border border-amber-300">
+          ⏱️ A la hora
+        </span>
+      );
+    }
+
+    if (reserva.minutos_restantes < 0) {
       const retraso = Math.abs(reserva.minutos_restantes);
       return (
         <span className="text-[10px] text-rose-700 bg-rose-100/80 px-2 py-0.5 rounded font-bold border border-rose-300 animate-pulse">
@@ -198,14 +220,15 @@ export const ReservasTable: React.FC<ReservasTableProps> = ({
                   {/* Acciones */}
                   <td className="py-3.5 px-4 text-right whitespace-nowrap">
                     <div className="flex items-center justify-end gap-1.5">
-                      {esActiva && (
+                      {esActiva && permiteSentar && (
                         <button
-                          onClick={() => onSentarReserva(reserva)}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 transition-all shadow-xs active:scale-95"
+                          onClick={() => handleSentar(reserva)}
+                          disabled={sentandoId !== null}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 transition-all shadow-xs active:scale-95 disabled:opacity-50"
                           title="Sentar comensales y abrir comanda"
                         >
                           <Check className="w-3.5 h-3.5" />
-                          <span>Sentar</span>
+                          <span>{sentandoId === reserva.id ? 'Sentando...' : 'Sentar'}</span>
                         </button>
                       )}
 
@@ -253,9 +276,11 @@ export const ReservasTable: React.FC<ReservasTableProps> = ({
 
       <div className="bg-slate-50/80 px-4 py-2.5 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
         <span>Mostrando {reservas.length} registros del turno</span>
-        <span className="font-medium text-slate-600">
-          * Módulo exclusivo para Planes Pro y Enterprise SaaS
-        </span>
+        {!permiteSentar && (
+          <span className="font-medium text-slate-600">
+            Solo se puede sentar a comensales de la jornada en curso.
+          </span>
+        )}
       </div>
     </div>
   );

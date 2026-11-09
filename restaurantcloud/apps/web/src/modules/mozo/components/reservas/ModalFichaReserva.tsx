@@ -1,20 +1,49 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Clock, Phone, MessageSquare, Users, AlertTriangle, CheckCircle2, UserX } from 'lucide-react';
 import { ReservaCardDTO } from '@/types/mozo';
 
 interface ModalFichaReservaProps {
   abierto: boolean;
   reserva: ReservaCardDTO | null;
+  /** Minutos de cortesía antes de considerar inasistencia (politicas_reserva.tolerancia_no_show_min). */
+  toleranciaMin: number;
+  /** Nombre del turno de la reserva (ej. "Almuerzo"), si se conoce. */
+  nombreTurno?: string | null;
+  /** Solo se sienta a comensales de la jornada en curso. */
+  permiteSentar?: boolean;
   onCerrar: () => void;
-  onSentarComensales: (reserva: ReservaCardDTO) => Promise<void>;
-  onRegistrarNoShow: (reservaId: string, motivo: string) => Promise<void>;
-  onCancelarReserva: (reservaId: string, motivo: string) => Promise<void>;
+  onSentarComensales: (reserva: ReservaCardDTO) => Promise<boolean>;
+  onRegistrarNoShow: (reservaId: string, motivo: string) => Promise<boolean>;
+  onCancelarReserva: (reservaId: string, motivo: string) => Promise<boolean>;
   onEnviarWhatsApp: (reserva: ReservaCardDTO) => void;
 }
+
+const ETIQUETA_ESTADO_CERRADO: Partial<Record<ReservaCardDTO['estado'], string>> = {
+  atendida: 'Comensales ya sentados',
+  no_show: 'Inasistencia registrada',
+  cancelada: 'Reserva cancelada',
+};
+
+const formatearDuracion = (minutos: number): string => {
+  const horas = Math.floor(minutos / 60);
+  const resto = minutos % 60;
+  if (horas === 0) return `${resto} min`;
+  return resto > 0 ? `${horas}h ${resto}m` : `${horas}h`;
+};
+
+const horaMasMinutos = (fechaHoraIso: string, minutos: number): string => {
+  const fecha = new Date(fechaHoraIso);
+  if (Number.isNaN(fecha.getTime())) return '';
+  fecha.setMinutes(fecha.getMinutes() + minutos);
+  return fecha.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false });
+};
 
 export const ModalFichaReserva: React.FC<ModalFichaReservaProps> = ({
   abierto,
   reserva,
+  toleranciaMin,
+  nombreTurno,
+  permiteSentar = true,
   onCerrar,
   onSentarComensales,
   onRegistrarNoShow,
@@ -22,47 +51,75 @@ export const ModalFichaReserva: React.FC<ModalFichaReservaProps> = ({
   onEnviarWhatsApp,
 }) => {
   const [modoCancelar, setModoCancelar] = useState(false);
-  const [motivoCancelacion, setMotivoCancelacion] = useState('Cliente solicitó reprogramar por emergencia familiar');
+  const [motivoCancelacion, setMotivoCancelacion] = useState('');
   const [modoNoShowConfirm, setModoNoShowConfirm] = useState(false);
-  const [motivoNoShow, setMotivoNoShow] = useState('Cliente no se presentó ni contestó al llamado');
+  const [motivoNoShow, setMotivoNoShow] = useState('');
   const [procesando, setProcesando] = useState(false);
+
+  // Cada ficha empieza limpia: sin confirmaciones abiertas ni motivos de otra reserva
+  useEffect(() => {
+    setModoCancelar(false);
+    setModoNoShowConfirm(false);
+    setMotivoCancelacion('');
+    setMotivoNoShow('');
+    setProcesando(false);
+  }, [reserva?.id, abierto]);
 
   if (!abierto || !reserva) return null;
 
-  const esExpirado = Boolean(
-    reserva.tolerancia_expiro ||
-    (typeof reserva.minutos_restantes === 'number' && reserva.minutos_restantes < -15)
-  );
+  const esActiva = reserva.estado === 'confirmada' || reserva.estado === 'bloqueada';
+  const minutosRetraso = Math.max(0, -reserva.minutos_restantes);
+  const esExpirado = esActiva && (reserva.tolerancia_expiro || minutosRetraso > toleranciaMin);
+  const finCortesia = horaMasMinutos(reserva.fecha_hora, toleranciaMin);
+  const motivoCancelacionValido = motivoCancelacion.trim().length >= 3;
 
-  const handleSentar = async () => {
+  const ejecutar = async (accion: () => Promise<boolean>) => {
     setProcesando(true);
     try {
-      await onSentarComensales(reserva);
-      onCerrar();
+      const ok = await accion();
+      if (ok) onCerrar();
     } finally {
       setProcesando(false);
     }
   };
 
-  const handleConfirmarNoShow = async () => {
-    setProcesando(true);
-    try {
-      await onRegistrarNoShow(reserva.id, motivoNoShow);
-      onCerrar();
-    } finally {
-      setProcesando(false);
-    }
+  const handleSentar = () => ejecutar(() => onSentarComensales(reserva));
+  const handleConfirmarNoShow = () => ejecutar(() => onRegistrarNoShow(reserva.id, motivoNoShow.trim()));
+  const handleConfirmarCancelacion = () => {
+    if (!motivoCancelacionValido) return;
+    return ejecutar(() => onCancelarReserva(reserva.id, motivoCancelacion.trim()));
   };
 
-  const handleConfirmarCancelacion = async () => {
-    if (!motivoCancelacion.trim()) return;
-    setProcesando(true);
-    try {
-      await onCancelarReserva(reserva.id, motivoCancelacion);
-      onCerrar();
-    } finally {
-      setProcesando(false);
+  const renderEstadoReloj = () => {
+    if (!esActiva) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 font-bold border border-slate-300">
+          {ETIQUETA_ESTADO_CERRADO[reserva.estado] ?? reserva.estado}
+        </span>
+      );
     }
+    if (esExpirado) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-100 text-rose-900 font-bold border border-rose-300 animate-pulse">
+          <AlertTriangle className="w-3.5 h-3.5 text-rose-700" />
+          <span>Tolerancia expirada ({formatearDuracion(minutosRetraso)} de retraso)</span>
+        </span>
+      );
+    }
+    if (reserva.minutos_restantes <= 0) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-100 text-amber-900 font-bold border border-amber-300">
+          <Clock className="w-3.5 h-3.5 text-amber-700" />
+          <span>En ventana de cortesía (quedan {toleranciaMin - minutosRetraso} min)</span>
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-sky-50 text-sky-900 font-bold border border-sky-200">
+        <Clock className="w-3.5 h-3.5 text-sky-700" />
+        <span>Llega en {formatearDuracion(reserva.minutos_restantes)}</span>
+      </span>
+    );
   };
 
   return (
@@ -74,14 +131,9 @@ export const ModalFichaReserva: React.FC<ModalFichaReservaProps> = ({
         {/* Cabecera del Modal */}
         <div className="px-5 py-4 bg-aurea-navy text-white flex items-center justify-between border-b border-aurea-copper/30">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-aurea-champagne">
-                Recepción & Control de Cortesía
-              </span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-aurea-copper/20 text-aurea-champagne font-mono">
-                560px
-              </span>
-            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-aurea-champagne">
+              Recepción & Control de Cortesía
+            </span>
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-white flex items-center gap-2 mt-0.5">
               <span>👤 Ficha de Reserva: {reserva.cliente_nombre}</span>
             </h2>
@@ -135,7 +187,7 @@ export const ModalFichaReserva: React.FC<ModalFichaReservaProps> = ({
                   {reserva.cliente_telefono}
                 </span>
                 <a
-                  href={`tel:${reserva.cliente_telefono}`}
+                  href={`tel:${reserva.cliente_telefono.replace(/\s/g, '')}`}
                   className="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-300 text-[11px] font-semibold text-slate-700 inline-flex items-center gap-1"
                 >
                   <Phone className="w-3 h-3 text-slate-500" />
@@ -162,43 +214,38 @@ export const ModalFichaReserva: React.FC<ModalFichaReservaProps> = ({
             )}
           </section>
 
-          {/* TIEMPO Y CORTESÍA (Reloj Dinámico) */}
+          {/* TIEMPO Y CORTESÍA */}
           <section
             className={`p-4 rounded-xl border transition-all ${
               esExpirado
                 ? 'bg-rose-50/70 border-rose-300'
-                : 'bg-amber-50/70 border-amber-300'
+                : esActiva
+                ? 'bg-amber-50/70 border-amber-300'
+                : 'bg-slate-50 border-slate-200'
             }`}
           >
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-bold text-slate-900 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-aurea-navy" />
-                <span>Tiempo y Cortesía de Espera</span>
-              </h3>
-            </div>
+            <h3 className="font-bold text-slate-900 text-[11px] uppercase tracking-wider flex items-center gap-1.5 mb-2">
+              <Clock className="w-4 h-4 text-aurea-navy" />
+              <span>Tiempo y Cortesía de Espera</span>
+            </h3>
 
             <div className="space-y-1.5 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-slate-600">Hora Pactada:</span>
-                <span className="font-mono font-bold text-slate-900">{reserva.hora_texto} (Turno Almuerzo)</span>
+                <span className="font-mono font-bold text-slate-900">
+                  {reserva.hora_texto}
+                  {nombreTurno ? ` (Turno ${nombreTurno})` : ''}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-600">Ventana de Cortesía:</span>
-                <span className="font-semibold text-slate-800">15 minutos (hasta 14:15)</span>
+                <span className="font-semibold text-slate-800">
+                  {toleranciaMin} minutos{finCortesia ? ` (hasta ${finCortesia})` : ''}
+                </span>
               </div>
-              <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
+              <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between gap-2">
                 <span className="font-semibold text-slate-700">Estado del Reloj:</span>
-                {esExpirado ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-100 text-rose-900 font-bold border border-rose-300 animate-pulse">
-                    <AlertTriangle className="w-3.5 h-3.5 text-rose-700" />
-                    <span>⏱️ Tolerancia expirada (16 min retraso)</span>
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-100 text-amber-900 font-bold border border-amber-300">
-                    <Clock className="w-3.5 h-3.5 text-amber-700" />
-                    <span>En ventana de cortesía (faltan 10 min)</span>
-                  </span>
-                )}
+                {renderEstadoReloj()}
               </div>
             </div>
           </section>
@@ -215,12 +262,14 @@ export const ModalFichaReserva: React.FC<ModalFichaReservaProps> = ({
               </p>
               <div>
                 <label className="block text-[10px] font-semibold text-rose-900 mb-1">
-                  Motivo o detalle de inasistencia:
+                  Motivo o detalle de inasistencia (opcional):
                 </label>
                 <input
                   type="text"
                   value={motivoNoShow}
                   onChange={(e) => setMotivoNoShow(e.target.value)}
+                  placeholder="Ej. No se presentó ni contestó las llamadas"
+                  maxLength={500}
                   className="w-full px-2.5 py-1.5 rounded-lg border border-rose-300 text-xs bg-white text-slate-800 font-medium"
                 />
               </div>
@@ -236,7 +285,7 @@ export const ModalFichaReserva: React.FC<ModalFichaReservaProps> = ({
                   type="button"
                   onClick={handleConfirmarNoShow}
                   disabled={procesando}
-                  className="px-4 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-800 text-white font-bold shadow-sm"
+                  className="px-4 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-800 text-white font-bold shadow-sm disabled:opacity-50"
                 >
                   {procesando ? 'Liberando...' : 'Liberar Mesa a LIBRE'}
                 </button>
@@ -249,12 +298,14 @@ export const ModalFichaReserva: React.FC<ModalFichaReservaProps> = ({
             <div className="p-3.5 rounded-xl bg-slate-100 border border-slate-300 space-y-2 animate-fade-in">
               <div className="font-bold text-slate-900">Cancelar Reserva Anticipadamente</div>
               <p className="text-[11px] text-slate-600">
-                Ingresa el motivo auditado de la cancelación. La mesa asignada quedará disponible:
+                Ingresa el motivo auditado de la cancelación (mínimo 3 caracteres). La mesa asignada quedará disponible:
               </p>
               <textarea
                 rows={2}
                 value={motivoCancelacion}
                 onChange={(e) => setMotivoCancelacion(e.target.value)}
+                placeholder="Ej. El cliente llamó para reprogramar"
+                maxLength={500}
                 className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white text-slate-800"
               />
               <div className="flex items-center justify-end gap-2 pt-1">
@@ -268,8 +319,8 @@ export const ModalFichaReserva: React.FC<ModalFichaReservaProps> = ({
                 <button
                   type="button"
                   onClick={handleConfirmarCancelacion}
-                  disabled={procesando}
-                  className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white font-bold"
+                  disabled={procesando || !motivoCancelacionValido}
+                  className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white font-bold disabled:opacity-50"
                 >
                   {procesando ? 'Cancelando...' : 'Confirmar Cancelación'}
                 </button>
@@ -280,24 +331,30 @@ export const ModalFichaReserva: React.FC<ModalFichaReservaProps> = ({
           {/* ACCIONES PRIMARIAS DE RECEPCIÓN */}
           {!modoNoShowConfirm && !modoCancelar && (
             <div className="space-y-2.5 pt-1">
+              {esActiva && !permiteSentar && (
+                <p className="text-[11px] text-slate-500 text-center">
+                  Esta reserva no es de la jornada en curso: los comensales se sientan el día de la cita.
+                </p>
+              )}
+
               {/* Acción 1: Sentar Comensales */}
               <button
                 type="button"
                 onClick={handleSentar}
-                disabled={procesando || reserva.estado === 'atendida'}
+                disabled={procesando || !esActiva || !permiteSentar}
                 className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-md transition-all flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50"
                 style={{ minHeight: '48px' }}
               >
                 <CheckCircle2 className="w-5 h-5 text-emerald-200" />
-                <span>[ ✓ Sentar Comensales y Abrir Pedido (CU-MOZO-02) ]</span>
+                <span>{procesando ? 'Procesando...' : '✓ Sentar Comensales y Abrir Pedido'}</span>
               </button>
 
               {/* Acción 2: Cliente no se presentó / No-Show */}
               <button
                 type="button"
                 onClick={() => setModoNoShowConfirm(true)}
-                disabled={procesando || reserva.estado === 'atendida' || reserva.estado === 'no_show'}
-                className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 border transition-all ${
+                disabled={procesando || !esActiva}
+                className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 border transition-all disabled:opacity-50 ${
                   esExpirado
                     ? 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300 shadow-xs'
                     : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
@@ -305,7 +362,7 @@ export const ModalFichaReserva: React.FC<ModalFichaReservaProps> = ({
                 style={{ minHeight: '44px' }}
               >
                 <UserX className="w-4 h-4 text-rose-600" />
-                <span>[ ⚠️ Cliente No Se Presentó / Liberar Mesa ]</span>
+                <span>⚠️ Cliente No Se Presentó / Liberar Mesa</span>
               </button>
 
               {/* Acciones Secundarias */}
@@ -322,8 +379,8 @@ export const ModalFichaReserva: React.FC<ModalFichaReservaProps> = ({
                 <button
                   type="button"
                   onClick={() => setModoCancelar(true)}
-                  disabled={reserva.estado === 'cancelada'}
-                  className="py-2 px-3 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                  disabled={procesando || !esActiva}
+                  className="py-2 px-3 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
                 >
                   <X className="w-3.5 h-3.5 text-slate-400" />
                   <span>✕ Cancelar Reserva</span>
