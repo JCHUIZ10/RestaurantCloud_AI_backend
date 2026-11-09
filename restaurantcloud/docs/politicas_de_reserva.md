@@ -1,0 +1,255 @@
+# Políticas de Reserva del Salón
+
+Este documento explica cómo funcionan las reservas de salón en RestaurantCloud: qué parámetros las gobiernan, cómo se combinan con el horario de atención y los feriados, qué se valida al registrar una reserva y cómo evoluciona su estado hasta que el comensal se sienta o la mesa se libera.
+
+**Alcance:** reservas registradas por el mozo desde la Bandeja de Reservas (CU-MOZO-05) y su efecto en el plano de mesas (CU-MOZO-01). La pantalla de configuración del administrador (CU-ADMIN-10) todavía no está disponible (ver [§9](#9-limitaciones-conocidas-y-pendientes)).
+
+---
+
+## 1. Resumen en 30 segundos
+
+- Cada local tiene **una sola fila de políticas** (`politicas_reserva`). Se crea con valores por defecto al dar de alta el local.
+- Una reserva **dura 90 min** por defecto, y entre dos reservas de la misma mesa se dejan **15 min de limpieza**.
+- Solo se puede reservar **dentro del horario de atención** del día. Un feriado o cierre lo impide, y un horario especial reemplaza al horario semanal.
+- La **última hora de llegada** de un turno es su hora de cierre menos la duración de la reserva.
+- **30 min antes** de la cita, la mesa pasa a **bloqueada** en el plano para que nadie la ocupe.
+- El cliente tiene **15 min de cortesía**. Pasado ese tiempo, el mozo decide si registra la inasistencia (no es automática).
+- Al **sentar** a los comensales se abre la comanda en la mesa. Para eso, la caja debe estar abierta y la mesa libre.
+
+---
+
+## 2. Parámetros de la política (`politicas_reserva`)
+
+| Parámetro | Qué significa | Por defecto | Rango permitido | ¿Se aplica hoy? |
+| :--- | :--- | :---: | :---: | :--- |
+| `duracion_reserva_min` | Tiempo que la mesa queda comprometida por cada reserva. | 90 | 30 – 240 | ✅ Choques, disponibilidad, horas de llegada y última llegada del turno. |
+| `buffer_reserva_min` | Margen de limpieza y rotación entre reservas de la misma mesa. | 15 | 0 – 60 | ✅ Detección de choques y disponibilidad de mesas. |
+| `minutos_bloqueo_previo` | Minutos antes de la cita en que la mesa se bloquea en el plano. | 30 | 0 – 120 | ✅ Estado `bloqueada` y plano de mesas. |
+| `tolerancia_no_show_min` | Minutos de cortesía para que llegue el cliente después de su hora. | 15 | 5 – 60 | ✅ Reloj de cortesía de la ficha y plano de mesas. |
+| `anticipacion_maxima_dias` | Con cuántos días de anticipación se puede reservar como máximo. | 30 | 1 – 90 | ✅ Al registrar la reserva. |
+| `anticipacion_minima_horas` | Anticipación mínima exigida para reservar. | 2 | 0 – 48 | ⛔ **No aplica al mozo** (pensado para reservas en línea). |
+| `acepta_reservas` | Interruptor general de reservas en línea. | `true` | — | ⛔ No bloquea al mozo; se expone como `permite_reservas_online`. |
+| `margen_recordatorio_min` | Minutos antes de la cita para enviar un recordatorio. | 120 | ≥ 0 | ⛔ Aún no se usa (no hay recordatorios automáticos). |
+
+> **¿Por qué la anticipación mínima no aplica al mozo?** El mozo atiende llamadas y clientes en la puerta, que pueden pedir una mesa para dentro de unos minutos. Al mozo solo se le prohíbe reservar en el pasado (con 5 min de margen) y más allá de la anticipación máxima.
+
+---
+
+## 3. Horario de atención: la "jornada" de cada fecha
+
+Una reserva solo es válida si cae dentro del horario real del local para esa fecha. Ese horario (la **jornada**) se arma combinando dos configuraciones del administrador (CU-ADMIN-09).
+
+### 3.1 Orden de prioridad
+
+| Prioridad | Fuente | Efecto |
+| :---: | :--- | :--- |
+| 1 | **Excepción de cierre** (`horario_excepcion` con `cerrado = true`): feriados, mantenimiento, etc. | El local **no atiende** ese día: sin turnos, sin reservas y la bandeja muestra el motivo. |
+| 2 | **Horario especial** (`horario_excepcion` con `cerrado = false` y horas definidas). | Reemplaza por completo al horario semanal de ese día. |
+| 3 | **Horario semanal** (`horario_atencion` del día de la semana). | Turnos habituales del local. |
+| — | Día sin turnos en el horario semanal. | El local **no atiende**. No se inventan turnos de respaldo. |
+
+### 3.2 Pestañas Almuerzo y Cena
+
+La bandeja siempre muestra dos pestañas, **Almuerzo** y **Cena**. Los turnos del local se reparten así:
+
+1. Si el nombre del turno contiene **"almuerzo"**, va a Almuerzo.
+2. Si contiene **"cena"** o **"noche"**, va a Cena.
+3. Cualquier otro nombre (ej. "Turno continuo", "Horario especial") se **divide a las 17:00**: lo anterior va a Almuerzo y lo posterior a Cena.
+4. Si varios turnos caen en la misma pestaña, se unen (del inicio más temprano al cierre más tardío).
+5. Si una pestaña se queda sin turno, aparece **deshabilitada** ("Sin atención").
+
+| Horario configurado | Almuerzo | Cena |
+| :--- | :--- | :--- |
+| `Almuerzo 12:00–16:00` + `Cena 19:00–23:30` | 12:00 – 16:00 | 19:00 – 23:30 |
+| `Turno continuo 12:00–23:00` | 12:00 – 17:00 | 17:00 – 23:00 |
+| `Almuerzo Familiar 12:00–18:00` (solo) | 12:00 – 18:00 | Deshabilitada |
+| Excepción: horario especial `18:00–22:00` | Deshabilitada | 18:00 – 22:00 |
+| Excepción: cierre por feriado | Deshabilitada | Deshabilitada (bandeja muestra "Local cerrado: …") |
+
+### 3.3 Turnos que cruzan la medianoche
+
+Un turno cuya hora de cierre es menor que la de inicio (ej. `Cena 19:00–00:30`) **termina al día siguiente**:
+
+- Una reserva a las **00:15 del sábado** pertenece a la **cena del viernes** y aparece en la bandeja del viernes.
+- Pasada la medianoche, la **jornada en curso** sigue siendo la del viernes mientras dure ese turno. El botón para volver a la jornada actual, la fecha inicial de la bandeja y el permiso para sentar usan esa jornada.
+
+### 3.4 Horas de llegada que se ofrecen
+
+- Se generan **cada 30 minutos** desde el inicio del turno hasta la **última hora de llegada**:
+
+  > **Última hora de llegada = cierre del turno − `duracion_reserva_min`**
+  >
+  > Ejemplo: turno 12:00–16:00 con reservas de 90 min → la última llegada es **14:30** (14:30 + 90 min = 16:00).
+
+- Si la fecha es hoy, se ocultan las horas que ya pasaron.
+
+---
+
+## 4. Registrar una reserva
+
+### 4.1 Datos requeridos
+
+| Dato | Regla |
+| :--- | :--- |
+| Nombre del titular | 3 a 100 caracteres. |
+| Teléfono móvil | 9 dígitos que empiezan con 9. Se guarda como `+51 987 654 321` (ver [estandar_telefono_whatsapp.md](./estandar_telefono_whatsapp.md)). |
+| Comensales | 1 a 50 personas. |
+| Fecha y hora | Hora local del restaurante (America/Lima), elegida entre las horas de llegada ofrecidas. |
+| Mesa(s) | Al menos una mesa del local. Si una sola no alcanza, se pueden agrupar varias. |
+| Notas | Opcional, hasta 500 caracteres. |
+
+### 4.2 Validaciones, en el orden en que se aplican
+
+1. **Hora no pasada**: se rechaza una hora anterior a "ahora − 5 min".
+2. **Anticipación máxima**: la fecha no puede pasar de hoy + `anticipacion_maxima_dias`.
+3. **Horario de atención** (según la [§3](#3-horario-de-atención-la-jornada-de-cada-fecha)), con estos mensajes de error:
+   - día cerrado por excepción → *"El local estará cerrado el 20/11/2026: Mantenimiento preventivo programado."*;
+   - día sin atención → *"El local no atiende el …"*;
+   - hora fuera de los turnos → *"La hora … está fuera del horario de atención …"*;
+   - llegada demasiado tarde → *"La última hora de llegada del turno Almuerzo es 14:30 …"*.
+4. **Mesas válidas**: todas deben pertenecer al local.
+5. **Choque de horario** con otra reserva activa en las mismas mesas (ver [§5](#5-disponibilidad-de-mesas-y-choques-de-horario)).
+
+Las mesas se **bloquean durante el registro**, así que dos mozos no pueden reservar la misma mesa al mismo tiempo. Si la fecha tiene un horario especial, la reserva queda vinculada a esa excepción (`reserva.excepcion_id`).
+
+### 4.3 Estado inicial
+
+- **`bloqueada`**: si la cita es dentro de los próximos `minutos_bloqueo_previo` minutos.
+- **`confirmada`**: en cualquier otro caso.
+
+---
+
+## 5. Disponibilidad de mesas y choques de horario
+
+### 5.1 Regla de choque
+
+Dos reservas activas (`confirmada` o `bloqueada`) de la **misma mesa** deben empezar con una separación mínima de:
+
+> **`duracion_reserva_min` + `buffer_reserva_min`** → con los valores por defecto, **105 minutos**.
+
+| Reserva existente | Nueva solicitud | Resultado |
+| :--- | :--- | :--- |
+| 13:00 | 14:30 | ❌ Choque (solo 90 min de separación). |
+| 13:00 | 14:45 | ✅ Permitida (105 min). |
+| 13:00 | 11:30 | ❌ Choque (90 min). |
+| 13:00 | 11:15 | ✅ Permitida (105 min). |
+
+### 5.2 Cuándo una mesa aparece como no disponible en el mini-mapa
+
+| Motivo mostrado | Condición |
+| :--- | :--- |
+| *Reservada a las HH:MM* | Choca con otra reserva activa (regla anterior). |
+| *Ocupada con comanda activa* | Tiene una comanda abierta y la reserva es para hoy dentro de ±60 min. |
+| *Capacidad insuficiente* | Su capacidad es menor al número de comensales **y** la mesa no permite unirse a otras. |
+
+Una mesa más chica que el grupo que **sí permite unión** aparece disponible para agruparla con otras. La interfaz advierte si la capacidad sumada es menor que el número de comensales.
+
+---
+
+## 6. Ciclo de vida de una reserva
+
+### 6.1 Estados (`reserva.estado`)
+
+| Estado | Significado en pocas palabras |
+| :--- | :--- |
+| `confirmada` | Reserva registrada; la mesa sigue disponible para otros clientes hasta el bloqueo previo. |
+| `bloqueada` | Faltan `minutos_bloqueo_previo` o menos para la cita; la mesa se reserva en el plano. |
+| `atendida` | Los comensales se sentaron y se abrió su comanda. |
+| `no_show` | El cliente no se presentó; la mesa se liberó. |
+| `cancelada` | La reserva se anuló antes de la cita con un motivo registrado. |
+
+```
+                ┌──────────── cancelar ────────────┐
+                │                                   ▼
+ confirmada ──(30 min antes)──▶ bloqueada ──sentar──▶ atendida
+     │                            │
+     │                            ├── no-show ──▶ no_show
+     └──────── sentar / no-show / cancelar ─────▶ (mismos destinos)
+```
+
+`atendida`, `no_show` y `cancelada` son **estados finales**: no admiten otra acción.
+
+> El paso de `confirmada` a `bloqueada` se **calcula al consultar** (en la bandeja y en el plano) a partir de los minutos que faltan. No requiere ningún proceso programado.
+
+### 6.2 Reloj de cortesía
+
+| Situación | Cómo se muestra en la ficha |
+| :--- | :--- |
+| Falta tiempo para la cita | "Llega en 45 min" |
+| Pasó la hora, dentro de la tolerancia | "En ventana de cortesía (quedan N min)" |
+| Pasó la tolerancia y sigue activa | "Tolerancia expirada (N min de retraso)" (se resalta la acción de inasistencia) |
+
+La inasistencia **nunca se registra sola**: el mozo decide si espera más o libera la mesa.
+
+### 6.3 Acciones del mozo
+
+| Acción | Requisitos | Efecto |
+| :--- | :--- | :--- |
+| **Sentar comensales** | Reserva `confirmada`/`bloqueada`; reserva de la **jornada en curso**; **caja abierta**; ninguna mesa asignada tiene una comanda activa (propia o de la mesa a la que esté unida). | Une las mesas (la titular es la de menor número), abre la comanda con los comensales de la reserva y la marca `atendida`. Si una mesa está ocupada: *"La Mesa X está ocupada con otra comanda. Reasigne la reserva…"*. |
+| **Registrar inasistencia** | Reserva `confirmada`/`bloqueada`. Motivo opcional (máx. 500 caracteres; por defecto "Inasistencia del cliente"). | Estado `no_show`; el motivo se agrega a las notas; la mesa queda libre. |
+| **Cancelar** | Reserva `confirmada`/`bloqueada`. Motivo **obligatorio** (3 a 500 caracteres). | Estado `cancelada`; el motivo se agrega a las notas; la mesa queda libre. |
+| **Reasignar mesa** | Que la nueva mesa pertenezca al local. | Reemplaza las mesas asignadas por la nueva (ver limitaciones). |
+| **WhatsApp** | — | Abre WhatsApp con un mensaje de confirmación que indica el día ("de hoy", "de mañana" o la fecha), la hora, los comensales y la mesa. |
+
+Cada acción queda registrada en `log_auditoria`: `CREACION_RESERVA`, `RECEPCION_RESERVA_SALON`, `NO_SHOW_RESERVA`, `CANCELACION_RESERVA` y `REASIGNACION_MESA_RESERVA`.
+
+---
+
+## 7. Efecto en el plano de mesas
+
+Una mesa con una reserva activa se muestra **bloqueada** en el plano durante esta ventana:
+
+> desde **`minutos_bloqueo_previo` antes** de la cita hasta **`tolerancia_no_show_min` después** de la cita.
+
+Con los valores por defecto, una reserva de las 20:00 bloquea la mesa de **19:30 a 20:15**. Al tocar la mesa bloqueada se abre la ficha de la reserva. Si ya no está vigente, el plano se actualiza solo.
+
+---
+
+## 8. Ejemplo completo (valores por defecto, horario `Turno continuo 12:00–23:00`)
+
+1. **Pestañas:** Almuerzo 12:00–17:00 y Cena 17:00–23:00.
+2. **Horas de llegada:** almuerzo de 12:00 a 15:30 (17:00 − 90 min); cena de 17:00 a 21:30 (23:00 − 90 min).
+3. **Reserva:** a las 15:00, el mozo registra a la Fam. Ríos para las **20:00** en la Mesa 08 → queda `confirmada`.
+4. **Choques en la Mesa 08:** se rechaza cualquier otra reserva que empiece **después de las 18:15 y antes de las 21:45**. Antes sí cabe una a las 18:15 o más temprano. Después, la siguiente posible sería a las 21:45, pero la cena solo admite llegadas hasta las 21:30, así que esa noche no cabe otra reserva posterior en esa mesa.
+5. **Bloqueo:** a las **19:30** la reserva pasa a `bloqueada` y la Mesa 08 se ve bloqueada en el plano.
+6. **Llegada a tiempo:** si la familia llega a las 20:05, el mozo pulsa **Sentar**: se abre la comanda y la reserva pasa a `atendida`.
+7. **Si no llega:** a las 20:15 vence la cortesía; el mozo registra la inasistencia y la mesa se libera.
+
+---
+
+## 9. Limitaciones conocidas y pendientes
+
+| Tema | Situación actual |
+| :--- | :--- |
+| Pantalla de políticas del administrador (CU-ADMIN-10) | Pendiente (placeholder). Los valores se crean al dar de alta el local y por ahora solo se cambian en la base de datos. |
+| `anticipacion_minima_horas`, `acepta_reservas`, `margen_recordatorio_min` | Guardados, pero sin efecto en el flujo del mozo (reservas en línea y recordatorios aún no existen). |
+| Capacidad total del grupo | El backend no exige que la suma de capacidades cubra a los comensales; solo la interfaz lo advierte. |
+| Reasignar mesa | No valida choques con otras reservas ni el estado de la reserva. |
+| Crear un feriado o cierre con reservas activas ese día | Se rechaza hasta implementar su resolución (cancelación y aviso masivo, "punto 5B" de Horario). |
+| Inasistencia | Siempre manual; no hay cierre automático al vencer la tolerancia. |
+
+---
+
+## 10. Referencias técnicas
+
+| Pieza | Ubicación |
+| :--- | :--- |
+| Jornada operativa (horario, excepciones, medianoche, franjas, validación) | `apps/api/app/Domains/Horario/Services/JornadaOperativaService.php` |
+| Endpoints de reservas (`/api/v1/mozo/reservas/*`) | `apps/api/app/Http/Controllers/Api/MozoController.php` |
+| Esquema (`politicas_reserva`, `reserva`, `reserva_mesa`, `horario_atencion`, `horario_excepcion`) | `apps/api/database/sql/02_schema_ddl.sql` |
+| Valores por defecto al crear un local | `apps/api/app/Domains/Tenant/Services/LocalProvisioningService.php` |
+| Bandeja de Reservas (web) | `apps/web/src/modules/mozo/pages/MozoReservasPage.tsx` y `components/reservas/` |
+| Tests de comportamiento | `apps/api/tests/Feature/MozoReservasTest.php`, `apps/api/tests/Feature/JornadaOperativaServiceTest.php` |
+
+**Endpoints:**
+
+| Método | Ruta | Uso |
+| :--- | :--- | :--- |
+| `GET` | `/mozo/reservas/politicas?fecha=YYYY-MM-DD` | Políticas, jornada de la fecha, jornada en curso y turno sugerido. |
+| `GET` | `/mozo/reservas?fecha=&turno=almuerzo\|cena\|todos` | Bandeja de reservas del turno. |
+| `GET` | `/mozo/reservas/mesas-disponibles?fecha=&hora=&comensales=` | Mini-mapa de disponibilidad (`bloqueo_horario` si la hora no es válida). |
+| `POST` | `/mozo/reservas` | Registrar una reserva. |
+| `POST` | `/mozo/reservas/{id}/sentar` | Sentar comensales y abrir la comanda. |
+| `POST` | `/mozo/reservas/{id}/no-show` | Registrar inasistencia. |
+| `POST` | `/mozo/reservas/{id}/cancelar` | Cancelar con motivo. |
+| `PATCH` | `/mozo/reservas/{id}/reasignar-mesa` | Cambiar la mesa asignada. |
