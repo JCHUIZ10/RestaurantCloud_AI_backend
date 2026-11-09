@@ -6,6 +6,7 @@ use App\Domains\Archivos\Services\TenantStorageService;
 use App\Domains\Caja\Services\MetodoPagoLocalService;
 use App\Domains\Caja\Services\ReglasCobroItemService;
 use App\Domains\Caja\Services\ServicioPendienteService;
+use App\Domains\Horario\Services\JornadaOperativaService;
 use App\Domains\Inventario\Services\StockDeduccionService;
 use App\Domains\Inventario\Services\ValidacionStockPedidoService;
 use App\Domains\Promociones\Services\PromocionService;
@@ -3557,109 +3558,98 @@ class MozoController extends Controller
     }
 
     /**
-     * Resuelve los turnos operativos para una fecha a partir de horario_atencion del local (CU-ADMIN-09).
+     * Políticas de reserva del local (con valores por defecto si no se configuraron).
+     *
+     * @return array{duracion: int, buffer: int, tolerancia: int, bloqueo_previo: int, acepta_online: bool, max_dias: int}
      */
-    private function resolverTurnosFecha(string $localId, string $fecha): array
+    private function politicaReserva(string $localId): array
     {
-        $diaSemana = Carbon::parse($fecha)->dayOfWeekIso; // 1 = Lunes, 7 = Domingo
-
-        $horarios = DB::table('horario_atencion')
-            ->where('local_id', $localId)
-            ->where('dia_semana', $diaSemana)
-            ->where('atiende', true)
-            ->orderBy('hora_inicio')
-            ->get();
-
-        $turnoAlmuerzo = null;
-        $turnoCena = null;
-
-        foreach ($horarios as $h) {
-            $nombre = mb_strtolower($h->nombre_turno);
-            if (str_contains($nombre, 'almuerzo')) {
-                $turnoAlmuerzo = ['inicio' => $h->hora_inicio, 'fin' => $h->hora_fin, 'nombre' => $h->nombre_turno];
-            } elseif (str_contains($nombre, 'cena')) {
-                $turnoCena = ['inicio' => $h->hora_inicio, 'fin' => $h->hora_fin, 'nombre' => $h->nombre_turno];
-            }
-        }
-
-        // Si no hay turnos explícitamente nombrados "Almuerzo" y "Cena", analizamos los horarios registrados
-        if (! $turnoAlmuerzo && ! $turnoCena && $horarios->isNotEmpty()) {
-            $primerHorario = $horarios->first();
-            $ultimoHorario = $horarios->last();
-            $horaApertura = $primerHorario->hora_inicio;
-            $horaCierre = $ultimoHorario->hora_fin;
-
-            // División de turno acoplada a la jornada del local (corte a las 17:00)
-            $corteTurno = '17:00:00';
-            $turnoAlmuerzo = ['inicio' => $horaApertura, 'fin' => $corteTurno, 'nombre' => 'Almuerzo'];
-            $turnoCena = ['inicio' => $corteTurno, 'fin' => $horaCierre, 'nombre' => 'Cena'];
-        }
-
-        // Fallback estándar si no hay horario configurado para este día
-        if (! $turnoAlmuerzo) {
-            $turnoAlmuerzo = ['inicio' => '12:00:00', 'fin' => '17:00:00', 'nombre' => 'Almuerzo'];
-        }
-        if (! $turnoCena) {
-            $turnoCena = ['inicio' => '17:00:00', 'fin' => '23:30:00', 'nombre' => 'Cena'];
-        }
-
-        return [
-            'almuerzo' => $turnoAlmuerzo,
-            'cena' => $turnoCena,
-        ];
-    }
-
-    /**
-     * CU-MOZO-05: Obtener políticas de reserva del local y turnos del día.
-     */
-    public function getPoliticasReserva(Request $request): JsonResponse
-    {
-        $user = $request->user();
-        $localId = $user->local_id;
-
         $politica = DB::table('politicas_reserva')
             ->where('local_id', $localId)
             ->first();
 
-        $fechaHoy = now()->toDateString();
-        $turnos = $this->resolverTurnosFecha($localId, $fechaHoy);
-
-        $dto = [
-            'duracion_reserva_min' => (int) ($politica->duracion_reserva_min ?? 90),
-            'buffer_reserva_min' => (int) ($politica->buffer_reserva_min ?? 15),
-            'minutos_bloqueo_previo' => (int) ($politica->minutos_bloqueo_previo ?? 30),
-            'tolerancia_no_show_min' => (int) ($politica->tolerancia_no_show_min ?? 15),
-            'permite_reservas_online' => (bool) ($politica->acepta_reservas ?? false),
-            'max_dias_anticipacion' => (int) ($politica->anticipacion_maxima_dias ?? 30),
-            'turnos_operativos' => $turnos,
+        return [
+            'duracion' => (int) ($politica->duracion_reserva_min ?? 90),
+            'buffer' => (int) ($politica->buffer_reserva_min ?? 15),
+            'tolerancia' => (int) ($politica->tolerancia_no_show_min ?? 15),
+            'bloqueo_previo' => (int) ($politica->minutos_bloqueo_previo ?? 30),
+            'acepta_online' => (bool) ($politica->acepta_reservas ?? false),
+            'max_dias' => (int) ($politica->anticipacion_maxima_dias ?? 30),
         ];
+    }
 
-        return ApiResponse::ok($dto);
+    /**
+     * Fecha `YYYY-MM-DD` válida del query string, o null si no viene o no es una fecha real.
+     */
+    private function fechaDeQuery(Request $request): ?string
+    {
+        $fecha = $request->query('fecha');
+
+        if (! is_string($fecha) || ! preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $fecha, $partes)) {
+            return null;
+        }
+
+        return checkdate((int) $partes[2], (int) $partes[3], (int) $partes[1]) ? $fecha : null;
+    }
+
+    /**
+     * CU-MOZO-05: Políticas de reserva del local y jornada (turnos, feriados y excepciones) de una fecha.
+     */
+    public function getPoliticasReserva(Request $request, JornadaOperativaService $jornadas): JsonResponse
+    {
+        $localId = $request->user()->local_id;
+        $politica = $this->politicaReserva($localId);
+
+        $operativa = $jornadas->fechaOperativa($localId, now(), $politica['duracion']);
+        $fecha = $this->fechaDeQuery($request) ?? $operativa['fecha'];
+        $jornada = $jornadas->resolver($localId, $fecha, $politica['duracion']);
+
+        return ApiResponse::ok([
+            'duracion_reserva_min' => $politica['duracion'],
+            'buffer_reserva_min' => $politica['buffer'],
+            'minutos_bloqueo_previo' => $politica['bloqueo_previo'],
+            'tolerancia_no_show_min' => $politica['tolerancia'],
+            'permite_reservas_online' => $politica['acepta_online'],
+            'max_dias_anticipacion' => $politica['max_dias'],
+            'fecha' => $fecha,
+            'fecha_operativa' => $operativa['fecha'],
+            'turno_actual' => $operativa['turno'],
+            'jornada' => $jornada,
+            'turnos_operativos' => $jornada['turnos'],
+        ]);
     }
 
     /**
      * CU-MOZO-05: Obtener disponibilidad de mesas para una fecha, hora y comensales.
      */
-    public function getMesasDisponiblesReserva(Request $request): JsonResponse
+    public function getMesasDisponiblesReserva(Request $request, JornadaOperativaService $jornadas): JsonResponse
     {
         $user = $request->user();
         $localId = $user->local_id;
 
-        $fecha = $request->query('fecha', now()->toDateString());
-        $hora = $request->query('hora', now()->format('H:i'));
+        $fecha = $this->fechaDeQuery($request) ?? now()->toDateString();
+        $hora = (string) $request->query('hora', now()->format('H:i'));
         $numPersonas = (int) $request->query('comensales', $request->query('num_personas', 4));
 
-        $politica = DB::table('politicas_reserva')
-            ->where('local_id', $localId)
-            ->first();
-
-        $duracion = (int) ($politica->duracion_reserva_min ?? 90);
-        $buffer = (int) ($politica->buffer_reserva_min ?? 15);
+        $politica = $this->politicaReserva($localId);
+        $duracion = $politica['duracion'];
+        $buffer = $politica['buffer'];
 
         try {
-            $solicitadoInicio = Carbon::parse("{$fecha} {$hora}");
+            $solicitadoInicio = Carbon::parse("{$fecha} {$hora}", config('app.timezone'));
         } catch (\Exception $e) {
-            $solicitadoInicio = now();
+            return ApiResponse::error('La hora solicitada no es válida.', 422);
+        }
+
+        // El horario de atención (incluidos feriados, cierres y horarios especiales) manda sobre las mesas
+        $validacionHorario = $jornadas->validarInicioReserva($localId, $solicitadoInicio, $duracion);
+        if (! $validacionHorario['valido']) {
+            return ApiResponse::ok([
+                'fecha_hora_solicitada' => $solicitadoInicio->toIso8601String(),
+                'num_personas' => $numPersonas,
+                'mesas' => [],
+                'bloqueo_horario' => $validacionHorario['mensaje'],
+            ]);
         }
 
         $solicitadoFin = $solicitadoInicio->copy()->addMinutes($duracion);
@@ -3733,45 +3723,44 @@ class MozoController extends Controller
             'fecha_hora_solicitada' => $solicitadoInicio->toIso8601String(),
             'num_personas' => $numPersonas,
             'mesas' => $mesasDTO->values(),
+            'bloqueo_horario' => null,
         ]);
     }
 
     /**
      * CU-MOZO-05: Listar reservas de la jornada con cálculo de anticipación y tolerancia.
      */
-    public function getReservas(Request $request): JsonResponse
+    public function getReservas(Request $request, JornadaOperativaService $jornadas): JsonResponse
     {
         $user = $request->user();
         $localId = $user->local_id;
 
-        $fecha = $request->query('fecha', now()->toDateString());
+        $politica = $this->politicaReserva($localId);
+        $toleranciaMin = $politica['tolerancia'];
+        $bloqueoPrevioMin = $politica['bloqueo_previo'];
+
+        $fecha = $this->fechaDeQuery($request)
+            ?? $jornadas->fechaOperativa($localId, now(), $politica['duracion'])['fecha'];
         $turno = $request->query('turno', 'todos');
+        $jornada = $jornadas->resolver($localId, $fecha, $politica['duracion']);
 
-        $politica = DB::table('politicas_reserva')
-            ->where('local_id', $localId)
-            ->first();
-
-        $toleranciaMin = (int) ($politica->tolerancia_no_show_min ?? 15);
-        $bloqueoPrevioMin = (int) ($politica->minutos_bloqueo_previo ?? 30);
-
-        $turnos = $this->resolverTurnosFecha($localId, $fecha);
-
-        $query = DB::table('reserva as r')
-            ->where('r.local_id', $localId)
-            ->whereDate('r.fecha_hora', $fecha)
-            ->orderBy('r.fecha_hora');
-
-        if ($turno === 'almuerzo' && isset($turnos['almuerzo'])) {
-            $query->whereTime('r.fecha_hora', '>=', $turnos['almuerzo']['inicio'])
-                ->whereTime('r.fecha_hora', '<', $turnos['almuerzo']['fin']);
-        } elseif ($turno === 'cena' && isset($turnos['cena'])) {
-            $query->whereTime('r.fecha_hora', '>=', $turnos['cena']['inicio']);
-            if (isset($turnos['cena']['fin']) && $turnos['cena']['fin'] > $turnos['cena']['inicio']) {
-                $query->whereTime('r.fecha_hora', '<=', $turnos['cena']['fin']);
+        // Rango absoluto del turno: un turno nocturno incluye las reservas pasada la medianoche
+        if (in_array($turno, ['almuerzo', 'cena'], true)) {
+            $turnoJornada = $jornada['turnos'][$turno];
+            if ($turnoJornada === null) {
+                return ApiResponse::ok([]);
             }
+            $rango = ['desde' => $turnoJornada['desde'], 'hasta' => $turnoJornada['hasta']];
+        } else {
+            $rango = $jornada['rango_dia'];
         }
 
-        $reservasRaw = $query->get();
+        $reservasRaw = DB::table('reserva as r')
+            ->where('r.local_id', $localId)
+            ->where('r.fecha_hora', '>=', Carbon::parse($rango['desde']))
+            ->where('r.fecha_hora', '<', Carbon::parse($rango['hasta']))
+            ->orderBy('r.fecha_hora')
+            ->get();
 
         if ($reservasRaw->isEmpty()) {
             return ApiResponse::ok([]);
@@ -3852,7 +3841,7 @@ class MozoController extends Controller
     /**
      * CU-MOZO-05: Crear una nueva reserva en salón con asignación de mesas.
      */
-    public function crearReserva(Request $request): JsonResponse
+    public function crearReserva(Request $request, JornadaOperativaService $jornadas): JsonResponse
     {
         $user = $request->user();
         $localId = $user->local_id;
@@ -3867,54 +3856,68 @@ class MozoController extends Controller
             'notas' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $mesaIds = $validated['mesa_ids'];
-        $fechaHora = Carbon::parse($validated['fecha_hora']);
+        $mesaIds = array_values(array_unique($validated['mesa_ids']));
+        // Una hora sin desfase ("2026-11-09T20:00:00") se interpreta en la zona horaria del local
+        $fechaHora = Carbon::parse($validated['fecha_hora'], config('app.timezone'))
+            ->setTimezone(config('app.timezone'));
 
-        $mesasDB = DB::table('mesa')
-            ->where('local_id', $localId)
-            ->whereIn('id', $mesaIds)
-            ->get();
+        $politica = $this->politicaReserva($localId);
+        $duracion = $politica['duracion'];
+        $buffer = $politica['buffer'];
 
-        if ($mesasDB->count() !== count($mesaIds)) {
-            return ApiResponse::error('Una o más mesas seleccionadas no pertenecen al local o son inválidas.', 422);
+        if ($fechaHora->lt(now()->subMinutes(5))) {
+            return ApiResponse::error('No se puede registrar una reserva en una fecha u hora pasada.', 422);
         }
 
-        $politica = DB::table('politicas_reserva')
-            ->where('local_id', $localId)
-            ->first();
-
-        $duracion = (int) ($politica->duracion_reserva_min ?? 90);
-        $buffer = (int) ($politica->buffer_reserva_min ?? 15);
-
-        $solicitadoInicio = $fechaHora;
-        $ventanaInicio = $solicitadoInicio->copy()->subMinutes($buffer);
-        $ventanaFin = $solicitadoInicio->copy()->addMinutes($duracion + $buffer);
-
-        $colisiones = DB::table('reserva as r')
-            ->join('reserva_mesa as rm', 'rm.reserva_id', '=', 'r.id')
-            ->join('mesa as m', 'm.id', '=', 'rm.mesa_id')
-            ->where('r.local_id', $localId)
-            ->whereIn('rm.mesa_id', $mesaIds)
-            ->whereIn('r.estado', ['confirmada', 'bloqueada'])
-            ->where(function ($q) use ($ventanaInicio, $ventanaFin, $duracion) {
-                $q->where('r.fecha_hora', '<', $ventanaFin)
-                    ->whereRaw("r.fecha_hora + interval '{$duracion} minutes' > ?", [$ventanaInicio]);
-            })
-            ->select('m.numero')
-            ->distinct()
-            ->pluck('numero');
-
-        if ($colisiones->isNotEmpty()) {
-            return ApiResponse::error(
-                'Conflicto de horario: La mesa '.$colisiones->implode(', ').' ya cuenta con una reserva activa en esa franja.',
-                422
-            );
+        if ($fechaHora->copy()->startOfDay()->gt(now()->startOfDay()->addDays($politica['max_dias']))) {
+            return ApiResponse::error("Solo se aceptan reservas con hasta {$politica['max_dias']} días de anticipación.", 422);
         }
 
-        return DB::transaction(function () use ($validated, $user, $localId, $fechaHora, $mesaIds, $mesasDB, $politica) {
+        $validacionHorario = $jornadas->validarInicioReserva($localId, $fechaHora, $duracion);
+        if (! $validacionHorario['valido']) {
+            return ApiResponse::error($validacionHorario['mensaje'], 422);
+        }
+
+        $ventanaInicio = $fechaHora->copy()->subMinutes($buffer);
+        $ventanaFin = $fechaHora->copy()->addMinutes($duracion + $buffer);
+        $excepcionId = $validacionHorario['excepcion_id'];
+
+        return DB::transaction(function () use ($validated, $user, $localId, $fechaHora, $mesaIds, $politica, $duracion, $ventanaInicio, $ventanaFin, $excepcionId) {
+            // Bloquear las mesas evita que dos mozos reserven la misma mesa en paralelo
+            $mesasDB = DB::table('mesa')
+                ->where('local_id', $localId)
+                ->whereIn('id', $mesaIds)
+                ->lockForUpdate()
+                ->get();
+
+            if ($mesasDB->count() !== count($mesaIds)) {
+                return ApiResponse::error('Una o más mesas seleccionadas no pertenecen al local o son inválidas.', 422);
+            }
+
+            $colisiones = DB::table('reserva as r')
+                ->join('reserva_mesa as rm', 'rm.reserva_id', '=', 'r.id')
+                ->join('mesa as m', 'm.id', '=', 'rm.mesa_id')
+                ->where('r.local_id', $localId)
+                ->whereIn('rm.mesa_id', $mesaIds)
+                ->whereIn('r.estado', ['confirmada', 'bloqueada'])
+                ->where(function ($q) use ($ventanaInicio, $ventanaFin, $duracion) {
+                    $q->where('r.fecha_hora', '<', $ventanaFin)
+                        ->whereRaw("r.fecha_hora + interval '{$duracion} minutes' > ?", [$ventanaInicio]);
+                })
+                ->select('m.numero')
+                ->distinct()
+                ->pluck('numero');
+
+            if ($colisiones->isNotEmpty()) {
+                return ApiResponse::error(
+                    'Conflicto de horario: La mesa '.$colisiones->implode(', ').' ya cuenta con una reserva activa en esa franja.',
+                    422
+                );
+            }
+
             $reservaId = (string) Str::uuid();
 
-            $bloqueoPrevioMin = (int) ($politica->minutos_bloqueo_previo ?? 30);
+            $bloqueoPrevioMin = $politica['bloqueo_previo'];
             $minutosRestantes = (int) round(($fechaHora->timestamp - now()->timestamp) / 60);
 
             $estadoInicial = ($minutosRestantes <= $bloqueoPrevioMin && $minutosRestantes >= 0)
@@ -3930,6 +3933,7 @@ class MozoController extends Controller
                 'num_personas' => $validated['num_personas'],
                 'estado' => $estadoInicial,
                 'creado_por' => $user->id,
+                'excepcion_id' => $excepcionId,
                 'notas' => $validated['notas'] ?? null,
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -3985,7 +3989,7 @@ class MozoController extends Controller
     /**
      * CU-MOZO-05: Sentar comensales de una reserva, unir mesas si aplica y abrir comanda.
      */
-    public function sentarReserva(string $id, Request $request): JsonResponse
+    public function sentarReserva(string $id, Request $request, JornadaOperativaService $jornadas): JsonResponse
     {
         $user = $request->user();
         $localId = $user->local_id;
@@ -4014,11 +4018,66 @@ class MozoController extends Controller
             return ApiResponse::error('La reserva no tiene mesas asignadas.', 422);
         }
 
+        // Solo se recibe a los comensales de la jornada en curso (no reservas de otro día)
+        $duracion = $this->politicaReserva($localId)['duracion'];
+        $fechaJornadaReserva = $jornadas->fechaJornadaDe($localId, Carbon::parse($reserva->fecha_hora), $duracion);
+        $fechaOperativa = $jornadas->fechaOperativa($localId, now(), $duracion)['fecha'];
+        if ($fechaJornadaReserva !== $fechaOperativa) {
+            return ApiResponse::error(
+                'Solo se puede sentar a comensales de reservas de la jornada en curso. Esta reserva es para el '
+                    .Carbon::parse($fechaJornadaReserva)->format('d/m/Y').'.',
+                422
+            );
+        }
+
+        $cajaAbierta = DB::table('caja')
+            ->where('local_id', $localId)
+            ->where('estado', 'abierta')
+            ->exists();
+
+        if (! $cajaAbierta) {
+            return ApiResponse::error(
+                'ERR_CAJA_NO_ABIERTA',
+                'Actualmente no hay caja abierta en este local. Vuelve a intentarlo más tarde.',
+                409
+            );
+        }
+
         $titular = $mesasAsignadas->first();
         $secundarias = $mesasAsignadas->slice(1);
 
-        return DB::transaction(function () use ($reserva, $titular, $secundarias, $user, $localId, $id) {
-            // 1. Si son varias mesas, unirlas físicamente
+        return DB::transaction(function () use ($reserva, $titular, $secundarias, $mesasAsignadas, $user, $localId, $id) {
+            $mesaIds = $mesasAsignadas->pluck('id');
+            $mesasBloqueadas = DB::table('mesa')
+                ->whereIn('id', $mesaIds)
+                ->lockForUpdate()
+                ->get(['id', 'numero', 'mesa_principal_id']);
+
+            // 1. Las mesas deben estar libres: sin comanda activa propia ni de la mesa a la que estén unidas
+            $mesasConsultadas = $mesaIds->merge($mesasBloqueadas->pluck('mesa_principal_id')->filter())->unique();
+            $mesasConPedido = DB::table('pedido')
+                ->where('local_id', $localId)
+                ->whereIn('mesa_id', $mesasConsultadas)
+                ->whereIn('estado', ['borrador', 'enviado', 'cuenta_pedida'])
+                ->pluck('mesa_id')
+                ->flip();
+
+            $ocupadas = $mesasBloqueadas
+                ->filter(fn ($mesa) => $mesasConPedido->has($mesa->id)
+                    || ($mesa->mesa_principal_id && $mesasConPedido->has($mesa->mesa_principal_id)))
+                ->pluck('numero')
+                ->sort()
+                ->values();
+
+            if ($ocupadas->isNotEmpty()) {
+                return ApiResponse::error(
+                    'ERR_MESA_OCUPADA',
+                    'La Mesa '.$ocupadas->implode(', ').' está ocupada con otra comanda. Reasigne la reserva a una mesa libre.',
+                    409
+                );
+            }
+
+            // 2. Si son varias mesas, unirlas físicamente
             if ($secundarias->isNotEmpty()) {
                 DB::table('mesa')
                     ->whereIn('id', $secundarias->pluck('id'))
@@ -4028,36 +4087,25 @@ class MozoController extends Controller
                     ]);
             }
 
-            // 2. Verificar si la mesa titular ya tiene pedido activo
-            $pedidoExistente = DB::table('pedido')
-                ->where('mesa_id', $titular->id)
+            // 3. Abrir la comanda en la mesa titular
+            $ultimoNumero = DB::table('pedido')
                 ->where('local_id', $localId)
-                ->whereIn('estado', ['borrador', 'enviado', 'cuenta_pedida'])
-                ->first();
+                ->max('numero_comanda') ?? 0;
 
-            $pedidoId = null;
-            if ($pedidoExistente) {
-                $pedidoId = $pedidoExistente->id;
-            } else {
-                $ultimoNumero = DB::table('pedido')
-                    ->where('local_id', $localId)
-                    ->max('numero_comanda') ?? 0;
+            $pedidoId = (string) Str::uuid();
+            DB::table('pedido')->insert([
+                'id' => $pedidoId,
+                'local_id' => $localId,
+                'numero_comanda' => $ultimoNumero + 1,
+                'mesa_id' => $titular->id,
+                'mozo_id' => $user->id,
+                'estado' => 'enviado',
+                'comensales' => (int) $reserva->num_personas,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
 
-                $pedidoId = (string) Str::uuid();
-                DB::table('pedido')->insert([
-                    'id' => $pedidoId,
-                    'local_id' => $localId,
-                    'numero_comanda' => $ultimoNumero + 1,
-                    'mesa_id' => $titular->id,
-                    'mozo_id' => $user->id,
-                    'estado' => 'enviado',
-                    'comensales' => (int) $reserva->num_personas,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
-
-            // 3. Marcar reserva atendida
+            // 4. Marcar reserva atendida
             DB::table('reserva')
                 ->where('id', $id)
                 ->update([
@@ -4065,7 +4113,7 @@ class MozoController extends Controller
                     'updated_at' => now(),
                 ]);
 
-            // 4. Log auditoría
+            // 5. Log auditoría
             DB::table('log_auditoria')->insert([
                 'id' => (string) Str::uuid(),
                 'empresa_id' => $user->empresa_id,
@@ -4109,7 +4157,15 @@ class MozoController extends Controller
             return ApiResponse::error('Reserva no encontrada.', 404);
         }
 
-        $motivo = $request->input('motivo_inasistencia', $request->input('motivo', 'Inasistencia del cliente'));
+        if (! in_array($reserva->estado, ['confirmada', 'bloqueada'], true)) {
+            return ApiResponse::error("La reserva ya se encuentra en estado '{$reserva->estado}' y no admite registrar inasistencia.", 422);
+        }
+
+        $request->validate([
+            'motivo_inasistencia' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $motivo = trim((string) $request->input('motivo_inasistencia', $request->input('motivo', ''))) ?: 'Inasistencia del cliente';
 
         $notasActuales = $reserva->notas ? "{$reserva->notas} | Inasistencia: {$motivo}" : "Inasistencia: {$motivo}";
 
@@ -4159,6 +4215,10 @@ class MozoController extends Controller
 
         if (! $reserva) {
             return ApiResponse::error('Reserva no encontrada.', 404);
+        }
+
+        if (! in_array($reserva->estado, ['confirmada', 'bloqueada'], true)) {
+            return ApiResponse::error("La reserva ya se encuentra en estado '{$reserva->estado}' y no puede cancelarse.", 422);
         }
 
         $validated = $request->validate([

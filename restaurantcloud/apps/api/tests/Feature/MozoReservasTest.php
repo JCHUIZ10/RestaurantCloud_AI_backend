@@ -11,15 +11,18 @@ use Tests\TestCase;
 class MozoReservasTest extends TestCase
 {
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
+
     private string $localId = '00000000-0000-4000-8000-000000000010';
+
     private string $mozoId = '00000000-0000-4000-8000-000000000102';
+
     private string $tokenMozo;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $rawToken = 'test_token_reservas_' . Str::random(32);
+        $rawToken = 'test_token_reservas_'.Str::random(32);
         $tokenHash = hash('sha256', $rawToken);
 
         $sessionPayload = [
@@ -39,7 +42,7 @@ class MozoReservasTest extends TestCase
     private function headers(): array
     {
         return [
-            'Authorization' => 'Bearer ' . $this->tokenMozo,
+            'Authorization' => 'Bearer '.$this->tokenMozo,
             'Accept' => 'application/json',
         ];
     }
@@ -50,7 +53,7 @@ class MozoReservasTest extends TestCase
         DB::table('piso')->insert([
             'id' => $pisoId,
             'local_id' => $this->localId,
-            'nombre' => 'Piso ' . Str::random(4),
+            'nombre' => 'Piso '.Str::random(4),
             'columnas' => 5,
             'filas' => 3,
             'estado' => 'activo',
@@ -81,6 +84,70 @@ class MozoReservasTest extends TestCase
         ]);
 
         return $mesaId;
+    }
+
+    private function abrirCaja(): void
+    {
+        if (DB::table('caja')->where('local_id', $this->localId)->where('estado', 'abierta')->exists()) {
+            return;
+        }
+
+        DB::table('caja')->insert([
+            'id' => (string) Str::uuid(),
+            'local_id' => $this->localId,
+            'cajero_id' => '00000000-0000-4000-8000-000000000105',
+            'monto_apertura' => 250.00,
+            'estado' => 'abierta',
+            'fecha_apertura' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    /**
+     * Reemplaza el horario semanal del día indicado por los turnos dados.
+     *
+     * @param  array<int, array{0: string, 1: string, 2: string}>  $turnos  [nombre, inicio, fin]
+     */
+    private function configurarHorario(int $diaSemana, array $turnos): void
+    {
+        DB::table('horario_atencion')
+            ->where('local_id', $this->localId)
+            ->where('dia_semana', $diaSemana)
+            ->delete();
+
+        foreach ($turnos as [$nombre, $inicio, $fin]) {
+            DB::table('horario_atencion')->insert([
+                'id' => (string) Str::uuid(),
+                'local_id' => $this->localId,
+                'dia_semana' => $diaSemana,
+                'nombre_turno' => $nombre,
+                'atiende' => true,
+                'hora_inicio' => $inicio,
+                'hora_fin' => $fin,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+    }
+
+    private function crearReservaEnBd(string $mesaId, Carbon $fechaHora, string $estado = 'confirmada'): string
+    {
+        $reservaId = (string) Str::uuid();
+        DB::table('reserva')->insert([
+            'id' => $reservaId,
+            'local_id' => $this->localId,
+            'cliente_nombre' => 'Cliente '.Str::random(4),
+            'cliente_telefono' => '+51 987 654 321',
+            'fecha_hora' => $fechaHora,
+            'num_personas' => 2,
+            'estado' => $estado,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('reserva_mesa')->insert(['reserva_id' => $reservaId, 'mesa_id' => $mesaId]);
+
+        return $reservaId;
     }
 
     public function test_obtener_politicas_reserva_retorna_parametros_y_turnos_de_bd(): void
@@ -236,6 +303,7 @@ class MozoReservasTest extends TestCase
 
     public function test_sentar_reserva_une_mesas_abre_comanda_y_actualiza_estado(): void
     {
+        $this->abrirCaja();
         $pisoId = $this->crearPiso();
         $mesa1 = $this->crearMesa($pisoId, 'R20', 4);
         $mesa2 = $this->crearMesa($pisoId, 'R21', 4);
@@ -468,5 +536,142 @@ class MozoReservasTest extends TestCase
         $this->assertEquals('Gómez Bloqueo Preventivo', $mesaBloqueada['reserva_cliente']);
         $this->assertNotNull($mesaBloqueada['reserva_hora']);
         $this->assertNotNull($mesaBloqueada['minutos_para_reserva']);
+    }
+
+    public function test_bandeja_y_creacion_respetan_excepcion_de_cierre(): void
+    {
+        $pisoId = $this->crearPiso();
+        $mesa = $this->crearMesa($pisoId, 'R70', 4);
+        $fecha = now()->addDays(4)->startOfDay();
+        $this->configurarHorario($fecha->dayOfWeekIso, [['Almuerzo', '12:00', '16:00']]);
+        DB::table('horario_excepcion')->where('local_id', $this->localId)->whereDate('fecha', $fecha)->delete();
+        DB::table('horario_excepcion')->insert([
+            'id' => (string) Str::uuid(),
+            'local_id' => $this->localId,
+            'fecha' => $fecha->toDateString(),
+            'cerrado' => true,
+            'motivo' => 'Inventario anual',
+            'created_at' => now(),
+        ]);
+
+        $politicas = $this->getJson("/api/v1/mozo/reservas/politicas?fecha={$fecha->toDateString()}", $this->headers());
+        $politicas->assertStatus(200)
+            ->assertJsonPath('datos.jornada.atiende', false)
+            ->assertJsonPath('datos.jornada.cerrado_por_excepcion', true)
+            ->assertJsonPath('datos.jornada.motivo_excepcion', 'Inventario anual')
+            ->assertJsonPath('datos.turnos_operativos.almuerzo', null);
+
+        $this->getJson("/api/v1/mozo/reservas?fecha={$fecha->toDateString()}&turno=almuerzo", $this->headers())
+            ->assertStatus(200)
+            ->assertJsonPath('datos', []);
+
+        $disponibles = $this->getJson("/api/v1/mozo/reservas/mesas-disponibles?fecha={$fecha->toDateString()}&hora=13:00&comensales=2", $this->headers());
+        $disponibles->assertStatus(200)->assertJsonPath('datos.mesas', []);
+        $this->assertStringContainsString('Inventario anual', (string) $disponibles->json('datos.bloqueo_horario'));
+
+        $respuesta = $this->postJson('/api/v1/mozo/reservas', [
+            'cliente_nombre' => 'Cliente Feriado',
+            'cliente_telefono' => '+51 987 654 321',
+            'fecha_hora' => $fecha->toDateString().'T13:00:00',
+            'num_personas' => 2,
+            'mesa_ids' => [$mesa],
+        ], $this->headers());
+
+        $respuesta->assertStatus(422);
+        $this->assertStringContainsString('Inventario anual', $respuesta->json('errores.0.mensaje'));
+    }
+
+    public function test_crear_reserva_sin_desfase_horario_se_interpreta_en_hora_local(): void
+    {
+        $pisoId = $this->crearPiso();
+        $mesa = $this->crearMesa($pisoId, 'R71', 4);
+        $fecha = now()->addDays(1)->startOfDay();
+        $this->configurarHorario($fecha->dayOfWeekIso, [['Almuerzo', '12:00', '16:00']]);
+        DB::table('horario_excepcion')->where('local_id', $this->localId)->whereDate('fecha', $fecha)->delete();
+
+        $respuesta = $this->postJson('/api/v1/mozo/reservas', [
+            'cliente_nombre' => 'Cliente Hora Local',
+            'cliente_telefono' => '+51 987 654 321',
+            'fecha_hora' => $fecha->toDateString().'T13:00:00',
+            'num_personas' => 2,
+            'mesa_ids' => [$mesa],
+        ], $this->headers());
+
+        $esperado = (int) round((Carbon::parse($fecha->toDateString().' 13:00', config('app.timezone'))->timestamp - now()->timestamp) / 60);
+
+        $respuesta->assertStatus(201)->assertJsonPath('datos.hora_texto', '13:00');
+        $this->assertEqualsWithDelta($esperado, $respuesta->json('datos.minutos_restantes'), 1);
+        $this->assertSame(
+            $fecha->toDateString().' 13:00',
+            Carbon::parse($respuesta->json('datos.fecha_hora'))->setTimezone(config('app.timezone'))->format('Y-m-d H:i')
+        );
+    }
+
+    public function test_crear_reserva_rechaza_hora_pasada_y_llegada_fuera_del_turno(): void
+    {
+        $pisoId = $this->crearPiso();
+        $mesa = $this->crearMesa($pisoId, 'R72', 4);
+        $fecha = now()->addDays(2)->startOfDay();
+        $this->configurarHorario($fecha->dayOfWeekIso, [['Almuerzo', '12:00', '16:00']]);
+        DB::table('horario_excepcion')->where('local_id', $this->localId)->whereDate('fecha', $fecha)->delete();
+
+        $payload = [
+            'cliente_nombre' => 'Cliente Validaciones',
+            'cliente_telefono' => '+51 987 654 321',
+            'num_personas' => 2,
+            'mesa_ids' => [$mesa],
+        ];
+
+        $this->postJson('/api/v1/mozo/reservas', [...$payload, 'fecha_hora' => now()->subDay()->format('Y-m-d\TH:i:s')], $this->headers())
+            ->assertStatus(422);
+
+        // Turno 12:00-16:00 con reservas de 90 min: la última llegada es 14:30
+        $tarde = $this->postJson('/api/v1/mozo/reservas', [...$payload, 'fecha_hora' => $fecha->toDateString().'T14:45:00'], $this->headers());
+        $tarde->assertStatus(422);
+        $this->assertStringContainsString('14:30', $tarde->json('errores.0.mensaje'));
+
+        $this->postJson('/api/v1/mozo/reservas', [...$payload, 'fecha_hora' => $fecha->toDateString().'T14:30:00'], $this->headers())
+            ->assertStatus(201);
+    }
+
+    public function test_sentar_reserva_rechaza_mesa_con_comanda_ajena(): void
+    {
+        $this->abrirCaja();
+        $pisoId = $this->crearPiso();
+        $mesa = $this->crearMesa($pisoId, 'R73', 4);
+        $reservaId = $this->crearReservaEnBd($mesa, now()->addMinutes(10));
+
+        DB::table('pedido')->insert([
+            'id' => (string) Str::uuid(),
+            'local_id' => $this->localId,
+            'numero_comanda' => ((int) DB::table('pedido')->where('local_id', $this->localId)->max('numero_comanda')) + 1,
+            'mesa_id' => $mesa,
+            'mozo_id' => $this->mozoId,
+            'estado' => 'enviado',
+            'comensales' => 3,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->postJson("/api/v1/mozo/reservas/{$reservaId}/sentar", [], $this->headers())
+            ->assertStatus(409)
+            ->assertJsonPath('errores.0.codigo', 'ERR_MESA_OCUPADA');
+
+        $this->assertDatabaseHas('reserva', ['id' => $reservaId, 'estado' => 'confirmada']);
+    }
+
+    public function test_no_show_y_cancelacion_rechazan_reserva_ya_atendida(): void
+    {
+        $pisoId = $this->crearPiso();
+        $mesa = $this->crearMesa($pisoId, 'R74', 4);
+        $reservaId = $this->crearReservaEnBd($mesa, now()->subMinutes(30), 'atendida');
+
+        $this->postJson("/api/v1/mozo/reservas/{$reservaId}/no-show", ['motivo_inasistencia' => 'No vino'], $this->headers())
+            ->assertStatus(422);
+
+        $this->postJson("/api/v1/mozo/reservas/{$reservaId}/cancelar", ['motivo_cancelacion' => 'Ya no viene'], $this->headers())
+            ->assertStatus(422);
+
+        $this->assertDatabaseHas('reserva', ['id' => $reservaId, 'estado' => 'atendida']);
     }
 }
