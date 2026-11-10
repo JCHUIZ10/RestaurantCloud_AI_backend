@@ -29,13 +29,11 @@ import { AdminPersonalPage } from '@/modules/admin/pages/AdminPersonalPage';
 import { AdminHorarioPage } from '@/modules/admin/pages/AdminHorarioPage';
 // Vistas preservadas en repositorio para Fase 2 (Próximo Entregable):
 // import { AdminPoliticasReservaPage } from '@/modules/admin/pages/AdminPoliticasReservaPage';
-// import { AdminIncidentesPage } from '@/modules/admin/pages/AdminIncidentesPage';
 import { AdminAnulacionesPage } from '@/modules/admin/pages/AdminAnulacionesPage';
 import { AdminPromocionesPage } from '@/modules/admin/pages/AdminPromocionesPage';
 import { AdminConfiguracionKdsPage } from '@/modules/admin/pages/AdminConfiguracionKdsPage';
 import { AdminMetodosPagoPage } from '@/modules/admin/pages/AdminMetodosPagoPage';
 import { AdminFlujoCajaPage } from '@/modules/admin/pages/AdminFlujoCajaPage';
-// import { PropietarioIncidentesPage } from '@/modules/propietario/pages/PropietarioIncidentesPage';
 import { RegistroEmpresaPage } from '@/modules/propietario/pages/RegistroEmpresaPage';
 import { PropietarioLocalesPage } from '@/modules/propietario/pages/PropietarioLocalesPage';
 import { PropietarioAdministradoresPage } from '@/modules/propietario/pages/PropietarioAdministradoresPage';
@@ -192,24 +190,6 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
         path: 'suscripcion/conservar',
         element: <PropietarioConservarRecursosPage />,
       },
-      // [PRÓXIMO ENTREGABLE - FASE 2]: Incidentes de la Empresa (CU-PROP-06)
-      {
-        path: 'incidentes',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-PROP-06"
-            nombrePantalla="Incidentes de la Empresa (Supervisión Corporativa Multi-Sede)"
-            rol="propietario"
-            layoutNombre="DashboardLayout"
-            descripcion="Consola ejecutiva de supervisión de incidentes y anomalías de sedes con trazabilidad de bitácora y emisión de directivas corporativas."
-            proximoEntregable={true}
-            enlacesRelacionados={[
-              { label: 'Gestión de Sedes', to: ROUTES.PROPIETARIO_SEDES },
-              { label: 'Administradores', to: ROUTES.PROPIETARIO_ADMINISTRADORES },
-            ]}
-          />
-        ),
-      },
     ],
   },
 
@@ -290,24 +270,6 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
             enlacesRelacionados={[
               { label: 'Plano de Mesas', to: ROUTES.ADMIN_PLANO_MESAS },
               { label: 'Horario & Feriados', to: ROUTES.ADMIN_HORARIO },
-            ]}
-          />
-        ),
-      },
-      // [PRÓXIMO ENTREGABLE - FASE 2]: Incidentes Internos de Sede (CU-ADMIN-11)
-      {
-        path: 'incidentes',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-ADMIN-11"
-            nombrePantalla="Historial y Registro de Incidentes Internos"
-            rol="administrador"
-            layoutNombre="DashboardLayout"
-            descripcion="Registro, control operativo y resolución inmutable de anomalías de salón, cocina y caja con bitácora cronológica y escalamiento."
-            proximoEntregable={true}
-            enlacesRelacionados={[
-              { label: 'Auditoría Anulaciones', to: ROUTES.ADMIN_ANULACIONES },
-              { label: 'Panel del Local', to: ROUTES.ADMIN_DASHBOARD },
             ]}
           />
         ),

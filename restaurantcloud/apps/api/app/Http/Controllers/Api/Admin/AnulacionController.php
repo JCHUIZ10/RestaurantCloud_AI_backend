@@ -83,39 +83,6 @@ class AnulacionController extends Controller
         }
     }
 
-    /**
-     * POST /api/v1/admin/anulaciones/{id}/escalar-incidente
-     */
-    public function escalarIncidente(Request $request, string $id): JsonResponse
-    {
-        $localId = $this->resolverLocalId($request);
-        if (! $localId) {
-            return ApiResponse::error('ERR_LOCAL_REQUERIDO', 'Debe especificar una sede o local válido.', 400);
-        }
-
-        $validated = $request->validate([
-            'titulo' => 'required|string|max:120',
-            'categoria' => 'required|string|in:servicio_cliente,disciplinario,rotura_merma,seguridad_higiene,caja_dinero,otro',
-            'gravedad' => 'required|string|in:baja,media,alta',
-            'medidas_adoptadas' => 'required|string|min:10',
-        ]);
-
-        try {
-            $resultado = $this->service->escalarIncidente(
-                $localId,
-                $id,
-                $request->user()->id,
-                $validated
-            );
-
-            return ApiResponse::ok($resultado);
-        } catch (RuntimeException $e) {
-            $status = $e->getCode() >= 400 && $e->getCode() < 600 ? $e->getCode() : 400;
-
-            return ApiResponse::error('ERR_ESCALAR_INCIDENTE', $e->getMessage(), $status);
-        }
-    }
-
     private function resolverLocalId(Request $request): ?string
     {
         return $request->user()->local_id

@@ -10,16 +10,20 @@ use Tests\TestCase;
 class AdminAnulacionesTest extends TestCase
 {
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
+
     private string $localId = '00000000-0000-4000-8000-000000000010';
+
     private string $adminId = '00000000-0000-4000-8000-000000000102';
+
     private string $mozoId = '00000000-0000-4000-8000-000000000103';
+
     private string $tokenAdmin;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $rawToken = 'test_token_admin_anul_' . Str::random(32);
+        $rawToken = 'test_token_admin_anul_'.Str::random(32);
         $tokenHash = hash('sha256', $rawToken);
 
         $sessionPayload = [
@@ -39,7 +43,7 @@ class AdminAnulacionesTest extends TestCase
     private function headers(): array
     {
         return [
-            'Authorization' => 'Bearer ' . $this->tokenAdmin,
+            'Authorization' => 'Bearer '.$this->tokenAdmin,
             'Accept' => 'application/json',
         ];
     }
@@ -50,7 +54,7 @@ class AdminAnulacionesTest extends TestCase
         DB::table('piso')->insert([
             'id' => $pisoId,
             'local_id' => $this->localId,
-            'nombre' => 'Piso Auditoria ' . Str::random(4),
+            'nombre' => 'Piso Auditoria '.Str::random(4),
             'columnas' => 5,
             'filas' => 3,
             'estado' => 'activo',
@@ -88,7 +92,7 @@ class AdminAnulacionesTest extends TestCase
         DB::table('categoria_producto')->insert([
             'id' => $catId,
             'local_id' => $this->localId,
-            'nombre' => 'Pase Caliente ' . Str::random(4),
+            'nombre' => 'Pase Caliente '.Str::random(4),
             'orden' => 1,
             'activa' => true,
             'created_at' => now(),
@@ -100,7 +104,7 @@ class AdminAnulacionesTest extends TestCase
             'id' => $productoId,
             'local_id' => $this->localId,
             'categoria_id' => $catId,
-            'nombre' => 'Lomo Saltado Test ' . Str::random(4),
+            'nombre' => 'Lomo Saltado Test '.Str::random(4),
             'precio' => 45.00,
             'costo_estandar' => 18.50,
             'requiere_preparacion' => true,
@@ -288,55 +292,5 @@ class AdminAnulacionesTest extends TestCase
             ->where('accion', 'anulacion.revisada')
             ->first();
         $this->assertNotNull($log);
-    }
-
-    public function test_escalar_anulacion_a_incidente(): void
-    {
-        $base = $this->crearEntornoBase();
-        $id = $this->crearAnulacion($base, [
-            'es_merma' => true,
-            'costo_merma' => 18.50,
-            'revisado' => false,
-        ]);
-
-        $payload = [
-            'titulo' => 'Queja severa por lomo saltado quemado',
-            'categoria' => 'rotura_merma',
-            'gravedad' => 'alta',
-            'medidas_adoptadas' => 'Se reentrenará al cocinero de partida en control térmico de wok.',
-        ];
-
-        $response = $this->postJson("/api/v1/admin/anulaciones/{$id}/escalar-incidente", $payload, $this->headers());
-
-        $response->assertStatus(200)
-            ->assertJsonPath('exito', true)
-            ->assertJsonPath('datos.anulacion.id', $id)
-            ->assertJsonPath('datos.anulacion.revisado', true)
-            ->assertJsonPath('datos.incidente.categoria', 'rotura_merma')
-            ->assertJsonPath('datos.incidente.gravedad', 'alta')
-            ->assertJsonPath('datos.incidente.estado', 'en_revision');
-
-        $incidenteId = $response->json('datos.incidente.id');
-        $this->assertNotEmpty($incidenteId);
-
-        // Verificar relación en DB
-        $anulacionDb = DB::table('pedido_anulacion')->where('id', $id)->first();
-        $this->assertEquals($incidenteId, $anulacionDb->incidente_id);
-
-        $incidenteDb = DB::table('incidente')->where('id', $incidenteId)->first();
-        $this->assertNotNull($incidenteDb);
-        $this->assertStringStartsWith('INC-', $incidenteDb->codigo);
-        $this->assertEquals('rotura_merma', $incidenteDb->categoria);
-
-        // Verificar bitácora de incidente
-        $bitacora = DB::table('incidente_bitacora')->where('incidente_id', $incidenteId)->first();
-        $this->assertNotNull($bitacora);
-        $this->assertEquals('apertura', $bitacora->tipo_evento);
-
-        // Segundo intento debe fallar con 422 (ERR_YA_ESCALADO)
-        $segundoIntento = $this->postJson("/api/v1/admin/anulaciones/{$id}/escalar-incidente", $payload, $this->headers());
-        $segundoIntento->assertStatus(422)
-            ->assertJsonPath('exito', false)
-            ->assertJsonPath('errores.0.codigo', 'ERR_ESCALAR_INCIDENTE');
     }
 }

@@ -141,8 +141,6 @@ import type {
   AnulacionesBandejaResponseDTO,
   PedidoAnulacionItemDTO,
   MarcarRevisadoRequestDTO,
-  EscalarIncidenteAnulacionRequest,
-  IncidenteDetalleDTO,
   NotificacionCampanaDTO,
 } from '@/types/admin';
 import type {
@@ -1235,12 +1233,6 @@ export const realAdminService = {
     req?: MarcarRevisadoRequestDTO
   ): Promise<ApiEnvelope<PedidoAnulacionItemDTO>> =>
     apiPost(`/admin/anulaciones/${id}/revisar`, req ?? {}),
-
-  escalarAnulacionAIncidente: (
-    id: string,
-    req: EscalarIncidenteAnulacionRequest
-  ): Promise<ApiEnvelope<{ anulacion: PedidoAnulacionItemDTO; incidente: IncidenteDetalleDTO }>> =>
-    apiPost(`/admin/anulaciones/${id}/escalar-incidente`, req),
 
   /**
    * @deprecated SSE no está habilitado; el frontend utiliza polling HTTP regular.

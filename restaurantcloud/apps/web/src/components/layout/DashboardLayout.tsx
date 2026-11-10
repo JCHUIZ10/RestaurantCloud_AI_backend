@@ -38,14 +38,14 @@ const LINKS_SAAS: EnlaceMenu[] = [
   { label: 'Supervisión de tenants', href: ROUTES.SAAS_TENANTS, icon: Building2 },
 ];
 
-// Consola Propietario (Resumen General, Incidentes y Suscripción diferidos para próxima unidad)
+// Consola Propietario (Resumen General diferido para próxima unidad)
 const LINKS_PROPIETARIO: EnlaceMenu[] = [
   { label: 'Mis sedes', href: ROUTES.PROPIETARIO_SEDES, icon: Building2 },
   { label: 'Administradores', href: ROUTES.PROPIETARIO_ADMINISTRADORES, icon: Users },
   { label: 'Suscripción', href: ROUTES.PROPIETARIO_SUSCRIPCION, icon: CreditCard },
 ];
 
-// Consola Admin de Local. El Panel del Local, Políticas de Reserva, Incidentes, Reportes
+// Consola Admin de Local. El Panel del Local, Políticas de Reserva, Reportes
 // de Venta y Flujo de Caja son placeholders/vistas diferidas para próxima unidad.
 const LINKS_ADMIN: EnlaceMenu[] = [
   { label: 'Plano de mesas', href: ROUTES.ADMIN_PLANO_MESAS, icon: LayoutGrid },

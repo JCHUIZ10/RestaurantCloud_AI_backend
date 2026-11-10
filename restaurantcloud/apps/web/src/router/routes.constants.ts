@@ -33,8 +33,6 @@ export const ROUTES = {
   PROPIETARIO_SUSCRIPCION: '/propietario/suscripcion',
   PROPIETARIO_CAMBIAR_PLAN: '/propietario/cambiar-plan',
   PROPIETARIO_CONSERVAR_RECURSOS: '/propietario/suscripcion/conservar',
-  // [PRÓXIMO ENTREGABLE - FASE 2]: Incidentes empresa (supervisión corporativa multi-sede)
-  PROPIETARIO_INCIDENTES: '/propietario/incidentes',
 
   // Portal Administrador de Local
   // [ACTIVOS PRIMER AVANCE]:
@@ -55,7 +53,6 @@ export const ROUTES = {
   ADMIN_REPORTES_CIERRES_Z: '/admin/finanzas/flujo-caja',
   // [PRÓXIMO ENTREGABLE - FASE 2]: Módulos diferidos del Administrador
   ADMIN_POLITICAS_RESERVA: '/admin/politicas-reserva',
-  ADMIN_INCIDENTES: '/admin/incidentes',
   ADMIN_REPORTES_VENTAS: '/admin/reportes/ventas',
 
   // Terminales Operativas Salón, Cocina y Caja [ACTIVOS PRIMER AVANCE]

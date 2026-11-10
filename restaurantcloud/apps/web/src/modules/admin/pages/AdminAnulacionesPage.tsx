@@ -8,14 +8,12 @@ import {
   PedidoAnulacionItemDTO,
   AnulacionesKPIsDTO,
   FiltroRapidoAnulaciones,
-  EscalarIncidenteAnulacionRequest,
 } from '@/types/admin';
 import { adminService } from '@/services/serviceAdapter';
 import { AnulacionesHeader } from '../components/anulaciones/AnulacionesHeader';
 import { AnulacionesFiltros } from '../components/anulaciones/AnulacionesFiltros';
 import { AnulacionesTabla } from '../components/anulaciones/AnulacionesTabla';
 import { ModalDetalleAnulacion } from '../components/anulaciones/ModalDetalleAnulacion';
-import { ModalEscalarIncidente } from '../components/anulaciones/ModalEscalarIncidente';
 import { AnulacionesVacioState } from '../components/anulaciones/AnulacionesVacioState';
 
 const getFechaLocalHoy = (): string => {
@@ -49,10 +47,6 @@ export const AdminAnulacionesPage: React.FC = () => {
   // Modal de Detalle / Auditoría
   const [anulacionSeleccionada, setAnulacionSeleccionada] = useState<PedidoAnulacionItemDTO | null>(null);
   const [modalDetalleAbierto, setModalDetalleAbierto] = useState(false);
-
-  // Modal de Escalamiento a Incidente (CU-ADMIN-11)
-  const [anulacionParaEscalar, setAnulacionParaEscalar] = useState<PedidoAnulacionItemDTO | null>(null);
-  const [modalEscalarAbierto, setModalEscalarAbierto] = useState(false);
 
   // Toast de feedback administrativo
   const [toastFeedback, setToastFeedback] = useState<{ tipo: 'exito' | 'error' | 'info'; texto: string } | null>(null);
@@ -168,37 +162,6 @@ export const AdminAnulacionesPage: React.FC = () => {
     }
   };
 
-  // Abrir modal de escalamiento a incidente
-  const handleAbrirEscalar = (anulacion: PedidoAnulacionItemDTO) => {
-    setModalDetalleAbierto(false);
-    setAnulacionParaEscalar(anulacion);
-    setModalEscalarAbierto(true);
-  };
-
-  // Confirmar escalamiento
-  const handleConfirmarEscalar = async (
-    anulacionId: string,
-    req: EscalarIncidenteAnulacionRequest
-  ): Promise<boolean> => {
-    try {
-      const resp = await adminService.escalarAnulacionAIncidente(anulacionId, req);
-      if (resp.exito) {
-        mostrarToast(
-          `Expediente ${resp.datos.incidente.codigo} generado exitosamente y vinculado con la anulación.`,
-          'exito'
-        );
-        await cargarDatos(true);
-        return true;
-      } else {
-        mostrarToast('No se pudo generar el expediente de incidente.', 'error');
-        return false;
-      }
-    } catch {
-      mostrarToast('Error al escalar la anulación.', 'error');
-      return false;
-    }
-  };
-
   // Mozos disponibles: Unión de personal registrado con rol mozo + mozos que figuran en anulaciones
   const mozosDisponibles = useMemo(() => {
     const map = new Map<string, string>();
@@ -292,15 +255,6 @@ export const AdminAnulacionesPage: React.FC = () => {
         onClose={() => setModalDetalleAbierto(false)}
         anulacion={anulacionSeleccionada}
         onMarcarRevisado={handleMarcarRevisado}
-        onEscalarIncidente={handleAbrirEscalar}
-      />
-
-      {/* Modal 540px: Escalamiento Asistido a Incidente (CU-ADMIN-11) */}
-      <ModalEscalarIncidente
-        isOpen={modalEscalarAbierto}
-        onClose={() => setModalEscalarAbierto(false)}
-        anulacion={anulacionParaEscalar}
-        onEscalar={handleConfirmarEscalar}
       />
     </div>
   );

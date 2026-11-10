@@ -121,7 +121,6 @@ class TenantStorageService
             'bucket' => $this->bucket,
             'prefijos_asignados' => [
                 'catalogo_productos' => "catalogo/empresas/{$empresaId}/locales/{$localId}/productos/",
-                'privado_incidentes' => "privado/empresas/{$empresaId}/locales/{$localId}/incidentes/",
                 'privado_comprobantes' => "privado/empresas/{$empresaId}/locales/{$localId}/comprobantes/",
                 'privado_reportes_z' => "privado/empresas/{$empresaId}/locales/{$localId}/reportes-z/",
             ],
@@ -197,7 +196,7 @@ class TenantStorageService
     }
 
     /**
-     * Genera la ruta canónica para archivos privados (comprobantes SUNAT, reportes Z, incidentes)
+     * Genera la ruta canónica para archivos privados (comprobantes SUNAT, reportes Z)
      */
     public function generarKeyPrivado(
         string $empresaId,
@@ -423,19 +422,6 @@ class TenantStorageService
         }
 
         return Storage::disk($this->disk)->url($objectKey);
-    }
-
-    /**
-     * CU-ADMIN-11 / CU-PROP-06: Foto o comprobante escaneado de incidente
-     */
-    public function generarKeyIncidente(
-        string $empresaId,
-        string $localId,
-        string $incidenteId,
-        string $extension,
-        ?string $archivoId = null
-    ): string {
-        return $this->generarKeyPrivado($empresaId, $localId, 'incidentes', $incidenteId, $extension, $archivoId);
     }
 
     /**

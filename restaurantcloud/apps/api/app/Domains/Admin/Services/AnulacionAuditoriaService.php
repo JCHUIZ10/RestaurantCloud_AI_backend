@@ -39,7 +39,6 @@ class AnulacionAuditoriaService
             ->leftJoin('usuario AS mozo', 'mozo.id', '=', 'pa.mozo_id')
             ->leftJoin('usuario AS anulador', 'anulador.id', '=', 'pa.anulado_por')
             ->leftJoin('usuario AS revisor', 'revisor.id', '=', 'pa.revisado_por')
-            ->leftJoin('incidente AS inc', 'inc.id', '=', 'pa.incidente_id')
             ->leftJoin('producto AS prod', 'prod.id', '=', 'pa.producto_id')
             ->leftJoin('categoria_producto AS cat', 'cat.id', '=', 'prod.categoria_id')
             ->where('pa.local_id', $localId)
@@ -48,7 +47,6 @@ class AnulacionAuditoriaService
                 'mozo.nombre AS mozo_nombre',
                 'anulador.nombre AS anulador_nombre',
                 'revisor.nombre AS revisor_nombre',
-                'inc.codigo AS incidente_codigo',
                 'cat.nombre AS categoria_nombre',
             ]);
 
@@ -111,7 +109,6 @@ class AnulacionAuditoriaService
             ->leftJoin('usuario AS mozo', 'mozo.id', '=', 'pa.mozo_id')
             ->leftJoin('usuario AS anulador', 'anulador.id', '=', 'pa.anulado_por')
             ->leftJoin('usuario AS revisor', 'revisor.id', '=', 'pa.revisado_por')
-            ->leftJoin('incidente AS inc', 'inc.id', '=', 'pa.incidente_id')
             ->leftJoin('producto AS prod', 'prod.id', '=', 'pa.producto_id')
             ->leftJoin('categoria_producto AS cat', 'cat.id', '=', 'prod.categoria_id')
             ->where('pa.local_id', $localId)
@@ -121,7 +118,6 @@ class AnulacionAuditoriaService
                 'mozo.nombre AS mozo_nombre',
                 'anulador.nombre AS anulador_nombre',
                 'revisor.nombre AS revisor_nombre',
-                'inc.codigo AS incidente_codigo',
                 'cat.nombre AS categoria_nombre',
             ])
             ->first();
@@ -182,148 +178,6 @@ class AnulacionAuditoriaService
     }
 
     /**
-     * Escala asistidamente la anulación a un incidente interno formal (CU-ADMIN-11).
-     */
-    public function escalarIncidente(string $localId, string $id, string $usuarioId, array $payload): array
-    {
-        return DB::transaction(function () use ($localId, $id, $usuarioId, $payload) {
-            $anulacion = DB::table('pedido_anulacion')
-                ->where('local_id', $localId)
-                ->where('id', $id)
-                ->lockForUpdate()
-                ->first();
-
-            if (! $anulacion) {
-                throw new RuntimeException('ERR_ANULACION_NO_ENCONTRADA: La anulación solicitada no existe.', 404);
-            }
-
-            if (! empty($anulacion->incidente_id)) {
-                $incidenteActual = DB::table('incidente')->where('id', $anulacion->incidente_id)->first();
-                $codigo = $incidenteActual ? $incidenteActual->codigo : 'INC-EXPEDIENTE';
-                throw new RuntimeException("ERR_YA_ESCALADO: Esta anulación ya fue escalada previamente bajo el expediente {$codigo}.", 422);
-            }
-
-            $year = date('Y');
-            $count = DB::table('incidente')
-                ->where('local_id', $localId)
-                ->whereYear('fecha_hora', $year)
-                ->count();
-
-            $seq = $count + 1;
-            do {
-                $codigo = sprintf('INC-%s-%03d', $year, $seq);
-                $existe = DB::table('incidente')->where('codigo', $codigo)->exists();
-                if ($existe) {
-                    $seq++;
-                }
-            } while ($existe);
-
-            $descripcionIncidente = sprintf(
-                'Anulación en %s: %s (S/ %.2f). Motivo manifestado: %s%s',
-                $anulacion->mesa_numero,
-                $anulacion->producto_nombre ?? 'Comanda completa',
-                (float) $anulacion->monto_total,
-                $anulacion->motivo_detalle,
-                $anulacion->es_merma ? sprintf(' [Impacto de merma culinaria: S/ %.2f]', (float) ($anulacion->costo_merma ?? 0)) : ''
-            );
-
-            $incidenteId = (string) Str::uuid();
-            $now = now();
-
-            DB::table('incidente')->insert([
-                'id' => $incidenteId,
-                'local_id' => $localId,
-                'codigo' => $codigo,
-                'titulo' => trim($payload['titulo']),
-                'categoria' => $payload['categoria'],
-                'gravedad' => $payload['gravedad'],
-                'fecha_hora' => $anulacion->anulado_at,
-                'empleado_id' => $anulacion->mozo_id,
-                'descripcion' => $descripcionIncidente,
-                'medidas_inmediatas' => trim($payload['medidas_adoptadas']),
-                'registrado_por' => $usuarioId,
-                'estado' => 'en_revision',
-                'visto_por_propietario' => false,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
-
-            DB::table('incidente_bitacora')->insert([
-                'id' => (string) Str::uuid(),
-                'incidente_id' => $incidenteId,
-                'usuario_id' => $usuarioId,
-                'tipo_evento' => 'apertura',
-                'nota' => 'Escalamiento formal por disconformidad o impacto de merma culinaria en salón.',
-                'created_at' => $now,
-            ]);
-
-            DB::table('pedido_anulacion')
-                ->where('id', $id)
-                ->update([
-                    'incidente_id' => $incidenteId,
-                    'revisado' => true,
-                    'revisado_por' => $usuarioId,
-                    'revisado_at' => $now,
-                ]);
-
-            $empresaId = DB::table('local')->where('id', $localId)->value('empresa_id');
-            if ($empresaId) {
-                DB::table('log_auditoria')->insert([
-                    'id' => (string) Str::uuid(),
-                    'empresa_id' => $empresaId,
-                    'local_id' => $localId,
-                    'usuario_id' => $usuarioId,
-                    'accion' => 'anulacion.escalada_incidente',
-                    'entidad_tipo' => 'incidente',
-                    'entidad_id' => $incidenteId,
-                    'detalle' => json_encode([
-                        'anulacion_id' => $id,
-                        'codigo' => $codigo,
-                    ]),
-                    'fecha' => $now,
-                ]);
-            }
-
-            $anulacionActualizada = $this->detalle($localId, $id);
-
-            $mozo = DB::table('usuario')->where('id', $anulacion->mozo_id)->first();
-            $registrador = DB::table('usuario')->where('id', $usuarioId)->first();
-
-            return [
-                'anulacion' => $anulacionActualizada,
-                'incidente' => [
-                    'id' => $incidenteId,
-                    'local_id' => $localId,
-                    'codigo' => $codigo,
-                    'titulo' => trim($payload['titulo']),
-                    'categoria' => $payload['categoria'],
-                    'gravedad' => $payload['gravedad'],
-                    'fecha_hora' => (string) $anulacion->anulado_at,
-                    'empleado_id' => $anulacion->mozo_id,
-                    'empleado_nombre' => $mozo ? $mozo->nombre : null,
-                    'descripcion' => $descripcionIncidente,
-                    'medidas_inmediatas' => trim($payload['medidas_adoptadas']),
-                    'foto_url' => null,
-                    'registrado_por' => $usuarioId,
-                    'registrador_nombre' => $registrador ? $registrador->nombre : 'Administrador',
-                    'estado' => 'en_revision',
-                    'visto_por_propietario' => false,
-                    'fecha_visto' => null,
-                    'nota_propietario' => null,
-                    'motivo_revision' => 'Escalamiento formal por queja o impacto de merma en salón.',
-                    'resolucion_nota' => null,
-                    'resuelto_por' => null,
-                    'resuelto_por_nombre' => null,
-                    'fecha_resolucion' => null,
-                    'bitacora' => [],
-                    'created_at' => $now->toIso8601String(),
-                    'updated_at' => $now->toIso8601String(),
-                ],
-            ];
-        });
-    }
-
-    /**
      * Mapea el registro de pedido_anulacion al DTO PedidoAnulacionItemDTO.
      */
     private function formatearItem(object $row): array
@@ -366,8 +220,6 @@ class AnulacionAuditoriaService
             'revisado_por_nombre' => $row->revisor_nombre ? (string) $row->revisor_nombre : null,
             'revisado_at' => $row->revisado_at ? (string) $row->revisado_at : null,
             'notas_supervision' => $row->notas_supervision ? (string) $row->notas_supervision : null,
-            'incidente_id' => $row->incidente_id ? (string) $row->incidente_id : null,
-            'incidente_codigo' => $row->incidente_codigo ? (string) $row->incidente_codigo : null,
             'partida_cocina' => $row->categoria_nombre ? (string) $row->categoria_nombre : null,
             'created_at' => (string) $row->created_at,
         ];

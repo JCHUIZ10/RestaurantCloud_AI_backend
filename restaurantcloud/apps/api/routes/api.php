@@ -180,12 +180,11 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/{id}/rendimiento', [PromocionController::class, 'rendimiento']);
             });
 
-            // CU-ADMIN-04 / CU-ADMIN-11: Bandeja y Auditoría de Anulaciones y Mermas
+            // CU-ADMIN-04 / CU-ADMIN-12: Bandeja y Auditoría de Anulaciones y Mermas
             Route::prefix('anulaciones')->group(function (): void {
                 Route::get('/', [AnulacionController::class, 'index']);
                 Route::get('/{id}', [AnulacionController::class, 'show'])->whereUuid('id');
                 Route::post('/{id}/revisar', [AnulacionController::class, 'revisar'])->whereUuid('id');
-                Route::post('/{id}/escalar-incidente', [AnulacionController::class, 'escalarIncidente'])->whereUuid('id');
             });
         });
 

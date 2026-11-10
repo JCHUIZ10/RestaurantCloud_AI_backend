@@ -34,7 +34,6 @@ BEGIN;
 -- Garantiza un entorno 100% limpio sin interferir con otras sedes ni datos SaaS.
 -- =============================================================================
 DELETE FROM notificacion WHERE local_id = '00000000-0000-4000-8000-000000000010';
-DELETE FROM incidente WHERE local_id = '00000000-0000-4000-8000-000000000010';
 DELETE FROM log_auditoria WHERE local_id = '00000000-0000-4000-8000-000000000010';
 
 -- Desvincular subcuentas y notas de crédito antes de purgar comprobantes

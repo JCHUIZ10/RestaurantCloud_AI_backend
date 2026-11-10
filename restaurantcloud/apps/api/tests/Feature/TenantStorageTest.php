@@ -36,35 +36,28 @@ class TenantStorageTest extends TestCase
             $keyProducto
         );
 
-        // 2. Incidente (Privado)
-        $keyIncidente = $this->service->generarKeyIncidente($this->empresaId, $this->localId, $entidadId, 'jpg', $archivoId);
-        $this->assertEquals(
-            "privado/empresas/{$this->empresaId}/locales/{$this->localId}/incidentes/{$entidadId}/{$archivoId}.jpg",
-            $keyIncidente
-        );
-
-        // 3. Comprobante (Privado)
+        // 2. Comprobante (Privado)
         $keyComprobante = $this->service->generarKeyComprobante($this->empresaId, $this->localId, $entidadId, 'pdf', $archivoId);
         $this->assertEquals(
             "privado/empresas/{$this->empresaId}/locales/{$this->localId}/comprobantes/{$entidadId}/{$archivoId}.pdf",
             $keyComprobante
         );
 
-        // 4. Reporte Z (Privado, fijo .pdf)
+        // 3. Reporte Z (Privado, fijo .pdf)
         $keyReporteZ = $this->service->generarKeyReporteZ($this->empresaId, $this->localId, $entidadId, $archivoId);
         $this->assertEquals(
             "privado/empresas/{$this->empresaId}/locales/{$this->localId}/reportes-z/{$entidadId}/{$archivoId}.pdf",
             $keyReporteZ
         );
 
-        // 5. Portabilidad (Privado, fijo .zip, sin local)
+        // 4. Portabilidad (Privado, fijo .zip, sin local)
         $keyPortabilidad = $this->service->generarKeyPortabilidad($this->empresaId, $entidadId, $archivoId);
         $this->assertEquals(
             "privado/empresas/{$this->empresaId}/portabilidad/{$entidadId}/{$archivoId}.zip",
             $keyPortabilidad
         );
 
-        // 6. Exportación Temporal (Privado, con prefijo temporales/exportaciones)
+        // 5. Exportación Temporal (Privado, con prefijo temporales/exportaciones)
         $keyExportacion = $this->service->generarKeyExportacionTemporal($this->empresaId, $entidadId, 'xlsx', $archivoId);
         $this->assertEquals(
             "privado/empresas/{$this->empresaId}/temporales/exportaciones/{$entidadId}/{$archivoId}.xlsx",
