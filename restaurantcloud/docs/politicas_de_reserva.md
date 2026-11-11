@@ -2,7 +2,7 @@
 
 Este documento explica cómo funcionan las reservas de salón en RestaurantCloud: qué parámetros las gobiernan, cómo se combinan con el horario de atención y los feriados, qué se valida al registrar una reserva y cómo evoluciona su estado hasta que el comensal se sienta o la mesa se libera.
 
-**Alcance:** reservas registradas por el mozo desde la Bandeja de Reservas (CU-MOZO-05) y su efecto en el plano de mesas (CU-MOZO-01). La pantalla de configuración del administrador (CU-ADMIN-10) todavía no está disponible (ver [§9](#9-limitaciones-conocidas-y-pendientes)).
+**Alcance:** reservas registradas por el mozo desde la Bandeja de Reservas (CU-MOZO-05), su efecto en el plano de mesas (CU-MOZO-01), la configuración que hace el administrador o el propietario (CU-ADMIN-10, [§9](#9-administración-de-las-políticas)) y la resolución de cierres y cambios de horario con reservas ya registradas (CU-ADMIN-09, [§10](#10-cierres-inesperados-y-cambios-de-horario)).
 
 ---
 
@@ -15,6 +15,9 @@ Este documento explica cómo funcionan las reservas de salón en RestaurantCloud
 - **30 min antes** de la cita, la mesa pasa a **bloqueada** en el plano para que nadie la ocupe.
 - El cliente tiene **15 min de cortesía**. Pasado ese tiempo, el mozo decide si registra la inasistencia (no es automática).
 - Al **sentar** a los comensales se abre la comanda en la mesa. Para eso, la caja debe estar abierta y la mesa libre.
+- El módulo solo existe si el **plan de la empresa lo incluye** (`plan.incluye_reservas`). Si no, el administrador y el mozo reciben un aviso (403) en lugar de la pantalla.
+- El administrador puede **suspender la recepción de reservas nuevas** con un interruptor: el mozo deja de poder registrarlas, pero las ya registradas siguen vigentes.
+- Si el local no podrá atender un día (o cambia su horario) y hay reservas, se **cancelan en bloque** decidiendo, reserva por reserva, si el cliente fue avisado.
 
 ---
 
@@ -27,9 +30,9 @@ Este documento explica cómo funcionan las reservas de salón en RestaurantCloud
 | `minutos_bloqueo_previo` | Minutos antes de la cita en que la mesa se bloquea en el plano. | 30 | 0 – 120 | ✅ Estado `bloqueada` y plano de mesas. |
 | `tolerancia_no_show_min` | Minutos de cortesía para que llegue el cliente después de su hora. | 15 | 5 – 60 | ✅ Reloj de cortesía de la ficha y plano de mesas. |
 | `anticipacion_maxima_dias` | Con cuántos días de anticipación se puede reservar como máximo. | 30 | 1 – 90 | ✅ Al registrar la reserva. |
-| `anticipacion_minima_horas` | Anticipación mínima exigida para reservar. | 2 | 0 – 48 | ⛔ **No aplica al mozo** (pensado para reservas en línea). |
-| `acepta_reservas` | Interruptor general de reservas en línea. | `true` | — | ⛔ No bloquea al mozo; se expone como `permite_reservas_online`. |
-| `margen_recordatorio_min` | Minutos antes de la cita para enviar un recordatorio. | 120 | ≥ 0 | ⛔ Aún no se usa (no hay recordatorios automáticos). |
+| `acepta_reservas` | **Interruptor maestro**: recepción de reservas nuevas. | `true` | — | ✅ Apagado, el mozo no puede registrar reservas (409). Las existentes se siguen atendiendo ([§9.2](#92-interruptor-maestro)). |
+| `anticipacion_minima_horas` | Anticipación mínima exigida para reservar. | 2 | 0 – 48 | ⛔ **No aplica al mozo** (pensado para reservas en línea, que aún no existen). |
+| `margen_recordatorio_min` | Minutos antes de la cita para enviar un recordatorio. | 120 | ≥ 0 | ⛔ Se guarda, pero aún no se usa (no hay recordatorios automáticos). |
 
 > **¿Por qué la anticipación mínima no aplica al mozo?** El mozo atiende llamadas y clientes en la puerta, que pueden pedir una mesa para dentro de unos minutos. Al mozo solo se le prohíbe reservar en el pasado (con 5 min de margen) y más allá de la anticipación máxima.
 
@@ -100,6 +103,7 @@ Un turno cuya hora de cierre es menor que la de inicio (ej. `Cena 19:00–00:30`
 
 ### 4.2 Validaciones, en el orden en que se aplican
 
+0. **Módulo y canal**: el plan debe incluir reservas (403 si no) y el interruptor maestro debe estar encendido (409 `ERR_RESERVAS_DESHABILITADAS` si no).
 1. **Hora no pasada**: se rechaza una hora anterior a "ahora − 5 min".
 2. **Anticipación máxima**: la fecha no puede pasar de hoy + `anticipacion_maxima_dias`.
 3. **Horario de atención** (según la [§3](#3-horario-de-atención-la-jornada-de-cada-fecha)), con estos mensajes de error:
@@ -217,39 +221,129 @@ Con los valores por defecto, una reserva de las 20:00 bloquea la mesa de **19:30
 
 ---
 
-## 9. Limitaciones conocidas y pendientes
+## 9. Administración de las políticas
 
-| Tema | Situación actual |
+Pantalla **Políticas de reserva** (CU-ADMIN-10), en el menú del administrador. La pueden usar el **administrador de sede y el propietario**; el mozo no accede.
+
+### 9.1 Edición y guardado
+
+- Los valores se editan en un borrador y se guardan con un solo botón. Si hay cambios sin guardar, el sistema avisa antes de salir de la pantalla.
+- **Rangos** (el servidor los valida): duración 30–240, buffer 0–60, tolerancia 5–60, bloqueo previo 0–120, anticipación mínima 0–48, anticipación máxima 1–90, margen de recordatorio ≥ 0.
+- **Edición simultánea**: cada versión lleva su fecha de modificación. Si otro administrador guardó antes, el guardado se rechaza (409 `ERR_POLITICAS_MODIFICADAS`), se avisa y se recargan los valores vigentes.
+- **Restaurar valores recomendados**: reemplaza solo los **parámetros** (90 / 15 / 15 / 30 / 120 / 2 / 30) y los guarda de inmediato. **No cambia el interruptor.**
+- Los cambios llegan al mozo en el siguiente refresco de su bandeja (cada minuto) o al reabrirla.
+
+### 9.2 Interruptor maestro
+
+`acepta_reservas` suspende o reanuda la **recepción de reservas nuevas** en la sede.
+
+| Estado | Efecto |
 | :--- | :--- |
-| Pantalla de políticas del administrador (CU-ADMIN-10) | Pendiente (placeholder). Los valores se crean al dar de alta el local y por ahora solo se cambian en la base de datos. |
-| `anticipacion_minima_horas`, `acepta_reservas`, `margen_recordatorio_min` | Guardados, pero sin efecto en el flujo del mozo (reservas en línea y recordatorios aún no existen). |
-| Capacidad total del grupo | El backend no exige que la suma de capacidades cubra a los comensales; solo la interfaz lo advierte. |
-| Reasignar mesa | No valida choques con otras reservas ni el estado de la reserva. |
-| Crear un feriado o cierre con reservas activas ese día | Se rechaza hasta implementar su resolución (cancelación y aviso masivo, "punto 5B" de Horario). |
-| Inasistencia | Siempre manual; no hay cierre automático al vencer la tolerancia. |
+| **Encendido** | El mozo registra reservas con normalidad. |
+| **Apagado** | "Nueva Reserva" queda deshabilitado en la bandeja y el servidor rechaza crear reservas (409). **Las reservas ya registradas siguen vigentes**: se pueden sentar, marcar como inasistencia o cancelar. |
+
+Si al apagarlo hay **reservas pendientes**, el sistema las lista (con teléfono y WhatsApp), explica que seguirán vigentes y pide confirmar: **"Suspender igualmente"** o **"Mantener reservas habilitadas"**. La confirmación se envía al guardar; si aparecen reservas nuevas entre la consulta y el guardado, se vuelve a pedir con la lista actualizada. El apagado y la reactivación quedan en `log_auditoria` (`DESACTIVACION_CANAL_RESERVAS`, `REACTIVACION_CANAL_RESERVAS`).
+
+> Suspender el canal **no cancela reservas**. Si el local no podrá atender un día, hay que registrar el cierre ([§10](#10-cierres-inesperados-y-cambios-de-horario)).
+
+### 9.3 Módulo según el plan
+
+El módulo de reservas se habilita únicamente por el campo **`plan.incluye_reservas`** del plan de la empresa; nunca por el nombre o el identificador del plan.
+
+- Si es `false`, los endpoints de políticas del administrador y **todos** los de reservas del mozo responden **403 `ERR_MODULO_RESERVAS_NO_CONTRATADO`**, con un mensaje que nombra los planes vigentes que sí lo incluyen.
+- El administrador ve una pantalla de "módulo no habilitado" y el mozo, un aviso en lugar de la bandeja (el refresco automático se detiene).
+- Cambiar de plan corresponde al propietario, en su sección de suscripción.
 
 ---
 
-## 10. Referencias técnicas
+## 10. Cierres inesperados y cambios de horario
+
+Cuando el local no podrá atender (corte de luz, emergencia, feriado, horario especial) o el administrador cambia su horario semanal, las reservas que dejan de caber no se pierden en silencio. El administrador las resuelve en **Horario y feriados**, sin entrar a la terminal del mozo.
+
+### 10.1 Flujo
+
+1. **Consulta previa.** Antes de guardar, el sistema simula el cambio y lista las reservas activas afectadas. No guarda nada.
+2. **Sin reservas afectadas**: se guarda directamente.
+3. **Con reservas afectadas**: se abre una lista con teléfono, mesas y un botón de WhatsApp con el mensaje ya redactado (fecha, hora, motivo). Para cada reserva hay que **elegir una decisión**, sin ninguna opción premarcada:
+   - **Avisada** por WhatsApp, llamada o presencial; o
+   - **No se pudo avisar** (se registra como cliente sin aviso).
+4. **Confirmar** solo se habilita cuando todas tienen decisión. El servidor lo exige también: sin la decisión de cada reserva rechaza todo (422 `ERR_AVISOS_INCOMPLETOS`) y **no se guarda nada**.
+5. **Todo en una transacción**: el cierre u horario, la cancelación de las reservas, el registro de aviso (medio, quién y cuándo) y la auditoría. Si algo falla, no queda nada a medias.
+
+El servidor recalcula las reservas afectadas al confirmar; si aparecieron nuevas desde la consulta previa responde 409 `ERR_RESERVAS_AFECTADAS` y la pantalla muestra la lista actualizada para decidir de nuevo.
+
+### 10.2 Qué reservas se consideran afectadas
+
+| Cambio | Reservas afectadas |
+| :--- | :--- |
+| **Cierre del día** (feriado, emergencia) | Todas las activas (`confirmada`/`bloqueada`) de esa jornada, incluidas las de madrugada de un turno que cruza la medianoche. |
+| **Horario especial** | Las que no llegan dentro de la ventana o terminarían después de su cierre (última llegada = cierre − duración). |
+| **Cambio del horario semanal o plantilla** | Las **reservas futuras** que cabían con el horario anterior y ya no caben con el nuevo. Las que ya estaban fuera de horario antes no cuentan, para no bloquear la edición por algo ajeno. |
+
+Las reservas `atendida`, `cancelada` y `no_show` nunca se tocan.
+
+### 10.3 Resultado y trazabilidad
+
+- Las reservas quedan `cancelada`, con motivo **"Cierre: …"** (o "Cambio de horario: …"), vinculadas a la excepción cuando existe, y con la marca de si el cliente fue avisado.
+- `log_auditoria` registra `CANCELACION_POR_CIERRE` o `CANCELACION_POR_CAMBIO_HORARIO` por cada reserva.
+- La lista de fechas especiales muestra cuántas reservas canceló cada cierre.
+- **Feriados nacionales**: "Cargar feriados" no cierra los que tienen reservas activas; los informa (fecha y cantidad) para registrarlos aparte, avisando a los clientes.
+
+---
+
+## 11. Limitaciones conocidas y pendientes
+
+| Tema | Situación actual |
+| :--- | :--- |
+| `anticipacion_minima_horas` y `margen_recordatorio_min` | Se guardan y se muestran como "próximamente", pero no tienen efecto: dependen de reservas en línea y recordatorios, que aún no existen. |
+| Cambio de `duracion_reserva_min` o `buffer_reserva_min` | No recalcula los choques de reservas ya registradas ni avisa si alguna deja de caber antes del cierre del turno. |
+| Capacidad total del grupo | El servidor no exige que la suma de capacidades cubra a los comensales; solo la interfaz lo advierte. |
+| Reasignar mesa | No valida choques con otras reservas ni el estado de la reserva. |
+| Inasistencia | Siempre manual; no hay cierre automático al vencer la tolerancia. |
+| Reservas creadas durante la confirmación de un cierre | Una reserva registrada por otro mozo en el instante exacto entre la consulta y la confirmación del cierre no entra en la lista; el servidor cubre las ya existentes. |
+| Reservas canceladas por un cierre | No se muestran en la bandeja del mozo de ese día (se ve "El local no atiende"); constan en la auditoría y en el contador de la lista de cierres. |
+
+---
+
+## 12. Referencias técnicas
 
 | Pieza | Ubicación |
 | :--- | :--- |
+| Políticas (lectura, guardado, interruptor, pendientes, plan) | `apps/api/app/Domains/Reservas/Services/PoliticasReservaService.php` |
 | Jornada operativa (horario, excepciones, medianoche, franjas, validación) | `apps/api/app/Domains/Horario/Services/JornadaOperativaService.php` |
-| Endpoints de reservas (`/api/v1/mozo/reservas/*`) | `apps/api/app/Http/Controllers/Api/MozoController.php` |
+| Cierres, horario semanal y cancelación con avisos | `apps/api/app/Domains/Horario/Services/HorarioService.php` |
+| Módulo habilitado según el plan | `apps/api/app/Http/Middleware/EnsureModuloReservas.php` (alias `modulo.reservas`) |
+| Endpoints de administrador | `Admin/PoliticaReservaController.php`, `Admin/HorarioController.php` |
+| Endpoints del mozo (`/api/v1/mozo/reservas/*`) | `apps/api/app/Http/Controllers/Api/MozoController.php` |
 | Esquema (`politicas_reserva`, `reserva`, `reserva_mesa`, `horario_atencion`, `horario_excepcion`) | `apps/api/database/sql/02_schema_ddl.sql` |
 | Valores por defecto al crear un local | `apps/api/app/Domains/Tenant/Services/LocalProvisioningService.php` |
+| Pantalla de políticas (web) | `apps/web/src/modules/admin/pages/AdminPoliticasReservaPage.tsx` |
+| Horario, feriados y cierres (web) | `apps/web/src/modules/admin/pages/AdminHorarioPage.tsx` y `components/horario/` |
 | Bandeja de Reservas (web) | `apps/web/src/modules/mozo/pages/MozoReservasPage.tsx` y `components/reservas/` |
-| Tests de comportamiento | `apps/api/tests/Feature/MozoReservasTest.php`, `apps/api/tests/Feature/JornadaOperativaServiceTest.php` |
+| Tests | `MozoReservasTest`, `JornadaOperativaServiceTest`, `PoliticasReservaAdminTest`, `HorarioExcepcionReservasTest` (en `apps/api/tests/Feature/`) |
 
-**Endpoints:**
+### Endpoints del mozo
 
 | Método | Ruta | Uso |
 | :--- | :--- | :--- |
-| `GET` | `/mozo/reservas/politicas?fecha=YYYY-MM-DD` | Políticas, jornada de la fecha, jornada en curso y turno sugerido. |
+| `GET` | `/mozo/reservas/politicas?fecha=YYYY-MM-DD` | Políticas (incluye `acepta_reservas`), jornada de la fecha, jornada en curso y turno sugerido. |
 | `GET` | `/mozo/reservas?fecha=&turno=almuerzo\|cena\|todos` | Bandeja de reservas del turno. |
-| `GET` | `/mozo/reservas/mesas-disponibles?fecha=&hora=&comensales=` | Mini-mapa de disponibilidad (`bloqueo_horario` si la hora no es válida). |
+| `GET` | `/mozo/reservas/mesas-disponibles?fecha=&hora=&comensales=` | Mini-mapa de disponibilidad (`bloqueo_horario` si la hora no es válida o el canal está suspendido). |
 | `POST` | `/mozo/reservas` | Registrar una reserva. |
 | `POST` | `/mozo/reservas/{id}/sentar` | Sentar comensales y abrir la comanda. |
 | `POST` | `/mozo/reservas/{id}/no-show` | Registrar inasistencia. |
 | `POST` | `/mozo/reservas/{id}/cancelar` | Cancelar con motivo. |
 | `PATCH` | `/mozo/reservas/{id}/reasignar-mesa` | Cambiar la mesa asignada. |
+
+### Endpoints del administrador
+
+| Método | Ruta | Uso |
+| :--- | :--- | :--- |
+| `GET` / `PUT` | `/admin/reservas/politicas` | Leer y guardar las políticas (409 por reservas pendientes o edición simultánea). |
+| `POST` | `/admin/reservas/politicas/restaurar-default` | Restaurar los parámetros recomendados (conserva el interruptor). |
+| `GET` | `/admin/reservas/politicas/precheck-desactivacion` | Reservas pendientes que seguirían vigentes si se suspende el canal. |
+| `GET` | `/admin/horario/excepciones/precheck` | Reservas afectadas por un cierre u horario especial. |
+| `POST` | `/admin/horario/excepciones` | Registrar el cierre; con `cancelar_reservas` y `reservas_notificadas` cancela las afectadas. |
+| `POST` | `/admin/horario/precheck` | Reservas que dejarían de caber con un horario semanal o plantilla (no guarda). |
+| `PUT` / `POST` | `/admin/horario`, `/admin/horario/plantilla` | Guardar el horario semanal o aplicar una plantilla (mismas reglas de cancelación y aviso). |
+| `POST` | `/admin/horario/feriados-peru/cargar` | Cargar feriados nacionales; informa los omitidos por tener reservas. |
