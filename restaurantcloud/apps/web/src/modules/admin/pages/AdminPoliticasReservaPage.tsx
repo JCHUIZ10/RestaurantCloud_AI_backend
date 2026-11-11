@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useBlocker } from 'react-router-dom';
 import { PoliticasReservaDTO, ReservaResumenDTO } from '@/types/admin';
 import { politicasReservaService } from '@/services/serviceAdapter';
-import { mensajeDeErrorApi } from '@/shared/utils/errorApi';
+import { mensajeDeErrorApi, mensajesDeValidacionApi } from '@/shared/utils/errorApi';
 import { EstadoError, ModalConfirmacion, useToast } from '@/components/ui';
 import { PoliticasHeader } from '../components/politicas/PoliticasHeader';
 import { SwitchMaestroReservas } from '../components/politicas/SwitchMaestroReservas';
@@ -10,6 +10,7 @@ import { PanelParametrosView } from '../components/politicas/PanelParametrosView
 import { SimuladorLineaTiempoView } from '../components/politicas/SimuladorLineaTiempoView';
 import { ModalBloqueoDesactivacion } from '../components/politicas/ModalBloqueoDesactivacion';
 import { PaywallStarterReservas } from '../components/politicas/PaywallStarterReservas';
+import { CampoPolitica, RANGOS_POLITICAS, textoRango, validarPoliticas } from '../components/politicas/rangosPoliticas';
 
 const copiar = (politicas: PoliticasReservaDTO): PoliticasReservaDTO => JSON.parse(JSON.stringify(politicas));
 
@@ -76,6 +77,20 @@ export const AdminPoliticasReservaPage: React.FC = () => {
       (JSON.stringify(politicasOriginales) !== JSON.stringify(politicasBorrador) || desactivacionConfirmada)
   );
 
+  // Validación previa de los rangos: señala el campo, resume los errores y no deja guardar valores inválidos
+  const errores = useMemo(() => (politicasBorrador ? validarPoliticas(politicasBorrador) : {}), [politicasBorrador]);
+  const camposConError = Object.keys(errores) as CampoPolitica[];
+
+  /** Lleva a la configuración y enfoca el campo con error (también desde el simulador). */
+  const irACampo = (campo: CampoPolitica) => {
+    setVistaActiva('parametros');
+    window.setTimeout(() => {
+      const input = document.getElementById(campo);
+      input?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      input?.focus();
+    }, 50);
+  };
+
   // Cambios sin guardar: avisar antes de salir de la pantalla o cerrar la pestaña
   const bloqueador = useBlocker(
     ({ currentLocation, nextLocation }) => isDirty && currentLocation.pathname !== nextLocation.pathname
@@ -138,6 +153,10 @@ export const AdminPoliticasReservaPage: React.FC = () => {
 
   const handleGuardar = async () => {
     if (!politicasBorrador || isGuardando) return;
+    if (camposConError.length > 0) {
+      mostrar(`Corrige ${camposConError.map((c) => RANGOS_POLITICAS[c].etiqueta).join(', ')} para poder guardar.`, 'error');
+      return;
+    }
     setIsGuardando(true);
 
     try {
@@ -148,7 +167,6 @@ export const AdminPoliticasReservaPage: React.FC = () => {
         tolerancia_no_show_min: politicasBorrador.tolerancia_no_show_min,
         minutos_bloqueo_previo: politicasBorrador.minutos_bloqueo_previo,
         margen_recordatorio_min: politicasBorrador.margen_recordatorio_min,
-        anticipacion_minima_horas: politicasBorrador.anticipacion_minima_horas,
         anticipacion_maxima_dias: politicasBorrador.anticipacion_maxima_dias,
         confirmar_desactivacion: !politicasBorrador.acepta_reservas && desactivacionConfirmada,
         updated_at: politicasOriginales?.updated_at,
@@ -181,8 +199,14 @@ export const AdminPoliticasReservaPage: React.FC = () => {
           mostrar(error?.mensaje ?? 'No se pudieron guardar las políticas.', 'error');
       }
     } catch (error) {
-      // El borrador se conserva para reintentar
-      mostrar(mensajeDeErrorApi(error, 'No se pudo conectar con el servidor. Tus cambios siguen en pantalla.'), 'error');
+      // El borrador se conserva para reintentar. Si el servidor rechazó valores, se muestran todos sus motivos.
+      const motivos = mensajesDeValidacionApi(error);
+      mostrar(
+        motivos.length > 0
+          ? motivos.slice(0, 3).join(' ')
+          : mensajeDeErrorApi(error, 'No se pudo conectar con el servidor. Tus cambios siguen en pantalla.'),
+        'error'
+      );
     } finally {
       setIsGuardando(false);
     }
@@ -255,8 +279,33 @@ export const AdminPoliticasReservaPage: React.FC = () => {
           disabled={isGuardando}
         />
 
+        {camposConError.length > 0 && (
+          <div role="alert" className="bg-red-50 border border-red-300 rounded-2xl p-4 text-sm text-red-900">
+            <p className="font-bold">
+              Corrige {camposConError.length === 1 ? '1 campo' : `${camposConError.length} campos`} antes de guardar
+            </p>
+            <ul className="mt-2 space-y-1">
+              {camposConError.map((campo) => (
+                <li key={campo}>
+                  <button
+                    type="button"
+                    onClick={() => irACampo(campo)}
+                    className="text-left underline underline-offset-2 hover:text-red-700 font-semibold"
+                  >
+                    {RANGOS_POLITICAS[campo].etiqueta}
+                  </button>
+                  <span className="text-red-800">
+                    {' '}— permitido: {textoRango(campo)}. {errores[campo]}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {vistaActiva === 'parametros' ? (
           <PanelParametrosView
+            errores={errores}
             politicas={politicasBorrador}
             onChangeCampo={handleCambiarCampo}
             onRestaurarRecomendados={() => setConfirmarRestaurar(true)}

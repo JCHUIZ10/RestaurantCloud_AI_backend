@@ -10,6 +10,39 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { PoliticasReservaDTO } from '@/types/admin';
+import { CampoPolitica, RANGOS_POLITICAS, ajustarARango } from './rangosPoliticas';
+
+/** Parámetros que el simulador permite probar; sus controles usan los mismos rangos que la configuración. */
+type CampoSimulado = Extract<
+  CampoPolitica,
+  'duracion_reserva_min' | 'buffer_reserva_min' | 'tolerancia_no_show_min' | 'minutos_bloqueo_previo'
+>;
+const CAMPOS_SIMULADOS: CampoSimulado[] = [
+  'duracion_reserva_min',
+  'buffer_reserva_min',
+  'tolerancia_no_show_min',
+  'minutos_bloqueo_previo',
+];
+
+/** Valores de la configuración llevados al rango permitido, y cuáles tuvieron que ajustarse (con su valor original). */
+const valoresIniciales = (politicas: PoliticasReservaDTO) => {
+  const valores = {} as Record<CampoSimulado, number>;
+  const ajustados: Partial<Record<CampoSimulado, number>> = {};
+
+  for (const campo of CAMPOS_SIMULADOS) {
+    valores[campo] = ajustarARango(campo, politicas[campo]);
+    if (valores[campo] !== politicas[campo]) ajustados[campo] = politicas[campo];
+  }
+
+  return { valores, ajustados };
+};
+
+const NotaAjuste: React.FC<{ original?: number }> = ({ original }) =>
+  original === undefined ? null : (
+    <p className="text-[10px] font-semibold text-amber-700 mt-0.5">
+      {Number.isFinite(original) ? `Ajustado desde ${original}, fuera del rango permitido.` : 'Ajustado: la configuración no tenía un valor válido.'}
+    </p>
+  );
 
 interface SimuladorLineaTiempoViewProps {
   politicas: PoliticasReservaDTO;
@@ -26,11 +59,23 @@ export const SimuladorLineaTiempoView: React.FC<SimuladorLineaTiempoViewProps> =
   const [horaCitaStr, setHoraCitaStr] = useState<'13:00' | '14:00' | '20:00'>('14:00');
   const mesaEjemplo = 'Mesa de ejemplo (4 PAX)';
 
-  // Parámetros temporales editables en vivo dentro del simulador
-  const [duracionSim, setDuracionSim] = useState(politicas.duracion_reserva_min);
-  const [bufferSim, setBufferSim] = useState(politicas.buffer_reserva_min);
-  const [toleranciaSim, setToleranciaSim] = useState(politicas.tolerancia_no_show_min);
-  const [bloqueoSim, setBloqueoSim] = useState(politicas.minutos_bloqueo_previo);
+  // Parámetros temporales editables en vivo dentro del simulador. Si la configuración tiene un valor fuera
+  // de rango, el simulador arranca con el valor ajustado: al aplicarlo se corrige el problema.
+  const [inicial] = useState(() => valoresIniciales(politicas));
+  const [duracionSim, setDuracionSim] = useState(inicial.valores.duracion_reserva_min);
+  const [bufferSim, setBufferSim] = useState(inicial.valores.buffer_reserva_min);
+  const [toleranciaSim, setToleranciaSim] = useState(inicial.valores.tolerancia_no_show_min);
+  const [bloqueoSim, setBloqueoSim] = useState(inicial.valores.minutos_bloqueo_previo);
+  const [ajustados, setAjustados] = useState(inicial.ajustados);
+
+  /** Cambia un control y deja de mostrar su aviso de ajuste. */
+  const cambiar = (campo: CampoSimulado, poner: (valor: number) => void) => (valor: number) => {
+    poner(valor);
+    setAjustados((previos) => {
+      const { [campo]: _descartado, ...resto } = previos;
+      return resto;
+    });
+  };
 
   // Auxiliares de cálculo de horas
   const [horaBaseH, horaBaseM] = horaCitaStr.split(':').map(Number);
@@ -68,10 +113,12 @@ export const SimuladorLineaTiempoView: React.FC<SimuladorLineaTiempoViewProps> =
 
   // Resetear a los valores actuales de configuración
   const handleResetSim = () => {
-    setDuracionSim(politicas.duracion_reserva_min);
-    setBufferSim(politicas.buffer_reserva_min);
-    setToleranciaSim(politicas.tolerancia_no_show_min);
-    setBloqueoSim(politicas.minutos_bloqueo_previo);
+    const { valores, ajustados: nuevosAjustes } = valoresIniciales(politicas);
+    setDuracionSim(valores.duracion_reserva_min);
+    setBufferSim(valores.buffer_reserva_min);
+    setToleranciaSim(valores.tolerancia_no_show_min);
+    setBloqueoSim(valores.minutos_bloqueo_previo);
+    setAjustados(nuevosAjustes);
   };
 
   // Transferir los valores probados a la configuración
@@ -129,7 +176,7 @@ export const SimuladorLineaTiempoView: React.FC<SimuladorLineaTiempoViewProps> =
         </div>
 
         {/* Controles de Escenario de Prueba */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t border-stone-100">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-3 border-t border-stone-100">
           <div>
             <label className="text-[11px] font-semibold text-stone-600 block mb-1">
               Hora de Reserva Ejemplo:
@@ -153,48 +200,71 @@ export const SimuladorLineaTiempoView: React.FC<SimuladorLineaTiempoViewProps> =
           </div>
 
           <div>
-            <label className="text-[11px] font-semibold text-stone-600 block mb-1">
+            <label htmlFor="sim_bloqueo" className="text-[11px] font-semibold text-stone-600 block mb-1">
               Bloqueo Previo ({bloqueoSim} min):
             </label>
             <input
+              id="sim_bloqueo"
               type="range"
-              min={0}
-              max={60}
+              min={RANGOS_POLITICAS.minutos_bloqueo_previo.min}
+              max={RANGOS_POLITICAS.minutos_bloqueo_previo.max}
               step={15}
               value={bloqueoSim}
-              onChange={(e) => setBloqueoSim(Number(e.target.value))}
+              onChange={(e) => cambiar('minutos_bloqueo_previo', setBloqueoSim)(Number(e.target.value))}
               className="w-full accent-amber-600 cursor-pointer"
             />
+            <NotaAjuste original={ajustados.minutos_bloqueo_previo} />
           </div>
 
           <div>
-            <label className="text-[11px] font-semibold text-stone-600 block mb-1">
+            <label htmlFor="sim_duracion" className="text-[11px] font-semibold text-stone-600 block mb-1">
               Duración Reserva ({duracionSim} min):
             </label>
             <input
+              id="sim_duracion"
               type="range"
-              min={30}
-              max={180}
+              min={RANGOS_POLITICAS.duracion_reserva_min.min}
+              max={RANGOS_POLITICAS.duracion_reserva_min.max}
               step={15}
               value={duracionSim}
-              onChange={(e) => setDuracionSim(Number(e.target.value))}
+              onChange={(e) => cambiar('duracion_reserva_min', setDuracionSim)(Number(e.target.value))}
               className="w-full accent-blue-600 cursor-pointer"
             />
+            <NotaAjuste original={ajustados.duracion_reserva_min} />
           </div>
 
           <div>
-            <label className="text-[11px] font-semibold text-stone-600 block mb-1">
+            <label htmlFor="sim_buffer" className="text-[11px] font-semibold text-stone-600 block mb-1">
               Buffer Limpieza ({bufferSim} min):
             </label>
             <input
+              id="sim_buffer"
               type="range"
-              min={0}
-              max={45}
+              min={RANGOS_POLITICAS.buffer_reserva_min.min}
+              max={RANGOS_POLITICAS.buffer_reserva_min.max}
               step={5}
               value={bufferSim}
-              onChange={(e) => setBufferSim(Number(e.target.value))}
+              onChange={(e) => cambiar('buffer_reserva_min', setBufferSim)(Number(e.target.value))}
               className="w-full accent-emerald-600 cursor-pointer"
             />
+            <NotaAjuste original={ajustados.buffer_reserva_min} />
+          </div>
+
+          <div>
+            <label htmlFor="sim_tolerancia" className="text-[11px] font-semibold text-stone-600 block mb-1">
+              Tolerancia No-Show ({toleranciaSim} min):
+            </label>
+            <input
+              id="sim_tolerancia"
+              type="range"
+              min={RANGOS_POLITICAS.tolerancia_no_show_min.min}
+              max={RANGOS_POLITICAS.tolerancia_no_show_min.max}
+              step={5}
+              value={toleranciaSim}
+              onChange={(e) => cambiar('tolerancia_no_show_min', setToleranciaSim)(Number(e.target.value))}
+              className="w-full accent-purple-600 cursor-pointer"
+            />
+            <NotaAjuste original={ajustados.tolerancia_no_show_min} />
           </div>
         </div>
       </div>

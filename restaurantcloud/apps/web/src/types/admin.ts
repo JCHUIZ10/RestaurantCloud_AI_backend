@@ -1086,7 +1086,8 @@ export interface ActualizarPoliticasReservaRequest {
   tolerancia_no_show_min: number;
   minutos_bloqueo_previo: number;
   margen_recordatorio_min: number;
-  anticipacion_minima_horas: number;
+  /** Opcional: la pantalla ya no la muestra; si no se envía, el servidor conserva el valor guardado. */
+  anticipacion_minima_horas?: number;
   anticipacion_maxima_dias: number;
   /** Confirma apagar el canal aunque existan reservas pendientes (siguen vigentes). */
   confirmar_desactivacion?: boolean;

@@ -9,9 +9,137 @@ import {
   Hourglass,
 } from 'lucide-react';
 import { PoliticasReservaDTO } from '@/types/admin';
+import { CampoPolitica, ErroresPoliticas, RANGOS_POLITICAS, textoRango } from './rangosPoliticas';
+
+type Acento = 'navy' | 'amber';
+
+const ACENTOS: Record<Acento, { insignia: string; presetActivo: string }> = {
+  navy: {
+    insignia: 'text-aurea-navy bg-stone-100 border-transparent',
+    presetActivo: 'bg-aurea-navy text-white border-aurea-navy',
+  },
+  amber: {
+    insignia: 'text-amber-800 bg-amber-50 border-amber-200',
+    presetActivo: 'bg-amber-700 text-white border-amber-700',
+  },
+};
+
+interface CampoNumericoProps {
+  campo: CampoPolitica;
+  titulo: string;
+  /** Aclaración corta junto al título, por ejemplo "(mesa ocupada)". */
+  subtitulo?: string;
+  /** Marca que indica que el parámetro aún no tiene efecto. */
+  insigniaEstado?: string;
+  valor: number;
+  step: number;
+  presets: number[];
+  /** Cómo se escribe cada preset; por defecto "<n> <unidad corta>". */
+  formatoPreset?: (preset: number) => string;
+  descripcion: string;
+  error?: string;
+  acento?: Acento;
+  onChange: (valor: number) => void;
+  /** Contenido adicional bajo la descripción. */
+  children?: React.ReactNode;
+}
+
+/** Campo numérico con su rango permitido siempre visible y el error en línea. */
+const CampoNumerico: React.FC<CampoNumericoProps> = ({
+  campo,
+  titulo,
+  subtitulo,
+  insigniaEstado,
+  valor,
+  step,
+  presets,
+  formatoPreset,
+  descripcion,
+  error,
+  acento = 'navy',
+  onChange,
+  children,
+}) => {
+  const { min, max, unidad } = RANGOS_POLITICAS[campo];
+  const unidadCorta = unidad === 'minutos' ? 'min' : unidad;
+  const colores = ACENTOS[acento];
+  const idError = `${campo}-error`;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2 text-xs font-semibold text-stone-700">
+        <label htmlFor={campo} className="flex flex-wrap items-center gap-1">
+          <span>{titulo}</span>
+          {subtitulo && <span className="text-stone-400 font-normal">{subtitulo}</span>}
+          {insigniaEstado && (
+            <span className="text-[10px] font-bold uppercase tracking-wide bg-stone-200 text-stone-600 px-1.5 py-0.5 rounded">
+              {insigniaEstado}
+            </span>
+          )}
+        </label>
+        <span
+          className={`font-mono font-bold text-sm border px-2 py-0.5 rounded shrink-0 ${
+            error ? 'text-red-700 bg-red-50 border-red-300' : colores.insignia
+          }`}
+        >
+          {Number.isFinite(valor) ? `${valor} ${unidadCorta}` : `— ${unidadCorta}`}
+        </span>
+      </div>
+
+      <input
+        id={campo}
+        type="number"
+        inputMode="numeric"
+        min={min}
+        max={max}
+        step={step}
+        value={Number.isFinite(valor) ? valor : ''}
+        onChange={(e) => onChange(e.target.value === '' ? Number.NaN : Number(e.target.value))}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? idError : undefined}
+        className={`w-full px-3 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:border-transparent font-medium ${
+          error
+            ? 'border-red-400 bg-red-50/40 focus:ring-red-500'
+            : 'border-stone-300 focus:ring-aurea-navy'
+        }`}
+      />
+
+      {error ? (
+        <p id={idError} role="alert" className="flex items-start gap-1 text-[11px] font-semibold text-red-700 leading-tight">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          <span>{error}</span>
+        </p>
+      ) : (
+        <p className="text-[11px] font-semibold text-stone-500 leading-tight">Permitido: {textoRango(campo)}</p>
+      )}
+
+      {/* Presets Rápidos */}
+      <div className="flex items-center gap-1.5 pt-1">
+        {presets.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            onClick={() => onChange(preset)}
+            className={`flex-1 py-1 px-2 rounded-lg text-xs font-medium border transition-colors ${
+              valor === preset
+                ? colores.presetActivo
+                : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
+            }`}
+          >
+            {formatoPreset ? formatoPreset(preset) : `${preset} ${unidadCorta}`}
+          </button>
+        ))}
+      </div>
+      <p className="text-[11px] text-stone-500 leading-tight">{descripcion}</p>
+      {children}
+    </div>
+  );
+};
 
 interface PanelParametrosViewProps {
   politicas: PoliticasReservaDTO;
+  /** Error de validación por campo (los válidos no aparecen). */
+  errores: ErroresPoliticas;
   onChangeCampo: <K extends keyof PoliticasReservaDTO>(campo: K, valor: PoliticasReservaDTO[K]) => void;
   onRestaurarRecomendados: () => void;
   onDescartarCambios: () => void;
@@ -22,6 +150,7 @@ interface PanelParametrosViewProps {
 
 export const PanelParametrosView: React.FC<PanelParametrosViewProps> = ({
   politicas,
+  errores,
   onChangeCampo,
   onRestaurarRecomendados,
   onDescartarCambios,
@@ -29,6 +158,8 @@ export const PanelParametrosView: React.FC<PanelParametrosViewProps> = ({
   isDirty,
   isGuardando,
 }) => {
+  const cantidadErrores = Object.keys(errores).length;
+
   return (
     <div className="space-y-6">
       {/* Grid de 3 Tarjetas Operativas */}
@@ -51,141 +182,44 @@ export const PanelParametrosView: React.FC<PanelParametrosViewProps> = ({
             </div>
           </div>
 
-          {/* Campo 1: Duración Estándar de Reserva */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-semibold text-stone-700">
-              <label htmlFor="duracion_reserva_min" className="flex items-center gap-1">
-                <span>Duración Estándar</span>
-                <span className="text-stone-400 font-normal">(mesa ocupada)</span>
-              </label>
-              <span className="font-mono text-aurea-navy font-bold text-sm bg-stone-100 px-2 py-0.5 rounded">
-                {politicas.duracion_reserva_min} min
-              </span>
-            </div>
+          <CampoNumerico
+            campo="duracion_reserva_min"
+            titulo="Duración Estándar"
+            subtitulo="(mesa ocupada)"
+            valor={politicas.duracion_reserva_min}
+            step={15}
+            presets={[60, 90, 120]}
+            descripcion="Tiempo estimado que los clientes permanecen disfrutando su comida."
+            error={errores.duracion_reserva_min}
+            onChange={(v) => onChangeCampo('duracion_reserva_min', v)}
+          />
 
-            <div className="flex items-center gap-2">
-              <input
-                id="duracion_reserva_min"
-                type="number"
-                min={30}
-                max={240}
-                step={15}
-                value={politicas.duracion_reserva_min}
-                onChange={(e) => onChangeCampo('duracion_reserva_min', Number(e.target.value))}
-                className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-aurea-navy focus:border-transparent font-medium"
-              />
-            </div>
-
-            {/* Presets Rápidos */}
-            <div className="flex items-center gap-1.5 pt-1">
-              {[60, 90, 120].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => onChangeCampo('duracion_reserva_min', preset)}
-                  className={`flex-1 py-1 px-2 rounded-lg text-xs font-medium border transition-colors ${
-                    politicas.duracion_reserva_min === preset
-                      ? 'bg-aurea-navy text-white border-aurea-navy'
-                      : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
-                  }`}
-                >
-                  {preset} min
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-stone-500 leading-tight">
-              Tiempo estimado que los clientes permanecen disfrutando su comida.
-            </p>
+          <div className="pt-2 border-t border-stone-100">
+            <CampoNumerico
+              campo="buffer_reserva_min"
+              titulo="Buffer de Limpieza"
+              subtitulo="(sanitización)"
+              valor={politicas.buffer_reserva_min}
+              step={5}
+              presets={[10, 15, 20]}
+              descripcion="Margen de sanitización y reposición de vajilla entre reservas consecutivas."
+              error={errores.buffer_reserva_min}
+              onChange={(v) => onChangeCampo('buffer_reserva_min', v)}
+            />
           </div>
 
-          {/* Campo 2: Margen Buffer de Limpieza */}
-          <div className="space-y-2 pt-2 border-t border-stone-100">
-            <div className="flex items-center justify-between text-xs font-semibold text-stone-700">
-              <label htmlFor="buffer_reserva_min" className="flex items-center gap-1">
-                <span>Buffer de Limpieza</span>
-                <span className="text-stone-400 font-normal">(sanitización)</span>
-              </label>
-              <span className="font-mono text-aurea-navy font-bold text-sm bg-stone-100 px-2 py-0.5 rounded">
-                {politicas.buffer_reserva_min} min
-              </span>
-            </div>
-
-            <input
-              id="buffer_reserva_min"
-              type="number"
-              min={0}
-              max={60}
+          <div className="pt-2 border-t border-stone-100">
+            <CampoNumerico
+              campo="tolerancia_no_show_min"
+              titulo="Tolerancia No-Show"
+              subtitulo="(espera cortesía)"
+              valor={politicas.tolerancia_no_show_min}
               step={5}
-              value={politicas.buffer_reserva_min}
-              onChange={(e) => onChangeCampo('buffer_reserva_min', Number(e.target.value))}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-aurea-navy focus:border-transparent font-medium"
+              presets={[10, 15, 20]}
+              descripcion="Tiempo máximo de espera antes de liberar la mesa si el comensal no se presenta."
+              error={errores.tolerancia_no_show_min}
+              onChange={(v) => onChangeCampo('tolerancia_no_show_min', v)}
             />
-
-            {/* Presets Rápidos */}
-            <div className="flex items-center gap-1.5 pt-1">
-              {[10, 15, 20].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => onChangeCampo('buffer_reserva_min', preset)}
-                  className={`flex-1 py-1 px-2 rounded-lg text-xs font-medium border transition-colors ${
-                    politicas.buffer_reserva_min === preset
-                      ? 'bg-aurea-navy text-white border-aurea-navy'
-                      : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
-                  }`}
-                >
-                  {preset} min
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-stone-500 leading-tight">
-              Margen de sanitización y reposición de vajilla entre reservas consecutivas.
-            </p>
-          </div>
-
-          {/* Campo 3: Tolerancia de No-Show */}
-          <div className="space-y-2 pt-2 border-t border-stone-100">
-            <div className="flex items-center justify-between text-xs font-semibold text-stone-700">
-              <label htmlFor="tolerancia_no_show_min" className="flex items-center gap-1">
-                <span>Tolerancia No-Show</span>
-                <span className="text-stone-400 font-normal">(espera cortesía)</span>
-              </label>
-              <span className="font-mono text-aurea-navy font-bold text-sm bg-stone-100 px-2 py-0.5 rounded">
-                {politicas.tolerancia_no_show_min} min
-              </span>
-            </div>
-
-            <input
-              id="tolerancia_no_show_min"
-              type="number"
-              min={5}
-              max={60}
-              step={5}
-              value={politicas.tolerancia_no_show_min}
-              onChange={(e) => onChangeCampo('tolerancia_no_show_min', Number(e.target.value))}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-aurea-navy focus:border-transparent font-medium"
-            />
-
-            {/* Presets Rápidos */}
-            <div className="flex items-center gap-1.5 pt-1">
-              {[10, 15, 20].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => onChangeCampo('tolerancia_no_show_min', preset)}
-                  className={`flex-1 py-1 px-2 rounded-lg text-xs font-medium border transition-colors ${
-                    politicas.tolerancia_no_show_min === preset
-                      ? 'bg-aurea-navy text-white border-aurea-navy'
-                      : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
-                  }`}
-                >
-                  {preset} min
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-stone-500 leading-tight">
-              Tiempo máximo de espera antes de liberar la mesa si el comensal no se presenta.
-            </p>
           </div>
         </div>
 
@@ -207,100 +241,41 @@ export const PanelParametrosView: React.FC<PanelParametrosViewProps> = ({
             </div>
           </div>
 
-          {/* Campo 4: Bloqueo Previo en Salón */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-semibold text-stone-700">
-              <label htmlFor="minutos_bloqueo_previo" className="flex items-center gap-1">
-                <span>Bloqueo Previo en Salón</span>
-              </label>
-              <span className="font-mono text-amber-800 font-bold text-sm bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
-                {politicas.minutos_bloqueo_previo} min
-              </span>
-            </div>
-
-            <input
-              id="minutos_bloqueo_previo"
-              type="number"
-              min={0}
-              max={120}
-              step={15}
-              value={politicas.minutos_bloqueo_previo}
-              onChange={(e) => onChangeCampo('minutos_bloqueo_previo', Number(e.target.value))}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-aurea-navy focus:border-transparent font-medium"
-            />
-
-            {/* Presets Rápidos */}
-            <div className="flex items-center gap-1.5 pt-1">
-              {[15, 30, 45].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => onChangeCampo('minutos_bloqueo_previo', preset)}
-                  className={`flex-1 py-1 px-2 rounded-lg text-xs font-medium border transition-colors ${
-                    politicas.minutos_bloqueo_previo === preset
-                      ? 'bg-amber-700 text-white border-amber-700'
-                      : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
-                  }`}
-                >
-                  {preset} min
-                </button>
-              ))}
-            </div>
-
+          <CampoNumerico
+            campo="minutos_bloqueo_previo"
+            titulo="Bloqueo Previo en Salón"
+            valor={politicas.minutos_bloqueo_previo}
+            step={15}
+            presets={[15, 30, 45]}
+            descripcion="Minutos antes de la cita en que la mesa se bloquea en el plano del mozo."
+            error={errores.minutos_bloqueo_previo}
+            acento="amber"
+            onChange={(v) => onChangeCampo('minutos_bloqueo_previo', v)}
+          >
             {/* Nota de sincronización con CU-MOZO-01 */}
             <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-2.5 flex items-start gap-2 text-[11px] text-amber-900 leading-relaxed">
               <Info className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
               <span>
                 <strong>Regla de Mozo (CU-MOZO-01):</strong> La mesa pasa automáticamente a estado{' '}
-                <em>"bloqueada"</em> en el plano táctil {politicas.minutos_bloqueo_previo} minutos antes de la cita,
+                <em>"bloqueada"</em> en el plano táctil {Number.isFinite(politicas.minutos_bloqueo_previo) ? politicas.minutos_bloqueo_previo : '—'} minutos antes de la cita,
                 prohibiendo sentar clientes de paso (walk-in).
               </span>
             </div>
-          </div>
+          </CampoNumerico>
 
-          {/* Campo 5: Margen de Recordatorio */}
-          <div className="space-y-2 pt-2 border-t border-stone-100">
-            <div className="flex items-center justify-between text-xs font-semibold text-stone-700">
-              <label htmlFor="margen_recordatorio_min" className="flex items-center gap-1">
-                <span>Margen de Alerta / Recordatorio</span>
-                <span className="text-[10px] font-bold uppercase tracking-wide bg-stone-200 text-stone-600 px-1.5 py-0.5 rounded">Próximamente</span>
-              </label>
-              <span className="font-mono text-aurea-navy font-bold text-sm bg-stone-100 px-2 py-0.5 rounded">
-                {politicas.margen_recordatorio_min} min
-              </span>
-            </div>
-
-            <input
-              id="margen_recordatorio_min"
-              type="number"
-              min={15}
-              max={1440}
-              step={30}
-              value={politicas.margen_recordatorio_min}
-              onChange={(e) => onChangeCampo('margen_recordatorio_min', Number(e.target.value))}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-aurea-navy focus:border-transparent font-medium"
+          <div className="pt-2 border-t border-stone-100">
+            <CampoNumerico
+              campo="margen_recordatorio_min"
+              titulo="Margen de Alerta / Recordatorio"
+              insigniaEstado="Próximamente"
+              valor={politicas.margen_recordatorio_min}
+              step={15}
+              presets={[60, 120, 180]}
+              formatoPreset={(preset) => `${preset} min (${preset / 60}h)`}
+              descripcion="Se guarda para los recordatorios automáticos, que todavía no están disponibles: por ahora no genera avisos."
+              error={errores.margen_recordatorio_min}
+              onChange={(v) => onChangeCampo('margen_recordatorio_min', v)}
             />
-
-            {/* Presets Rápidos */}
-            <div className="flex items-center gap-1.5 pt-1">
-              {[60, 120, 180].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => onChangeCampo('margen_recordatorio_min', preset)}
-                  className={`flex-1 py-1 px-2 rounded-lg text-xs font-medium border transition-colors ${
-                    politicas.margen_recordatorio_min === preset
-                      ? 'bg-aurea-navy text-white border-aurea-navy'
-                      : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
-                  }`}
-                >
-                  {preset} min ({preset / 60}h)
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-stone-500 leading-tight">
-              Se guarda para los recordatorios automáticos, que todavía no están disponibles: por ahora no genera avisos.
-            </p>
           </div>
         </div>
 
@@ -317,101 +292,22 @@ export const PanelParametrosView: React.FC<PanelParametrosViewProps> = ({
                 Ventana de Anticipación
               </h3>
               <p className="text-[11px] text-stone-500">
-                Horizontes de reserva para el comensal
+                Hasta cuántos días antes se puede reservar
               </p>
             </div>
           </div>
 
-          {/* Campo 6: Anticipación Mínima para Reservar */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-semibold text-stone-700">
-              <label htmlFor="anticipacion_minima_horas" className="flex items-center gap-1">
-                <span>Anticipación Mínima</span>
-                <span className="text-stone-400 font-normal">(p/ reservar)</span>
-                <span className="text-[10px] font-bold uppercase tracking-wide bg-stone-200 text-stone-600 px-1.5 py-0.5 rounded">Reservas en línea</span>
-              </label>
-              <span className="font-mono text-emerald-800 font-bold text-sm bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-                {politicas.anticipacion_minima_horas} horas
-              </span>
-            </div>
-
-            <input
-              id="anticipacion_minima_horas"
-              type="number"
-              min={0}
-              max={48}
-              step={1}
-              value={politicas.anticipacion_minima_horas}
-              onChange={(e) => onChangeCampo('anticipacion_minima_horas', Number(e.target.value))}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-aurea-navy focus:border-transparent font-medium"
-            />
-
-            {/* Presets Rápidos */}
-            <div className="flex items-center gap-1.5 pt-1">
-              {[1, 2, 4].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => onChangeCampo('anticipacion_minima_horas', preset)}
-                  className={`flex-1 py-1 px-2 rounded-lg text-xs font-medium border transition-colors ${
-                    politicas.anticipacion_minima_horas === preset
-                      ? 'bg-emerald-700 text-white border-emerald-700'
-                      : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
-                  }`}
-                >
-                  {preset} {preset === 1 ? 'hora' : 'horas'}
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-stone-500 leading-tight">
-              Aplica a las reservas en línea, que todavía no están disponibles. El personal de salón puede registrar reservas con cualquier anticipación.
-            </p>
-          </div>
-
-          {/* Campo 7: Anticipación Máxima a Futuro */}
-          <div className="space-y-2 pt-2 border-t border-stone-100">
-            <div className="flex items-center justify-between text-xs font-semibold text-stone-700">
-              <label htmlFor="anticipacion_maxima_dias" className="flex items-center gap-1">
-                <span>Anticipación Máxima</span>
-                <span className="text-stone-400 font-normal">(horizonte futuro)</span>
-              </label>
-              <span className="font-mono text-aurea-navy font-bold text-sm bg-stone-100 px-2 py-0.5 rounded">
-                {politicas.anticipacion_maxima_dias} días
-              </span>
-            </div>
-
-            <input
-              id="anticipacion_maxima_dias"
-              type="number"
-              min={1}
-              max={90}
-              step={5}
-              value={politicas.anticipacion_maxima_dias}
-              onChange={(e) => onChangeCampo('anticipacion_maxima_dias', Number(e.target.value))}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-aurea-navy focus:border-transparent font-medium"
-            />
-
-            {/* Presets Rápidos */}
-            <div className="flex items-center gap-1.5 pt-1">
-              {[15, 30, 60].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => onChangeCampo('anticipacion_maxima_dias', preset)}
-                  className={`flex-1 py-1 px-2 rounded-lg text-xs font-medium border transition-colors ${
-                    politicas.anticipacion_maxima_dias === preset
-                      ? 'bg-aurea-navy text-white border-aurea-navy'
-                      : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
-                  }`}
-                >
-                  {preset} días
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-stone-500 leading-tight">
-              Máximo de días hacia adelante en que se puede registrar una reserva.
-            </p>
-          </div>
+          <CampoNumerico
+            campo="anticipacion_maxima_dias"
+            titulo="Anticipación Máxima"
+            subtitulo="(horizonte futuro)"
+            valor={politicas.anticipacion_maxima_dias}
+            step={5}
+            presets={[15, 30, 60]}
+            descripcion="Máximo de días hacia adelante en que se puede registrar una reserva."
+            error={errores.anticipacion_maxima_dias}
+            onChange={(v) => onChangeCampo('anticipacion_maxima_dias', v)}
+          />
         </div>
       </div>
 
@@ -419,7 +315,7 @@ export const PanelParametrosView: React.FC<PanelParametrosViewProps> = ({
       {/* BARRA INFERIOR DE ACCIONES Y PERSISTENCIA */}
       {/* ==================================================================== */}
       <div className="sticky bottom-4 z-20 bg-white/95 backdrop-blur-md rounded-2xl border border-stone-200/90 shadow-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           <button
             type="button"
             onClick={onRestaurarRecomendados}
@@ -430,11 +326,20 @@ export const PanelParametrosView: React.FC<PanelParametrosViewProps> = ({
             <span>Restaurar Valores Recomendados</span>
           </button>
 
-          {isDirty && (
-            <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 font-medium bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+          {cantidadErrores > 0 ? (
+            <span className="inline-flex items-center gap-1.5 text-xs text-red-700 font-semibold bg-red-50 px-2.5 py-1 rounded-lg border border-red-200">
               <AlertCircle className="w-3.5 h-3.5" />
-              <span>Hay modificaciones pendientes</span>
+              <span>
+                Corrige {cantidadErrores} {cantidadErrores === 1 ? 'campo' : 'campos'} para poder guardar
+              </span>
             </span>
+          ) : (
+            isDirty && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 font-medium bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>Hay modificaciones pendientes</span>
+              </span>
+            )
           )}
         </div>
 
@@ -451,7 +356,8 @@ export const PanelParametrosView: React.FC<PanelParametrosViewProps> = ({
           <button
             type="button"
             onClick={onGuardar}
-            disabled={isGuardando}
+            disabled={isGuardando || cantidadErrores > 0}
+            title={cantidadErrores > 0 ? 'Corrige los campos marcados en rojo para guardar' : undefined}
             className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold text-white bg-aurea-navy hover:bg-aurea-navy/90 shadow-md shadow-aurea-navy/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGuardando ? (
