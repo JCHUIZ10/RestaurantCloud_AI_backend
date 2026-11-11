@@ -450,7 +450,6 @@ export const ModalEditarLocal: React.FC<ModalEditarLocalProps> = ({
               <input
                 type="tel"
                 inputMode="numeric"
-                maxLength={11}
                 value={formatearTelefonoPeru(telefono)}
                 onChange={(e) => {
                   const digits = extraerDigitosMovilPeru(e.target.value);

@@ -211,7 +211,6 @@ export const ModalInvitarAdmin: React.FC<ModalInvitarAdminProps> = ({
               <input
                 type="tel"
                 inputMode="numeric"
-                maxLength={11}
                 value={formatearTelefonoPeru(telefono)}
                 onChange={(e) => {
                   const digits = extraerDigitosMovilPeru(e.target.value);

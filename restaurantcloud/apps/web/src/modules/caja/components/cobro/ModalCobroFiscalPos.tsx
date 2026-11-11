@@ -894,7 +894,6 @@ export const ModalCobroFiscalPos: React.FC<ModalCobroFiscalPosProps> = ({
                         <input
                           type="tel"
                           inputMode="numeric"
-                          maxLength={11}
                           value={formatearTelefonoPeru(inputWhatsappTemp)}
                           onChange={(e) => {
                             const digits = extraerDigitosMovilPeru(e.target.value);

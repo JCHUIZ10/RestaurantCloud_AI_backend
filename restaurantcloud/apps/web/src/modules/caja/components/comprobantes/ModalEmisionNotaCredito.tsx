@@ -813,7 +813,6 @@ export const ModalEmisionNotaCredito: React.FC<ModalEmisionNotaCreditoProps> = (
                             <input
                               type="tel"
                               inputMode="numeric"
-                              maxLength={11}
                               value={formatearTelefonoPeru(tempTelefono)}
                               onChange={(e) => {
                                 const digits = extraerDigitosMovilPeru(e.target.value);

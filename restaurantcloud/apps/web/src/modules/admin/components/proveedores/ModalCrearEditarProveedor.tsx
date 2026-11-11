@@ -210,7 +210,6 @@ export const ModalCrearEditarProveedor: React.FC<ModalCrearEditarProveedorProps>
                 id={`${idForm}-tel`}
                 type="tel"
                 inputMode="numeric"
-                maxLength={11}
                 required
                 value={formatearTelefonoPeru(telefono)}
                 onChange={(e) => {

@@ -98,7 +98,6 @@ export const Paso2TitularPropietario: React.FC<Paso2TitularPropietarioProps> = (
               type="tel"
               inputMode="numeric"
               required
-              maxLength={11}
               value={formatearTelefonoPeru(propietarioTelefono)}
               onChange={(e) => {
                 const digits = extraerDigitosMovilPeru(e.target.value);

@@ -223,7 +223,6 @@ export const Paso2DatosEmpresa: React.FC<Paso2DatosEmpresaProps> = ({
                     type="tel"
                     inputMode="numeric"
                     required
-                    maxLength={11}
                     value={formatearTelefonoPeru(formData.telefono)}
                     onChange={(e) => {
                       // Extraer dígitos libres de bucle y formatear progresivamente

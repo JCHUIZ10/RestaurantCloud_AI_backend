@@ -176,7 +176,6 @@ export const ModalProveedorAlVuelo: React.FC<ModalProveedorAlVueloProps> = ({
               type="tel"
               inputMode="numeric"
               required
-              maxLength={11}
               value={formatearTelefonoPeru(telefono)}
               onChange={(e) => {
                 const digits = extraerDigitosMovilPeru(e.target.value);
