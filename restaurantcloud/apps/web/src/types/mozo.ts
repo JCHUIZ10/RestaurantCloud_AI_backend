@@ -723,6 +723,8 @@ export interface PoliticasReservaDTO {
   buffer_reserva_min: number;
   minutos_bloqueo_previo: number;
   tolerancia_no_show_min: number;
+  /** Interruptor maestro del administrador: apagado, no se pueden registrar reservas nuevas (las existentes siguen). */
+  acepta_reservas: boolean;
   permite_reservas_online: boolean;
   max_dias_anticipacion: number;
   fecha: string; // Fecha consultada

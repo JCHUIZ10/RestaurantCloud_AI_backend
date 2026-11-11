@@ -17,6 +17,8 @@ interface ReservasHeaderProps {
   onFechaHoy: () => void;
   onSeleccionarFecha: (fecha: string) => void;
   onNuevaReserva: () => void;
+  /** El administrador suspendió la recepción de reservas nuevas. */
+  nuevaReservaDeshabilitada?: boolean;
 }
 
 const ETIQUETA_TURNO: Record<TurnoReserva, string> = { almuerzo: 'Almuerzo', cena: 'Cena' };
@@ -33,6 +35,7 @@ export const ReservasHeader: React.FC<ReservasHeaderProps> = ({
   onFechaHoy,
   onSeleccionarFecha,
   onNuevaReserva,
+  nuevaReservaDeshabilitada = false,
 }) => {
   const inputFechaRef = useRef<HTMLInputElement>(null);
 
@@ -154,7 +157,9 @@ export const ReservasHeader: React.FC<ReservasHeaderProps> = ({
           {/* Botón de Acción Principal */}
           <button
             onClick={onNuevaReserva}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-aurea-copper hover:bg-aurea-copper/90 text-aurea-navy font-bold text-xs sm:text-sm shadow-sm transition-all transform active:scale-95"
+            disabled={nuevaReservaDeshabilitada}
+            title={nuevaReservaDeshabilitada ? 'El administrador suspendió la recepción de nuevas reservas' : undefined}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-aurea-copper hover:bg-aurea-copper/90 text-aurea-navy font-bold text-xs sm:text-sm shadow-sm transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>Nueva Reserva</span>

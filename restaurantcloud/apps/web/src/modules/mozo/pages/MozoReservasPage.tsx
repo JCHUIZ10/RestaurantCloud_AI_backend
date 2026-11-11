@@ -14,10 +14,10 @@ import { ReservasTable } from '../components/reservas/ReservasTable';
 import { ModalNuevaReserva } from '../components/reservas/ModalNuevaReserva';
 import { ModalFichaReserva } from '../components/reservas/ModalFichaReserva';
 import { AlertTriangle, CalendarX2, Check } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/router/routes.constants';
 import { generarEnlaceWhatsApp } from '@/shared/utils/whatsapp';
-import { mensajeDeErrorApi } from '@/shared/utils/errorApi';
+import { codigoDeErrorApi, mensajeDeErrorApi } from '@/shared/utils/errorApi';
 import {
   etiquetaRelativaFecha,
   fechaLargaStr,
@@ -27,6 +27,7 @@ import {
 } from '@/shared/utils/fechaLocal';
 
 const INTERVALO_REFRESCO_MS = 60_000;
+const CODIGO_MODULO_NO_CONTRATADO = 'ERR_MODULO_RESERVAS_NO_CONTRATADO';
 const ETIQUETA_TURNO: Record<TurnoReserva, string> = { almuerzo: 'Almuerzo', cena: 'Cena' };
 
 type TipoToast = 'exito' | 'error';
@@ -45,6 +46,8 @@ export const MozoReservasPage: React.FC = () => {
 
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
+  // El plan de la empresa no incluye reservas: mensaje del API (con los planes que sí lo incluyen)
+  const [moduloNoContratado, setModuloNoContratado] = useState<string | null>(null);
   const [reservas, setReservas] = useState<ReservaCardDTO[]>([]);
 
   // Modales
@@ -84,6 +87,10 @@ export const MozoReservasPage: React.FC = () => {
         setTurnoActivo(res.datos.turno_actual);
       }
     } catch (error) {
+      if (codigoDeErrorApi(error) === CODIGO_MODULO_NO_CONTRATADO) {
+        setModuloNoContratado(mensajeDeErrorApi(error, 'El plan de tu empresa no incluye el módulo de reservas.'));
+        return;
+      }
       if (esArranque) {
         setErrorCarga(mensajeDeErrorApi(error, 'No se pudo consultar el horario de atención del local.'));
         setFechaStr(hoyLocalStr());
@@ -137,6 +144,10 @@ export const MozoReservasPage: React.FC = () => {
         }
       } catch (error) {
         if (peticion !== peticionReservasRef.current) return;
+        if (codigoDeErrorApi(error) === CODIGO_MODULO_NO_CONTRATADO) {
+          setModuloNoContratado(mensajeDeErrorApi(error, 'El plan de tu empresa no incluye el módulo de reservas.'));
+          return;
+        }
         if (!silencioso) setReservas([]);
         setErrorCarga(mensajeDeErrorApi(error, 'No se pudieron cargar las reservas. Reintentando en un minuto.'));
       } finally {
@@ -152,12 +163,14 @@ export const MozoReservasPage: React.FC = () => {
 
   // Refresco periódico: minutos restantes, KPIs y cambio de jornada pasada la medianoche
   useEffect(() => {
+    // Sin el módulo en el plan no hay nada que refrescar
+    if (moduloNoContratado) return;
     const intervalo = setInterval(() => {
       cargarReservas(true);
       cargarPoliticas(false);
     }, INTERVALO_REFRESCO_MS);
     return () => clearInterval(intervalo);
-  }, [cargarReservas, cargarPoliticas]);
+  }, [cargarReservas, cargarPoliticas, moduloNoContratado]);
 
   // La ficha abierta muestra siempre los datos del último refresco (minutos restantes, estado)
   useEffect(() => {
@@ -165,6 +178,8 @@ export const MozoReservasPage: React.FC = () => {
   }, [reservas]);
 
   const fechaOperativa = politicas?.fecha_operativa ?? hoyLocalStr();
+  // El administrador puede suspender las reservas nuevas; las existentes se siguen atendiendo
+  const canalSuspendido = politicas !== null && !politicas.acepta_reservas;
   const esFechaOperativa = fechaStr === fechaOperativa;
   const toleranciaMin = politicas?.tolerancia_no_show_min ?? 15;
   const turnoVisible = jornada?.fecha === fechaStr ? jornada.turnos[turnoActivo] : null;
@@ -259,6 +274,8 @@ export const MozoReservasPage: React.FC = () => {
       return true;
     } catch (error) {
       mostrarToast(mensajeDeErrorApi(error, 'No se pudo crear la reserva.'), 'error');
+      // El administrador suspendió el canal después de la última consulta: reflejarlo de inmediato
+      if (codigoDeErrorApi(error) === 'ERR_RESERVAS_DESHABILITADAS') cargarPoliticas(false);
       return false;
     }
   };
@@ -307,6 +324,27 @@ export const MozoReservasPage: React.FC = () => {
     );
   };
 
+  if (moduloNoContratado) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center h-full bg-slate-50/60 p-6 text-center select-none">
+        <div className="bg-white rounded-2xl border border-amber-200 shadow-sm p-8 max-w-md space-y-3">
+          <CalendarX2 className="w-12 h-12 text-amber-400 mx-auto" />
+          <h2 className="font-serif text-xl font-bold text-aurea-navy">Reservas no disponibles</h2>
+          <p className="text-sm text-slate-600 leading-relaxed">{moduloNoContratado}</p>
+          <p className="text-xs text-slate-500">
+            Consulta con el administrador o el propietario del local para habilitar el módulo.
+          </p>
+          <Link
+            to={ROUTES.MOZO_MESAS}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors"
+          >
+            ‹ Volver al Salón
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50/60 overflow-hidden select-none">
       {/* Toast Notificación */}
@@ -340,10 +378,21 @@ export const MozoReservasPage: React.FC = () => {
         onFechaHoy={() => cambiarFecha(fechaOperativa)}
         onSeleccionarFecha={cambiarFecha}
         onNuevaReserva={() => setModalNuevaAbierto(true)}
+        nuevaReservaDeshabilitada={canalSuspendido}
       />
 
       {/* Contenido Central */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-5">
+        {canalSuspendido && (
+          <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-medium flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>
+              El administrador suspendió la recepción de <strong>nuevas reservas</strong>. Las reservas ya registradas
+              siguen vigentes: puedes sentarlas, registrar inasistencias o cancelarlas con normalidad.
+            </span>
+          </div>
+        )}
+
         {errorCarga && (
           <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -393,7 +442,7 @@ export const MozoReservasPage: React.FC = () => {
 
       {/* Modal Nueva Reserva con Mini-Mapa */}
       <ModalNuevaReserva
-        abierto={modalNuevaAbierto}
+        abierto={modalNuevaAbierto && !canalSuspendido}
         fechaInicial={fechaStr && fechaStr >= fechaOperativa ? fechaStr : fechaOperativa}
         turnoInicial={turnoActivo}
         fechaOperativa={fechaOperativa}
