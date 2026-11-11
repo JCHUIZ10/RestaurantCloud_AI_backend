@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Calendar, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { X, Calendar, AlertCircle, Info, MessageCircle } from 'lucide-react';
+import { SelectorMesasReserva } from './SelectorMesasReserva';
+import { useSeleccionMesasReserva } from './useSeleccionMesasReserva';
 import {
-  MesaDisponibleReservaDTO,
   CrearReservaRequestDTO,
   FranjaReservaDTO,
   JornadaReservaDTO,
   TurnoReserva,
 } from '@/types/mozo';
 import { mozoService } from '@/services/serviceAdapter';
-import { formatearTelefonoPeru, extraerDigitosMovilPeru } from '@/shared/utils/whatsapp';
+import { formatearTelefonoPeru, extraerDigitosMovilPeru } from '@/shared/utils';
 import { mensajeDeErrorApi } from '@/shared/utils/errorApi';
 import { hoyLocalStr, sumarDiasStr } from '@/shared/utils/fechaLocal';
 
@@ -48,12 +49,6 @@ export const ModalNuevaReserva: React.FC<ModalNuevaReservaProps> = ({
   const [jornada, setJornada] = useState<JornadaReservaDTO | null>(null);
   const [cargandoJornada, setCargandoJornada] = useState(false);
 
-  // Paso 2: Mini-mapa
-  const [mesasMapa, setMesasMapa] = useState<MesaDisponibleReservaDTO[]>([]);
-  const [bloqueoHorario, setBloqueoHorario] = useState<string | null>(null);
-  const [cargandoMesas, setCargandoMesas] = useState(false);
-  const [mesasSeleccionadasIds, setMesasSeleccionadasIds] = useState<string[]>([]);
-
   // Paso 3: Datos del cliente
   const [clienteNombre, setClienteNombre] = useState('');
   const [clienteTelefono, setClienteTelefono] = useState('');
@@ -63,7 +58,6 @@ export const ModalNuevaReserva: React.FC<ModalNuevaReservaProps> = ({
 
   // Descarta respuestas de consultas que ya no corresponden a la selección actual
   const peticionJornadaRef = useRef(0);
-  const peticionMesasRef = useRef(0);
 
   const fechaMaxima = sumarDiasStr(hoyLocalStr(), maxDiasAnticipacion);
   const fechaManana = sumarDiasStr(fechaOperativa, 1);
@@ -74,9 +68,6 @@ export const ModalNuevaReserva: React.FC<ModalNuevaReservaProps> = ({
     setFecha(fechaInicial);
     setFranjaSeleccionada(null);
     setNumPersonas(2);
-    setMesasMapa([]);
-    setMesasSeleccionadasIds([]);
-    setBloqueoHorario(null);
     setClienteNombre('');
     setClienteTelefono('');
     setNotas('');
@@ -128,59 +119,19 @@ export const ModalNuevaReserva: React.FC<ModalNuevaReservaProps> = ({
     });
   }, [jornada, franjasPorTurno, turnoInicial]);
 
-  // Disponibilidad de mesas para la franja y el aforo
-  useEffect(() => {
-    if (!abierto || !franjaSeleccionada) {
-      setMesasMapa([]);
-      setMesasSeleccionadasIds([]);
-      setBloqueoHorario(null);
-      return;
-    }
-    const peticion = ++peticionMesasRef.current;
-    const fechaFranja = franjaSeleccionada.fecha_hora.slice(0, 10);
-    setCargandoMesas(true);
-    mozoService
-      .obtenerMesasDisponiblesReserva(fechaFranja, franjaSeleccionada.hora, numPersonas)
-      .then((res) => {
-        if (peticion !== peticionMesasRef.current || !res.exito || !res.datos) return;
-        const mesas = res.datos.mesas;
-        setMesasMapa(mesas);
-        setBloqueoHorario(res.datos.bloqueo_horario ?? null);
-        setMesasSeleccionadasIds((prev) => {
-          const vigentes = prev.filter((id) => mesas.some((m) => m.mesa_id === id && m.disponible));
-          if (vigentes.length > 0) return vigentes;
-          const primeraLibre =
-            mesas.find((m) => m.disponible && m.capacidad >= numPersonas) || mesas.find((m) => m.disponible);
-          return primeraLibre ? [primeraLibre.mesa_id] : [];
-        });
-      })
-      .catch((error) => {
-        if (peticion !== peticionMesasRef.current) return;
-        setMesasMapa([]);
-        setErrorValidacion(mensajeDeErrorApi(error, 'No se pudo consultar la disponibilidad de mesas.'));
-      })
-      .finally(() => {
-        if (peticion === peticionMesasRef.current) setCargandoMesas(false);
-      });
-  }, [abierto, franjaSeleccionada, numPersonas]);
+  // Mini-mapa de mesas (disponibilidad, selección y capacidad) para la franja y el aforo
+  const seleccion = useSeleccionMesasReserva({
+    activo: abierto,
+    fecha: franjaSeleccionada ? franjaSeleccionada.fecha_hora.slice(0, 10) : null,
+    hora: franjaSeleccionada?.hora ?? null,
+    numPersonas,
+    onError: setErrorValidacion,
+  });
+  const { seleccionIds: mesasSeleccionadasIds, bloqueoHorario } = seleccion;
+  const { mesasElegidas, capacidadTotal, etiquetaMesas, capacidadSuficiente, unionValida } = seleccion;
 
   if (!abierto) return null;
 
-  const handleToggleMesa = (mesa: MesaDisponibleReservaDTO) => {
-    if (!mesa.disponible) return;
-
-    if (mesasSeleccionadasIds.includes(mesa.mesa_id)) {
-      if (mesasSeleccionadasIds.length > 1) {
-        setMesasSeleccionadasIds(mesasSeleccionadasIds.filter((id) => id !== mesa.mesa_id));
-      }
-    } else if (mesa.capacidad >= numPersonas) {
-      // Una mesa con capacidad suficiente reemplaza la selección
-      setMesasSeleccionadasIds([mesa.mesa_id]);
-    } else {
-      // Si no alcanza, se agrupan mesas
-      setMesasSeleccionadasIds([...mesasSeleccionadasIds, mesa.mesa_id]);
-    }
-  };
 
   const handleConfirmarSubmit = async () => {
     setErrorValidacion(null);
@@ -209,10 +160,23 @@ export const ModalNuevaReserva: React.FC<ModalNuevaReservaProps> = ({
       return;
     }
 
+    if (!capacidadSuficiente) {
+      setErrorValidacion(
+        `Las mesas elegidas suman ${capacidadTotal} lugares y la reserva es para ${numPersonas} personas. Agrega otra mesa para agrupar.`
+      );
+      return;
+    }
+
+    if (!unionValida) {
+      setErrorValidacion('Hay una mesa que no permite unirse con otras. Elige una sola mesa o mesas que permitan unión.');
+      return;
+    }
+
     setGuardando(true);
     try {
       const ok = await onConfirmar({
         cliente_nombre: clienteNombre.trim(),
+        // Formato formal del estándar de teléfono: "+51 987 654 321"
         cliente_telefono: `+51 ${formatearTelefonoPeru(digitosMovil)}`,
         // Hora local del local, sin desfase: el backend la interpreta en su zona horaria
         fecha_hora: franjaSeleccionada.fecha_hora,
@@ -226,21 +190,23 @@ export const ModalNuevaReserva: React.FC<ModalNuevaReservaProps> = ({
     }
   };
 
-  // Resumen de mesas seleccionadas
-  const mesasElegidas = mesasMapa.filter((m) => mesasSeleccionadasIds.includes(m.mesa_id));
-  const capacidadTotal = mesasElegidas.reduce((acc, m) => acc + m.capacidad, 0);
-  const etiquetaMesas =
-    mesasElegidas.length > 1
-      ? `Mesa [ ${mesasElegidas.map((m) => m.numero).join(' ; ')} ]`
-      : mesasElegidas.length === 1
-      ? `Mesa ${mesasElegidas[0].numero}`
-      : 'Ninguna';
+
+  // Teléfono según el estándar: 9 dígitos que empiezan con 9
+  const digitosTelefono = extraerDigitosMovilPeru(clienteTelefono);
+  const telefonoValido = digitosTelefono.length === 9 && digitosTelefono.startsWith('9');
+  const telefonoNoEmpiezaCon9 = digitosTelefono.length > 0 && !digitosTelefono.startsWith('9');
 
   const diaCerrado = jornada !== null && !jornada.atiende;
   const sinFranjas =
     jornada !== null && jornada.atiende && franjasPorTurno.almuerzo.length === 0 && franjasPorTurno.cena.length === 0;
   const puedeConfirmar =
-    !guardando && !diaCerrado && !bloqueoHorario && franjaSeleccionada !== null && mesasSeleccionadasIds.length > 0;
+    !guardando &&
+    !diaCerrado &&
+    !bloqueoHorario &&
+    franjaSeleccionada !== null &&
+    mesasElegidas.length > 0 &&
+    capacidadSuficiente &&
+    unionValida;
 
   const botonFecha = (valor: string, etiqueta: string) => (
     <button
@@ -419,8 +385,8 @@ export const ModalNuevaReserva: React.FC<ModalNuevaReservaProps> = ({
                 </span>
                 <span>Mini-Mapa de Salón — Selecciona la Mesa</span>
               </h3>
-              {mesasMapa.length > 0 && (
-                <span className="text-[11px] text-slate-500">{mesasMapa.length} mesas</span>
+              {seleccion.mesasMapa.length > 0 && (
+                <span className="text-[11px] text-slate-500">{seleccion.mesasMapa.length} mesas</span>
               )}
             </div>
 
@@ -428,85 +394,7 @@ export const ModalNuevaReserva: React.FC<ModalNuevaReservaProps> = ({
               Las mesas atenuadas no están disponibles en la hora elegida. Toca una mesa libre para asignarla:
             </p>
 
-            {bloqueoHorario ? (
-              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 font-semibold">
-                {bloqueoHorario}
-              </div>
-            ) : !franjaSeleccionada ? (
-              <div className="p-6 text-center text-slate-400">Elige una hora de llegada para ver las mesas.</div>
-            ) : cargandoMesas ? (
-              <div className="p-8 text-center text-slate-400">Consultando disponibilidad de salón...</div>
-            ) : mesasMapa.length === 0 ? (
-              <div className="p-6 text-center text-slate-400">No hay mesas activas registradas en el salón.</div>
-            ) : (
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-2.5">
-                {mesasMapa.map((mesa) => {
-                  const seleccionada = mesasSeleccionadasIds.includes(mesa.mesa_id);
-                  return (
-                    <button
-                      key={mesa.mesa_id}
-                      type="button"
-                      onClick={() => handleToggleMesa(mesa)}
-                      disabled={!mesa.disponible}
-                      title={mesa.motivo_bloqueo ?? undefined}
-                      className={`p-2 sm:p-2.5 rounded-xl border-2 flex flex-col justify-between text-left transition-all min-h-[74px] touch-manipulation ${
-                        seleccionada
-                          ? 'bg-aurea-navy text-white border-aurea-copper ring-2 ring-aurea-copper/40 shadow-sm'
-                          : mesa.disponible
-                          ? 'bg-white hover:bg-emerald-50 text-slate-800 border-emerald-400/80 shadow-2xs cursor-pointer'
-                          : 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <span
-                          className={`text-[10px] font-bold uppercase tracking-wider ${
-                            seleccionada ? 'text-aurea-champagne' : 'text-slate-400'
-                          }`}
-                        >
-                          Mesa
-                        </span>
-                        <span
-                          className={`text-[9px] font-semibold px-1 py-0.2 rounded ${
-                            seleccionada
-                              ? 'bg-aurea-copper text-aurea-navy'
-                              : mesa.disponible
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-slate-200 text-slate-500'
-                          }`}
-                        >
-                          {seleccionada ? '✓ ELEGIDA' : mesa.disponible ? 'LIBRE' : 'NO DISP.'}
-                        </span>
-                      </div>
-
-                      <div className="font-serif text-lg font-bold my-0.5">{mesa.numero}</div>
-
-                      <div className={`text-[10px] truncate ${seleccionada ? 'text-slate-200' : 'text-slate-500'}`}>
-                        {!mesa.disponible && mesa.motivo_bloqueo ? mesa.motivo_bloqueo : `Cap: ${mesa.capacidad}p`}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Resumen de Asignación */}
-            <div className="mt-3 p-2.5 rounded-lg bg-white border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-emerald-600" />
-                <span>
-                  Mesa seleccionada: <strong>{etiquetaMesas}</strong>
-                </span>
-                <span className="text-slate-400">•</span>
-                <span className="text-slate-600">
-                  Capacidad total: <strong>{capacidadTotal} personas</strong>
-                </span>
-              </div>
-              {mesasElegidas.length > 0 && capacidadTotal < numPersonas && (
-                <span className="text-[11px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                  ⚠️ Capacidad menor al aforo ({numPersonas}p requeridos)
-                </span>
-              )}
-            </div>
+            <SelectorMesasReserva seleccion={seleccion} numPersonas={numPersonas} hayHora={franjaSeleccionada !== null} />
           </section>
 
           {/* PASO 3: Ficha del Comensal */}
@@ -534,25 +422,56 @@ export const ModalNuevaReserva: React.FC<ModalNuevaReservaProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Teléfono Móvil (WhatsApp Perú): <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative flex rounded-lg shadow-2xs">
-                  <span className="inline-flex items-center gap-1 px-2.5 py-2 rounded-l-lg border border-r-0 border-slate-300 bg-slate-50 text-slate-600 text-xs font-mono font-semibold select-none">
-                    <span>🇵🇪</span>
-                    <span>+51</span>
-                  </span>
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="reserva-telefono" className="block text-[11px] font-semibold text-slate-700">
+                    Teléfono Móvil (WhatsApp Perú): <span className="text-rose-500">*</span>
+                  </label>
+                  {telefonoValido ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                      <MessageCircle className="w-3 h-3" aria-hidden="true" />
+                      Válido
+                    </span>
+                  ) : digitosTelefono.length > 0 ? (
+                    <span className="text-[11px] font-mono text-slate-500">{digitosTelefono.length}/9</span>
+                  ) : null}
+                </div>
+
+                {/* Estándar de teléfono: prefijo fijo no editable + dígitos con formato progresivo */}
+                <div
+                  className={`flex rounded-xl border bg-white overflow-hidden focus-within:ring-2 ${
+                    telefonoNoEmpiezaCon9
+                      ? 'border-rose-400 focus-within:ring-rose-400'
+                      : 'border-aurea-copper/30 focus-within:ring-aurea-copper'
+                  }`}
+                >
+                  <div className="inline-flex items-center gap-1.5 px-3 bg-aurea-ivory border-r border-aurea-copper/20 text-aurea-navy font-semibold text-xs select-none">
+                    <span aria-hidden="true">🇵🇪</span>
+                    <span className="font-mono">+51</span>
+                  </div>
                   <input
+                    id="reserva-telefono"
                     type="tel"
-                    value={clienteTelefono}
-                    onChange={(e) => setClienteTelefono(formatearTelefonoPeru(e.target.value))}
+                    inputMode="numeric"
+                    required
+                    // Sin maxLength: el navegador recortaría el número pegado ("+51 987 654 321") antes de limpiarlo.
+                    // extraerDigitosMovilPeru ya limita a 9 dígitos.
+                    value={formatearTelefonoPeru(clienteTelefono)}
+                    onChange={(e) => {
+                      // Solo los 9 dígitos locales (se descarta cualquier +51 escrito o pegado)
+                      const digits = extraerDigitosMovilPeru(e.target.value);
+                      const formatted = formatearTelefonoPeru(digits);
+                      // Se guarda con el prefijo formal para el backend
+                      setClienteTelefono(digits ? `+51 ${formatted}` : '');
+                    }}
                     placeholder="987 654 321"
-                    maxLength={11}
-                    className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-lg border border-slate-300 text-xs font-mono bg-white text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-aurea-copper focus:border-transparent"
+                    aria-invalid={telefonoNoEmpiezaCon9 ? true : undefined}
+                    className="w-full px-3 py-2.5 bg-transparent text-sm font-mono text-slate-800 placeholder-slate-400 focus:outline-none"
                   />
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  9 dígitos móviles (inician con 9). Se usará para confirmación de cortesía vía WhatsApp.
+                <p className={`text-[10px] mt-1 ${telefonoNoEmpiezaCon9 ? 'text-rose-700 font-semibold' : 'text-slate-400'}`}>
+                  {telefonoNoEmpiezaCon9
+                    ? 'Un móvil de Perú empieza con el dígito 9.'
+                    : '9 dígitos móviles (inician con 9). Se usará para confirmación de cortesía vía WhatsApp.'}
                 </p>
               </div>
 

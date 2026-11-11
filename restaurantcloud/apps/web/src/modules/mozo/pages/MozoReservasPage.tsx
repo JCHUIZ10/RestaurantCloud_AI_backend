@@ -13,6 +13,7 @@ import { ReservasFiltrosPills, FiltroReservaEstado } from '../components/reserva
 import { ReservasTable } from '../components/reservas/ReservasTable';
 import { ModalNuevaReserva } from '../components/reservas/ModalNuevaReserva';
 import { ModalFichaReserva } from '../components/reservas/ModalFichaReserva';
+import { ModalCambiarMesaReserva } from '../components/reservas/ModalCambiarMesaReserva';
 import { AlertTriangle, CalendarX2, Check } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/router/routes.constants';
@@ -53,6 +54,7 @@ export const MozoReservasPage: React.FC = () => {
   // Modales
   const [modalNuevaAbierto, setModalNuevaAbierto] = useState(false);
   const [reservaFichaSeleccionada, setReservaFichaSeleccionada] = useState<ReservaCardDTO | null>(null);
+  const [reservaCambioMesa, setReservaCambioMesa] = useState<ReservaCardDTO | null>(null);
 
   // Toast
   const [toast, setToast] = useState<{ mensaje: string; tipo: TipoToast } | null>(null);
@@ -263,6 +265,13 @@ export const MozoReservasPage: React.FC = () => {
     }
   };
 
+  // El modal ya cambió la mesa: se muestra la ficha actualizada y se refresca la bandeja
+  const handleMesaReasignada = (reserva: ReservaCardDTO) => {
+    mostrarToast(`Mesa cambiada: ${reserva.cliente_nombre} ahora en ${reserva.mesas_etiqueta}.`);
+    setReservaFichaSeleccionada((actual) => (actual?.id === reserva.id ? reserva : actual));
+    cargarReservas(true);
+  };
+
   const handleCrearNuevaReserva = async (payload: CrearReservaRequestDTO): Promise<boolean> => {
     try {
       const res = await mozoService.crearReserva(payload);
@@ -463,6 +472,15 @@ export const MozoReservasPage: React.FC = () => {
         onRegistrarNoShow={handleRegistrarNoShow}
         onCancelarReserva={handleCancelarReserva}
         onEnviarWhatsApp={handleAbrirWhatsApp}
+        onCambiarMesa={setReservaCambioMesa}
+      />
+
+      {/* Cambio de mesa (sobre la ficha) */}
+      <ModalCambiarMesaReserva
+        abierto={reservaCambioMesa !== null}
+        reserva={reservaCambioMesa}
+        onCerrar={() => setReservaCambioMesa(null)}
+        onReasignada={handleMesaReasignada}
       />
     </div>
   );

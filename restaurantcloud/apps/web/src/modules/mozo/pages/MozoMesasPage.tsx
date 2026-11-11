@@ -26,6 +26,7 @@ import { ModalDividirCuenta } from '../components/split/ModalDividirCuenta';
 import { ModalAnularItem } from '../components/anulacion/ModalAnularItem';
 import { ModalAnularComandaTotal } from '../components/anulacion/ModalAnularComandaTotal';
 import { ModalFichaReserva } from '../components/reservas/ModalFichaReserva';
+import { ModalCambiarMesaReserva } from '../components/reservas/ModalCambiarMesaReserva';
 import { BannerIncidenciaCocina } from '../components/quiebre/BannerIncidenciaCocina';
 import { generarEnlaceWhatsApp } from '@/shared/utils/whatsapp';
 import { ModalResolucionIncidencia } from '../components/quiebre/ModalResolucionIncidencia';
@@ -75,6 +76,7 @@ export const MozoMesasPage: React.FC = () => {
   const [modalFichaReservaAbierto, setModalFichaReservaAbierto] = useState(false);
   const [toleranciaFichaReserva, setToleranciaFichaReserva] = useState(15);
   const [reservaFichaSeleccionada, setReservaFichaSeleccionada] = useState<ReservaCardDTO | null>(null);
+  const [reservaCambioMesa, setReservaCambioMesa] = useState<ReservaCardDTO | null>(null);
 
   // Estado para Drawer de Despacho en Móvil (< 1024px)
   const [sidebarMovilAbierto, setSidebarMovilAbierto] = useState(false);
@@ -253,7 +255,14 @@ export const MozoMesasPage: React.FC = () => {
       'No se pudo sentar a los comensales.'
     );
 
-  const handleNoShowDesdeFicha = (reservaId: string, motivo: string) =>
+  // El modal ya cambió la mesa: la ficha muestra la nueva y el plano refleja bloqueos y liberaciones
+  const handleMesaReasignadaDesdeFicha = (reserva: ReservaCardDTO) => {
+    setReservaFichaSeleccionada(reserva);
+    mostrarToast(`Mesa cambiada: ${reserva.cliente_nombre} ahora en ${reserva.mesas_etiqueta}.`);
+    cargarPlano(pisoActivoId, true);
+  };
+
+  const handleNoShowDesdeFicha =(reservaId: string, motivo: string) =>
     ejecutarAccionReserva(
       () => mozoService.registrarNoShow(reservaId, motivo),
       'Inasistencia registrada. La mesa quedó libre.',
@@ -1018,11 +1027,20 @@ export const MozoMesasPage: React.FC = () => {
         onSentarComensales={handleSentarDesdeFicha}
         onRegistrarNoShow={handleNoShowDesdeFicha}
         onCancelarReserva={handleCancelarReservaDesdeFicha}
+        onCambiarMesa={setReservaCambioMesa}
         onEnviarWhatsApp={(res) => {
           const mensaje = `Hola ${res.cliente_nombre}, le escribimos para confirmar su reserva de hoy a las ${res.hora_texto} para ${res.num_personas} personas en ${res.mesas_etiqueta}. ¿Nos confirma su asistencia?`;
           const url = generarEnlaceWhatsApp(res.cliente_telefono, mensaje);
           if (url) window.open(url, '_blank');
         }}
+      />
+
+      {/* Cambio de mesa de la reserva (sobre la ficha) */}
+      <ModalCambiarMesaReserva
+        abierto={reservaCambioMesa !== null}
+        reserva={reservaCambioMesa}
+        onCerrar={() => setReservaCambioMesa(null)}
+        onReasignada={handleMesaReasignadaDesdeFicha}
       />
 
       {/* 14. Modal de Decisión Asistida en Mesa (CU-MOZO-07 Vista 2 - 620px) */}

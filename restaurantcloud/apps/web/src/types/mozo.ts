@@ -793,7 +793,8 @@ export interface CancelarReservaRequestDTO {
 }
 
 export interface ReasignarMesaReservaRequestDTO {
-  nueva_mesa_id: string;
+  /** Mesas que ocuparán la reserva (una o varias, con las mismas reglas que al crearla). */
+  mesa_ids: string[];
   motivo?: string;
 }
 

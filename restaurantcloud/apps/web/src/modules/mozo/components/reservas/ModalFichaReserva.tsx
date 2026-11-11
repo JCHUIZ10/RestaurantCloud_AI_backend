@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Clock, Phone, MessageSquare, Users, AlertTriangle, CheckCircle2, UserX } from 'lucide-react';
+import { X, Clock, Phone, MessageSquare, Users, AlertTriangle, CheckCircle2, UserX, Repeat } from 'lucide-react';
 import { ReservaCardDTO } from '@/types/mozo';
 
 interface ModalFichaReservaProps {
@@ -16,6 +16,8 @@ interface ModalFichaReservaProps {
   onRegistrarNoShow: (reservaId: string, motivo: string) => Promise<boolean>;
   onCancelarReserva: (reservaId: string, motivo: string) => Promise<boolean>;
   onEnviarWhatsApp: (reserva: ReservaCardDTO) => void;
+  /** Abre el cambio de mesa de una reserva activa. Sin esta función el botón no se muestra. */
+  onCambiarMesa?: (reserva: ReservaCardDTO) => void;
 }
 
 const ETIQUETA_ESTADO_CERRADO: Partial<Record<ReservaCardDTO['estado'], string>> = {
@@ -49,6 +51,7 @@ export const ModalFichaReserva: React.FC<ModalFichaReservaProps> = ({
   onRegistrarNoShow,
   onCancelarReserva,
   onEnviarWhatsApp,
+  onCambiarMesa,
 }) => {
   const [modoCancelar, setModoCancelar] = useState(false);
   const [motivoCancelacion, setMotivoCancelacion] = useState('');
@@ -364,6 +367,20 @@ export const ModalFichaReserva: React.FC<ModalFichaReservaProps> = ({
                 <UserX className="w-4 h-4 text-rose-600" />
                 <span>⚠️ Cliente No Se Presentó / Liberar Mesa</span>
               </button>
+
+              {/* Acción 3: Cambiar mesa (p. ej. la mesa sigue ocupada por clientes anteriores) */}
+              {onCambiarMesa && (
+                <button
+                  type="button"
+                  onClick={() => onCambiarMesa(reserva)}
+                  disabled={procesando || !esActiva}
+                  className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-slate-100 text-aurea-navy border border-aurea-navy/30 font-bold text-xs flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                  style={{ minHeight: '44px' }}
+                >
+                  <Repeat className="w-4 h-4 text-aurea-copper" />
+                  <span>Cambiar mesa</span>
+                </button>
+              )}
 
               {/* Acciones Secundarias */}
               <div className="grid grid-cols-2 gap-2 pt-1">

@@ -492,12 +492,15 @@ export const realMozoService = {
   async obtenerMesasDisponiblesReserva(
     fecha: string,
     hora: string,
-    comensales: number
+    comensales: number,
+    /** Al cambiar la mesa de una reserva: ella no cuenta como ocupante. */
+    excluirReservaId?: string
   ): Promise<ApiResponse<MesasDisponiblesResponseDTO>> {
     return apiGet<MesasDisponiblesResponseDTO>('/mozo/reservas/mesas-disponibles', {
       fecha,
       hora,
       comensales,
+      ...(excluirReservaId ? { excluir_reserva_id: excluirReservaId } : {}),
     });
   },
 
@@ -533,13 +536,9 @@ export const realMozoService = {
 
   async reasignarMesaReserva(
     reservaId: string,
-    request: ReasignarMesaReservaRequestDTO | string,
-    motivoOpcional?: string
+    request: ReasignarMesaReservaRequestDTO
   ): Promise<ApiResponse<ReservaCardDTO>> {
-    const payload = typeof request === 'string'
-      ? { nueva_mesa_id: request, motivo: motivoOpcional }
-      : request;
-    return apiPatch<ReservaCardDTO>(`/mozo/reservas/${reservaId}/reasignar-mesa`, payload);
+    return apiPatch<ReservaCardDTO>(`/mozo/reservas/${reservaId}/reasignar-mesa`, request);
   },
 
   // CU-MOZO-07: Quiebres de Cocina y Sustitución de Carta
