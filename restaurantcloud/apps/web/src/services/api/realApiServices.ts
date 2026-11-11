@@ -104,8 +104,16 @@ import type {
   ConfigSemanaHorariaRequest,
   ExcepcionHorarioDTO,
   HorarioSemanaResponse,
+  PrecheckHorarioSemanaRequest,
+  PrecheckExcepcionRequest,
+  PrecheckExcepcionResponse,
+  CrearExcepcionRequest,
+  ResultadoFeriadosPeruDTO,
   ActualizarConfiguracionKdsRequest,
   ConfiguracionKdsDTO,
+  ActualizarPoliticasReservaRequest,
+  PoliticasReservaDTO as PoliticasReservaAdminDTO,
+  PrecheckDesactivacionReservasResponse,
   InsumosAdminResponseDTO,
   InsumoAdminDTO,
   CrearInsumoRequest,
@@ -884,6 +892,22 @@ export const realCajaService = {
   },
 };
 
+/**
+ * Ejecuta una llamada y, si el API responde con un error de negocio (4xx con el sobre `errores`),
+ * lo devuelve como respuesta en vez de lanzarlo. Los fallos de red o sin sobre siguen lanzándose.
+ */
+async function conErroresDeNegocio<T>(llamada: () => Promise<ApiEnvelope<T>>): Promise<ApiEnvelope<T>> {
+  try {
+    return await llamada();
+  } catch (error: any) {
+    const respuesta = error?.response?.data;
+    if (respuesta && Array.isArray(respuesta.errores)) {
+      return respuesta as ApiEnvelope<T>;
+    }
+    throw error;
+  }
+}
+
 export const realAdminService = {
   ...realPlanoService,
   obtenerCategorias: (): Promise<ApiEnvelope<CategoriasAdminResponseDTO>> => apiGet('/admin/categorias'),
@@ -953,19 +977,22 @@ export const realAdminService = {
   reactivarEmpleado: (id: string): Promise<ApiEnvelope<EmpleadoDetalleDTO>> => apiPost(`/admin/personal/${id}/reactivar`),
   resetPasswordEmpleado: (id: string): Promise<ApiEnvelope<ResetPasswordResponseDTO>> => apiPost(`/admin/personal/${id}/reset-password`),
   getHorarioSemana: (): Promise<ApiEnvelope<HorarioSemanaResponse>> => apiGet('/admin/horario'),
+  // Cambiar el horario semanal o registrar un cierre puede dejar reservas sin cabida: el API exige cancelarlas
+  // con la decisión de aviso de cada una. Los errores de negocio llegan como sobre con `exito: false`.
   guardarHorarioSemana: (payload: ConfigSemanaHorariaRequest): Promise<ApiEnvelope<HorarioSemanaResponse>> =>
-    apiPut('/admin/horario', payload),
+    conErroresDeNegocio(() => apiPut('/admin/horario', payload)),
   aplicarPlantillaHorario: (payload: AplicarPlantillaRequest): Promise<ApiEnvelope<HorarioSemanaResponse>> =>
-    apiPost('/admin/horario/plantilla', payload),
+    conErroresDeNegocio(() => apiPost('/admin/horario/plantilla', payload)),
+  /** Simula el cambio del horario semanal y lista las reservas futuras que dejarían de caber; no guarda nada. */
+  precheckHorarioSemana: (payload: PrecheckHorarioSemanaRequest): Promise<ApiEnvelope<PrecheckExcepcionResponse>> =>
+    conErroresDeNegocio(() => apiPost('/admin/horario/precheck', payload)),
   getExcepcionesHorario: (): Promise<ApiEnvelope<ExcepcionHorarioDTO[]>> =>
     apiGet('/admin/horario/excepciones'),
-  crearExcepcion: (payload: {
-    fecha: string;
-    cerrado: boolean;
-    hora_inicio?: string;
-    hora_fin?: string;
-    motivo: string;
-  }): Promise<ApiEnvelope<ExcepcionHorarioDTO>> => apiPost('/admin/horario/excepciones', payload),
+  /** Reservas activas que quedarían afectadas por un cierre u horario especial. */
+  precheckExcepcion: (payload: PrecheckExcepcionRequest): Promise<ApiEnvelope<PrecheckExcepcionResponse>> =>
+    conErroresDeNegocio(() => apiGet('/admin/horario/excepciones/precheck', { ...payload })),
+  crearExcepcion: (payload: CrearExcepcionRequest): Promise<ApiEnvelope<ExcepcionHorarioDTO>> =>
+    conErroresDeNegocio(() => apiPost('/admin/horario/excepciones', payload)),
   async eliminarExcepcion(id: string): Promise<ApiEnvelope<{ id: string; eliminado: boolean }>> {
     try {
       return (await apiClient.delete(`/admin/horario/excepciones/${id}`)).data;
@@ -973,7 +1000,7 @@ export const realAdminService = {
       return error.response?.data ?? Promise.reject(error);
     }
   },
-  cargarFeriadosNacionalesPeru: (): Promise<ApiEnvelope<{ agregados: number; total: number }>> =>
+  cargarFeriadosNacionalesPeru: (): Promise<ApiEnvelope<ResultadoFeriadosPeruDTO>> =>
     apiPost('/admin/horario/feriados-peru/cargar'),
   getConfiguracionKds: (): Promise<ApiEnvelope<ConfiguracionKdsDTO>> =>
     apiGet('/admin/configuracion-kds'),
@@ -983,6 +1010,19 @@ export const realAdminService = {
     apiPut('/admin/configuracion-kds', payload),
   restaurarDefaultsConfiguracionKds: (): Promise<ApiEnvelope<ConfiguracionKdsDTO>> =>
     apiPost('/admin/configuracion-kds/restaurar-valores-recomendados'),
+
+  // CU-ADMIN-10: Políticas y parámetros de reservas. Los errores de negocio (403 de plan, 409 de reservas
+  // pendientes o de edición simultánea, 422) llegan como sobre con `exito: false`, con su código y detalles.
+  getPoliticasReserva: (): Promise<ApiEnvelope<PoliticasReservaAdminDTO>> =>
+    conErroresDeNegocio(() => apiGet('/admin/reservas/politicas')),
+  actualizarPoliticasReserva: (
+    payload: ActualizarPoliticasReservaRequest,
+  ): Promise<ApiEnvelope<PoliticasReservaAdminDTO>> =>
+    conErroresDeNegocio(() => apiPut('/admin/reservas/politicas', payload)),
+  precheckDesactivacionReservas: (): Promise<ApiEnvelope<PrecheckDesactivacionReservasResponse>> =>
+    conErroresDeNegocio(() => apiGet('/admin/reservas/politicas/precheck-desactivacion')),
+  restaurarPoliticasDefault: (): Promise<ApiEnvelope<PoliticasReservaAdminDTO>> =>
+    conErroresDeNegocio(() => apiPost('/admin/reservas/politicas/restaurar-default')),
 
   // CU-ADMIN-03: Catálogo de Insumos y Gestión de Stock
   obtenerInsumos: (

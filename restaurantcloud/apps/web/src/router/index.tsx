@@ -27,8 +27,7 @@ import { AdminProveedoresPage } from '@/modules/admin/pages/AdminProveedoresPage
 import { AdminComprasPage } from '@/modules/admin/pages/AdminComprasPage';
 import { AdminPersonalPage } from '@/modules/admin/pages/AdminPersonalPage';
 import { AdminHorarioPage } from '@/modules/admin/pages/AdminHorarioPage';
-// Vistas preservadas en repositorio para Fase 2 (Próximo Entregable):
-// import { AdminPoliticasReservaPage } from '@/modules/admin/pages/AdminPoliticasReservaPage';
+import { AdminPoliticasReservaPage } from '@/modules/admin/pages/AdminPoliticasReservaPage';
 import { AdminAnulacionesPage } from '@/modules/admin/pages/AdminAnulacionesPage';
 import { AdminPromocionesPage } from '@/modules/admin/pages/AdminPromocionesPage';
 import { AdminConfiguracionKdsPage } from '@/modules/admin/pages/AdminConfiguracionKdsPage';
@@ -256,23 +255,9 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
         path: 'horario',
         element: <AdminHorarioPage />,
       },
-      // [PRÓXIMO ENTREGABLE - FASE 2]: Políticas y Parámetros de Reservas (CU-ADMIN-10)
       {
         path: 'politicas-reserva',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-ADMIN-10"
-            nombrePantalla="Configuración de Políticas y Parámetros de Reservas"
-            rol="administrador"
-            layoutNombre="DashboardLayout"
-            descripcion="Parametrización operativa y gobernanza de reservas de salón: switch maestro, buffer de limpieza, tolerancia no-show y simulador de rotación."
-            proximoEntregable={true}
-            enlacesRelacionados={[
-              { label: 'Plano de Mesas', to: ROUTES.ADMIN_PLANO_MESAS },
-              { label: 'Horario & Feriados', to: ROUTES.ADMIN_HORARIO },
-            ]}
-          />
-        ),
+        element: <AdminPoliticasReservaPage />,
       },
       {
         path: 'anulaciones',

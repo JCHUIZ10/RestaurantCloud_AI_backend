@@ -1,9 +1,11 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import {
   CalendarCheck2,
   CalendarX2,
   AlertTriangle,
 } from 'lucide-react';
+import { ROUTES } from '@/router/routes.constants';
 
 interface SwitchMaestroReservasProps {
   aceptaReservas: boolean;
@@ -60,14 +62,14 @@ export const SwitchMaestroReservas: React.FC<SwitchMaestroReservasProps> = ({
             <p className="text-xs sm:text-sm text-stone-600 max-w-2xl leading-relaxed">
               {aceptaReservas ? (
                 <>
-                  El local está admitiendo reservas anticipadas. Los comensales pueden reservar desde la{' '}
-                  <strong className="text-stone-800">carta digital pública</strong> y el personal de salón puede
-                  asignar mesas prioritarias en el terminal de mozos.
+                  El personal de salón puede registrar reservas desde la{' '}
+                  <strong className="text-stone-800">terminal de mozos</strong> y las mesas se bloquean en el plano
+                  antes de cada cita.
                 </>
               ) : (
                 <>
-                  La recepción de reservas está deshabilitada temporalmente en esta sede. Se prohíbe la creación
-                  de nuevas solicitudes tanto desde el portal público como en las terminales operativas.
+                  No se pueden registrar <strong className="text-stone-800">nuevas reservas</strong> en esta sede. Las
+                  reservas ya registradas siguen vigentes y se atienden con normalidad.
                 </>
               )}
             </p>
@@ -100,13 +102,17 @@ export const SwitchMaestroReservas: React.FC<SwitchMaestroReservasProps> = ({
         </div>
       </div>
 
-      {/* Nota preventiva ante desactivación */}
+      {/* Nota ante la suspensión: no cancela nada por sí sola */}
       {!aceptaReservas && (
         <div className="mt-3 pt-3 border-t border-amber-200/70 flex items-start gap-2 text-xs text-amber-800">
           <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
           <span>
-            <strong>Advertencia de salvaguarda:</strong> Para desactivar el servicio de forma definitiva, el sistema
-            verificará que no existan reservas confirmadas pendientes para los próximos días.
+            Suspender el canal no cancela reservas. Si el local no podrá atender un día (por ejemplo, una emergencia),
+            regístralo en{' '}
+            <Link to={ROUTES.ADMIN_HORARIO} className="font-bold underline underline-offset-2 hover:text-amber-950">
+              Horario y feriados
+            </Link>{' '}
+            para cancelar las reservas y avisar a los clientes.
           </span>
         </div>
       )}

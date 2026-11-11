@@ -8,7 +8,8 @@ type Plantilla = 'restaurante_estandar' | 'solo_almuerzo' | 'corrido_continuo';
 
 interface SemanaHorariaViewProps {
   dias: DiaHorarioDTO[];
-  onGuardar: (dias: DiaHorarioDTO[]) => Promise<void>;
+  /** Devuelve true si el horario quedó guardado; false si queda pendiente de resolver reservas afectadas. */
+  onGuardar: (dias: DiaHorarioDTO[]) => Promise<boolean>;
   onAplicarPlantilla?: (plantilla: Plantilla) => Promise<void>;
   guardando: boolean;
 }
@@ -242,8 +243,8 @@ export const SemanaHorariaView: React.FC<SemanaHorariaViewProps> = ({
     }
 
     try {
-      await onGuardar(diasLocales);
-      setHayCambios(false);
+      const guardado = await onGuardar(diasLocales);
+      if (guardado) setHayCambios(false);
     } catch (err) {
       setErrorValidacion(err instanceof Error && err.message ? err.message : 'No se pudo guardar el horario.');
     }

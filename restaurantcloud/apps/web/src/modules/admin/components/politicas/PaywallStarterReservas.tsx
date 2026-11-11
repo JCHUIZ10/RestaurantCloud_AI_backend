@@ -1,33 +1,12 @@
-import React, { useState } from 'react';
-import {
-  Lock,
-  Sparkles,
-  Send,
-  CheckCircle2,
-  CalendarCheck,
-  ShieldAlert,
-  Flame,
-  ArrowUpRight,
-} from 'lucide-react';
+import React from 'react';
+import { Lock, Sparkles, CalendarCheck, ShieldAlert, Flame } from 'lucide-react';
 
 interface PaywallStarterReservasProps {
-  onVerPlanes?: () => void;
+  /** Mensaje del API: indica qué planes incluyen el módulo de reservas. */
+  mensaje?: string;
 }
 
-export const PaywallStarterReservas: React.FC<PaywallStarterReservasProps> = ({
-  onVerPlanes,
-}) => {
-  const [notificacionEnviada, setNotificacionEnviada] = useState(false);
-  const [enviando, setEnviando] = useState(false);
-
-  const handleEnviarNotificacion = () => {
-    setEnviando(true);
-    setTimeout(() => {
-      setEnviando(false);
-      setNotificacionEnviada(true);
-    }, 700);
-  };
-
+export const PaywallStarterReservas: React.FC<PaywallStarterReservasProps> = ({ mensaje }) => {
   return (
     <div className="bg-white rounded-3xl border border-stone-200/90 shadow-sm p-6 sm:p-10 max-w-4xl mx-auto my-6 text-center space-y-8">
       {/* Icono de Candado con Gradiente */}
@@ -43,13 +22,13 @@ export const PaywallStarterReservas: React.FC<PaywallStarterReservasProps> = ({
       {/* Títulos y Explicación */}
       <div className="space-y-2 max-w-xl mx-auto">
         <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-bold uppercase tracking-wider">
-          Función de Plan Pro / Enterprise
+          Módulo no incluido en tu plan
         </span>
         <h2 className="text-2xl sm:text-3xl font-serif font-bold text-aurea-navy tracking-tight">
-          El módulo de reservas requiere Plan Pro o Enterprise
+          El módulo de reservas no está habilitado
         </h2>
         <p className="text-sm text-stone-600 leading-relaxed">
-          Tu empresa cuenta actualmente con el <strong>Plan Starter</strong>, el cual está orientado a comandas básicas y facturación, excluyendo la gestión automatizada de reservas de mesas de salón.
+          {mensaje ?? 'El plan de tu empresa no incluye el módulo de reservas.'}
         </p>
       </div>
 
@@ -60,10 +39,10 @@ export const PaywallStarterReservas: React.FC<PaywallStarterReservasProps> = ({
             <CalendarCheck className="w-4 h-4 text-stone-600" />
           </div>
           <h4 className="text-xs font-bold text-aurea-navy uppercase tracking-wider">
-            Recepción en Tiempo Real
+            Registro de Reservas
           </h4>
           <p className="text-xs text-stone-600 leading-snug">
-            Portal digital público para que los comensales reserven mesas según aforo y horarios reales.
+            Registro de reservas en el salón con mesas asignadas según aforo y horarios reales de la sede.
           </p>
           <div className="absolute top-3 right-3 text-stone-400">
             <Lock className="w-3.5 h-3.5" />
@@ -90,10 +69,10 @@ export const PaywallStarterReservas: React.FC<PaywallStarterReservasProps> = ({
             <Flame className="w-4 h-4 text-stone-600" />
           </div>
           <h4 className="text-xs font-bold text-aurea-navy uppercase tracking-wider">
-            Control de Rotación y No-Show
+            Rotación e Inasistencias
           </h4>
           <p className="text-xs text-stone-600 leading-snug">
-            Configuración de tolerancias, buffers de sanitización y alertas automáticas de no-show para maximizar ventas.
+            Tolerancia de espera, tiempo de limpieza entre reservas y registro de inasistencias para optimizar la rotación.
           </p>
           <div className="absolute top-3 right-3 text-stone-400">
             <Lock className="w-3.5 h-3.5" />
@@ -101,52 +80,12 @@ export const PaywallStarterReservas: React.FC<PaywallStarterReservasProps> = ({
         </div>
       </div>
 
-      {/* Llamado a la Acción para Administrador de Sede */}
-      <div className="bg-aurea-ivory/80 rounded-2xl border border-aurea-copper/30 p-5 max-w-2xl mx-auto space-y-3">
+      {/* Cómo habilitarlo */}
+      <div className="bg-aurea-ivory/80 rounded-2xl border border-aurea-copper/30 p-5 max-w-2xl mx-auto">
         <p className="text-xs text-stone-700 leading-relaxed">
-          Comunícate con el <strong>Propietario de la empresa</strong> para solicitar una ampliación de plan desde su portal corporativo (CU-PROP-02) y habilitar esta sede inmediatamente.
+          El <strong>propietario de la empresa</strong> puede cambiar de plan desde su portal, en la sección{' '}
+          <strong>Suscripción</strong>. Una vez habilitado, esta pantalla se activa sin más pasos.
         </p>
-
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={handleEnviarNotificacion}
-            disabled={enviando || notificacionEnviada}
-            className={`w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 ${
-              notificacionEnviada
-                ? 'bg-emerald-600 text-white'
-                : 'bg-aurea-navy text-white hover:bg-aurea-navy/90'
-            }`}
-          >
-            {notificacionEnviada ? (
-              <>
-                <CheckCircle2 className="w-4 h-4 text-emerald-200" />
-                <span>Notificación Enviada al Propietario</span>
-              </>
-            ) : enviando ? (
-              <>
-                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Enviando aviso...</span>
-              </>
-            ) : (
-              <>
-                <Send className="w-3.5 h-3.5 text-aurea-champagne" />
-                <span>Enviar Notificación al Propietario</span>
-              </>
-            )}
-          </button>
-
-          {onVerPlanes && (
-            <button
-              type="button"
-              onClick={onVerPlanes}
-              className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
-            >
-              <span>Ver Comparativa de Planes</span>
-              <ArrowUpRight className="w-3.5 h-3.5 text-stone-500" />
-            </button>
-          )}
-        </div>
       </div>
     </div>
   );

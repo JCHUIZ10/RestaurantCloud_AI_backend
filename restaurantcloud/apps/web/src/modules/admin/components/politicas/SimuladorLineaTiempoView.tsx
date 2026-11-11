@@ -24,7 +24,7 @@ export const SimuladorLineaTiempoView: React.FC<SimuladorLineaTiempoViewProps> =
 }) => {
   // Estado local para experimentación interactiva en el simulador
   const [horaCitaStr, setHoraCitaStr] = useState<'13:00' | '14:00' | '20:00'>('14:00');
-  const [mesaEjemplo] = useState('Mesa 05 (4 PAX)');
+  const mesaEjemplo = 'Mesa de ejemplo (4 PAX)';
 
   // Parámetros temporales editables en vivo dentro del simulador
   const [duracionSim, setDuracionSim] = useState(politicas.duracion_reserva_min);
@@ -251,7 +251,7 @@ export const SimuladorLineaTiempoView: React.FC<SimuladorLineaTiempoViewProps> =
               </span>
             </div>
             <p className="text-[11px] text-purple-800 leading-snug">
-              Espera de cortesía. Si el cliente no llega a las {horaFinNoShowStr}, se cancela y se libera.
+              Espera de cortesía. Pasadas las {horaFinNoShowStr}, el mozo puede registrar la inasistencia y liberar la mesa.
             </p>
           </div>
 
@@ -382,26 +382,26 @@ export const SimuladorLineaTiempoView: React.FC<SimuladorLineaTiempoViewProps> =
 
           <div className="bg-stone-50 rounded-xl p-4 border border-stone-200/80 space-y-1">
             <span className="text-[11px] uppercase tracking-wider font-bold text-stone-500">
-              Sincronización en Salón
+              Plano del mozo
             </span>
             <div className="text-sm font-bold text-emerald-700 flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4" />
-              <span>Tiempo Real en Mozo</span>
+              <span>Se actualiza en el salón</span>
             </div>
             <p className="text-xs text-stone-600">
-              El plano táctil de <strong className="text-stone-800">CU-MOZO-01</strong> bloquea la mesa exactamente a las <strong>{horaInicioBloqueoStr}</strong>.
+              El plano del mozo muestra la mesa como bloqueada desde las <strong>{horaInicioBloqueoStr}</strong>.
             </p>
           </div>
 
           <div className="bg-stone-50 rounded-xl p-4 border border-stone-200/80 space-y-1">
             <span className="text-[11px] uppercase tracking-wider font-bold text-stone-500">
-              Regla Operativa de Liberación
+              Mesa disponible para otra reserva
             </span>
             <div className="text-xl font-bold font-mono text-emerald-800">
-              {horaFinLiberacionStr} en punto
+              {horaFinLiberacionStr}
             </div>
             <p className="text-xs text-stone-600">
-              La mesa se marca nuevamente como <span className="font-semibold text-emerald-700">disponible</span> para walk-in o siguiente reserva.
+              Es la hora más temprana en que otra reserva puede tomar la misma mesa (estancia + tiempo de limpieza); la separación mínima entre reservas es de <strong>{duracionSim + bufferSim} min</strong>.
             </p>
           </div>
         </div>

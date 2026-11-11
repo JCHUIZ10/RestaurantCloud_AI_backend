@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
+  CrearExcepcionRequest,
   DiaHorarioDTO,
   ExcepcionHorarioDTO,
+  NotificacionContactoDTO,
   ReservaConflictoDTO,
 } from '@/types/admin';
-import { mockAdminService } from '../services/mockAdminService';
-import { adminService, IS_REAL_API } from '@/services/serviceAdapter';
+import { horarioService } from '@/services/serviceAdapter';
+import { mensajeDeErrorApi } from '@/shared/utils/errorApi';
 import {
   HorarioHeader,
   SemanaHorariaView,
@@ -13,9 +15,43 @@ import {
   ModalCrearEditarExcepcion,
   ModalConflictoReservas,
   OnboardingHorarioVacio,
-  DemoAdminHorarioWidget,
 } from '../components/horario';
-import { EstadoError, Skeleton, SoloDemo, useToast } from '@/components/ui';
+import { EstadoError, Skeleton, useToast } from '@/components/ui';
+
+type Plantilla = 'restaurante_estandar' | 'solo_almuerzo' | 'corrido_continuo';
+type DatosExcepcion = Pick<CrearExcepcionRequest, 'fecha' | 'cerrado' | 'hora_inicio' | 'hora_fin' | 'motivo'>;
+
+/** Resultado de intentar aplicar un cambio que puede cancelar reservas. */
+interface ResultadoCambio {
+  ok: boolean;
+  mensajeExito?: string;
+  /** El API devolvió una lista de reservas afectadas distinta a la que se mostró. */
+  reservasActualizadas?: ReservaConflictoDTO[];
+  error?: string;
+}
+
+/** Cambio pendiente de resolver porque deja reservas sin atender. */
+interface ConflictoPendiente {
+  clave: number;
+  titulo: string;
+  descripcion: string;
+  intro: string;
+  textoConfirmar: string;
+  reservas: ReservaConflictoDTO[];
+  confirmar: (avisos: NotificacionContactoDTO[]) => Promise<ResultadoCambio>;
+}
+
+const fechaLegible = (iso: string) => {
+  const [y, m, d] = iso.split('-');
+  return y && m && d ? `${d}/${m}/${y}` : iso;
+};
+
+const reservasDeError = (detalles: unknown): ReservaConflictoDTO[] | null => {
+  const reservas = (detalles as { reservas?: unknown } | undefined)?.reservas;
+  return Array.isArray(reservas) ? (reservas as ReservaConflictoDTO[]) : null;
+};
+
+const textoReservas = (n: number) => `${n} reserva${n === 1 ? '' : 's'}`;
 
 export const AdminHorarioPage: React.FC = () => {
   const [tabActiva, setTabActiva] = useState<'semana' | 'excepciones'>('semana');
@@ -30,18 +66,8 @@ export const AdminHorarioPage: React.FC = () => {
   const [modalCrearAbierto, setModalCrearAbierto] = useState(false);
   // Cambia en cada apertura para que el formulario empiece limpio
   const [claveModalCrear, setClaveModalCrear] = useState(0);
-  const [modalConflictoAbierto, setModalConflictoAbierto] = useState(false);
+  const [conflicto, setConflicto] = useState<ConflictoPendiente | null>(null);
   const [procesandoExcepcion, setProcesandoExcepcion] = useState(false);
-
-  // Datos temporales para la excepción y su conflicto
-  const [conflictoData, setConflictoData] = useState<{
-    fecha: string;
-    motivo: string;
-    cerrado: boolean;
-    hora_inicio?: string;
-    hora_fin?: string;
-    reservas: ReservaConflictoDTO[];
-  } | null>(null);
 
   const { mostrar } = useToast();
   const mostrarToast = useCallback(
@@ -59,8 +85,8 @@ export const AdminHorarioPage: React.FC = () => {
       setLoading(true);
       setErrorCarga(false);
       const [resHorario, resExcepciones] = await Promise.all([
-        adminService.getHorarioSemana(),
-        adminService.getExcepcionesHorario(),
+        horarioService.getHorarioSemana(),
+        horarioService.getExcepcionesHorario(),
       ]);
 
       if (resHorario.exito && resHorario.datos) {
@@ -82,196 +108,261 @@ export const AdminHorarioPage: React.FC = () => {
     cargarDatos();
   }, [cargarDatos]);
 
+  /** Abre el modal que exige decidir el aviso de cada reserva afectada antes de cancelarlas. */
+  const abrirConflicto = (conflictoNuevo: Omit<ConflictoPendiente, 'clave'>) => {
+    setConflicto((actual) => ({ ...conflictoNuevo, clave: (actual?.clave ?? 0) + 1 }));
+  };
+
+  // El API recalcula las reservas afectadas: si cambiaron desde la consulta previa, se vuelve a mostrar la lista vigente
+  const refrescarConflicto = (reservas: ReservaConflictoDTO[]) => {
+    setConflicto((actual) => (actual ? { ...actual, reservas, clave: actual.clave + 1 } : actual));
+  };
+
+  const confirmarConflicto = async (avisos: NotificacionContactoDTO[]) => {
+    if (!conflicto) return;
+    setProcesandoExcepcion(true);
+    try {
+      const resultado = await conflicto.confirmar(avisos);
+
+      if (resultado.ok) {
+        setConflicto(null);
+        await cargarDatos();
+        mostrarToast(resultado.mensajeExito ?? 'Cambio guardado');
+      } else if (resultado.reservasActualizadas) {
+        refrescarConflicto(resultado.reservasActualizadas);
+        mostrarToast(resultado.error ?? 'Las reservas afectadas cambiaron. Revisa la lista actualizada.', 'info');
+      } else {
+        mostrarToast(resultado.error ?? 'No se pudo completar el cambio', 'error');
+      }
+    } catch (error) {
+      // Se conserva el modal y las decisiones para reintentar
+      mostrarToast(mensajeDeErrorApi(error, 'No se pudo conectar con el servidor. Intenta nuevamente.'), 'error');
+    } finally {
+      setProcesandoExcepcion(false);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Horario semanal
+  // ---------------------------------------------------------------------------
+
+  /** Guarda el horario o la plantilla; si deja reservas sin cabida, las cancela con el aviso decidido. */
+  const aplicarCambioSemanal = async (
+    guardar: (avisos?: NotificacionContactoDTO[]) => ReturnType<typeof horarioService.guardarHorarioSemana>,
+    avisos?: NotificacionContactoDTO[]
+  ): Promise<ResultadoCambio & { reservasCanceladas?: number }> => {
+    const res = await guardar(avisos);
+
+    if (res.exito && res.datos) {
+      setDias(res.datos.dias);
+      setTotalHorasSemanales(res.datos.total_horas_semanales || 0);
+      return { ok: true, mensajeExito: avisos?.length ? `Horario guardado; ${textoReservas(avisos.length)} cancelada${avisos.length === 1 ? '' : 's'}` : 'Horario guardado' };
+    }
+
+    const error = res.errores?.[0];
+    const reservas = error?.codigo === 'ERR_RESERVAS_AFECTADAS' ? reservasDeError(error.detalles) : null;
+    if (reservas) {
+      return { ok: false, reservasActualizadas: reservas, error: 'Las reservas afectadas cambiaron. Revisa la lista actualizada.' };
+    }
+    return { ok: false, error: error?.mensaje ?? 'No se pudo guardar el horario.' };
+  };
+
+  const resolverCambioSemanal = async (
+    precheck: ReturnType<typeof horarioService.precheckHorarioSemana>,
+    guardar: (avisos?: NotificacionContactoDTO[]) => ReturnType<typeof horarioService.guardarHorarioSemana>
+  ): Promise<boolean> => {
+    const simulacion = await precheck;
+    if (!simulacion.exito) {
+      throw new Error(simulacion.errores?.[0]?.mensaje ?? 'No se pudo verificar las reservas afectadas.');
+    }
+
+    if (simulacion.datos.hay_conflictos) {
+      const reservas = simulacion.datos.reservas;
+      abrirConflicto({
+        titulo: `${textoReservas(reservas.length)} no caben en el nuevo horario`,
+        descripcion: 'Cambio del horario semanal de atención',
+        intro: 'Al guardar el nuevo horario, estas reservas futuras ya no podrán atenderse.',
+        textoConfirmar: 'Guardar horario y cancelar reservas',
+        reservas,
+        confirmar: (avisos) => aplicarCambioSemanal(guardar, avisos),
+      });
+      return false;
+    }
+
+    const resultado = await aplicarCambioSemanal(guardar);
+    if (!resultado.ok && resultado.reservasActualizadas) {
+      // Apareció una reserva afectada entre la consulta y el guardado
+      abrirConflicto({
+        titulo: `${textoReservas(resultado.reservasActualizadas.length)} no caben en el nuevo horario`,
+        descripcion: 'Cambio del horario semanal de atención',
+        intro: 'Al guardar el nuevo horario, estas reservas futuras ya no podrán atenderse.',
+        textoConfirmar: 'Guardar horario y cancelar reservas',
+        reservas: resultado.reservasActualizadas,
+        confirmar: (avisos) => aplicarCambioSemanal(guardar, avisos),
+      });
+      return false;
+    }
+    if (!resultado.ok) throw new Error(resultado.error);
+    mostrarToast(resultado.mensajeExito ?? 'Horario guardado');
+    return true;
+  };
+
   // Guardar configuración semanal
-  const handleGuardarSemana = async (diasNuevos: DiaHorarioDTO[]) => {
+  const handleGuardarSemana = async (diasNuevos: DiaHorarioDTO[]): Promise<boolean> => {
     try {
       setGuardandoSemana(true);
-      const res = await adminService.guardarHorarioSemana({ dias: diasNuevos });
-      if (res.exito && res.datos) {
-        setDias(res.datos.dias);
-        setTotalHorasSemanales(res.datos.total_horas_semanales || 0);
-        mostrarToast('Horario guardado');
-      } else {
-        throw new Error(res.errores?.[0]?.mensaje || 'No se pudo guardar el horario.');
-      }
+      return await resolverCambioSemanal(
+        horarioService.precheckHorarioSemana({ dias: diasNuevos }),
+        (avisos) =>
+          horarioService.guardarHorarioSemana({
+            dias: diasNuevos,
+            ...(avisos ? { cancelar_reservas: true, reservas_notificadas: avisos } : {}),
+          })
+      );
+    } catch (error) {
+      throw new Error(mensajeDeErrorApi(error, 'No se pudo guardar el horario.'));
     } finally {
       setGuardandoSemana(false);
     }
   };
 
   // Aplicar plantilla rápida
-  const handleAplicarPlantilla = async (
-    plantilla: 'restaurante_estandar' | 'solo_almuerzo' | 'corrido_continuo'
-  ) => {
+  const handleAplicarPlantilla = async (plantilla: Plantilla) => {
     try {
       setGuardandoSemana(true);
-      const res = await adminService.aplicarPlantillaHorario({ plantilla });
-      if (res.exito && res.datos) {
-        setDias(res.datos.dias);
-        setTotalHorasSemanales(res.datos.total_horas_semanales || 0);
-        mostrarToast('Horario de almuerzo y cena aplicado');
-      }
+      await resolverCambioSemanal(
+        horarioService.precheckHorarioSemana({ plantilla }),
+        (avisos) =>
+          horarioService.aplicarPlantillaHorario({
+            plantilla,
+            ...(avisos ? { cancelar_reservas: true, reservas_notificadas: avisos } : {}),
+          })
+      );
+    } catch (error) {
+      mostrarToast(mensajeDeErrorApi(error, 'No se pudo aplicar la plantilla.'), 'error');
     } finally {
       setGuardandoSemana(false);
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // Feriados y cierres
+  // ---------------------------------------------------------------------------
+
   // Cargar Feriados de Perú 2026
   const handleCargarFeriadosPeru = async () => {
-    const res = await adminService.cargarFeriadosNacionalesPeru();
-    if (res.exito && res.datos) {
+    try {
+      const res = await horarioService.cargarFeriadosNacionalesPeru();
+      if (!res.exito || !res.datos) {
+        mostrarToast(res.errores?.[0]?.mensaje || 'No se pudieron cargar los feriados', 'error');
+        return;
+      }
+
       await cargarDatos();
-      mostrarToast(
+      const omitidos = res.datos.omitidos_por_reservas ?? [];
+      const base =
         res.datos.agregados > 0
           ? `Se agregaron ${res.datos.agregados} feriados nacionales`
-          : 'Los feriados nacionales ya estaban registrados',
-        res.datos.agregados > 0 ? 'ok' : 'info'
-      );
-    } else {
-      mostrarToast(res.errores?.[0]?.mensaje || 'No se pudieron cargar los feriados', 'error');
+          : 'Los feriados nacionales ya estaban registrados';
+
+      if (omitidos.length > 0) {
+        const fechas = omitidos.map((o) => `${fechaLegible(o.fecha)} (${textoReservas(o.total_reservas)})`).join(', ');
+        mostrarToast(
+          `${base}. No se cerraron por tener reservas: ${fechas}. Regístralos con «Nuevo cierre» para avisar a los clientes.`,
+          'info'
+        );
+      } else {
+        mostrarToast(base, res.datos.agregados > 0 ? 'ok' : 'info');
+      }
+    } catch (error) {
+      mostrarToast(mensajeDeErrorApi(error, 'No se pudieron cargar los feriados'), 'error');
     }
   };
 
   // Eliminar Excepción
   const handleEliminarExcepcion = async (id: string) => {
-    const res = await adminService.eliminarExcepcion(id);
-    if (res.exito) {
-      setExcepciones((prev) => prev.filter((e) => e.id !== id));
-      mostrarToast('Fecha eliminada');
-    } else {
-      mostrarToast(res.errores?.[0]?.mensaje || 'No se pudo eliminar la fecha', 'error');
+    try {
+      const res = await horarioService.eliminarExcepcion(id);
+      if (res.exito) {
+        setExcepciones((prev) => prev.filter((e) => e.id !== id));
+        mostrarToast('Fecha eliminada');
+      } else {
+        mostrarToast(res.errores?.[0]?.mensaje || 'No se pudo eliminar la fecha', 'error');
+      }
+    } catch (error) {
+      mostrarToast(mensajeDeErrorApi(error, 'No se pudo eliminar la fecha'), 'error');
     }
   };
 
-  // Iniciar flujo de creación y precheck
-  const handleSolicitarCrearExcepcion = async (data: {
-    fecha: string;
-    cerrado: boolean;
-    hora_inicio?: string;
-    hora_fin?: string;
-    motivo: string;
-  }) => {
+  /** Registra la fecha; con `avisos` cancela las reservas afectadas con la decisión de aviso de cada una. */
+  const registrarExcepcion = async (data: DatosExcepcion, avisos?: NotificacionContactoDTO[]): Promise<ResultadoCambio> => {
+    const res = await horarioService.crearExcepcion(
+      avisos ? { ...data, cancelar_reservas: true, reservas_notificadas: avisos } : data
+    );
+
+    if (res.exito) {
+      const canceladas = res.datos?.reservas_canceladas_count ?? 0;
+      return {
+        ok: true,
+        mensajeExito: canceladas > 0 ? `Fecha registrada; ${textoReservas(canceladas)} cancelada${canceladas === 1 ? '' : 's'}` : 'Fecha registrada',
+      };
+    }
+
+    const error = res.errores?.[0];
+    const reservas = error?.codigo === 'ERR_RESERVAS_AFECTADAS' ? reservasDeError(error.detalles) : null;
+    if (reservas) {
+      return { ok: false, reservasActualizadas: reservas, error: 'Las reservas afectadas cambiaron. Revisa la lista actualizada.' };
+    }
+    return { ok: false, error: error?.mensaje ?? 'No se pudo registrar la fecha' };
+  };
+
+  const abrirConflictoDeExcepcion = (data: DatosExcepcion, reservas: ReservaConflictoDTO[]) => {
+    abrirConflicto({
+      titulo: `${textoReservas(reservas.length)} para ${data.cerrado ? 'ese día' : 'ese horario'}`,
+      descripcion: `${data.motivo} · ${fechaLegible(data.fecha)}`,
+      intro: data.cerrado
+        ? 'El local no atenderá ese día, así que estas reservas deben cancelarse.'
+        : 'Con el horario especial, estas reservas no podrán atenderse.',
+      textoConfirmar: data.cerrado ? 'Cerrar y cancelar reservas' : 'Registrar y cancelar reservas',
+      reservas,
+      confirmar: (avisos) => registrarExcepcion(data, avisos),
+    });
+  };
+
+  // Iniciar flujo de creación: primero se consultan las reservas afectadas
+  const handleSolicitarCrearExcepcion = async (data: DatosExcepcion) => {
     try {
       setProcesandoExcepcion(true);
 
-      if (IS_REAL_API) {
-        const resCrear = await adminService.crearExcepcion(data);
-
-        if (resCrear.exito) {
-          setModalCrearAbierto(false);
-          await cargarDatos();
-          mostrarToast('Fecha registrada');
-        } else {
-          mostrarToast(resCrear.errores?.[0]?.mensaje || 'No se pudo registrar la fecha', 'error');
-        }
-
+      const precheck = await horarioService.precheckExcepcion(data);
+      if (!precheck.exito) {
+        mostrarToast(precheck.errores?.[0]?.mensaje || 'No se pudo verificar las reservas de esa fecha', 'error');
         return;
       }
 
-      // Ejecutar precheck en base a reservas
-      const precheck = await mockAdminService.precheckExcepcion({
-        fecha: data.fecha,
-        cerrado: data.cerrado,
-        hora_inicio: data.hora_inicio,
-        hora_fin: data.hora_fin,
-      });
-
-      if (precheck.exito && precheck.datos.hay_conflictos) {
-        // Hay comensales afectados: cerramos modal básico y abrimos modal de advertencia de 680px
+      if (precheck.datos.hay_conflictos) {
         setModalCrearAbierto(false);
-        setConflictoData({
-          ...data,
-          reservas: precheck.datos.reservas,
-        });
-        setModalConflictoAbierto(true);
-      } else {
-        // Sin conflictos: guardamos directamente
-        const resCrear = await mockAdminService.crearExcepcion({
-          ...data,
-          cancelar_reservas: false,
-        });
-
-        if (resCrear.exito) {
-          setModalCrearAbierto(false);
-          await cargarDatos();
-          mostrarToast('Fecha registrada');
-        }
+        abrirConflictoDeExcepcion(data, precheck.datos.reservas);
+        return;
       }
-    } finally {
-      setProcesandoExcepcion(false);
-    }
-  };
 
-  // Confirmar Cierre desde el Modal de Conflicto de Reservas
-  const handleConfirmarConflicto = async (
-    reservasNotificadas: {
-      reserva_id: string;
-      notificado: boolean;
-      metodo_notificacion: 'whatsapp' | 'llamada' | 'presencial' | 'ninguno';
-    }[]
-  ) => {
-    if (!conflictoData) return;
-
-    if (IS_REAL_API) {
-      mostrarToast('Todavía no se pueden cancelar reservas desde aquí.', 'info');
-      return;
-    }
-
-    try {
-      setProcesandoExcepcion(true);
-      const res = await mockAdminService.crearExcepcion({
-        fecha: conflictoData.fecha,
-        cerrado: conflictoData.cerrado,
-        hora_inicio: conflictoData.hora_inicio,
-        hora_fin: conflictoData.hora_fin,
-        motivo: conflictoData.motivo,
-        cancelar_reservas: true,
-        reservas_notificadas: reservasNotificadas,
-      });
-
-      if (res.exito) {
-        setModalConflictoAbierto(false);
-        setConflictoData(null);
+      const resultado = await registrarExcepcion(data);
+      if (resultado.ok) {
+        setModalCrearAbierto(false);
         await cargarDatos();
-        mostrarToast(`Fecha registrada; ${conflictoData.reservas.length} reservas canceladas`);
+        mostrarToast(resultado.mensajeExito ?? 'Fecha registrada');
+      } else if (resultado.reservasActualizadas) {
+        // Apareció una reserva afectada entre la consulta y el guardado
+        setModalCrearAbierto(false);
+        abrirConflictoDeExcepcion(data, resultado.reservasActualizadas);
+      } else {
+        mostrarToast(resultado.error ?? 'No se pudo registrar la fecha', 'error');
       }
+    } catch (error) {
+      mostrarToast(mensajeDeErrorApi(error, 'No se pudo conectar con el servidor. Intenta nuevamente.'), 'error');
     } finally {
       setProcesandoExcepcion(false);
     }
-  };
-
-  // Atajos de QA Test Bench
-  const handleSimularConflictoNavidad = async () => {
-    mockAdminService.simularConflictoNavidad();
-    setTabActiva('excepciones');
-    // Ejecutar precheck directo sobre 2026-12-25
-    const precheck = await mockAdminService.precheckExcepcion({
-      fecha: '2026-12-25',
-      cerrado: true,
-    });
-    if (precheck.exito && precheck.datos.hay_conflictos) {
-      setConflictoData({
-        fecha: '2026-12-25',
-        motivo: 'Navidad (Cierre Anual Obligatorio)',
-        cerrado: true,
-        reservas: precheck.datos.reservas,
-      });
-      setModalConflictoAbierto(true);
-    }
-  };
-
-  const handleSimularSedeSinHorario = () => {
-    mockAdminService.simularSedeSinHorario();
-    setDias([]);
-    setTotalHorasSemanales(0);
-    setTabActiva('semana');
-    mostrarToast('Simulación: local sin horario', 'info');
-  };
-
-  const handleRestablecerSemillas = async () => {
-    mockAdminService.restablecerSemillasHorario();
-    await cargarDatos();
-    mostrarToast('Datos de prueba restablecidos', 'info');
   };
 
   const handleIniciarVacioManual = () => {
@@ -330,33 +421,21 @@ export const AdminHorarioPage: React.FC = () => {
         loading={procesandoExcepcion}
       />
 
-      {/* Reservas afectadas por la fecha: avisar por WhatsApp antes de cancelar */}
-      {conflictoData && (
+      {/* Reservas afectadas: decidir el aviso de cada cliente antes de cancelar */}
+      {conflicto && (
         <ModalConflictoReservas
-          isOpen={modalConflictoAbierto}
-          onClose={() => {
-            setModalConflictoAbierto(false);
-            setConflictoData(null);
-          }}
-          fecha={conflictoData.fecha}
-          motivo={conflictoData.motivo}
-          reservas={conflictoData.reservas}
-          onConfirmarCierre={handleConfirmarConflicto}
+          key={conflicto.clave}
+          isOpen
+          onClose={() => setConflicto(null)}
+          titulo={conflicto.titulo}
+          descripcion={conflicto.descripcion}
+          intro={conflicto.intro}
+          textoConfirmar={conflicto.textoConfirmar}
+          reservas={conflicto.reservas}
+          onConfirmar={confirmarConflicto}
           loading={procesandoExcepcion}
         />
       )}
-
-      {/* QA Test Bench Widget Flotante */}
-      <SoloDemo>
-        {!IS_REAL_API && (
-          <DemoAdminHorarioWidget
-            onSimularConflictoNavidad={handleSimularConflictoNavidad}
-            onCargarFeriadosPeru={handleCargarFeriadosPeru}
-            onSimularSedeSinHorario={handleSimularSedeSinHorario}
-            onRestablecerSemillas={handleRestablecerSemillas}
-          />
-        )}
-      </SoloDemo>
     </div>
   );
 };

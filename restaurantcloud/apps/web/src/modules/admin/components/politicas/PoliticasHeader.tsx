@@ -12,6 +12,8 @@ interface PoliticasHeaderProps {
   onCambiarVista: (vista: 'parametros' | 'simulador') => void;
   onRestaurarRecomendados: () => void;
   isGuardando?: boolean;
+  /** Nombre real de la sede, tal como lo devuelve el API. */
+  sedeNombre?: string;
 }
 
 export const PoliticasHeader: React.FC<PoliticasHeaderProps> = ({
@@ -19,6 +21,7 @@ export const PoliticasHeader: React.FC<PoliticasHeaderProps> = ({
   onCambiarVista,
   onRestaurarRecomendados,
   isGuardando = false,
+  sedeNombre,
 }) => {
   return (
     <div className="bg-white rounded-2xl border border-aurea-copper/20 p-5 shadow-sm space-y-4">
@@ -32,11 +35,12 @@ export const PoliticasHeader: React.FC<PoliticasHeaderProps> = ({
           <span className="text-aurea-navy font-semibold">Políticas de Reserva</span>
         </nav>
 
-        <div className="flex items-center gap-2 bg-aurea-ivory px-3 py-1 rounded-full border border-aurea-copper/30 text-stone-700 text-xs">
-          <Building2 className="w-3.5 h-3.5 text-aurea-copper" />
-          <span>Sede: <strong className="text-aurea-navy">Miraflores (Principal)</strong></span>
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse ml-1" />
-        </div>
+        {sedeNombre && (
+          <div className="flex items-center gap-2 bg-aurea-ivory px-3 py-1 rounded-full border border-aurea-copper/30 text-stone-700 text-xs">
+            <Building2 className="w-3.5 h-3.5 text-aurea-copper" />
+            <span>Sede: <strong className="text-aurea-navy">{sedeNombre}</strong></span>
+          </div>
+        )}
       </div>
 
       {/* Título principal y pestañas de vista */}
@@ -84,9 +88,6 @@ export const PoliticasHeader: React.FC<PoliticasHeaderProps> = ({
             >
               <Clock3 className="w-3.5 h-3.5 text-aurea-copper" />
               <span>Simulador de Mesa</span>
-              <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-800 text-[10px] rounded-full font-bold">
-                En vivo
-              </span>
             </button>
           </div>
 
@@ -96,7 +97,7 @@ export const PoliticasHeader: React.FC<PoliticasHeaderProps> = ({
             onClick={onRestaurarRecomendados}
             disabled={isGuardando}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-200 text-stone-700 bg-white hover:bg-stone-50 text-xs font-medium transition-colors shadow-sm disabled:opacity-50"
-            title="Restablece los parámetros canónicos sugeridos para salón de restaurante"
+            title="Restablece los parámetros recomendados (no cambia el interruptor de reservas)"
           >
             <RotateCcw className="w-3.5 h-3.5 text-stone-500" />
             <span className="hidden sm:inline">Restaurar</span> Recomendados

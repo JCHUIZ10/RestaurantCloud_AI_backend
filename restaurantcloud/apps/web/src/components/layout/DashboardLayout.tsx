@@ -13,6 +13,7 @@ import {
   Truck,
   Receipt,
   Clock,
+  CalendarCheck2,
   FileX2,
   Tag,
   Flame,
@@ -45,7 +46,7 @@ const LINKS_PROPIETARIO: EnlaceMenu[] = [
   { label: 'Suscripción', href: ROUTES.PROPIETARIO_SUSCRIPCION, icon: CreditCard },
 ];
 
-// Consola Admin de Local. El Panel del Local, Políticas de Reserva, Reportes
+// Consola Admin de Local. El Panel del Local, Reportes
 // de Venta y Flujo de Caja son placeholders/vistas diferidas para próxima unidad.
 const LINKS_ADMIN: EnlaceMenu[] = [
   { label: 'Plano de mesas', href: ROUTES.ADMIN_PLANO_MESAS, icon: LayoutGrid },
@@ -56,6 +57,7 @@ const LINKS_ADMIN: EnlaceMenu[] = [
   { label: 'Compras', href: ROUTES.ADMIN_COMPRAS, icon: Receipt },
   { label: 'Personal de sede', href: ROUTES.ADMIN_PERSONAL, icon: Users },
   { label: 'Horario y feriados', href: ROUTES.ADMIN_HORARIO, icon: Clock },
+  { label: 'Políticas de reserva', href: ROUTES.ADMIN_POLITICAS_RESERVA, icon: CalendarCheck2 },
   { label: 'Promociones', href: ROUTES.ADMIN_PROMOCIONES, icon: Tag },
   { label: 'Tiempos de cocina', href: ROUTES.ADMIN_CONFIGURACION_KDS, icon: Flame },
   { label: 'Métodos de pago', href: ROUTES.ADMIN_METODOS_PAGO, icon: Wallet },

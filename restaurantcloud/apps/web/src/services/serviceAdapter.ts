@@ -37,6 +37,12 @@ export const planoService = realPlanoService;
 // Módulo Caja POS: 100% conectado directamente a la API de Laravel
 export const cajaService = realCajaService;
 
+// Módulo Políticas de Reserva (CU-ADMIN-10): 100% conectado directamente a la API de Laravel
+export const politicasReservaService = realAdminService;
+
+// Módulo Horario y Feriados (CU-ADMIN-09): 100% conectado directamente a la API de Laravel
+export const horarioService = realAdminService;
+
 // Módulo Cocina KDS: 100% conectado directamente a la API de Laravel
 export const cocinaService = realCocinaService;
 

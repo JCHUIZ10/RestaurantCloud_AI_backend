@@ -263,6 +263,7 @@ export const PanelParametrosView: React.FC<PanelParametrosViewProps> = ({
             <div className="flex items-center justify-between text-xs font-semibold text-stone-700">
               <label htmlFor="margen_recordatorio_min" className="flex items-center gap-1">
                 <span>Margen de Alerta / Recordatorio</span>
+                <span className="text-[10px] font-bold uppercase tracking-wide bg-stone-200 text-stone-600 px-1.5 py-0.5 rounded">Próximamente</span>
               </label>
               <span className="font-mono text-aurea-navy font-bold text-sm bg-stone-100 px-2 py-0.5 rounded">
                 {politicas.margen_recordatorio_min} min
@@ -298,7 +299,7 @@ export const PanelParametrosView: React.FC<PanelParametrosViewProps> = ({
               ))}
             </div>
             <p className="text-[11px] text-stone-500 leading-tight">
-              Anticipación para que el sistema emita alertas operativas al equipo anfitrión sobre llegadas inminentes.
+              Se guarda para los recordatorios automáticos, que todavía no están disponibles: por ahora no genera avisos.
             </p>
           </div>
         </div>
@@ -327,6 +328,7 @@ export const PanelParametrosView: React.FC<PanelParametrosViewProps> = ({
               <label htmlFor="anticipacion_minima_horas" className="flex items-center gap-1">
                 <span>Anticipación Mínima</span>
                 <span className="text-stone-400 font-normal">(p/ reservar)</span>
+                <span className="text-[10px] font-bold uppercase tracking-wide bg-stone-200 text-stone-600 px-1.5 py-0.5 rounded">Reservas en línea</span>
               </label>
               <span className="font-mono text-emerald-800 font-bold text-sm bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
                 {politicas.anticipacion_minima_horas} horas
@@ -362,7 +364,7 @@ export const PanelParametrosView: React.FC<PanelParametrosViewProps> = ({
               ))}
             </div>
             <p className="text-[11px] text-stone-500 leading-tight">
-              Mínimo tiempo antes de la cita con el que un cliente puede solicitar mesa en la web pública.
+              Aplica a las reservas en línea, que todavía no están disponibles. El personal de salón puede registrar reservas con cualquier anticipación.
             </p>
           </div>
 
@@ -407,7 +409,7 @@ export const PanelParametrosView: React.FC<PanelParametrosViewProps> = ({
               ))}
             </div>
             <p className="text-[11px] text-stone-500 leading-tight">
-              Máximo número de días en el calendario con disponibilidad abierta para comensales.
+              Máximo de días hacia adelante en que se puede registrar una reserva.
             </p>
           </div>
         </div>

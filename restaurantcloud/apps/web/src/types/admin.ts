@@ -976,9 +976,18 @@ export interface DiaHorarioDTO {
   turnos: TurnoHorarioDTO[];
 }
 
-export interface ConfigSemanaHorariaRequest {
+/** Cancelación en bloque de reservas que dejan de caber, con la decisión de aviso de cada una. */
+export interface CancelacionReservasRequest {
+  cancelar_reservas?: boolean;
+  reservas_notificadas?: NotificacionContactoDTO[];
+}
+
+export interface ConfigSemanaHorariaRequest extends CancelacionReservasRequest {
   dias: DiaHorarioDTO[];
 }
+
+/** Simulación de un cambio de horario semanal: los días nuevos o una plantilla. */
+export type PrecheckHorarioSemanaRequest = { dias: DiaHorarioDTO[] } | AplicarPlantillaRequest;
 
 export interface HorarioSemanaResponse {
   local_id: string;
@@ -986,8 +995,15 @@ export interface HorarioSemanaResponse {
   total_horas_semanales?: number;
 }
 
-export interface AplicarPlantillaRequest {
+export interface AplicarPlantillaRequest extends CancelacionReservasRequest {
   plantilla: 'restaurante_estandar' | 'solo_almuerzo' | 'corrido_continuo';
+}
+
+export interface ResultadoFeriadosPeruDTO {
+  agregados: number;
+  total: number;
+  /** Feriados no cerrados porque tienen reservas activas: se registran aparte, avisando a los clientes. */
+  omitidos_por_reservas: { fecha: string; motivo: string; total_reservas: number }[];
 }
 
 export interface ExcepcionHorarioDTO {
@@ -1008,6 +1024,7 @@ export interface PrecheckExcepcionRequest {
   cerrado: boolean;
   hora_inicio?: string;
   hora_fin?: string;
+  motivo?: string; // Se incluye en el mensaje de WhatsApp a los clientes
 }
 
 export interface ReservaConflictoDTO {
@@ -1050,6 +1067,7 @@ export interface CrearExcepcionRequest {
 
 export interface PoliticasReservaDTO {
   local_id: string;
+  local_nombre?: string; // Nombre de la sede, devuelto por el API
   acepta_reservas: boolean;
   duracion_reserva_min: number; // Default 90, min 30, max 240
   buffer_reserva_min: number; // Default 15, min 0, max 60
@@ -1070,6 +1088,10 @@ export interface ActualizarPoliticasReservaRequest {
   margen_recordatorio_min: number;
   anticipacion_minima_horas: number;
   anticipacion_maxima_dias: number;
+  /** Confirma apagar el canal aunque existan reservas pendientes (siguen vigentes). */
+  confirmar_desactivacion?: boolean;
+  /** Versión (updated_at) sobre la que se editó, para detectar ediciones simultáneas. */
+  updated_at?: string;
 }
 
 export interface ReservaResumenDTO {
@@ -1079,6 +1101,7 @@ export interface ReservaResumenDTO {
   fecha_hora: string;
   pax: number;
   mesas: string[];
+  link_whatsapp?: string;
 }
 
 export interface PrecheckDesactivacionReservasResponse {
