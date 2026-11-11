@@ -31,8 +31,8 @@ Este documento explica cómo funcionan las reservas de salón en RestaurantCloud
 | `tolerancia_no_show_min` | Minutos de cortesía para que llegue el cliente después de su hora. | 15 | 5 – 60 | ✅ Reloj de cortesía de la ficha y plano de mesas. |
 | `anticipacion_maxima_dias` | Con cuántos días de anticipación se puede reservar como máximo. | 30 | 1 – 90 | ✅ Al registrar la reserva. |
 | `acepta_reservas` | **Interruptor maestro**: recepción de reservas nuevas. | `true` | — | ✅ Apagado, el mozo no puede registrar reservas (409). Las existentes se siguen atendiendo ([§9.2](#92-interruptor-maestro)). |
-| `anticipacion_minima_horas` | Anticipación mínima exigida para reservar. | 2 | 0 – 48 | ⛔ **No aplica al mozo** (pensado para reservas en línea, que aún no existen). |
-| `margen_recordatorio_min` | Minutos antes de la cita para enviar un recordatorio. | 120 | ≥ 0 | ⛔ Se guarda, pero aún no se usa (no hay recordatorios automáticos). |
+| `anticipacion_minima_horas` | Anticipación mínima exigida para reservar. | 2 | 0 – 48 | ⛔ **No aplica al mozo** (pensado para reservas en línea, que aún no existen). **No se muestra en la pantalla**: el servidor conserva su valor y se retomará con las reservas en línea. |
+| `margen_recordatorio_min` | Minutos antes de la cita para enviar un recordatorio. | 120 | 15 – 1440 | ⛔ Se guarda y se muestra como "Próximamente", pero aún no se usa (no hay recordatorios automáticos). |
 
 > **¿Por qué la anticipación mínima no aplica al mozo?** El mozo atiende llamadas y clientes en la puerta, que pueden pedir una mesa para dentro de unos minutos. Al mozo solo se le prohíbe reservar en el pasado (con 5 min de margen) y más allá de la anticipación máxima.
 
@@ -228,7 +228,10 @@ Pantalla **Políticas de reserva** (CU-ADMIN-10), en el menú del administrador.
 ### 9.1 Edición y guardado
 
 - Los valores se editan en un borrador y se guardan con un solo botón. Si hay cambios sin guardar, el sistema avisa antes de salir de la pantalla.
-- **Rangos** (el servidor los valida): duración 30–240, buffer 0–60, tolerancia 5–60, bloqueo previo 0–120, anticipación mínima 0–48, anticipación máxima 1–90, margen de recordatorio ≥ 0.
+- **Rangos** (la pantalla los muestra y el servidor los valida): duración 30–240 min, buffer 0–60 min, tolerancia 5–60 min, bloqueo previo 0–120 min, margen de recordatorio 15–1440 min y anticipación máxima 1–90 días. La anticipación mínima (0–48 h) ya no se edita desde la pantalla.
+- **Validación en pantalla:** cada campo muestra "Permitido: 30 a 240 min"; un valor inválido (vacío, decimal o fuera de rango) se marca en rojo con su motivo, un resumen superior lista los campos a corregir (cada uno enlaza al campo) y **Guardar queda deshabilitado** hasta corregirlos.
+- **Mensajes del servidor:** si de todos modos rechaza un valor, el mensaje es legible y nombra el campo y el rango, por ejemplo *"El campo duración de la reserva (minutos) debe estar entre 30 y 240."* Los mensajes de validación de todo el sistema están traducidos (`lang/es/validation.php`).
+- **Simulador:** sus controles usan los mismos rangos e incluyen la tolerancia. Si la configuración tenía un valor fuera de rango, el simulador lo muestra ya ajustado (con un aviso) y *Aplicar a Configuración* lo corrige. Los campos que el simulador no maneja se señalan en el resumen de errores.
 - **Edición simultánea**: cada versión lleva su fecha de modificación. Si otro administrador guardó antes, el guardado se rechaza (409 `ERR_POLITICAS_MODIFICADAS`), se avisa y se recargan los valores vigentes.
 - **Restaurar valores recomendados**: reemplaza solo los **parámetros** (90 / 15 / 15 / 30 / 120 / 2 / 30) y los guarda de inmediato. **No cambia el interruptor.**
 - Los cambios llegan al mozo en el siguiente refresco de su bandeja (cada minuto) o al reabrirla.
