@@ -98,7 +98,7 @@ Un turno cuya hora de cierre es menor que la de inicio (ej. `Cena 19:00–00:30`
 | Teléfono móvil | 9 dígitos que empiezan con 9. Se guarda como `+51 987 654 321` (ver [estandar_telefono_whatsapp.md](./estandar_telefono_whatsapp.md)). |
 | Comensales | 1 a 50 personas. |
 | Fecha y hora | Hora local del restaurante (America/Lima), elegida entre las horas de llegada ofrecidas. |
-| Mesa(s) | Al menos una mesa del local. Si una sola no alcanza, se pueden agrupar varias. |
+| Mesa(s) | Al menos una mesa del local. Si una sola no alcanza, se agrupan varias que permitan unión y cuya capacidad sumada cubra a los comensales. |
 | Notas | Opcional, hasta 500 caracteres. |
 
 ### 4.2 Validaciones, en el orden en que se aplican
@@ -112,6 +112,8 @@ Un turno cuya hora de cierre es menor que la de inicio (ej. `Cena 19:00–00:30`
    - hora fuera de los turnos → *"La hora … está fuera del horario de atención …"*;
    - llegada demasiado tarde → *"La última hora de llegada del turno Almuerzo es 14:30 …"*.
 4. **Mesas válidas**: todas deben pertenecer al local.
+4a. **Unión**: si se eligen varias mesas, todas deben permitir unión (422 `ERR_MESAS_NO_UNIBLES`, con el número de la mesa que no la permite). Una sola mesa fija es válida si alcanza por sí sola.
+4b. **Capacidad**: la suma de capacidades de las mesas elegidas debe ser mayor o igual al número de comensales (422 `ERR_CAPACIDAD_INSUFICIENTE`: *"Las mesas seleccionadas suman 4 lugares y la reserva es para 8 personas…"*).
 5. **Choque de horario** con otra reserva activa en las mismas mesas (ver [§5](#5-disponibilidad-de-mesas-y-choques-de-horario)).
 
 Las mesas se **bloquean durante el registro**, así que dos mozos no pueden reservar la misma mesa al mismo tiempo. Si la fecha tiene un horario especial, la reserva queda vinculada a esa excepción (`reserva.excepcion_id`).
@@ -146,7 +148,7 @@ Dos reservas activas (`confirmada` o `bloqueada`) de la **misma mesa** deben emp
 | *Ocupada con comanda activa* | Tiene una comanda abierta y la reserva es para hoy dentro de ±60 min. |
 | *Capacidad insuficiente* | Su capacidad es menor al número de comensales **y** la mesa no permite unirse a otras. |
 
-Una mesa más chica que el grupo que **sí permite unión** aparece disponible para agruparla con otras. La interfaz advierte si la capacidad sumada es menor que el número de comensales.
+Una mesa más chica que el grupo que **sí permite unión** aparece disponible para agruparla con otras. La reserva debe **caber** en las mesas elegidas ([§4.2](#42-validaciones-en-el-orden-en-que-se-aplican)): la interfaz muestra la capacidad acumulada ("6 de 8 lugares"), no propone una mesa que no alcance y no deja confirmar hasta cubrir al grupo.
 
 ---
 
@@ -189,13 +191,24 @@ La inasistencia **nunca se registra sola**: el mozo decide si espera más o libe
 
 | Acción | Requisitos | Efecto |
 | :--- | :--- | :--- |
-| **Sentar comensales** | Reserva `confirmada`/`bloqueada`; reserva de la **jornada en curso**; **caja abierta**; ninguna mesa asignada tiene una comanda activa (propia o de la mesa a la que esté unida). | Une las mesas (la titular es la de menor número), abre la comanda con los comensales de la reserva y la marca `atendida`. Si una mesa está ocupada: *"La Mesa X está ocupada con otra comanda. Reasigne la reserva…"*. |
+| **Sentar comensales** | Reserva `confirmada`/`bloqueada`; reserva de la **jornada en curso**; **caja abierta**; ninguna mesa asignada tiene una comanda activa (propia o de la mesa a la que esté unida). | Une las mesas (la titular es la de menor número), abre la comanda con los comensales de la reserva y la marca `atendida`. Si una mesa está ocupada: *"La Mesa X está ocupada con otra comanda. Usa «Cambiar mesa» para asignar la reserva a una mesa libre."* |
 | **Registrar inasistencia** | Reserva `confirmada`/`bloqueada`. Motivo opcional (máx. 500 caracteres; por defecto "Inasistencia del cliente"). | Estado `no_show`; el motivo se agrega a las notas; la mesa queda libre. |
 | **Cancelar** | Reserva `confirmada`/`bloqueada`. Motivo **obligatorio** (3 a 500 caracteres). | Estado `cancelada`; el motivo se agrega a las notas; la mesa queda libre. |
-| **Reasignar mesa** | Que la nueva mesa pertenezca al local. | Reemplaza las mesas asignadas por la nueva (ver limitaciones). |
+| **Cambiar mesa** | Reserva `confirmada`/`bloqueada`. Una o más mesas libres que cumplan las mismas reglas que al crear (ver 6.4). Motivo opcional (máx. 255 caracteres). | Reemplaza las mesas asignadas; el motivo se agrega a las notas. No se avisa al cliente. |
 | **WhatsApp** | — | Abre WhatsApp con un mensaje de confirmación que indica el día ("de hoy", "de mañana" o la fecha), la hora, los comensales y la mesa. |
 
-Cada acción queda registrada en `log_auditoria`: `CREACION_RESERVA`, `RECEPCION_RESERVA_SALON`, `NO_SHOW_RESERVA`, `CANCELACION_RESERVA` y `REASIGNACION_MESA_RESERVA`.
+Cada acción queda registrada en `log_auditoria`: `CREACION_RESERVA`, `RECEPCION_RESERVA_SALON`, `NO_SHOW_RESERVA`, `CANCELACION_RESERVA` y `REASIGNACION_MESA_RESERVA` (guarda las mesas anteriores, las nuevas y el motivo).
+
+### 6.4 Cambiar la mesa de una reserva
+
+Caso típico: llega la hora de una reserva y sus comensales no pueden sentarse porque otro grupo sigue en la mesa (el servidor responde 409 `ERR_MESA_OCUPADA`). En lugar de pedir al grupo que se retire, el mozo abre la ficha (desde la bandeja o tocando la mesa bloqueada en el plano) y pulsa **Cambiar mesa**.
+
+- **Mismas reglas que al crear**, con una única definición en el servidor (`AsignacionMesasReservaService`): las mesas son del local y están activas; si son varias, todas permiten unión; la capacidad suma al menos el número de personas; ninguna tiene choque con otra reserva ni una comanda abierta cuando la hora es inminente (±60 min).
+- **Puede ser más de una mesa** (una reserva de 8 puede pasar a dos mesas de 4).
+- **La mesa actual aparece libre**: la propia reserva no cuenta como choque, así que se puede conservar una de sus mesas y sumar otra.
+- Solo reservas `confirmada`/`bloqueada`. Las atendidas, canceladas o con inasistencia no se reasignan.
+- Si otro mozo ocupa la mesa mientras tanto, el servidor lo rechaza, el aviso aparece sin cerrar el modal y la disponibilidad se recarga.
+- Efecto colateral: **crear** una reserva en una mesa con comanda abierta a una hora inminente también se rechaza en el servidor (antes solo lo impedía la pantalla).
 
 ---
 
@@ -300,8 +313,7 @@ Las reservas `atendida`, `cancelada` y `no_show` nunca se tocan.
 | :--- | :--- |
 | `anticipacion_minima_horas` y `margen_recordatorio_min` | Se guardan y se muestran como "próximamente", pero no tienen efecto: dependen de reservas en línea y recordatorios, que aún no existen. |
 | Cambio de `duracion_reserva_min` o `buffer_reserva_min` | No recalcula los choques de reservas ya registradas ni avisa si alguna deja de caber antes del cierre del turno. |
-| Capacidad total del grupo | El servidor no exige que la suma de capacidades cubra a los comensales; solo la interfaz lo advierte. |
-| Reasignar mesa | No valida choques con otras reservas ni el estado de la reserva. |
+| Reservas creadas con mesas insuficientes | Las anteriores a la regla de capacidad no se revalidan; solo se aplica al crear o al cambiar de mesa. |
 | Inasistencia | Siempre manual; no hay cierre automático al vencer la tolerancia. |
 | Reservas creadas durante la confirmación de un cierre | Una reserva registrada por otro mozo en el instante exacto entre la consulta y la confirmación del cierre no entra en la lista; el servidor cubre las ya existentes. |
 | Reservas canceladas por un cierre | No se muestran en la bandeja del mozo de ese día (se ve "El local no atiende"); constan en la auditoría y en el contador de la lista de cierres. |
@@ -313,6 +325,7 @@ Las reservas `atendida`, `cancelada` y `no_show` nunca se tocan.
 | Pieza | Ubicación |
 | :--- | :--- |
 | Políticas (lectura, guardado, interruptor, pendientes, plan) | `apps/api/app/Domains/Reservas/Services/PoliticasReservaService.php` |
+| Reglas de asignación de mesas (disponibilidad, capacidad, unión, choques) | `apps/api/app/Domains/Reservas/Services/AsignacionMesasReservaService.php` |
 | Jornada operativa (horario, excepciones, medianoche, franjas, validación) | `apps/api/app/Domains/Horario/Services/JornadaOperativaService.php` |
 | Cierres, horario semanal y cancelación con avisos | `apps/api/app/Domains/Horario/Services/HorarioService.php` |
 | Módulo habilitado según el plan | `apps/api/app/Http/Middleware/EnsureModuloReservas.php` (alias `modulo.reservas`) |
@@ -331,12 +344,12 @@ Las reservas `atendida`, `cancelada` y `no_show` nunca se tocan.
 | :--- | :--- | :--- |
 | `GET` | `/mozo/reservas/politicas?fecha=YYYY-MM-DD` | Políticas (incluye `acepta_reservas`), jornada de la fecha, jornada en curso y turno sugerido. |
 | `GET` | `/mozo/reservas?fecha=&turno=almuerzo\|cena\|todos` | Bandeja de reservas del turno. |
-| `GET` | `/mozo/reservas/mesas-disponibles?fecha=&hora=&comensales=` | Mini-mapa de disponibilidad (`bloqueo_horario` si la hora no es válida o el canal está suspendido). |
+| `GET` | `/mozo/reservas/mesas-disponibles?fecha=&hora=&comensales=&excluir_reserva_id=` | Mini-mapa de disponibilidad (`bloqueo_horario` si la hora no es válida o el canal está suspendido). `excluir_reserva_id` evita que una reserva cuente como ocupante de sí misma al cambiarle la mesa. |
 | `POST` | `/mozo/reservas` | Registrar una reserva. |
 | `POST` | `/mozo/reservas/{id}/sentar` | Sentar comensales y abrir la comanda. |
 | `POST` | `/mozo/reservas/{id}/no-show` | Registrar inasistencia. |
 | `POST` | `/mozo/reservas/{id}/cancelar` | Cancelar con motivo. |
-| `PATCH` | `/mozo/reservas/{id}/reasignar-mesa` | Cambiar la mesa asignada. |
+| `PATCH` | `/mozo/reservas/{id}/reasignar-mesa` | Cambiar las mesas asignadas. Cuerpo: `mesa_ids[]` y `motivo` opcional. Errores: `ERR_MESAS_INVALIDAS`, `ERR_MESAS_NO_UNIBLES`, `ERR_CAPACIDAD_INSUFICIENTE`, `ERR_MESA_RESERVADA` (422) y `ERR_MESA_OCUPADA` (409). |
 
 ### Endpoints del administrador
 

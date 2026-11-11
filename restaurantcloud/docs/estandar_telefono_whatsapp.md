@@ -16,7 +16,8 @@ Para evitar que el usuario se equivoque escribiendo `+51` o que al concatenar `+
 
 1. **Badge Fijo a la Izquierda**: Se muestra un distintivo no editable con la bandera y el prefijo internacional `[ 🇵🇪 +51 ]`.
 2. **Entrada Solo Numérica**: El input muestra los dígitos con formato progresivo `987 654 321`.
-3. **Manejo de Estado**: Se utiliza `extraerDigitosMovilPeru` y `formatearTelefonoPeru` de `@/shared/utils`.
+3. **Sin `maxLength` en el input**: el navegador recorta el texto pegado al largo máximo *antes* de que el código lo procese, así que un número copiado como `+51 987 654 321` (15 caracteres) o `+51987654321` (12) perdería dígitos. El límite de 9 dígitos ya lo garantiza `extraerDigitosMovilPeru`.
+4. **Manejo de Estado**: Se utiliza `extraerDigitosMovilPeru` y `formatearTelefonoPeru` de `@/shared/utils`.
 
 ### Ejemplo en React / Tailwind:
 ```tsx
@@ -34,7 +35,7 @@ import { extraerDigitosMovilPeru, formatearTelefonoPeru } from '@/shared/utils';
     type="tel"
     inputMode="numeric"
     required
-    maxLength={11} // "987 654 321" (9 dígitos + 2 espacios)
+    // Sin maxLength: el navegador recortaría un número pegado como "+51 987 654 321" antes de limpiarlo.
     value={formatearTelefonoPeru(formData.telefono)}
     onChange={(e) => {
       // 1. Extraer solo los 9 dígitos locales (remueve cualquier +51 previo)
