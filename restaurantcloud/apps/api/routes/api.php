@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Admin\InsumoController;
 use App\Http\Controllers\Api\Admin\MetodoPagoController;
 use App\Http\Controllers\Api\Admin\PersonalController;
 use App\Http\Controllers\Api\Admin\PlanoController;
+use App\Http\Controllers\Api\Admin\PoliticaReservaController;
 use App\Http\Controllers\Api\Admin\ProductoController;
 use App\Http\Controllers\Api\Admin\ProductoFotoController;
 use App\Http\Controllers\Api\Admin\PromocionController;
@@ -151,11 +152,20 @@ Route::prefix('v1')->group(function (): void {
 
             Route::get('/horario', [HorarioController::class, 'semana']);
             Route::put('/horario', [HorarioController::class, 'guardarSemana']);
+            Route::post('/horario/precheck', [HorarioController::class, 'precheckSemana']);
             Route::post('/horario/plantilla', [HorarioController::class, 'aplicarPlantilla']);
             Route::get('/horario/excepciones', [HorarioController::class, 'excepciones']);
+            Route::get('/horario/excepciones/precheck', [HorarioController::class, 'precheckExcepcion']);
             Route::post('/horario/excepciones', [HorarioController::class, 'crearExcepcion']);
             Route::delete('/horario/excepciones/{id}', [HorarioController::class, 'eliminarExcepcion']);
             Route::post('/horario/feriados-peru/cargar', [HorarioController::class, 'cargarFeriadosPeru']);
+
+            Route::prefix('reservas/politicas')->middleware('modulo.reservas')->group(function (): void {
+                Route::get('/', [PoliticaReservaController::class, 'show']);
+                Route::put('/', [PoliticaReservaController::class, 'update']);
+                Route::post('/restaurar-default', [PoliticaReservaController::class, 'restaurarDefault']);
+                Route::get('/precheck-desactivacion', [PoliticaReservaController::class, 'precheckDesactivacion']);
+            });
 
             Route::prefix('configuracion-kds')->group(function (): void {
                 Route::get('/', [ConfiguracionKdsController::class, 'show']);
@@ -291,7 +301,7 @@ Route::prefix('v1')->group(function (): void {
             Route::post('/mesas/{id}/dividir-cuenta', [MozoController::class, 'dividirCuenta']);
 
             // CU-MOZO-05: Gestión de Reservas y Recepción en Salón
-            Route::prefix('reservas')->group(function (): void {
+            Route::prefix('reservas')->middleware('modulo.reservas')->group(function (): void {
                 Route::get('/', [MozoController::class, 'getReservas']);
                 Route::get('/politicas', [MozoController::class, 'getPoliticasReserva']);
                 Route::get('/mesas-disponibles', [MozoController::class, 'getMesasDisponiblesReserva']);

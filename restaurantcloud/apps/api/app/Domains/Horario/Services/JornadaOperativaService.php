@@ -132,13 +132,47 @@ class JornadaOperativaService
      */
     public function validarInicioReserva(string $localId, Carbon $inicio, int $duracionReservaMin): array
     {
+        return $this->validarConJornadas(
+            $inicio,
+            $duracionReservaMin,
+            fn (string $fecha): array => $this->resolver($localId, $fecha, $duracionReservaMin),
+        );
+    }
+
+    /**
+     * Valida varias reservas a la vez calculando una sola vez la jornada de cada fecha.
+     *
+     * @param  iterable<string, Carbon>  $inicios  Llegada de cada reserva, indexada por su id
+     * @return array<string, array{valido: bool, mensaje: ?string, fecha_jornada: string, excepcion_id: ?string}>
+     */
+    public function validarInicios(string $localId, iterable $inicios, int $duracionReservaMin): array
+    {
+        $jornadas = [];
+        $jornadaDe = function (string $fecha) use ($localId, $duracionReservaMin, &$jornadas): array {
+            return $jornadas[$fecha] ??= $this->resolver($localId, $fecha, $duracionReservaMin);
+        };
+
+        $resultados = [];
+        foreach ($inicios as $id => $inicio) {
+            $resultados[$id] = $this->validarConJornadas($inicio, $duracionReservaMin, $jornadaDe);
+        }
+
+        return $resultados;
+    }
+
+    /**
+     * @param  \Closure(string): array<string, mixed>  $jornadaDe  Jornada de una fecha `YYYY-MM-DD`
+     * @return array{valido: bool, mensaje: ?string, fecha_jornada: string, excepcion_id: ?string}
+     */
+    private function validarConJornadas(Carbon $inicio, int $duracionReservaMin, \Closure $jornadaDe): array
+    {
         $inicio = $inicio->copy()->setTimezone(config('app.timezone'));
         $fechaInicio = $inicio->toDateString();
         $fechaAnterior = $inicio->copy()->subDay()->toDateString();
 
         // Primero la jornada anterior: sus turnos nocturnos pueden cruzar la medianoche.
         foreach ([$fechaAnterior, $fechaInicio] as $fecha) {
-            $jornada = $this->resolver($localId, $fecha, $duracionReservaMin);
+            $jornada = $jornadaDe($fecha);
 
             foreach (array_filter($jornada['turnos']) as $turno) {
                 $desde = Carbon::parse($turno['desde']);
@@ -166,7 +200,7 @@ class JornadaOperativaService
             }
         }
 
-        $jornada = $this->resolver($localId, $fechaInicio, $duracionReservaMin);
+        $jornada = $jornadaDe($fechaInicio);
         $fechaTexto = $inicio->format('d/m/Y');
 
         if ($jornada['cerrado_por_excepcion']) {

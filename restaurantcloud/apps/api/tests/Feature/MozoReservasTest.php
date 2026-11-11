@@ -660,6 +660,34 @@ class MozoReservasTest extends TestCase
         $this->assertDatabaseHas('reserva', ['id' => $reservaId, 'estado' => 'confirmada']);
     }
 
+    public function test_canal_suspendido_bloquea_crear_pero_no_atender_reservas_existentes(): void
+    {
+        $this->abrirCaja();
+        $pisoId = $this->crearPiso();
+        $mesaExistente = $this->crearMesa($pisoId, 'R75', 4);
+        $mesaNueva = $this->crearMesa($pisoId, 'R76', 4);
+        $reservaId = $this->crearReservaEnBd($mesaExistente, now()->addMinutes(10));
+
+        DB::table('politicas_reserva')->where('local_id', $this->localId)->update(['acepta_reservas' => false]);
+
+        $fecha = now()->addDay()->toDateString();
+        $this->postJson('/api/v1/mozo/reservas', [
+            'cliente_nombre' => 'Cliente Canal Cerrado',
+            'cliente_telefono' => '+51 987 654 321',
+            'fecha_hora' => $fecha.'T13:00:00',
+            'num_personas' => 2,
+            'mesa_ids' => [$mesaNueva],
+        ], $this->headers())
+            ->assertStatus(409)
+            ->assertJsonPath('errores.0.codigo', 'ERR_RESERVAS_DESHABILITADAS');
+
+        $disponibles = $this->getJson("/api/v1/mozo/reservas/mesas-disponibles?fecha={$fecha}&hora=13:00&comensales=2", $this->headers());
+        $disponibles->assertOk()->assertJsonPath('datos.mesas', []);
+        $this->assertStringContainsString('suspendida', (string) $disponibles->json('datos.bloqueo_horario'));
+
+        $this->postJson("/api/v1/mozo/reservas/{$reservaId}/sentar", [], $this->headers())->assertOk();
+    }
+
     public function test_no_show_y_cancelacion_rechazan_reserva_ya_atendida(): void
     {
         $pisoId = $this->crearPiso();

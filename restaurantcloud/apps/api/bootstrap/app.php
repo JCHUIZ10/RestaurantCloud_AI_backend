@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Middleware\EnsureModuloReservas;
+use App\Http\Middleware\EnsureRole;
+use App\Http\Middleware\RedisTokenAuth;
+use App\Http\Middleware\TenantContext;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -17,9 +21,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*');
 
         $middleware->alias([
-            'auth.redis' => \App\Http\Middleware\RedisTokenAuth::class,
-            'tenant.context' => \App\Http\Middleware\TenantContext::class,
-            'role' => \App\Http\Middleware\EnsureRole::class,
+            'auth.redis' => RedisTokenAuth::class,
+            'tenant.context' => TenantContext::class,
+            'role' => EnsureRole::class,
+            'modulo.reservas' => EnsureModuloReservas::class,
         ]);
     })
 

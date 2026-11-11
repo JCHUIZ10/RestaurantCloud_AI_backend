@@ -10,6 +10,7 @@ use App\Domains\Horario\Services\JornadaOperativaService;
 use App\Domains\Inventario\Services\StockDeduccionService;
 use App\Domains\Inventario\Services\ValidacionStockPedidoService;
 use App\Domains\Promociones\Services\PromocionService;
+use App\Domains\Reservas\Services\PoliticasReservaService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
 use Carbon\Carbon;
@@ -3557,24 +3558,25 @@ class MozoController extends Controller
         });
     }
 
+    /** Mensaje cuando el administrador suspendió la recepción de nuevas reservas. */
+    private const MENSAJE_RESERVAS_SUSPENDIDAS = 'La recepción de nuevas reservas está suspendida por el administrador del local.';
+
     /**
-     * Políticas de reserva del local (con valores por defecto si no se configuraron).
+     * Políticas de reserva del local (única fuente: PoliticasReservaService).
      *
-     * @return array{duracion: int, buffer: int, tolerancia: int, bloqueo_previo: int, acepta_online: bool, max_dias: int}
+     * @return array{duracion: int, buffer: int, tolerancia: int, bloqueo_previo: int, acepta_reservas: bool, max_dias: int}
      */
     private function politicaReserva(string $localId): array
     {
-        $politica = DB::table('politicas_reserva')
-            ->where('local_id', $localId)
-            ->first();
+        $politica = app(PoliticasReservaService::class)->obtener($localId);
 
         return [
-            'duracion' => (int) ($politica->duracion_reserva_min ?? 90),
-            'buffer' => (int) ($politica->buffer_reserva_min ?? 15),
-            'tolerancia' => (int) ($politica->tolerancia_no_show_min ?? 15),
-            'bloqueo_previo' => (int) ($politica->minutos_bloqueo_previo ?? 30),
-            'acepta_online' => (bool) ($politica->acepta_reservas ?? false),
-            'max_dias' => (int) ($politica->anticipacion_maxima_dias ?? 30),
+            'duracion' => $politica['duracion_reserva_min'],
+            'buffer' => $politica['buffer_reserva_min'],
+            'tolerancia' => $politica['tolerancia_no_show_min'],
+            'bloqueo_previo' => $politica['minutos_bloqueo_previo'],
+            'acepta_reservas' => $politica['acepta_reservas'],
+            'max_dias' => $politica['anticipacion_maxima_dias'],
         ];
     }
 
@@ -3609,7 +3611,8 @@ class MozoController extends Controller
             'buffer_reserva_min' => $politica['buffer'],
             'minutos_bloqueo_previo' => $politica['bloqueo_previo'],
             'tolerancia_no_show_min' => $politica['tolerancia'],
-            'permite_reservas_online' => $politica['acepta_online'],
+            'acepta_reservas' => $politica['acepta_reservas'],
+            'permite_reservas_online' => $politica['acepta_reservas'],
             'max_dias_anticipacion' => $politica['max_dias'],
             'fecha' => $fecha,
             'fecha_operativa' => $operativa['fecha'],
@@ -3641,8 +3644,10 @@ class MozoController extends Controller
             return ApiResponse::error('La hora solicitada no es válida.', 422);
         }
 
-        // El horario de atención (incluidos feriados, cierres y horarios especiales) manda sobre las mesas
-        $validacionHorario = $jornadas->validarInicioReserva($localId, $solicitadoInicio, $duracion);
+        // El canal suspendido y el horario de atención (feriados, cierres, horarios especiales) mandan sobre las mesas
+        $validacionHorario = $politica['acepta_reservas']
+            ? $jornadas->validarInicioReserva($localId, $solicitadoInicio, $duracion)
+            : ['valido' => false, 'mensaje' => self::MENSAJE_RESERVAS_SUSPENDIDAS];
         if (! $validacionHorario['valido']) {
             return ApiResponse::ok([
                 'fecha_hora_solicitada' => $solicitadoInicio->toIso8601String(),
@@ -3864,6 +3869,10 @@ class MozoController extends Controller
         $politica = $this->politicaReserva($localId);
         $duracion = $politica['duracion'];
         $buffer = $politica['buffer'];
+
+        if (! $politica['acepta_reservas']) {
+            return ApiResponse::error('ERR_RESERVAS_DESHABILITADAS', self::MENSAJE_RESERVAS_SUSPENDIDAS, 409);
+        }
 
         if ($fechaHora->lt(now()->subMinutes(5))) {
             return ApiResponse::error('No se puede registrar una reserva en una fecha u hora pasada.', 422);
