@@ -73,6 +73,11 @@ class PoliticasReservaService
         DB::transaction(function () use ($localId, $empresaId, $usuarioId, $data, $confirmarDesactivacion, $versionEsperada): void {
             $actual = DB::table('politicas_reserva')->where('local_id', $localId)->lockForUpdate()->first();
 
+            // Un parámetro que no llega (por ejemplo, uno que la pantalla ya no muestra) conserva su valor guardado
+            foreach (self::CAMPOS_PARAMETROS as $campo) {
+                $data[$campo] ??= $actual ? (int) $actual->{$campo} : self::VALORES_RECOMENDADOS[$campo];
+            }
+
             if ($actual && $versionEsperada !== null
                 && $this->aIso($actual->updated_at) !== $this->aIso($versionEsperada)) {
                 throw new PoliticasReservaException(

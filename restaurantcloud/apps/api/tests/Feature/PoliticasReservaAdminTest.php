@@ -121,6 +121,53 @@ class PoliticasReservaAdminTest extends TestCase
         $this->assertDatabaseHas('politicas_reserva', ['local_id' => $this->localId, 'duracion_reserva_min' => 90]);
     }
 
+    public function test_valor_fuera_de_rango_responde_con_mensaje_legible_que_nombra_el_campo_y_el_rango(): void
+    {
+        $respuesta = $this->putJson('/api/v1/admin/reservas/politicas', [...$this->parametros, 'duracion_reserva_min' => 10], $this->headers());
+
+        $respuesta->assertStatus(422);
+        $mensaje = $respuesta->json('errors.duracion_reserva_min.0');
+        $this->assertSame('El campo duración de la reserva (minutos) debe estar entre 30 y 240.', $mensaje);
+        $this->assertStringNotContainsString('validation.', $respuesta->getContent());
+    }
+
+    public function test_los_mensajes_de_validacion_estan_traducidos_en_todo_el_sistema(): void
+    {
+        $respuesta = $this->putJson('/api/v1/admin/reservas/politicas', [], $this->headers());
+
+        $respuesta->assertStatus(422);
+        $this->assertSame('El campo recepción de reservas es obligatorio.', $respuesta->json('errors.acepta_reservas.0'));
+        $this->assertStringNotContainsString('validation.', $respuesta->getContent());
+    }
+
+    public function test_margen_de_recordatorio_acepta_solo_de_15_a_1440_minutos(): void
+    {
+        foreach ([10, 2000] as $invalido) {
+            $this->putJson('/api/v1/admin/reservas/politicas', [...$this->parametros, 'margen_recordatorio_min' => $invalido], $this->headers())
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['margen_recordatorio_min']);
+        }
+
+        foreach ([15, 1440] as $valido) {
+            $this->putJson('/api/v1/admin/reservas/politicas', [...$this->parametros, 'margen_recordatorio_min' => $valido], $this->headers())
+                ->assertOk()
+                ->assertJsonPath('datos.margen_recordatorio_min', $valido);
+        }
+    }
+
+    public function test_guardar_sin_anticipacion_minima_conserva_el_valor_guardado(): void
+    {
+        DB::table('politicas_reserva')->where('local_id', $this->localId)->update(['anticipacion_minima_horas' => 5]);
+        $sinAnticipacionMinima = collect($this->parametros)->except('anticipacion_minima_horas')->all();
+
+        $this->putJson('/api/v1/admin/reservas/politicas', $sinAnticipacionMinima, $this->headers())
+            ->assertOk()
+            ->assertJsonPath('datos.duracion_reserva_min', 120)
+            ->assertJsonPath('datos.anticipacion_minima_horas', 5);
+
+        $this->assertDatabaseHas('politicas_reserva', ['local_id' => $this->localId, 'anticipacion_minima_horas' => 5]);
+    }
+
     public function test_apagar_con_reservas_pendientes_exige_confirmacion_y_audita(): void
     {
         $reservaId = $this->crearReservaFutura();
