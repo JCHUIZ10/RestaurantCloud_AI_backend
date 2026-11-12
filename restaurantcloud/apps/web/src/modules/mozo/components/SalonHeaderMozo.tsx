@@ -18,6 +18,8 @@ interface SalonHeaderMozoProps {
   libresCount: number;
   ocupadasCount: number;
   reservasCount?: number;
+  /** El plan incluye reservas; sin él no se muestra el acceso a la bandeja. */
+  moduloReservas: boolean;
   mozoNombre: string;
 }
 
@@ -32,6 +34,7 @@ export const SalonHeaderMozo: React.FC<SalonHeaderMozoProps> = ({
   libresCount,
   ocupadasCount,
   reservasCount,
+  moduloReservas,
   mozoNombre,
 }) => {
   return (
@@ -94,14 +97,16 @@ export const SalonHeaderMozo: React.FC<SalonHeaderMozoProps> = ({
             <span>En Línea</span>
           </div>
 
-          <Link
-            to={ROUTES.MOZO_RESERVAS}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-300 font-bold text-xs transition-colors shadow-2xs"
-            title="Ver bandeja de reservas del turno (CU-MOZO-05)"
-          >
-            <Calendar className="w-3.5 h-3.5 text-sky-600" />
-            <span>📅 Reservas {typeof reservasCount === 'number' ? `(${reservasCount})` : ''}</span>
-          </Link>
+          {moduloReservas && (
+            <Link
+              to={ROUTES.MOZO_RESERVAS}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-300 font-bold text-xs transition-colors shadow-2xs"
+              title="Ver bandeja de reservas del turno (CU-MOZO-05)"
+            >
+              <Calendar className="w-3.5 h-3.5 text-sky-600" />
+              <span>📅 Reservas {typeof reservasCount === 'number' ? `(${reservasCount})` : ''}</span>
+            </Link>
+          )}
 
           <BotonSalir />
         </div>

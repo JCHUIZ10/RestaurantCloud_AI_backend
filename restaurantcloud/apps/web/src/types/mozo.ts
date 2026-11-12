@@ -133,6 +133,10 @@ export interface PlanoCompletoMozoDTO {
   mesas_ocupadas: number;
   total_mesas: number;
   mis_mesas_activas: number;
+  /** Cantidad de reservas activas de hoy (0 si el plan no incluye reservas). */
+  reservas_activas_count?: number;
+  /** El plan de la empresa incluye el módulo de reservas: solo entonces se ofrece su acceso. */
+  modulo_reservas?: boolean;
   total_venta_turno: number;
   mozo_actual: {
     id: string;

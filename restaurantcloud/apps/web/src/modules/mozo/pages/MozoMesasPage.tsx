@@ -782,7 +782,8 @@ export const MozoMesasPage: React.FC = () => {
         totalMesasCount={conteos.total}
         libresCount={conteos.libres}
         ocupadasCount={conteos.ocupadas}
-        reservasCount={(planoData as any)?.reservas_activas_count}
+        reservasCount={planoData?.reservas_activas_count}
+        moduloReservas={planoData?.modulo_reservas === true}
         mozoNombre={planoData?.mozo_actual.nombre || 'Carlos Mendoza'}
       />
 

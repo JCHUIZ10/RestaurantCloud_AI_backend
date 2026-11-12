@@ -991,4 +991,22 @@ class MozoReservasTest extends TestCase
         $this->assertNull($despues[$primera]['conflicto_mesa']);
         $this->assertNull($despues[$segunda]['conflicto_mesa']);
     }
+
+    public function test_plano_indica_si_el_plan_incluye_reservas_para_mostrar_su_acceso(): void
+    {
+        $this->getJson('/api/v1/mozo/plano', $this->headers())
+            ->assertOk()
+            ->assertJsonPath('datos.modulo_reservas', true);
+
+        DB::table('plan')->where('id', 2)->update(['incluye_reservas' => false]);
+
+        try {
+            $this->getJson('/api/v1/mozo/plano', $this->headers())
+                ->assertOk()
+                ->assertJsonPath('datos.modulo_reservas', false)
+                ->assertJsonPath('datos.reservas_activas_count', 0);
+        } finally {
+            DB::table('plan')->where('id', 2)->update(['incluye_reservas' => true]);
+        }
+    }
 }

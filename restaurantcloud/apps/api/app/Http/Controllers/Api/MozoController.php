@@ -415,11 +415,15 @@ class MozoController extends Controller
         $misMesasActivas = $mesas->where('es_mi_mesa', true)->whereIn('estado', ['ocupada', 'cuenta_pedida'])->count();
         $totalVentaTurno = (float) $mesas->whereIn('estado', ['ocupada', 'cuenta_pedida'])->sum('total_consumo');
 
-        $totalReservasHoy = DB::table('reserva')
-            ->where('local_id', $localId)
-            ->whereDate('fecha_hora', now()->toDateString())
-            ->whereIn('estado', ['confirmada', 'bloqueada'])
-            ->count();
+        // El botón de reservas solo se ofrece si el plan de la empresa incluye el módulo
+        $moduloReservas = app(PoliticasReservaService::class)->moduloHabilitado($user->empresa_id);
+        $totalReservasHoy = $moduloReservas
+            ? DB::table('reserva')
+                ->where('local_id', $localId)
+                ->whereDate('fecha_hora', now()->toDateString())
+                ->whereIn('estado', ['confirmada', 'bloqueada'])
+                ->count()
+            : 0;
 
         return ApiResponse::ok([
             'caja_abierta' => $cajaAbierta,
@@ -435,6 +439,7 @@ class MozoController extends Controller
             'mis_mesas_activas' => $misMesasActivas,
             'total_venta_turno' => round($totalVentaTurno, 2),
             'reservas_activas_count' => $totalReservasHoy,
+            'modulo_reservas' => $moduloReservas,
             'mozo_actual' => [
                 'id' => $user->id,
                 'nombre' => $user->nombre,

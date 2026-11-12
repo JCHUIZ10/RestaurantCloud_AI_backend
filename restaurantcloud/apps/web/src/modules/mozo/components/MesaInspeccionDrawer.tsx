@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Clock,
@@ -595,8 +596,9 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
       </div>
 
       {/* Modal Confirmación de Liberación Sin Consumo */}
-      {modalConfirmarLiberar && (
-        <div className="fixed inset-0 z-60 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+      {modalConfirmarLiberar &&
+        createPortal(
+        <div className="fixed inset-0 z-[70] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200">
             <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3">
               <UserX className="w-6 h-6" />
@@ -638,8 +640,9 @@ export const MesaInspeccionDrawer: React.FC<MesaInspeccionDrawerProps> = ({
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body
+        )}
     </div>
   );
 };
