@@ -1,5 +1,5 @@
 import React, { useId, useState } from 'react';
-import { CalendarPlus, AlertCircle } from 'lucide-react';
+import { CalendarPlus, AlertCircle, Info } from 'lucide-react';
 import { Button, Modal } from '@/components/ui';
 import { cn } from '@/shared/utils';
 
@@ -169,6 +169,15 @@ export const ModalCrearEditarExcepcion: React.FC<ModalCrearEditarExcepcionProps>
               </label>
               <input id={`${idForm}-fin`} type="time" value={horaFin} onChange={(e) => setHoraFin(e.target.value)} className={cn(CLASE_CAMPO, 'font-mono')} />
             </div>
+            <p className="col-span-2 flex items-start gap-2 text-xs text-amber-900">
+              <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
+              <span>
+                Ese día el local <strong>atiende solo</strong> entre estas horas; no es un cierre de esa franja. <br/>
+                Se consideran afectadas las reservas que lleguen fuera de ese horario y también las que, por su duración,
+                terminarían después de la hora de cierre (por ejemplo, con reservas de 90 min, una de las 13:00 no cabe
+                si el local cierra a las 14:00).
+              </span>
+            </p>
           </div>
         )}
       </form>
