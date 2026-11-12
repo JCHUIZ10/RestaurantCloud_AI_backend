@@ -195,6 +195,7 @@ class AdminAnulacionesTest extends TestCase
                         'costo_merma_total',
                         'mesas_afectadas',
                         'pendientes_revision',
+                        'comandas_totales',
                     ],
                     'anulaciones',
                 ],
@@ -248,6 +249,79 @@ class AdminAnulacionesTest extends TestCase
         $this->assertFalse($itemsSinMerma->contains('id', $idMerma));
     }
 
+    public function test_listado_expone_fechas_iso8601_y_codigo_de_ocho_caracteres(): void
+    {
+        $base = $this->crearEntornoBase();
+        $id = $this->crearAnulacion($base, ['anulado_at' => now()]);
+
+        $response = $this->getJson('/api/v1/admin/anulaciones?fecha='.now()->toDateString(), $this->headers());
+
+        $item = collect($response->json('datos.anulaciones'))->firstWhere('id', $id);
+        $this->assertNotNull($item);
+
+        foreach (['anulado_at', 'pedido_created_at', 'created_at'] as $campo) {
+            $this->assertMatchesRegularExpression(
+                '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(Z|[+-]\d{2}:\d{2})$/',
+                $item[$campo],
+                "El campo {$campo} no es ISO 8601"
+            );
+        }
+
+        $this->assertMatchesRegularExpression('/^ANUL-\d{4}-[0-9A-F]{8}$/', $item['codigo']);
+    }
+
+    public function test_busqueda_por_codigo_visible_encuentra_la_anulacion(): void
+    {
+        $base = $this->crearEntornoBase();
+        $id = $this->crearAnulacion($base, ['anulado_at' => now()]);
+        $otroId = $this->crearAnulacion($base, ['anulado_at' => now()]);
+
+        $codigo = collect($this->getJson('/api/v1/admin/anulaciones?fecha='.now()->toDateString(), $this->headers())
+            ->json('datos.anulaciones'))->firstWhere('id', $id)['codigo'];
+
+        $response = $this->getJson(
+            '/api/v1/admin/anulaciones?fecha='.now()->toDateString().'&busqueda='.urlencode($codigo),
+            $this->headers()
+        );
+
+        $ids = collect($response->json('datos.anulaciones'))->pluck('id');
+        $this->assertTrue($ids->contains($id));
+        $this->assertFalse($ids->contains($otroId));
+    }
+
+    public function test_busqueda_trata_los_comodines_like_como_texto_literal(): void
+    {
+        $base = $this->crearEntornoBase();
+        $this->crearAnulacion($base, ['anulado_at' => now()]);
+        $hoy = now()->toDateString();
+
+        foreach (['%', '_', '\\'] as $comodin) {
+            $response = $this->getJson(
+                "/api/v1/admin/anulaciones?fecha={$hoy}&busqueda=".urlencode($comodin),
+                $this->headers()
+            );
+
+            $response->assertStatus(200);
+            $this->assertCount(0, $response->json('datos.anulaciones'), "El comodín '{$comodin}' no debe coincidir con todo");
+        }
+    }
+
+    public function test_kpi_comandas_totales_cuenta_solo_comandas_completas_sin_depender_del_filtro(): void
+    {
+        $base = $this->crearEntornoBase();
+        $hoy = now()->toDateString();
+
+        $antes = $this->getJson("/api/v1/admin/anulaciones?fecha={$hoy}", $this->headers())
+            ->json('datos.kpis.comandas_totales');
+
+        $this->crearAnulacion($base, ['tipo_anulacion' => 'comanda_completa', 'anulado_at' => now()]);
+        $this->crearAnulacion($base, ['tipo_anulacion' => 'item_individual', 'anulado_at' => now()]);
+
+        $response = $this->getJson("/api/v1/admin/anulaciones?fecha={$hoy}&filtro_rapido=sin_merma", $this->headers());
+
+        $this->assertSame($antes + 1, $response->json('datos.kpis.comandas_totales'));
+    }
+
     public function test_detalle_anulacion_individual(): void
     {
         $base = $this->crearEntornoBase();
@@ -292,5 +366,91 @@ class AdminAnulacionesTest extends TestCase
             ->where('accion', 'anulacion.revisada')
             ->first();
         $this->assertNotNull($log);
+    }
+
+    public function test_revisar_anulacion_ya_revisada_retorna_409_y_conserva_la_auditoria_original(): void
+    {
+        $base = $this->crearEntornoBase();
+        $revisadoAt = now()->subHour()->startOfSecond();
+        $id = $this->crearAnulacion($base, [
+            'revisado' => true,
+            'revisado_por' => $this->mozoId,
+            'revisado_at' => $revisadoAt,
+            'notas_supervision' => 'Nota original.',
+        ]);
+
+        $response = $this->postJson("/api/v1/admin/anulaciones/{$id}/revisar", [
+            'notas_supervision' => 'Intento de sobrescribir.',
+        ], $this->headers());
+
+        $response->assertStatus(409)
+            ->assertJsonPath('exito', false)
+            ->assertJsonPath('errores.0.codigo', 'ERR_ANULACION_YA_REVISADA');
+
+        $anulacionDb = DB::table('pedido_anulacion')->where('id', $id)->first();
+        $this->assertEquals($this->mozoId, $anulacionDb->revisado_por);
+        $this->assertEquals('Nota original.', $anulacionDb->notas_supervision);
+
+        $this->assertSame(0, DB::table('log_auditoria')
+            ->where('entidad_tipo', 'pedido_anulacion')
+            ->where('entidad_id', $id)
+            ->where('accion', 'anulacion.revisada')
+            ->count());
+    }
+
+    public function test_revisar_anulacion_inexistente_retorna_404(): void
+    {
+        $response = $this->postJson('/api/v1/admin/anulaciones/'.Str::uuid().'/revisar', [], $this->headers());
+
+        $response->assertStatus(404)
+            ->assertJsonPath('errores.0.codigo', 'ERR_ANULACION_NO_ENCONTRADA');
+    }
+
+    private function headersPropietarioSinSede(?string $localIdHeader): array
+    {
+        $rawToken = 'test_token_prop_anul_'.Str::random(32);
+
+        Redis::setex('auth:session:'.hash('sha256', $rawToken), 3600, json_encode([
+            'id' => (string) Str::uuid(),
+            'nombre' => 'Propietario Test Auditoria',
+            'correo' => 'prop_anul@aurea.local',
+            'rol' => 'propietario',
+            'empresa_id' => $this->empresaId,
+            'local_id' => null,
+            'estado' => 'activo',
+        ]));
+
+        $headers = [
+            'Authorization' => 'Bearer '.$rawToken,
+            'Accept' => 'application/json',
+        ];
+
+        if ($localIdHeader !== null) {
+            $headers['X-Local-Id'] = $localIdHeader;
+        }
+
+        return $headers;
+    }
+
+    public function test_propietario_con_sede_ajena_en_header_no_accede_a_la_bandeja(): void
+    {
+        $response = $this->getJson(
+            '/api/v1/admin/anulaciones',
+            $this->headersPropietarioSinSede((string) Str::uuid())
+        );
+
+        $response->assertStatus(400)
+            ->assertJsonPath('errores.0.codigo', 'ERR_LOCAL_REQUERIDO');
+    }
+
+    public function test_propietario_con_sede_propia_en_header_accede_a_la_bandeja(): void
+    {
+        $response = $this->getJson(
+            '/api/v1/admin/anulaciones',
+            $this->headersPropietarioSinSede($this->localId)
+        );
+
+        $response->assertStatus(200)
+            ->assertJsonPath('exito', true);
     }
 }

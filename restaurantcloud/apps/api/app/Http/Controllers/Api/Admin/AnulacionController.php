@@ -79,14 +79,22 @@ class AnulacionController extends Controller
         } catch (RuntimeException $e) {
             $status = $e->getCode() >= 400 && $e->getCode() < 600 ? $e->getCode() : 400;
 
-            return ApiResponse::error('ERR_REVISION_ANULACION', $e->getMessage(), $status);
+            $codigo = match ($status) {
+                404 => 'ERR_ANULACION_NO_ENCONTRADA',
+                409 => 'ERR_ANULACION_YA_REVISADA',
+                default => 'ERR_REVISION_ANULACION',
+            };
+
+            return ApiResponse::error($codigo, $e->getMessage(), $status);
         }
     }
 
+    /**
+     * La sede activa la valida y asigna el middleware TenantContext: no se debe
+     * confiar en el header X-Local-Id ni en el query local_id sin esa validación.
+     */
     private function resolverLocalId(Request $request): ?string
     {
-        return $request->user()->local_id
-            ?? $request->query('local_id')
-            ?? $request->header('X-Local-Id');
+        return $request->user()->local_id;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Domains\Admin\Services;
 
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -31,7 +32,8 @@ class AnulacionAuditoriaService
             COALESCE(COUNT(*) FILTER (WHERE es_merma = true), 0)::INT as con_merma_cantidad,
             COALESCE(SUM(costo_merma) FILTER (WHERE es_merma = true), 0) as costo_merma_total,
             COUNT(DISTINCT mesa_numero)::INT as mesas_afectadas,
-            COALESCE(COUNT(*) FILTER (WHERE revisado = false), 0)::INT as pendientes_revision
+            COALESCE(COUNT(*) FILTER (WHERE revisado = false), 0)::INT as pendientes_revision,
+            COALESCE(COUNT(*) FILTER (WHERE tipo_anulacion = \'comanda_completa\'), 0)::INT as comandas_totales
         ')->first();
 
         // 2. Consulta filtrada de anulaciones
@@ -71,12 +73,23 @@ class AnulacionAuditoriaService
 
         // Buscador textual
         if (! empty($filtros['busqueda'])) {
-            $term = '%'.trim($filtros['busqueda']).'%';
-            $query->where(function ($q) use ($term) {
+            $busqueda = trim($filtros['busqueda']);
+            // Los comodines de LIKE escritos por el usuario se tratan como texto literal
+            $term = '%'.addcslashes($busqueda, '\\%_').'%';
+            // El código visible (ANUL-AAAA-XXXXXXXX) deriva de los últimos caracteres del UUID
+            $sufijoCodigo = preg_match('/^ANUL-\d{4}-([0-9A-F]{4,32})$/i', $busqueda, $coincidencia)
+                ? $coincidencia[1]
+                : null;
+
+            $query->where(function ($q) use ($term, $sufijoCodigo) {
                 $q->where('pa.producto_nombre', 'ILIKE', $term)
                     ->orWhere('pa.mesa_numero', 'ILIKE', $term)
                     ->orWhere('pa.motivo_detalle', 'ILIKE', $term)
                     ->orWhere('mozo.nombre', 'ILIKE', $term);
+
+                if ($sufijoCodigo !== null) {
+                    $q->orWhereRaw("REPLACE(pa.id::text, '-', '') ILIKE ?", ['%'.$sufijoCodigo]);
+                }
             });
         }
 
@@ -95,6 +108,7 @@ class AnulacionAuditoriaService
                 'costo_merma_total' => round((float) ($kpisRaw->costo_merma_total ?? 0), 2),
                 'mesas_afectadas' => (int) ($kpisRaw->mesas_afectadas ?? 0),
                 'pendientes_revision' => (int) ($kpisRaw->pendientes_revision ?? 0),
+                'comandas_totales' => (int) ($kpisRaw->comandas_totales ?? 0),
             ],
             'anulaciones' => $items,
         ];
@@ -142,7 +156,11 @@ class AnulacionAuditoriaService
                 ->first();
 
             if (! $row) {
-                throw new RuntimeException('ERR_ANULACION_NO_ENCONTRADA: La anulación no existe o pertenece a otra sede.', 404);
+                throw new RuntimeException('La anulación no existe o pertenece a otra sede.', 404);
+            }
+
+            if ((bool) $row->revisado) {
+                throw new RuntimeException('Esta anulación ya fue revisada.', 409);
             }
 
             $now = now();
@@ -186,7 +204,7 @@ class AnulacionAuditoriaService
         $codigo = sprintf(
             'ANUL-%s-%s',
             date('Y', strtotime($row->anulado_at)),
-            strtoupper(substr($idLimpio, -4))
+            strtoupper(substr($idLimpio, -8))
         );
 
         return [
@@ -209,8 +227,8 @@ class AnulacionAuditoriaService
             'anulado_por_nombre' => (string) ($row->anulador_nombre ?? 'Personal'),
             'motivo_categoria' => (string) $row->motivo_categoria,
             'motivo_detalle' => (string) $row->motivo_detalle,
-            'pedido_created_at' => (string) $row->pedido_created_at,
-            'anulado_at' => (string) $row->anulado_at,
+            'pedido_created_at' => $this->aIso8601($row->pedido_created_at),
+            'anulado_at' => $this->aIso8601($row->anulado_at),
             'minutos_espera' => (int) $row->minutos_espera,
             'estado_anterior' => (string) $row->estado_anterior,
             'es_merma' => (bool) $row->es_merma,
@@ -218,10 +236,18 @@ class AnulacionAuditoriaService
             'revisado' => (bool) $row->revisado,
             'revisado_por' => $row->revisado_por ? (string) $row->revisado_por : null,
             'revisado_por_nombre' => $row->revisor_nombre ? (string) $row->revisor_nombre : null,
-            'revisado_at' => $row->revisado_at ? (string) $row->revisado_at : null,
+            'revisado_at' => $row->revisado_at ? $this->aIso8601($row->revisado_at) : null,
             'notas_supervision' => $row->notas_supervision ? (string) $row->notas_supervision : null,
             'partida_cocina' => $row->categoria_nombre ? (string) $row->categoria_nombre : null,
-            'created_at' => (string) $row->created_at,
+            'created_at' => $this->aIso8601($row->created_at),
         ];
+    }
+
+    /**
+     * Postgres devuelve "2026-11-12 14:30:00.123456-05", formato que Safari no interpreta.
+     */
+    private function aIso8601(string $marcaTiempo): string
+    {
+        return Carbon::parse($marcaTiempo)->toIso8601String();
     }
 }
