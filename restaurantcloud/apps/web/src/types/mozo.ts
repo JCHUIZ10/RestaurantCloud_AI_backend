@@ -748,6 +748,8 @@ export interface ReservaCardDTO {
   notas?: string | null;
   en_tolerancia: boolean;
   tolerancia_expiro: boolean;
+  /** Aviso si esta reserva activa choca con otra en la misma mesa (p. ej. tras subir la duración); si no, null. */
+  conflicto_mesa?: string | null;
   pedido_id?: string | null;
   created_at: string;
 }

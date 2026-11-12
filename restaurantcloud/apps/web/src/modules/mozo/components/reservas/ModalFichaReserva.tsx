@@ -151,6 +151,17 @@ export const ModalFichaReserva: React.FC<ModalFichaReservaProps> = ({
 
         {/* Cuerpo del Modal */}
         <div className="p-5 sm:p-6 overflow-y-auto space-y-4 text-xs text-slate-700">
+          {esActiva && reserva.conflicto_mesa && (
+            <div role="alert" className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
+              <div>
+                <div className="font-bold">Choque de mesa</div>
+                <p className="text-[11px] leading-relaxed">{reserva.conflicto_mesa}</p>
+                <p className="text-[11px] mt-1">Usa «Cambiar mesa» para asignar esta reserva a una mesa libre.</p>
+              </div>
+            </div>
+          )}
+
           {/* Tarjeta de Mesa Asignada */}
           <div className="p-3.5 rounded-xl bg-aurea-navy/5 border border-aurea-navy/15 flex items-center justify-between">
             <div>
@@ -374,10 +385,14 @@ export const ModalFichaReserva: React.FC<ModalFichaReservaProps> = ({
                   type="button"
                   onClick={() => onCambiarMesa(reserva)}
                   disabled={procesando || !esActiva}
-                  className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-slate-100 text-aurea-navy border border-aurea-navy/30 font-bold text-xs flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                  className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 border transition-colors disabled:opacity-50 ${
+                    reserva.conflicto_mesa
+                      ? "bg-amber-500 hover:bg-amber-600 text-white border-amber-600 shadow-md"
+                      : "bg-white hover:bg-slate-100 text-aurea-navy border-aurea-navy/30"
+                  }`}
                   style={{ minHeight: '44px' }}
                 >
-                  <Repeat className="w-4 h-4 text-aurea-copper" />
+                  <Repeat className={`w-4 h-4 ${reserva.conflicto_mesa ? "text-white" : "text-aurea-copper"}`} />
                   <span>Cambiar mesa</span>
                 </button>
               )}

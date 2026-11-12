@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock, Phone, MessageSquare, User, Check, Eye, ArrowUpRight } from 'lucide-react';
+import { Clock, Phone, MessageSquare, User, Check, Eye, ArrowUpRight, AlertTriangle } from 'lucide-react';
 import { ReservaCardDTO } from '@/types/mozo';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/router/routes.constants';
@@ -215,6 +215,15 @@ export const ReservasTable: React.FC<ReservasTableProps> = ({
                   {/* Estado */}
                   <td className="py-3.5 px-4 whitespace-nowrap">
                     {renderEstadoBadge(reserva.estado)}
+                    {reserva.conflicto_mesa && (
+                      <span
+                        title={reserva.conflicto_mesa}
+                        className="ml-1.5 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300"
+                      >
+                        <AlertTriangle className="w-3 h-3" aria-hidden="true" />
+                        Choque de mesa
+                      </span>
+                    )}
                   </td>
 
                   {/* Acciones */}
