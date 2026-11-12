@@ -2,6 +2,7 @@
 
 namespace App\Domains\Admin\Services;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -37,20 +38,7 @@ class AnulacionAuditoriaService
         ')->first();
 
         // 2. Consulta filtrada de anulaciones
-        $query = DB::table('pedido_anulacion AS pa')
-            ->leftJoin('usuario AS mozo', 'mozo.id', '=', 'pa.mozo_id')
-            ->leftJoin('usuario AS anulador', 'anulador.id', '=', 'pa.anulado_por')
-            ->leftJoin('usuario AS revisor', 'revisor.id', '=', 'pa.revisado_por')
-            ->leftJoin('producto AS prod', 'prod.id', '=', 'pa.producto_id')
-            ->leftJoin('categoria_producto AS cat', 'cat.id', '=', 'prod.categoria_id')
-            ->where('pa.local_id', $localId)
-            ->select([
-                'pa.*',
-                'mozo.nombre AS mozo_nombre',
-                'anulador.nombre AS anulador_nombre',
-                'revisor.nombre AS revisor_nombre',
-                'cat.nombre AS categoria_nombre',
-            ]);
+        $query = $this->consultaDetallada($localId);
 
         if ($fechaActiva) {
             $query->whereDate('pa.anulado_at', $fechaActiva);
@@ -85,7 +73,7 @@ class AnulacionAuditoriaService
                 $q->where('pa.producto_nombre', 'ILIKE', $term)
                     ->orWhere('pa.mesa_numero', 'ILIKE', $term)
                     ->orWhere('pa.motivo_detalle', 'ILIKE', $term)
-                    ->orWhere('mozo.nombre', 'ILIKE', $term);
+                    ->orWhere('pa.mozo_nombre', 'ILIKE', $term);
 
                 if ($sufijoCodigo !== null) {
                     $q->orWhereRaw("REPLACE(pa.id::text, '-', '') ILIKE ?", ['%'.$sufijoCodigo]);
@@ -119,21 +107,8 @@ class AnulacionAuditoriaService
      */
     public function detalle(string $localId, string $id): ?array
     {
-        $row = DB::table('pedido_anulacion AS pa')
-            ->leftJoin('usuario AS mozo', 'mozo.id', '=', 'pa.mozo_id')
-            ->leftJoin('usuario AS anulador', 'anulador.id', '=', 'pa.anulado_por')
-            ->leftJoin('usuario AS revisor', 'revisor.id', '=', 'pa.revisado_por')
-            ->leftJoin('producto AS prod', 'prod.id', '=', 'pa.producto_id')
-            ->leftJoin('categoria_producto AS cat', 'cat.id', '=', 'prod.categoria_id')
-            ->where('pa.local_id', $localId)
+        $row = $this->consultaDetallada($localId)
             ->where('pa.id', $id)
-            ->select([
-                'pa.*',
-                'mozo.nombre AS mozo_nombre',
-                'anulador.nombre AS anulador_nombre',
-                'revisor.nombre AS revisor_nombre',
-                'cat.nombre AS categoria_nombre',
-            ])
             ->first();
 
         if (! $row) {
@@ -196,20 +171,24 @@ class AnulacionAuditoriaService
     }
 
     /**
+     * Consulta de lectura sobre v_pedido_anulacion_detalle (ya trae los nombres de mozo,
+     * quien anuló, revisor, partida y local), acotada a la sede. La comparten la bandeja,
+     * la ficha y la exportación a Excel.
+     */
+    public function consultaDetallada(string $localId): Builder
+    {
+        return DB::table('v_pedido_anulacion_detalle AS pa')
+            ->where('pa.local_id', $localId);
+    }
+
+    /**
      * Mapea el registro de pedido_anulacion al DTO PedidoAnulacionItemDTO.
      */
-    private function formatearItem(object $row): array
+    public function formatearItem(object $row): array
     {
-        $idLimpio = str_replace('-', '', (string) $row->id);
-        $codigo = sprintf(
-            'ANUL-%s-%s',
-            date('Y', strtotime($row->anulado_at)),
-            strtoupper(substr($idLimpio, -8))
-        );
-
         return [
             'id' => (string) $row->id,
-            'codigo' => $codigo,
+            'codigo' => $this->codigoVisible($row),
             'local_id' => (string) $row->local_id,
             'pedido_id' => (string) $row->pedido_id,
             'pedido_item_id' => $row->pedido_item_id ? (string) $row->pedido_item_id : null,
@@ -241,6 +220,20 @@ class AnulacionAuditoriaService
             'partida_cocina' => $row->categoria_nombre ? (string) $row->categoria_nombre : null,
             'created_at' => $this->aIso8601($row->created_at),
         ];
+    }
+
+    /**
+     * Código legible de la anulación (ANUL-AAAA-XXXXXXXX), derivado del año y del final del UUID.
+     */
+    public function codigoVisible(object $row): string
+    {
+        $idLimpio = str_replace('-', '', (string) $row->id);
+
+        return sprintf(
+            'ANUL-%s-%s',
+            date('Y', strtotime($row->anulado_at)),
+            strtoupper(substr($idLimpio, -8))
+        );
     }
 
     /**

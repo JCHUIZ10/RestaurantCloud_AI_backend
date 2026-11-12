@@ -194,6 +194,8 @@ Route::prefix('v1')->group(function (): void {
             // CU-ADMIN-04 / CU-ADMIN-12: Bandeja y Auditoría de Anulaciones y Mermas
             Route::prefix('anulaciones')->group(function (): void {
                 Route::get('/', [AnulacionController::class, 'index']);
+                Route::get('/exportar/resumen', [AnulacionController::class, 'resumenExportacion'])->middleware('throttle:60,1');
+                Route::get('/exportar', [AnulacionController::class, 'exportar'])->middleware('throttle:10,1');
                 Route::get('/{id}', [AnulacionController::class, 'show'])->whereUuid('id');
                 Route::post('/{id}/revisar', [AnulacionController::class, 'revisar'])->whereUuid('id');
             });
