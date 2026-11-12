@@ -2,6 +2,7 @@
 
 namespace App\Domains\Reservas\Services;
 
+use App\Domains\Horario\Services\JornadaOperativaService;
 use App\Domains\Reservas\Exceptions\PoliticasReservaException;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -34,6 +35,11 @@ class PoliticasReservaService
         'anticipacion_minima_horas',
         'anticipacion_maxima_dias',
     ];
+
+    public function __construct(
+        private AsignacionMesasReservaService $asignacion,
+        private JornadaOperativaService $jornadas,
+    ) {}
 
     /**
      * Políticas vigentes del local; si nunca se configuraron, los valores recomendados con el canal habilitado.
@@ -69,8 +75,9 @@ class PoliticasReservaService
         array $data,
         bool $confirmarDesactivacion = false,
         ?string $versionEsperada = null,
+        bool $confirmarImpacto = false,
     ): array {
-        DB::transaction(function () use ($localId, $empresaId, $usuarioId, $data, $confirmarDesactivacion, $versionEsperada): void {
+        DB::transaction(function () use ($localId, $empresaId, $usuarioId, $data, $confirmarDesactivacion, $versionEsperada, $confirmarImpacto): void {
             $actual = DB::table('politicas_reserva')->where('local_id', $localId)->lockForUpdate()->first();
 
             // Un parámetro que no llega (por ejemplo, uno que la pantalla ya no muestra) conserva su valor guardado
@@ -102,6 +109,19 @@ class PoliticasReservaService
                 }
             }
 
+            // Subir la duración o el buffer puede dejar reservas ya registradas chocando entre sí o fuera del turno
+            $antes = $this->obtener($localId);
+            $impacto = $this->impactoDeCambio($localId, (int) $data['duracion_reserva_min'], (int) $data['buffer_reserva_min']);
+
+            if ($impacto['hay_impacto'] && ! $confirmarImpacto) {
+                throw new PoliticasReservaException(
+                    'ERR_POLITICAS_AFECTAN_RESERVAS',
+                    "Con estos valores {$impacto['total']} reservas registradas dejarían de ser compatibles. Confirma si deseas guardar igualmente.",
+                    409,
+                    $impacto,
+                );
+            }
+
             DB::table('politicas_reserva')->upsert(
                 [[
                     'local_id' => $localId,
@@ -113,6 +133,17 @@ class PoliticasReservaService
                 ['local_id'],
                 ['acepta_reservas', ...self::CAMPOS_PARAMETROS, 'updated_at'],
             );
+
+            $cambios = collect(self::CAMPOS_PARAMETROS)
+                ->filter(fn (string $campo): bool => (int) $antes[$campo] !== (int) $data[$campo])
+                ->mapWithKeys(fn (string $campo): array => [$campo => ['antes' => (int) $antes[$campo], 'despues' => (int) $data[$campo]]]);
+
+            if ($cambios->isNotEmpty()) {
+                $this->auditar($empresaId, $localId, $usuarioId, 'CAMBIO_POLITICAS_RESERVA', [
+                    'cambios' => $cambios->all(),
+                    'reservas_afectadas' => $impacto['total'],
+                ]);
+            }
 
             if ($estabaActivo && ! $data['acepta_reservas']) {
                 $this->auditar($empresaId, $localId, $usuarioId, 'DESACTIVACION_CANAL_RESERVAS', [
@@ -161,11 +192,73 @@ class PoliticasReservaService
     }
 
     /**
+     * Reservas futuras que dejarían de ser compatibles si la duración o el buffer pasan a los valores dados.
+     * Solo cuentan los problemas nuevos (los que ya existían con la política vigente no se atribuyen al cambio):
+     * choque de mesa entre reservas y reservas que terminarían después del cierre del turno.
+     * Bajar duración y buffer nunca genera impacto.
+     *
+     * @return array{hay_impacto: bool, total: int, choques: array<int, array<string, mixed>>, fuera_de_horario: array<int, array<string, mixed>>}
+     */
+    public function impactoDeCambio(string $localId, int $nuevaDuracion, int $nuevoBuffer): array
+    {
+        $actual = $this->obtener($localId);
+        $duracionActual = $actual['duracion_reserva_min'];
+        $bufferActual = $actual['buffer_reserva_min'];
+        $desde = now()->subMinutes($actual['tolerancia_no_show_min']);
+
+        $choques = collect();
+        if ($nuevaDuracion + $nuevoBuffer > $duracionActual + $bufferActual) {
+            $yaExistentes = $this->asignacion->choquesEntreReservas($localId, $desde, null, $duracionActual, $bufferActual)
+                ->map(fn (array $choque): string => $choque['reserva_id'].'|'.$choque['otra_reserva_id'])
+                ->flip();
+
+            $choques = $this->asignacion->choquesEntreReservas($localId, $desde, null, $nuevaDuracion, $nuevoBuffer)
+                ->reject(fn (array $choque): bool => $yaExistentes->has($choque['reserva_id'].'|'.$choque['otra_reserva_id']))
+                ->groupBy('reserva_id');
+        }
+
+        $fueraDeHorario = collect();
+        if ($nuevaDuracion > $duracionActual) {
+            $inicios = DB::table('reserva')
+                ->where('local_id', $localId)
+                ->whereIn('estado', ['confirmada', 'bloqueada'])
+                ->where('fecha_hora', '>=', $desde)
+                ->pluck('fecha_hora', 'id')
+                ->map(fn ($fechaHora): Carbon => Carbon::parse($fechaHora));
+
+            $conDuracionActual = $this->jornadas->validarInicios($localId, $inicios, $duracionActual);
+            $fueraDeHorario = collect($this->jornadas->validarInicios($localId, $inicios, $nuevaDuracion))
+                ->filter(fn (array $resultado, string $id): bool => ! $resultado['valido'] && ($conDuracionActual[$id]['valido'] ?? false))
+                ->map(fn (array $resultado): string => (string) $resultado['mensaje']);
+        }
+
+        $ids = $choques->keys()->merge($fueraDeHorario->keys())->unique()->values();
+        $filas = $this->reservasPendientes($localId)->keyBy('id');
+
+        $conMotivo = fn (string $id, string $motivo): array => ($filas->get($id) ?? ['id' => $id]) + ['motivo' => $motivo];
+
+        $listaChoques = $choques->map(function (Collection $deLaReserva, string $id) use ($conMotivo): array {
+            $motivo = $deLaReserva->map(fn (array $c): string => "Mesa {$c['mesa']}: solo {$c['separacion_min']} min hasta la reserva de {$c['otra_cliente']} ({$c['otra_hora']}); se requieren {$c['requerida_min']} min.")->implode(' ');
+
+            return $conMotivo($id, $motivo);
+        })->values()->all();
+
+        $listaFuera = $fueraDeHorario->map(fn (string $mensaje, string $id): array => $conMotivo($id, $mensaje))->values()->all();
+
+        return [
+            'hay_impacto' => $ids->isNotEmpty(),
+            'total' => $ids->count(),
+            'choques' => $listaChoques,
+            'fuera_de_horario' => $listaFuera,
+        ];
+    }
+
+    /**
      * Restaura los parámetros recomendados; el estado del canal (acepta_reservas) no se toca.
      *
      * @return array<string, mixed>
      */
-    public function restaurarValoresRecomendados(string $localId, string $empresaId, string $usuarioId): array
+    public function restaurarValoresRecomendados(string $localId, string $empresaId, string $usuarioId, bool $confirmarImpacto = false): array
     {
         $actual = $this->obtener($localId);
 
@@ -174,6 +267,7 @@ class PoliticasReservaService
             $empresaId,
             $usuarioId,
             ['acepta_reservas' => $actual['acepta_reservas'], ...self::VALORES_RECOMENDADOS],
+            confirmarImpacto: $confirmarImpacto,
         );
     }
 

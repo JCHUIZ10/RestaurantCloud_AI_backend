@@ -965,4 +965,30 @@ class MozoReservasTest extends TestCase
 
         $this->assertDatabaseHas('reserva', ['id' => $reservaId, 'estado' => 'atendida']);
     }
+
+    public function test_bandeja_senala_reservas_que_chocan_en_la_misma_mesa_y_la_marca_desaparece_al_cambiar_de_mesa(): void
+    {
+        $this->congelarAMediodia();
+        $piso = $this->crearPiso();
+        $mesaA = $this->crearMesa($piso, 'CH'.Str::random(3));
+        $mesaB = $this->crearMesa($piso, 'CH'.Str::random(3));
+
+        $fecha = now()->addDays(2)->startOfDay();
+        $this->configurarHorario($fecha->dayOfWeekIso, [['Almuerzo', '12:00', '16:00']]);
+        $primera = $this->crearReservaEnBd($mesaA, Carbon::parse($fecha->toDateString().' 13:00', config('app.timezone')));
+        $segunda = $this->crearReservaEnBd($mesaA, Carbon::parse($fecha->toDateString().' 14:00', config('app.timezone')));
+
+        $bandeja = fn () => collect($this->getJson('/api/v1/mozo/reservas?fecha='.$fecha->toDateString().'&turno=todos', $this->headers())
+            ->assertOk()->json('datos'))->keyBy('id');
+
+        $antes = $bandeja();
+        $this->assertStringContainsString('solo 60 min', (string) $antes[$primera]['conflicto_mesa']);
+        $this->assertNotNull($antes[$segunda]['conflicto_mesa']);
+
+        $this->patchJson("/api/v1/mozo/reservas/{$segunda}/reasignar-mesa", ['mesa_ids' => [$mesaB]], $this->headers())->assertOk();
+
+        $despues = $bandeja();
+        $this->assertNull($despues[$primera]['conflicto_mesa']);
+        $this->assertNull($despues[$segunda]['conflicto_mesa']);
+    }
 }

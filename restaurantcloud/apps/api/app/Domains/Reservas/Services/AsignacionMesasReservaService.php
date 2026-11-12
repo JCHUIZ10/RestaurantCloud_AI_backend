@@ -96,6 +96,61 @@ class AsignacionMesasReservaService
     }
 
     /**
+     * Reservas activas que comparten mesa y se pisan con la duración y el buffer indicados
+     * (misma regla que `disponibilidad`: la separación entre llegadas debe ser ≥ duración + buffer).
+     * Cada choque aparece una vez por cada reserva implicada, con los datos de la otra.
+     *
+     * @return Collection<int, array{reserva_id: string, otra_reserva_id: string, mesa: string, otra_cliente: string, otra_hora: string, otra_fecha_hora: string, separacion_min: int, requerida_min: int}>
+     */
+    public function choquesEntreReservas(string $localId, Carbon $desde, ?Carbon $hasta, int $duracion, int $buffer): Collection
+    {
+        $requerida = $duracion + $buffer;
+        $zona = config('app.timezone');
+
+        $filas = DB::table('reserva as r')
+            ->join('reserva_mesa as rm', 'rm.reserva_id', '=', 'r.id')
+            ->join('mesa as m', 'm.id', '=', 'rm.mesa_id')
+            ->where('r.local_id', $localId)
+            ->whereIn('r.estado', ['confirmada', 'bloqueada'])
+            ->where('r.fecha_hora', '>=', $desde)
+            ->when($hasta, fn ($consulta) => $consulta->where('r.fecha_hora', '<', $hasta))
+            ->orderBy('rm.mesa_id')
+            ->orderBy('r.fecha_hora')
+            ->get(['r.id', 'r.cliente_nombre', 'r.fecha_hora', 'm.id as mesa_id', 'm.numero']);
+
+        $choques = collect();
+
+        // Con las llegadas ordenadas, basta comparar cada reserva con la siguiente de su mesa
+        foreach ($filas->groupBy('mesa_id') as $deLaMesa) {
+            $deLaMesa = $deLaMesa->values();
+            for ($i = 0; $i < $deLaMesa->count() - 1; $i++) {
+                $a = $deLaMesa[$i];
+                $b = $deLaMesa[$i + 1];
+                $separacion = (int) round((strtotime($b->fecha_hora) - strtotime($a->fecha_hora)) / 60);
+
+                if ($separacion >= $requerida) {
+                    continue;
+                }
+
+                foreach ([[$a, $b], [$b, $a]] as [$propia, $otra]) {
+                    $choques->push([
+                        'reserva_id' => $propia->id,
+                        'otra_reserva_id' => $otra->id,
+                        'mesa' => $propia->numero,
+                        'otra_cliente' => $otra->cliente_nombre,
+                        'otra_hora' => Carbon::parse($otra->fecha_hora)->setTimezone($zona)->format('H:i'),
+                        'otra_fecha_hora' => Carbon::parse($otra->fecha_hora)->setTimezone($zona)->format('Y-m-d\TH:i:s'),
+                        'separacion_min' => $separacion,
+                        'requerida_min' => $requerida,
+                    ]);
+                }
+            }
+        }
+
+        return $choques;
+    }
+
+    /**
      * Comprueba que las mesas pueden asignarse a la reserva y las devuelve bloqueadas para escritura.
      * Debe llamarse dentro de una transacción: el bloqueo evita que dos mozos asignen la misma mesa a la vez.
      *

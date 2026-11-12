@@ -30,6 +30,7 @@ class PoliticaReservaController extends Controller
             'anticipacion_minima_horas' => ['sometimes', 'integer', 'between:0,48'],
             'anticipacion_maxima_dias' => ['required', 'integer', 'between:1,90'],
             'confirmar_desactivacion' => ['nullable', 'boolean'],
+            'confirmar_impacto' => ['nullable', 'boolean'],
             'updated_at' => ['nullable', 'date'],
         ]);
 
@@ -42,15 +43,32 @@ class PoliticaReservaController extends Controller
             $data,
             (bool) ($data['confirmar_desactivacion'] ?? false),
             $data['updated_at'] ?? null,
+            (bool) ($data['confirmar_impacto'] ?? false),
         )));
     }
 
     public function restaurarDefault(Request $request): JsonResponse
     {
         $usuario = $request->user();
+        $confirmarImpacto = $request->boolean('confirmar_impacto');
 
         return $this->run(fn () => ApiResponse::ok(
-            $this->politicas->restaurarValoresRecomendados($usuario->local_id, $usuario->empresa_id, $usuario->id)
+            $this->politicas->restaurarValoresRecomendados($usuario->local_id, $usuario->empresa_id, $usuario->id, $confirmarImpacto)
+        ));
+    }
+
+    /** Reservas que dejarían de ser compatibles si la duración o el buffer pasan a los valores indicados. */
+    public function precheckImpacto(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'duracion_reserva_min' => ['required', 'integer', 'between:30,240'],
+            'buffer_reserva_min' => ['required', 'integer', 'between:0,60'],
+        ]);
+
+        return ApiResponse::ok($this->politicas->impactoDeCambio(
+            $request->user()->local_id,
+            (int) $data['duracion_reserva_min'],
+            (int) $data['buffer_reserva_min'],
         ));
     }
 

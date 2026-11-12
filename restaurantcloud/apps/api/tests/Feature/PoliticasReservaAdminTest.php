@@ -258,4 +258,114 @@ class PoliticasReservaAdminTest extends TestCase
         DB::table('plan')->where('id', 2)->update(['incluye_reservas' => true]);
         $this->getJson('/api/v1/admin/reservas/politicas', $this->headers())->assertOk();
     }
+
+    /** @var array<int, string> */
+    private array $reservasCreadas = [];
+
+    protected function tearDown(): void
+    {
+        if ($this->reservasCreadas !== []) {
+            DB::table('reserva')->whereIn('id', $this->reservasCreadas)->delete();
+        }
+
+        parent::tearDown();
+    }
+
+    /** Crea una mesa propia y reservas activas en ella a las horas dadas (hoy + 3 días). */
+    private function reservasEnUnaMesa(array $horas): array
+    {
+        $pisoId = (string) Str::uuid();
+        $mesaId = (string) Str::uuid();
+        DB::table('piso')->insert(['id' => $pisoId, 'local_id' => $this->localId, 'nombre' => 'Piso '.Str::random(4), 'columnas' => 5, 'filas' => 3, 'estado' => 'activo', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('mesa')->insert(['id' => $mesaId, 'local_id' => $this->localId, 'piso_id' => $pisoId, 'numero' => 'I'.Str::random(3), 'capacidad' => 4, 'forma' => 'cuadrada', 'posicion_x' => 1, 'posicion_y' => 1, 'permite_union' => true, 'estado' => 'activa', 'created_at' => now(), 'updated_at' => now()]);
+
+        $ids = [];
+        foreach ($horas as $hora) {
+            $id = (string) Str::uuid();
+            DB::table('reserva')->insert([
+                'id' => $id, 'local_id' => $this->localId, 'cliente_nombre' => 'Cliente '.$hora,
+                'cliente_telefono' => '+51 987 654 321', 'fecha_hora' => Carbon::now()->addDays(3)->setTimeFromTimeString($hora),
+                'num_personas' => 2, 'estado' => 'confirmada', 'created_at' => now(), 'updated_at' => now(),
+            ]);
+            DB::table('reserva_mesa')->insert(['reserva_id' => $id, 'mesa_id' => $mesaId]);
+            $ids[] = $id;
+        }
+        $this->reservasCreadas = [...$this->reservasCreadas, ...$ids];
+
+        return $ids;
+    }
+
+    public function test_subir_la_duracion_con_reservas_que_chocarian_exige_confirmacion(): void
+    {
+        [$primera, $segunda] = $this->reservasEnUnaMesa(['13:00', '15:00']);
+
+        $respuesta = $this->putJson('/api/v1/admin/reservas/politicas', $this->parametros, $this->headers());
+
+        $respuesta->assertStatus(409)->assertJsonPath('errores.0.codigo', 'ERR_POLITICAS_AFECTAN_RESERVAS');
+        $detalles = $respuesta->json('errores.0.detalles');
+        $this->assertEqualsCanonicalizing([$primera, $segunda], array_column($detalles['choques'], 'id'));
+        $this->assertStringContainsString('se requieren 130 min', $detalles['choques'][0]['motivo']);
+        $this->assertDatabaseHas('politicas_reserva', ['local_id' => $this->localId, 'duracion_reserva_min' => 90]);
+    }
+
+    public function test_confirmar_el_impacto_guarda_y_audita_los_cambios(): void
+    {
+        $this->reservasEnUnaMesa(['13:00', '15:00']);
+
+        $this->putJson('/api/v1/admin/reservas/politicas', [...$this->parametros, 'confirmar_impacto' => true], $this->headers())
+            ->assertOk()
+            ->assertJsonPath('datos.duracion_reserva_min', 120);
+
+        $auditoria = DB::table('log_auditoria')->where('local_id', $this->localId)->where('accion', 'CAMBIO_POLITICAS_RESERVA')->latest('fecha')->first();
+        $detalle = json_decode($auditoria->detalle, true);
+        $this->assertSame(['antes' => 90, 'despues' => 120], $detalle['cambios']['duracion_reserva_min']);
+        $this->assertSame(2, $detalle['reservas_afectadas']);
+    }
+
+    public function test_bajar_la_duracion_no_revisa_reservas(): void
+    {
+        $this->reservasEnUnaMesa(['13:00', '14:45']);
+
+        $this->putJson('/api/v1/admin/reservas/politicas', [...$this->parametros, 'duracion_reserva_min' => 60, 'buffer_reserva_min' => 10], $this->headers())
+            ->assertOk();
+    }
+
+    public function test_un_choque_que_ya_existia_no_se_atribuye_al_cambio(): void
+    {
+        // 13:00 → 13:45 chocan ya con 90 + 15; subir solo la tolerancia no los vuelve a señalar
+        $this->reservasEnUnaMesa(['13:00', '13:45']);
+
+        $this->putJson('/api/v1/admin/reservas/politicas', [...$this->parametros, 'duracion_reserva_min' => 90, 'buffer_reserva_min' => 15], $this->headers())
+            ->assertOk();
+    }
+
+    public function test_reserva_de_la_ultima_franja_que_dejaria_de_caber_se_reporta_fuera_de_horario(): void
+    {
+        [$id] = $this->reservasEnUnaMesa(['21:30']);
+
+        $respuesta = $this->postJson('/api/v1/admin/reservas/politicas/precheck-impacto', ['duracion_reserva_min' => 120, 'buffer_reserva_min' => 15], $this->headers())
+            ->assertOk()
+            ->assertJsonPath('datos.hay_impacto', true);
+
+        $this->assertContains($id, array_column($respuesta->json('datos.fuera_de_horario'), 'id'));
+    }
+
+    public function test_precheck_sin_cambios_que_afecten_no_reporta_impacto(): void
+    {
+        $this->reservasEnUnaMesa(['13:00', '15:00']);
+
+        $this->postJson('/api/v1/admin/reservas/politicas/precheck-impacto', ['duracion_reserva_min' => 90, 'buffer_reserva_min' => 15], $this->headers())
+            ->assertOk()
+            ->assertJsonPath('datos.hay_impacto', false)
+            ->assertJsonPath('datos.total', 0);
+    }
+
+    public function test_cambiar_solo_la_tolerancia_se_audita_sin_pedir_confirmacion(): void
+    {
+        $this->putJson('/api/v1/admin/reservas/politicas', [...$this->parametros, 'duracion_reserva_min' => 90, 'buffer_reserva_min' => 15, 'tolerancia_no_show_min' => 25], $this->headers())
+            ->assertOk();
+
+        $auditoria = DB::table('log_auditoria')->where('local_id', $this->localId)->where('accion', 'CAMBIO_POLITICAS_RESERVA')->latest('fecha')->first();
+        $this->assertSame(['antes' => 15, 'despues' => 25], json_decode($auditoria->detalle, true)['cambios']['tolerancia_no_show_min']);
+    }
 }

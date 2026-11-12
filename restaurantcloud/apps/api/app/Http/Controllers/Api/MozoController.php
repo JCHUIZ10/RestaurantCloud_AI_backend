@@ -3679,7 +3679,7 @@ class MozoController extends Controller
     /**
      * CU-MOZO-05: Listar reservas de la jornada con cálculo de anticipación y tolerancia.
      */
-    public function getReservas(Request $request, JornadaOperativaService $jornadas): JsonResponse
+    public function getReservas(Request $request, JornadaOperativaService $jornadas, AsignacionMesasReservaService $asignacion): JsonResponse
     {
         $user = $request->user();
         $localId = $user->local_id;
@@ -3731,9 +3731,19 @@ class MozoController extends Controller
             ->get()
             ->keyBy('mesa_id');
 
+        // Reservas activas que hoy chocan con otra en la misma mesa (p. ej. tras subir la duración de las reservas)
+        $margenChoque = $politica['duracion'] + $politica['buffer'];
+        $conflictos = $asignacion->choquesEntreReservas(
+            $localId,
+            Carbon::parse($rango['desde'])->subMinutes($margenChoque),
+            Carbon::parse($rango['hasta'])->addMinutes($margenChoque),
+            $politica['duracion'],
+            $politica['buffer'],
+        )->groupBy('reserva_id');
+
         $nowTimestamp = now()->timestamp;
 
-        $reservasDTO = $reservasRaw->map(function ($r) use ($mesasAsignadas, $pedidosActivos, $nowTimestamp, $toleranciaMin, $bloqueoPrevioMin) {
+        $reservasDTO = $reservasRaw->map(function ($r) use ($mesasAsignadas, $pedidosActivos, $nowTimestamp, $toleranciaMin, $bloqueoPrevioMin, $conflictos) {
             $mesas = $mesasAsignadas->get($r->id) ?? collect();
             $mesaIds = $mesas->pluck('mesa_id')->values()->all();
 
@@ -3779,6 +3789,9 @@ class MozoController extends Controller
                 'notas' => $r->notas ?? $r->motivo_cancelacion,
                 'en_tolerancia' => $enTolerancia,
                 'tolerancia_expiro' => $toleranciaExpiro,
+                'conflicto_mesa' => in_array($r->estado, ['confirmada', 'bloqueada'], true) && $conflictos->has($r->id)
+                    ? $conflictos->get($r->id)->map(fn (array $c): string => "Mesa {$c['mesa']}: solo {$c['separacion_min']} min hasta la reserva de {$c['otra_cliente']} ({$c['otra_hora']}); se requieren {$c['requerida_min']} min.")->implode(' ')
+                    : null,
                 'pedido_id' => $pedidoId,
                 'created_at' => Carbon::parse($r->created_at)->toIso8601String(),
             ];

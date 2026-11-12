@@ -165,6 +165,7 @@ Route::prefix('v1')->group(function (): void {
                 Route::put('/', [PoliticaReservaController::class, 'update']);
                 Route::post('/restaurar-default', [PoliticaReservaController::class, 'restaurarDefault']);
                 Route::get('/precheck-desactivacion', [PoliticaReservaController::class, 'precheckDesactivacion']);
+                Route::post('/precheck-impacto', [PoliticaReservaController::class, 'precheckImpacto']);
             });
 
             Route::prefix('configuracion-kds')->group(function (): void {
