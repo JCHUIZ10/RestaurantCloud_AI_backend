@@ -10,6 +10,7 @@ import { AnulacionesHeader } from '../components/anulaciones/AnulacionesHeader';
 import { AnulacionesFiltros } from '../components/anulaciones/AnulacionesFiltros';
 import { AnulacionesTabla } from '../components/anulaciones/AnulacionesTabla';
 import { ModalDetalleAnulacion } from '../components/anulaciones/ModalDetalleAnulacion';
+import { ModalExportarAnulaciones } from '../components/anulaciones/ModalExportarAnulaciones';
 import { AnulacionesVacioState } from '../components/anulaciones/AnulacionesVacioState';
 
 const DEBOUNCE_BUSQUEDA_MS = 350;
@@ -47,6 +48,9 @@ export const AdminAnulacionesPage: React.FC = () => {
   // Modal de Detalle / Auditoría
   const [anulacionSeleccionada, setAnulacionSeleccionada] = useState<PedidoAnulacionItemDTO | null>(null);
   const [modalDetalleAbierto, setModalDetalleAbierto] = useState(false);
+
+  // Modal de exportación a Excel
+  const [modalExportarAbierto, setModalExportarAbierto] = useState(false);
 
   // Anulaciones cuya revisión está en curso (evita el doble envío)
   const [idsRevisando, setIdsRevisando] = useState<Set<string>>(new Set());
@@ -293,6 +297,7 @@ export const AdminAnulacionesPage: React.FC = () => {
         onCambiarFecha={setFecha}
         kpis={kpis}
         onRecargar={() => cargarDatos(false)}
+        onExportar={() => setModalExportarAbierto(true)}
         cargando={cargando}
       />
 
@@ -345,6 +350,14 @@ export const AdminAnulacionesPage: React.FC = () => {
           onMarcarRevisado={(id) => handleMarcarRevisado(id)}
         />
       )}
+
+      {/* Exportación a Excel: parte de la fecha que se está viendo */}
+      <ModalExportarAnulaciones
+        abierto={modalExportarAbierto}
+        fechaVista={fecha}
+        onCerrar={() => setModalExportarAbierto(false)}
+        onExportado={(nombreArchivo) => mostrarToast(`Excel descargado: ${nombreArchivo}`, 'exito')}
+      />
 
       {/* Modal 680px: Ficha de Inspección y Auditoría */}
       <ModalDetalleAnulacion

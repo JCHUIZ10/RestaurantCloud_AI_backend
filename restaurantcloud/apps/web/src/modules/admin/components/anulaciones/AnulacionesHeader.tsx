@@ -6,6 +6,7 @@ import {
   TrendingDown,
   AlertTriangle,
   LayoutGrid,
+  FileSpreadsheet,
   FileX2,
   RefreshCw,
 } from 'lucide-react';
@@ -18,6 +19,8 @@ interface AnulacionesHeaderProps {
   /** null = sin datos confiables (cargando por primera vez o la carga falló) */
   kpis: AnulacionesKPIsDTO | null;
   onRecargar?: () => void;
+  /** Abre el modal de exportación a Excel */
+  onExportar?: () => void;
   cargando?: boolean;
 }
 
@@ -33,6 +36,7 @@ export const AnulacionesHeader: React.FC<AnulacionesHeaderProps> = ({
   onCambiarFecha,
   kpis,
   onRecargar,
+  onExportar,
   cargando = false,
 }) => {
   // Se recalculan en cada render para que "Hoy" siga siendo correcto si la pestaña queda abierta pasada la medianoche
@@ -140,6 +144,17 @@ export const AnulacionesHeader: React.FC<AnulacionesHeaderProps> = ({
             >
               <RefreshCw className={`w-3.5 h-3.5 text-aurea-copper ${cargando ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">Actualizar</span>
+            </button>
+          )}
+
+          {onExportar && (
+            <button
+              onClick={onExportar}
+              title="Exportar las anulaciones a Excel"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 border border-emerald-600 shadow-sm text-xs font-semibold text-white transition-colors"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Exportar</span>
             </button>
           )}
           </>

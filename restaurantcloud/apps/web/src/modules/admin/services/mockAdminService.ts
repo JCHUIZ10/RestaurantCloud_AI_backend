@@ -70,6 +70,9 @@ import {
   PedidoAnulacionItemDTO,
   AnulacionesBandejaResponseDTO,
   FiltrosAnulacionesRequest,
+  FiltrosExportacionAnulacionesRequest,
+  ResumenExportacionAnulacionesDTO,
+  ArchivoExportacionAnulaciones,
   MarcarRevisadoRequestDTO,
   NotificacionCampanaDTO,
   PromocionAdminDTO,
@@ -6906,6 +6909,45 @@ class MockAdminService {
   // ===========================================================================
   // MÉTODOS DE AUDITORÍA DE ANULACIONES Y NOTIFICACIONES: CU-ADMIN-12
   // ===========================================================================
+
+  /**
+   * GET /api/v1/admin/anulaciones/exportar/resumen
+   * Totales del periodo para la vista previa del modal de exportación.
+   */
+  async getResumenExportacionAnulaciones(
+    filtros: FiltrosExportacionAnulacionesRequest
+  ): Promise<ApiResponse<ResumenExportacionAnulacionesDTO>> {
+    await new Promise((r) => setTimeout(r, 80));
+    const periodo = this.anulaciones.filter((a) => {
+      const dia = a.anulado_at.slice(0, 10);
+      return dia >= filtros.desde && dia <= filtros.hasta;
+    });
+
+    return {
+      exito: true,
+      datos: {
+        desde: filtros.desde,
+        hasta: filtros.hasta,
+        total: periodo.length,
+        monto_total: periodo.reduce((suma, a) => suma + a.monto_total, 0),
+        con_merma: periodo.filter((a) => a.es_merma).length,
+        costo_merma_total: periodo.reduce((suma, a) => suma + (a.costo_merma || 0), 0),
+        pendientes_revision: periodo.filter((a) => !a.revisado).length,
+        dias_con_anulaciones: new Set(periodo.map((a) => a.anulado_at.slice(0, 10))).size,
+      },
+    };
+  }
+
+  /**
+   * GET /api/v1/admin/anulaciones/exportar
+   * El Excel solo se genera con la API real; en modo demostración se informa al usuario.
+   */
+  async exportarAnulacionesExcel(
+    _filtros: FiltrosExportacionAnulacionesRequest
+  ): Promise<ArchivoExportacionAnulaciones> {
+    await new Promise((r) => setTimeout(r, 80));
+    throw new Error('La exportación a Excel está disponible al conectar con la API real.');
+  }
 
   /**
    * GET /api/v1/admin/anulaciones

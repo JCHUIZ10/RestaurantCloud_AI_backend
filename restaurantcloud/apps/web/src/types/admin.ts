@@ -1207,6 +1207,29 @@ export interface FiltrosAnulacionesRequest {
   busqueda?: string;
 }
 
+export type ModoExportacionAnulaciones = 'dia' | 'rango';
+
+/** Periodo a exportar a Excel (AAAA-MM-DD, ambos extremos incluidos). Un día = desde igual a hasta. */
+export interface FiltrosExportacionAnulacionesRequest {
+  desde: string;
+  hasta: string;
+}
+
+/** Totales del periodo para la vista previa del modal de exportación. */
+export interface ResumenExportacionAnulacionesDTO extends FiltrosExportacionAnulacionesRequest {
+  total: number;
+  monto_total: number;
+  con_merma: number;
+  costo_merma_total: number;
+  pendientes_revision: number;
+  dias_con_anulaciones: number;
+}
+
+export interface ArchivoExportacionAnulaciones {
+  blob: Blob;
+  nombreArchivo: string;
+}
+
 export interface MarcarRevisadoRequestDTO {
   notas_supervision?: string;
 }

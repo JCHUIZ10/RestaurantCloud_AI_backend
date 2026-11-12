@@ -147,6 +147,9 @@ import type {
   FiltroTipoPromocion,
   FiltrosAnulacionesRequest,
   AnulacionesBandejaResponseDTO,
+  FiltrosExportacionAnulacionesRequest,
+  ResumenExportacionAnulacionesDTO,
+  ArchivoExportacionAnulaciones,
   PedidoAnulacionItemDTO,
   MarcarRevisadoRequestDTO,
   NotificacionCampanaDTO,
@@ -1266,6 +1269,53 @@ export const realAdminService = {
 
   getAnulacionDetalle: (id: string): Promise<ApiEnvelope<PedidoAnulacionItemDTO>> =>
     apiGet(`/admin/anulaciones/${id}`),
+
+  // Exportación a Excel de la auditoría de anulaciones
+  getResumenExportacionAnulaciones: (
+    filtros: FiltrosExportacionAnulacionesRequest
+  ): Promise<ApiEnvelope<ResumenExportacionAnulacionesDTO>> =>
+    apiGet('/admin/anulaciones/exportar/resumen', { desde: filtros.desde, hasta: filtros.hasta }),
+
+  /**
+   * Descarga el .xlsx del periodo. Ante un error del servidor lanza un Error con el mensaje
+   * de la API (y `codigo`), porque con responseType 'blob' el cuerpo del error llega como Blob.
+   */
+  async exportarAnulacionesExcel(
+    filtros: FiltrosExportacionAnulacionesRequest
+  ): Promise<ArchivoExportacionAnulaciones> {
+    try {
+      const response = await apiClient.get('/admin/anulaciones/exportar', {
+        params: { desde: filtros.desde, hasta: filtros.hasta },
+        responseType: 'blob',
+      });
+      const disposicion = String(response.headers['content-disposition'] ?? '');
+      const nombreServidor = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposicion)?.[1];
+      const periodo = filtros.desde === filtros.hasta ? filtros.desde : `${filtros.desde}_al_${filtros.hasta}`;
+
+      return {
+        blob: new Blob([response.data], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        }),
+        nombreArchivo: nombreServidor ? decodeURIComponent(nombreServidor) : `anulaciones_${periodo}.xlsx`,
+      };
+    } catch (err: any) {
+      let mensaje = 'No se pudo generar el archivo de Excel.';
+      let codigo: string | undefined;
+      const cuerpo = err?.response?.data;
+      if (cuerpo instanceof Blob) {
+        try {
+          const json = JSON.parse(await cuerpo.text());
+          codigo = json?.errores?.[0]?.codigo;
+          mensaje = json?.errores?.[0]?.mensaje ?? json?.message ?? mensaje;
+        } catch {
+          // Respuesta no JSON: se conserva el mensaje genérico
+        }
+      } else if (!err?.response) {
+        mensaje = 'No pudimos comunicarnos con el servidor. Verifica tu conexión e inténtalo de nuevo.';
+      }
+      throw Object.assign(new Error(mensaje), { codigo });
+    }
+  },
 
   marcarAnulacionRevisada: (
     id: string,
