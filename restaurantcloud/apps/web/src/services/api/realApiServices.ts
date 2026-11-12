@@ -1020,8 +1020,8 @@ export const realAdminService = {
     conErroresDeNegocio(() => apiPut('/admin/reservas/politicas', payload)),
   precheckDesactivacionReservas: (): Promise<ApiEnvelope<PrecheckDesactivacionReservasResponse>> =>
     conErroresDeNegocio(() => apiGet('/admin/reservas/politicas/precheck-desactivacion')),
-  restaurarPoliticasDefault: (): Promise<ApiEnvelope<PoliticasReservaAdminDTO>> =>
-    conErroresDeNegocio(() => apiPost('/admin/reservas/politicas/restaurar-default')),
+  restaurarPoliticasDefault: (confirmarImpacto = false): Promise<ApiEnvelope<PoliticasReservaAdminDTO>> =>
+    conErroresDeNegocio(() => apiPost('/admin/reservas/politicas/restaurar-default', { confirmar_impacto: confirmarImpacto })),
 
   // CU-ADMIN-03: Catálogo de Insumos y Gestión de Stock
   obtenerInsumos: (

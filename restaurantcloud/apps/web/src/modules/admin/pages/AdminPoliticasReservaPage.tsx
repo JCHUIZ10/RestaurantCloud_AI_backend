@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useBlocker } from 'react-router-dom';
-import { PoliticasReservaDTO, ReservaResumenDTO } from '@/types/admin';
+import { ImpactoPoliticasReservaDTO, PoliticasReservaDTO, ReservaResumenDTO } from '@/types/admin';
 import { politicasReservaService } from '@/services/serviceAdapter';
 import { mensajeDeErrorApi, mensajesDeValidacionApi } from '@/shared/utils/errorApi';
 import { EstadoError, ModalConfirmacion, useToast } from '@/components/ui';
@@ -9,6 +9,7 @@ import { SwitchMaestroReservas } from '../components/politicas/SwitchMaestroRese
 import { PanelParametrosView } from '../components/politicas/PanelParametrosView';
 import { SimuladorLineaTiempoView } from '../components/politicas/SimuladorLineaTiempoView';
 import { ModalBloqueoDesactivacion } from '../components/politicas/ModalBloqueoDesactivacion';
+import { ModalImpactoPoliticas } from '../components/politicas/ModalImpactoPoliticas';
 import { PaywallStarterReservas } from '../components/politicas/PaywallStarterReservas';
 import { CampoPolitica, RANGOS_POLITICAS, textoRango, validarPoliticas } from '../components/politicas/rangosPoliticas';
 
@@ -32,6 +33,8 @@ export const AdminPoliticasReservaPage: React.FC = () => {
   const [reservasPendientes, setReservasPendientes] = useState<ReservaResumenDTO[]>([]);
   const [desactivacionConfirmada, setDesactivacionConfirmada] = useState(false);
   const [confirmarRestaurar, setConfirmarRestaurar] = useState(false);
+  const [impacto, setImpacto] = useState<ImpactoPoliticasReservaDTO | null>(null);
+  const [accionImpacto, setAccionImpacto] = useState<'guardar' | 'restaurar' | null>(null);
 
   // Descarta respuestas de cargas que ya no corresponden (recargas encadenadas)
   const cargaRef = useRef(0);
@@ -151,7 +154,21 @@ export const AdminPoliticasReservaPage: React.FC = () => {
     mostrar('El canal se suspenderá al guardar. Las reservas pendientes siguen vigentes.', 'info');
   };
 
-  const handleGuardar = async () => {
+  // Subir la duración o el buffer afecta reservas ya registradas: el administrador lo confirma antes de guardar
+  const abrirImpacto = (impacto: ImpactoPoliticasReservaDTO | undefined, accion: 'guardar' | 'restaurar') => {
+    setImpacto(impacto ?? null);
+    setAccionImpacto(accion);
+  };
+
+  const handleGuardarConImpacto = () => {
+    const accion = accionImpacto;
+    setImpacto(null);
+    setAccionImpacto(null);
+    if (accion === 'restaurar') handleRestaurarRecomendados(true);
+    else handleGuardar(true);
+  };
+
+  const handleGuardar = async (confirmarImpacto = false) => {
     if (!politicasBorrador || isGuardando) return;
     if (camposConError.length > 0) {
       mostrar(`Corrige ${camposConError.map((c) => RANGOS_POLITICAS[c].etiqueta).join(', ')} para poder guardar.`, 'error');
@@ -169,6 +186,7 @@ export const AdminPoliticasReservaPage: React.FC = () => {
         margen_recordatorio_min: politicasBorrador.margen_recordatorio_min,
         anticipacion_maxima_dias: politicasBorrador.anticipacion_maxima_dias,
         confirmar_desactivacion: !politicasBorrador.acepta_reservas && desactivacionConfirmada,
+        confirmar_impacto: confirmarImpacto,
         updated_at: politicasOriginales?.updated_at,
       });
 
@@ -191,6 +209,9 @@ export const AdminPoliticasReservaPage: React.FC = () => {
           setModalReservasAbierto(true);
           break;
         }
+        case 'ERR_POLITICAS_AFECTAN_RESERVAS':
+          abrirImpacto(error.detalles as ImpactoPoliticasReservaDTO | undefined, 'guardar');
+          break;
         case 'ERR_POLITICAS_MODIFICADAS':
           mostrar(error.mensaje, 'alerta');
           await cargarDatos();
@@ -220,14 +241,16 @@ export const AdminPoliticasReservaPage: React.FC = () => {
   };
 
   // Restaura solo los parámetros; el estado del canal (interruptor) no cambia
-  const handleRestaurarRecomendados = async () => {
+  const handleRestaurarRecomendados = async (confirmarImpacto = false) => {
     setConfirmarRestaurar(false);
     setIsGuardando(true);
     try {
-      const resp = await politicasReservaService.restaurarPoliticasDefault();
+      const resp = await politicasReservaService.restaurarPoliticasDefault(confirmarImpacto);
       if (resp.exito && resp.datos) {
         aplicarPersistidas(resp.datos);
         mostrar('Parámetros restablecidos a los valores recomendados', 'ok');
+      } else if (resp.errores?.[0]?.codigo === 'ERR_POLITICAS_AFECTAN_RESERVAS') {
+        abrirImpacto(resp.errores[0].detalles as ImpactoPoliticasReservaDTO | undefined, 'restaurar');
       } else if (resp.errores?.[0]?.codigo === 'ERR_MODULO_RESERVAS_NO_CONTRATADO') {
         setModuloNoContratado(resp.errores[0].mensaje);
       } else {
@@ -310,7 +333,7 @@ export const AdminPoliticasReservaPage: React.FC = () => {
             onChangeCampo={handleCambiarCampo}
             onRestaurarRecomendados={() => setConfirmarRestaurar(true)}
             onDescartarCambios={handleDescartar}
-            onGuardar={handleGuardar}
+            onGuardar={() => handleGuardar()}
             isDirty={isDirty}
             isGuardando={isGuardando}
           />
@@ -337,10 +360,21 @@ export const AdminPoliticasReservaPage: React.FC = () => {
         reservas={reservasPendientes}
       />
 
+      <ModalImpactoPoliticas
+        isOpen={accionImpacto !== null}
+        onClose={() => {
+          setImpacto(null);
+          setAccionImpacto(null);
+        }}
+        onGuardarIgualmente={handleGuardarConImpacto}
+        impacto={impacto}
+        loading={isGuardando}
+      />
+
       <ModalConfirmacion
         abierto={confirmarRestaurar}
         onCerrar={() => setConfirmarRestaurar(false)}
-        onConfirmar={handleRestaurarRecomendados}
+        onConfirmar={() => handleRestaurarRecomendados()}
         titulo="¿Restaurar valores recomendados?"
         mensaje="Se reemplazarán los parámetros por los valores recomendados y se guardarán de inmediato. Los cambios sin guardar se perderán. El estado del interruptor de reservas no cambia."
         textoConfirmar="Restaurar"

@@ -1091,6 +1091,8 @@ export interface ActualizarPoliticasReservaRequest {
   anticipacion_maxima_dias: number;
   /** Confirma apagar el canal aunque existan reservas pendientes (siguen vigentes). */
   confirmar_desactivacion?: boolean;
+  /** Confirma guardar aunque reservas registradas dejen de ser compatibles con la nueva duración o buffer. */
+  confirmar_impacto?: boolean;
   /** Versión (updated_at) sobre la que se editó, para detectar ediciones simultáneas. */
   updated_at?: string;
 }
@@ -1103,6 +1105,19 @@ export interface ReservaResumenDTO {
   pax: number;
   mesas: string[];
   link_whatsapp?: string;
+}
+
+/** Reserva que dejaría de ser compatible con la nueva duración o buffer, con el motivo. */
+export interface ReservaAfectadaPorPoliticaDTO extends Partial<ReservaResumenDTO> {
+  id: string;
+  motivo: string;
+}
+
+export interface ImpactoPoliticasReservaDTO {
+  hay_impacto: boolean;
+  total: number;
+  choques: ReservaAfectadaPorPoliticaDTO[];
+  fuera_de_horario: ReservaAfectadaPorPoliticaDTO[];
 }
 
 export interface PrecheckDesactivacionReservasResponse {
