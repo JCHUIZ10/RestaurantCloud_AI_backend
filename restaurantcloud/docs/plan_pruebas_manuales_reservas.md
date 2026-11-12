@@ -70,7 +70,7 @@ Ingresa como **administrador**.
 | A3 | Control de acceso | Cierra sesión, entra como **mozo** y escribe `/admin/politicas-reserva`. | El mozo **no ve** la pantalla (es redirigido o rechazado). | ✔ |
 | A4 | Editar y guardar | Cambia la duración a **120** y pulsa *Guardar*. Recarga con F5. | Aviso "Políticas de reserva guardadas". Tras recargar, la duración sigue en 120. | ✔ |
 | A5 | Rangos visibles y valor inválido | Observa cada campo; luego escribe una duración de **10**. | Cada campo muestra **"Permitido: 30 a 240 min"** (según el campo). Con 10, el campo se marca en rojo con *"Debe estar entre 30 y 240 minutos."*, aparece arriba el resumen *"Corrige 1 campo antes de guardar"* y **Guardar queda deshabilitado**. Al volver a un valor válido, todo se limpia. | ✔ |
-| A6 | Cambios sin guardar (navegar) | Cambia un valor y, sin guardar, pulsa otra opción del menú. | Aparece **"¿Salir sin guardar?"**. *Volver* mantiene la pantalla; *Salir sin guardar* sale y descarta. | ☐ |
+| A6 | Cambios sin guardar (navegar) | Cambia un valor y, sin guardar, pulsa otra opción del menú. | Aparece **"¿Salir sin guardar?"**. *Volver* mantiene la pantalla; *Salir sin guardar* sale y descarta. | ✔ |
 | A7 | Cambios sin guardar (cerrar pestaña) | Cambia un valor y recarga o cierra la pestaña. | El navegador pide confirmar la salida. | ✔ |
 | A8 | Descartar | Cambia varios valores y pulsa *Descartar*. | Los valores vuelven a los guardados; aviso "Cambios descartados". | ✔ |
 | A9 | Restaurar recomendados | Pulsa *Restaurar recomendados*. | Pide confirmación. Al aceptar, los parámetros pasan a **90 / 15 / 15 / 30 / 120 / 2 / 30** y quedan guardados. | ✔ |
@@ -84,6 +84,12 @@ Ingresa como **administrador**.
 | A12e | Anticipación mínima se conserva | Con la base de datos, cambia `anticipacion_minima_horas` a 5, guarda otro valor desde la pantalla y consulta la tabla. | La anticipación mínima **sigue en 5**: la pantalla ya no la envía ni la pisa. | ✔ |
 | A13 | Edición simultánea | Abre la pantalla en **dos navegadores** como administrador. En el primero guarda un cambio. En el segundo cambia otro valor y guarda. | El segundo recibe el aviso **"Otro administrador modificó las políticas…"** y se recargan los valores vigentes. | ✔ |
 | A14 | Propietario puede editar | Entra como **propietario**, abre `/admin/politicas-reserva`, cambia un valor y guarda. | Se guarda sin errores. | ✔ |
+| A15 | Subir la duración con choque | Deja dos reservas futuras en la **misma mesa** a 120 min de distancia (por ejemplo 13:00 y 15:00; con 90 min + 15 de buffer no chocan). En la pantalla sube la duración a **120** y pulsa *Guardar*. | No se guarda: aparece **"Algunas reservas dejarían de ser compatibles"** con las dos reservas en *Chocarían en la misma mesa*, cada una con su motivo (*"…se requieren 135 min"*). Se aclara que **no se cancela ninguna**. | ☐ |
+| A16 | Volver a editar | En el modal de A15 pulsa *Volver a editar*. | El modal se cierra, el borrador sigue con 120 sin guardar y en la base la duración continúa en 90. | ☐ |
+| A17 | Guardar igualmente | Repite A15 y pulsa *Guardar igualmente*. | Aviso "Políticas de reserva guardadas" y duración 120. La auditoría (0.3) tiene una entrada `CAMBIO_POLITICAS_RESERVA` con `antes 90 / después 120` y `reservas_afectadas`. | ☐ |
+| A18 | Reserva que no cabe en el turno | Con el turno hasta las 23:00, deja una reserva futura a las **21:30** y sube la duración a 120. | El modal la muestra en *Terminarían después del cierre del turno* con la última hora de llegada del turno. | ☐ |
+| A19 | Bajar o parámetros sin conflicto | Baja la duración a 60, o cambia solo la tolerancia o el bloqueo previo. | Se guarda **sin modal**. El cambio de tolerancia queda en la auditoría. | ☐ |
+| A20 | Restaurar con impacto | Con duración 60 y reservas separadas por 70 min en una mesa, pulsa *Restaurar recomendados* (vuelve a 90). | Tras la confirmación de restaurar aparece el modal de impacto; *Guardar igualmente* completa la restauración. | ☐ |
 
 ---
 
@@ -141,7 +147,7 @@ Ingresa como **mozo** y abre *Reservas*. Deja el canal **encendido**.
 | C11a | Agrupar hasta alcanzar | Toca una mesa de 4; luego otra de 4. | Con una mesa: "4 de 8 lugares", mensaje **"Faltan 4 lugares: agrega otra mesa para agrupar"** y *Confirmar* deshabilitado. Con ambas: "8 de 8 lugares" y *Confirmar* se habilita. | ✔ |
 | C11b | Mesa que no permite unión | Con 8 personas, intenta agrupar una mesa marcada como fija (no unible) con otra. | La mesa no se agrega y aparece *"La Mesa X no permite unirse con otras mesas…"*. Una mesa fija que alcance por sí sola (por ejemplo, de 8 lugares) sí se puede elegir sola. | ✔ |
 | C11c | Aviso del servidor | Intenta crear una reserva con mesas que no alcanzan directamente contra el API. | Responde 422 con *"Las mesas seleccionadas suman 4 lugares y la reserva es para 8 personas…"*. | ✔ |
-| C11d | Teléfono según el estándar | Pega en el teléfono, uno por uno: `+51 987 654 321`, `+51987654321` y `51987654321`; luego escribe `812345678`. | Cada número pegado queda como `987 654 321` **completo, sin perder dígitos**. El prefijo `🇵🇪 +51` es fijo y no se puede borrar. Con `812…` el campo se marca en rojo con *"Un móvil de Perú empieza con el dígito 9."*; con 9 dígitos válidos aparece **Válido**. Mientras escribes, muestra el avance `n/9`. | ☐ |
+| C11d | Teléfono según el estándar | Pega en el teléfono, uno por uno: `+51 987 654 321`, `+51987654321` y `51987654321`; luego escribe `812345678`. | Cada número pegado queda como `987 654 321` **completo, sin perder dígitos**. El prefijo `🇵🇪 +51` es fijo y no se puede borrar. Con `812…` el campo se marca en rojo con *"Un móvil de Perú empieza con el dígito 9."*; con 9 dígitos válidos aparece **Válido**. Mientras escribes, muestra el avance `n/9`. | ✔ |
 
 ### C12–C24. Atender la reserva (ficha y acciones)
 
@@ -158,26 +164,28 @@ Para estos casos crea reservas **de hoy** (turno vigente) o adelanta las existen
 | C16b | Confirmar el cambio | Elige una mesa libre que alcance y pulsa *Cambiar a Mesa X*. | Aviso *"Mesa cambiada…"*; la ficha y la bandeja muestran la mesa nueva. Ahora **Sentar** funciona y abre la comanda en la mesa nueva. | ✔ |
 | C16c | Varias mesas | Cambia una reserva de 8 personas a dos mesas de 4 que permitan unión. | Con una mesa: *"Faltan 4 lugares"* y el botón deshabilitado; con ambas se habilita y se guarda. La etiqueta pasa a `Mesa [ A ; B ]`. | ✔ |
 | C16d | Conservar una mesa | En una reserva de 2 mesas, deja una de las actuales y cambia la otra. | La mesa actual aparece **LIBRE y elegida** al abrir el modal (no cuenta como choque consigo misma). Si no cambias nada, *Cambiar* está deshabilitado. | ✔ |
-| C16e | Choque con otra reserva | Intenta elegir una mesa con otra reserva en esa franja. | Aparece atenuada con *"Reservada a las HH:MM"* y no se puede elegir. Contra el API directo: 422 `ERR_MESA_RESERVADA`. | ☐ |
-| C16f | Carrera entre mozos | Con el modal abierto, otro mozo ocupa la mesa elegida; confirma. | Aviso rojo con el motivo, el modal **sigue abierto** y la disponibilidad se recarga. | ☐ |
-| C16g | Desde el plano | En *Salón*, toca una mesa bloqueada, abre la ficha y cambia la mesa. | La mesa vieja deja de verse bloqueada y la nueva pasa a bloqueada (si la reserva está en su ventana). | ☐ |
-| C16h | Reserva cerrada | Abre la ficha de una reserva atendida, cancelada o con inasistencia. | **No** se puede cambiar mesa (botón deshabilitado). | ☐ |
-| C17 | Sentar con la caja cerrada | Cierra la caja (cajero) e intenta sentar. | Aviso de que no hay caja abierta; la reserva no cambia. | ☐ |
-| C18 | Reserva de otro día | Abre una reserva de mañana. | **No** aparece el botón *Sentar* en la tabla y, en la ficha, el botón está deshabilitado con la explicación de que se sienta el día de la cita. | ☐ |
-| C19 | Doble clic | Pulsa **Sentar** dos veces seguidas. | Se procesa una sola vez (el botón dice "Sentando…" y queda bloqueado). | ☐ |
-| C20 | Inasistencia | En una reserva activa pulsa *Cliente no se presentó*, deja el motivo vacío y confirma. | Pasa a **INASISTENCIA**; la mesa vuelve a verde en el plano. Probar otra vez escribiendo un motivo. | ☐ |
-| C21 | Cancelar | *Cancelar reserva*: escribe "no" (2 letras) y revisa el botón; luego un motivo válido. | Con menos de 3 caracteres el botón está **deshabilitado**. Con un motivo válido queda **CANCELADA** y la mesa se libera. | ☐ |
-| C22 | Estados finales | Abre la ficha de una reserva ya atendida, cancelada o con inasistencia. | **Sentar, inasistencia y cancelar están deshabilitados.** | ☐ |
-| C23 | Filtros y KPIs | Usa las píldoras *Todas / En espera / Atendidas / Inasistencias-Canceladas*. | Los números de las píldoras y de las 4 tarjetas coinciden con las filas. "Reservas del turno" cuenta solo el turno visible. | ☐ |
-| C24 | WhatsApp | Pulsa el botón de WhatsApp de una reserva de hoy y de una de mañana. | Se abre `wa.me` con el mensaje correcto: *"…su reserva **de hoy**…"* / *"…**de mañana**…"*, sin la marca "RestaurantCloud AI". | ☐ |
+| C16e | Choque con otra reserva | Intenta elegir una mesa con otra reserva en esa franja. | Aparece atenuada con *"Reservada a las HH:MM"* y no se puede elegir. Contra el API directo: 422 `ERR_MESA_RESERVADA`. | ✔ |
+| C16f | Carrera entre mozos | Con el modal abierto, otro mozo ocupa la mesa elegida; confirma. | Aviso rojo con el motivo, el modal **sigue abierto** y la disponibilidad se recarga. | ✔ |
+| C16g | Desde el plano | En *Salón*, toca una mesa bloqueada, abre la ficha y cambia la mesa. | La mesa vieja deja de verse bloqueada y la nueva pasa a bloqueada (si la reserva está en su ventana). | ✔ |
+| C16h | Reserva cerrada | Abre la ficha de una reserva atendida, cancelada o con inasistencia. | **No** se puede cambiar mesa (botón deshabilitado). | ✔ |
+| C17 | Sentar con la caja cerrada | Cierra la caja (cajero) e intenta sentar. | Aviso de que no hay caja abierta; la reserva no cambia. | ✔ |
+| C18 | Reserva de otro día | Abre una reserva de mañana. | **No** aparece el botón *Sentar* en la tabla y, en la ficha, el botón está deshabilitado con la explicación de que se sienta el día de la cita. | ✔ |
+| C19 | Doble clic | Pulsa **Sentar** dos veces seguidas. | Se procesa una sola vez (el botón dice "Sentando…" y queda bloqueado). | ✔ |
+| C20 | Inasistencia | En una reserva activa pulsa *Cliente no se presentó*, deja el motivo vacío y confirma. | Pasa a **INASISTENCIA**; la mesa vuelve a verde en el plano. Probar otra vez escribiendo un motivo. | ✔ |
+| C21 | Cancelar | *Cancelar reserva*: escribe "no" (2 letras) y revisa el botón; luego un motivo válido. | Con menos de 3 caracteres el botón está **deshabilitado**. Con un motivo válido queda **CANCELADA** y la mesa se libera. | ✔ |
+| C22 | Estados finales | Abre la ficha de una reserva ya atendida, cancelada o con inasistencia. | **Sentar, inasistencia y cancelar están deshabilitados.** | ✔ |
+| C23 | Filtros y KPIs | Usa las píldoras *Todas / En espera / Atendidas / Inasistencias-Canceladas*. | Los números de las píldoras y de las 4 tarjetas coinciden con las filas. "Reservas del turno" cuenta solo el turno visible. | ✔ |
+| C24 | WhatsApp | Pulsa el botón de WhatsApp de una reserva de hoy y de una de mañana. | Se abre `wa.me` con el mensaje correcto: *"…su reserva **de hoy**…"* / *"…**de mañana**…"*, sin la marca "RestaurantCloud AI". | ✔ |
 
 ### C25–C27. Robustez
 
 | # | Caso | Pasos | Resultado esperado | ✔ |
 | :-: | :--- | :--- | :--- | :-: |
-| C25 | Error al crear no pierde lo escrito | Provoca un error (por ejemplo, crea la reserva y, antes de confirmar, otro usuario reserva esa mesa). | El aviso rojo muestra el motivo real y el formulario **sigue abierto** con los datos escritos. | ☐ |
-| C26 | API caída | `docker stop saas_laravel_api`, espera ≤1 minuto o cambia de día; luego `docker start saas_laravel_api`. | Aparece un mensaje de error en la bandeja (no una lista vieja sin aviso). Al volver el API, se recupera en el siguiente refresco. | ☐ |
-| C27 | Refresco automático | Deja la bandeja abierta 1–2 minutos con una reserva próxima. | Los minutos restantes y el estado (Confirmada → Bloqueada) se actualizan solos. | ☐ |
+| C25 | Error al crear no pierde lo escrito | Provoca un error (por ejemplo, crea la reserva y, antes de confirmar, otro usuario reserva esa mesa). | El aviso rojo muestra el motivo real y el formulario **sigue abierto** con los datos escritos. | ✔ |
+| C26 | API caída | `docker stop saas_laravel_api`, espera ≤1 minuto o cambia de día; luego `docker start saas_laravel_api`. | Aparece un mensaje de error en la bandeja (no una lista vieja sin aviso). Al volver el API, se recupera en el siguiente refresco. | ✔ |
+| C27 | Refresco automático | Deja la bandeja abierta 1–2 minutos con una reserva próxima. | Los minutos restantes y el estado (Confirmada → Bloqueada) se actualizan solos. | ✔ |
+| C28 | Señal de choque tras cambiar la política | Tras A17, abre la bandeja del día de esas reservas. | Ambas muestran la insignia ámbar **"Choque de mesa"** junto al estado; al pasar el cursor se ve el detalle. | ☐ |
+| C29 | Resolver el choque | Abre la ficha de una de ellas. | Aviso ámbar *"Choque de mesa"* con el detalle y el botón **Cambiar mesa** resaltado. Cámbiala a una mesa libre: la marca **desaparece de las dos** reservas. | ☐ |
 
 ---
 
@@ -185,10 +193,10 @@ Para estos casos crea reservas **de hoy** (turno vigente) o adelanta las existen
 
 | # | Caso | Pasos | Resultado esperado | ✔ |
 | :-: | :--- | :--- | :--- | :-: |
-| D1 | Desactivar el módulo | `docker exec saas_postgres_db psql -U saas_admin -d restaurantcloud_db -c "update plan set incluye_reservas=false where nombre='Pro';"` | — | ☐ |
-| D2 | Administrador | Entra a *Políticas de reserva*. | Pantalla **"El módulo de reservas no está habilitado"** con el mensaje del servidor, que **nombra los planes que lo incluyen** (sin botones falsos de notificación). | ☐ |
-| D3 | Mozo | Entra a *Reservas*. | Pantalla **"Reservas no disponibles"** con el mensaje y un enlace para volver al salón. | ☐ |
-| D4 | Volver a habilitarlo | `update plan set incluye_reservas=true where nombre='Pro';` y recarga ambas pantallas. | Todo vuelve a funcionar. **No olvides este paso.** | ☐ |
+| D1 | Desactivar el módulo | `docker exec saas_postgres_db psql -U saas_admin -d restaurantcloud_db -c "update plan set incluye_reservas=false where nombre='Pro';"` | — | ✔ |
+| D2 | Administrador | Entra a *Políticas de reserva*. | Pantalla **"El módulo de reservas no está habilitado"** con el mensaje del servidor, que **nombra los planes que lo incluyen** (sin botones falsos de notificación). | ✔ |
+| D3 | Mozo | Entra a *Reservas*. | Pantalla **"Reservas no disponibles"** con el mensaje y un enlace para volver al salón. | ✔ |
+| D4 | Volver a habilitarlo | `update plan set incluye_reservas=true where nombre='Pro';` y recarga ambas pantallas. | Todo vuelve a funcionar. **No olvides este paso.** | ✔ |
 
 ---
 
@@ -198,13 +206,13 @@ Pantalla *Horario y feriados*. Para estos casos necesitas reservas futuras activ
 
 | # | Caso | Pasos | Resultado esperado | ✔ |
 | :-: | :--- | :--- | :--- | :-: |
-| E1 | Cierre sin reservas | En *Fechas especiales* → *Nuevo cierre* para una fecha sin reservas. | Se registra directamente: "Fecha registrada". | ☐ |
-| E2 | Cierre con reservas | *Nuevo cierre* para **mañana** (donde hay reservas). | Se abre una lista con las reservas, su teléfono, mesas y un botón **Escribir** (WhatsApp con el mensaje ya redactado). **Ninguna opción viene marcada.** | ☐ |
-| E3 | Decisión obligatoria | Intenta confirmar sin decidir todas. | El botón **no se habilita** hasta que cada reserva tenga una opción: WhatsApp, Llamada, Presencial o *No se pudo avisar*. El contador muestra "N de M con decisión · X sin aviso". | ☐ |
-| E4 | Confirmar | Elige una opción en cada una (deja una como *No se pudo avisar*) y confirma. | Aviso "Fecha registrada; N reservas canceladas". En la lista de fechas aparece el contador de canceladas. En el mozo, esas reservas ya no están activas. | ☐ |
-| E5 | Auditoría | Comando de auditoría de 0.3. | Una entrada `CANCELACION_POR_CIERRE` por reserva, con el medio de aviso y si el cliente fue avisado. | ☐ |
-| E6 | Cambio de horario semanal | En *Horario semanal*, deja un día solo con Almuerzo 12:00–16:00 y guarda (con una reserva de cena ese día). | Antes de guardar se muestra la lista de reservas que **ya no caben**. Al confirmar, el horario se guarda y esas reservas se cancelan con su aviso. | ☐ |
-| E7 | Feriados nacionales | Pulsa *Cargar feriados* teniendo una reserva en alguno de esos días. | Los feriados sin reservas se cargan y el aviso indica cuáles **no se cerraron por tener reservas** (con fecha y cantidad). | ☐ |
+| E1 | Cierre sin reservas | En *Fechas especiales* → *Nuevo cierre* para una fecha sin reservas. | Se registra directamente: "Fecha registrada". | ✔ |
+| E2 | Cierre con reservas | *Nuevo cierre* para **mañana** (donde hay reservas). | Se abre una lista con las reservas, su teléfono, mesas y un botón **Escribir** (WhatsApp con el mensaje ya redactado). **Ninguna opción viene marcada.** | ✔ |
+| E3 | Decisión obligatoria | Intenta confirmar sin decidir todas. | El botón **no se habilita** hasta que cada reserva tenga una opción: WhatsApp, Llamada, Presencial o *No se pudo avisar*. El contador muestra "N de M con decisión · X sin aviso". | ✔ |
+| E4 | Confirmar | Elige una opción en cada una (deja una como *No se pudo avisar*) y confirma. | Aviso "Fecha registrada; N reservas canceladas". En la lista de fechas aparece el contador de canceladas. En el mozo, esas reservas ya no están activas. | ✔ |
+| E5 | Auditoría | Comando de auditoría de 0.3. | Una entrada `CANCELACION_POR_CIERRE` por reserva, con el medio de aviso y si el cliente fue avisado. | ✔ |
+| E6 | Cambio de horario semanal | En *Horario semanal*, deja un día solo con Almuerzo 12:00–16:00 y guarda (con una reserva de cena ese día). | Antes de guardar se muestra la lista de reservas que **ya no caben**. Al confirmar, el horario se guarda y esas reservas se cancelan con su aviso. | ✔ |
+| E7 | Feriados nacionales | Pulsa *Cargar feriados* teniendo una reserva en alguno de esos días. | Los feriados sin reservas se cargan y el aviso indica cuáles **no se cerraron por tener reservas** (con fecha y cantidad). | ✔ |
 
 ---
 

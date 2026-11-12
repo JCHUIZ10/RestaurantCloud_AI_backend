@@ -272,6 +272,26 @@ El módulo de reservas se habilita únicamente por el campo **`plan.incluye_rese
 
 ---
 
+### 9.4 Cambios de política y reservas ya registradas
+
+Las reservas no guardan la duración ni el buffer con los que se crearon: se calculan con la política vigente. Por eso cada parámetro afecta a las reservas existentes de forma distinta:
+
+| Parámetro | Efecto sobre reservas existentes | ¿Pide confirmación? |
+| :--- | :--- | :--- |
+| Interruptor `acepta_reservas` | Las existentes siguen vigentes; solo se impiden las nuevas. | Sí, con la lista de pendientes (§9.2). |
+| `duracion_reserva_min` / `buffer_reserva_min` **al subir** | Dos reservas de una mesa pueden pasar a pisarse, o una reserva puede terminar después del cierre del turno. | **Sí**, con la lista de reservas afectadas. |
+| `duracion_reserva_min` / `buffer_reserva_min` al bajar | Nunca genera conflictos. | No. |
+| `tolerancia_no_show_min`, `minutos_bloqueo_previo` | Cambian en el acto el estado mostrado (bloqueada, tolerancia expirada) y la ventana de bloqueo en el plano. No hay conflictos. | No. |
+| `anticipacion_maxima_dias` | Solo afecta a reservas nuevas. | No. |
+
+**Revisión al guardar.** Si subir la duración o el buffer deja reservas incompatibles, el servidor rechaza el guardado con `409 ERR_POLITICAS_AFECTAN_RESERVAS` y la lista. La pantalla muestra **"Algunas reservas dejarían de ser compatibles"**, con dos grupos: *Chocarían en la misma mesa* y *Terminarían después del cierre del turno* (cliente, fecha, mesas, motivo y WhatsApp). Las opciones son **Volver a editar** o **Guardar igualmente** (se reenvía con `confirmar_impacto`). Lo mismo ocurre con *Restaurar recomendados*. Solo se cuentan los problemas que causa el cambio: un choque que ya existía antes no se atribuye a él.
+
+**Nada se cancela.** Las reservas se conservan. En la bandeja del mozo, cada reserva activa que choca con otra muestra la insignia **"Choque de mesa"** y, en su ficha, el detalle y el botón **Cambiar mesa** resaltado ([§6.4](#64-cambiar-la-mesa-de-una-reserva)). La marca se calcula al leer, así que desaparece sola cuando se resuelve el choque.
+
+**Auditoría.** Todo cambio de parámetros queda en `log_auditoria` como `CAMBIO_POLITICAS_RESERVA`, con los valores antes y después y el número de reservas afectadas.
+
+---
+
 ## 10. Cierres inesperados y cambios de horario
 
 Cuando el local no podrá atender (corte de luz, emergencia, feriado, horario especial) o el administrador cambia su horario semanal, las reservas que dejan de caber no se pierden en silencio. El administrador las resuelve en **Horario y feriados**, sin entrar a la terminal del mozo.
@@ -312,7 +332,6 @@ Las reservas `atendida`, `cancelada` y `no_show` nunca se tocan.
 | Tema | Situación actual |
 | :--- | :--- |
 | `anticipacion_minima_horas` y `margen_recordatorio_min` | Se guardan y se muestran como "próximamente", pero no tienen efecto: dependen de reservas en línea y recordatorios, que aún no existen. |
-| Cambio de `duracion_reserva_min` o `buffer_reserva_min` | No recalcula los choques de reservas ya registradas ni avisa si alguna deja de caber antes del cierre del turno. |
 | Reservas creadas con mesas insuficientes | Las anteriores a la regla de capacidad no se revalidan; solo se aplica al crear o al cambiar de mesa. |
 | Inasistencia | Siempre manual; no hay cierre automático al vencer la tolerancia. |
 | Reservas creadas durante la confirmación de un cierre | Una reserva registrada por otro mozo en el instante exacto entre la consulta y la confirmación del cierre no entra en la lista; el servidor cubre las ya existentes. |
@@ -355,8 +374,9 @@ Las reservas `atendida`, `cancelada` y `no_show` nunca se tocan.
 
 | Método | Ruta | Uso |
 | :--- | :--- | :--- |
-| `GET` / `PUT` | `/admin/reservas/politicas` | Leer y guardar las políticas (409 por reservas pendientes o edición simultánea). |
-| `POST` | `/admin/reservas/politicas/restaurar-default` | Restaurar los parámetros recomendados (conserva el interruptor). |
+| `GET` / `PUT` | `/admin/reservas/politicas` | Leer y guardar las políticas (409 por reservas pendientes, reservas afectadas por la nueva duración o buffer, o edición simultánea). |
+| `POST` | `/admin/reservas/politicas/restaurar-default` | Restaurar los parámetros recomendados (conserva el interruptor; acepta `confirmar_impacto`). |
+| `POST` | `/admin/reservas/politicas/precheck-impacto` | Reservas que dejarían de ser compatibles si la duración o el buffer pasan a los valores indicados (no guarda). |
 | `GET` | `/admin/reservas/politicas/precheck-desactivacion` | Reservas pendientes que seguirían vigentes si se suspende el canal. |
 | `GET` | `/admin/horario/excepciones/precheck` | Reservas afectadas por un cierre u horario especial. |
 | `POST` | `/admin/horario/excepciones` | Registrar el cierre; con `cancelar_reservas` y `reservas_notificadas` cancela las afectadas. |
