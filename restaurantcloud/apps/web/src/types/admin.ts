@@ -1190,6 +1190,8 @@ export interface AnulacionesKPIsDTO {
   costo_merma_total: number;
   mesas_afectadas: number;
   pendientes_revision: number;
+  /** Anulaciones de comanda completa del día (no depende de los filtros activos) */
+  comandas_totales: number;
 }
 
 export interface AnulacionesBandejaResponseDTO {

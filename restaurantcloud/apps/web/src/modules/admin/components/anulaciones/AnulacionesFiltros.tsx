@@ -102,7 +102,7 @@ export const AnulacionesFiltros: React.FC<AnulacionesFiltrosProps> = ({
               type="text"
               value={busqueda}
               onChange={(e) => onChangeBusqueda(e.target.value)}
-              placeholder="Buscar por plato, mesa, código, justificación..."
+              placeholder="Buscar por plato, mesa, mozo, código o justificación..."
               className="w-full h-10 pl-10 pr-9 rounded-xl border border-slate-200 bg-slate-50 text-xs sm:text-sm text-aurea-navy placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-aurea-copper/30 focus:border-aurea-copper transition-all"
             />
             {busqueda && (

@@ -6977,6 +6977,7 @@ class MockAdminService {
     const costo_merma_total = baseDia.reduce((sum, a) => sum + (a.costo_merma || 0), 0);
     const mesas_afectadas = new Set(baseDia.map((a) => a.mesa_numero)).size;
     const pendientes_revision = baseDia.filter((a) => !a.revisado).length;
+    const comandas_totales = baseDia.filter((a) => a.tipo_anulacion === 'comanda_completa').length;
 
     return {
       exito: true,
@@ -6989,6 +6990,7 @@ class MockAdminService {
           costo_merma_total,
           mesas_afectadas,
           pendientes_revision,
+          comandas_totales,
         },
         anulaciones: JSON.parse(JSON.stringify(lista)),
       },
@@ -7038,6 +7040,19 @@ class MockAdminService {
           {
             codigo: 'ERR_ANULACION_NO_ENCONTRADA',
             mensaje: 'El registro de anulación no existe.',
+          },
+        ],
+      };
+    }
+
+    if (item.revisado) {
+      return {
+        exito: false,
+        datos: null as any,
+        errores: [
+          {
+            codigo: 'ERR_ANULACION_YA_REVISADA',
+            mensaje: 'Esta anulación ya fue revisada.',
           },
         ],
       };

@@ -15,7 +15,8 @@ import { PageHeader } from '@/components/ui';
 interface AnulacionesHeaderProps {
   fecha: string;
   onCambiarFecha: (nuevaFecha: string) => void;
-  kpis: AnulacionesKPIsDTO;
+  /** null = sin datos confiables (cargando por primera vez o la carga falló) */
+  kpis: AnulacionesKPIsDTO | null;
   onRecargar?: () => void;
   cargando?: boolean;
 }
@@ -34,17 +35,14 @@ export const AnulacionesHeader: React.FC<AnulacionesHeaderProps> = ({
   onRecargar,
   cargando = false,
 }) => {
-  const hoyIso = React.useMemo(() => getFechaIso(new Date()), []);
-  const ayerIso = React.useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return getFechaIso(d);
-  }, []);
-  const hace7DiasIso = React.useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 7);
-    return getFechaIso(d);
-  }, []);
+  // Se recalculan en cada render para que "Hoy" siga siendo correcto si la pestaña queda abierta pasada la medianoche
+  const ahora = new Date();
+  const hoyIso = getFechaIso(ahora);
+  const ayer = new Date(ahora);
+  ayer.setDate(ayer.getDate() - 1);
+  const ayerIso = getFechaIso(ayer);
+  // Las cadenas ISO (AAAA-MM-DD) se comparan correctamente en orden alfabético
+  const esDiaActualOFuturo = fecha >= hoyIso;
 
   const formatearFechaCabecera = (f: string) => {
     const partes = f.split('-');
@@ -91,6 +89,7 @@ export const AnulacionesHeader: React.FC<AnulacionesHeaderProps> = ({
               onClick={handleRetrocederDia}
               className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors"
               title="Día anterior"
+              aria-label="Día anterior"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -100,8 +99,10 @@ export const AnulacionesHeader: React.FC<AnulacionesHeaderProps> = ({
             </div>
             <button
               onClick={handleAvanzarDia}
-              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors"
+              disabled={esDiaActualOFuturo}
+              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors disabled:opacity-40 disabled:pointer-events-none"
               title="Día siguiente"
+              aria-label="Día siguiente"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -127,16 +128,6 @@ export const AnulacionesHeader: React.FC<AnulacionesHeaderProps> = ({
               }`}
             >
               Ayer
-            </button>
-            <button
-              onClick={() => onCambiarFecha(hace7DiasIso)}
-              className={`px-2.5 py-1 rounded-lg transition-all ${
-                fecha === hace7DiasIso
-                  ? 'bg-white text-aurea-navy shadow-sm'
-                  : 'hover:text-aurea-navy hover:bg-white/50'
-              }`}
-            >
-              7 Días
             </button>
           </div>
 
@@ -166,11 +157,13 @@ export const AnulacionesHeader: React.FC<AnulacionesHeaderProps> = ({
               </span>
               <div className="flex items-baseline gap-2 mt-2">
                 <span className="text-3xl font-bold font-serif text-aurea-navy">
-                  {kpis.total_anulaciones}
+                  {kpis ? kpis.total_anulaciones : '—'}
                 </span>
-                <span className="text-xs text-slate-500">
-                  {kpis.total_anulaciones === 1 ? 'registro' : 'registros'}
-                </span>
+                {kpis && (
+                  <span className="text-xs text-slate-500">
+                    {kpis.total_anulaciones === 1 ? 'registro' : 'registros'}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -181,7 +174,9 @@ export const AnulacionesHeader: React.FC<AnulacionesHeaderProps> = ({
 
           <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
             <span>
-              {kpis.pendientes_revision > 0 ? (
+              {!kpis ? (
+                <span className="text-slate-400">Sin datos disponibles</span>
+              ) : kpis.pendientes_revision > 0 ? (
                 <strong className="text-amber-700 font-semibold">
                   ● {kpis.pendientes_revision} pendientes de revisar
                 </strong>
@@ -201,7 +196,7 @@ export const AnulacionesHeader: React.FC<AnulacionesHeaderProps> = ({
               </span>
               <div className="flex items-baseline gap-2 mt-2">
                 <span className="text-3xl font-bold font-serif text-rose-600">
-                  S/ {kpis.monto_total.toFixed(2)}
+                  {kpis ? `S/ ${kpis.monto_total.toFixed(2)}` : '—'}
                 </span>
               </div>
             </div>
@@ -226,20 +221,24 @@ export const AnulacionesHeader: React.FC<AnulacionesHeaderProps> = ({
               <div className="flex items-baseline gap-2 mt-2">
                 <span
                   className={`text-3xl font-bold font-serif ${
-                    kpis.con_merma_cantidad > 0 ? 'text-amber-700' : 'text-emerald-700'
+                    !kpis ? 'text-slate-400' : kpis.con_merma_cantidad > 0 ? 'text-amber-700' : 'text-emerald-700'
                   }`}
                 >
-                  {kpis.con_merma_cantidad}
+                  {kpis ? kpis.con_merma_cantidad : '—'}
                 </span>
-                <span className="text-xs text-slate-500">
-                  {kpis.con_merma_cantidad === 1 ? 'plato' : 'platos'}
-                </span>
+                {kpis && (
+                  <span className="text-xs text-slate-500">
+                    {kpis.con_merma_cantidad === 1 ? 'plato' : 'platos'}
+                  </span>
+                )}
               </div>
             </div>
 
             <div
               className={`w-11 h-11 rounded-xl flex items-center justify-center ${
-                kpis.con_merma_cantidad > 0
+                !kpis
+                  ? 'bg-slate-100 text-slate-400 border border-slate-200'
+                  : kpis.con_merma_cantidad > 0
                   ? 'bg-amber-100 text-amber-800 border border-amber-200'
                   : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
               }`}
@@ -249,7 +248,9 @@ export const AnulacionesHeader: React.FC<AnulacionesHeaderProps> = ({
           </div>
 
           <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500">
-            {kpis.costo_merma_total > 0 ? (
+            {!kpis ? (
+              <span className="text-slate-400">Sin datos disponibles</span>
+            ) : kpis.costo_merma_total > 0 ? (
               <span>
                 Costo teórico de insumos:{' '}
                 <strong className="text-amber-800">S/ {kpis.costo_merma_total.toFixed(2)}</strong>
@@ -269,11 +270,13 @@ export const AnulacionesHeader: React.FC<AnulacionesHeaderProps> = ({
               </span>
               <div className="flex items-baseline gap-2 mt-2">
                 <span className="text-3xl font-bold font-serif text-aurea-navy">
-                  {kpis.mesas_afectadas}
+                  {kpis ? kpis.mesas_afectadas : '—'}
                 </span>
-                <span className="text-xs text-slate-500">
-                  {kpis.mesas_afectadas === 1 ? 'mesa' : 'mesas'}
-                </span>
+                {kpis && (
+                  <span className="text-xs text-slate-500">
+                    {kpis.mesas_afectadas === 1 ? 'mesa' : 'mesas'}
+                  </span>
+                )}
               </div>
             </div>
 

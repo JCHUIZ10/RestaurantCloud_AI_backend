@@ -100,8 +100,16 @@ export const ModalDetalleAnulacion: React.FC<ModalDetalleAnulacionProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
+      onClick={() => {
+        if (!procesando) onClose();
+      }}
+    >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="titulo-ficha-anulacion"
         className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col my-auto transition-all transform max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
@@ -112,12 +120,12 @@ export const ModalDetalleAnulacion: React.FC<ModalDetalleAnulacionProps> = ({
               <span className="bg-amber-500/20 text-amber-400 font-mono text-xs px-2 py-0.5 rounded-md font-bold tracking-wider border border-amber-500/30">
                 {anulacion.codigo}
               </span>
-              <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+              <h3 id="titulo-ficha-anulacion" className="text-base sm:text-lg font-bold text-white tracking-tight">
                 Ficha de Auditoría de Anulación
               </h3>
             </div>
             <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5 font-medium">
-              Registro inmutable en tabla especializada <code className="text-slate-300">pedido_anulacion</code> (PostgreSQL 16 RLS)
+              Registro inmutable de auditoría
             </p>
           </div>
 
@@ -199,7 +207,6 @@ export const ModalDetalleAnulacion: React.FC<ModalDetalleAnulacionProps> = ({
                 <span className="font-bold text-slate-900 text-xs sm:text-sm font-mono">
                   {formatearHora(anulacion.pedido_created_at)}
                 </span>
-                <span className="text-[10px] text-slate-500 block">pedido_created_at</span>
               </div>
 
               <div className="bg-amber-50/40 p-2.5 rounded-lg border border-amber-100/80">
@@ -207,7 +214,6 @@ export const ModalDetalleAnulacion: React.FC<ModalDetalleAnulacionProps> = ({
                 <span className="font-bold text-slate-900 text-xs sm:text-sm font-mono">
                   {formatearHora(anulacion.anulado_at)}
                 </span>
-                <span className="text-[10px] text-slate-500 block">anulado_at</span>
               </div>
 
               <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
@@ -216,7 +222,7 @@ export const ModalDetalleAnulacion: React.FC<ModalDetalleAnulacionProps> = ({
                   className={`font-bold text-xs sm:text-sm font-mono flex items-center gap-1 ${
                     anulacion.minutos_espera >= 20
                       ? 'text-rose-600'
-                      : anulacion.minutos_espera >= 10
+                      : anulacion.minutos_espera >= 12
                       ? 'text-amber-600'
                       : 'text-slate-700'
                   }`}
@@ -224,7 +230,6 @@ export const ModalDetalleAnulacion: React.FC<ModalDetalleAnulacionProps> = ({
                   <Clock className="w-3.5 h-3.5 inline" />
                   {anulacion.minutos_espera} min
                 </span>
-                <span className="text-[10px] text-slate-500 block">minutos_espera</span>
               </div>
 
               <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
@@ -232,7 +237,6 @@ export const ModalDetalleAnulacion: React.FC<ModalDetalleAnulacionProps> = ({
                 <span className="font-semibold text-slate-800 text-xs sm:text-sm block">
                   {getEstadoAnteriorLabel(anulacion.estado_anterior)}
                 </span>
-                <span className="text-[10px] text-slate-500 block">estado_anterior</span>
               </div>
             </div>
 
@@ -283,7 +287,7 @@ export const ModalDetalleAnulacion: React.FC<ModalDetalleAnulacionProps> = ({
 
             <div className="bg-slate-50/90 rounded-xl p-3.5 border border-slate-200/90 relative">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                Declaración Justificada (Obligatoria según CU-MOZO-06):
+                Declaración justificada del mozo (obligatoria):
               </span>
               <p className="text-slate-800 text-xs sm:text-sm italic leading-relaxed whitespace-pre-wrap font-serif">
                 &ldquo;{anulacion.motivo_detalle}&rdquo;

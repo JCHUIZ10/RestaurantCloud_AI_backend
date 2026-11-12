@@ -18,6 +18,8 @@ interface AnulacionesTablaProps {
   cargando: boolean;
   onVerFicha: (id: string) => void;
   onMarcarRevisado: (id: string) => void;
+  /** Ids con una revisión en curso: su botón "Revisar" queda deshabilitado */
+  idsRevisando?: Set<string>;
   paginaActual?: number;
   totalPaginas?: number;
   totalRegistros?: number;
@@ -31,6 +33,7 @@ export const AnulacionesTabla: React.FC<AnulacionesTablaProps> = ({
   cargando,
   onVerFicha,
   onMarcarRevisado,
+  idsRevisando,
   paginaActual: paginaProp,
   totalPaginas: totalPaginasProp,
   totalRegistros: totalRegistrosProp,
@@ -249,11 +252,12 @@ export const AnulacionesTabla: React.FC<AnulacionesTablaProps> = ({
                               e.stopPropagation();
                               onMarcarRevisado(anul.id);
                             }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-sm"
+                            disabled={idsRevisando?.has(anul.id)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-sm disabled:opacity-60 disabled:pointer-events-none"
                             title="Marcar como revisado / conforme"
                           >
                             <Check className="w-3.5 h-3.5" />
-                            <span>Revisar</span>
+                            <span>{idsRevisando?.has(anul.id) ? 'Revisando…' : 'Revisar'}</span>
                           </button>
                         )}
                       </div>
