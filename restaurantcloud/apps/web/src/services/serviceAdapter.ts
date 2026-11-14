@@ -25,6 +25,7 @@ import { mockAdminService } from '@/modules/admin/services/mockAdminService';
 import { getCartaPublicaPorSlug } from '@/modules/cliente/services/mockCartaService';
 import { realPlanoService } from './api/planoService';
 import { realSaasTenantsService, type SaasTenantsService } from './api/realSaasTenantsService';
+import { realFlujoCajaService } from './api/realFlujoCajaService';
 
 export const IS_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 
@@ -42,6 +43,9 @@ export const politicasReservaService = realAdminService;
 
 // Módulo Horario y Feriados (CU-ADMIN-09): 100% conectado directamente a la API de Laravel
 export const horarioService = realAdminService;
+
+// Módulo Flujo de Caja y Cierres Z del Administrador (CU-ADMIN-14): 100% conectado a la API de Laravel
+export const flujoCajaService = realFlujoCajaService;
 
 // Módulo Cocina KDS: 100% conectado directamente a la API de Laravel
 export const cocinaService = realCocinaService;

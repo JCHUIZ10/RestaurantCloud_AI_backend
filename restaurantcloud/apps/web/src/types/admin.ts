@@ -733,6 +733,23 @@ export interface ItemCompraRequestDTO {
   costo_anterior?: number;
 }
 
+/**
+ * De dónde sale el efectivo de una compra pagada en efectivo:
+ * - gaveta_turno: de la gaveta del turno abierto (se descuenta del efectivo esperado del cajero)
+ * - caja_chica: de un fondo fuera del POS (no toca la gaveta)
+ */
+export type OrigenEfectivoCompra = 'gaveta_turno' | 'caja_chica';
+/** Con qué se paga una compra a crédito al saldarla */
+export type MetodoPagoRealizadoCompra = 'transferencia' | 'tarjeta_debito' | 'efectivo';
+
+export interface PagarCompraRequestDTO {
+  metodo: MetodoPagoRealizadoCompra;
+  /** Solo con efectivo: gaveta del turno o caja chica (sin indicar, caja chica) */
+  origen_efectivo?: OrigenEfectivoCompra;
+  /** YYYY-MM-DD, hasta hoy y desde la emisión; con la gaveta debe ser hoy */
+  fecha_pago?: string;
+}
+
 export interface RegistrarFichaCompraRequestDTO {
   proveedor_id: string;
   proveedor_nombre?: string;
@@ -740,6 +757,8 @@ export interface RegistrarFichaCompraRequestDTO {
   numero_comprobante?: string; // si viene vacío y es NOTA_VENTA o RECIBO, backend auto-genera NV-YYYYMMDD-####
   fecha_emision: string; // ISO string o YYYY-MM-DD
   metodo_pago: MetodoPagoCompra;
+  /** Solo aplica con metodo_pago EFECTIVO */
+  origen_efectivo?: OrigenEfectivoCompra;
   observaciones?: string;
   actualizar_contacto_proveedor?: {
     telefono?: string;
@@ -789,6 +808,13 @@ export interface FichaCompraResumenDTO {
   registrado_por_nombre: string;
   motivo_anulacion?: string;
   fecha_anulacion?: string;
+  /** Compra a crédito: el egreso cuenta al pagarla. Sin estos campos (backend anterior) se asume pagada */
+  es_credito?: boolean;
+  pagada?: boolean;
+  por_pagar?: boolean;
+  fecha_pago?: string | null;
+  pago_metodo?: MetodoPagoRealizadoCompra | null;
+  pagada_at?: string | null;
 }
 
 export interface FichaCompraDetalleCompletoDTO extends FichaCompraResumenDTO {
@@ -1509,6 +1535,13 @@ export interface SimulacionCobroResponseDTO {
 // ============================================================================
 
 export type PeriodoFlujoCaja = 'hoy' | 'semana' | 'este_mes' | 'personalizado';
+
+/** Periodo consultado en el módulo de finanzas; `desde` y `hasta` (YYYY-MM-DD) solo aplican al personalizado */
+export interface FiltroPeriodoFinanzas {
+  periodo: PeriodoFlujoCaja;
+  desde?: string;
+  hasta?: string;
+}
 export type CategoriaGastoManual =
   | 'servicios_basicos'
   | 'alquiler'
@@ -1530,9 +1563,14 @@ export interface IngresosDesgloseDTO {
 export interface LiquidezDTO {
   total_disponible: number;
   en_bancos_monto: number;
-  en_bancos_porcentaje: number;
+  /** null cuando algún canal es negativo o no hay con qué repartir */
+  en_bancos_porcentaje: number | null;
   en_gavetas_monto: number;
-  en_gavetas_porcentaje: number;
+  en_gavetas_porcentaje: number | null;
+  /** Efectivo pagado desde una caja chica fuera del POS (resta del total disponible) */
+  pagado_caja_chica_monto?: number;
+  /** Deuda con proveedores a hoy: compras a crédito sin pagar */
+  por_pagar_proveedores_monto?: number;
 }
 
 export interface InsumoCompradoDTO {
@@ -1566,10 +1604,11 @@ export interface FlujoCajaResumenDTO {
   fecha_inicio: string;
   fecha_fin: string;
   ingresos_totales: number;
-  delta_ingresos_pct: number;
+  /** Variación frente al periodo anterior; null si ese periodo no tuvo movimientos con qué comparar */
+  delta_ingresos_pct: number | null;
   ingresos_desglose: IngresosDesgloseDTO;
   egresos_totales: number;
-  delta_egresos_pct: number;
+  delta_egresos_pct: number | null;
   compras_insumos_total: number;
   gastos_manuales_total: number;
   balance_neto: number;
@@ -1597,6 +1636,13 @@ export interface GastoOperativoDTO {
   registrado_por: string;
   registrado_por_nombre: string;
   created_at: string;
+  /** Un gasto mal registrado no se borra: se anula y deja de contar en el flujo y en la gaveta */
+  estado?: 'registrado' | 'anulado';
+  motivo_anulacion?: string | null;
+  anulado_por_nombre?: string | null;
+  anulado_at?: string | null;
+  /** false cuando ya está anulado o salió de la gaveta de un turno cerrado (su Reporte Z es inmutable) */
+  puede_anularse?: boolean;
 }
 
 export interface RegistrarGastoRequestDTO {
@@ -1631,6 +1677,20 @@ export interface TurnoCajaResumenDTO {
   revisado_por_nombre?: string | null;
   revisado_at?: string | null;
   notas_auditoria?: string | null;
+  /** true = conforme, false = observado; null mientras no se vise */
+  visado_conforme?: boolean | null;
+  /** false: turno cerrado sin Reporte Z archivado (se visa solo con notas) */
+  tiene_reporte_z?: boolean;
+  /** Resultado del visado: un turno observado sigue pendiente hasta que se levanta la observación */
+  visado_resultado?: 'conforme' | 'observado' | null;
+  observacion_resuelta?: boolean;
+  observacion_resuelta_por_nombre?: string | null;
+  observacion_resuelta_at?: string | null;
+  observacion_resolucion?: string | null;
+  /** Horas transcurridas desde la apertura; solo en turnos abiertos */
+  horas_abierto?: number | null;
+  /** Turno abierto pasada la jornada de la sede más la tolerancia: solo un aviso, nunca un cierre automático */
+  abandonado?: boolean;
   total_comprobantes?: number;
   total_facturado?: number;
   lote_pos?: string;
@@ -1641,10 +1701,26 @@ export interface AuditoriaTurnosKPIsDTO {
   turnos_cuadrados: number;
   porcentaje_cuadratura: number;
   turnos_con_discrepancia: number;
+  /** Neto (sobrantes - faltantes): se compensan, usar monto_faltantes y monto_sobrantes para mostrar el detalle */
   monto_total_discrepancias: number;
+  monto_faltantes?: number;
+  monto_sobrantes?: number;
   turnos_auditados: number;
   turnos_pendientes_auditoria: number;
+  /** Turnos cerrados sin visar de toda la sede, sin importar el periodo consultado */
+  pendientes_auditoria_total?: number;
+  /** Apertura (ISO) del turno pendiente más antiguo; null si no hay pendientes */
+  pendiente_mas_antiguo?: string | null;
+  /** Turnos observados sin resolver en el periodo / en toda la sede */
+  turnos_observados_pendientes?: number;
+  observados_pendientes_total?: number;
+  /** Apertura (ISO) del turno observado sin resolver más antiguo; null si no hay */
+  observado_mas_antiguo?: string | null;
   turno_activo?: TurnoCajaResumenDTO | null;
+}
+
+export interface LevantarObservacionRequestDTO {
+  notas: string;
 }
 
 export interface VisarTurnoRequestDTO {

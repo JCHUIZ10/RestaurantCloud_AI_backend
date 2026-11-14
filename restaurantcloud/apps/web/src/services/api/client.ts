@@ -1,5 +1,6 @@
 import axios, { type AxiosRequestConfig } from 'axios';
 import type { ApiResponse } from '@/types/api';
+import { registrarMarcaServidor } from '@/shared/utils/fechaServidor';
 
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api/v1',
@@ -68,6 +69,9 @@ apiClient.interceptors.response.use(
         }
       );
     }
+    // La fecha del servidor (no la del dispositivo) rige las reglas de "hoy" del backend
+    const marcaServidor = response.data?.meta?.timestamp;
+    if (typeof marcaServidor === 'string') registrarMarcaServidor(marcaServidor);
     return response;
   },
   async (error) => {

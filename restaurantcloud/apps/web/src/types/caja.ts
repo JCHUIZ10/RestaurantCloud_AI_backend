@@ -69,6 +69,19 @@ export interface CajaMetricasPosDTO {
   porcentaje_ocupacion: number;
 }
 
+/** Gasto o compra de insumos pagado con efectivo de la gaveta durante el turno (detalle para el arqueo y el Reporte Z) */
+export interface GastoCajaTurnoDTO {
+  id: string;
+  /** Ausente en los Z archivados antes de que las compras pudieran salir de la gaveta: son gastos */
+  tipo?: 'gasto' | 'compra';
+  categoria: string | null;
+  proveedor_nombre: string | null;
+  descripcion: string | null;
+  monto: number;
+  registrado_por_nombre: string | null;
+  fecha: string;
+}
+
 /** Nota de crédito emitida en el turno (detalle para auditoría del cierre) */
 export interface NotaCreditoTurnoDTO {
   documento: string;
@@ -91,7 +104,14 @@ export interface BalancePreArqueoDTO {
   fecha_apertura: string;
   monto_apertura: number;
   ingresos_efectivo: number;
+  /** Efectivo devuelto por notas de crédito (ya no incluye los gastos de caja) */
   egresos_devolucion_nc: number;
+  /** Gastos pagados con efectivo de la gaveta durante el turno (ausente en respuestas antiguas) */
+  egresos_gasto_caja?: number;
+  /** Compras de insumos pagadas con efectivo de la gaveta durante el turno */
+  egresos_compra_caja?: number;
+  /** Gastos y compras pagados con efectivo de la gaveta (ver `tipo`) */
+  gastos_caja_detalle?: GastoCajaTurnoDTO[];
   efectivo_esperado: number;
   tarjetas_pos_total: number;
   tarjetas_operaciones: number;
@@ -185,6 +205,14 @@ export interface ReporteZDTO {
   ingreso_consumo?: number;
   medios_visibles?: string[];
   total_devoluciones_efectivo?: number;
+  /** Gastos pagados con efectivo de la gaveta y su detalle (ausentes en Z antiguos) */
+  total_gastos_caja_efectivo?: number;
+  total_compras_caja_efectivo?: number;
+  gastos_caja_detalle?: GastoCajaTurnoDTO[];
+  /** Cierre de rescate ejecutado por la administración (ausentes cuando cerró el propio cajero) */
+  cierre_forzado?: boolean;
+  cerrado_por_nombre?: string;
+  justificacion_forzado?: string;
   total_neto_facturado: number;
   base_imponible_gravada: number;
   igv_18: number;

@@ -135,6 +135,7 @@ import type {
   FichaCompraDetalleCompletoDTO,
   ImpactoAnulacionDTO,
   AnularFichaCompraRequestDTO,
+  PagarCompraRequestDTO,
   PlatoReactivableDTO,
   PromocionesBandejaResponseDTO,
   BuscarPromocionesResponseDTO,
@@ -1151,6 +1152,9 @@ export const realAdminService = {
     request: AnularFichaCompraRequestDTO
   ): Promise<ApiEnvelope<FichaCompraResumenDTO>> =>
     apiPost(`/admin/compras/${request.ficha_id}/anular`, { motivo: request.motivo }),
+
+  pagarFichaCompra: (id: string, request: PagarCompraRequestDTO): Promise<ApiEnvelope<FichaCompraResumenDTO>> =>
+    apiPost(`/admin/compras/${id}/pagar`, request),
 
   reactivarPlatosCompra: (
     platoIds: string[]
