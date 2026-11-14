@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Admin\AnulacionController;
 use App\Http\Controllers\Api\Admin\CategoriaController;
 use App\Http\Controllers\Api\Admin\ConfiguracionKdsController;
 use App\Http\Controllers\Api\Admin\FichaCompraController;
+use App\Http\Controllers\Api\Admin\FlujoCajaController;
 use App\Http\Controllers\Api\Admin\HorarioController;
 use App\Http\Controllers\Api\Admin\InsumoController;
 use App\Http\Controllers\Api\Admin\MetodoPagoController;
@@ -142,6 +143,7 @@ Route::prefix('v1')->group(function (): void {
                 Route::get('/{id}', [FichaCompraController::class, 'show']);
                 Route::get('/{id}/impacto-anulacion', [FichaCompraController::class, 'impactoAnulacion']);
                 Route::post('/{id}/anular', [FichaCompraController::class, 'anular']);
+                Route::post('/{id}/pagar', [FichaCompraController::class, 'pagar'])->whereUuid('id');
             });
 
             Route::get('/personal', [PersonalController::class, 'index']);
@@ -189,6 +191,22 @@ Route::prefix('v1')->group(function (): void {
                 Route::patch('/{id}/estado', [PromocionController::class, 'estado']);
                 Route::delete('/{id}', [PromocionController::class, 'destroy']);
                 Route::get('/{id}/rendimiento', [PromocionController::class, 'rendimiento']);
+            });
+
+            // CU-ADMIN-14: Flujo de caja, auditoría de turnos / cierres Z y gastos operativos
+            Route::prefix('finanzas')->group(function (): void {
+                Route::get('/flujo-caja', [FlujoCajaController::class, 'flujoCaja']);
+                Route::get('/turnos', [FlujoCajaController::class, 'turnos']);
+                Route::get('/turnos/{id}/reporte-z', [FlujoCajaController::class, 'reporteZ'])->whereUuid('id');
+                Route::get('/turnos/{id}/balance', [FlujoCajaController::class, 'balance'])->whereUuid('id');
+                // El propietario no entra por /caja (solo cajero y admin_local): el PDF del Z se sirve también desde aquí
+                Route::get('/turnos/{id}/reporte-z/pdf', [CajaController::class, 'descargarReporteZPdf'])->whereUuid('id');
+                Route::post('/turnos/{id}/visar', [FlujoCajaController::class, 'visar'])->whereUuid('id');
+                Route::post('/turnos/{id}/levantar-observacion', [FlujoCajaController::class, 'levantarObservacion'])->whereUuid('id');
+                Route::post('/turnos/{id}/cierre-forzado', [FlujoCajaController::class, 'cierreForzado'])->whereUuid('id')->middleware('throttle:10,1');
+                Route::get('/gastos', [FlujoCajaController::class, 'gastos']);
+                Route::post('/gastos', [FlujoCajaController::class, 'registrarGasto']);
+                Route::post('/gastos/{id}/anular', [FlujoCajaController::class, 'anularGasto'])->whereUuid('id');
             });
 
             // CU-ADMIN-04 / CU-ADMIN-12: Bandeja y Auditoría de Anulaciones y Mermas
