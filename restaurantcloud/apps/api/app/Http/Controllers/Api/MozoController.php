@@ -2678,7 +2678,7 @@ class MozoController extends Controller
 
         $producto = DB::table('producto')->where('id', $item->producto_id)->first();
         $estadoAnterior = $item->estado;
-        $esMerma = in_array($estadoAnterior, ['listo', 'entregado']);
+        $esMerma = $this->esMermaPorAnulacion($estadoAnterior, $producto);
         $costoEstandar = (float) ($producto->costo_estandar ?? 0);
         $costoMerma = $esMerma ? round((int) $item->cantidad * $costoEstandar, 2) : 0.00;
 
@@ -2815,6 +2815,19 @@ class MozoController extends Controller
                 'anulado_at' => $anuladoAt->toIso8601String(),
             ]);
         });
+    }
+
+    /**
+     * Un plato culinario terminado (listo) o servido es merma; una bebida de despacho directo
+     * solo lo es una vez servida, porque en "listo" aún está intacta y vuelve a bodega.
+     */
+    private function esMermaPorAnulacion(string $estadoAnterior, ?object $producto): bool
+    {
+        if ($producto !== null && ! (bool) ($producto->requiere_preparacion ?? true)) {
+            return $estadoAnterior === 'entregado';
+        }
+
+        return in_array($estadoAnterior, ['listo', 'entregado'], true);
     }
 
     private function errorCuentaPedida(): JsonResponse
@@ -2965,7 +2978,7 @@ class MozoController extends Controller
                 foreach ($items as $item) {
                     $producto = $productosMap->get($item->producto_id);
                     $estadoAnterior = $item->estado;
-                    $esMerma = in_array($estadoAnterior, ['listo', 'entregado']);
+                    $esMerma = $this->esMermaPorAnulacion($estadoAnterior, $producto);
                     $costoEstandar = (float) ($producto->costo_estandar ?? 0);
                     $costoMerma = $esMerma ? round((int) $item->cantidad * $costoEstandar, 2) : 0.00;
                     $montoItem = round((int) $item->cantidad * (float) $item->precio_unitario, 2);

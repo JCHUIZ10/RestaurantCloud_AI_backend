@@ -760,4 +760,77 @@ class MozoAnulacionAuditoriaTest extends TestCase
         $this->assertTrue((bool) $anulacionDB->es_merma);
         $this->assertEquals(15.00, (float) $anulacionDB->costo_merma);
     }
+
+    /**
+     * @return array{0: string, 1: string, 2: string, 3: string} mesa, producto directo, insumo y pedido
+     */
+    private function escenarioBebidaDirecta(): array
+    {
+        $mesaId = $this->crearMesa($this->crearPiso(), '13');
+        $pedidoId = $this->crearPedido($mesaId);
+
+        $insumoId = (string) Str::uuid();
+        DB::table('insumo')->insert([
+            'id' => $insumoId,
+            'local_id' => $this->localId,
+            'nombre' => 'Gaseosa Test '.Str::random(4),
+            'unidad_medida' => 'und',
+            'stock_actual' => 7.000,
+            'stock_minimo' => 2.000,
+            'costo_unitario' => 3.00,
+            'estado' => 'activo',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $prodId = $this->crearProducto(8.0, 3.0);
+        DB::table('producto')->where('id', $prodId)->update(['requiere_preparacion' => false]);
+        DB::table('producto_insumo')->insert([
+            'producto_id' => $prodId,
+            'insumo_id' => $insumoId,
+            'modo_calculo' => 'exacto',
+            'cantidad_descuenta' => 1.000,
+        ]);
+
+        return [$mesaId, $prodId, $insumoId, $pedidoId];
+    }
+
+    private function agregarBebidaDirecta(string $pedidoId, string $prodId, string $estado): string
+    {
+        $itemId = $this->agregarItem($pedidoId, $prodId, 1, 8.0, $estado);
+        DB::table('pedido_item')->where('id', $itemId)->update(['stock_descontado' => true]);
+
+        return $itemId;
+    }
+
+    public function test_anular_bebida_de_despacho_directo_sin_servir_no_es_merma_y_restituye_stock(): void
+    {
+        [$mesaId, $prodId, $insumoId, $pedidoId] = $this->escenarioBebidaDirecta();
+        $itemId = $this->agregarBebidaDirecta($pedidoId, $prodId, 'listo');
+
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/items/{$itemId}/anular", [
+            'motivo_categoria' => 'error_pedido',
+            'motivo_detalle' => 'El cliente cambió de opinión antes de servir',
+        ], $this->headers())->assertStatus(200)->assertJsonPath('datos.es_merma', false);
+
+        $this->assertEquals(8.000, (float) DB::table('insumo')->where('id', $insumoId)->value('stock_actual'));
+
+        $anulacion = DB::table('pedido_anulacion')->where('pedido_item_id', $itemId)->first();
+        $this->assertFalse((bool) $anulacion->es_merma);
+        $this->assertEquals(0.00, (float) $anulacion->costo_merma);
+    }
+
+    public function test_anular_bebida_de_despacho_directo_ya_servida_es_merma_y_conserva_el_descuento(): void
+    {
+        [$mesaId, $prodId, $insumoId, $pedidoId] = $this->escenarioBebidaDirecta();
+        $itemId = $this->agregarBebidaDirecta($pedidoId, $prodId, 'entregado');
+
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/items/{$itemId}/anular", [
+            'motivo_categoria' => 'plato_caido',
+            'motivo_detalle' => 'La bebida se derramó sobre la mesa',
+        ], $this->headers())->assertStatus(200)->assertJsonPath('datos.es_merma', true);
+
+        $this->assertEquals(7.000, (float) DB::table('insumo')->where('id', $insumoId)->value('stock_actual'));
+        $this->assertTrue((bool) DB::table('pedido_anulacion')->where('pedido_item_id', $itemId)->value('es_merma'));
+    }
 }
