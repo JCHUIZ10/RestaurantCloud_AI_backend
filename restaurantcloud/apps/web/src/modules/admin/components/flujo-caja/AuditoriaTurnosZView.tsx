@@ -17,6 +17,10 @@ interface AuditoriaTurnosZViewProps {
   turnos: TurnoCajaResumenDTO[];
   onAuditarTurnoZ: (turno: TurnoCajaResumenDTO) => void;
   onAbrirCierreForzado: (turno: TurnoCajaResumenDTO) => void;
+  /** Lleva la vista al rango que alcanza el turno pendiente más antiguo */
+  onVerPendientes?: () => void;
+  /** Lleva la vista al rango que alcanza el turno observado sin resolver más antiguo */
+  onVerObservados?: () => void;
 }
 
 export const AuditoriaTurnosZView: React.FC<AuditoriaTurnosZViewProps> = ({
@@ -24,6 +28,8 @@ export const AuditoriaTurnosZView: React.FC<AuditoriaTurnosZViewProps> = ({
   turnos,
   onAuditarTurnoZ,
   onAbrirCierreForzado,
+  onVerPendientes,
+  onVerObservados,
 }) => {
   const [paginaActual, setPaginaActual] = useState<number>(1);
   const itemsPorPagina = 5;
@@ -38,12 +44,19 @@ export const AuditoriaTurnosZView: React.FC<AuditoriaTurnosZViewProps> = ({
 
   const turnoActivo = kpis.turno_activo || turnos.find((t) => t.estado === 'abierta');
 
+  // Faltantes y sobrantes se muestran por separado: sumados se compensarían y ocultarían descuadres reales
+  const faltantes = kpis.monto_faltantes ?? Math.max(0, -kpis.monto_total_discrepancias);
+  const sobrantes = kpis.monto_sobrantes ?? Math.max(0, kpis.monto_total_discrepancias);
+
+  // Pendientes de visar que quedan fuera del periodo en pantalla (ya no se ven en la tabla)
+  const pendientesFueraDelPeriodo = Math.max(0, (kpis.pendientes_auditoria_total ?? 0) - kpis.turnos_pendientes_auditoria);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* 4 Indicadores de Control Interno */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-center">
-          <span className="text-[10px] font-mono uppercase font-bold text-slate-400 block">TURNOS DEL MES</span>
+          <span className="text-[10px] font-mono uppercase font-bold text-slate-400 block">TURNOS DEL PERIODO</span>
           <span className="text-xl font-bold font-mono text-slate-800 dark:text-slate-200">
             {kpis.total_turnos}
           </span>
@@ -65,9 +78,11 @@ export const AuditoriaTurnosZView: React.FC<AuditoriaTurnosZViewProps> = ({
             CON DISCREPANCIA
           </span>
           <span className="text-xl font-bold font-mono text-amber-700 dark:text-amber-300">
-            {kpis.turnos_con_discrepancia} ({kpis.monto_total_discrepancias < 0 ? `-S/ ${Math.abs(kpis.monto_total_discrepancias).toFixed(2)}` : `+S/ ${kpis.monto_total_discrepancias.toFixed(2)}`})
+            {kpis.turnos_con_discrepancia}
           </span>
-          <span className="text-[10px] text-amber-600/80 block">Menores subsanadas</span>
+          <span className="text-[10px] text-amber-600/80 block">
+            Faltantes S/ {faltantes.toFixed(2)} • Sobrantes S/ {sobrantes.toFixed(2)}
+          </span>
         </div>
 
         <div className="p-3 rounded-2xl bg-sky-50/60 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-800/60 text-center">
@@ -82,8 +97,77 @@ export const AuditoriaTurnosZView: React.FC<AuditoriaTurnosZViewProps> = ({
               ? `${kpis.turnos_pendientes_auditoria} por visar`
               : '100% al día'}
           </span>
+          {(kpis.turnos_observados_pendientes ?? 0) > 0 && (
+            <span className="text-[10px] font-bold text-rose-600 block">
+              {kpis.turnos_observados_pendientes} observado(s) por resolver
+            </span>
+          )}
         </div>
       </div>
+
+      {pendientesFueraDelPeriodo > 0 && (
+        <div
+          role="status"
+          className="p-4 rounded-3xl bg-gradient-to-r from-amber-50 via-aurea-ivory to-amber-50 border border-amber-300 text-amber-900 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-2xl bg-amber-200 text-amber-800">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="font-bold text-sm block">
+                {pendientesFueraDelPeriodo === 1
+                  ? 'Hay 1 turno sin visar fuera de este periodo'
+                  : `Hay ${pendientesFueraDelPeriodo} turnos sin visar fuera de este periodo`}
+              </span>
+              <span className="text-xs text-amber-700">
+                Los turnos cerrados deben ser visados por la administración aunque sean de días anteriores.
+              </span>
+            </div>
+          </div>
+          {onVerPendientes && (
+            <button
+              type="button"
+              onClick={onVerPendientes}
+              className="px-4 py-2 rounded-2xl bg-aurea-navy hover:bg-aurea-navy/90 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm shrink-0"
+            >
+              <Eye className="w-4 h-4 text-aurea-copper" />
+              <span>Ver pendientes</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {(kpis.observados_pendientes_total ?? 0) > 0 && (
+        <div
+          role="status"
+          className="p-4 rounded-3xl bg-gradient-to-r from-rose-50 via-aurea-ivory to-rose-50 border border-rose-300 text-rose-900 shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-3"
+        >
+          <div className="p-2 rounded-2xl bg-rose-200 text-rose-800">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="font-bold text-sm block">
+              {kpis.observados_pendientes_total === 1
+                ? 'Hay 1 turno observado por resolver'
+                : `Hay ${kpis.observados_pendientes_total} turnos observados por resolver`}
+            </span>
+            <span className="text-xs text-rose-700">
+              Un turno observado sigue abierto a seguimiento hasta que la administración levanta la observación con una nota.
+            </span>
+          </div>
+          {onVerObservados && (
+            <button
+              type="button"
+              onClick={onVerObservados}
+              className="px-4 py-2 rounded-2xl bg-aurea-navy hover:bg-aurea-navy/90 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm shrink-0 ml-auto"
+            >
+              <Eye className="w-4 h-4 text-aurea-copper" />
+              <span>Ver observados</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Banner de Monitoreo de Terminal y Rescate Administrativo */}
       <div className="p-5 rounded-3xl bg-gradient-to-r from-slate-900 via-aurea-navy to-slate-900 text-white border border-slate-800 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -93,20 +177,29 @@ export const AuditoriaTurnosZView: React.FC<AuditoriaTurnosZViewProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono uppercase font-bold border border-emerald-500/40">
-                Terminal Única POS-01
-              </span>
-              <span className="text-xs text-slate-400">Restricción uq_caja_abierta_local</span>
+              {turnoActivo?.abandonado ? (
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/25 text-amber-200 text-[10px] font-mono uppercase font-bold border border-amber-400/50 inline-flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  Turno sin cerrar
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono uppercase font-bold border border-emerald-500/40">
+                  Terminal única de la sede
+                </span>
+              )}
+              <span className="text-xs text-slate-400">Solo puede haber un turno abierto a la vez</span>
             </div>
             <h3 className="text-sm font-bold font-serif text-white mt-1">
               {turnoActivo ? (
-                <>Actualmente la sede opera con <strong className="text-aurea-champagne font-mono">Turno #{String(turnoActivo.correlativo).padStart(3, '0')} ABIERTO</strong> ({turnoActivo.cajero_nombre}).</>
+                <>Actualmente la sede opera con <strong className="text-aurea-champagne font-mono">Turno #{String(turnoActivo.correlativo).padStart(3, '0')} ABIERTO</strong> ({turnoActivo.cajero_nombre}{turnoActivo.horas_abierto != null ? `, ${turnoActivo.horas_abierto} h abierto` : ''}).</>
               ) : (
                 'Terminal libre: No hay turno activo en este momento.'
               )}
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Si un cajero se retira o se enferma sin cerrar turno formal, la administración puede realizar un cierre de rescate liberando la terminal.
+              {turnoActivo?.abandonado
+                ? 'Este turno sigue abierto pasada la hora de cierre de la sede. Es solo un aviso: no se cierra solo; puedes esperar al cajero o realizar el cierre de rescate.'
+                : 'Si un cajero se retira o se enferma sin cerrar turno formal, la administración puede realizar un cierre de rescate liberando la terminal.'}
             </p>
           </div>
         </div>
@@ -269,6 +362,11 @@ export const AuditoriaTurnosZView: React.FC<AuditoriaTurnosZViewProps> = ({
                     <td className="py-3 px-3 text-center">
                       {isActivo ? (
                         <span className="text-[10px] text-slate-400 italic">En operación</span>
+                      ) : turno.revisado && turno.visado_conforme === false ? (
+                        <span className="px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-[10px] font-bold inline-flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3 text-rose-600" />
+                          <span>{turno.observacion_resuelta ? 'Observado y resuelto' : 'Observado — por resolver'}</span>
+                        </span>
                       ) : turno.revisado ? (
                         <span className="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold inline-flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
@@ -292,15 +390,32 @@ export const AuditoriaTurnosZView: React.FC<AuditoriaTurnosZViewProps> = ({
                         >
                           Forzar Cierre
                         </button>
-                      ) : !turno.revisado ? (
+                      ) : turno.revisado && turno.visado_resultado === 'observado' && !turno.observacion_resuelta ? (
                         <button
                           type="button"
                           onClick={() => onAuditarTurnoZ(turno)}
-                          className="px-3 py-1.5 rounded-xl bg-aurea-navy hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 ml-auto border border-aurea-copper/30"
+                          className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 ml-auto border border-rose-300/40"
                         >
-                          <Eye className="w-3.5 h-3.5 text-aurea-champagne" />
-                          <span>Auditar Reporte Z</span>
+                          <ShieldCheck className="w-3.5 h-3.5 text-aurea-champagne" />
+                          <span>Levantar observación</span>
                         </button>
+                      ) : !turno.revisado ? (
+                        <div className="flex flex-col items-end gap-1">
+                          {turno.tiene_reporte_z === false && (
+                            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold inline-flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3 text-amber-600" />
+                              <span>Sin Z archivado</span>
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => onAuditarTurnoZ(turno)}
+                            className="px-3 py-1.5 rounded-xl bg-aurea-navy hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 ml-auto border border-aurea-copper/30"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-aurea-champagne" />
+                            <span>Auditar Reporte Z</span>
+                          </button>
+                        </div>
                       ) : (
                         <button
                           type="button"

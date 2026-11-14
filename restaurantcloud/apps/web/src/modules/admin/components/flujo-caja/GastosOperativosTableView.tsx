@@ -6,29 +6,33 @@ import {
   ChevronLeft,
   ChevronRight,
   Receipt,
+  Ban,
 } from 'lucide-react';
-import { GastoOperativoDTO, CategoriaGastoManual } from '@/types/admin';
+import { GastoOperativoDTO } from '@/types/admin';
+import { configCategoriaGasto, etiquetaTipoComprobanteGasto } from '@/shared/constants/categoriasGasto';
+import { Button, Modal } from '@/components/ui';
 
 interface GastosOperativosTableViewProps {
   gastos: GastoOperativoDTO[];
   onAbrirModalGasto: () => void;
+  /** Anula el gasto con su motivo; devuelve true si se anuló (el diálogo se cierra) */
+  onAnularGasto: (gasto: GastoOperativoDTO, motivo: string) => Promise<boolean>;
 }
 
-const CATEGORIA_LABELS: Record<CategoriaGastoManual, { label: string; color: string }> = {
-  servicios_basicos: { label: 'Servicios Básicos (Luz/Gas/Agua)', color: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200 border-amber-300 dark:border-amber-800' },
-  alquiler: { label: 'Alquiler de Local', color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-200 border-indigo-300 dark:border-indigo-800' },
-  limpieza_aseo: { label: 'Limpieza, Aseo y Menaje', color: 'bg-teal-100 text-teal-800 dark:bg-teal-950/60 dark:text-teal-200 border-teal-300 dark:border-teal-800' },
-  mantenimiento: { label: 'Mantenimiento & Equipamiento', color: 'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-200 border-sky-300 dark:border-sky-800' },
-  caja_chica: { label: 'Caja Chica / Emergencias', color: 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200 border-rose-300 dark:border-rose-800' },
-  otros: { label: 'Otros Egresos Operativos', color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-700' },
-};
+const MIN_CARACTERES_MOTIVO = 10;
 
 export const GastosOperativosTableView: React.FC<GastosOperativosTableViewProps> = ({
   gastos,
   onAbrirModalGasto,
+  onAnularGasto,
 }) => {
   const [paginaActual, setPaginaActual] = useState<number>(1);
   const itemsPorPagina = 5;
+
+  // Anulación: el gasto elegido y el motivo que se escribe
+  const [gastoPorAnular, setGastoPorAnular] = useState<GastoOperativoDTO | null>(null);
+  const [motivoAnulacion, setMotivoAnulacion] = useState<string>('');
+  const [anulando, setAnulando] = useState<boolean>(false);
 
   useEffect(() => {
     setPaginaActual(1);
@@ -38,13 +42,39 @@ export const GastosOperativosTableView: React.FC<GastosOperativosTableViewProps>
   const indiceInicio = (paginaActual - 1) * itemsPorPagina;
   const gastosPaginados = gastos.slice(indiceInicio, indiceInicio + itemsPorPagina);
 
-  const totalMonto = gastos.reduce((acc, g) => acc + g.monto, 0);
-  const totalBancos = gastos
+  // Un gasto anulado se sigue viendo en la lista, pero ya no suma
+  const gastosVigentes = gastos.filter((g) => g.estado !== 'anulado');
+  const cantidadAnulados = gastos.length - gastosVigentes.length;
+  const totalMonto = gastosVigentes.reduce((acc, g) => acc + g.monto, 0);
+  const totalBancos = gastosVigentes
     .filter((g) => g.origen_fondos === 'transferencia_bancaria')
     .reduce((acc, g) => acc + g.monto, 0);
-  const totalCajaChica = gastos
+  const totalCajaChica = gastosVigentes
     .filter((g) => g.origen_fondos === 'efectivo_caja')
     .reduce((acc, g) => acc + g.monto, 0);
+
+  const motivoTexto = motivoAnulacion.trim();
+  const motivoValido = motivoTexto.length >= MIN_CARACTERES_MOTIVO;
+
+  const abrirAnulacion = (gasto: GastoOperativoDTO) => {
+    setMotivoAnulacion('');
+    setGastoPorAnular(gasto);
+  };
+
+  const cerrarAnulacion = () => {
+    if (!anulando) setGastoPorAnular(null);
+  };
+
+  const confirmarAnulacion = async () => {
+    if (!gastoPorAnular || !motivoValido || anulando) return;
+    setAnulando(true);
+    try {
+      const anulado = await onAnularGasto(gastoPorAnular, motivoTexto);
+      if (anulado) setGastoPorAnular(null);
+    } finally {
+      setAnulando(false);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -55,7 +85,10 @@ export const GastosOperativosTableView: React.FC<GastosOperativosTableViewProps>
           <span className="text-xl font-bold font-mono text-slate-900 dark:text-white">
             S/ {totalMonto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
           </span>
-          <span className="text-[10px] text-slate-500 block">{gastos.length} comprobantes registrados</span>
+          <span className="text-[10px] text-slate-500 block">
+            {gastosVigentes.length} comprobantes registrados
+            {cantidadAnulados > 0 ? ` · ${cantidadAnulados} anulado${cantidadAnulados === 1 ? '' : 's'}` : ''}
+          </span>
         </div>
 
         <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
@@ -63,7 +96,7 @@ export const GastosOperativosTableView: React.FC<GastosOperativosTableViewProps>
           <span className="text-xl font-bold font-mono text-slate-800 dark:text-slate-200">
             S/ {totalBancos.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
           </span>
-          <span className="text-[10px] text-slate-500 block">Alquiler y suministros mayores</span>
+          <span className="text-[10px] text-slate-500 block">Pagos desde la cuenta de la empresa</span>
         </div>
 
         <div className="p-3 rounded-2xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-800/60">
@@ -111,12 +144,13 @@ export const GastosOperativosTableView: React.FC<GastosOperativosTableViewProps>
                 <th className="py-3 px-3">Origen Fondos</th>
                 <th className="py-3 px-3">Descripción / Justificación</th>
                 <th className="py-3 px-3 text-right">Monto (PEN)</th>
+                <th className="py-3 px-3 text-right">Acción</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-sans">
               {gastos.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-500">
+                  <td colSpan={8} className="py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400">
                         <Receipt className="w-6 h-6" />
@@ -140,19 +174,23 @@ export const GastosOperativosTableView: React.FC<GastosOperativosTableViewProps>
                 </tr>
               ) : (
                 gastosPaginados.map((gasto) => {
-                const catCfg = CATEGORIA_LABELS[gasto.categoria] || CATEGORIA_LABELS.otros;
+                const catCfg = configCategoriaGasto(gasto.categoria);
+                const anulado = gasto.estado === 'anulado';
 
                 return (
-                  <tr key={gasto.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                  <tr
+                    key={gasto.id}
+                    className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${anulado ? 'opacity-60' : ''}`}
+                  >
                     {/* Fecha */}
                     <td className="py-3 px-3 font-mono text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                      {gasto.fecha}
+                      {gasto.fecha.split('-').reverse().join('/')}
                     </td>
 
                     {/* Categoría */}
                     <td className="py-3 px-3 whitespace-nowrap">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${catCfg.color}`}>
-                        {catCfg.label}
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${catCfg.clase}`}>
+                        {catCfg.etiqueta}
                       </span>
                     </td>
 
@@ -163,7 +201,7 @@ export const GastosOperativosTableView: React.FC<GastosOperativosTableViewProps>
 
                     {/* Comprobante */}
                     <td className="py-3 px-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">
-                      <div>{gasto.tipo_comprobante}</div>
+                      <div>{etiquetaTipoComprobanteGasto(gasto.tipo_comprobante)}</div>
                       {gasto.numero_documento && (
                         <div className="text-[10px] text-slate-400">{gasto.numero_documento}</div>
                       )}
@@ -185,13 +223,47 @@ export const GastosOperativosTableView: React.FC<GastosOperativosTableViewProps>
                     </td>
 
                     {/* Descripción */}
-                    <td className="py-3 px-3 text-slate-600 dark:text-slate-300 max-w-xs truncate" title={gasto.descripcion}>
-                      {gasto.descripcion}
+                    <td className="py-3 px-3 text-slate-600 dark:text-slate-300 max-w-xs" title={gasto.descripcion}>
+                      <div className="truncate">{gasto.descripcion}</div>
+                      {anulado && (
+                        <div className="text-[10px] text-rose-600 dark:text-rose-400 italic whitespace-normal">
+                          Anulado{gasto.anulado_por_nombre ? ` por ${gasto.anulado_por_nombre}` : ''}
+                          {gasto.motivo_anulacion ? `: ${gasto.motivo_anulacion}` : ''}
+                        </div>
+                      )}
                     </td>
 
                     {/* Monto */}
-                    <td className="py-3 px-3 text-right font-mono font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                    <td
+                      className={`py-3 px-3 text-right font-mono font-bold whitespace-nowrap ${
+                        anulado ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'
+                      }`}
+                    >
                       S/ {gasto.monto.toFixed(2)}
+                    </td>
+
+                    {/* Acción */}
+                    <td className="py-3 px-3 text-right whitespace-nowrap">
+                      {anulado ? (
+                        <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold">
+                          Anulado
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => abrirAnulacion(gasto)}
+                          disabled={gasto.puede_anularse === false}
+                          title={
+                            gasto.puede_anularse === false
+                              ? 'Salió de la gaveta de un turno ya cerrado: su Reporte Z es inmutable y no se puede anular.'
+                              : 'Anular este gasto'
+                          }
+                          className="px-2.5 py-1 rounded-xl text-[11px] font-semibold inline-flex items-center gap-1 border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-rose-50"
+                        >
+                          <Ban className="w-3 h-3" aria-hidden="true" />
+                          <span>Anular</span>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
@@ -234,6 +306,65 @@ export const GastosOperativosTableView: React.FC<GastosOperativosTableViewProps>
           </div>
         )}
       </div>
+
+      {/* Anulación de un gasto: siempre con motivo, que queda en la auditoría */}
+      <Modal
+        abierto={gastoPorAnular !== null}
+        onCerrar={cerrarAnulacion}
+        cerrable={!anulando}
+        titulo="Anular gasto"
+        icono={Ban}
+        tono="error"
+        tamano="md"
+        descripcion={
+          gastoPorAnular
+            ? `${gastoPorAnular.proveedor_nombre} · S/ ${gastoPorAnular.monto.toFixed(2)}`
+            : undefined
+        }
+        pie={
+          <>
+            <Button variant="outline" onClick={cerrarAnulacion} disabled={anulando}>
+              Cancelar
+            </Button>
+            <Button variant="danger" onClick={() => void confirmarAnulacion()} loading={anulando} disabled={!motivoValido}>
+              Anular gasto
+            </Button>
+          </>
+        }
+      >
+        {gastoPorAnular && (
+          <div className="space-y-3 text-sm text-aurea-navy/80">
+            <p>
+              El gasto dejará de contar en el flujo de caja
+              {gastoPorAnular.origen_fondos === 'efectivo_caja'
+                ? ' y el efectivo se devolverá al esperado de la gaveta del turno abierto'
+                : ''}
+              . El registro se conserva para la auditoría.
+            </p>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <label htmlFor="motivo-anulacion-gasto" className="font-semibold text-aurea-navy">
+                  Motivo de la anulación <span className="text-estado-error-600">*</span>
+                </label>
+                <span className={`text-xs ${motivoValido ? 'text-estado-ok-700 font-semibold' : 'text-estado-error-600'}`}>
+                  {motivoValido
+                    ? '✓ Válido'
+                    : `Mínimo ${MIN_CARACTERES_MOTIVO} caracteres (faltan ${Math.max(0, MIN_CARACTERES_MOTIVO - motivoTexto.length)})`}
+                </span>
+              </div>
+              <textarea
+                id="motivo-anulacion-gasto"
+                rows={3}
+                value={motivoAnulacion}
+                onChange={(e) => setMotivoAnulacion(e.target.value)}
+                maxLength={500}
+                placeholder="Ej. El monto se digitó mal; el pago real fue de S/ 120."
+                className="w-full px-3 py-2 rounded-xl border border-aurea-champagne bg-white text-aurea-navy focus:outline-none focus:border-aurea-copper resize-none"
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

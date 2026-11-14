@@ -62,8 +62,7 @@ const LINKS_ADMIN: EnlaceMenu[] = [
   { label: 'Tiempos de cocina', href: ROUTES.ADMIN_CONFIGURACION_KDS, icon: Flame },
   { label: 'Métodos de pago', href: ROUTES.ADMIN_METODOS_PAGO, icon: Wallet },
   { label: 'Auditoría de anulaciones', href: ROUTES.ADMIN_ANULACIONES, icon: FileX2 },
-  // Diferido para próxima unidad:
-  // { label: 'Flujo de caja y cierres Z', href: ROUTES.ADMIN_FLUJO_CAJA, icon: CreditCard },
+  { label: 'Flujo de caja y cierres Z', href: ROUTES.ADMIN_FLUJO_CAJA, icon: CreditCard },
 ];
 
 // Breakpoint lg de Tailwind: decide dónde se monta la campana para no duplicar su sondeo
