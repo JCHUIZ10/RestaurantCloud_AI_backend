@@ -42,7 +42,8 @@ class HistorialComprobantesService
      * @return array{
      *     medios_visibles: list<string>,
      *     por_medio: list<array{codigo: string, nombre: string, bruto: float, devoluciones: float, neto: float, operaciones: int, activo: bool, mostrar: bool}>,
-     *     efectivo: array{ingresos_brutos: float, operaciones_brutas: int, egresos: float, esperado: float},
+     *     gastos_caja_detalle: list<array{id: string, tipo: string, categoria: ?string, proveedor_nombre: ?string, descripcion: ?string, monto: float, registrado_por_nombre: ?string, fecha: string}>,
+     *     efectivo: array{ingresos_brutos: float, operaciones_brutas: int, egresos: float, egresos_devolucion: float, egresos_gasto_caja: float, egresos_compra_caja: float, esperado: float},
      *     vigentes_count: int,
      *     anulados_count: int,
      *     notas_credito: array{count: int, monto: float},
@@ -90,22 +91,56 @@ class HistorialComprobantesService
             ];
         }
 
-        $movimientosEfectivo = (float) DB::table('caja_movimiento')
-            ->where('caja_id', $caja->id)
-            ->where('metodo_pago', 'efectivo')
-            ->where('tipo', '!=', 'apertura')
-            ->sum('monto');
+        $movimientosEfectivo = (float) $this->movimientosVigentes((string) $caja->id)
+            ->where('m.tipo', '!=', 'apertura')
+            ->sum('m.monto');
 
         // Efectivo bruto: todo lo cobrado en efectivo, incluso lo que luego se anuló con una NC.
         $efectivoBruto = $todos->where('tipo', '!=', 'nota_credito')->where('medio_pago', 'efectivo');
         $ingresosBrutos = round((float) $efectivoBruto->sum('total'), 2);
 
-        // Salidas de gaveta (devoluciones por NC y gastos manuales), siempre en positivo.
-        $egresos = round((float) DB::table('caja_movimiento')
-            ->where('caja_id', $caja->id)
-            ->where('metodo_pago', 'efectivo')
-            ->whereIn('tipo', ['egreso_devolucion', 'egreso_gasto_manual'])
-            ->sum(DB::raw('ABS(monto)')), 2);
+        // Salidas de gaveta, siempre en positivo y separadas por origen: devoluciones por NC, gastos de caja y
+        // compras de insumos pagadas con el efectivo de la gaveta. Un gasto o una compra anulados ya no cuentan.
+        $egresosPorTipo = $this->movimientosVigentes((string) $caja->id)
+            ->whereIn('m.tipo', ['egreso_devolucion', 'egreso_gasto_manual', 'egreso_compra_insumo'])
+            ->groupBy('m.tipo')
+            ->selectRaw('m.tipo, SUM(ABS(m.monto)) as total')
+            ->pluck('total', 'tipo');
+        $egresosDevolucion = round((float) ($egresosPorTipo['egreso_devolucion'] ?? 0), 2);
+        $egresosGastoCaja = round((float) ($egresosPorTipo['egreso_gasto_manual'] ?? 0), 2);
+        $egresosCompraCaja = round((float) ($egresosPorTipo['egreso_compra_insumo'] ?? 0), 2);
+        $egresos = round($egresosDevolucion + $egresosGastoCaja + $egresosCompraCaja, 2);
+
+        // Detalle de lo pagado con efectivo de la gaveta durante el turno: gastos y compras de insumos
+        $gastosCajaDetalle = $this->movimientosVigentes((string) $caja->id)
+            ->leftJoin('proveedor as p', 'p.id', '=', 'f.proveedor_id')
+            ->leftJoin('usuario as ug', 'ug.id', '=', 'g.registrado_por')
+            ->leftJoin('usuario as uf', 'uf.id', '=', 'f.usuario_id')
+            ->whereIn('m.tipo', ['egreso_gasto_manual', 'egreso_compra_insumo'])
+            ->orderBy('m.created_at')
+            ->get([
+                'm.id', 'm.tipo', 'm.monto', 'm.descripcion as movimiento_descripcion', 'm.created_at',
+                'g.categoria', 'g.proveedor_nombre', 'g.descripcion', 'ug.nombre as gasto_registrado_por',
+                'p.nombre as compra_proveedor', 'f.numero_comprobante as compra_numero', 'uf.nombre as compra_registrado_por',
+            ])
+            ->map(function ($egreso): array {
+                $esCompra = $egreso->tipo === 'egreso_compra_insumo';
+
+                return [
+                    'id' => (string) $egreso->id,
+                    'tipo' => $esCompra ? 'compra' : 'gasto',
+                    'categoria' => $esCompra ? null : $egreso->categoria,
+                    'proveedor_nombre' => $esCompra ? $egreso->compra_proveedor : $egreso->proveedor_nombre,
+                    'descripcion' => $esCompra
+                        ? 'Compra de insumos'.($egreso->compra_numero ? " · {$egreso->compra_numero}" : '')
+                        : ($egreso->descripcion ?? $egreso->movimiento_descripcion),
+                    'monto' => round(abs((float) $egreso->monto), 2),
+                    'registrado_por_nombre' => $esCompra ? $egreso->compra_registrado_por : $egreso->gasto_registrado_por,
+                    'fecha' => Carbon::parse($egreso->created_at)->toIso8601String(),
+                ];
+            })
+            ->values()
+            ->all();
 
         // Códigos que el cierre de turno muestra: efectivo siempre (la gaveta siempre se cuadra) y el resto
         // solo si está activo o ya tuvo cobros en el turno. Un medio oculto siempre tiene neto 0.
@@ -171,11 +206,15 @@ class HistorialComprobantesService
             'ingreso_consumo' => round((float) $ventas->sum('total') - $totalRecargos, 2),
             'medios_visibles' => $mediosVisibles,
             'notas_credito_detalle' => $notasCreditoDetalle,
+            'gastos_caja_detalle' => $gastosCajaDetalle,
             'por_medio' => $porMedio,
             'efectivo' => [
                 'ingresos_brutos' => $ingresosBrutos,
                 'operaciones_brutas' => $efectivoBruto->count(),
                 'egresos' => $egresos,
+                'egresos_devolucion' => $egresosDevolucion,
+                'egresos_gasto_caja' => $egresosGastoCaja,
+                'egresos_compra_caja' => $egresosCompraCaja,
                 'esperado' => round((float) $caja->monto_apertura + $ingresosBrutos - $egresos, 2),
             ],
             'vigentes_count' => $ventas->count(),
@@ -191,6 +230,21 @@ class HistorialComprobantesService
             'igv' => round((float) $ventas->sum('igv'), 2),
             'efectivo_gaveta' => round((float) $caja->monto_apertura + $movimientosEfectivo, 2),
         ];
+    }
+
+    /**
+     * Movimientos en efectivo de un turno, sin los de gastos ni compras anulados. Expone los alias
+     * `m` (movimiento), `g` (gasto) y `f` (compra) para que quien lo use pueda seguir consultando.
+     */
+    private function movimientosVigentes(string $cajaId): Builder
+    {
+        return DB::table('caja_movimiento as m')
+            ->leftJoin('gasto_manual as g', 'g.id', '=', 'm.gasto_manual_id')
+            ->leftJoin('ficha_compra as f', 'f.id', '=', 'm.ficha_compra_id')
+            ->where('m.caja_id', $cajaId)
+            ->where('m.metodo_pago', 'efectivo')
+            ->where(fn (Builder $q) => $q->whereNull('g.id')->orWhere('g.estado', 'registrado'))
+            ->where(fn (Builder $q) => $q->whereNull('f.id')->orWhere('f.estado', 'registrada'));
     }
 
     /**

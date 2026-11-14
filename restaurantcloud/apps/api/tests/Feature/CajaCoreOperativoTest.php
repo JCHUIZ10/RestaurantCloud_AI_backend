@@ -495,6 +495,95 @@ class CajaCoreOperativoTest extends TestCase
         $this->assertEquals('application/pdf', $resPdf->headers->get('content-type'));
     }
 
+    public function test_gasto_en_efectivo_se_descuenta_del_esperado_sin_confundirse_con_devoluciones_nc(): void
+    {
+        $this->cerrarCajasAbiertas();
+        $this->limpiarPedidosActivos();
+
+        $apertura = $this->postJson('/api/v1/caja/apertura', ['monto_apertura' => 300.00], $this->headers());
+        $cajaId = $apertura->json('datos.id');
+
+        $gastoId = (string) Str::uuid();
+        DB::table('gasto_manual')->insert([
+            'id' => $gastoId,
+            'local_id' => $this->localId,
+            'categoria' => 'limpieza_aseo',
+            'monto' => 40.00,
+            'origen_fondos' => 'efectivo_caja',
+            'caja_id' => $cajaId,
+            'proveedor_nombre' => 'Bodega El Sol',
+            'descripcion' => 'Compra de insumos de limpieza para el salón',
+            'registrado_por' => $this->cajeroId,
+        ]);
+        DB::table('caja_movimiento')->insert([
+            'id' => (string) Str::uuid(),
+            'caja_id' => $cajaId,
+            'local_id' => $this->localId,
+            'tipo' => 'egreso_gasto_manual',
+            'monto' => -40.00,
+            'metodo_pago' => 'efectivo',
+            'gasto_manual_id' => $gastoId,
+            'descripcion' => 'Gasto de caja chica',
+        ]);
+
+        $balance = $this->getJson('/api/v1/caja/balance-pre-arqueo', $this->headers());
+        $balance->assertStatus(200)
+            ->assertJsonPath('datos.egresos_devolucion_nc', 0)
+            ->assertJsonPath('datos.egresos_gasto_caja', 40)
+            ->assertJsonPath('datos.efectivo_esperado', 260)
+            ->assertJsonPath('datos.total_egresos', 0)
+            ->assertJsonCount(1, 'datos.gastos_caja_detalle')
+            ->assertJsonPath('datos.gastos_caja_detalle.0.proveedor_nombre', 'Bodega El Sol')
+            ->assertJsonPath('datos.gastos_caja_detalle.0.monto', 40)
+            ->assertJsonPath('datos.gastos_caja_detalle.0.registrado_por_nombre', 'Lucía Quispe');
+
+        // El cajero cuenta lo que realmente queda en la gaveta: no hay falso faltante por el gasto
+        $cierre = $this->postJson('/api/v1/caja/cierre', ['monto_real_fisico' => 260.00], $this->headers());
+        $cierre->assertStatus(200)
+            ->assertJsonPath('datos.efectivo_esperado', 260)
+            ->assertJsonPath('datos.discrepancia', 0)
+            ->assertJsonPath('datos.total_devoluciones_efectivo', 0)
+            ->assertJsonPath('datos.total_gastos_caja_efectivo', 40)
+            ->assertJsonPath('datos.gastos_caja_detalle.0.categoria', 'limpieza_aseo');
+
+        $archivado = json_decode(DB::table('auditoria_caja_cierre')->where('caja_id', $cajaId)->value('reporte_z_json'), true);
+        $this->assertEquals(40.00, $archivado['total_gastos_caja_efectivo']);
+        $this->assertCount(1, $archivado['gastos_caja_detalle']);
+
+        // El PDF explica por qué el esperado baja: fórmula de gaveta y detalle del gasto
+        $html = view('pdf.reporte_z', ['reporte' => $cierre->json('datos')])->render();
+        $this->assertStringContainsString('Egresos Pagados con Efectivo de la Gaveta', $html);
+        $this->assertStringContainsString('Bodega El Sol', $html);
+        $this->assertStringContainsString('Gastos de caja S/ 40.00', $html);
+
+        // Un Z sin gastos no imprime la sección
+        $sinGastos = $cierre->json('datos');
+        unset($sinGastos['gastos_caja_detalle']);
+        $this->assertStringNotContainsString('Egresos Pagados con Efectivo', view('pdf.reporte_z', ['reporte' => $sinGastos])->render());
+    }
+
+    public function test_el_reporte_z_se_archiva_a_nombre_del_cajero_del_turno_aunque_lo_cierre_otra_persona(): void
+    {
+        $this->limpiarPedidosActivos();
+        $cajaId = $this->abrirTurnoDeOtroCajero();
+
+        $this->postJson('/api/v1/caja/cierre', ['monto_real_fisico' => 100.00], $this->headers())
+            ->assertStatus(200)
+            ->assertJsonPath('datos.caja_id', $cajaId);
+
+        $audit = DB::table('auditoria_caja_cierre')->where('caja_id', $cajaId)->first();
+        $this->assertSame($this->mozoId, $audit->cajero_id);
+    }
+
+    public function test_cierre_sin_turno_abierto_retorna_409(): void
+    {
+        $this->cerrarCajasAbiertas();
+
+        $this->postJson('/api/v1/caja/cierre', ['monto_real_fisico' => 100.00], $this->headers())
+            ->assertStatus(409)
+            ->assertJsonPath('errores.0.codigo', 'ERR_CAJA_NO_ABIERTA');
+    }
+
     public function test_salon_y_cocina_reportan_caja_cerrada_y_bloquean_operacion_cuando_no_hay_caja_abierta(): void
     {
         $this->cerrarCajasAbiertas();

@@ -52,6 +52,19 @@
         </tr>
     </table>
 
+    <!-- Cierre de rescate ejecutado por la administración (solo si el Z lo marcó) -->
+    @if(!empty($reporte['cierre_forzado']))
+        <div class="box" style="margin-top: 8px; background: #fffbeb; border-color: #fcd34d;">
+            <strong>Cierre forzado por administración</strong>
+            @if(!empty($reporte['cerrado_por_nombre']))
+                &mdash; {{ $reporte['cerrado_por_nombre'] }}
+            @endif
+            @if(!empty($reporte['justificacion_forzado']))
+                <br><em>&ldquo;{{ $reporte['justificacion_forzado'] }}&rdquo;</em>
+            @endif
+        </div>
+    @endif
+
     <!-- Bloque 1: Arqueo Físico de Gaveta -->
     <h3>1. Movimiento y Arqueo Físico de Efectivo en Gaveta</h3>
     <table>
@@ -83,6 +96,21 @@
             </tr>
         </tbody>
     </table>
+
+    <div class="muted" style="margin-top: 4px;">
+        Fondo S/ {{ number_format((float) ($reporte['monto_apertura'] ?? 0), 2) }}
+        + Ventas en efectivo S/ {{ number_format((float) ($reporte['total_ventas_efectivo'] ?? 0), 2) }}
+        @if((float) ($reporte['total_devoluciones_efectivo'] ?? 0) > 0)
+            &minus; Devoluciones NC S/ {{ number_format((float) $reporte['total_devoluciones_efectivo'], 2) }}
+        @endif
+        @if((float) ($reporte['total_gastos_caja_efectivo'] ?? 0) > 0)
+            &minus; Gastos de caja S/ {{ number_format((float) $reporte['total_gastos_caja_efectivo'], 2) }}
+        @endif
+        @if((float) ($reporte['total_compras_caja_efectivo'] ?? 0) > 0)
+            &minus; Compras de insumos S/ {{ number_format((float) $reporte['total_compras_caja_efectivo'], 2) }}
+        @endif
+        = S/ {{ number_format((float) ($reporte['efectivo_esperado'] ?? 0), 2) }} esperado en gaveta.
+    </div>
 
     @if(!empty($reporte['comentario_discrepancia']))
         <div class="box" style="margin-top: 4px; font-size: 8.5px;">
@@ -261,6 +289,36 @@
                             @endif
                         </td>
                         <td class="right">- S/ {{ number_format((float) ($nc['monto'] ?? 0), 2) }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
+
+    <!-- Gastos pagados con efectivo de la gaveta (solo si el Z los guardó al cerrar) -->
+    @if(!empty($reporte['gastos_caja_detalle']))
+        <h3>Egresos Pagados con Efectivo de la Gaveta</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 12%;">Hora</th>
+                    <th style="width: 48%;">Concepto</th>
+                    <th style="width: 25%;">Registrado por</th>
+                    <th style="width: 15%;" class="right">Monto</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($reporte['gastos_caja_detalle'] as $gasto)
+                    <tr>
+                        <td>{{ !empty($gasto['fecha']) ? \Carbon\Carbon::parse($gasto['fecha'])->format('H:i') : '—' }}</td>
+                        <td>
+                            {{ $gasto['proveedor_nombre'] ?? 'Sin proveedor' }}
+                            @if(!empty($gasto['descripcion']))
+                                <br><span style="font-size: 7.5px; color: #64748b;">{{ $gasto['descripcion'] }}</span>
+                            @endif
+                        </td>
+                        <td>{{ $gasto['registrado_por_nombre'] ?? '—' }}</td>
+                        <td class="right">- S/ {{ number_format((float) ($gasto['monto'] ?? 0), 2) }}</td>
                     </tr>
                 @endforeach
             </tbody>
