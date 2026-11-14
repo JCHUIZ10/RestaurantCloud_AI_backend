@@ -619,6 +619,10 @@ CREATE TABLE IF NOT EXISTS caja (
     revisado_por UUID REFERENCES usuario(id) ON DELETE SET NULL,
     revisado_at TIMESTAMPTZ,
     notas_auditoria TEXT,
+    visado_resultado VARCHAR(12) CHECK (visado_resultado IN ('conforme', 'observado')),
+    observacion_resuelta_por UUID REFERENCES usuario(id) ON DELETE SET NULL,
+    observacion_resuelta_at TIMESTAMPTZ,
+    observacion_resolucion TEXT,
     estado VARCHAR(20) NOT NULL DEFAULT 'abierta' CHECK (estado IN ('abierta', 'cerrada')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -726,7 +730,12 @@ CREATE TABLE IF NOT EXISTS gasto_manual (
     descripcion TEXT NOT NULL,
     fecha DATE NOT NULL DEFAULT CURRENT_DATE,
     registrado_por UUID NOT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    -- Un gasto mal registrado no se borra: se anula con motivo y deja de contar en el flujo y en la gaveta
+    estado VARCHAR(20) NOT NULL DEFAULT 'registrado' CHECK (estado IN ('registrado', 'anulado')),
+    motivo_anulacion TEXT,
+    anulado_por UUID REFERENCES usuario(id) ON DELETE SET NULL,
+    anulado_at TIMESTAMPTZ
 );
 
 -- 6.8 Asientos Contables de Flujo de Gaveta de Caja (CU-CAJA-03, CU-CAJA-04, CU-CAJA-05, CU-ADMIN-14)
@@ -734,14 +743,54 @@ CREATE TABLE IF NOT EXISTS caja_movimiento (
     id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
     caja_id UUID NOT NULL REFERENCES caja(id) ON DELETE CASCADE,
     local_id UUID NOT NULL REFERENCES local(id) ON DELETE CASCADE,
-    tipo VARCHAR(30) NOT NULL CHECK (tipo IN ('apertura', 'ingreso_venta', 'egreso_devolucion', 'egreso_gasto_manual', 'cierre')),
+    tipo VARCHAR(30) NOT NULL CHECK (tipo IN ('apertura', 'ingreso_venta', 'egreso_devolucion', 'egreso_gasto_manual', 'egreso_compra_insumo', 'cierre')),
     monto DECIMAL(12, 2) NOT NULL, -- Positivo = entrada; Negativo = salida
     metodo_pago VARCHAR(30) NOT NULL DEFAULT 'efectivo',
     comprobante_id UUID REFERENCES comprobante(id) ON DELETE SET NULL,
     gasto_manual_id UUID REFERENCES gasto_manual(id) ON DELETE SET NULL,
+    ficha_compra_id UUID REFERENCES ficha_compra(id) ON DELETE SET NULL, -- Compra de insumos pagada con efectivo de la gaveta
     descripcion TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Origen del efectivo de una compra de insumos (CU-ADMIN-06, CU-ADMIN-14): ficha_compra se crea antes que caja,
+-- por eso estas columnas se agregan aquí.
+--   gaveta_turno = salió de la gaveta del turno abierto (descuenta del efectivo esperado del cajero)
+--   caja_chica   = salió de un fondo fuera del POS (no toca la gaveta)
+ALTER TABLE ficha_compra
+    ADD COLUMN IF NOT EXISTS origen_efectivo VARCHAR(20) CHECK (origen_efectivo IN ('gaveta_turno', 'caja_chica')),
+    ADD COLUMN IF NOT EXISTS caja_id UUID REFERENCES caja(id) ON DELETE SET NULL;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_ficha_compra_origen_efectivo') THEN
+        ALTER TABLE ficha_compra ADD CONSTRAINT chk_ficha_compra_origen_efectivo CHECK (
+            (origen_efectivo IS NULL OR metodo_pago = 'efectivo')
+            AND (origen_efectivo IS DISTINCT FROM 'gaveta_turno' OR caja_id IS NOT NULL)
+        );
+    END IF;
+END $$;
+
+-- Pago de las compras a crédito del proveedor (CU-ADMIN-06, CU-ADMIN-14): el egreso cuenta en la fecha de pago.
+ALTER TABLE ficha_compra
+    ADD COLUMN IF NOT EXISTS fecha_pago DATE,
+    ADD COLUMN IF NOT EXISTS pagada_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS pagada_por UUID REFERENCES usuario(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS pago_metodo VARCHAR(20) CHECK (pago_metodo IN ('efectivo', 'transferencia', 'tarjeta_debito')),
+    ADD COLUMN IF NOT EXISTS pago_origen_efectivo VARCHAR(20) CHECK (pago_origen_efectivo IN ('gaveta_turno', 'caja_chica')),
+    ADD COLUMN IF NOT EXISTS pago_caja_id UUID REFERENCES caja(id) ON DELETE SET NULL;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_ficha_compra_pago') THEN
+        ALTER TABLE ficha_compra ADD CONSTRAINT chk_ficha_compra_pago CHECK (
+            (fecha_pago IS NULL OR metodo_pago = 'credito_proveedor')
+            AND ((fecha_pago IS NULL) = (pago_metodo IS NULL))
+            AND (pago_origen_efectivo IS NULL OR pago_metodo = 'efectivo')
+            AND (pago_origen_efectivo IS DISTINCT FROM 'gaveta_turno' OR pago_caja_id IS NOT NULL)
+        );
+    END IF;
+END $$;
 
 -- 6.9 Archivo Inmutable del Reporte Z Oficial del Turno (CU-CAJA-05, CU-ADMIN-14)
 CREATE TABLE IF NOT EXISTS auditoria_caja_cierre (
