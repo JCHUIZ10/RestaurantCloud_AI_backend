@@ -2,12 +2,17 @@
 
 namespace App\Domains\Inventario\Services;
 
+use App\Domains\Admin\Exceptions\FinanzasException;
+use App\Domains\Caja\Services\EgresoGavetaService;
 use App\Domains\Carta\Services\CartaPublicaService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class FichaCompraService
 {
+    public function __construct(private EgresoGavetaService $egresosGaveta) {}
+
     /**
      * Listado paginado de fichas de compra con KPIs analíticos de abastecimiento.
      */
@@ -51,11 +56,12 @@ class FichaCompraService
             $variacionPct = 100.0;
         }
 
-        // Créditos pendientes de proveedores (no anulados)
+        // Créditos pendientes de proveedores: vigentes y todavía sin pagar
         $creditosPendientes = DB::table('ficha_compra')
             ->where('local_id', $localId)
             ->where('estado', 'registrada')
             ->where('metodo_pago', 'credito_proveedor')
+            ->whereNull('fecha_pago')
             ->sum('total');
 
         $kpis = [
@@ -120,6 +126,9 @@ class FichaCompraService
                 'fc.estado',
                 'fc.motivo_anulacion',
                 'fc.anulado_at',
+                'fc.fecha_pago',
+                'fc.pagada_at',
+                'fc.pago_metodo',
                 'fc.proveedor_id',
                 'p.nombre as proveedor_nombre',
                 'p.telefono as proveedor_telefono',
@@ -380,6 +389,16 @@ class FichaCompraService
             ];
             $metodoPago = $metodoPagoMap[$metodoPagoRaw] ?? 'transferencia';
 
+            // Un pago en efectivo sale de la gaveta del turno (descuenta del efectivo esperado del cajero) o de una
+            // caja chica fuera del POS. Sin indicación se asume caja chica: es lo que siempre ocurrió hasta ahora.
+            $origenEfectivo = null;
+            if ($metodoPago === 'efectivo') {
+                $origenEfectivo = strtolower(trim((string) ($data['origen_efectivo'] ?? 'caja_chica')));
+                if (! in_array($origenEfectivo, ['gaveta_turno', 'caja_chica'], true)) {
+                    throw new \DomainException('Indica si el efectivo sale de la gaveta del turno o de una caja chica.');
+                }
+            }
+
             // Compras sin enumeración (S/N)
             $esAutogenerado = false;
             if ($numeroComprobanteRaw === '' || strtoupper($numeroComprobanteRaw) === 'S/N') {
@@ -438,8 +457,12 @@ class FichaCompraService
                 $igvMonto = round($totalFinal - $subtotalNeto, 2);
             }
 
-            // 1. Inserción de cabecera de compra
+            // 1. Inserción de cabecera de compra. Si el efectivo sale de la gaveta, se valida y bloquea el turno antes.
             $fichaId = (string) Str::uuid();
+            $cajaGaveta = $origenEfectivo === 'gaveta_turno'
+                ? $this->egresosGaveta->reservar($localId, $totalFinal, Carbon::parse($fechaEmision)->toDateString())
+                : null;
+
             DB::table('ficha_compra')->insert([
                 'id' => $fichaId,
                 'local_id' => $localId,
@@ -457,8 +480,20 @@ class FichaCompraService
                 'moneda' => 'PEN',
                 'estado' => 'registrada',
                 'notas' => $observaciones,
+                'origen_efectivo' => $origenEfectivo,
+                'caja_id' => $cajaGaveta?->id,
                 'created_at' => now(),
             ]);
+
+            if ($cajaGaveta) {
+                $this->egresosGaveta->registrarMovimiento(
+                    $cajaGaveta,
+                    EgresoGavetaService::TIPO_COMPRA,
+                    $totalFinal,
+                    $fichaId,
+                    "Compra de insumos {$numeroComprobante}"
+                );
+            }
 
             // 2. Inserción de ítems, actualización de stock y costos en insumo
             $insumosActualizadosIds = [];
@@ -581,6 +616,79 @@ class FichaCompraService
     }
 
     /**
+     * Registra el pago de una compra a crédito del proveedor (pago completo). El egreso cuenta en el flujo de caja
+     * en `fecha_pago`, que la administración elige (hasta hoy y no antes de la emisión). Con efectivo de la gaveta
+     * la fecha es hoy: la salida de dinero ocurre ahora y descuenta del efectivo esperado del cajero.
+     *
+     * @param  array{metodo: string, origen_efectivo?: ?string, fecha_pago?: ?string}  $datos
+     * @return array<string, mixed> la ficha con su pago registrado
+     *
+     * @throws FinanzasException
+     */
+    public function pagar(string $id, string $localId, string $usuarioId, array $datos): array
+    {
+        DB::transaction(function () use ($id, $localId, $usuarioId, $datos): void {
+            $ficha = DB::table('ficha_compra')->where('id', $id)->where('local_id', $localId)->lockForUpdate()->first();
+
+            if (! $ficha) {
+                throw new FinanzasException('ERR_COMPRA_NO_ENCONTRADA', 'La ficha de compra no existe o pertenece a otra sede.', 404);
+            }
+            if ($ficha->estado === 'anulada') {
+                throw new FinanzasException('ERR_COMPRA_ANULADA', 'La compra está anulada: no se puede registrar su pago.', 409);
+            }
+            if ($ficha->metodo_pago !== 'credito_proveedor') {
+                throw new FinanzasException('ERR_COMPRA_NO_ES_CREDITO', 'Solo las compras a crédito del proveedor tienen un pago pendiente.', 409);
+            }
+            if ($ficha->fecha_pago !== null) {
+                throw new FinanzasException('ERR_COMPRA_YA_PAGADA', 'Esta compra ya fue pagada.', 409);
+            }
+
+            $metodo = strtolower(trim($datos['metodo']));
+            $origen = null;
+            if ($metodo === 'efectivo') {
+                $origen = strtolower(trim((string) ($datos['origen_efectivo'] ?? 'caja_chica')));
+                if (! in_array($origen, ['gaveta_turno', 'caja_chica'], true)) {
+                    throw new FinanzasException('ERR_ORIGEN_EFECTIVO', 'Indica si el efectivo sale de la gaveta del turno o de una caja chica.', 422);
+                }
+            }
+
+            $hoy = now()->toDateString();
+            $fechaPago = $datos['fecha_pago'] ?? $hoy;
+            if ($fechaPago > $hoy) {
+                throw new FinanzasException('ERR_FECHA_PAGO_INVALIDA', 'La fecha de pago no puede ser futura.', 422);
+            }
+            if ($fechaPago < (string) $ficha->fecha_emision) {
+                throw new FinanzasException('ERR_FECHA_PAGO_INVALIDA', 'La fecha de pago no puede ser anterior a la emisión de la compra ('.$ficha->fecha_emision.').', 422);
+            }
+
+            $total = round((float) $ficha->total, 2);
+            // reservar() bloquea el turno y exige la fecha de hoy y efectivo suficiente en la gaveta
+            $cajaGaveta = $origen === 'gaveta_turno' ? $this->egresosGaveta->reservar($localId, $total, $fechaPago) : null;
+
+            DB::table('ficha_compra')->where('id', $id)->update([
+                'fecha_pago' => $fechaPago,
+                'pagada_at' => now(),
+                'pagada_por' => $usuarioId,
+                'pago_metodo' => $metodo,
+                'pago_origen_efectivo' => $origen,
+                'pago_caja_id' => $cajaGaveta?->id,
+            ]);
+
+            if ($cajaGaveta) {
+                $this->egresosGaveta->registrarMovimiento(
+                    $cajaGaveta,
+                    EgresoGavetaService::TIPO_COMPRA,
+                    $total,
+                    $id,
+                    "Pago de compra a crédito {$ficha->numero_comprobante}"
+                );
+            }
+        });
+
+        return $this->detalle($id, $localId);
+    }
+
+    /**
      * Anula una ficha de compra ejecutando el procedimiento almacenado
      * con plan de contingencia de piso 0 (GREATEST 0 Floor) y auditoría contable.
      */
@@ -599,11 +707,32 @@ class FichaCompraService
             throw new \DomainException('La ficha de compra ya se encuentra anulada.');
         }
 
-        // Ejecutar función PL/pgSQL atómica
-        $resultadoJson = DB::selectOne(
-            'SELECT fn_inventario_anular_compra(?, ?, ?) as res',
-            [$id, $usuarioId, $motivo]
-        );
+        // Ejecutar función PL/pgSQL atómica. Si el efectivo salió de la gaveta, el turno se bloquea mientras se
+        // anula: un cierre simultáneo no puede archivar en su Reporte Z una compra que se está anulando.
+        $resultadoJson = DB::transaction(function () use ($ficha, $id, $usuarioId, $motivo) {
+            // Una compra a crédito pagada con efectivo de la gaveta ata el pago, no la compra, al turno
+            $origenEfectivo = $ficha->pago_origen_efectivo ?? $ficha->origen_efectivo;
+            $cajaPagoId = $ficha->pago_caja_id ?? $ficha->caja_id;
+
+            if ($origenEfectivo === 'gaveta_turno') {
+                $caja = $cajaPagoId
+                    ? DB::table('caja')->where('id', $cajaPagoId)->lockForUpdate()->first()
+                    : null;
+
+                if (! $caja || $caja->estado !== 'abierta') {
+                    throw new FinanzasException(
+                        'ERR_COMPRA_TURNO_CERRADO',
+                        'Esta compra se pagó con efectivo de la gaveta de un turno que ya se cerró y su Reporte Z es inmutable, por lo que no se puede anular.',
+                        409
+                    );
+                }
+            }
+
+            return DB::selectOne(
+                'SELECT fn_inventario_anular_compra(?, ?, ?) as res',
+                [$id, $usuarioId, $motivo]
+            );
+        });
 
         $res = json_decode($resultadoJson->res ?? '{}', true);
         CartaPublicaService::invalidarTrasInventario($localId, $res ?: []);
@@ -670,6 +799,13 @@ class FichaCompraService
             'registrado_por_nombre' => $r->registrado_por_nombre ?? 'Administrador',
             'motivo_anulacion' => $r->motivo_anulacion ?? null,
             'fecha_anulacion' => isset($r->anulado_at) ? (string) $r->anulado_at : null,
+            'es_credito' => $r->metodo_pago === 'credito_proveedor',
+            // Solo una compra a crédito vigente puede estar "por pagar"; las demás se pagaron al registrarse
+            'pagada' => $r->metodo_pago !== 'credito_proveedor' || ! empty($r->fecha_pago),
+            'por_pagar' => $r->metodo_pago === 'credito_proveedor' && $r->estado === 'registrada' && empty($r->fecha_pago),
+            'fecha_pago' => ! empty($r->fecha_pago) ? (string) $r->fecha_pago : null,
+            'pago_metodo' => $r->pago_metodo ?? null,
+            'pagada_at' => ! empty($r->pagada_at) ? (string) $r->pagada_at : null,
         ];
     }
 }

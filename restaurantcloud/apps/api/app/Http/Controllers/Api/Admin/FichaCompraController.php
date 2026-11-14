@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domains\Admin\Exceptions\FinanzasException;
 use App\Domains\Inventario\Services\FichaCompraService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class FichaCompraController extends Controller
 {
@@ -39,6 +41,8 @@ class FichaCompraController extends Controller
             'numero_comprobante' => 'nullable|string|max:30',
             'fecha_emision' => 'required|date',
             'metodo_pago' => 'required|string',
+            // Solo aplica a pagos en efectivo: de dónde sale el dinero (gaveta del turno o caja chica fuera del POS)
+            'origen_efectivo' => 'nullable|string|in:gaveta_turno,caja_chica',
             'observaciones' => 'nullable|string|max:500',
             'actualizar_contacto_proveedor' => 'nullable|array',
             'actualizar_contacto_proveedor.telefono' => 'nullable|string|max:20',
@@ -54,6 +58,8 @@ class FichaCompraController extends Controller
             $resultado = $this->fichaCompraService->registrar($localId, $usuarioId, $data);
 
             return ApiResponse::ok($resultado, 201);
+        } catch (FinanzasException $e) {
+            return ApiResponse::error($e->codigoError, $e->getMessage(), $e->status);
         } catch (\DomainException $e) {
             return ApiResponse::error('ERR_VALIDACION_COMPRA', $e->getMessage(), 422);
         }
@@ -112,10 +118,37 @@ class FichaCompraController extends Controller
             $fichaAnulada = $this->fichaCompraService->anular($fichaId, $localId, $usuarioId, $request->input('motivo'));
 
             return ApiResponse::ok($fichaAnulada);
+        } catch (FinanzasException $e) {
+            return ApiResponse::error($e->codigoError, $e->getMessage(), $e->status);
         } catch (\DomainException $e) {
             return ApiResponse::error('ERR_ANULACION_COMPRA', $e->getMessage(), 422);
         } catch (\Throwable $e) {
             return ApiResponse::error('ERR_ANULACION_COMPRA', $e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * POST /api/v1/admin/compras/{id}/pagar — pago completo de una compra a crédito del proveedor.
+     */
+    public function pagar(Request $request, string $id): JsonResponse
+    {
+        $localId = $this->resolverLocalId($request);
+        if (! $localId) {
+            return ApiResponse::error('ERR_LOCAL_REQUERIDO', 'Debe especificar una sede o local válido.', 400);
+        }
+
+        $validated = $request->validate([
+            'metodo' => ['required', Rule::in(['efectivo', 'transferencia', 'tarjeta_debito'])],
+            'origen_efectivo' => ['nullable', Rule::in(['gaveta_turno', 'caja_chica'])],
+            'fecha_pago' => ['nullable', 'date_format:Y-m-d'],
+        ], [
+            'metodo.required' => 'Indica con qué se pagó la compra.',
+        ]);
+
+        try {
+            return ApiResponse::ok($this->fichaCompraService->pagar($id, $localId, $request->user()->id, $validated));
+        } catch (FinanzasException $e) {
+            return ApiResponse::error($e->codigoError, $e->getMessage(), $e->status);
         }
     }
 
