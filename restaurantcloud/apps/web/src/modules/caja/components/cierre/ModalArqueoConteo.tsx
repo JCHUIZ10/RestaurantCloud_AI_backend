@@ -104,7 +104,7 @@ export const ModalArqueoConteo: React.FC<ModalArqueoConteoProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-aurea-copper font-bold bg-aurea-copper/10 px-2 py-0.5 rounded-md border border-aurea-copper/30">
-                  Cierre Formal Z • CU-CAJA-05
+                  Cierre formal Z
                 </span>
               </div>
               <h2 id="modal-arqueo-title" className="text-lg font-bold font-serif text-white tracking-tight mt-0.5">
@@ -156,6 +156,20 @@ export const ModalArqueoConteo: React.FC<ModalArqueoConteoProps> = ({
                     <span>(-) Devoluciones / Notas de Crédito (BC01):</span>
                     <span className="font-bold">- S/ {balance.egresos_devolucion_nc.toFixed(2)}</span>
                   </div>
+
+                  {(balance.egresos_gasto_caja ?? 0) > 0 && (
+                    <div className="flex items-center justify-between text-rose-500">
+                      <span>(-) Gastos pagados con efectivo de caja:</span>
+                      <span className="font-bold">- S/ {(balance.egresos_gasto_caja ?? 0).toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  {(balance.egresos_compra_caja ?? 0) > 0 && (
+                    <div className="flex items-center justify-between text-rose-500">
+                      <span>(-) Compras de insumos pagadas con efectivo de caja:</span>
+                      <span className="font-bold">- S/ {(balance.egresos_compra_caja ?? 0).toFixed(2)}</span>
+                    </div>
+                  )}
 
                   <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between font-bold text-sm">
                     <span className="text-slate-900 dark:text-white">Total Esperado en Efectivo:</span>
@@ -355,7 +369,7 @@ export const ModalArqueoConteo: React.FC<ModalArqueoConteoProps> = ({
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:border-aurea-copper"
                 />
                 <span className="text-[10px] text-slate-400 block">
-                  🔔 Se emitirá una notificación a Administración (CU-ADMIN-14).
+                  Las notas quedan en el Reporte Z archivado y la administración puede consultarlas.
                 </span>
               </div>
             </div>

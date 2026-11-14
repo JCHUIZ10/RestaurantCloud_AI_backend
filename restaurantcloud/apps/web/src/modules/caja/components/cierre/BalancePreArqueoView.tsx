@@ -13,6 +13,7 @@ import {
 import { BalancePreArqueoDTO } from '@/types/caja';
 import { esMedioVisible } from '../../utils/mediosVisibles';
 import { DetalleNotasCreditoTurno } from './DetalleNotasCreditoTurno';
+import { DetalleEgresosCajaTurno } from './DetalleEgresosCajaTurno';
 import { ResumenRecargosTurno } from './ResumenRecargosTurno';
 
 interface BalancePreArqueoViewProps {
@@ -345,7 +346,7 @@ export const BalancePreArqueoView: React.FC<BalancePreArqueoViewProps> = ({
                     Conciliación de Flujo de Gaveta:
                   </span>
                   <span className="text-[11px] text-slate-500 font-mono">
-                    Fondo S/ {balance.monto_apertura.toFixed(2)} + Ing S/ {balance.ingresos_efectivo.toFixed(2)} - NC S/ {balance.egresos_devolucion_nc.toFixed(2)} = S/ {balance.efectivo_esperado.toFixed(2)} esperado.
+                    Fondo S/ {balance.monto_apertura.toFixed(2)} + Ing S/ {balance.ingresos_efectivo.toFixed(2)} - NC S/ {balance.egresos_devolucion_nc.toFixed(2)}{(balance.egresos_gasto_caja ?? 0) > 0 ? ` - Gastos S/ ${(balance.egresos_gasto_caja ?? 0).toFixed(2)}` : ''}{(balance.egresos_compra_caja ?? 0) > 0 ? ` - Compras S/ ${(balance.egresos_compra_caja ?? 0).toFixed(2)}` : ''} = S/{balance.efectivo_esperado.toFixed(2)} esperado.
                   </span>
                 </div>
               </div>
@@ -361,6 +362,19 @@ export const BalancePreArqueoView: React.FC<BalancePreArqueoViewProps> = ({
               </summary>
               <div className="px-5 pb-4">
                 <DetalleNotasCreditoTurno notas={balance.notas_credito_detalle ?? []} porPagina={5} />
+              </div>
+            </details>
+          )}
+
+          {/* Gastos y compras pagados con efectivo de la gaveta (solo si hubo) */}
+          {(balance.gastos_caja_detalle?.length ?? 0) > 0 && (
+            <details className="group rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+              <summary className="cursor-pointer select-none px-5 py-3 text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                <span>Egresos pagados con efectivo de caja ({balance.gastos_caja_detalle?.length})</span>
+                <span className="text-[10px] font-normal text-slate-400 group-open:hidden">Ver detalle</span>
+              </summary>
+              <div className="px-5 pb-4">
+                <DetalleEgresosCajaTurno egresos={balance.gastos_caja_detalle ?? []} />
               </div>
             </details>
           )}
