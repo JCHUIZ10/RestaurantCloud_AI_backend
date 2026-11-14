@@ -95,6 +95,11 @@ const Estado: React.FC<{ f: FichaCompraResumenDTO }> = ({ f }) =>
         </p>
       )}
     </div>
+  ) : f.por_pagar ? (
+    <div className="space-y-0.5">
+      <EstadoBadge tono="alerta">Por pagar</EstadoBadge>
+      <p className="text-xs text-estado-alerta-700">Crédito del proveedor</p>
+    </div>
   ) : (
     <EstadoBadge tono="ok">Vigente</EstadoBadge>
   );

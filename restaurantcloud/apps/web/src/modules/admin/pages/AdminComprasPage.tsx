@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Banknote } from 'lucide-react';
 import {
   ComprasHeader,
   ComprasKpis,
@@ -124,6 +125,11 @@ export const AdminComprasPage: React.FC = () => {
     mostrarExito(`Compra ${identificadorComprobante(fichaActualizada)} anulada. Se descontó el stock ingresado.`);
   };
 
+  const handleCompraPagada = (ficha: FichaCompraResumenDTO) => {
+    cargarFichas();
+    mostrarExito(`Pago de la compra ${identificadorComprobante(ficha)} registrado.`);
+  };
+
   const handlePlatosReactivados = (cantidad: number) => {
     mostrarExito(`${cantidad === 1 ? 'Se reactivó 1 plato' : `Se reactivaron ${cantidad} platos`} en la carta.`);
     setPlatosReactivablesPendientes([]);
@@ -148,6 +154,16 @@ export const AdminComprasPage: React.FC = () => {
       ) : (
         <>
           <ComprasKpis kpis={kpis} cargando={primeraCarga} />
+
+          {kpis.creditos_pendientes_monto > 0 && (
+            <div role="status" className="p-3.5 rounded-2xl bg-gradient-to-r from-estado-alerta-50 via-aurea-ivory to-estado-alerta-50 border border-estado-alerta-200 text-sm text-estado-alerta-800 flex items-start gap-2.5">
+              <Banknote className="w-4 h-4 mt-0.5 shrink-0 text-estado-alerta-600" aria-hidden="true" />
+              <p>
+                Las compras a crédito cuentan como egreso en el flujo de caja cuando se pagan. Abre cada compra &quot;Por pagar&quot; y usa
+                &quot;Marcar como pagada&quot; con la fecha real del pago.
+              </p>
+            </div>
+          )}
 
           <ComprasTable
             fichas={fichas}
@@ -195,6 +211,7 @@ export const AdminComprasPage: React.FC = () => {
         fichaId={fichaDetalleId}
         abierto={fichaDetalleId !== null}
         onCerrar={() => setFichaDetalleId(null)}
+        onPagada={handleCompraPagada}
       />
 
       <ModalAdvertenciaImpactoAnulacion

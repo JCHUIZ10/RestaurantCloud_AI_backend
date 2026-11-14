@@ -5,6 +5,7 @@ export * from './ComprasTable';
 export * from './ModalRegistrarCompra';
 export * from './ModalProveedorAlVuelo';
 export * from './ModalDetalleAuditoriaCompra';
+export * from './ModalPagarCompraCredito';
 export * from './ModalAdvertenciaImpactoAnulacion';
 export * from './ModalReactivacionPlatos';
 export * from './OnboardingComprasVacio';

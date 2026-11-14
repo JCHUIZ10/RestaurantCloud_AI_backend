@@ -3,7 +3,7 @@ import { AlertTriangle, AlertCircle, Ban, ChefHat, Package, Utensils } from 'luc
 import { FichaCompraResumenDTO, ImpactoAnulacionDTO } from '@/types/admin';
 import { adminService } from '@/services/serviceAdapter';
 import { Button, EstadoBadge, Modal, Skeleton } from '@/components/ui';
-import { cn } from '@/shared/utils';
+import { cn, mensajeDeErrorApi } from '@/shared/utils';
 import { TagComprobante } from './etiquetasCompra';
 import { formatoFecha, identificadorComprobante, soles } from './formatoCompra';
 
@@ -84,8 +84,9 @@ export const ModalAdvertenciaImpactoAnulacion: React.FC<ModalAdvertenciaImpactoA
       } else {
         setError(res.errores?.[0]?.mensaje || 'No se pudo anular la compra.');
       }
-    } catch {
-      setError('Ocurrió un error inesperado al procesar la anulación.');
+    } catch (err) {
+      // Incluye el rechazo de una compra pagada con la gaveta de un turno ya cerrado
+      setError(mensajeDeErrorApi(err, 'Ocurrió un error inesperado al procesar la anulación.'));
     } finally {
       setAnulando(false);
     }

@@ -18,6 +18,7 @@ import {
 import {
   TipoComprobanteCompra,
   MetodoPagoCompra,
+  OrigenEfectivoCompra,
   ItemCompraRequestDTO,
   RegistrarFichaCompraRequestDTO,
   ProveedorResumenDTO,
@@ -28,7 +29,7 @@ import {
 } from '@/types/admin';
 import { adminService } from '@/services/serviceAdapter';
 import { useAuthStore } from '@/stores/authStore';
-import { generarEnlaceWhatsApp, cn } from '@/shared/utils';
+import { generarEnlaceWhatsApp, cn, hoyServidorStr, mensajeDeErrorApi } from '@/shared/utils';
 import { Button, EstadoError, IconButton, Modal, Skeleton } from '@/components/ui';
 import { ModalProveedorAlVuelo } from './ModalProveedorAlVuelo';
 import { SelectorInsumoSearchable, InsumoSeleccionable } from './SelectorInsumoSearchable';
@@ -81,8 +82,13 @@ export const ModalRegistrarCompra: React.FC<ModalRegistrarCompraProps> = ({
   const [proveedorId, setProveedorId] = useState('');
   const [tipoComprobante, setTipoComprobante] = useState<TipoComprobanteCompra>('FACTURA');
   const [numeroComprobante, setNumeroComprobante] = useState('');
-  const [fechaEmision, setFechaEmision] = useState(() => new Date().toISOString().split('T')[0]);
+  // Fecha local: toISOString() usaría UTC y desde las 19:00 (Lima) proponía el día siguiente
+  const [fechaEmision, setFechaEmision] = useState(hoyServidorStr);
   const [metodoPago, setMetodoPago] = useState<MetodoPagoCompra>('TRANSFERENCIA');
+  // Se elige a propósito: de ello depende si el efectivo se descuenta de la gaveta del cajero
+  const [origenEfectivo, setOrigenEfectivo] = useState<OrigenEfectivoCompra | ''>('');
+  const pagoEnEfectivo = metodoPago === 'EFECTIVO';
+  const salePorGaveta = pagoEnEfectivo && origenEfectivo === 'gaveta_turno';
   const [observaciones, setObservaciones] = useState('');
 
   // Líneas de insumos en la compra (inicia vacía)
@@ -118,7 +124,8 @@ export const ModalRegistrarCompra: React.FC<ModalRegistrarCompraProps> = ({
       setErrorCarga(null);
       setTipoComprobante('FACTURA');
       setMetodoPago('TRANSFERENCIA');
-      setFechaEmision(new Date().toISOString().split('T')[0]);
+      setOrigenEfectivo('');
+      setFechaEmision(hoyServidorStr());
       cargarCatalogos();
     }
   }, [abierto]);
@@ -417,6 +424,7 @@ export const ModalRegistrarCompra: React.FC<ModalRegistrarCompraProps> = ({
           : undefined,
         fecha_emision: fechaEmision,
         metodo_pago: metodoPago,
+        origen_efectivo: pagoEnEfectivo && origenEfectivo !== '' ? origenEfectivo : undefined,
         observaciones: observaciones.trim() || undefined,
         items: itemsPayload,
       };
@@ -451,8 +459,9 @@ export const ModalRegistrarCompra: React.FC<ModalRegistrarCompraProps> = ({
       } else {
         setErrorValidacion(res.errores?.[0]?.mensaje || 'Error al procesar la ficha de compra.');
       }
-    } catch {
-      setErrorValidacion('Ocurrió un error inesperado al registrar la compra.');
+    } catch (err) {
+      // Los rechazos de negocio (sin turno abierto, efectivo insuficiente…) llegan como excepción con su mensaje
+      setErrorValidacion(mensajeDeErrorApi(err, 'Ocurrió un error inesperado al registrar la compra.'));
     } finally {
       setGuardando(false);
     }
@@ -467,7 +476,11 @@ export const ModalRegistrarCompra: React.FC<ModalRegistrarCompraProps> = ({
           ? 'Falta el número de comprobante.'
           : !todosInsumosValidos
             ? 'Cada insumo necesita cantidad y precio mayores a cero.'
-            : '';
+            : pagoEnEfectivo && origenEfectivo === ''
+              ? 'Indica de dónde sale el efectivo.'
+              : salePorGaveta && fechaEmision !== hoyServidorStr()
+                ? 'Para pagar con la gaveta, la fecha de emisión debe ser hoy.'
+                : '';
 
   const listo = !cargandoCatalogos && !errorCarga;
 
@@ -687,6 +700,51 @@ export const ModalRegistrarCompra: React.FC<ModalRegistrarCompraProps> = ({
                   ))}
                 </select>
               </div>
+
+              {pagoEnEfectivo && (
+                <fieldset className="col-span-full space-y-2">
+                  <legend className={CLASE_ROTULO}>¿De dónde sale el efectivo?</legend>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {(
+                      [
+                        {
+                          valor: 'gaveta_turno',
+                          titulo: 'De la gaveta del turno',
+                          detalle: 'Se descuenta del efectivo esperado del cajero. Requiere un turno abierto y fecha de hoy.',
+                        },
+                        {
+                          valor: 'caja_chica',
+                          titulo: 'De una caja chica fuera del POS',
+                          detalle: 'No toca la gaveta del cajero.',
+                        },
+                      ] as const
+                    ).map((opcion) => (
+                      <label
+                        key={opcion.valor}
+                        className={cn(
+                          'flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition-colors',
+                          origenEfectivo === opcion.valor
+                            ? 'border-aurea-copper bg-aurea-champagne/30'
+                            : 'border-aurea-champagne/70 bg-white hover:bg-aurea-ivory/60'
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name={`${idForm}-origen-efectivo`}
+                          value={opcion.valor}
+                          checked={origenEfectivo === opcion.valor}
+                          onChange={() => setOrigenEfectivo(opcion.valor)}
+                          className="mt-0.5 accent-aurea-copper"
+                        />
+                        <span className="text-sm text-aurea-navy">
+                          <span className="font-semibold block">{opcion.titulo}</span>
+                          <span className="text-xs text-aurea-navy/70">{opcion.detalle}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
             </section>
 
             {/* Insumos */}

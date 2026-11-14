@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Receipt, Ban, CalendarDays, User, Truck, Phone, Printer, Package, StickyNote } from 'lucide-react';
+import { Receipt, Ban, Banknote, CalendarDays, User, Truck, Phone, Printer, Package, StickyNote } from 'lucide-react';
 import { FichaCompraDetalleCompletoDTO } from '@/types/admin';
 import { adminService } from '@/services/serviceAdapter';
 import { Button, EstadoBadge, Modal, Skeleton } from '@/components/ui';
+import { ModalPagarCompraCredito } from './ModalPagarCompraCredito';
 import { TagComprobante, TagPago, VariacionCosto } from './etiquetasCompra';
 import { esComprobanteEnumerado, formatoFecha, identificadorComprobante, soles } from './formatoCompra';
 
@@ -10,15 +11,19 @@ interface ModalDetalleAuditoriaCompraProps {
   fichaId: string | null;
   abierto: boolean;
   onCerrar: () => void;
+  /** Se avisa a la página cuando se registra el pago de una compra a crédito */
+  onPagada?: (ficha: FichaCompraDetalleCompletoDTO) => void;
 }
 
 export const ModalDetalleAuditoriaCompra: React.FC<ModalDetalleAuditoriaCompraProps> = ({
   fichaId,
   abierto,
   onCerrar,
+  onPagada,
 }) => {
   const [detalle, setDetalle] = useState<FichaCompraDetalleCompletoDTO | null>(null);
   const [cargando, setCargando] = useState(false);
+  const [pagoAbierto, setPagoAbierto] = useState(false);
 
   useEffect(() => {
     if (abierto && fichaId) {
@@ -54,6 +59,11 @@ export const ModalDetalleAuditoriaCompra: React.FC<ModalDetalleAuditoriaCompraPr
           <Button variant="outline" onClick={() => window.print()} disabled={!d} leftIcon={<Printer className="w-4 h-4 text-aurea-copper" aria-hidden="true" />}>
             Imprimir
           </Button>
+          {d?.por_pagar && onPagada && (
+            <Button onClick={() => setPagoAbierto(true)} leftIcon={<Banknote className="w-4 h-4" aria-hidden="true" />}>
+              Marcar como pagada
+            </Button>
+          )}
           <Button onClick={onCerrar}>Cerrar</Button>
         </>
       }
@@ -108,6 +118,13 @@ export const ModalDetalleAuditoriaCompra: React.FC<ModalDetalleAuditoriaCompraPr
               <dd className="flex flex-wrap items-center gap-2">
                 <TagPago metodo={d.metodo_pago} />
                 {d.estado === 'ANULADA' ? <EstadoBadge tono="error">Anulada</EstadoBadge> : <EstadoBadge tono="ok">Vigente</EstadoBadge>}
+                {d.por_pagar && <EstadoBadge tono="alerta">Por pagar</EstadoBadge>}
+                {d.es_credito && d.pagada && d.estado !== 'ANULADA' && (
+                  <EstadoBadge tono="info">Pagada el {d.fecha_pago ? formatoFecha(d.fecha_pago) : '—'}</EstadoBadge>
+                )}
+                {d.es_credito && d.pagada && d.estado !== 'ANULADA' && (
+                  <EstadoBadge tono="info">Pagada el {d.fecha_pago ? formatoFecha(d.fecha_pago) : '—'}</EstadoBadge>
+                )}
               </dd>
             </div>
             <div className="p-3 rounded-xl bg-aurea-ivory border border-aurea-champagne/70 space-y-1">
@@ -194,6 +211,15 @@ export const ModalDetalleAuditoriaCompra: React.FC<ModalDetalleAuditoriaCompraPr
           </div>
         </div>
       )}
+      <ModalPagarCompraCredito
+        ficha={d}
+        abierto={pagoAbierto}
+        onCerrar={() => setPagoAbierto(false)}
+        onPagada={(ficha) => {
+          if (fichaId) void cargarDetalle(fichaId);
+          onPagada?.(ficha as FichaCompraDetalleCompletoDTO);
+        }}
+      />
     </Modal>
   );
 };
