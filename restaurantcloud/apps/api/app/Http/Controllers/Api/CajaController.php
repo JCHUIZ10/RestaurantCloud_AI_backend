@@ -86,13 +86,7 @@ class CajaController extends Controller
                 ->sum('total') ?? 0.00);
 
             // Calcular efectivo actual en gaveta (apertura + ingresos efectivo - egresos)
-            $movimientosEfectivo = (float) (DB::table('caja_movimiento')
-                ->where('caja_id', $cajaAbierta->id)
-                ->where('metodo_pago', 'efectivo')
-                ->where('tipo', '!=', 'apertura')
-                ->sum('monto') ?? 0.00);
-
-            $efectivoActual = round((float) $cajaAbierta->monto_apertura + $movimientosEfectivo, 2);
+            $efectivoActual = app(HistorialComprobantesService::class)->efectivoEnGaveta($cajaAbierta);
 
             $turnoActivo = [
                 'id' => $cajaAbierta->id,
@@ -519,13 +513,7 @@ class CajaController extends Controller
 
         $efectivoEnCaja = 0.00;
         if ($cajaAbierta) {
-            $movEfectivo = (float) (DB::table('caja_movimiento')
-                ->where('caja_id', $cajaAbierta->id)
-                ->where('metodo_pago', 'efectivo')
-                ->where('tipo', '!=', 'apertura')
-                ->sum('monto') ?? 0.00);
-
-            $efectivoEnCaja = round((float) $cajaAbierta->monto_apertura + $movEfectivo, 2);
+            $efectivoEnCaja = app(HistorialComprobantesService::class)->efectivoEnGaveta($cajaAbierta);
         }
 
         $porcentajeOcupacion = $totalMesas > 0 ? (int) round(($mesasOcupadasCount / $totalMesas) * 100) : 0;
@@ -1648,13 +1636,7 @@ class CajaController extends Controller
             default => 'BC01',
         };
 
-        $movimientosEfectivo = (float) (DB::table('caja_movimiento')
-            ->where('caja_id', $caja->id)
-            ->where('metodo_pago', 'efectivo')
-            ->where('tipo', '!=', 'apertura')
-            ->sum('monto') ?? 0.00);
-
-        $efectivoGavetaActual = round((float) $caja->monto_apertura + $movimientosEfectivo, 2);
+        $efectivoGavetaActual = app(HistorialComprobantesService::class)->efectivoEnGaveta($caja);
         $efectivoGavetaProyectado = $comp->medio_pago === 'efectivo'
             ? round(max(0, $efectivoGavetaActual - (float) $comp->total), 2)
             : $efectivoGavetaActual;
@@ -1971,13 +1953,7 @@ class CajaController extends Controller
             DB::afterCommit(fn () => GenerarComprobanteDigitalJob::dispatch($outboxEventId));
 
             // 8. Calcular nuevo efectivo en gaveta
-            $movimientosEfectivo = (float) (DB::table('caja_movimiento')
-                ->where('caja_id', $caja->id)
-                ->where('metodo_pago', 'efectivo')
-                ->where('tipo', '!=', 'apertura')
-                ->sum('monto') ?? 0.00);
-
-            $efectivoGavetaNuevo = round((float) $caja->monto_apertura + $movimientosEfectivo, 2);
+            $efectivoGavetaNuevo = app(HistorialComprobantesService::class)->efectivoEnGaveta($caja);
 
             $pedido = $comp->pedido_id ? DB::table('pedido')->where('id', $comp->pedido_id)->first() : null;
             $mesa = $pedido ? DB::table('mesa')->where('id', $pedido->mesa_id)->first() : null;

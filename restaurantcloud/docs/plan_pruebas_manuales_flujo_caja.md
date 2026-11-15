@@ -47,12 +47,12 @@ Entra como **administrador**.
 
 | # | Caso | Pasos | Resultado esperado | ✔ |
 | :-: | :--- | :--- | :--- | :-: |
-| 1.1 | Menú | Abre el menú lateral. | Existe **Flujo de caja y cierres Z** y abre la pantalla real. | ☐ |
-| 1.2 | Sin datos de prueba | Mira la pantalla completa. | No hay widgets "QA", "Sandbox" ni nombres de ejemplo. Se ve el **nombre real de la sede**. | ☐ |
-| 1.3 | Periodos | Cambia entre *Hoy*, *Semana* y *Este mes*. | Las cifras cambian y, mientras carga, el contenido se atenúa con una barra "Actualizando…". | ☐ |
-| 1.4 | Rango personalizado | Elige un rango de hace 3 meses hasta hoy y aplica. | El gráfico se **agrupa por semana** ("· agrupado por semana" en el título) y no dibuja un día por tarjeta. | ☐ |
-| 1.5 | Sin comparativo | Elige un rango sin movimientos en el periodo anterior. | El chip dice **"Sin comparativo"**, no "0 %". | ☐ |
-| 1.6 | Seguridad | Sal y entra como **cajero**; escribe `/admin/finanzas/flujo-caja`. | El cajero no ve la pantalla (redirigido o rechazado). | ☐ |
+| 1.1 | Menú | Abre el menú lateral. | Existe **Flujo de caja y cierres Z** y abre la pantalla real. | ✔ |
+| 1.2 | Sin datos de prueba | Mira la pantalla completa. | No hay widgets "QA", "Sandbox" ni nombres de ejemplo. Se ve el **nombre real de la sede**. | ✔ |
+| 1.3 | Periodos | Cambia entre *Hoy*, *Semana* y *Este mes*. | Las cifras cambian y, mientras carga, el contenido se atenúa con una barra "Actualizando…". | ✔ |
+| 1.4 | Rango personalizado | Elige un rango de hace 3 meses hasta hoy y aplica. | El gráfico se **agrupa por semana** ("· agrupado por semana" en el título) y no dibuja un día por tarjeta. | ✔ |
+| 1.5 | Sin comparativo | Elige un rango sin movimientos en el periodo anterior. | El chip dice **"Sin comparativo"**, no "0 %". | ✔ |
+| 1.6 | Seguridad | Sal y entra como **cajero**; escribe `/admin/finanzas/flujo-caja`. | El cajero no ve la pantalla (redirigido o rechazado). | ✔ |
 
 ---
 

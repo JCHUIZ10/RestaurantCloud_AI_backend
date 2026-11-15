@@ -838,6 +838,21 @@ class AdminFlujoCajaTest extends TestCase
             ->assertJsonCount(0, 'datos.gastos_caja_detalle');
     }
 
+    public function test_el_efectivo_actual_del_monitor_de_caja_ignora_los_gastos_anulados(): void
+    {
+        $this->crearCaja(['monto_apertura' => 100.00]);
+        $gastoId = $this->postJson('/api/v1/admin/finanzas/gastos', $this->datosGasto(), $this->headers())->assertStatus(201)->json('datos.id');
+
+        $this->getJson('/api/v1/caja/estado-sesion', $this->headers())
+            ->assertJsonPath('datos.turno_activo.efectivo_actual', 70);
+
+        $this->postJson("/api/v1/admin/finanzas/gastos/{$gastoId}/anular", ['motivo' => 'Se pagó por transferencia, no en efectivo'], $this->headers())
+            ->assertStatus(200);
+
+        $this->getJson('/api/v1/caja/estado-sesion', $this->headers())
+            ->assertJsonPath('datos.turno_activo.efectivo_actual', 100);
+    }
+
     public function test_un_gasto_en_efectivo_de_un_turno_cerrado_no_se_puede_anular(): void
     {
         $caja = $this->crearCaja(['monto_apertura' => 100.00]);

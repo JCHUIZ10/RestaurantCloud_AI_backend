@@ -91,9 +91,7 @@ class HistorialComprobantesService
             ];
         }
 
-        $movimientosEfectivo = (float) $this->movimientosVigentes((string) $caja->id)
-            ->where('m.tipo', '!=', 'apertura')
-            ->sum('m.monto');
+        $efectivoGaveta = $this->efectivoEnGaveta($caja);
 
         // Efectivo bruto: todo lo cobrado en efectivo, incluso lo que luego se anuló con una NC.
         $efectivoBruto = $todos->where('tipo', '!=', 'nota_credito')->where('medio_pago', 'efectivo');
@@ -228,8 +226,21 @@ class HistorialComprobantesService
             'total_devoluciones' => round((float) $ventasBrutas->sum('total') - (float) $ventas->sum('total'), 2),
             'base_imponible' => round((float) $ventas->sum('base_imponible'), 2),
             'igv' => round((float) $ventas->sum('igv'), 2),
-            'efectivo_gaveta' => round((float) $caja->monto_apertura + $movimientosEfectivo, 2),
+            'efectivo_gaveta' => $efectivoGaveta,
         ];
+    }
+
+    /**
+     * Efectivo que hay ahora en la gaveta del turno: apertura más los movimientos en efectivo vigentes.
+     * Un gasto o una compra anulados ya no descuentan.
+     */
+    public function efectivoEnGaveta(object $caja): float
+    {
+        $movimientosEfectivo = (float) $this->movimientosVigentes((string) $caja->id)
+            ->where('m.tipo', '!=', 'apertura')
+            ->sum('m.monto');
+
+        return round((float) $caja->monto_apertura + $movimientosEfectivo, 2);
     }
 
     /**
