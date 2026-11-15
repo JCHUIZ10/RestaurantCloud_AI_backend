@@ -62,11 +62,11 @@ Pestaña **Gastos**. Necesitas un **turno abierto** (si no hay, ábrelo con el c
 
 | # | Caso | Pasos | Resultado esperado | ✔ |
 | :-: | :--- | :--- | :--- | :-: |
-| 2.1 | Formulario vacío | Pulsa *Registrar gasto*. | Nace **vacío**; el botón guardar está deshabilitado hasta completar. Categorías con color y tipos de comprobante legibles. | ☐ |
-| 2.2 | Por transferencia | Categoría Alquiler, S/ 100, origen *Transferencia*, proveedor y descripción de 10+ letras. Guarda. | Aparece en la tabla con la etiqueta del comprobante (no el código). El total sube S/ 100. | ☐ |
-| 2.3 | Con efectivo de la gaveta | Gasto de S/ 20 con origen *Efectivo de caja*. | La fecha queda fija en **hoy**. Se guarda y figura "Caja chica/gaveta" en la tabla. | ☐ |
-| 2.4 | Esperado del cajero | En la ventana del cajero abre `/cajero/turno` (cierre). | Su efectivo esperado bajó **S/ 20** y el gasto aparece en "Egresos pagados con efectivo de la gaveta". | ☐ |
-| 2.5 | Anular | En la tabla anula el gasto de S/ 20 con un motivo corto (menos de 10 letras) y luego uno válido. | Con motivo corto no deja confirmar. Al anular, el gasto queda tachado y el esperado del cajero **vuelve a subir S/ 20**. | ☐ |
+| 2.1 | Formulario vacío | Pulsa *Registrar gasto*. | Nace **vacío**; el botón guardar está deshabilitado hasta completar. Categorías con color y tipos de comprobante legibles. | ✔ |
+| 2.2 | Por transferencia | Categoría Alquiler, S/ 100, origen *Transferencia*, proveedor y descripción de 10+ letras. Guarda. | Aparece en la tabla con la etiqueta del comprobante (no el código). El total sube S/ 100. | ✔ |
+| 2.3 | Con efectivo de la gaveta | Gasto de S/ 20 con origen *Efectivo de caja*. | La fecha queda fija en **hoy**. Se guarda y figura "Caja chica/gaveta" en la tabla. | ✔ |
+| 2.4 | Esperado del cajero | En la ventana del cajero abre `/cajero/turno` (cierre). | Su efectivo esperado bajó **S/ 20** y el gasto aparece en "Egresos pagados con efectivo de la gaveta". | ✔ |
+| 2.5 | Anular | En la tabla anula el gasto de S/ 20 con un motivo corto (menos de 10 letras) y luego uno válido. | Con motivo corto no deja confirmar. Al anular, el gasto queda tachado y el esperado del cajero **vuelve a subir S/ 20**. | ✔ |
 
 ---
 
