@@ -8,7 +8,7 @@ Bienvenido al repositorio de **RestaurantCloud AI**. Este sistema es una platafo
 
 El proyecto está diseñado bajo una arquitectura desacoplada y moderna:
 
-- **Backend (API)**: [Laravel 11](https://laravel.com/) sobre **PHP 8.3** optimizado con **FrankenPHP y Laravel Octane** para ejecución asíncrona de alto rendimiento.
+- **Backend (API)**: [Laravel 13](https://laravel.com/) sobre **PHP 8.3** optimizado con **FrankenPHP y Laravel Octane** para ejecución asíncrona de alto rendimiento.
 - **Frontend (Web SPA)**: [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) impulsado por [Vite](https://vitejs.dev/), [Tailwind CSS](https://tailwindcss.com/), [TanStack Query](https://tanstack.com/query) y [Zustand](https://github.com/pmndrs/zustand).
 - **Base de Datos**: [PostgreSQL 16](https://www.postgresql.org/) con aislamiento estricto multi-tenant mediante **Row Level Security (RLS)** por `empresa_id`, UUID v8 y funciones PL/pgSQL nativas.
 - **Caché y Mensajería**: [Redis 7](https://redis.io/) para autenticación ultrarrápida en memoria (`auth.redis`), colas de emisión de comprobantes y publicación de eventos.
@@ -117,7 +117,7 @@ cd restaurantcloud
 cp .env.example .env
 ```
 
-*(Este archivo define las credenciales de PostgreSQL `saas_admin` / `123`, puertos y claves de MinIO y Redis).*
+*(Este archivo define las credenciales de PostgreSQL, los puertos y las claves de MinIO y Redis. Los valores del ejemplo son solo para desarrollo local; cámbialos en cualquier entorno compartido o desplegado).*
 
 #### 2.2 Archivo `.env` de la API Laravel
 
@@ -173,7 +173,7 @@ docker compose up -d --build
 ```
 
 #### ¿Qué contenedores se crean y levantan automáticamente?
-- **`saas_postgres_db` (PostgreSQL 16)**: Corre en el puerto `5432`. En su primer arranque ejecuta los scripts de `infra/sql/` que configuran la estructura DDL, políticas RLS de seguridad, planes comerciales y la sede demo **"Áurea"** con sus productos, mesas, inventario y usuarios.
+- **`saas_postgres_db` (PostgreSQL 16)**: Corre en el puerto `5432`. Arranca con la base vacía: la estructura (DDL, políticas RLS, planes comerciales y catálogo UBIGEO) la crean las **migraciones de Laravel**, que la API aplica sola al iniciar. La sede demo **"Áurea"** (productos, mesas, inventario y usuarios) se carga con `php artisan db:seed` en el Paso 4.
 - **`saas_redis` (Redis 7)**: Corre en el puerto `6379` para caché de alta velocidad, sesiones y colas.
 - **`saas_minio` & `saas_minio_init`**: Corre en los puertos `9000` (API S3) y `9001` (Consola Web). Crea automáticamente el bucket `restaurantcloud`.
 - **`saas_laravel_api` (API con FrankenPHP / Octane)**: Corre en el puerto `8080`. Instala dependencias con Composer si faltan, genera `APP_KEY` y levanta el servidor API de alto rendimiento.
@@ -192,13 +192,16 @@ docker compose logs -f api
 
 ---
 
-### Paso 4: Inicializar el Almacenamiento MinIO para la Empresa Demo
+### Paso 4: Cargar los Datos Demo y Preparar el Almacenamiento MinIO
 
-Ejecuta el siguiente comando para crear las carpetas de almacenamiento de comprobantes y archivos en MinIO para la empresa de prueba:
+Espera a que la API termine de aplicar las migraciones (`docker compose logs -f api` muestra `Server running`). Luego carga la sede demo **Áurea** y crea las carpetas de almacenamiento de comprobantes y archivos en MinIO para esa empresa. Los datos de demostración son **sintéticos**.
 
 ```bash
+docker exec -it saas_laravel_api php artisan db:seed
 docker exec -it saas_laravel_api php artisan tenant:init-storage --test
 ```
+
+> Sin `db:seed` no existen la empresa ni los usuarios de la sección «Credenciales de Prueba» y no podrás iniciar sesión.
 
 ---
 
@@ -246,10 +249,10 @@ Abre tu navegador web e ingresa a: **[http://localhost:5173](http://localhost:51
 | :--- | :--- | :--- |
 | **Frontend Web (SPA)** | [http://localhost:5173](http://localhost:5173) | Interfaz visual interactiva (Salón, Mesas, Caja, KDS) |
 | **API REST (Healthcheck)** | [http://localhost:8080/api/v1/health](http://localhost:8080/api/v1/health) | Verificación de que la API está online |
-| **Consola MinIO S3** | [http://localhost:9001](http://localhost:9001) | Panel web de archivos S3 (`saas_minio_admin` / `rC_minio_secret_2026!`) |
+| **Consola MinIO S3** | [http://localhost:9001](http://localhost:9001) | Panel web de archivos S3 (usuario y clave: `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` de tu `.env`) |
 | **API S3 MinIO** | [http://localhost:9000](http://localhost:9000) | Almacenamiento directo S3 |
-| **PostgreSQL** | `localhost:5432` | Base de datos (`restaurantcloud_db`, usuario: `saas_admin`, clave: `123`) |
-| **Redis** | `localhost:6379` | Caché y sesiones en memoria (clave: `rC_redis_secret_2026!`) |
+| **PostgreSQL** | `localhost:5432` | Base de datos `restaurantcloud_db` (usuario y clave: `POSTGRES_USER` / `POSTGRES_PASSWORD` de tu `.env`) |
+| **Redis** | `localhost:6379` | Caché y sesiones en memoria (clave: `REDIS_PASSWORD` de tu `.env`) |
 
 ---
 
@@ -286,9 +289,10 @@ docker compose down
 # Ver logs de la API en vivo
 docker compose logs -f api
 
-# Reiniciar la base de datos limpia desde cero (elimina volúmenes y reejecuta los seeds SQL)
+# Reiniciar la base de datos limpia desde cero (elimina volúmenes; las migraciones recrean el esquema al iniciar la API)
 docker compose down -v
 docker compose up -d
+docker exec -it saas_laravel_api php artisan db:seed
 docker exec -it saas_laravel_api php artisan tenant:init-storage --test
 ```
 
