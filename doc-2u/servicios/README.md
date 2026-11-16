@@ -1,0 +1,164 @@
+# Servicios: fichas y contratos
+
+Esta carpeta tiene una ficha por componente de la arquitectura descrita en [../01-arquitectura-microservicios.md](../01-arquitectura-microservicios.md). Este archivo define las reglas comunes y la estructura que sigue cada contrato.
+
+| Archivo | Contenido |
+|---|---|
+| [nucleo-laravel.md](nucleo-laravel.md) | Cambios en la aplicación principal: JWT, publicación de eventos y endpoints nuevos |
+| [ms-analitica.md](ms-analitica.md) | Reportes de ventas y series para la IA |
+| [ms-pronostico.md](ms-pronostico.md) | Pronóstico de demanda (IA) |
+| [ms-notificaciones.md](ms-notificaciones.md) | Bandeja de avisos y tiempo real |
+| [api-gateway.md](api-gateway.md) | Rutas y políticas de Kong |
+| [eventos.md](eventos.md) | Catálogo de eventos asíncronos |
+
+**Estado:** estructura definida. Los endpoints y eventos listados son la propuesta inicial; el detalle de cada uno (cuerpos y errores) se completa antes de implementarlo.
+
+---
+
+## 1. Estructura de la ficha de un servicio
+
+Todas las fichas tienen las mismas secciones, en este orden:
+
+1. **Identificación:** responsabilidad, stack, base de datos, puerto local, prefijo en el gateway y destino de despliegue.
+2. **Datos que gestiona:** colecciones o tablas propias y su propósito.
+3. **API:** tabla resumen de endpoints y, debajo, el detalle de cada uno.
+4. **Eventos:** cuáles consume y cuáles publica, con enlace al catálogo.
+5. **Dependencias y fallos:** de quién depende y qué ocurre si esa dependencia no responde.
+6. **Configuración:** variables de entorno.
+7. **Decisiones abiertas.**
+
+## 2. Convenciones de API (todas las APIs)
+
+Se mantiene el formato que ya usa Laravel (`App\Support\ApiResponse`), para que el frontend trate igual a todos los servicios.
+
+**Rutas.** Prefijo `/api/v1`, sustantivos en plural y en español, identificadores UUID. Los endpoints entre servidores van bajo `/interno` y el gateway no los expone.
+
+**Respuesta correcta:**
+
+```json
+{
+  "exito": true,
+  "datos": { },
+  "meta": { "timestamp": "2026-11-16T18:30:00-05:00" }
+}
+```
+
+**Respuesta con error:**
+
+```json
+{
+  "exito": false,
+  "errores": [
+    { "codigo": "ERR_RANGO_INVALIDO", "mensaje": "La fecha inicial es posterior a la final.", "detalles": { } }
+  ],
+  "meta": { "timestamp": "2026-11-16T18:30:00-05:00" }
+}
+```
+
+**Códigos HTTP:**
+
+| Código | Cuándo |
+|---|---|
+| 200 / 201 | Correcto / recurso creado |
+| 202 | Evento aceptado para procesar |
+| 400 | Petición mal formada |
+| 401 | Falta el token o no es válido |
+| 403 | El rol no tiene permiso |
+| 404 | El recurso no existe **o pertenece a otra empresa** (no se distingue, para no revelar que existe) |
+| 409 | Conflicto con el estado actual |
+| 422 | Datos que no pasan la validación |
+| 503 | Una dependencia no responde |
+
+**Autenticación.**
+
+| Quién llama | Cómo se autentica |
+|---|---|
+| Navegador → microservicio | `Authorization: Bearer <JWT>`. El servicio valida la firma RS256 y toma `empresa_id`, `local_id` y `rol` del token; nunca del cuerpo ni de la URL |
+| Servidor → servidor (`/interno`) | Cabeceras `X-Timestamp` y `X-Firma` (HMAC-SHA256 de `timestamp.cuerpo` con el secreto del servicio destino). Se rechaza si el timestamp tiene más de 5 minutos |
+
+**Otras reglas.**
+
+- Fechas en ISO 8601 con zona horaria; días como `YYYY-MM-DD`. Montos como número con dos decimales.
+- Listados paginados con `pagina` y `por_pagina`; la respuesta incluye `meta.total`.
+- Toda petición lleva `X-Request-Id` (lo genera el gateway si falta); cada servicio lo escribe en sus logs y lo reenvía en sus llamadas.
+- Cada servicio expone `GET /health` sin autenticación y su documentación OpenAPI.
+
+## 3. Estructura del contrato de un endpoint
+
+En la sección «API» de cada ficha, cada endpoint se documenta con esta plantilla:
+
+````markdown
+### GET /api/v1/analitica/ventas/resumen
+
+**Propósito:** una frase.
+**Roles:** admin_local, propietario.
+**Autenticación:** JWT.
+
+**Parámetros**
+
+| Nombre | En | Tipo | Obligatorio | Descripción |
+|---|---|---|---|---|
+| desde | query | fecha | sí | Primer día del rango |
+
+**Respuesta 200**
+
+```json
+{ "exito": true, "datos": { } }
+```
+
+**Errores**
+
+| HTTP | Código | Cuándo |
+|---|---|---|
+| 422 | ERR_RANGO_INVALIDO | `desde` es posterior a `hasta` |
+
+**Notas:** reglas de negocio, límites, caché.
+````
+
+## 4. Estructura del contrato de un evento
+
+Todos los eventos viajan como `POST /interno/eventos` del servicio destino, con el mismo sobre:
+
+```json
+{
+  "id": "0f8b6c1e-…",
+  "tipo": "venta.registrada",
+  "version": 1,
+  "ocurrido_en": "2026-11-16T18:30:00-05:00",
+  "origen": "nucleo",
+  "empresa_id": "…",
+  "local_id": "…",
+  "datos": { }
+}
+```
+
+**Reglas de entrega.**
+
+- El receptor responde `202` si lo acepta. Si ya había procesado ese `id`, responde `200` y no hace nada (así tolera duplicados).
+- Cualquier otra respuesta, o no responder en 5 segundos, cuenta como fallo: el emisor reintenta con espera creciente hasta un máximo de intentos y luego marca el evento como `fallido` en `outbox_event`.
+- No se garantiza el orden de llegada. El receptor usa `ocurrido_en` si el orden importa.
+- Un cambio incompatible en `datos` sube `version`; agregar campos opcionales no.
+- Los eventos no llevan datos personales de comensales (nombre, documento, teléfono).
+
+En [eventos.md](eventos.md), cada evento se documenta con esta plantilla:
+
+````markdown
+### venta.registrada (v1)
+
+**Cuándo se emite:** una frase.
+**Emisor:** núcleo. **Receptores:** ms-analítica.
+
+**Datos**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| comprobante_id | uuid | … |
+
+**Ejemplo**
+
+```json
+{ }
+```
+
+**Qué hace cada receptor:** una línea por receptor.
+````
