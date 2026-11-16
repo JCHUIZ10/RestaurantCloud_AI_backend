@@ -3,9 +3,13 @@
 namespace Tests\Feature;
 
 use App\Domains\Archivos\Services\TenantStorageService;
+use App\Domains\Suscripcion\Services\StripeGatewayService;
 use App\Domains\Tenant\Services\TenantProvisioningService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
+use Mockery\MockInterface;
+use Stripe\Customer;
+use Stripe\SetupIntent;
 use Tests\TestCase;
 
 class RegistroOnboardingTest extends TestCase
@@ -136,10 +140,17 @@ class RegistroOnboardingTest extends TestCase
     }
 
     /**
-     * Test 5: Verificación de OTP y creación real de Customer y SetupIntent en Stripe
+     * Test 5: Verificación de OTP y creación de Customer y SetupIntent en Stripe (gateway simulado)
      */
-    public function test_verificar_otp_crea_cliente_y_setup_intent_en_stripe_real(): void
+    public function test_verificar_otp_crea_cliente_y_setup_intent_en_stripe(): void
     {
+        $this->mock(StripeGatewayService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('crearCliente')->once()->andReturn(Customer::constructFrom(['id' => 'cus_test']));
+            $mock->shouldReceive('crearSetupIntent')->once()->andReturn(
+                SetupIntent::constructFrom(['id' => 'seti_test', 'client_secret' => 'seti_test_secret'])
+            );
+        });
+
         $rucValido = '20100047218';
         $this->limpiarEmpresa($rucValido);
 
@@ -158,7 +169,7 @@ class RegistroOnboardingTest extends TestCase
         $registroId = $inicio->json('datos.registro_id');
         $otp = Redis::get("registro:otp:{$registroId}");
 
-        // 2. Verificar OTP contra Stripe real
+        // 2. Verificar OTP (Stripe simulado)
         $response = $this->postJson('/api/v1/public/registro/verificar-otp', [
             'registro_id' => $registroId,
             'otp' => $otp,
@@ -168,7 +179,7 @@ class RegistroOnboardingTest extends TestCase
         $response->assertJsonPath('exito', true);
         $response->assertJsonPath('datos.correo_verificado', true);
 
-        // Validar que retornó el client_secret real de Stripe para SetupIntent
+        // Validar que retornó el client_secret del SetupIntent para SetupIntent
         $clientSecret = $response->json('datos.stripe_client_secret');
         $this->assertNotNull($clientSecret);
         $this->assertStringStartsWith('seti_', $clientSecret);

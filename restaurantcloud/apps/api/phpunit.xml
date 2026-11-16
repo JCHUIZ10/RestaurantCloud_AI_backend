@@ -23,6 +23,8 @@
         <!-- BD y bucket exclusivos de tests: recrearlos con scripts/test-db-reset.sh. -->
         <!-- Las claves de Stripe llegan por el entorno del contenedor. -->
         <server name="APP_ENV" value="testing"/>
+        <server name="APP_LOCALE" value="es"/>
+        <server name="APP_FALLBACK_LOCALE" value="es"/>
         <server name="APP_MAINTENANCE_DRIVER" value="file"/>
         <server name="BCRYPT_ROUNDS" value="4"/>
         <server name="BROADCAST_CONNECTION" value="null"/>

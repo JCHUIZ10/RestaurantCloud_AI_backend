@@ -917,9 +917,9 @@ class CajaController extends Controller
                     $validated['medio_pago'] = $pedido->medio_pago_sugerido
                         ?? $validated['medio_pago'];
                     $validated['documento_cliente'] = $pedido->documento_cliente_sugerido
-                        ?? $validated['documento_cliente'];
+                        ?? $validated['documento_cliente'] ?? null;
                     $validated['nombre_cliente'] = $pedido->nombre_cliente_sugerido
-                        ?? $validated['nombre_cliente'];
+                        ?? $validated['nombre_cliente'] ?? null;
                 }
 
                 // Validar turno de caja activo en el local

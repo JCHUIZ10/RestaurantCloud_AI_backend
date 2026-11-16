@@ -256,6 +256,17 @@ class CobroFiscalComprobanteTest extends TestCase
             ->assertJsonPath('errores.0.codigo', 'ERR_SERIE_NO_CONFIGURADA');
     }
 
+    public function test_el_cobro_de_una_boleta_no_exige_documento_ni_nombre_del_cliente(): void
+    {
+        $pedidoId = $this->crearPedidoCobrable();
+
+        $payload = $this->payloadCobro($pedidoId);
+        unset($payload['documento_cliente'], $payload['nombre_cliente']);
+
+        $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', $payload)
+            ->assertStatus(200);
+    }
+
     public function test_el_cobro_en_efectivo_registra_el_monto_recibido_y_el_vuelto(): void
     {
         $pedidoId = $this->crearPedidoCobrable();

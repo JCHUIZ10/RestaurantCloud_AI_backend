@@ -34,6 +34,9 @@ class PoliticasReservaAdminTest extends TestCase
     {
         parent::setUp();
 
+        // El cierre por mantenimiento de la semilla cae en una fecha relativa al día en que se sembró la BD.
+        DB::table('horario_excepcion')->where('local_id', $this->localId)->delete();
+
         DB::table('politicas_reserva')->updateOrInsert(['local_id' => $this->localId], [
             'acepta_reservas' => true,
             'duracion_reserva_min' => 90,

@@ -92,6 +92,9 @@ class MozoDividirCuentaPromocionTest extends TestCase
      */
     private function dividir(array $subcuentas)
     {
+        // Una división exige al menos dos subcuentas: se completa con una válida y sin promoción.
+        $subcuentas[] = $this->subcuenta(count($subcuentas) + 1, 10.00, null, 0.0);
+
         return $this->postJson(
             '/api/v1/mozo/mesas/'.Str::uuid().'/dividir-cuenta',
             ['pedido_id' => (string) Str::uuid(), 'subcuentas' => $subcuentas],

@@ -22,6 +22,9 @@ class MozoReservasTest extends TestCase
     {
         parent::setUp();
 
+        // El cierre por mantenimiento de la semilla cae en una fecha relativa al día en que se sembró la BD.
+        DB::table('horario_excepcion')->where('local_id', $this->localId)->delete();
+
         $rawToken = 'test_token_reservas_'.Str::random(32);
         $tokenHash = hash('sha256', $rawToken);
 
