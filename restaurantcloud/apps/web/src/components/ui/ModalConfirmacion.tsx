@@ -13,6 +13,8 @@ interface ModalConfirmacionProps {
   /** error para acciones destructivas */
   tono?: 'alerta' | 'error';
   cargando?: boolean;
+  /** Desactiva el botón de confirmar (p. ej. mientras falta un dato obligatorio) */
+  deshabilitarConfirmar?: boolean;
   tema?: TemaUI;
 }
 
@@ -26,6 +28,7 @@ export const ModalConfirmacion: React.FC<ModalConfirmacionProps> = ({
   textoConfirmar,
   tono = 'error',
   cargando = false,
+  deshabilitarConfirmar = false,
   tema = 'claro',
 }) => (
   <Modal
@@ -47,6 +50,7 @@ export const ModalConfirmacion: React.FC<ModalConfirmacionProps> = ({
           tema={tema}
           onClick={onConfirmar}
           loading={cargando}
+          disabled={deshabilitarConfirmar}
         >
           {textoConfirmar}
         </Button>

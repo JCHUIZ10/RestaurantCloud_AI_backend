@@ -120,6 +120,8 @@ class SaasTenantControllerTest extends TestCase
         $this->assertArrayHasKey('total_empresas', $metricas);
         $this->assertArrayHasKey('mrr_total_pen', $metricas);
         $this->assertArrayHasKey('suscripciones_activas', $metricas);
+        $this->assertArrayHasKey('suscripciones_pendiente_baja', $metricas);
+        $this->assertIsInt($metricas['suscripciones_pendiente_baja']);
         $this->assertArrayHasKey('sedes_operativas_totales', $metricas);
 
         // Validar listado de tenants

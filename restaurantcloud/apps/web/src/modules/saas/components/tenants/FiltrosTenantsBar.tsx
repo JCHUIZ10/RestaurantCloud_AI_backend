@@ -9,7 +9,9 @@ interface FiltrosTenantsBarProps {
   onFiltrosChange: (nuevosFiltros: Partial<ParametrosFiltroTenants>) => void;
   onAbrirModalAlta?: () => void;
   metricas?: MetricasSaaSResumenDTO;
-  conteoBaja?: number;
+  /** Texto del buscador controlado por el padre (permite aplicar la búsqueda con retardo) */
+  valorBusqueda?: string;
+  onBusquedaChange?: (texto: string) => void;
 }
 
 export const FiltrosTenantsBar: React.FC<FiltrosTenantsBarProps> = ({
@@ -17,9 +19,13 @@ export const FiltrosTenantsBar: React.FC<FiltrosTenantsBarProps> = ({
   onFiltrosChange,
   onAbrirModalAlta,
   metricas,
-  conteoBaja = 1,
+  valorBusqueda,
+  onBusquedaChange,
 }) => {
   const navigate = useNavigate();
+  const textoBusqueda = valorBusqueda ?? filtros.buscar ?? '';
+  const cambiarBusqueda = (texto: string) =>
+    onBusquedaChange ? onBusquedaChange(texto) : onFiltrosChange({ buscar: texto });
   interface TabItem {
     id: 'todos' | 'activa' | 'periodo_gracia' | 'suspendida' | 'pendiente_baja';
     label: string;
@@ -37,7 +43,7 @@ export const FiltrosTenantsBar: React.FC<FiltrosTenantsBarProps> = ({
       highlight: (metricas?.suscripciones_en_gracia ?? 0) > 0,
     },
     { id: 'suspendida', label: 'Suspendidos', count: metricas?.suscripciones_suspendidas ?? 0 },
-    { id: 'pendiente_baja', label: 'Baja', count: conteoBaja },
+    { id: 'pendiente_baja', label: 'Baja', count: metricas?.suscripciones_pendiente_baja ?? 0 },
   ];
 
   return (
@@ -98,14 +104,14 @@ export const FiltrosTenantsBar: React.FC<FiltrosTenantsBarProps> = ({
           <Search className="w-4 h-4 text-aurea-copper absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            value={filtros.buscar || ''}
-            onChange={(e) => onFiltrosChange({ buscar: e.target.value })}
+            value={textoBusqueda}
+            onChange={(e) => cambiarBusqueda(e.target.value)}
             placeholder="Buscar por razón social, nombre comercial, RUC o código..."
             className="w-full pl-10 pr-9 py-2 rounded-xl bg-white border border-aurea-copper/25 text-sm text-aurea-navy placeholder:text-aurea-navy/40 focus:outline-none focus:ring-2 focus:ring-aurea-copper/50"
           />
-          {filtros.buscar && (
+          {textoBusqueda && (
             <button
-              onClick={() => onFiltrosChange({ buscar: '' })}
+              onClick={() => cambiarBusqueda('')}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-aurea-navy/40 hover:text-aurea-navy"
             >
               <X className="w-4 h-4" />

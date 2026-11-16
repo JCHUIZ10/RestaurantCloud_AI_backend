@@ -51,6 +51,7 @@ export interface MetricasSaaSResumenDTO {
   suscripciones_en_gracia: number;
   mrr_en_riesgo_pen: number;
   suscripciones_suspendidas: number;
+  suscripciones_pendiente_baja: number;
   sedes_operativas_totales: number;
   promedio_sedes_por_tenant: number;
 }

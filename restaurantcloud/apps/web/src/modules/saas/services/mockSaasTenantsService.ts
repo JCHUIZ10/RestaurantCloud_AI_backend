@@ -218,6 +218,7 @@ export class MockSaasTenantsService {
     let activas = 0;
     let en_gracia = 0;
     let suspendidas = 0;
+    let pendiente_baja = 0;
     let sedes_totales = 0;
 
     for (const t of tenants) {
@@ -235,6 +236,8 @@ export class MockSaasTenantsService {
         mrr_total += precioMensual;
       } else if (t.estado_suscripcion === 'suspendida') {
         suspendidas++;
+      } else if (t.estado_suscripcion === 'pendiente_baja') {
+        pendiente_baja++;
       }
     }
 
@@ -248,6 +251,7 @@ export class MockSaasTenantsService {
       suscripciones_en_gracia: en_gracia,
       mrr_en_riesgo_pen: mrr_en_riesgo,
       suscripciones_suspendidas: suspendidas,
+      suscripciones_pendiente_baja: pendiente_baja,
       sedes_operativas_totales: sedes_totales,
       promedio_sedes_por_tenant: promedio,
     };

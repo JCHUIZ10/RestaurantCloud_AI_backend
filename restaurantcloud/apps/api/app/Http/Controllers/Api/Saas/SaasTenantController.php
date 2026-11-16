@@ -107,6 +107,7 @@ class SaasTenantController extends Controller
         $activasCount = 0;
         $enGraciaCount = 0;
         $suspendidasCount = 0;
+        $pendienteBajaCount = 0;
         $mrrTotal = 0.0;
         $mrrEnRiesgo = 0.0;
         $sedesTotales = 0;
@@ -130,6 +131,8 @@ class SaasTenantController extends Controller
                 $mrrEnRiesgo += $precioMensual;
             } elseif ($t->estado_suscripcion === 'suspendida') {
                 $suspendidasCount++;
+            } elseif ($t->estado_suscripcion === 'pendiente_baja') {
+                $pendienteBajaCount++;
             }
         }
 
@@ -143,6 +146,7 @@ class SaasTenantController extends Controller
             'suscripciones_en_gracia' => $enGraciaCount,
             'mrr_en_riesgo_pen' => $mrrEnRiesgo,
             'suscripciones_suspendidas' => $suspendidasCount,
+            'suscripciones_pendiente_baja' => $pendienteBajaCount,
             'sedes_operativas_totales' => $sedesTotales,
             'promedio_sedes_por_tenant' => $promedioSedes,
         ];

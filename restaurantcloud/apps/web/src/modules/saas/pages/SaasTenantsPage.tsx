@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { RefreshCw, AlertCircle, CheckCircle2, ShieldAlert, Sparkles } from 'lucide-react';
+import { RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { ROUTES } from '@/router/routes.constants';
-import { saasTenantsService, loginWithCredentials } from '@/services/serviceAdapter';
-import { useAuthStore } from '@/stores/authStore';
+import { saasTenantsService } from '@/services/serviceAdapter';
+import { Paginacion } from '@/components/ui/Paginacion';
+import { ModalConfirmacion } from '@/components/ui/ModalConfirmacion';
 import { KpisSupervisionSaas } from '@/modules/saas/components/tenants/KpisSupervisionSaas';
 import { FiltrosTenantsBar } from '@/modules/saas/components/tenants/FiltrosTenantsBar';
 import { TenantsTablaDesktop } from '@/modules/saas/components/tenants/TenantsTablaDesktop';
@@ -17,17 +18,14 @@ import type {
   ParametrosFiltroTenants,
 } from '@/types/saasTenants';
 
+/** Límite de la validación del backend (SaasTenantController@suspender: motivo max:100) */
+const MOTIVO_SUSPENSION_MAX = 100;
+
 export const SaasTenantsPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Estado de Autenticación y Rol
-  const usuario = useAuthStore((s) => s.usuario);
-  const autenticado = useAuthStore((s) => s.autenticado);
-  const setUsuario = useAuthStore((s) => s.setUsuario);
-  const [conectandoSuperAdmin, setConectandoSuperAdmin] = useState(false);
-
-  const esAdminSaas = autenticado && usuario?.rol === 'admin_saas';
+  // El acceso por rol (admin_saas) lo garantizan RequireRole en el router y role:admin_saas en la API.
 
   // Estado de Filtros
   const [filtros, setFiltros] = useState<ParametrosFiltroTenants>({
@@ -38,48 +36,93 @@ export const SaasTenantsPage: React.FC = () => {
     por_pagina: 15,
   });
 
+  // Texto del buscador: se aplica a filtros.buscar tras 300 ms sin escribir
+  const [textoBusqueda, setTextoBusqueda] = useState('');
+
   // Estado de Datos
   const [tenants, setTenants] = useState<TenantItemDTO[]>([]);
   const [metricas, setMetricas] = useState<MetricasSaaSResumenDTO | undefined>(undefined);
+  const [totalFilas, setTotalFilas] = useState(0);
+  const [totalPaginas, setTotalPaginas] = useState(1);
   const [cargando, setCargando] = useState(true);
   const [errorRed, setErrorRed] = useState<string | null>(null);
+
+  // Solo la respuesta de la petición más reciente actualiza la vista
+  const peticionIdRef = useRef(0);
 
   // Modal Expediente 360° y Toasts
   const [empresaSeleccionadaId, setEmpresaSeleccionadaId] = useState<string | null>(null);
   const [expedienteDetalle, setExpedienteDetalle] = useState<TenantDetailResponseDTO | null>(null);
   const [cargandoExpediente, setCargandoExpediente] = useState(false);
+  // Id del expediente pedido más recientemente: evita respuestas cruzadas y reaperturas por la URL
+  const expedienteSolicitadoRef = useRef<string | null>(null);
+
+  // Acciones del expediente (reenviar cobro / suspender) y confirmación de suspensión
+  const [ejecutandoAccion, setEjecutandoAccion] = useState(false);
+  const [empresaASuspender, setEmpresaASuspender] = useState<string | null>(null);
+  const [motivoSuspension, setMotivoSuspension] = useState('');
 
   const [toastMensaje, setToastMensaje] = useState<{ texto: string; tipo: 'exito' | 'alerta' } | null>(
     null
   );
 
-  const mostrarToast = (texto: string, tipo: 'exito' | 'alerta' = 'exito') => {
+  // Un toast nuevo cancela el temporizador del anterior para que no lo cierre antes de tiempo
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const mostrarToast = useCallback((texto: string, tipo: 'exito' | 'alerta' = 'exito') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToastMensaje({ texto, tipo });
-    setTimeout(() => setToastMensaje(null), 4500);
-  };
+    toastTimerRef.current = setTimeout(() => {
+      setToastMensaje(null);
+      toastTimerRef.current = null;
+    }, 4500);
+  }, []);
+
+  // Al salir de la página no debe quedar ningún temporizador pendiente
+  useEffect(
+    () => () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    },
+    []
+  );
 
   // Carga de Datos desde el Servicio
   const cargarDatos = useCallback(async () => {
+    const peticionId = ++peticionIdRef.current;
+    const esVigente = () => peticionId === peticionIdRef.current;
+
+    const mostrarError = (mensaje: string) => {
+      // No dejar datos de una carga anterior junto al aviso de error
+      setTenants([]);
+      setMetricas(undefined);
+      setTotalFilas(0);
+      setTotalPaginas(1);
+      setErrorRed(mensaje);
+    };
+
     setCargando(true);
     setErrorRed(null);
     try {
       const res = await saasTenantsService.listarTenants(filtros);
+      if (!esVigente()) return;
       if (res.exito) {
         setTenants(res.datos.tenants);
         setMetricas(res.datos.metricas);
+        setTotalFilas(res.datos.total_filas ?? res.datos.tenants.length);
+        setTotalPaginas(Math.max(1, res.datos.total_paginas ?? 1));
       } else {
-        const errorMsg = res.errores?.[0]?.mensaje || 'Error al obtener la lista de tenants.';
-        setErrorRed(errorMsg);
+        mostrarError(res.errores?.[0]?.mensaje || 'Error al obtener la lista de tenants.');
       }
     } catch (err: any) {
-      const errorMsg =
+      if (!esVigente()) return;
+      mostrarError(
         err?.response?.data?.errores?.[0]?.mensaje ||
-        err?.response?.data?.message ||
-        err?.message ||
-        'Fallo en la comunicación con el servicio SaaS Hub.';
-      setErrorRed(errorMsg);
+          err?.response?.data?.message ||
+          err?.message ||
+          'Fallo en la comunicación con el servicio SaaS Hub.'
+      );
     } finally {
-      setCargando(false);
+      if (esVigente()) setCargando(false);
     }
   }, [filtros]);
 
@@ -87,92 +130,130 @@ export const SaasTenantsPage: React.FC = () => {
     cargarDatos();
   }, [cargarDatos]);
 
-  // Conexión rápida como SuperAdmin SaaS
-  const handleConectarSuperAdmin = async () => {
-    setConectandoSuperAdmin(true);
-    try {
-      const res = await loginWithCredentials({
-        correo: 'admin@restaurantcloud.pe',
-        password: 'admin-saas2026',
-      });
-      if (res.exito && res.datos?.usuario && res.datos?.token) {
-        setUsuario(res.datos.usuario, res.datos.token);
-        mostrarToast('✓ Conectado exitosamente como SuperAdmin SaaS');
-        await cargarDatos();
-      } else {
-        mostrarToast(res.errores?.[0]?.mensaje || 'No se pudo iniciar sesión como SuperAdmin SaaS', 'alerta');
-      }
-    } catch {
-      mostrarToast('Error al autenticar con el servidor de credenciales.', 'alerta');
-    } finally {
-      setConectandoSuperAdmin(false);
-    }
-  };
+  // Aplica la búsqueda tras 300 ms sin escribir y vuelve a la primera página
+  useEffect(() => {
+    const temporizador = setTimeout(() => {
+      setFiltros((prev) =>
+        prev.buscar === textoBusqueda ? prev : { ...prev, buscar: textoBusqueda, pagina: 1 }
+      );
+    }, 300);
+    return () => clearTimeout(temporizador);
+  }, [textoBusqueda]);
 
-  // Manejador de apertura de Expediente 360° (Vista 2)
-  const handleVerExpediente = async (empresaId: string) => {
-    setEmpresaSeleccionadaId(empresaId);
-    setCargandoExpediente(true);
-    try {
-      const res = await saasTenantsService.obtenerExpedienteTenant(empresaId);
-      if (res.exito) {
-        setExpedienteDetalle(res.datos);
-      } else {
-        mostrarToast(res.errores?.[0]?.mensaje || 'No se pudo cargar el expediente de la empresa.', 'alerta');
-      }
-    } catch (err: any) {
-      const msg = err?.response?.data?.errores?.[0]?.mensaje || 'Error al conectar con la base de datos de auditoría.';
-      mostrarToast(msg, 'alerta');
-    } finally {
-      setCargandoExpediente(false);
-    }
-  };
+  // Cualquier cambio de filtro que no sea de página vuelve a la página 1
+  const handleFiltrosChange = useCallback((cambios: Partial<ParametrosFiltroTenants>) => {
+    setFiltros((prev) => ({ ...prev, ...cambios, pagina: cambios.pagina ?? 1 }));
+  }, []);
 
-  const handleCerrarExpediente = () => {
+  const handleCerrarExpediente = useCallback(() => {
+    expedienteSolicitadoRef.current = null;
     setEmpresaSeleccionadaId(null);
     setExpedienteDetalle(null);
-    if (searchParams.get('expediente')) {
-      const newParams = new URLSearchParams(searchParams);
-      newParams.delete('expediente');
-      setSearchParams(newParams, { replace: true });
-    }
-  };
+    setCargandoExpediente(false);
+    setSearchParams(
+      (prev) => {
+        if (!prev.has('expediente')) return prev;
+        const siguientes = new URLSearchParams(prev);
+        siguientes.delete('expediente');
+        return siguientes;
+      },
+      { replace: true }
+    );
+  }, [setSearchParams]);
+
+  // Manejador de apertura de Expediente 360° (Vista 2)
+  const handleVerExpediente = useCallback(
+    async (empresaId: string) => {
+      expedienteSolicitadoRef.current = empresaId;
+      const esVigente = () => expedienteSolicitadoRef.current === empresaId;
+
+      setEmpresaSeleccionadaId(empresaId);
+      setExpedienteDetalle(null);
+      setCargandoExpediente(true);
+      try {
+        const res = await saasTenantsService.obtenerExpedienteTenant(empresaId);
+        if (!esVigente()) return;
+        if (res.exito) {
+          setExpedienteDetalle(res.datos);
+        } else {
+          mostrarToast(res.errores?.[0]?.mensaje || 'No se pudo cargar el expediente de la empresa.', 'alerta');
+          handleCerrarExpediente();
+        }
+      } catch (err: any) {
+        if (!esVigente()) return;
+        mostrarToast(
+          err?.response?.data?.errores?.[0]?.mensaje || 'Error al conectar con la base de datos de auditoría.',
+          'alerta'
+        );
+        handleCerrarExpediente();
+      } finally {
+        if (esVigente()) setCargandoExpediente(false);
+      }
+    },
+    [mostrarToast, handleCerrarExpediente]
+  );
 
   // Apertura automática si viene el query param ?expediente=EMP-XXXXX o UUID
+  const expedienteEnUrl = searchParams.get('expediente');
   useEffect(() => {
-    const expedienteId = searchParams.get('expediente');
-    if (expedienteId && expedienteId !== empresaSeleccionadaId) {
-      handleVerExpediente(expedienteId);
+    if (expedienteEnUrl && expedienteEnUrl !== expedienteSolicitadoRef.current) {
+      handleVerExpediente(expedienteEnUrl);
     }
-  }, [searchParams, empresaSeleccionadaId]);
+  }, [expedienteEnUrl, handleVerExpediente]);
 
   // Acciones operativas dentro del Expediente
   const handleReenviarNotificacion = async (empresaId: string) => {
-    const res = await saasTenantsService.reenviarNotificacionCobro(empresaId);
-    if (res.exito) {
-      mostrarToast(`✓ ${res.datos.mensaje}`);
-    } else {
-      mostrarToast(res.errores?.[0]?.mensaje || 'Error al despachar el correo de recordatorio.', 'alerta');
+    if (ejecutandoAccion) return;
+    setEjecutandoAccion(true);
+    try {
+      const res = await saasTenantsService.reenviarNotificacionCobro(empresaId);
+      if (res.exito) {
+        mostrarToast(`✓ ${res.datos.mensaje}`);
+      } else {
+        mostrarToast(res.errores?.[0]?.mensaje || 'Error al despachar el correo de recordatorio.', 'alerta');
+      }
+    } catch (err: any) {
+      mostrarToast(
+        err?.response?.data?.errores?.[0]?.mensaje || 'Error al despachar el correo de recordatorio.',
+        'alerta'
+      );
+    } finally {
+      setEjecutandoAccion(false);
     }
   };
 
-  const handleSuspenderPreventivo = async (empresaId: string) => {
-    if (
-      window.confirm(
-        '¿Confirmas la suspensión preventiva inmediata de este restaurante por riesgo de impago / fraude?'
-      )
-    ) {
-      const res = await saasTenantsService.suspenderEmpresaPreventiva(
-        empresaId,
-        'Suspensión administrativa preventiva ejecutada por el Administrador SaaS.'
-      );
+  // Abre la confirmación; la suspensión real ocurre en handleConfirmarSuspension
+  const handleSolicitarSuspension = (empresaId: string) => {
+    setMotivoSuspension('');
+    setEmpresaASuspender(empresaId);
+  };
+
+  const handleCancelarSuspension = () => {
+    if (ejecutandoAccion) return;
+    setEmpresaASuspender(null);
+    setMotivoSuspension('');
+  };
+
+  const motivoSuspensionLimpio = motivoSuspension.trim();
+
+  const handleConfirmarSuspension = async () => {
+    if (!empresaASuspender || !motivoSuspensionLimpio || ejecutandoAccion) return;
+    setEjecutandoAccion(true);
+    try {
+      const res = await saasTenantsService.suspenderEmpresaPreventiva(empresaASuspender, motivoSuspensionLimpio);
       if (res.exito) {
+        setEmpresaASuspender(null);
+        setMotivoSuspension('');
         mostrarToast('✓ Empresa suspendida preventivamente. Sesiones revocadas.');
         handleCerrarExpediente();
         cargarDatos();
       } else {
         mostrarToast(res.errores?.[0]?.mensaje || 'No se pudo suspender la empresa.', 'alerta');
       }
+    } catch (err: any) {
+      mostrarToast(err?.response?.data?.errores?.[0]?.mensaje || 'No se pudo suspender la empresa.', 'alerta');
+    } finally {
+      setEjecutandoAccion(false);
     }
   };
 
@@ -226,37 +307,15 @@ export const SaasTenantsPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Banner de Verificación de Rol SaaS */}
-      {!esAdminSaas && (
-        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm">
-          <div className="flex items-start gap-2.5">
-            <ShieldAlert className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-            <div>
-              <p className="font-bold text-amber-950">Acceso restringido a Administrador Global SaaS</p>
-              <p className="text-amber-800/90 mt-0.5">
-                Sesión actual: <span className="font-semibold">{usuario ? `${usuario.nombre} (${usuario.rol})` : 'Invitado sin sesión'}</span>. 
-                Las políticas de seguridad en PostgreSQL y Redis exigen el rol <code className="bg-amber-100 px-1 py-0.5 rounded font-mono">admin_saas</code> para consultar la telemetría consolidada.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={handleConectarSuperAdmin}
-            disabled={conectandoSuperAdmin}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-aurea-navy text-white hover:bg-slate-800 transition-colors shadow-sm shrink-0 self-start sm:self-auto cursor-pointer"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-aurea-champagne" />
-            <span>{conectandoSuperAdmin ? 'Conectando...' : 'Conectar como SuperAdmin SaaS'}</span>
-          </button>
-        </div>
-      )}
-
       {/* 4 KPIs Superiores de Plataforma */}
       <KpisSupervisionSaas metricas={metricas} cargando={cargando} />
 
       {/* Barra de Pestañas y Filtros */}
       <FiltrosTenantsBar
         filtros={filtros}
-        onFiltrosChange={(cambios) => setFiltros((prev) => ({ ...prev, ...cambios }))}
+        onFiltrosChange={handleFiltrosChange}
+        valorBusqueda={textoBusqueda}
+        onBusquedaChange={setTextoBusqueda}
         onAbrirModalAlta={() => navigate(ROUTES.SAAS_TENANT_NUEVO)}
         metricas={metricas}
       />
@@ -281,7 +340,10 @@ export const SaasTenantsPage: React.FC = () => {
       {!cargando && !errorRed && tenants.length === 0 ? (
         <EstadoVacioTenants
           tabActiva={filtros.tab_estado}
-          onVerTodas={() => setFiltros((prev) => ({ ...prev, tab_estado: 'todos', buscar: '' }))}
+          onVerTodas={() => {
+            setTextoBusqueda('');
+            handleFiltrosChange({ tab_estado: 'todos', buscar: '' });
+          }}
           onRecargar={cargarDatos}
         />
       ) : (
@@ -291,6 +353,20 @@ export const SaasTenantsPage: React.FC = () => {
 
           {/* Vista Cards Móvil < 1024px */}
           <TenantCardMobile tenants={tenants} onVerExpediente={handleVerExpediente} />
+
+          {/* Paginación (el backend devuelve total_filas / total_paginas) */}
+          {!errorRed && totalFilas > 0 && (
+            <Paginacion
+              pagina={filtros.pagina ?? 1}
+              totalPaginas={totalPaginas}
+              totalRegistros={totalFilas}
+              limite={filtros.por_pagina ?? 15}
+              onCambiarPagina={(pagina) => handleFiltrosChange({ pagina })}
+              onCambiarLimite={(por_pagina) => handleFiltrosChange({ por_pagina })}
+              unidad="empresas"
+              opcionesLimite={[15, 30, 50]}
+            />
+          )}
         </>
       )}
 
@@ -298,12 +374,52 @@ export const SaasTenantsPage: React.FC = () => {
       {empresaSeleccionadaId && (
         <ModalExpedienteTenant
           expediente={expedienteDetalle}
-          onClose={handleCerrarExpediente}
+          cargando={cargandoExpediente}
+          // Con la confirmación abierta, Escape solo debe cerrar la confirmación
+          onClose={empresaASuspender || ejecutandoAccion ? () => undefined : handleCerrarExpediente}
           onReenviarNotificacion={handleReenviarNotificacion}
-          onSuspenderPreventivo={handleSuspenderPreventivo}
-          cargandoAccion={cargandoExpediente}
+          onSuspenderPreventivo={handleSolicitarSuspension}
+          cargandoAccion={ejecutandoAccion}
         />
       )}
+
+      {/* Confirmación de suspensión preventiva con motivo obligatorio */}
+      <ModalConfirmacion
+        abierto={empresaASuspender !== null}
+        onCerrar={handleCancelarSuspension}
+        onConfirmar={handleConfirmarSuspension}
+        titulo="Suspensión preventiva"
+        textoConfirmar="Suspender empresa"
+        tono="alerta"
+        cargando={ejecutandoAccion}
+        deshabilitarConfirmar={!motivoSuspensionLimpio}
+        mensaje={
+          <div className="space-y-3">
+            <p>
+              Se suspenderá de inmediato el acceso de este restaurante y se revocarán sus sesiones activas.
+              Indica el motivo; quedará registrado en la auditoría.
+            </p>
+            <div>
+              <label htmlFor="motivo-suspension" className="block text-xs font-semibold text-aurea-navy mb-1">
+                Motivo de la suspensión <span className="text-rose-600">*</span>
+              </label>
+              <textarea
+                id="motivo-suspension"
+                value={motivoSuspension}
+                onChange={(e) => setMotivoSuspension(e.target.value)}
+                maxLength={MOTIVO_SUSPENSION_MAX}
+                rows={3}
+                disabled={ejecutandoAccion}
+                placeholder="Ej.: Riesgo de fraude detectado en el último cobro"
+                className="w-full px-3 py-2 rounded-xl bg-white border border-aurea-copper/25 text-sm text-aurea-navy placeholder:text-aurea-navy/40 focus:outline-none focus:ring-2 focus:ring-aurea-copper/50 resize-none disabled:opacity-60"
+              />
+              <p className="mt-1 text-[11px] text-aurea-navy/50 text-right font-mono">
+                {motivoSuspension.length}/{MOTIVO_SUSPENSION_MAX}
+              </p>
+            </div>
+          </div>
+        }
+      />
     </div>
   );
 };

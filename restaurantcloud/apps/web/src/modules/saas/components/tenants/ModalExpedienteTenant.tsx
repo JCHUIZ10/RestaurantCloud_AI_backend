@@ -6,13 +6,15 @@ import {
   History,
   Activity,
   Mail,
-  ExternalLink,
   ShieldAlert,
+  Loader2,
 } from 'lucide-react';
 import type { TenantDetailResponseDTO } from '@/types/saasTenants';
 
 interface ModalExpedienteTenantProps {
   expediente: TenantDetailResponseDTO | null;
+  /** true mientras se obtiene el expediente: muestra un indicador en lugar de nada */
+  cargando?: boolean;
   onClose: () => void;
   onReenviarNotificacion: (empresaId: string) => void;
   onSuspenderPreventivo: (empresaId: string) => void;
@@ -21,6 +23,7 @@ interface ModalExpedienteTenantProps {
 
 export const ModalExpedienteTenant: React.FC<ModalExpedienteTenantProps> = ({
   expediente,
+  cargando = false,
   onClose,
   onReenviarNotificacion,
   onSuspenderPreventivo,
@@ -35,7 +38,23 @@ export const ModalExpedienteTenant: React.FC<ModalExpedienteTenantProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  if (!expediente) return null;
+  if (!expediente) {
+    if (!cargando) return null;
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-busy="true"
+        aria-label="Cargando expediente"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      >
+        <div className="flex items-center gap-3 px-5 py-4 rounded-2xl bg-aurea-navy text-aurea-ivory border border-aurea-copper/40 shadow-2xl text-sm font-semibold">
+          <Loader2 className="w-5 h-5 text-aurea-copper animate-spin" />
+          <span>Cargando expediente 360°...</span>
+        </div>
+      </div>
+    );
+  }
 
   const esGracia = expediente.estado_suscripcion === 'periodo_gracia';
   const esSuspendida = expediente.estado_suscripcion === 'suspendida';
@@ -373,7 +392,7 @@ export const ModalExpedienteTenant: React.FC<ModalExpedienteTenantProps> = ({
               <button
                 disabled={cargandoAccion}
                 onClick={() => onSuspenderPreventivo(expediente.empresa_id)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ShieldAlert className="w-4 h-4 text-rose-600" />
                 <span>Suspender Preventivamente</span>
@@ -386,22 +405,12 @@ export const ModalExpedienteTenant: React.FC<ModalExpedienteTenantProps> = ({
               <button
                 disabled={cargandoAccion}
                 onClick={() => onReenviarNotificacion(expediente.empresa_id)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-amber-600 text-white hover:bg-amber-700 shadow-sm transition-all"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-amber-600 text-white hover:bg-amber-700 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Mail className="w-4 h-4" />
                 <span>Reenviar Notificación de Cobro</span>
               </button>
             )}
-
-            <button
-              onClick={() => {
-                alert(`Abriendo consola Stripe para Customer: ${expediente.stripe_customer_id || 'N/A'}`);
-              }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white text-aurea-navy border border-aurea-copper/30 hover:bg-aurea-champagne/30 transition-colors"
-            >
-              <ExternalLink className="w-3.5 h-3.5 text-aurea-copper" />
-              <span>Ver en Stripe</span>
-            </button>
 
             <button
               onClick={onClose}
