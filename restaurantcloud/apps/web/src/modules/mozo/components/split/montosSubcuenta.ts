@@ -1,5 +1,6 @@
 import { SubcuentaConfigDTO, PromocionSedeDTO } from '@/types/mozo';
 import { DIVISOR_IGV, MONTO_MINIMO_COMPROBANTE } from '@/shared/constants/tributario';
+import { calcularDescuentoPromocion } from '../../utils/descuentoPromocion';
 
 /** Monto mínimo (S/) que debe pagar una subcuenta. */
 export const MONTO_MINIMO_SUBCUENTA = MONTO_MINIMO_COMPROBANTE;
@@ -17,13 +18,8 @@ export const calcularMontosSubcuenta = (
 ): SubcuentaConfigDTO => {
   const bruto = sub.items.reduce((acc, it) => acc + it.subtotal, 0);
 
-  let descuento = 0;
-  if (sub.promocion_id) {
-    const promo = promociones.find((p) => p.id === sub.promocion_id);
-    if (promo) {
-      descuento = aCentimos((bruto * promo.porcentaje_descuento) / 100);
-    }
-  }
+  const promo = sub.promocion_id ? promociones.find((p) => p.id === sub.promocion_id) : undefined;
+  const descuento = calcularDescuentoPromocion(promo, bruto);
 
   const subtotalConDescuento = Math.max(0, bruto - descuento);
   // Cada medio lleva el recargo que la sede configuró para él (efectivo no tiene)

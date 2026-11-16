@@ -16,6 +16,8 @@ import {
   TipoDescuentoPromocion,
   TipoLimiteUsosPromocion,
 } from '@/types/admin';
+import { hoyServidorStr } from '@/shared/utils/fechaServidor';
+import { sumarDiasStr } from '@/shared/utils/fechaLocal';
 
 interface ModalConfigurarPromocionProps {
   isOpen: boolean;
@@ -24,12 +26,9 @@ interface ModalConfigurarPromocionProps {
   onGuardar: (req: CrearPromocionRequest) => Promise<boolean>;
 }
 
-const getFechaHoy = () => new Date().toISOString().split('T')[0];
-const getFechaFinDefault = () => {
-  const d = new Date();
-  d.setDate(d.getDate() + 30);
-  return d.toISOString().split('T')[0];
-};
+// Fechas en la zona del servidor (Lima): toISOString() daría el día siguiente desde las 19:00
+const getFechaHoy = () => hoyServidorStr();
+const getFechaFinDefault = () => sumarDiasStr(hoyServidorStr(), 30);
 
 export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> = ({
   isOpen,
@@ -56,6 +55,7 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
 
   const [restringeHorario, setRestringeHorario] = useState(false);
   const [diasSemana, setDiasSemana] = useState<number[]>([1, 2, 3, 4, 5, 6, 7]);
+  const [limitaFranja, setLimitaFranja] = useState(false);
   const [horaInicio, setHoraInicio] = useState('18:00');
   const [horaFin, setHoraFin] = useState('21:00');
 
@@ -83,10 +83,10 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
       setTipoLimiteUsos(promocionParaEditar.tipo_limite_usos || 'global');
       setLimiteUsos(promocionParaEditar.limite_usos || 50);
 
-      const tieneRestriccionDias =
-        promocionParaEditar.dias_semana.length < 7 ||
-        Boolean(promocionParaEditar.hora_inicio && promocionParaEditar.hora_fin);
-      setRestringeHorario(tieneRestriccionDias);
+      // Días y franja horaria son restricciones independientes: una promo puede limitar solo los días
+      const tieneFranja = Boolean(promocionParaEditar.hora_inicio && promocionParaEditar.hora_fin);
+      setRestringeHorario(promocionParaEditar.dias_semana.length < 7 || tieneFranja);
+      setLimitaFranja(tieneFranja);
       setDiasSemana(promocionParaEditar.dias_semana || [1, 2, 3, 4, 5, 6, 7]);
       setHoraInicio(promocionParaEditar.hora_inicio || '18:00');
       setHoraFin(promocionParaEditar.hora_fin || '21:00');
@@ -108,6 +108,7 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
       setLimiteUsos(50);
       setRestringeHorario(false);
       setDiasSemana([1, 2, 3, 4, 5, 6, 7]);
+      setLimitaFranja(false);
       setHoraInicio('18:00');
       setHoraFin('21:00');
       setErrorValidacion(null);
@@ -219,6 +220,18 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
       return;
     }
 
+    const aplicaFranja = restringeHorario && limitaFranja;
+    if (aplicaFranja && (!horaInicio || !horaFin)) {
+      setErrorValidacion('Indica la hora de inicio y de fin de la franja horaria.');
+      return;
+    }
+
+    // Las horas "HH:MM" se comparan como texto; la caja no admite franjas que crucen la medianoche
+    if (aplicaFranja && horaInicio >= horaFin) {
+      setErrorValidacion('La hora de inicio debe ser anterior a la hora de fin (la franja no puede cruzar la medianoche).');
+      return;
+    }
+
     const payload: CrearPromocionRequest = {
       nombre: nombre.trim(),
       descripcion: descripcion.trim() || undefined,
@@ -227,8 +240,8 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
       tope_maximo_descuento: tipoDescuento === 'porcentaje' && tieneTope && topeMaximo !== '' ? Number(topeMaximo) : null,
       monto_minimo_consumo: exigeMinimo && montoMinimo !== '' ? Number(montoMinimo) : 0,
       dias_semana: restringeHorario ? diasSemana : [1, 2, 3, 4, 5, 6, 7],
-      hora_inicio: restringeHorario ? horaInicio : null,
-      hora_fin: restringeHorario ? horaFin : null,
+      hora_inicio: aplicaFranja ? horaInicio : null,
+      hora_fin: aplicaFranja ? horaFin : null,
       fecha_inicio: fechaInicio,
       fecha_fin: fechaFin,
       tipo_limite_usos: limitaUsos ? tipoLimiteUsos : 'sin_limite',
@@ -590,7 +603,7 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
                   className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500"
                 />
                 <span className="font-semibold text-slate-800 text-xs sm:text-sm">
-                  Restringir a días de semana y franja horaria (Happy Hour)
+                  Restringir a días de la semana o franja horaria (Happy Hour)
                 </span>
               </label>
 
@@ -621,22 +634,38 @@ export const ModalConfigurarPromocion: React.FC<ModalConfigurarPromocionProps> =
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
-                    <Clock className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span className="text-xs font-medium text-slate-600">Franja Horaria:</span>
-                    <input
-                      type="time"
-                      value={horaInicio}
-                      onChange={(e) => setHoraInicio(e.target.value)}
-                      className="px-2.5 py-1 text-xs rounded-lg border border-slate-300 font-mono"
-                    />
-                    <span className="text-xs text-slate-400">a</span>
-                    <input
-                      type="time"
-                      value={horaFin}
-                      onChange={(e) => setHoraFin(e.target.value)}
-                      className="px-2.5 py-1 text-xs rounded-lg border border-slate-300 font-mono"
-                    />
+                  <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={limitaFranja}
+                        onChange={(e) => setLimitaFranja(e.target.checked)}
+                        className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500"
+                      />
+                      <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span className="text-xs font-medium text-slate-600">Limitar a una franja horaria</span>
+                    </label>
+                    {limitaFranja ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="time"
+                          value={horaInicio}
+                          onChange={(e) => setHoraInicio(e.target.value)}
+                          aria-label="Hora de inicio"
+                          className="px-2.5 py-1 text-xs rounded-lg border border-slate-300 font-mono"
+                        />
+                        <span className="text-xs text-slate-400">a</span>
+                        <input
+                          type="time"
+                          value={horaFin}
+                          onChange={(e) => setHoraFin(e.target.value)}
+                          aria-label="Hora de fin"
+                          className="px-2.5 py-1 text-xs rounded-lg border border-slate-300 font-mono"
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-slate-400 italic">Todo el día en los días elegidos</span>
+                    )}
                   </div>
                 </div>
               )}

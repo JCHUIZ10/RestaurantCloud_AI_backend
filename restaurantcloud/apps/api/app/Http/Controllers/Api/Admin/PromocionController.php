@@ -67,8 +67,8 @@ class PromocionController extends Controller
             'monto_minimo_consumo' => 'nullable|numeric|gte:0',
             'dias_semana' => 'nullable|array',
             'dias_semana.*' => 'integer|between:1,7',
-            'hora_inicio' => 'nullable|string',
-            'hora_fin' => 'nullable|string',
+            'hora_inicio' => 'nullable|date_format:H:i,H:i:s',
+            'hora_fin' => 'nullable|date_format:H:i,H:i:s',
             'fecha_inicio' => 'required|date',
             'fecha_fin' => 'required|date',
             'tipo_limite_usos' => 'nullable|string|in:sin_limite,diario,global',
@@ -118,8 +118,8 @@ class PromocionController extends Controller
             'monto_minimo_consumo' => 'nullable|numeric|gte:0',
             'dias_semana' => 'nullable|array',
             'dias_semana.*' => 'integer|between:1,7',
-            'hora_inicio' => 'nullable|string',
-            'hora_fin' => 'nullable|string',
+            'hora_inicio' => 'nullable|date_format:H:i,H:i:s',
+            'hora_fin' => 'nullable|date_format:H:i,H:i:s',
             'fecha_inicio' => 'nullable|date',
             'fecha_fin' => 'nullable|date',
             'tipo_limite_usos' => 'nullable|string|in:sin_limite,diario,global',
@@ -212,9 +212,15 @@ class PromocionController extends Controller
         return ApiResponse::ok($resultado);
     }
 
+    /**
+     * Sede del usuario. Para propietario y admin SaaS, TenantContext ya la resolvió desde
+     * X-Local-Id o ?local_id= tras comprobar que les pertenece; leer el parámetro aquí otra vez
+     * aceptaría una sede que el middleware rechazó.
+     */
     private function resolverLocalId(Request $request): ?string
     {
-        return $request->user()->local_id
-            ?? $request->query('local_id');
+        $localId = $request->user()->local_id;
+
+        return $localId ? (string) $localId : null;
     }
 }

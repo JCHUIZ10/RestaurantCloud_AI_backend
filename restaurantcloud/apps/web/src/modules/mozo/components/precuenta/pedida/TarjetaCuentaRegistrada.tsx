@@ -1,6 +1,7 @@
 import React from 'react';
 import { BadgePercent, Building2, CheckCircle2, Hash, IdCard, UserRound } from 'lucide-react';
 import type { CuentaRegistradaDTO, PromocionSedeDTO } from '../../../../../types/mozo';
+import { etiquetaPromocion } from '../../../utils/descuentoPromocion';
 import { estiloComprobante, estiloMedioPago } from '../estilosComprobante';
 
 interface TarjetaCuentaRegistradaProps {
@@ -76,9 +77,7 @@ export const TarjetaCuentaRegistrada: React.FC<TarjetaCuentaRegistradaProps> = (
               <dt className="text-xs text-slate-400">Promoción aplicada</dt>
               <dd className="font-semibold text-slate-100">
                 {promocion.nombre}
-                {promocion.porcentaje_descuento > 0 && (
-                  <span className="ml-2 text-emerald-300">-{promocion.porcentaje_descuento}%</span>
-                )}
+                <span className="ml-2 text-emerald-300">{etiquetaPromocion(promocion)}</span>
               </dd>
             </div>
           </div>

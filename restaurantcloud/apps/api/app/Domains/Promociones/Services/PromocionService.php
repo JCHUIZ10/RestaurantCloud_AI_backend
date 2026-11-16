@@ -304,10 +304,7 @@ class PromocionService
         // 4. Horarios consistentes
         $horaInicio = $data['hora_inicio'] ?? null;
         $horaFin = $data['hora_fin'] ?? null;
-
-        if (($horaInicio && ! $horaFin) || (! $horaInicio && $horaFin)) {
-            throw new \InvalidArgumentException('Debe especificar tanto hora de inicio como de fin, o dejar ambos campos vacíos.');
-        }
+        $this->validarFranjaHoraria($horaInicio, $horaFin);
 
         $diasSemana = ! empty($data['dias_semana']) ? $data['dias_semana'] : [1, 2, 3, 4, 5, 6, 7];
         $diasPg = '{'.implode(',', array_map('intval', $diasSemana)).'}';
@@ -421,6 +418,11 @@ class PromocionService
         if ($tipoDescuento === 'monto_fijo' && $valor <= 0) {
             throw new \InvalidArgumentException('El monto fijo de descuento debe ser estrictamente mayor a S/ 0.00.');
         }
+
+        $this->validarFranjaHoraria(
+            array_key_exists('hora_inicio', $data) ? $data['hora_inicio'] : $existente->hora_inicio,
+            array_key_exists('hora_fin', $data) ? $data['hora_fin'] : $existente->hora_fin,
+        );
 
         $updateData = [
             'updated_at' => now(),
@@ -565,9 +567,21 @@ class PromocionService
             throw new \DomainException('La promoción no existe o no pertenece a esta sede.', 404);
         }
 
-        // Consultar los comprobantes emitidos en caja con esta promoción
+        // Totales de todos los comprobantes emitidos con la promoción (la auditoría lista solo los últimos 100)
+        $totales = DB::table('comprobante')
+            ->where('promocion_id', $id)
+            ->where('estado', 'emitido')
+            ->selectRaw('
+                COUNT(id)::int as usos,
+                COALESCE(SUM(total + descuento), 0)::numeric(12,2) as ventas,
+                COALESCE(SUM(descuento), 0)::numeric(12,2) as descuentos
+            ')
+            ->first();
+
+        // Comprobantes más recientes para la auditoría; el cajero es el del turno de caja que los emitió
         $comprobantes = DB::table('comprobante as c')
-            ->leftJoin('usuario as u', 'u.id', '=', 'c.caja_id') // o cajero
+            ->leftJoin('caja as k', 'k.id', '=', 'c.caja_id')
+            ->leftJoin('usuario as u', 'u.id', '=', 'k.cajero_id')
             ->leftJoin('pedido as p', 'p.id', '=', 'c.pedido_id')
             ->leftJoin('mesa as m', 'm.id', '=', 'p.mesa_id')
             ->where('c.promocion_id', $id)
@@ -597,9 +611,9 @@ class PromocionService
             ])
             ->all();
 
-        $usosTotales = count($comprobantes);
-        $ventasTotales = (float) collect($comprobantes)->sum('total') + collect($comprobantes)->sum('descuento');
-        $descuentosTotales = (float) collect($comprobantes)->sum('descuento');
+        $usosTotales = (int) ($totales->usos ?? 0);
+        $ventasTotales = (float) ($totales->ventas ?? 0);
+        $descuentosTotales = (float) ($totales->descuentos ?? 0);
         $ticketPromedio = $usosTotales > 0 ? round($ventasTotales / $usosTotales, 2) : 0.00;
 
         return [
@@ -617,10 +631,7 @@ class PromocionService
      */
     public function promocionesVigentesCaja(string $localId, float $totalConsumo): array
     {
-        $ahora = Carbon::now('America/Lima');
-        $hoy = $ahora->format('Y-m-d');
-        $diaIso = (int) $ahora->format('N'); // 1=Lunes .. 7=Domingo
-        $horaActual = $ahora->format('H:i');
+        $hoy = Carbon::now('America/Lima')->format('Y-m-d');
 
         $promos = DB::table('promocion')
             ->where('local_id', $localId)
@@ -633,97 +644,24 @@ class PromocionService
         $noElegibles = [];
 
         foreach ($promos as $pr) {
-            $dias = [];
-            if (! empty($pr->dias_semana)) {
-                $raw = trim($pr->dias_semana, '{}');
-                $dias = strlen($raw) ? array_map('intval', explode(',', $raw)) : [1, 2, 3, 4, 5, 6, 7];
-            } else {
-                $dias = [1, 2, 3, 4, 5, 6, 7];
-            }
+            $motivo = $this->motivoNoAplicable($pr, $totalConsumo);
 
-            // Validar día
-            if (! in_array($diaIso, $dias, true)) {
+            if ($motivo !== null) {
                 $noElegibles[] = [
                     'id' => (string) $pr->id,
                     'nombre' => (string) $pr->nombre,
-                    'motivo' => 'No aplica para el día de hoy',
+                    'motivo' => $motivo,
                 ];
 
                 continue;
             }
 
-            // Validar horario si aplica
-            if ($pr->hora_inicio && $pr->hora_fin) {
-                $hi = substr((string) $pr->hora_inicio, 0, 5);
-                $hf = substr((string) $pr->hora_fin, 0, 5);
-                if ($horaActual < $hi || $horaActual > $hf) {
-                    $noElegibles[] = [
-                        'id' => (string) $pr->id,
-                        'nombre' => (string) $pr->nombre,
-                        'motivo' => "Horario válido: {$hi} a {$hf}",
-                    ];
-
-                    continue;
-                }
-            }
-
-            // Validar monto mínimo
-            $montoMinimo = (float) ($pr->monto_minimo_consumo ?? 0);
-            if ($montoMinimo > 0 && $totalConsumo < $montoMinimo) {
-                $noElegibles[] = [
-                    'id' => (string) $pr->id,
-                    'nombre' => (string) $pr->nombre,
-                    'motivo' => 'Exige consumo mínimo de S/ '.number_format($montoMinimo, 2),
-                ];
-
-                continue;
-            }
-
-            // Validar cupos
-            if ($pr->tipo_limite_usos === 'global' && $pr->limite_usos !== null && $pr->usos_actuales >= $pr->limite_usos) {
-                $noElegibles[] = [
-                    'id' => (string) $pr->id,
-                    'nombre' => (string) $pr->nombre,
-                    'motivo' => 'Cupo global agotado',
-                ];
-
-                continue;
-            }
-
-            if ($pr->tipo_limite_usos === 'diario' && $pr->limite_usos !== null) {
-                $usosHoy = ($pr->fecha_ultimo_uso === $hoy) ? (int) $pr->usos_hoy : 0;
-                if ($usosHoy >= $pr->limite_usos) {
-                    $noElegibles[] = [
-                        'id' => (string) $pr->id,
-                        'nombre' => (string) $pr->nombre,
-                        'motivo' => 'Cupo de hoy completado',
-                    ];
-
-                    continue;
-                }
-            }
-
-            // Calcular descuento exacto
-            $descuentoCalculado = 0.00;
-            if ($pr->tipo_descuento === 'porcentaje') {
-                $descuentoCalculado = round($totalConsumo * ((float) $pr->valor / 100), 2);
-                if ($pr->tope_maximo_descuento !== null && $pr->tope_maximo_descuento > 0) {
-                    $descuentoCalculado = min($descuentoCalculado, (float) $pr->tope_maximo_descuento);
-                }
-            } else {
-                $descuentoCalculado = min((float) $pr->valor, $totalConsumo);
-            }
-
-            $totalConDescuento = max(0.00, round($totalConsumo - $descuentoCalculado, 2));
+            $descuentoCalculado = $this->calcularDescuento($pr, $totalConsumo);
 
             $elegibles[] = [
-                'id' => (string) $pr->id,
-                'codigo' => (string) $pr->codigo,
-                'nombre' => (string) $pr->nombre,
-                'tipo_descuento' => (string) $pr->tipo_descuento,
-                'valor' => (float) $pr->valor,
+                ...$this->resumenParaCobro($pr),
                 'descuento_calculado' => $descuentoCalculado,
-                'total_con_descuento' => $totalConDescuento,
+                'total_con_descuento' => max(0.00, round($totalConsumo - $descuentoCalculado, 2)),
             ];
         }
 
@@ -732,5 +670,199 @@ class PromocionService
             'elegibles' => $elegibles,
             'no_elegibles' => $noElegibles,
         ];
+    }
+
+    /**
+     * Reglas de la promoción que Mozo y Caja necesitan para calcular el descuento de cualquier
+     * consumo (cuenta completa o subcuenta) igual que el backend.
+     *
+     * @return array{id: string, codigo: string, nombre: string, descripcion: ?string, tipo_descuento: string, valor: float, porcentaje_descuento: float, tope_maximo_descuento: ?float, monto_minimo_consumo: float}
+     */
+    public function resumenParaCobro(object $promocion): array
+    {
+        $esPorcentaje = $promocion->tipo_descuento === 'porcentaje';
+
+        return [
+            'id' => (string) $promocion->id,
+            'codigo' => (string) $promocion->codigo,
+            'nombre' => (string) $promocion->nombre,
+            'descripcion' => $promocion->descripcion !== null ? (string) $promocion->descripcion : null,
+            'tipo_descuento' => (string) $promocion->tipo_descuento,
+            'valor' => (float) $promocion->valor,
+            'porcentaje_descuento' => $esPorcentaje ? (float) $promocion->valor : 0.0,
+            'tope_maximo_descuento' => $esPorcentaje && $promocion->tope_maximo_descuento !== null
+                ? (float) $promocion->tope_maximo_descuento
+                : null,
+            'monto_minimo_consumo' => (float) ($promocion->monto_minimo_consumo ?? 0),
+        ];
+    }
+
+    /**
+     * Descuento exacto sobre un consumo: el porcentaje respeta el tope por cuenta y el monto fijo
+     * nunca supera el consumo.
+     */
+    public function calcularDescuento(object $promocion, float $consumo): float
+    {
+        if ($consumo <= 0) {
+            return 0.0;
+        }
+
+        if ($promocion->tipo_descuento === 'porcentaje') {
+            $descuento = round($consumo * ((float) $promocion->valor / 100), 2);
+            $tope = $promocion->tope_maximo_descuento !== null ? (float) $promocion->tope_maximo_descuento : 0.0;
+
+            return $tope > 0 ? min($descuento, $tope) : $descuento;
+        }
+
+        return round(min((float) $promocion->valor, $consumo), 2);
+    }
+
+    /**
+     * Motivo por el que la promoción no puede aplicarse a un consumo, o null si aplica.
+     *
+     * Las reglas de calendario (fechas, días y horario) se evalúan cuando el mozo elige la
+     * promoción; el cobro posterior las omite para no quitar un descuento ya ofrecido en la
+     * precuenta. La pausa, el consumo mínimo y los cupos se validan siempre.
+     */
+    public function motivoNoAplicable(object $promocion, float $consumo, bool $validarCalendario = true): ?string
+    {
+        $ahora = Carbon::now('America/Lima');
+        $hoy = $ahora->format('Y-m-d');
+
+        if (! $promocion->activa) {
+            return 'La promoción está pausada.';
+        }
+
+        if ($validarCalendario) {
+            if ($hoy < (string) $promocion->fecha_inicio) {
+                return 'La promoción aún no inicia su vigencia.';
+            }
+
+            if ($hoy > (string) $promocion->fecha_fin) {
+                return 'La vigencia de la promoción ya culminó.';
+            }
+
+            if (! in_array((int) $ahora->format('N'), $this->diasDeLaPromocion($promocion->dias_semana), true)) {
+                return 'No aplica para el día de hoy';
+            }
+
+            if ($promocion->hora_inicio && $promocion->hora_fin) {
+                $horaActual = $ahora->format('H:i');
+                $horaInicio = substr((string) $promocion->hora_inicio, 0, 5);
+                $horaFin = substr((string) $promocion->hora_fin, 0, 5);
+
+                if ($horaActual < $horaInicio || $horaActual > $horaFin) {
+                    return "Horario válido: {$horaInicio} a {$horaFin}";
+                }
+            }
+        }
+
+        $montoMinimo = (float) ($promocion->monto_minimo_consumo ?? 0);
+        if ($montoMinimo > 0 && $consumo < $montoMinimo) {
+            return 'Exige consumo mínimo de S/ '.number_format($montoMinimo, 2);
+        }
+
+        if ($promocion->limite_usos !== null) {
+            if ($promocion->tipo_limite_usos === 'global' && (int) $promocion->usos_actuales >= (int) $promocion->limite_usos) {
+                return 'Cupo global agotado';
+            }
+
+            $usosHoy = $promocion->fecha_ultimo_uso === $hoy ? (int) $promocion->usos_hoy : 0;
+            if ($promocion->tipo_limite_usos === 'diario' && $usosHoy >= (int) $promocion->limite_usos) {
+                return 'Cupo de hoy completado';
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Bloquea la promoción dentro de la transacción del cobro y confirma que aún puede aplicarse,
+     * para que dos cajas no consuman a la vez el último cupo.
+     *
+     * @throws \DomainException
+     */
+    public function bloquearParaCobro(string $promocionId, string $localId, float $consumo): object
+    {
+        $promocion = DB::table('promocion')
+            ->where('id', $promocionId)
+            ->where('local_id', $localId)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $promocion) {
+            throw new \DomainException('La promoción de la cuenta ya no existe en esta sede.');
+        }
+
+        $motivo = $this->motivoNoAplicable($promocion, $consumo, validarCalendario: false);
+        if ($motivo !== null) {
+            throw new \DomainException("La promoción \"{$promocion->nombre}\" ya no puede aplicarse: {$motivo}.");
+        }
+
+        return $promocion;
+    }
+
+    /**
+     * Consume un uso de la promoción por el comprobante emitido: suma al acumulado y al cupo
+     * del día (que se reinicia al cambiar de fecha).
+     */
+    public function registrarUso(object $promocion, string $localId): void
+    {
+        $hoy = Carbon::now('America/Lima')->format('Y-m-d');
+        $usosActuales = (int) $promocion->usos_actuales + 1;
+        $usosHoy = ($promocion->fecha_ultimo_uso === $hoy ? (int) $promocion->usos_hoy : 0) + 1;
+
+        DB::table('promocion')
+            ->where('id', $promocion->id)
+            ->update([
+                'usos_actuales' => $usosActuales,
+                'usos_hoy' => $usosHoy,
+                'fecha_ultimo_uso' => $hoy,
+                'updated_at' => now(),
+            ]);
+
+        // La carta pública solo muestra promociones con cupo: se refresca al agotarse.
+        $limite = $promocion->limite_usos !== null ? (int) $promocion->limite_usos : null;
+        $agotada = $limite !== null && match ($promocion->tipo_limite_usos) {
+            'global' => $usosActuales >= $limite,
+            'diario' => $usosHoy >= $limite,
+            default => false,
+        };
+
+        if ($agotada) {
+            CartaPublicaService::invalidar($localId);
+        }
+    }
+
+    /**
+     * La franja horaria va completa (inicio y fin) o vacía, y debe empezar antes de terminar:
+     * la aplicación en caja compara horas del mismo día, así que no admite franjas que crucen
+     * la medianoche.
+     *
+     * @throws \InvalidArgumentException
+     */
+    private function validarFranjaHoraria(?string $horaInicio, ?string $horaFin): void
+    {
+        if (($horaInicio && ! $horaFin) || (! $horaInicio && $horaFin)) {
+            throw new \InvalidArgumentException('Debe especificar tanto hora de inicio como de fin, o dejar ambos campos vacíos.');
+        }
+
+        if ($horaInicio && $horaFin && substr($horaInicio, 0, 5) >= substr($horaFin, 0, 5)) {
+            throw new \InvalidArgumentException('La hora de inicio debe ser anterior a la hora de fin. Las franjas que cruzan la medianoche no están permitidas.');
+        }
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function diasDeLaPromocion(mixed $diasSemana): array
+    {
+        if (is_array($diasSemana)) {
+            return $diasSemana === [] ? [1, 2, 3, 4, 5, 6, 7] : array_map('intval', $diasSemana);
+        }
+
+        $crudo = trim((string) $diasSemana, '{}');
+
+        return $crudo === '' ? [1, 2, 3, 4, 5, 6, 7] : array_map('intval', explode(',', $crudo));
     }
 }

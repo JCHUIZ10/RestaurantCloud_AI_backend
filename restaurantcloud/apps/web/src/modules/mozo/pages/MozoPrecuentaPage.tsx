@@ -16,6 +16,7 @@ import { MetodosPagoSelector } from '../components/precuenta/MetodosPagoSelector
 import { ModalQRBilletera } from '../components/precuenta/ModalQRBilletera';
 import { ROUTES } from '@/router/routes.constants';
 import { DIVISOR_IGV, MONTO_MINIMO_COMPROBANTE } from '@/shared/constants/tributario';
+import { calcularDescuentoPromocion } from '../utils/descuentoPromocion';
 import { construirOpcionesPago } from '../utils/opcionesPago';
 import { mensajeDeErrorApi } from '@/shared/utils';
 
@@ -69,9 +70,7 @@ export const MozoPrecuentaPage: React.FC = () => {
     if (!dataOriginal) return null;
 
     const consumoBruto = dataOriginal.items.reduce((acc, it) => acc + it.subtotal, 0);
-    const descuentoComercial = promocionSeleccionada
-      ? Math.round(consumoBruto * (promocionSeleccionada.porcentaje_descuento / 100) * 100) / 100
-      : 0;
+    const descuentoComercial = calcularDescuentoPromocion(promocionSeleccionada, consumoBruto);
     const totalNeto = Math.round((consumoBruto - descuentoComercial) * 100) / 100;
     const baseImponible = Math.round((totalNeto / DIVISOR_IGV) * 100) / 100;
     const igv = Math.round((totalNeto - baseImponible) * 100) / 100;

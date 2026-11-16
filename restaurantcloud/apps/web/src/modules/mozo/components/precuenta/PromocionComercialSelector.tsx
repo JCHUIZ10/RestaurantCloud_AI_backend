@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tag, Check, Sparkles } from 'lucide-react';
 import type { PromocionSedeDTO } from '../../../../types/mozo';
+import { calcularDescuentoPromocion, etiquetaPromocion } from '../../utils/descuentoPromocion';
 
 interface PromocionComercialSelectorProps {
   promocionesDisponibles: PromocionSedeDTO[];
@@ -55,8 +56,7 @@ export const PromocionComercialSelector: React.FC<PromocionComercialSelectorProp
         {/* Lista de Promociones de la Sede */}
         {promocionesDisponibles.map((promo) => {
           const isSelected = promocionSeleccionada?.id === promo.id;
-          const porcentaje = Number(promo.porcentaje_descuento ?? (promo as any).valor ?? 0) || 0;
-          const montoAhorro = Math.round(consumoBruto * (porcentaje / 100) * 100) / 100;
+          const montoAhorro = calcularDescuentoPromocion(promo, consumoBruto);
 
           return (
             <button
@@ -76,7 +76,7 @@ export const PromocionComercialSelector: React.FC<PromocionComercialSelectorProp
               <p className="text-[11px] text-slate-400 line-clamp-1">{promo.descripcion || (promo as any).descripcion_condicion || ''}</p>
               <div className="flex items-center justify-between mt-2">
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  {porcentaje}% OFF
+                  {etiquetaPromocion(promo)}
                 </span>
                 <span className="text-xs font-bold text-emerald-300">
                   -S/ {montoAhorro.toFixed(2)}

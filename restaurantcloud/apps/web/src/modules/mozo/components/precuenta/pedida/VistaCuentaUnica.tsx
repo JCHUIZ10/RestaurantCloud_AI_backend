@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import type { DesgloseSUNATMozoDTO, PrecuentaMozoResponseDTO } from '../../../../../types/mozo';
 import { DIVISOR_IGV } from '@/shared/constants/tributario';
+import { calcularDescuentoPromocion } from '../../../utils/descuentoPromocion';
 import { PrecuentaConsolidadoCard } from '../PrecuentaConsolidadoCard';
 import { DesgloseSUNATCard } from '../DesgloseSUNATCard';
 import { TarjetaCuentaRegistrada } from './TarjetaCuentaRegistrada';
@@ -13,8 +14,7 @@ export const VistaCuentaUnica: React.FC<VistaCuentaUnicaProps> = ({ data }) => {
   // Aplica la promoción con la que quedó registrada la cuenta, igual que al pedirla
   const desglose = useMemo<DesgloseSUNATMozoDTO>(() => {
     const consumoBruto = data.items.reduce((acc, it) => acc + it.subtotal, 0);
-    const porcentaje = Number(data.promocion_activa?.porcentaje_descuento ?? 0) || 0;
-    const descuento = Math.round(consumoBruto * (porcentaje / 100) * 100) / 100;
+    const descuento = calcularDescuentoPromocion(data.promocion_activa, consumoBruto);
     const totalNeto = Math.round((consumoBruto - descuento) * 100) / 100;
     const base = Math.round((totalNeto / DIVISOR_IGV) * 100) / 100;
 

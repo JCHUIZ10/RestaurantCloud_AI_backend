@@ -304,4 +304,174 @@ class PromocionTest extends TestCase
         ]);
         $this->assertEquals(100.00, $response->json('datos.subtotal_cuenta'));
     }
+
+    /**
+     * @return array<string, string>
+     */
+    private function headersPropietario(): array
+    {
+        $rawToken = 'test_token_propietario_promo_'.Str::random(32);
+        Redis::setex('auth:session:'.hash('sha256', $rawToken), 3600, json_encode([
+            'id' => '00000000-0000-4000-8000-000000000101',
+            'nombre' => 'Rodrigo De Las Casas',
+            'correo' => 'propietario@aurea.local',
+            'rol' => 'propietario',
+            'empresa_id' => $this->empresaId,
+            'local_id' => null,
+            'estado' => 'activo',
+        ]));
+
+        return ['Authorization' => 'Bearer '.$rawToken, 'Accept' => 'application/json'];
+    }
+
+    public function test_propietario_lista_promociones_de_su_sede_indicada_por_parametro(): void
+    {
+        $this->getJson("/api/v1/admin/promociones?local_id={$this->localId}", $this->headersPropietario())
+            ->assertOk()
+            ->assertJsonPath('exito', true);
+    }
+
+    public function test_propietario_no_accede_a_una_sede_que_el_middleware_rechazo(): void
+    {
+        // Sede ajena o inexistente: TenantContext no la asigna y el controlador no debe usarla
+        $this->getJson('/api/v1/admin/promociones?local_id='.Str::uuid(), $this->headersPropietario())
+            ->assertStatus(400)
+            ->assertJsonPath('errores.0.codigo', 'ERR_LOCAL_REQUERIDO');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function payloadConFranja(string $horaInicio, string $horaFin): array
+    {
+        return [
+            'nombre' => 'Promo Franja '.Str::random(6),
+            'tipo_descuento' => 'porcentaje',
+            'valor' => 10,
+            'fecha_inicio' => now('America/Lima')->toDateString(),
+            'fecha_fin' => now('America/Lima')->addDays(10)->toDateString(),
+            'hora_inicio' => $horaInicio,
+            'hora_fin' => $horaFin,
+        ];
+    }
+
+    public function test_crear_promocion_rechaza_una_franja_que_termina_antes_de_empezar(): void
+    {
+        // 22:00 a 02:00 cruza la medianoche: la caja nunca la aplicaría
+        $this->postJson('/api/v1/admin/promociones', $this->payloadConFranja('22:00', '02:00'), $this->headers())
+            ->assertStatus(422)
+            ->assertJsonPath('errores.0.codigo', 'ERR_VALIDACION_PROMOCION');
+
+        $this->postJson('/api/v1/admin/promociones', $this->payloadConFranja('18:00', '18:00'), $this->headers())
+            ->assertStatus(422)
+            ->assertJsonPath('errores.0.codigo', 'ERR_VALIDACION_PROMOCION');
+    }
+
+    public function test_crear_promocion_rechaza_una_hora_con_formato_invalido(): void
+    {
+        $this->postJson('/api/v1/admin/promociones', $this->payloadConFranja('6pm', '21:00'), $this->headers())
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['hora_inicio']);
+    }
+
+    public function test_crear_promocion_acepta_solo_dias_sin_franja_horaria(): void
+    {
+        $response = $this->postJson('/api/v1/admin/promociones', [
+            ...$this->payloadConFranja('18:00', '21:00'),
+            'hora_inicio' => null,
+            'hora_fin' => null,
+            'dias_semana' => [2, 4],
+        ], $this->headers());
+
+        $response->assertStatus(201);
+        $this->assertSame([2, 4], $response->json('datos.dias_semana'));
+        $this->assertNull($response->json('datos.hora_inicio'));
+        $this->assertNull($response->json('datos.hora_fin'));
+    }
+
+    public function test_actualizar_promocion_valida_la_franja_contra_la_hora_ya_guardada(): void
+    {
+        $id = $this->postJson('/api/v1/admin/promociones', $this->payloadConFranja('12:00', '15:00'), $this->headers())
+            ->assertStatus(201)
+            ->json('datos.id');
+
+        // Solo cambia el fin: 11:00 queda antes del inicio guardado (12:00)
+        $this->putJson("/api/v1/admin/promociones/{$id}", ['hora_fin' => '11:00'], $this->headers())
+            ->assertStatus(422)
+            ->assertJsonPath('errores.0.codigo', 'ERR_VALIDACION_PROMOCION');
+
+        $this->assertSame('15:00', substr((string) DB::table('promocion')->where('id', $id)->value('hora_fin'), 0, 5));
+    }
+
+    public function test_rendimiento_atribuye_el_comprobante_al_cajero_del_turno_y_suma_sus_totales(): void
+    {
+        $caja = DB::table('caja')->where('local_id', $this->localId)->where('estado', 'abierta')->first();
+        if (! $caja) {
+            $cajaId = (string) Str::uuid();
+            DB::table('caja')->insert([
+                'id' => $cajaId,
+                'local_id' => $this->localId,
+                'cajero_id' => '00000000-0000-4000-8000-000000000105',
+                'monto_apertura' => 100.00,
+                'estado' => 'abierta',
+                'fecha_apertura' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $caja = DB::table('caja')->where('id', $cajaId)->first();
+        }
+        $cajeroNombre = DB::table('usuario')->where('id', $caja->cajero_id)->value('nombre');
+
+        $promocionId = $this->postJson('/api/v1/admin/promociones', [
+            ...$this->payloadConFranja('00:00', '23:59'),
+            'hora_inicio' => null,
+            'hora_fin' => null,
+        ], $this->headers())->assertStatus(201)->json('datos.id');
+
+        $mesa = DB::table('mesa')->where('local_id', $this->localId)->where('estado', 'activa')->first();
+        $producto = DB::table('producto')->where('local_id', $this->localId)->first();
+        $pedidoId = (string) Str::uuid();
+        DB::table('pedido')->insert([
+            'id' => $pedidoId,
+            'local_id' => $this->localId,
+            'mesa_id' => $mesa->id,
+            'mozo_id' => $this->adminId,
+            'numero_comanda' => 995,
+            'comensales' => 1,
+            'estado' => 'cuenta_pedida',
+            'promocion_id' => $promocionId,
+            'tipo_comprobante_sugerido' => 'boleta',
+            'medio_pago_sugerido' => 'efectivo',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('pedido_item')->insert([
+            'id' => (string) Str::uuid(),
+            'pedido_id' => $pedidoId,
+            'producto_id' => $producto->id,
+            'cantidad' => 1,
+            'precio_unitario' => 50.00,
+            'estado' => 'entregado',
+            'estado_pago' => 'pendiente',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->postJson('/api/v1/caja/cobrar', [
+            'pedido_id' => $pedidoId,
+            'tipo_comprobante' => 'boleta',
+            'medio_pago' => 'efectivo',
+            'monto_recibido' => 45.00,
+            'nombre_cliente' => 'CLIENTE DE PRUEBA',
+        ], $this->headers())->assertStatus(200);
+
+        $rendimiento = $this->getJson("/api/v1/admin/promociones/{$promocionId}/rendimiento", $this->headers())
+            ->assertOk()
+            ->json('datos');
+
+        $this->assertSame(1, $rendimiento['usos_totales']);
+        $this->assertEquals(50.00, $rendimiento['ventas_totales']);
+        $this->assertEquals(5.00, $rendimiento['descuentos_totales']);
+        $this->assertSame($cajeroNombre, $rendimiento['comprobantes'][0]['cajero_nombre']);
+    }
 }

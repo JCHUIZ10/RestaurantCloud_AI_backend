@@ -12,6 +12,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { PromocionAdminDTO } from '@/types/admin';
+import { hoyServidorStr } from '@/shared/utils/fechaServidor';
 
 interface PromocionesTablaProps {
   promociones: PromocionAdminDTO[];
@@ -136,6 +137,8 @@ export const PromocionesTabla: React.FC<PromocionesTablaProps> = ({
   };
 
   const nombresDias = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+  // "Hoy" en Lima, igual que el backend: en UTC el día cambiaría a las 19:00
+  const hoyServidor = hoyServidorStr();
 
   const inicioRango = totalRegistros > 0 ? (paginaActual - 1) * limitePorPagina + 1 : 0;
   const finRango = Math.min(paginaActual * limitePorPagina, totalRegistros);
@@ -304,8 +307,7 @@ export const PromocionesTabla: React.FC<PromocionesTablaProps> = ({
                     {/* Columna 7: Switch En Caja (Pausar / Reactivar en caliente con salvaguarda de vigencia y cupo) */}
                     <td className="py-3.5 px-4 text-center whitespace-nowrap">
                       {(() => {
-                        const today = new Date().toISOString().slice(0, 10);
-                        const estaVencida = today > promo.fecha_fin;
+                        const estaVencida = hoyServidor > promo.fecha_fin;
                         const estaAgotadaGlobal =
                           promo.tipo_limite_usos === 'global' &&
                           promo.limite_usos != null &&

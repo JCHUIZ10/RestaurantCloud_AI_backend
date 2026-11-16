@@ -12,6 +12,7 @@ use App\Domains\Caja\Services\MetodoPagoLocalService;
 use App\Domains\Caja\Services\ReporteZDigitalService;
 use App\Domains\Caja\Services\ServicioPendienteService;
 use App\Domains\Carta\Services\CartaPublicaService;
+use App\Domains\Promociones\Services\PromocionService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -611,8 +612,14 @@ class CajaController extends Controller
             ];
         });
 
-        $consumoBruto = (float) $items->sum('subtotal');
-        $descuentoAplicado = 0.00;
+        $consumoBruto = round((float) $items->sum('subtotal'), 2);
+
+        // La promoción que el mozo dejó en la cuenta se descuenta igual que en el cobro.
+        $promocionService = app(PromocionService::class);
+        $promocionPedido = ! empty($pedido->promocion_id)
+            ? DB::table('promocion')->where('id', $pedido->promocion_id)->where('local_id', $localId)->first()
+            : null;
+        $descuentoAplicado = $promocionPedido ? $promocionService->calcularDescuento($promocionPedido, $consumoBruto) : 0.00;
         $totalNeto = round($consumoBruto - $descuentoAplicado, 2);
 
         // Desglose oficial SUNAT UBL 2.1
@@ -670,26 +677,14 @@ class CajaController extends Controller
         $opcionTentativa = $opcionesCobro->firstWhere('codigo', $pedido->medio_pago_sugerido);
         $totalCobroTentativo = $opcionTentativa['total_estimado'] ?? $totalNeto;
 
-        // Promociones comerciales disponibles
-        $promociones = DB::table('promocion')
-            ->where('local_id', $localId)
-            ->where('activa', true)
-            ->get()
-            ->map(function ($pr) use ($totalNeto) {
-                $ahorro = round($totalNeto * ((float) $pr->valor / 100), 2);
-
-                return [
-                    'id' => $pr->id,
-                    'nombre' => $pr->nombre,
-                    'tipo_descuento' => 'porcentaje',
-                    'porcentaje_descuento' => (float) $pr->valor,
-                    'valor' => (float) $pr->valor,
-                    'ahorro_calculado' => $ahorro,
-                    'aplicada' => false,
-                    'descripcion' => $pr->descripcion,
-                    'descripcion_condicion' => $pr->descripcion,
-                ];
-            });
+        // Promociones aplicables hoy a este consumo (vigencia, día, horario, mínimo y cupos)
+        $vigentes = $promocionService->promocionesVigentesCaja($localId, $consumoBruto);
+        $promociones = collect($vigentes['elegibles'])->map(fn (array $pr): array => [
+            ...$pr,
+            'ahorro_calculado' => $pr['descuento_calculado'],
+            'aplicada' => $pr['id'] === (string) $pedido->promocion_id,
+            'descripcion_condicion' => $pr['descripcion'],
+        ])->values();
 
         // Subcuentas registradas si existen
         $subcuentasRaw = DB::table('pedido_subcuenta')
@@ -747,21 +742,12 @@ class CajaController extends Controller
 
         $minutosEnMesa = (int) max(0, round((now()->timestamp - strtotime($pedido->created_at)) / 60));
 
-        $promocionActiva = null;
-        if (! empty($pedido->promocion_id)) {
-            $prActiva = DB::table('promocion')->where('id', $pedido->promocion_id)->first();
-            if ($prActiva) {
-                $promocionActiva = [
-                    'id' => (string) $prActiva->id,
-                    'codigo' => (string) $prActiva->codigo,
-                    'nombre' => (string) $prActiva->nombre,
-                    'tipo_descuento' => (string) $prActiva->tipo_descuento,
-                    'porcentaje_descuento' => $prActiva->tipo_descuento === 'porcentaje' ? (float) $prActiva->valor : 0.0,
-                    'valor' => (float) $prActiva->valor,
-                    'descripcion' => $prActiva->descripcion,
-                ];
-            }
-        }
+        $promocionActiva = $promocionPedido
+            ? [
+                ...$promocionService->resumenParaCobro($promocionPedido),
+                'descuento_calculado' => $descuentoAplicado,
+            ]
+            : null;
 
         $clienteEncontradoEnBd = false;
         $telefonoClienteSugerido = '';
@@ -1085,11 +1071,34 @@ class CajaController extends Controller
                     }
                 }
 
-                // El total de la subcuenta ya incluye la comisión acordada en mesa: se quita para
-                // que el recargo se calcule una sola vez más abajo, con el medio de pago real.
-                $totalConsumo = $subcuenta
-                    ? round((float) $subcuenta->total - (float) $subcuenta->monto_recargo, 2)
-                    : (float) $itemsToCharge->sum('subtotal');
+                // Consumo bruto y descuento de la promoción. La subcuenta conserva el descuento que
+                // Mozo validó al dividir; la cuenta completa lo calcula sobre lo que se cobra ahora.
+                $consumoBruto = $subcuenta
+                    ? round((float) $subcuenta->subtotal_bruto, 2)
+                    : round((float) $itemsToCharge->sum('subtotal'), 2);
+                $promocionId = $subcuenta ? $subcuenta->promocion_id : $pedido->promocion_id;
+                $promocionService = app(PromocionService::class);
+                $promocion = null;
+                $descuento = $subcuenta ? round((float) $subcuenta->descuento, 2) : 0.0;
+
+                if (! empty($promocionId) && ($subcuenta === null || $descuento > 0)) {
+                    try {
+                        $promocion = $promocionService->bloquearParaCobro($promocionId, $localId, $consumoBruto);
+                    } catch (\DomainException $e) {
+                        return ApiResponse::error(
+                            'PROMOCION_NO_APLICABLE',
+                            $e->getMessage().' Pide al mozo que actualice la promoción de la cuenta.',
+                            409,
+                        );
+                    }
+
+                    if ($subcuenta === null) {
+                        $descuento = $promocionService->calcularDescuento($promocion, $consumoBruto);
+                    }
+                }
+
+                // El recargo del medio de pago se calcula una sola vez, sobre el consumo con descuento.
+                $totalConsumo = round($consumoBruto - $descuento, 2);
                 $porcentajeRecargo = MetodoPagoLocalService::porcentajeRecargo($metodoPago->codigo, $metodoPago->comision_porcentaje);
                 $montoRecargo = round($totalConsumo * ($porcentajeRecargo / 100), 2);
                 $totalCobro = round($totalConsumo + $montoRecargo, 2);
@@ -1223,7 +1232,9 @@ class CajaController extends Controller
                     'metodo_pago_id' => $metodoPago->id,
                     'medio_pago' => $validated['medio_pago'],
                     'numero_operacion' => $numeroOperacion,
-                    'subtotal_consumo' => $totalConsumo,
+                    'subtotal_consumo' => $consumoBruto,
+                    'descuento' => $descuento,
+                    'promocion_id' => $promocion?->id,
                     'porcentaje_recargo' => $porcentajeRecargo,
                     'monto_recargo' => $montoRecargo,
                     'base_imponible' => $baseImponible,
@@ -1236,6 +1247,11 @@ class CajaController extends Controller
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
+
+                // Cada comprobante emitido con la promoción consume un uso de su cupo.
+                if ($promocion !== null) {
+                    $promocionService->registrarUso($promocion, $localId);
+                }
 
                 // 2. Insertar líneas inmutables en comprobante_item (UBL 2.1 SUNAT)
                 foreach ($itemsToCharge as $it) {
@@ -1373,7 +1389,9 @@ class CajaController extends Controller
                     'serie' => $serie,
                     'correlativo' => $correlativo,
                     'serie_numero' => $serie.'-'.str_pad((string) $correlativo, 8, '0', STR_PAD_LEFT),
-                    'subtotal_consumo' => $totalConsumo,
+                    'subtotal_consumo' => $consumoBruto,
+                    'descuento' => $descuento,
+                    'promocion_id' => $promocion?->id,
                     'porcentaje_recargo' => $porcentajeRecargo,
                     'monto_recargo' => $montoRecargo,
                     'total' => $totalCobro,

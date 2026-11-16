@@ -808,7 +808,10 @@ class MozoController extends Controller
             ?? $preferencias['nombre_cliente_sugerido']
             ?? $pedido->nombre_cliente_sugerido;
 
-        $promocionId = $preferencias['promocion_id'] ?? $pedido->promocion_id;
+        // Enviar promocion_id en null quita la promoción; omitirlo conserva la que ya tenía la cuenta.
+        $promocionId = array_key_exists('promocion_id', $preferencias)
+            ? $preferencias['promocion_id']
+            : $pedido->promocion_id;
 
         // Una cuenta ya dividida valida el importe de cada subcuenta en dividirCuenta.
         $cuentaDividida = DB::table('pedido_subcuenta')
@@ -816,7 +819,25 @@ class MozoController extends Controller
             ->where('estado', '!=', 'anulado')
             ->exists();
 
-        if (! $cuentaDividida && $this->importeNetoPedido($pedido->id, $promocionId) < self::IMPORTE_MINIMO_COMPROBANTE) {
+        if (! $cuentaDividida && $promocionId !== null) {
+            $promocion = DB::table('promocion')->where('id', $promocionId)->where('local_id', $localId)->first();
+            if (! $promocion) {
+                return ApiResponse::error('La promoción seleccionada no existe en esta sede.', 422);
+            }
+
+            // El calendario (vigencia, día, horario) se valida al elegir la promoción; si la cuenta
+            // ya la tenía, solo se revisan pausa, consumo mínimo y cupos.
+            $motivo = app(PromocionService::class)->motivoNoAplicable(
+                $promocion,
+                $this->consumoBrutoPedido($pedido->id),
+                validarCalendario: $promocionId !== $pedido->promocion_id,
+            );
+            if ($motivo !== null) {
+                return ApiResponse::error("La promoción \"{$promocion->nombre}\" no aplica a esta cuenta: {$motivo}.", 422);
+            }
+        }
+
+        if (! $cuentaDividida && $this->importeNetoPedido($pedido->id, $promocionId, $localId) < self::IMPORTE_MINIMO_COMPROBANTE) {
             return ApiResponse::error(
                 'El total a pagar debe ser como mínimo S/ 0.10. Los productos de S/ 0.00 deben acompañar a un producto con precio.',
                 422
@@ -885,26 +906,32 @@ class MozoController extends Controller
 
     /**
      * Importe a pagar de la cuenta completa: consumo de los ítems no anulados menos
-     * el descuento de la promoción elegida (porcentaje o monto fijo).
+     * el descuento de la promoción elegida (porcentaje con tope o monto fijo).
      */
-    private function importeNetoPedido(string $pedidoId, ?string $promocionId): float
+    private function importeNetoPedido(string $pedidoId, ?string $promocionId, string $localId): float
     {
-        $bruto = round((float) DB::table('pedido_item')
-            ->where('pedido_id', $pedidoId)
-            ->where('estado', '!=', 'anulado')
-            ->sum(DB::raw('cantidad * precio_unitario')), 2);
+        $bruto = $this->consumoBrutoPedido($pedidoId);
 
         $descuento = 0.0;
         if ($promocionId !== null) {
-            $promocion = DB::table('promocion')->where('id', $promocionId)->first();
+            $promocion = DB::table('promocion')->where('id', $promocionId)->where('local_id', $localId)->first();
             if ($promocion) {
-                $descuento = $promocion->tipo_descuento === 'porcentaje'
-                    ? round($bruto * ((float) $promocion->valor / 100), 2)
-                    : min((float) $promocion->valor, $bruto);
+                $descuento = app(PromocionService::class)->calcularDescuento($promocion, $bruto);
             }
         }
 
         return round($bruto - $descuento, 2);
+    }
+
+    /**
+     * Consumo de la cuenta completa (ítems no anulados) antes de descuentos y recargos.
+     */
+    private function consumoBrutoPedido(string $pedidoId): float
+    {
+        return round((float) DB::table('pedido_item')
+            ->where('pedido_id', $pedidoId)
+            ->where('estado', '!=', 'anulado')
+            ->sum(DB::raw('cantidad * precio_unitario')), 2);
     }
 
     /**
@@ -1949,30 +1976,19 @@ class MozoController extends Controller
 
         $promocionService = app(PromocionService::class);
         $vigentes = $promocionService->promocionesVigentesCaja($localId, $total);
-        $promociones = collect($vigentes['elegibles'] ?? [])->map(fn ($pr) => [
-            'id' => $pr['id'],
-            'codigo' => $pr['codigo'] ?? null,
-            'nombre' => $pr['nombre'],
-            'tipo_descuento' => $pr['tipo_descuento'] ?? 'porcentaje',
-            'porcentaje_descuento' => ($pr['tipo_descuento'] ?? 'porcentaje') === 'porcentaje' ? (float) $pr['valor'] : 0.0,
-            'valor' => (float) $pr['valor'],
-            'descuento_calculado' => (float) ($pr['descuento_calculado'] ?? 0),
-            'descripcion' => $pr['nombre'],
-            'descripcion_condicion' => $pr['nombre'],
-        ]);
+        $promociones = collect($vigentes['elegibles'] ?? [])->map(fn (array $pr): array => [
+            ...$pr,
+            'descripcion' => $pr['descripcion'] ?: $pr['nombre'],
+            'descripcion_condicion' => $pr['descripcion'] ?: $pr['nombre'],
+        ])->values();
 
         $promocionActiva = null;
         if (! empty($pedido->promocion_id)) {
-            $prActiva = DB::table('promocion')->where('id', $pedido->promocion_id)->first();
+            $prActiva = DB::table('promocion')->where('id', $pedido->promocion_id)->where('local_id', $localId)->first();
             if ($prActiva) {
                 $promocionActiva = [
-                    'id' => (string) $prActiva->id,
-                    'codigo' => (string) $prActiva->codigo,
-                    'nombre' => (string) $prActiva->nombre,
-                    'tipo_descuento' => (string) $prActiva->tipo_descuento,
-                    'porcentaje_descuento' => $prActiva->tipo_descuento === 'porcentaje' ? (float) $prActiva->valor : 0.0,
-                    'valor' => (float) $prActiva->valor,
-                    'descripcion' => $prActiva->descripcion,
+                    ...$promocionService->resumenParaCobro($prActiva),
+                    'descuento_calculado' => $promocionService->calcularDescuento($prActiva, $total),
                 ];
             }
         }
@@ -2276,6 +2292,91 @@ class MozoController extends Controller
     }
 
     /**
+     * Verifica que la promoción de cada subcuenta aplique a su consumo y que el descuento enviado
+     * sea el que calcula el backend (porcentaje con tope o monto fijo); sin promoción no hay descuento.
+     *
+     * @param  array<int, array<string, mixed>>  $subcuentas
+     *
+     * @throws ValidationException
+     */
+    private function validarPromocionesSubcuentas(array $subcuentas, string $localId): void
+    {
+        $promocionService = app(PromocionService::class);
+        $promociones = DB::table('promocion')
+            ->where('local_id', $localId)
+            ->whereIn('id', collect($subcuentas)->pluck('promocion_id')->filter()->unique()->values())
+            ->get()
+            ->keyBy('id');
+
+        $errores = [];
+
+        foreach ($subcuentas as $indice => $sub) {
+            $descuentoEnviado = (float) ($sub['descuento'] ?? 0.0);
+            $promocionId = $sub['promocion_id'] ?? null;
+
+            if ($promocionId === null) {
+                if ($descuentoEnviado > 0) {
+                    $errores["subcuentas.{$indice}.descuento"] = ['Una subcuenta sin promoción no puede llevar descuento.'];
+                }
+
+                continue;
+            }
+
+            $promocion = $promociones->get($promocionId);
+            if ($promocion === null) {
+                $errores["subcuentas.{$indice}.promocion_id"] = ['La promoción seleccionada no existe en esta sede.'];
+
+                continue;
+            }
+
+            $bruto = (float) $sub['subtotal_bruto'];
+            $motivo = $promocionService->motivoNoAplicable($promocion, $bruto);
+            if ($motivo !== null) {
+                $errores["subcuentas.{$indice}.promocion_id"] = [
+                    "Subcuenta {$sub['numero_subcuenta']}: la promoción \"{$promocion->nombre}\" no aplica ({$motivo}).",
+                ];
+
+                continue;
+            }
+
+            if (abs($descuentoEnviado - $promocionService->calcularDescuento($promocion, $bruto)) > 0.01) {
+                $errores["subcuentas.{$indice}.descuento"] = [
+                    'El descuento no corresponde a la promoción seleccionada para esta subcuenta.',
+                ];
+            }
+        }
+
+        // Cada subcuenta cobrada consume un uso: la división no puede repartir más de los que quedan.
+        $usosPorPromocion = collect($subcuentas)->pluck('promocion_id')->filter()->countBy();
+        foreach ($usosPorPromocion as $promocionId => $usosSolicitados) {
+            $promocion = $promociones->get($promocionId);
+            if ($promocion === null || $promocion->limite_usos === null) {
+                continue;
+            }
+
+            $usados = match ($promocion->tipo_limite_usos) {
+                'global' => (int) $promocion->usos_actuales,
+                'diario' => $promocion->fecha_ultimo_uso === now('America/Lima')->format('Y-m-d') ? (int) $promocion->usos_hoy : 0,
+                default => null,
+            };
+            if ($usados === null) {
+                continue;
+            }
+
+            $disponibles = max(0, (int) $promocion->limite_usos - $usados);
+            if ($usosSolicitados > $disponibles) {
+                $errores['subcuentas'] = [
+                    "La promoción \"{$promocion->nombre}\" solo tiene {$disponibles} uso(s) disponible(s) y se asignó a {$usosSolicitados} subcuentas.",
+                ];
+            }
+        }
+
+        if ($errores !== []) {
+            throw ValidationException::withMessages($errores);
+        }
+    }
+
+    /**
      * Verifica que el recargo y el total de cada subcuenta cuadren con la comisión que la sede
      * tiene configurada para el medio de pago, en lugar de confiar en los importes del cliente.
      *
@@ -2419,6 +2520,7 @@ class MozoController extends Controller
         $this->validarIdentificacionBoletasDesdeLimite($validated['subcuentas']);
         $this->validarMediosPagoHabilitados($validated['subcuentas'], $localId);
         $validated['subcuentas'] = $this->validarNumerosOperacionBilletera($validated['subcuentas'], $localId);
+        $this->validarPromocionesSubcuentas($validated['subcuentas'], $localId);
         $this->validarImportesSubcuentas($validated['subcuentas'], $localId);
 
         $mesa = DB::table('mesa')

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   CheckCircle2,
   AlertCircle,
@@ -15,6 +15,8 @@ import {
   PromocionRendimientoDTO,
 } from '@/types/admin';
 import { adminService } from '@/services/serviceAdapter';
+import { hoyServidorStr } from '@/shared/utils/fechaServidor';
+import { sumarDiasStr } from '@/shared/utils/fechaLocal';
 import { PromocionesHeader } from '../components/promociones/PromocionesHeader';
 import { PromocionesFiltros } from '../components/promociones/PromocionesFiltros';
 import { PromocionesTabla } from '../components/promociones/PromocionesTabla';
@@ -57,43 +59,73 @@ export const AdminPromocionesPage: React.FC = () => {
     texto: string;
   } | null>(null);
 
+  // Un toast nuevo cancela el temporizador del anterior para que no lo cierre antes de tiempo
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const mostrarToast = useCallback((texto: string, tipo: 'exito' | 'error' | 'info' = 'exito') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToastFeedback({ tipo, texto });
-    setTimeout(() => {
+    toastTimerRef.current = setTimeout(() => {
       setToastFeedback(null);
+      toastTimerRef.current = null;
     }, 4500);
   }, []);
 
-  // Cargar datos
-  const cargarDatos = useCallback(async (busqActual: string = busqueda) => {
+  const cerrarToast = () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = null;
+    setToastFeedback(null);
+  };
+
+  useEffect(
+    () => () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    },
+    []
+  );
+
+  // Cada carga recibe un número; solo la más reciente puede actualizar la pantalla, así una
+  // respuesta lenta de un filtro anterior no pisa los resultados del filtro actual.
+  const solicitudRef = useRef(0);
+
+  const cargarDatos = useCallback(async () => {
+    const solicitud = ++solicitudRef.current;
+    const esVigente = () => solicitud === solicitudRef.current;
+    const termino = busqueda.trim();
+    const sinFiltros = filtroEstado === 'todas' && filtroTipo === 'todos' && !termino;
+
     setCargando(true);
     try {
-      // 1. Obtener todas sin filtros para conteos de píldoras y KPIs
+      // 1. Bandeja completa: alimenta KPIs y conteos de píldoras (y la lista cuando no hay filtros)
       const respTotal = await adminService.getBandejaPromociones({});
+      if (!esVigente()) return;
       if (respTotal.exito) {
         setTodasPromociones(respTotal.datos.promociones);
         setKpis(respTotal.datos.kpis);
       }
 
-      // 2. Si hay búsqueda activa, consumir nuevo endpoint optimizado GET /api/v1/admin/promociones/buscar
-      if (busqActual.trim()) {
-        const respBusqueda = await adminService.buscarPromociones(
-          busqActual.trim(),
-          filtroEstado,
-          filtroTipo
-        );
+      if (sinFiltros) {
+        if (respTotal.exito) {
+          setPromociones(respTotal.datos.promociones);
+        } else {
+          mostrarToast('Error al cargar la bandeja de promociones', 'error');
+        }
+      } else if (termino) {
+        // 2. Búsqueda por nombre o código: GET /api/v1/admin/promociones/buscar
+        const respBusqueda = await adminService.buscarPromociones(termino, filtroEstado, filtroTipo);
+        if (!esVigente()) return;
         if (respBusqueda.exito) {
           setPromociones(respBusqueda.datos.resultados);
         } else {
           mostrarToast('Error al ejecutar la búsqueda de promociones', 'error');
         }
       } else {
-        // Obtener lista con filtros activos
+        // 3. Solo filtros de estado o tipo
         const respFiltrada = await adminService.getBandejaPromociones({
           estado: filtroEstado,
           tipo_descuento: filtroTipo,
         });
-
+        if (!esVigente()) return;
         if (respFiltrada.exito) {
           setPromociones(respFiltrada.datos.promociones);
         } else {
@@ -101,24 +133,28 @@ export const AdminPromocionesPage: React.FC = () => {
         }
       }
     } catch {
-      mostrarToast('Error de comunicación con el servicio de promociones', 'error');
+      if (esVigente()) mostrarToast('Error de comunicación con el servicio de promociones', 'error');
     } finally {
-      setCargando(false);
+      if (esVigente()) setCargando(false);
     }
   }, [filtroEstado, filtroTipo, busqueda, mostrarToast]);
 
+  // Recarga al montar y cada vez que cambian filtros o término de búsqueda
   useEffect(() => {
     cargarDatos();
   }, [cargarDatos]);
 
   const handleBuscar = (termino: string) => {
-    setBusqueda(termino);
-    cargarDatos(termino);
+    // Un término nuevo recarga desde el efecto; repetir el mismo término fuerza la recarga aquí
+    if (termino === busqueda) {
+      cargarDatos();
+    } else {
+      setBusqueda(termino);
+    }
   };
 
   const handleLimpiarBusqueda = () => {
     setBusqueda('');
-    cargarDatos('');
   };
 
   // Cálculo de conteos para píldoras
@@ -250,9 +286,9 @@ export const AdminPromocionesPage: React.FC = () => {
 
   const handleCargarPlantillaInauguracion = async () => {
     try {
-      const hoy = new Date();
-      const fin = new Date();
-      fin.setDate(fin.getDate() + 30);
+      // Fechas en la zona del servidor (Lima): con toISOString() la plantilla creada de noche
+      // empezaría mañana y quedaría "Programada" en vez de activa en caja.
+      const hoy = hoyServidorStr();
 
       const resp = await adminService.crearPromocion({
         nombre: '🎉 Descuento Inaugural - Gran Apertura',
@@ -262,8 +298,8 @@ export const AdminPromocionesPage: React.FC = () => {
         valor: 15,
         tope_maximo_descuento: 40,
         monto_minimo_consumo: 50,
-        fecha_inicio: hoy.toISOString().split('T')[0],
-        fecha_fin: fin.toISOString().split('T')[0],
+        fecha_inicio: hoy,
+        fecha_fin: sumarDiasStr(hoy, 30),
         dias_semana: [1, 2, 3, 4, 5, 6, 7],
         activa: true,
         tipo_limite_usos: 'global',
@@ -323,7 +359,8 @@ export const AdminPromocionesPage: React.FC = () => {
             <span className="flex-1 leading-snug">{toastFeedback.texto}</span>
             <button
               type="button"
-              onClick={() => setToastFeedback(null)}
+              onClick={cerrarToast}
+              aria-label="Cerrar aviso"
               className="p-1 rounded-lg hover:bg-white/10 text-white/70 hover:text-white transition-colors"
             >
               <X className="w-4 h-4" />

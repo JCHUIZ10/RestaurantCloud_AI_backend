@@ -506,7 +506,124 @@ class CobroFiscalComprobanteTest extends TestCase
 
         $response->assertStatus(200);
         $this->assertEquals(90.00, $response->json('datos.total_cobrado'));
-        $this->assertEquals(90.00, $response->json('datos.subtotal_consumo'));
+        // El comprobante guarda el consumo bruto y el descuento por separado
+        $this->assertEquals(100.00, $response->json('datos.subtotal_consumo'));
+        $this->assertEquals(10.00, $response->json('datos.descuento'));
+    }
+
+    /**
+     * @param  array<string, mixed>  $atributos
+     */
+    private function crearPromocion(array $atributos = []): string
+    {
+        $id = (string) Str::uuid();
+        $hoy = now('America/Lima');
+
+        DB::table('promocion')->insert([
+            'id' => $id,
+            'local_id' => $this->localId,
+            'codigo' => 'PROMO-T-'.Str::upper(Str::random(8)),
+            'nombre' => 'Promo Cobro '.Str::random(6),
+            'tipo_descuento' => 'porcentaje',
+            'valor' => 10,
+            'fecha_inicio' => $hoy->copy()->subDay()->toDateString(),
+            'fecha_fin' => $hoy->copy()->addDays(30)->toDateString(),
+            'activa' => true,
+            'tipo_limite_usos' => 'sin_limite',
+            'created_at' => now(),
+            'updated_at' => now(),
+            ...$atributos,
+        ]);
+
+        return $id;
+    }
+
+    public function test_el_cobro_de_la_cuenta_completa_aplica_la_promocion_con_su_tope_y_registra_el_uso(): void
+    {
+        $pedidoId = $this->crearPedidoCobrable();
+        $promocionId = $this->crearPromocion([
+            'valor' => 50,
+            'tope_maximo_descuento' => 6.00,
+            'tipo_limite_usos' => 'global',
+            'limite_usos' => 10,
+        ]);
+        DB::table('pedido')->where('id', $pedidoId)->update(['promocion_id' => $promocionId]);
+
+        $response = $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', $this->payloadCobro($pedidoId));
+
+        // 50% de 20.00 son 10.00, pero el tope limita el descuento a 6.00
+        $response->assertStatus(200);
+        $this->assertEquals(14.00, $response->json('datos.total_cobrado'));
+
+        $comprobante = DB::table('comprobante')->where('id', $response->json('datos.comprobante_id'))->first();
+        $this->assertEquals(20.00, (float) $comprobante->subtotal_consumo);
+        $this->assertEquals(6.00, (float) $comprobante->descuento);
+        $this->assertSame($promocionId, $comprobante->promocion_id);
+
+        $promocion = DB::table('promocion')->where('id', $promocionId)->first();
+        $this->assertSame(1, (int) $promocion->usos_actuales);
+        $this->assertSame(1, (int) $promocion->usos_hoy);
+        $this->assertSame(now('America/Lima')->toDateString(), (string) $promocion->fecha_ultimo_uso);
+    }
+
+    public function test_el_cobro_se_rechaza_si_la_promocion_ya_agoto_su_cupo(): void
+    {
+        $pedidoId = $this->crearPedidoCobrable();
+        $promocionId = $this->crearPromocion([
+            'tipo_limite_usos' => 'global',
+            'limite_usos' => 1,
+            'usos_actuales' => 1,
+        ]);
+        DB::table('pedido')->where('id', $pedidoId)->update(['promocion_id' => $promocionId]);
+
+        $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', $this->payloadCobro($pedidoId))
+            ->assertStatus(409)
+            ->assertJsonPath('errores.0.codigo', 'PROMOCION_NO_APLICABLE');
+
+        $this->assertSame(0, DB::table('comprobante')->where('pedido_id', $pedidoId)->count());
+        $this->assertSame(1, (int) DB::table('promocion')->where('id', $promocionId)->value('usos_actuales'));
+    }
+
+    public function test_el_cobro_de_una_subcuenta_con_promocion_la_registra_en_el_comprobante(): void
+    {
+        $promocionId = $this->crearPromocion(['valor' => 10]);
+        [$pedidoId, $subcuentaId] = $this->crearPedidoConSubcuenta(100.00, 10.00, 0.0, 'efectivo');
+        DB::table('pedido_subcuenta')->where('id', $subcuentaId)->update(['promocion_id' => $promocionId]);
+
+        $response = $this->withHeaders($this->headers())->postJson('/api/v1/caja/cobrar', [
+            ...$this->payloadCobro($pedidoId),
+            'subcuenta_id' => $subcuentaId,
+            'monto_recibido' => 90.00,
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertEquals(90.00, $response->json('datos.total_cobrado'));
+
+        $comprobante = DB::table('comprobante')->where('id', $response->json('datos.comprobante_id'))->first();
+        $this->assertSame($promocionId, $comprobante->promocion_id);
+        $this->assertEquals(10.00, (float) $comprobante->descuento);
+        $this->assertSame(1, (int) DB::table('promocion')->where('id', $promocionId)->value('usos_actuales'));
+    }
+
+    public function test_la_precuenta_de_caja_descuenta_una_promocion_de_monto_fijo(): void
+    {
+        $pedidoId = $this->crearPedidoCobrable();
+        $promocionId = $this->crearPromocion(['tipo_descuento' => 'monto_fijo', 'valor' => 5.00]);
+        DB::table('pedido')->where('id', $pedidoId)->update(['promocion_id' => $promocionId]);
+        $mesaId = DB::table('pedido')->where('id', $pedidoId)->value('mesa_id');
+
+        $datos = $this->withHeaders($this->headers())->getJson("/api/v1/caja/mesas/{$mesaId}/cuenta")
+            ->assertOk()
+            ->json('datos');
+
+        $this->assertEquals(5.00, $datos['tributacion_sunat']['descuento_aplicado']);
+        $this->assertEquals(15.00, $datos['tributacion_sunat']['total_neto']);
+        $this->assertSame('monto_fijo', $datos['promocion_activa']['tipo_descuento']);
+
+        $disponible = collect($datos['promociones_disponibles'])->firstWhere('id', $promocionId);
+        $this->assertSame('monto_fijo', $disponible['tipo_descuento']);
+        $this->assertEquals(5.00, $disponible['ahorro_calculado']);
+        $this->assertTrue($disponible['aplicada']);
     }
 
     public function test_un_item_repartido_entre_subcuentas_se_cobra_por_unidades_asignadas(): void

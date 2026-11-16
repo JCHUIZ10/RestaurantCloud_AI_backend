@@ -369,6 +369,12 @@ export interface PromocionSedeDTO {
   nombre: string;
   porcentaje_descuento: number;
   descripcion: string;
+  codigo?: string;
+  tipo_descuento?: 'porcentaje' | 'monto_fijo';
+  valor?: number;
+  tope_maximo_descuento?: number | null;
+  monto_minimo_consumo?: number;
+  descuento_calculado?: number;
 }
 
 export interface PrecuentaSubcuentaDTO {

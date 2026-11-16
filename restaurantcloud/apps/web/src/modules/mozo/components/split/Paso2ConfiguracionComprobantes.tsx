@@ -29,6 +29,7 @@ import {
 } from './consumidorFinal';
 import { ModalQRBilletera } from '../precuenta/ModalQRBilletera';
 import { calcularMontosSubcuenta, subcuentaSinImporte, MONTO_MINIMO_SUBCUENTA } from './montosSubcuenta';
+import { avisoConsumoMinimo, etiquetaPromocion } from '../../utils/descuentoPromocion';
 
 /** El importe o el medio de pago cambió: el pago por Yape/Plin debe volver a verificarse */
 const SIN_VERIFICACION = { numero_operacion: null, pago_verificado: false } as const;
@@ -342,12 +343,20 @@ export const Paso2ConfiguracionComprobantes: React.FC<Paso2ConfiguracionComproba
                     ))}
                   </select>
 
-                  {promoSeleccionada && (
-                    <p className="text-[11px] text-emerald-700 font-medium mt-1 flex items-center gap-1">
-                      <span>✓ Descuento aplicado ({promoSeleccionada.porcentaje_descuento}%):</span>
-                      <strong className="font-mono">- S/ {sub.descuento.toFixed(2)}</strong>
-                    </p>
-                  )}
+                  {promoSeleccionada &&
+                    (avisoConsumoMinimo(promoSeleccionada, sub.subtotal_bruto) ? (
+                      <p className="text-[11px] text-rose-700 font-medium mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>
+                          No aplica a esta subcuenta: {avisoConsumoMinimo(promoSeleccionada, sub.subtotal_bruto)}.
+                        </span>
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-emerald-700 font-medium mt-1 flex items-center gap-1">
+                        <span>✓ Descuento aplicado ({etiquetaPromocion(promoSeleccionada)}):</span>
+                        <strong className="font-mono">- S/ {sub.descuento.toFixed(2)}</strong>
+                      </p>
+                    ))}
                 </div>
 
                 {/* BLOQUE B: Tipo de Comprobante (Factura, Boleta, Nota de Venta) */}
