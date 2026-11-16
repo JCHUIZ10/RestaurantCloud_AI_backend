@@ -3,6 +3,7 @@
 namespace App\Domains\Tenant\Services;
 
 use App\Domains\Archivos\Services\TenantStorageService;
+use App\Domains\Tenant\Exceptions\EnlaceActivacionException;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -13,8 +14,34 @@ use Illuminate\Support\Str;
 class TenantProvisioningService
 {
     public function __construct(
-        private TenantStorageService $tenantStorage
+        private TenantStorageService $tenantStorage,
+        private LocalProvisioningService $localProvisioning,
     ) {}
+
+    /**
+     * Impide reutilizar la constancia bancaria de un pago exitoso ya registrado.
+     *
+     * Debe llamarse dentro de la transacción del alta: el bloqueo consultivo serializa
+     * dos altas simultáneas con el mismo voucher hasta que la primera confirme o revierta.
+     *
+     * @throws \DomainException si el voucher ya respalda otro pago exitoso del mismo medio
+     */
+    private function asegurarVoucherNoUsado(string $origenPago, string $numeroOperacion): void
+    {
+        $numeroNormalizado = mb_strtolower($numeroOperacion);
+
+        DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ["voucher:{$origenPago}:{$numeroNormalizado}"]);
+
+        $yaUsado = DB::table('pago')
+            ->where('estado', 'exitoso')
+            ->where('origen_pago', $origenPago)
+            ->whereRaw('LOWER(numero_operacion) = ?', [$numeroNormalizado])
+            ->exists();
+
+        if ($yaUsado) {
+            throw new \DomainException("La operación {$numeroOperacion} ya fue usada para registrar otro pago. Verifica la constancia bancaria.");
+        }
+    }
 
     /**
      * Valida matemáticamente un RUC peruano según el algoritmo Módulo 11 de SUNAT.
@@ -238,8 +265,11 @@ class TenantProvisioningService
             throw new \InvalidArgumentException("El RUC {$ruc} no cumple con el algoritmo de verificación Módulo 11 de SUNAT.");
         }
 
+        // Móvil peruano de 9 dígitos que inicia con 9 (mismo estándar que el wizard); se guarda como "+51 9XX XXX XXX"
+        $telefono = $this->localProvisioning->normalizarTelefonoPeru($datos['propietario_telefono'] ?? null);
+
         // 2. Transacción ACID para asegurar integridad referencial completa
-        return DB::transaction(function () use ($datos, $ruc, $correo) {
+        return DB::transaction(function () use ($datos, $ruc, $correo, $telefono) {
             // Unicidad de RUC en empresa
             $existeRuc = DB::table('empresa')->where('ruc', $ruc)->exists();
             if ($existeRuc) {
@@ -270,6 +300,10 @@ class TenantProvisioningService
                 throw new \InvalidArgumentException('El número de operación bancaria es obligatorio para asentar el pago.');
             }
 
+            // Un mismo voucher no puede respaldar dos pagos exitosos del mismo medio
+            $origenPago = $datos['origen_pago'] ?? 'transferencia_bancaria';
+            $this->asegurarVoucherNoUsado($origenPago, $numeroOperacion);
+
             // A. Crear Empresa
             $empresaId = (string) Str::uuid();
             $tipoIdentidad = in_array($datos['tipo_identidad_fiscal'] ?? '', ['RUC_20', 'RUC_10'], true)
@@ -283,7 +317,7 @@ class TenantProvisioningService
                 'tipo_identidad_fiscal' => $tipoIdentidad,
                 'ruc' => $ruc,
                 'correo_contacto' => $correo,
-                'telefono' => trim($datos['propietario_telefono'] ?? ''),
+                'telefono' => $telefono,
                 'plan_id' => $planId,
                 'estado' => 'activa',
                 'origen_alta' => 'manual_admin',
@@ -331,7 +365,7 @@ class TenantProvisioningService
                 'nombre' => trim($datos['propietario_nombre']),
                 'correo' => $correo,
                 'password_hash' => $hashProvisional,
-                'telefono' => trim($datos['propietario_telefono'] ?? ''),
+                'telefono' => $telefono,
                 'rol' => 'propietario',
                 'estado' => 'pendiente_activacion',
                 'created_at' => now(),
@@ -350,9 +384,9 @@ class TenantProvisioningService
                 'monto' => $montoCobrado,
                 'fecha' => $fechaOperacion,
                 'estado' => 'exitoso',
-                'origen_pago' => $datos['origen_pago'] ?? 'transferencia_bancaria',
+                'origen_pago' => $origenPago,
                 'numero_operacion' => $numeroOperacion,
-                'nota' => $datos['nota_administrativa'] ?? 'Asentamiento manual verificado por Tesorería Central',
+                'nota' => $datos['nota_administrativa'] ?? 'Alta manual corporativa B2B (sin nota de respaldo)',
                 'created_at' => now(),
             ]);
 
@@ -386,10 +420,13 @@ class TenantProvisioningService
                     'expira_en' => $expiraEn,
                 ]));
             } catch (\Throwable $e) {
-                Log::warning("No fue posible persistir el capability token en Redis: {$e->getMessage()}");
+                // Sin token en Redis el enlace no funcionaría: revertir el alta completa
+                Log::error("No fue posible persistir el capability token en Redis: {$e->getMessage()}", ['exception' => $e]);
+
+                throw new EnlaceActivacionException(previa: $e);
             }
 
-            $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
+            $frontendUrl = config('app.frontend_url');
             $urlActivacion = "{$frontendUrl}/activar-cuenta?token={$token}";
 
             return [
@@ -397,7 +434,6 @@ class TenantProvisioningService
                 'codigo_display' => $codigoDisplay,
                 'usuario_id' => $usuarioId,
                 'pago_id' => $pagoId,
-                'email_enviado' => (bool) ($datos['enviar_email_bienvenida'] ?? false),
                 'mensaje' => "Empresa {$datos['razon_social']} registrada con éxito. Pago asentado bajo operación {$numeroOperacion}.",
                 'invitacion_token' => $token,
                 'invitacion_url' => $urlActivacion,

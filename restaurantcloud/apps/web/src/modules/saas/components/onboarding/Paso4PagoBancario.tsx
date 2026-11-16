@@ -1,15 +1,23 @@
 import React from 'react';
-import { ShieldCheck, CheckCircle2, ArrowLeft, AlertCircle } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, ArrowLeft, AlertCircle, Link2 } from 'lucide-react';
 import type { OrigenPagoSaaS } from '@/types/saasTenants';
+import { hoyLocalStr } from '@/shared/utils';
+import {
+  esFechaOperacionValida,
+  MIN_NOTA_ADMINISTRATIVA,
+  MIN_NUMERO_OPERACION,
+  validarPaso4,
+} from './validacionPasos';
 
 interface Paso4PagoBancarioProps {
   montoCobrado: number;
+  /** Precio de lista del plan y ciclo elegidos (null si el catálogo no está disponible) */
+  montoSugerido: number | null;
   origenPago: OrigenPagoSaaS;
   numeroOperacion: string;
   fechaOperacion: string;
   notaAdministrativa: string;
-  enviarEmail: boolean;
-  propietarioEmail: string;
+  propietarioNombre: string;
   cargando: boolean;
   onChange: (fields: {
     montoCobrado?: number;
@@ -17,7 +25,6 @@ interface Paso4PagoBancarioProps {
     numeroOperacion?: string;
     fechaOperacion?: string;
     notaAdministrativa?: string;
-    enviarEmail?: boolean;
   }) => void;
   onAnterior: () => void;
   onSubmit: () => Promise<void>;
@@ -25,22 +32,25 @@ interface Paso4PagoBancarioProps {
 
 export const Paso4PagoBancario: React.FC<Paso4PagoBancarioProps> = ({
   montoCobrado,
+  montoSugerido,
   origenPago,
   numeroOperacion,
   fechaOperacion,
   notaAdministrativa,
-  enviarEmail,
-  propietarioEmail,
+  propietarioNombre,
   cargando,
   onChange,
   onAnterior,
   onSubmit,
 }) => {
-  const esValido =
-    montoCobrado > 0 &&
-    numeroOperacion.trim().length >= 4 &&
-    fechaOperacion.trim().length >= 8 &&
-    notaAdministrativa.trim().length >= 10;
+  const hoy = hoyLocalStr();
+  const fechaOperacionValida = esFechaOperacionValida(fechaOperacion);
+  const esValido = validarPaso4({
+    monto_cobrado_pen: montoCobrado,
+    numero_operacion: numeroOperacion,
+    fecha_operacion: fechaOperacion,
+    nota_administrativa: notaAdministrativa,
+  });
 
   return (
     <div className="bg-white rounded-3xl border border-aurea-copper/25 p-6 sm:p-8 shadow-sm space-y-6">
@@ -53,7 +63,7 @@ export const Paso4PagoBancario: React.FC<Paso4PagoBancarioProps> = ({
             4. Liquidación Contable y Asentamiento de Pago Verificado
           </h2>
           <p className="text-xs sm:text-sm text-aurea-navy/70">
-            Registro estricto e inmutable en la tabla <code className="font-mono font-bold text-aurea-navy">pago</code> con estado <span className="font-semibold text-emerald-700">'exitoso'</span> (cero altas ficticias).
+            Solo se activan empresas con un pago <span className="font-semibold text-emerald-700">verificado</span>: el registro no podrá modificarse después.
           </p>
         </div>
       </div>
@@ -83,6 +93,21 @@ export const Paso4PagoBancario: React.FC<Paso4PagoBancarioProps> = ({
               <span className="text-[11px] text-rose-700 font-semibold flex items-center gap-1 mt-1">
                 <AlertCircle className="w-3.5 h-3.5" />
                 <span>El monto debe ser mayor a cero. No se admiten altas sin respaldo económico.</span>
+              </span>
+            )}
+            {montoSugerido !== null && montoCobrado > 0 && montoCobrado !== montoSugerido && (
+              <span className="text-[11px] text-amber-800 font-semibold flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-1">
+                <span>
+                  Difiere del precio del plan: S/{' '}
+                  {montoSugerido.toLocaleString('es-PE', { minimumFractionDigits: 2 })}.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onChange({ montoCobrado: montoSugerido })}
+                  className="underline decoration-dotted underline-offset-2 text-emerald-800 hover:text-emerald-950 cursor-pointer"
+                >
+                  Usar sugerido
+                </button>
               </span>
             )}
           </div>
@@ -117,7 +142,8 @@ export const Paso4PagoBancario: React.FC<Paso4PagoBancarioProps> = ({
               className="w-full px-4 py-3 rounded-xl bg-white border border-emerald-300 font-mono text-sm font-bold text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-400"
             />
             <span className="text-[10px] text-emerald-900/60 block mt-0.5">
-              Identificador único de constancia bancaria emitido por la entidad
+              Identificador único de constancia bancaria emitido por la entidad (mínimo {MIN_NUMERO_OPERACION}{' '}
+              caracteres)
             </span>
           </div>
 
@@ -129,9 +155,23 @@ export const Paso4PagoBancario: React.FC<Paso4PagoBancarioProps> = ({
             <input
               type="date"
               value={fechaOperacion}
+              max={hoy}
               onChange={(e) => onChange({ fechaOperacion: e.target.value })}
-              className="w-full px-4 py-3 rounded-xl bg-white border border-emerald-300 font-mono text-sm text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              aria-invalid={!fechaOperacionValida}
+              className={`w-full px-4 py-3 rounded-xl bg-white border font-mono text-sm text-emerald-950 focus:outline-none focus:ring-2 ${
+                fechaOperacionValida ? 'border-emerald-300 focus:ring-emerald-400' : 'border-rose-400 focus:ring-rose-300'
+              }`}
             />
+            {!fechaOperacionValida && (
+              <span className="text-[11px] text-rose-700 font-semibold flex items-center gap-1 mt-1">
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>
+                  {fechaOperacion
+                    ? 'La fecha de la operación no puede ser posterior a hoy.'
+                    : 'Indica la fecha en que se realizó la operación.'}
+                </span>
+              </span>
+            )}
           </div>
 
           {/* Nota Administrativa */}
@@ -147,28 +187,23 @@ export const Paso4PagoBancario: React.FC<Paso4PagoBancarioProps> = ({
               className="w-full px-4 py-2.5 rounded-xl bg-white border border-emerald-300 text-xs text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-400"
             />
             <span className="text-[10px] text-emerald-900/60 block mt-0.5">
-              Mínimo 10 caracteres. Se guardará inmutablemente en <code className="font-mono">pago.nota</code>
+              Mínimo {MIN_NOTA_ADMINISTRATIVA} caracteres. Quedará guardada junto al pago y no podrá editarse.
             </span>
           </div>
         </div>
       </div>
 
-      {/* Checkbox de Envío de Correo */}
+      {/* Aviso del enlace de activación (no se envía correo automático) */}
       <div className="p-4 rounded-2xl bg-aurea-ivory border border-aurea-copper/25 flex items-start gap-3">
-        <input
-          type="checkbox"
-          id="onboarding-send-mail"
-          checked={enviarEmail}
-          onChange={(e) => onChange({ enviarEmail: e.target.checked })}
-          className="w-4 h-4 text-aurea-navy rounded border-aurea-copper focus:ring-aurea-copper mt-0.5"
-        />
-        <label htmlFor="onboarding-send-mail" className="text-xs text-aurea-navy cursor-pointer">
-          <strong className="block text-aurea-navy">Despachar correo automático de bienvenida al titular:</strong>
+        <Link2 className="w-4 h-4 text-aurea-copper shrink-0 mt-0.5" />
+        <p className="text-xs text-aurea-navy">
+          <strong className="block text-aurea-navy">Enlace de activación para el titular</strong>
           <span>
-            El propietario ({propietarioEmail}) recibirá un capability token de un solo uso con 72h
-            de vigencia para fijar su contraseña e iniciar la configuración de la carta.
+            Al confirmar se generará un enlace de un solo uso (válido 72 h) para que{' '}
+            {propietarioNombre.trim() || 'el titular'} fije su contraseña. En el siguiente paso podrás
+            copiarlo o enviarlo por WhatsApp: el sistema aún no lo envía por correo.
           </span>
-        </label>
+        </p>
       </div>
 
       {/* Botones de Navegación */}
@@ -190,7 +225,7 @@ export const Paso4PagoBancario: React.FC<Paso4PagoBancarioProps> = ({
           className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm bg-emerald-700 text-white hover:bg-emerald-800 shadow-md transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {cargando ? (
-            <span>Asentando Transacción Atómica...</span>
+            <span>Registrando alta y pago...</span>
           ) : (
             <>
               <CheckCircle2 className="w-5 h-5 text-emerald-200" />

@@ -5,6 +5,8 @@ x-laravel-env: &laravel-env
   APP_ENV: production
   APP_DEBUG: "false"
   APP_URL: https://${APP_DOMAIN:?APP_DOMAIN requerido}
+  # La SPA la sirve Caddy en el mismo dominio: base de los enlaces de activación e invitación
+  FRONTEND_URL: https://${APP_DOMAIN:?APP_DOMAIN requerido}
   LOG_LEVEL: ${LOG_LEVEL:-warning}
   REDIS_CLIENT: phpredis
   SESSION_DRIVER: redis

@@ -18,8 +18,26 @@ import type {
   TenantDetailApiResponse,
   AltaManualTenantRequestDTO,
   AltaManualTenantApiResponse,
+  PlanSaaSDTO,
 } from '@/types/saasTenants';
 import type { ApiResponse } from '@/types/api';
+
+/** Fila de `plan` tal como la entrega Laravel: los DECIMAL de PostgreSQL llegan como texto */
+type PlanSaaSFilaApi = Omit<PlanSaaSDTO, 'precio_mensual' | 'precio_anual'> & {
+  precio_mensual: number | string;
+  precio_anual: number | string;
+};
+
+const normalizarPlan = (fila: PlanSaaSFilaApi): PlanSaaSDTO => ({
+  id: Number(fila.id),
+  nombre: fila.nombre,
+  descripcion: fila.descripcion ?? null,
+  precio_mensual: Number(fila.precio_mensual),
+  precio_anual: Number(fila.precio_anual),
+  max_locales: Number(fila.max_locales),
+  max_mesas: Number(fila.max_mesas),
+  max_usuarios: Number(fila.max_usuarios),
+});
 
 /**
  * Interceptor de seguridad para respuestas HTTP de la API SaaS.
@@ -42,6 +60,7 @@ export interface SaasTenantsService {
     request: AltaManualTenantRequestDTO
   ): Promise<AltaManualTenantApiResponse>;
   listarTenants(filtros: ParametrosFiltroTenants): Promise<TenantListApiResponse>;
+  listarPlanes(): Promise<ApiResponse<PlanSaaSDTO[]>>;
   obtenerExpedienteTenant(empresaId: string): Promise<TenantDetailApiResponse>;
   suspenderEmpresaPreventiva(
     empresaId: string,
@@ -71,6 +90,17 @@ export const realSaasTenantsService: SaasTenantsService = {
     return safeResponse(
       apiGet<TenantListApiResponse['datos']>('/saas/tenants', filtros as unknown as Record<string, unknown>)
     );
+  },
+
+  /**
+   * Catálogo de planes activos con precios y límites (fuente única de precios del alta manual)
+   */
+  async listarPlanes(): Promise<ApiResponse<PlanSaaSDTO[]>> {
+    const res = await safeResponse(apiGet<PlanSaaSFilaApi[]>('/saas/planes'));
+    if (!res.exito || !Array.isArray(res.datos)) {
+      return { ...res, exito: false, datos: [] };
+    }
+    return { ...res, datos: res.datos.map(normalizarPlan) };
   },
 
   /**

@@ -56,6 +56,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Frontend URL
+    |--------------------------------------------------------------------------
+    |
+    | Origen público de la SPA. Se usa para construir enlaces que se comparten
+    | con usuarios finales (activación de cuenta, invitaciones). Debe leerse con
+    | config('app.frontend_url'): env() devuelve null cuando la configuración
+    | está cacheada (php artisan config:cache).
+    |
+    */
+
+    'frontend_url' => rtrim((string) env('FRONTEND_URL', 'http://localhost:5173'), '/'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

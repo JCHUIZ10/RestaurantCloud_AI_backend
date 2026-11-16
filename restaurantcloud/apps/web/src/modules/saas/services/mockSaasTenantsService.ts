@@ -19,6 +19,7 @@ import type {
   AltaManualTenantRequestDTO,
   AltaManualTenantApiResponse,
   PagoHistorialItemDTO,
+  PlanSaaSDTO,
 } from '@/types/saasTenants';
 import type { ApiResponse } from '@/types/api';
 
@@ -260,6 +261,21 @@ export class MockSaasTenantsService {
   /**
    * Lista tenants aplicando filtros de pestañas, búsqueda y plan
    */
+  /**
+   * Catálogo de planes (mismos valores que la semilla de la tabla `plan`)
+   */
+  public async listarPlanes(): Promise<ApiResponse<PlanSaaSDTO[]>> {
+    await new Promise((r) => setTimeout(r, 150));
+    return {
+      exito: true,
+      datos: [
+        { id: 1, nombre: 'Starter', descripcion: 'Para pollerías y restaurantes de salón único.', precio_mensual: 40, precio_anual: 400, max_locales: 1, max_mesas: 25, max_usuarios: 5 },
+        { id: 2, nombre: 'Plan Pro', descripcion: 'Para restaurantes en expansión con múltiples sedes, KDS y reservas.', precio_mensual: 80, precio_anual: 800, max_locales: 3, max_mesas: 30, max_usuarios: 15 },
+        { id: 3, nombre: 'Enterprise', descripcion: 'Para franquicias y cadenas con suite completa de IA.', precio_mensual: 160, precio_anual: 1600, max_locales: 10, max_mesas: 60, max_usuarios: 40 },
+      ],
+    };
+  }
+
   public async listarTenants(filtros: ParametrosFiltroTenants): Promise<TenantListApiResponse> {
     await new Promise((r) => setTimeout(r, 200)); // Latencia realista
     const todos = this.getTenantsFromStorage();
@@ -572,7 +588,6 @@ export class MockSaasTenantsService {
         codigo_display: nuevoTenant.codigo_display,
         usuario_id: usuarioId,
         pago_id: 'pag-' + uuid.slice(0, 6),
-        email_enviado: request.enviar_email_bienvenida,
         mensaje: `Empresa ${request.razon_social} registrada con éxito. Pago asentado bajo operación ${request.numero_operacion}.`,
         invitacion_token: invitacionToken,
         invitacion_url: invitacionUrl,

@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Lock,
   Clock,
+  AlertTriangle,
 } from 'lucide-react';
 import type { AltaManualTenantResponseDTO, AltaManualTenantRequestDTO } from '@/types/saasTenants';
 import { generarEnlaceWhatsApp } from '@/shared/utils';
@@ -19,6 +20,8 @@ import { generarEnlaceWhatsApp } from '@/shared/utils';
 interface Paso5TenantActivadoProps {
   resultado: AltaManualTenantResponseDTO;
   formData: AltaManualTenantRequestDTO;
+  /** Nombre del plan según el catálogo de la API */
+  nombrePlan: string | null;
   onVerExpediente: (empresaId: string) => void;
   onVolverBandeja: () => void;
 }
@@ -26,22 +29,29 @@ interface Paso5TenantActivadoProps {
 export const Paso5TenantActivado: React.FC<Paso5TenantActivadoProps> = ({
   resultado,
   formData,
+  nombrePlan,
   onVerExpediente,
   onVolverBandeja,
 }) => {
   const [copiado, setCopiado] = useState(false);
-  const planNombres: Record<number, string> = { 1: 'Starter', 2: 'Plan Pro', 3: 'Enterprise' };
+  const [errorCopia, setErrorCopia] = useState(false);
+  const nombrePlanTexto = nombrePlan ?? `Plan #${formData.plan_id}`;
 
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
-  const urlActivacion =
-    resultado.invitacion_url ||
-    `${baseUrl}/activar-cuenta?token=${resultado.invitacion_token || 'tok_corp_' + resultado.empresa_id}`;
+  // Solo el enlace emitido por el backend es válido: nunca se construye uno en el cliente
+  const urlActivacion = resultado.invitacion_url?.trim() || null;
 
-  const handleCopiar = () => {
+  const handleCopiar = async () => {
     if (!urlActivacion) return;
-    navigator.clipboard.writeText(urlActivacion);
-    setCopiado(true);
-    setTimeout(() => setCopiado(false), 2500);
+    try {
+      await navigator.clipboard.writeText(urlActivacion);
+      setErrorCopia(false);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2500);
+    } catch {
+      // Sin permiso de portapapeles (o contexto no seguro): el campo permite seleccionarlo a mano
+      setCopiado(false);
+      setErrorCopia(true);
+    }
   };
 
   const handleCompartirWhatsapp = () => {
@@ -55,7 +65,8 @@ export const Paso5TenantActivado: React.FC<Paso5TenantActivadoProps> = ({
   };
 
   const handleAbrirActivacion = () => {
-    window.open(urlActivacion, '_blank');
+    if (!urlActivacion) return;
+    window.open(urlActivacion, '_blank', 'noopener,noreferrer');
   };
 
   const handleDescargarConstancia = () => {
@@ -76,23 +87,23 @@ DATOS DEL PROPIETARIO TITULAR
 Nombre:           ${formData.propietario_nombre}
 Correo:           ${formData.propietario_email}
 Teléfono:         ${formData.propietario_telefono}
-Capability Token: Despachado a casilla electrónica (Vigencia: 72 horas)
+Activación:       Enlace entregado por el administrador (no se envió correo; vigencia 72 horas)
 
 --------------------------------------------------------------------------------
-ACCESO Y ACTIVACIÓN DIGITAL DE CUENTA (CAPABILITY TOKEN)
+ACCESO Y ACTIVACIÓN DIGITAL DE CUENTA
 --------------------------------------------------------------------------------
-URL de Activación:  ${urlActivacion}
-Vigencia del Token: 72 horas (Expiración: Redis EX 259200)
+URL de Activación:  ${urlActivacion ?? 'No disponible: solicitar regeneración de la invitación'}
+Vigencia:           72 horas, un solo uso
 Protocolo:          Sin contraseñas provisionales. El titular fija su propia clave.
 
 --------------------------------------------------------------------------------
 CONTRATO SAAS Y CONDICIONES
 --------------------------------------------------------------------------------
-Plan Contratado:  ${planNombres[formData.plan_id] || 'Plan Pro'} (${formData.ciclo_facturacion.toUpperCase()})
+Plan Contratado:  ${nombrePlanTexto} (${formData.ciclo_facturacion.toUpperCase()})
 Vigencia:         ${formData.fecha_inicio} hasta ${formData.fecha_fin_periodo}
 
 --------------------------------------------------------------------------------
-DETALLE DEL PAGO VERIFICADO (TABLA PAGO - POSTGRESQL 16)
+DETALLE DEL PAGO VERIFICADO
 --------------------------------------------------------------------------------
 ID Pago:          ${resultado.pago_id}
 Monto Liquidado:  S/ ${formData.monto_cobrado_pen.toFixed(2)} PEN
@@ -130,9 +141,9 @@ RestaurantCloud AI — Plataforma SaaS Multitenant Gastronómica
           ¡{formData.razon_social} ha sido Registrada Exitosamente!
         </h2>
         <p className="text-sm text-aurea-navy/70 max-w-xl mx-auto">
-          La empresa y su primera sede han sido aprovisionadas en la base de datos PostgreSQL 16. La
-          transacción contable por <strong>S/ {formData.monto_cobrado_pen.toFixed(2)}</strong> quedó
-          asentada bajo la operación <strong>{formData.numero_operacion}</strong>.
+          La empresa, su titular y la suscripción quedaron registrados. El pago por{' '}
+          <strong>S/ {formData.monto_cobrado_pen.toFixed(2)}</strong> quedó asentado bajo la operación{' '}
+          <strong>{formData.numero_operacion}</strong>. Las sedes las creará el propietario desde su panel.
         </p>
       </div>
 
@@ -164,7 +175,7 @@ RestaurantCloud AI — Plataforma SaaS Multitenant Gastronómica
           <div>
             <span className="text-aurea-navy/50 block font-medium">Plan Contratado:</span>
             <span className="font-bold text-emerald-800">
-              {planNombres[formData.plan_id]} — {formData.ciclo_facturacion.toUpperCase()}
+              {nombrePlanTexto} — {formData.ciclo_facturacion.toUpperCase()}
             </span>
           </div>
           <div>
@@ -177,14 +188,14 @@ RestaurantCloud AI — Plataforma SaaS Multitenant Gastronómica
           </div>
         </div>
 
-        {resultado.email_enviado && (
-          <div className="pt-2 border-t border-aurea-copper/15 flex items-center gap-2 text-emerald-800 font-semibold text-[11px]">
-            <Mail className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>
-              Capability token de un solo uso despachado a {formData.propietario_email} (72h para fijar contraseña).
-            </span>
-          </div>
-        )}
+        {/* El sistema aún no envía correos: el administrador debe compartir el enlace */}
+        <div className="pt-2 border-t border-aurea-copper/15 flex items-start gap-2 text-amber-900 font-semibold text-[11px]">
+          <Mail className="w-4 h-4 text-amber-600 shrink-0 mt-px" />
+          <span>
+            No se envió ningún correo automático. Comparte el enlace de activación de abajo con{' '}
+            {formData.propietario_nombre} (copiándolo o por WhatsApp); tiene 72 h para fijar su contraseña.
+          </span>
+        </div>
       </div>
 
       {/* Tarjeta de Enlace Seguro de Activación para el Titular */}
@@ -205,26 +216,48 @@ RestaurantCloud AI — Plataforma SaaS Multitenant Gastronómica
           </div>
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100/90 border border-amber-300 text-amber-900 text-[10px] font-bold font-mono self-start sm:self-auto">
             <Clock className="w-3 h-3 text-amber-700" />
-            <span>Válido por 72h (Redis EX 259200)</span>
+            <span>Válido por 72 h · un solo uso</span>
           </div>
         </div>
 
+        {/* Aviso si el backend no entregó un enlace válido */}
+        {!urlActivacion && (
+          <div
+            role="alert"
+            className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-start gap-2 text-left"
+          >
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <span>
+              <strong className="block">Enlace de activación no disponible.</strong>
+              La empresa quedó registrada, pero no se recibió el enlace del servidor. No compartas ningún
+              otro enlace con el titular; solicita al equipo técnico que regenere la invitación.
+            </span>
+          </div>
+        )}
+
         {/* Input con enlace y botón Copiar */}
         <div className="space-y-1.5">
-          <label className="block text-[11px] font-bold text-aurea-navy uppercase tracking-wider">
+          <label
+            htmlFor="url-activacion-titular"
+            className="block text-[11px] font-bold text-aurea-navy uppercase tracking-wider"
+          >
             URL de Activación Generada:
           </label>
           <div className="flex items-center gap-2">
             <input
+              id="url-activacion-titular"
               type="text"
               readOnly
-              value={urlActivacion}
+              value={urlActivacion ?? ''}
+              placeholder="Enlace no disponible"
+              onFocus={(e) => e.currentTarget.select()}
               className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-aurea-copper/30 rounded-xl text-xs font-mono text-aurea-navy select-all focus:outline-none focus:ring-2 focus:ring-aurea-copper/40"
             />
             <button
               type="button"
               onClick={handleCopiar}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shrink-0 ${
+              disabled={!urlActivacion}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
                 copiado
                   ? 'bg-emerald-600 text-white'
                   : 'bg-aurea-navy text-white hover:bg-opacity-90 active:scale-[0.98]'
@@ -243,6 +276,11 @@ RestaurantCloud AI — Plataforma SaaS Multitenant Gastronómica
               )}
             </button>
           </div>
+          {errorCopia && (
+            <p role="status" className="text-[11px] font-semibold text-amber-800 text-left">
+              No se pudo copiar automáticamente. Selecciona el enlace y cópialo con Ctrl+C.
+            </p>
+          )}
         </div>
 
         {/* Acciones de Despacho Rápido: WhatsApp y Abrir en pestaña nueva */}
@@ -251,7 +289,8 @@ RestaurantCloud AI — Plataforma SaaS Multitenant Gastronómica
             <button
               type="button"
               onClick={handleCompartirWhatsapp}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#25D366] hover:bg-[#20bd5a] transition-all shadow-sm active:scale-[0.98]"
+              disabled={!urlActivacion}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#25D366] hover:bg-[#20bd5a] transition-all shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Share2 className="w-3.5 h-3.5" />
               <span>Enviar por WhatsApp</span>
@@ -260,7 +299,8 @@ RestaurantCloud AI — Plataforma SaaS Multitenant Gastronómica
             <button
               type="button"
               onClick={handleAbrirActivacion}
-              className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white text-aurea-navy border border-aurea-copper/30 hover:bg-aurea-ivory transition-colors shadow-sm active:scale-[0.98]"
+              disabled={!urlActivacion}
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white text-aurea-navy border border-aurea-copper/30 hover:bg-aurea-ivory transition-colors shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ExternalLink className="w-3.5 h-3.5 text-aurea-copper" />
               <span>Abrir Enlace de Activación</span>

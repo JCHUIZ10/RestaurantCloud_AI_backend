@@ -194,7 +194,7 @@ class AdministradorService
                 // Silencioso si Redis no estuviera disponible en fallback
             }
 
-            $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
+            $frontendUrl = config('app.frontend_url');
             $urlActivacion = "{$frontendUrl}/activar-cuenta?token={$token}";
 
             return [
@@ -282,7 +282,7 @@ class AdministradorService
             // Silencioso
         }
 
-        $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
+        $frontendUrl = config('app.frontend_url');
         $urlActivacion = "{$frontendUrl}/activar-cuenta?token={$token}";
 
         return [
@@ -372,7 +372,7 @@ class AdministradorService
             return $this->reenviarInvitacion($empresaId, $adminId);
         }
 
-        $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
+        $frontendUrl = config('app.frontend_url');
 
         return [
             'usuario_id' => $adminId,

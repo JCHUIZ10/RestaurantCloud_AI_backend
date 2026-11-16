@@ -148,6 +148,20 @@ export interface TenantDetailResponseDTO {
 /**
  * Petición de alta manual B2B con validación sintáctica local y pago obligatorio
  */
+/**
+ * Plan comercial del catálogo (GET /saas/planes), con precios ya convertidos a número
+ */
+export interface PlanSaaSDTO {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  precio_mensual: number;
+  precio_anual: number;
+  max_locales: number;
+  max_mesas: number;
+  max_usuarios: number;
+}
+
 export interface AltaManualTenantRequestDTO {
   ruc: string; // 11 dígitos, validado con Módulo 11
   razon_social: string;
@@ -164,7 +178,6 @@ export interface AltaManualTenantRequestDTO {
   numero_operacion: string;
   fecha_operacion: string;
   nota_administrativa: string;
-  enviar_email_bienvenida: boolean;
 }
 
 /**
@@ -175,7 +188,6 @@ export interface AltaManualTenantResponseDTO {
   codigo_display: string;
   usuario_id: string;
   pago_id: string;
-  email_enviado: boolean;
   mensaje: string;
   invitacion_token?: string;
   invitacion_url?: string;

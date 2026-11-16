@@ -11,23 +11,31 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { AltaManualTenantRequestDTO } from '@/types/saasTenants';
+import { validarPaso1, validarPaso2, validarPaso3, validarPaso4 } from './validacionPasos';
 
 interface ResumenExpedienteStickyProps {
   pasoActual: number;
   formData: AltaManualTenantRequestDTO;
+  /** Nombre del plan según el catálogo de la API (null mientras carga) */
+  nombrePlan: string | null;
 }
 
-const NOMBRES_PLANES: Record<number, { nombre: string; color: string }> = {
-  1: { nombre: 'Starter', color: 'bg-slate-100 text-slate-800 border-slate-300' },
-  2: { nombre: 'Plan Pro', color: 'bg-aurea-champagne/40 text-aurea-navy border-aurea-copper/40' },
-  3: { nombre: 'Enterprise', color: 'bg-purple-100 text-purple-900 border-purple-300' },
+// Color de la etiqueta por plan; el nombre viene del catálogo
+const COLORES_PLANES: Record<number, string> = {
+  1: 'bg-slate-100 text-slate-800 border-slate-300',
+  2: 'bg-aurea-champagne/40 text-aurea-navy border-aurea-copper/40',
+  3: 'bg-purple-100 text-purple-900 border-purple-300',
 };
 
 export const ResumenExpedienteSticky: React.FC<ResumenExpedienteStickyProps> = ({
   pasoActual,
   formData,
+  nombrePlan,
 }) => {
-  const planInfo = NOMBRES_PLANES[formData.plan_id] || NOMBRES_PLANES[2];
+  const planInfo = {
+    nombre: nombrePlan ?? 'Plan sin confirmar',
+    color: COLORES_PLANES[formData.plan_id] ?? COLORES_PLANES[2],
+  };
   const esAnual = formData.ciclo_facturacion === 'anual';
 
   return (
@@ -50,7 +58,7 @@ export const ResumenExpedienteSticky: React.FC<ResumenExpedienteStickyProps> = (
             Resumen de Contratación
           </h3>
           <p className="text-xs text-white/75 mt-0.5">
-            Liquidación en tiempo real para PostgreSQL 16
+            Se actualiza mientras completas el alta
           </p>
         </div>
 
@@ -164,43 +172,43 @@ export const ResumenExpedienteSticky: React.FC<ResumenExpedienteStickyProps> = (
         </div>
       </div>
 
-      {/* Tarjeta de Salvaguarda PostgreSQL 16 (Cero Datos Inventados) */}
+      {/* Qué quedará registrado al confirmar (todo o nada) */}
       <div className="bg-white rounded-3xl border border-aurea-copper/20 p-5 shadow-sm space-y-3 text-xs">
         <h4 className="font-serif font-bold text-aurea-navy flex items-center gap-2 text-sm">
           <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          Salvaguarda de Integridad PostgreSQL 16
+          Qué se registrará al confirmar
         </h4>
         <p className="text-slate-600">
-          Esta alta manual impactará atómicamente 4 tablas maestras de <code className="font-mono text-aurea-navy font-bold">02_schema_ddl.sql</code>:
+          Todo se guarda en una sola operación: si algo falla, no queda ningún registro a medias.
         </p>
 
         <ul className="space-y-2">
           <li className="flex items-start gap-2">
-            <CheckCircle2 className={`w-4 h-4 flex-shrink-0 mt-0.5 ${formData.ruc.length === 11 ? 'text-emerald-600' : 'text-slate-300'}`} />
+            <CheckCircle2 className={`w-4 h-4 flex-shrink-0 mt-0.5 ${validarPaso1(formData) ? 'text-emerald-600' : 'text-slate-300'}`} />
             <div>
-              <span className="font-mono font-bold text-aurea-navy">empresa</span>
-              <p className="text-slate-500">RUC verificado con Módulo 11, razón social y estado activo.</p>
+              <span className="font-bold text-aurea-navy">Empresa</span>
+              <p className="text-slate-500">RUC verificado (Módulo 11 de SUNAT) y razón social, en estado activo.</p>
             </div>
           </li>
           <li className="flex items-start gap-2">
-            <CheckCircle2 className={`w-4 h-4 flex-shrink-0 mt-0.5 ${formData.propietario_email.includes('@') ? 'text-emerald-600' : 'text-slate-300'}`} />
+            <CheckCircle2 className={`w-4 h-4 flex-shrink-0 mt-0.5 ${validarPaso2(formData) ? 'text-emerald-600' : 'text-slate-300'}`} />
             <div>
-              <span className="font-mono font-bold text-aurea-navy">usuario</span>
-              <p className="text-slate-500">Titular propietario con capability token de activación (72h).</p>
+              <span className="font-bold text-aurea-navy">Titular</span>
+              <p className="text-slate-500">Cuenta del propietario con enlace de activación de un solo uso (72 h).</p>
             </div>
           </li>
           <li className="flex items-start gap-2">
-            <CheckCircle2 className={`w-4 h-4 flex-shrink-0 mt-0.5 ${formData.plan_id > 0 ? 'text-emerald-600' : 'text-slate-300'}`} />
+            <CheckCircle2 className={`w-4 h-4 flex-shrink-0 mt-0.5 ${validarPaso3(formData) ? 'text-emerald-600' : 'text-slate-300'}`} />
             <div>
-              <span className="font-mono font-bold text-aurea-navy">suscripcion</span>
-              <p className="text-slate-500">Plan comercial vinculado con fechas de vigencia y ciclo.</p>
+              <span className="font-bold text-aurea-navy">Suscripción</span>
+              <p className="text-slate-500">Plan contratado con su ciclo y fechas de vigencia.</p>
             </div>
           </li>
           <li className="flex items-start gap-2">
-            <CheckCircle2 className={`w-4 h-4 flex-shrink-0 mt-0.5 ${formData.monto_cobrado_pen > 0 && formData.numero_operacion.length >= 4 ? 'text-emerald-600' : 'text-slate-300'}`} />
+            <CheckCircle2 className={`w-4 h-4 flex-shrink-0 mt-0.5 ${validarPaso4(formData) ? 'text-emerald-600' : 'text-slate-300'}`} />
             <div>
-              <span className="font-mono font-bold text-aurea-navy">pago</span>
-              <p className="text-slate-500">Comprobante con estado 'exitoso' y auditoría contable.</p>
+              <span className="font-bold text-aurea-navy">Pago</span>
+              <p className="text-slate-500">Abono verificado con su constancia bancaria y nota de Tesorería.</p>
             </div>
           </li>
         </ul>

@@ -1,8 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, AlertCircle, Building2 } from 'lucide-react';
 import { ROUTES } from '@/router/routes.constants';
 import { saasTenantsService } from '@/services/serviceAdapter';
+import { hoyLocalStr, sumarMesesStr } from '@/shared/utils';
+import { primerPasoInvalido } from '../components/onboarding/validacionPasos';
+import {
+  borrarBorradorOnboarding,
+  guardarBorradorOnboarding,
+  leerBorradorOnboarding,
+} from '../components/onboarding/borradorOnboarding';
 import { OnboardingStepper } from '../components/onboarding/OnboardingStepper';
 import { Paso1EmpresaRuc } from '../components/onboarding/Paso1EmpresaRuc';
 import { Paso2TitularPropietario } from '../components/onboarding/Paso2TitularPropietario';
@@ -14,28 +21,50 @@ import type {
   AltaManualTenantRequestDTO,
   AltaManualTenantResponseDTO,
   OrigenPagoSaaS,
+  PlanSaaSDTO,
 } from '@/types/saasTenants';
 
-const PRECIOS_PLANES: Record<number, { mensual: number; anual: number }> = {
-  1: { mensual: 40.0, anual: 400.0 },
-  2: { mensual: 80.0, anual: 800.0 },
-  3: { mensual: 160.0, anual: 1600.0 },
+type CicloFacturacion = AltaManualTenantRequestDTO['ciclo_facturacion'];
+
+/**
+ * Precio de lista del plan (catálogo de la API) para el ciclo elegido: es el monto que se
+ * sugiere cobrar. null si el catálogo aún no cargó o el plan no existe.
+ */
+const calcularMontoSugerido = (
+  planes: PlanSaaSDTO[],
+  planId: number,
+  ciclo: CicloFacturacion
+): number | null => {
+  const plan = planes.find((p) => p.id === planId);
+  if (!plan) return null;
+  return ciclo === 'anual' ? plan.precio_anual : plan.precio_mensual;
 };
 
-const getFechasIniciales = (ciclo: 'mensual' | 'anual') => {
-  const hoy = new Date();
-  const fechaInicio = hoy.toISOString().split('T')[0];
-  const fin = new Date(hoy);
-  if (ciclo === 'anual') {
-    fin.setFullYear(fin.getFullYear() + 1);
-  } else {
-    fin.setMonth(fin.getMonth() + 1);
-  }
-  const fechaFinPeriodo = fin.toISOString().split('T')[0];
-  return { fechaInicio, fechaFinPeriodo };
-};
+/** Fin del periodo contratado a partir de su inicio (fechas locales, no UTC). */
+const calcularFinPeriodo = (fechaInicio: string, ciclo: CicloFacturacion): string =>
+  sumarMesesStr(fechaInicio, ciclo === 'anual' ? 12 : 1);
 
-const DRAFT_STORAGE_KEY = 'restaurantcloud_onboarding_draft_v1';
+const crearFormularioInicial = (): AltaManualTenantRequestDTO => {
+  const hoy = hoyLocalStr();
+  return {
+    ruc: '',
+    razon_social: '',
+    propietario_nombre: '',
+    propietario_email: '',
+    propietario_telefono: '',
+    plan_id: 2,
+    ciclo_facturacion: 'anual',
+    fecha_inicio: hoy,
+    fecha_fin_periodo: calcularFinPeriodo(hoy, 'anual'),
+    // Se completa con el precio del plan en cuanto carga el catálogo
+    monto_cobrado_pen: 0,
+    origen_pago: 'transferencia_bancaria',
+    numero_operacion: '',
+    fecha_operacion: hoy,
+    // Vacía a propósito: la nota la redacta quien verificó el abono, no se presupone
+    nota_administrativa: '',
+  };
+};
 
 export const SaasTenantOnboardingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -43,38 +72,10 @@ export const SaasTenantOnboardingPage: React.FC = () => {
   const [pasoActual, setPasoActual] = useState<number>(1);
   const [pasoMaximoAlcanzado, setPasoMaximoAlcanzado] = useState<number>(1);
 
-  const { fechaInicio: initInicio, fechaFinPeriodo: initFin } = getFechasIniciales('anual');
-
-  const [formData, setFormData] = useState<AltaManualTenantRequestDTO>(() => {
-    // Intentar recuperar borrador de sessionStorage
-    try {
-      const guardado = sessionStorage.getItem(DRAFT_STORAGE_KEY);
-      if (guardado) {
-        return JSON.parse(guardado);
-      }
-    } catch {
-      // Ignorar fallo de parseo
-    }
-
-    return {
-      ruc: '',
-      razon_social: '',
-      propietario_nombre: '',
-      propietario_email: '',
-      propietario_telefono: '',
-      plan_id: 2,
-      ciclo_facturacion: 'anual',
-      fecha_inicio: initInicio,
-      fecha_fin_periodo: initFin,
-      monto_cobrado_pen: 800.0,
-      origen_pago: 'transferencia_bancaria',
-      numero_operacion: '',
-      fecha_operacion: initInicio,
-      nota_administrativa:
-        'Alta comercial corporativa B2B. Asentamiento verificado por Tesorería Central.',
-      enviar_email_bienvenida: true,
-    };
-  });
+  // Recupera el borrador de hoy si es válido; si no, empieza de cero
+  const [formData, setFormData] = useState<AltaManualTenantRequestDTO>(
+    () => leerBorradorOnboarding() ?? crearFormularioInicial()
+  );
 
   const [cargando, setCargando] = useState<boolean>(false);
   const [errorSubmit, setErrorSubmit] = useState<string | null>(null);
@@ -83,32 +84,72 @@ export const SaasTenantOnboardingPage: React.FC = () => {
   // Auto-guardado en sessionStorage para prevenir pérdida por refresh accidental
   useEffect(() => {
     if (pasoActual < 5) {
-      sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(formData));
+      guardarBorradorOnboarding(formData);
     }
   }, [formData, pasoActual]);
+
+  // Catálogo de planes: única fuente de precios, nombres y límites
+  const [planes, setPlanes] = useState<PlanSaaSDTO[]>([]);
+  const [cargandoPlanes, setCargandoPlanes] = useState(true);
+  const [errorPlanes, setErrorPlanes] = useState<string | null>(null);
+
+  const cargarPlanes = useCallback(async () => {
+    setCargandoPlanes(true);
+    setErrorPlanes(null);
+    try {
+      const res = await saasTenantsService.listarPlanes();
+      if (res.exito && res.datos.length > 0) {
+        setPlanes(res.datos);
+        // Un formulario nuevo (monto 0) toma el precio de lista del plan elegido
+        setFormData((prev) => {
+          if (prev.monto_cobrado_pen > 0) return prev;
+          const sugerido = calcularMontoSugerido(res.datos, prev.plan_id, prev.ciclo_facturacion);
+          return sugerido === null ? prev : { ...prev, monto_cobrado_pen: sugerido };
+        });
+      } else {
+        setErrorPlanes(res.errores?.[0]?.mensaje || 'No hay planes activos disponibles para el alta.');
+      }
+    } catch {
+      setErrorPlanes('No se pudo cargar el catálogo de planes.');
+    } finally {
+      setCargandoPlanes(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargarPlanes();
+  }, [cargarPlanes]);
+
+  const montoSugerido = calcularMontoSugerido(planes, formData.plan_id, formData.ciclo_facturacion);
+  const nombrePlanSeleccionado = planes.find((p) => p.id === formData.plan_id)?.nombre ?? null;
 
   const actualizarCampos = (nuevosCampos: Partial<AltaManualTenantRequestDTO>) => {
     setFormData((prev) => {
       const actualizado = { ...prev, ...nuevosCampos };
 
-      // Si cambió el plan o el ciclo, recalcular monto sugerido y fechas
-      if (
-        nuevosCampos.plan_id !== undefined ||
-        nuevosCampos.ciclo_facturacion !== undefined
-      ) {
-        const plan = nuevosCampos.plan_id ?? prev.plan_id;
-        const ciclo = nuevosCampos.ciclo_facturacion ?? prev.ciclo_facturacion;
-        const infoPrecios = PRECIOS_PLANES[plan] || PRECIOS_PLANES[2];
-        const monto = ciclo === 'anual' ? infoPrecios.anual : infoPrecios.mensual;
-
-        actualizado.monto_cobrado_pen = monto;
-
-        // Recalcular fechas si cambia ciclo
-        if (nuevosCampos.ciclo_facturacion !== undefined) {
-          const { fechaInicio, fechaFinPeriodo } = getFechasIniciales(ciclo);
-          actualizado.fecha_inicio = fechaInicio;
-          actualizado.fecha_fin_periodo = fechaFinPeriodo;
+      if (nuevosCampos.plan_id !== undefined || nuevosCampos.ciclo_facturacion !== undefined) {
+        // El monto sigue al plan solo si no se escribió a mano: un monto pactado se conserva
+        const montoSugeridoAnterior = calcularMontoSugerido(planes, prev.plan_id, prev.ciclo_facturacion);
+        const montoSugeridoNuevo = calcularMontoSugerido(
+          planes,
+          actualizado.plan_id,
+          actualizado.ciclo_facturacion
+        );
+        const montoSeguiaAlPlan =
+          prev.monto_cobrado_pen === 0 || prev.monto_cobrado_pen === montoSugeridoAnterior;
+        if (montoSeguiaAlPlan && montoSugeridoNuevo !== null) {
+          actualizado.monto_cobrado_pen = montoSugeridoNuevo;
         }
+      }
+
+      // Al cambiar de ciclo se recalcula el fin desde el inicio elegido (no desde hoy)
+      if (
+        nuevosCampos.ciclo_facturacion !== undefined &&
+        nuevosCampos.ciclo_facturacion !== prev.ciclo_facturacion
+      ) {
+        const inicio = actualizado.fecha_inicio || hoyLocalStr();
+        actualizado.fecha_inicio = inicio;
+        actualizado.fecha_fin_periodo = calcularFinPeriodo(inicio, actualizado.ciclo_facturacion);
       }
 
       return actualizado;
@@ -116,10 +157,12 @@ export const SaasTenantOnboardingPage: React.FC = () => {
   };
 
   const handleIrAPaso = (pasoDestino: number) => {
-    if (pasoDestino <= pasoMaximoAlcanzado) {
-      setPasoActual(pasoDestino);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    if (pasoDestino > pasoMaximoAlcanzado) return;
+    // No se puede avanzar desde el stepper si un paso anterior quedó inválido tras editarlo:
+    // se lleva al usuario a ese paso para que lo corrija
+    const invalido = pasoDestino > 1 ? primerPasoInvalido(formData, pasoDestino - 1) : null;
+    setPasoActual(invalido ?? pasoDestino);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const avanzarPaso = (siguiente: number) => {
@@ -129,6 +172,15 @@ export const SaasTenantOnboardingPage: React.FC = () => {
   };
 
   const handleSubmitFinal = async () => {
+    // Revalidar todo el expediente: un paso pudo quedar inválido al volver atrás y editarlo
+    const pasoInvalido = primerPasoInvalido(formData);
+    if (pasoInvalido !== null) {
+      setErrorSubmit(`Revisa el paso ${pasoInvalido}: hay datos incompletos o inválidos antes de confirmar el alta.`);
+      setPasoActual(pasoInvalido);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     setCargando(true);
     setErrorSubmit(null);
     try {
@@ -136,7 +188,7 @@ export const SaasTenantOnboardingPage: React.FC = () => {
       if (res.exito) {
         setResultado(res.datos);
         setPasoActual(5);
-        sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+        borrarBorradorOnboarding();
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         setErrorSubmit(
@@ -148,7 +200,7 @@ export const SaasTenantOnboardingPage: React.FC = () => {
         err?.response?.data?.errores?.[0]?.mensaje ||
         err?.response?.data?.message ||
         err?.message ||
-        'Error de red o conexión al registrar el expediente en PostgreSQL 16.';
+        'No se pudo conectar con el servidor para registrar el alta. Revisa tu conexión e inténtalo de nuevo.';
       setErrorSubmit(msg);
     } finally {
       setCargando(false);
@@ -189,7 +241,7 @@ export const SaasTenantOnboardingPage: React.FC = () => {
               Alta Manual y Onboarding de Tenant SaaS
             </h1>
             <p className="text-xs sm:text-sm text-aurea-navy/70 mt-0.5 max-w-2xl">
-              Formalización contractual B2B: Validación matemática de RUC (Módulo 11), titular propietario y asentamiento inmutable en la tabla <code className="font-mono text-aurea-navy font-bold">pago</code>.
+              Formalización contractual B2B: RUC verificado ante SUNAT (Módulo 11), titular propietario, plan contratado y pago verificado por Tesorería.
             </p>
           </div>
         </div>
@@ -240,6 +292,7 @@ export const SaasTenantOnboardingPage: React.FC = () => {
         <Paso5TenantActivado
           resultado={resultado}
           formData={formData}
+          nombrePlan={nombrePlanSeleccionado}
           onVerExpediente={handleVerExpediente}
           onVolverBandeja={handleVolverBandeja}
         />
@@ -282,6 +335,10 @@ export const SaasTenantOnboardingPage: React.FC = () => {
 
             {pasoActual === 3 && (
               <Paso3PlanSaaS
+                planes={planes}
+                cargandoPlanes={cargandoPlanes}
+                errorPlanes={errorPlanes}
+                onReintentarPlanes={cargarPlanes}
                 planId={formData.plan_id}
                 ciclo={formData.ciclo_facturacion}
                 fechaInicio={formData.fecha_inicio}
@@ -302,12 +359,12 @@ export const SaasTenantOnboardingPage: React.FC = () => {
             {pasoActual === 4 && (
               <Paso4PagoBancario
                 montoCobrado={formData.monto_cobrado_pen}
+                montoSugerido={montoSugerido}
                 origenPago={formData.origen_pago}
                 numeroOperacion={formData.numero_operacion}
                 fechaOperacion={formData.fecha_operacion}
                 notaAdministrativa={formData.nota_administrativa}
-                enviarEmail={formData.enviar_email_bienvenida}
-                propietarioEmail={formData.propietario_email}
+                propietarioNombre={formData.propietario_nombre}
                 cargando={cargando}
                 onChange={({
                   montoCobrado,
@@ -315,7 +372,6 @@ export const SaasTenantOnboardingPage: React.FC = () => {
                   numeroOperacion,
                   fechaOperacion,
                   notaAdministrativa,
-                  enviarEmail,
                 }) => {
                   actualizarCampos({
                     ...(montoCobrado !== undefined && { monto_cobrado_pen: montoCobrado }),
@@ -323,7 +379,6 @@ export const SaasTenantOnboardingPage: React.FC = () => {
                     ...(numeroOperacion !== undefined && { numero_operacion: numeroOperacion }),
                     ...(fechaOperacion !== undefined && { fecha_operacion: fechaOperacion }),
                     ...(notaAdministrativa !== undefined && { nota_administrativa: notaAdministrativa }),
-                    ...(enviarEmail !== undefined && { enviar_email_bienvenida: enviarEmail }),
                   });
                 }}
                 onAnterior={() => avanzarPaso(3)}
@@ -337,6 +392,7 @@ export const SaasTenantOnboardingPage: React.FC = () => {
             <ResumenExpedienteSticky
               pasoActual={pasoActual}
               formData={formData}
+              nombrePlan={nombrePlanSeleccionado}
             />
           </div>
         </div>

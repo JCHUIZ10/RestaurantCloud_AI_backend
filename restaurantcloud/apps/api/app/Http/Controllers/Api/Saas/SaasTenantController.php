@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Saas;
 
 use App\Domains\Suscripcion\Services\CobroSuscripcionService;
+use App\Domains\Tenant\Exceptions\EnlaceActivacionException;
 use App\Domains\Tenant\Services\TenantProvisioningService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
@@ -37,13 +38,15 @@ class SaasTenantController extends Controller
             'plan_id' => ['required', 'integer'],
             'ciclo_facturacion' => ['required', 'string', 'in:mensual,anual'],
             'fecha_inicio' => ['nullable', 'date'],
-            'fecha_fin_periodo' => ['nullable', 'date'],
+            // Sin fecha_inicio el servicio usa hoy; con ella, el fin debe ser posterior
+            'fecha_fin_periodo' => $request->filled('fecha_inicio')
+                ? ['nullable', 'date', 'after:fecha_inicio']
+                : ['nullable', 'date', 'after:today'],
             'monto_cobrado_pen' => ['required', 'numeric', 'min:0.01'],
             'origen_pago' => ['required', 'string', 'in:stripe,transferencia_bancaria,deposito_bancario,yape_empresa,efectivo'],
-            'numero_operacion' => ['required', 'string', 'min:3', 'max:100'],
-            'fecha_operacion' => ['nullable', 'date'],
+            'numero_operacion' => ['required', 'string', 'min:4', 'max:100'],
+            'fecha_operacion' => ['nullable', 'date', 'before_or_equal:today'],
             'nota_administrativa' => ['nullable', 'string', 'max:500'],
-            'enviar_email_bienvenida' => ['nullable', 'boolean'],
         ]);
 
         if ($validator->fails()) {
@@ -67,6 +70,9 @@ class SaasTenantController extends Controller
             return ApiResponse::error('CONFLICTO_NEGOCIO', $e->getMessage(), 409);
         } catch (\OutOfBoundsException $e) {
             return ApiResponse::error('PLAN_INVALIDO', $e->getMessage(), 404);
+        } catch (EnlaceActivacionException $e) {
+            // El alta se revirtió: no se crea una empresa sin enlace de activación válido
+            return ApiResponse::error('ENLACE_ACTIVACION_NO_DISPONIBLE', $e->getMessage(), 503);
         } catch (\Throwable $e) {
             Log::error("Error en alta manual B2B: {$e->getMessage()}", ['exception' => $e]);
 
@@ -112,15 +118,13 @@ class SaasTenantController extends Controller
         $mrrEnRiesgo = 0.0;
         $sedesTotales = 0;
 
+        // Precio mensual de cada plan según la tabla `plan` (misma fuente que el wizard de alta)
+        $preciosMensuales = DB::table('plan')->pluck('precio_mensual', 'id');
+
         foreach ($todas as $t) {
             $sedesTotales += (int) ($t->locales_activos_conteo ?? 0);
 
-            // Precios canónicos según plan oficial
-            $precioMensual = match ((int) $t->plan_id) {
-                1 => 40.0,
-                3 => 160.0,
-                default => 80.0,
-            };
+            $precioMensual = (float) ($preciosMensuales[(int) $t->plan_id] ?? 0);
 
             $mrrTotal += $precioMensual;
 
@@ -463,7 +467,7 @@ class SaasTenantController extends Controller
             }
         }
 
-        $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
+        $frontendUrl = config('app.frontend_url');
 
         return ApiResponse::ok([
             'empresa_id' => $id,

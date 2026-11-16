@@ -1,6 +1,7 @@
 import React from 'react';
 import { User, Mail, ArrowLeft, ArrowRight, KeyRound } from 'lucide-react';
 import { extraerDigitosMovilPeru, formatearTelefonoPeru } from '@/shared/utils';
+import { validarPaso2 } from './validacionPasos';
 
 interface Paso2TitularPropietarioProps {
   propietarioNombre: string;
@@ -23,14 +24,13 @@ export const Paso2TitularPropietario: React.FC<Paso2TitularPropietarioProps> = (
   onAnterior,
   onSiguiente,
 }) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const digitosTelefono = extraerDigitosMovilPeru(propietarioTelefono);
-  const telefonoValido = digitosTelefono.length === 9 && digitosTelefono.startsWith('9');
 
-  const esValido =
-    propietarioNombre.trim().length >= 3 &&
-    emailRegex.test(propietarioEmail) &&
-    telefonoValido;
+  const esValido = validarPaso2({
+    propietario_nombre: propietarioNombre,
+    propietario_email: propietarioEmail,
+    propietario_telefono: propietarioTelefono,
+  });
 
   return (
     <div className="bg-white rounded-3xl border border-aurea-copper/25 p-6 sm:p-8 shadow-sm space-y-6">
@@ -43,7 +43,7 @@ export const Paso2TitularPropietario: React.FC<Paso2TitularPropietarioProps> = (
             2. Datos del Propietario y Credenciales Iniciales
           </h2>
           <p className="text-xs sm:text-sm text-aurea-navy/70">
-            Registro del titular legal de la cuenta y despacho seguro de invitación mediante capability token.
+            Registro del titular legal de la cuenta, que activará su acceso con un enlace seguro.
           </p>
         </div>
       </div>
@@ -129,22 +129,21 @@ export const Paso2TitularPropietario: React.FC<Paso2TitularPropietarioProps> = (
             />
           </div>
           <span className="text-aurea-navy/50 text-[11px] block">
-            El titular recibirá aquí su capability token de 72h
+            Será su usuario para iniciar sesión
           </span>
         </div>
       </div>
 
-      {/* Tarjeta de Seguridad Capability Token */}
+      {/* Tarjeta de activación segura de la cuenta */}
       <div className="p-4 rounded-2xl bg-aurea-ivory border border-aurea-copper/25 flex items-start gap-3">
         <KeyRound className="w-5 h-5 text-aurea-copper shrink-0 mt-0.5" />
         <div className="text-xs text-aurea-navy/80 space-y-1">
           <span className="font-bold block text-aurea-navy">
-            Protocolo de Invitación Segura (Sin Contraseñas Provisionales):
+            Activación segura, sin contraseñas provisionales:
           </span>
           <p>
-            Al finalizar el alta, el backend generará un token firmado en Redis con expiración de 72
-            horas (<code className="font-mono text-aurea-navy">EX 259200</code>). El propietario podrá
-            fijar su propia clave privada sin intervención de terceros.
+            Al finalizar el alta se generará un enlace de un solo uso, válido por 72 horas, que
+            compartirás con el titular. Con él fijará su propia contraseña sin intervención de terceros.
           </p>
         </div>
       </div>

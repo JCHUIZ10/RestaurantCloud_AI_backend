@@ -16,6 +16,17 @@ export function sumarDiasStr(fechaStr: string, dias: number): string {
   return new Date(anio, mes - 1, dia + dias).toLocaleDateString('en-CA');
 }
 
+/**
+ * Suma (o resta) meses a una fecha `YYYY-MM-DD` sin pasar por UTC.
+ * Si el día no existe en el mes destino se usa el último día de ese mes
+ * (31-ene + 1 mes = 28/29-feb), en lugar de desbordar al mes siguiente.
+ */
+export function sumarMesesStr(fechaStr: string, meses: number): string {
+  const [anio, mes, dia] = fechaStr.split('-').map(Number);
+  const ultimoDiaMesDestino = new Date(anio, mes - 1 + meses + 1, 0).getDate();
+  return new Date(anio, mes - 1 + meses, Math.min(dia, ultimoDiaMesDestino)).toLocaleDateString('en-CA');
+}
+
 /** Texto largo de una fecha `YYYY-MM-DD` (ej. "09 de noviembre de 2026"). */
 export function fechaLargaStr(fechaStr: string): string {
   const [anio, mes, dia] = fechaStr.split('-').map(Number);

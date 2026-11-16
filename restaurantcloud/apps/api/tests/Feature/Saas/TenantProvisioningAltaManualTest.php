@@ -127,7 +127,6 @@ class TenantProvisioningAltaManualTest extends TestCase
             'origen_pago' => 'transferencia_bancaria',
             'numero_operacion' => 'OP-90481239-BCP',
             'nota_administrativa' => 'Abono verificado por Tesorería Central en cuenta BCP.',
-            'enviar_email_bienvenida' => true,
         ]);
 
         // 1. Validar DTO devuelto
@@ -136,7 +135,9 @@ class TenantProvisioningAltaManualTest extends TestCase
         $this->assertNotEmpty($resultado['pago_id']);
         $this->assertNotEmpty($resultado['invitacion_token']);
         $this->assertStringContainsString('/activar-cuenta?token=', $resultado['invitacion_url']);
-        $this->assertTrue($resultado['email_enviado']);
+        $this->assertStringEndsWith($resultado['invitacion_token'], $resultado['invitacion_url']);
+        // No hay envío de correo: la respuesta no debe afirmar que se envió uno
+        $this->assertArrayNotHasKey('email_enviado', $resultado);
 
         $empresaId = $resultado['empresa_id'];
         $usuarioId = $resultado['usuario_id'];

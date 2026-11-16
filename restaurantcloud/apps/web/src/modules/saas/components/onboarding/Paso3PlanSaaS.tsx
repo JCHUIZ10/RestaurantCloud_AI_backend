@@ -1,53 +1,23 @@
 import React from 'react';
-import { CreditCard, Check, Sparkles, ArrowLeft, ArrowRight, Calendar } from 'lucide-react';
-
-export interface PlanOpcion {
-  id: number;
-  nombre: string;
-  precioMensual: number;
-  precioAnual: number;
-  descripcion: string;
-  locales: number;
-  mesas: number;
-  usuarios: number;
-  destacado?: boolean;
-}
-
-const PLANES_DISPONIBLES: PlanOpcion[] = [
-  {
-    id: 1,
-    nombre: 'Starter',
-    precioMensual: 40.0,
-    precioAnual: 400.0,
-    descripcion: 'Para pollerías y restaurantes de salón único.',
-    locales: 1,
-    mesas: 25,
-    usuarios: 5,
-  },
-  {
-    id: 2,
-    nombre: 'Plan Pro',
-    precioMensual: 80.0,
-    precioAnual: 800.0,
-    descripcion: 'Para restaurantes en expansión con múltiples sedes, KDS y reservas.',
-    locales: 3,
-    mesas: 30,
-    usuarios: 15,
-    destacado: true,
-  },
-  {
-    id: 3,
-    nombre: 'Enterprise',
-    precioMensual: 160.0,
-    precioAnual: 1600.0,
-    descripcion: 'Para franquicias y cadenas con suite completa de IA.',
-    locales: 10,
-    mesas: 60,
-    usuarios: 40,
-  },
-];
+import {
+  CreditCard,
+  Check,
+  Sparkles,
+  ArrowLeft,
+  ArrowRight,
+  Calendar,
+  AlertCircle,
+  RefreshCw,
+} from 'lucide-react';
+import type { PlanSaaSDTO } from '@/types/saasTenants';
+import { esPeriodoValido, validarPaso3 } from './validacionPasos';
 
 interface Paso3PlanSaaSProps {
+  /** Catálogo de planes activos (GET /saas/planes) */
+  planes: PlanSaaSDTO[];
+  cargandoPlanes: boolean;
+  errorPlanes: string | null;
+  onReintentarPlanes: () => void;
   planId: number;
   ciclo: 'mensual' | 'anual';
   fechaInicio: string;
@@ -63,6 +33,10 @@ interface Paso3PlanSaaSProps {
 }
 
 export const Paso3PlanSaaS: React.FC<Paso3PlanSaaSProps> = ({
+  planes,
+  cargandoPlanes,
+  errorPlanes,
+  onReintentarPlanes,
   planId,
   ciclo,
   fechaInicio,
@@ -71,6 +45,18 @@ export const Paso3PlanSaaS: React.FC<Paso3PlanSaaSProps> = ({
   onAnterior,
   onSiguiente,
 }) => {
+  const periodoValido = esPeriodoValido(fechaInicio, fechaFinPeriodo);
+  const planExiste = planes.some((plan) => plan.id === planId);
+  const esValido =
+    planExiste &&
+    validarPaso3({
+      plan_id: planId,
+      fecha_inicio: fechaInicio,
+      fecha_fin_periodo: fechaFinPeriodo,
+    });
+  // Se recomienda el plan intermedio del catálogo (ordenado por id en el backend)
+  const planRecomendadoId = planes.length >= 3 ? planes[Math.floor(planes.length / 2)].id : null;
+
   return (
     <div className="bg-white rounded-3xl border border-aurea-copper/25 p-6 sm:p-8 shadow-sm space-y-6">
       <div className="flex items-center gap-3 pb-4 border-b border-aurea-copper/15">
@@ -123,11 +109,51 @@ export const Paso3PlanSaaS: React.FC<Paso3PlanSaaSProps> = ({
         </div>
       </div>
 
-      {/* Grid de 3 Planes */}
+      {/* Error al cargar el catálogo de planes */}
+      {errorPlanes && !cargandoPlanes && (
+        <div
+          role="alert"
+          className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+        >
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{errorPlanes}</span>
+          </div>
+          <button
+            type="button"
+            onClick={onReintentarPlanes}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 text-white font-semibold hover:bg-rose-700 cursor-pointer self-start sm:self-auto"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Reintentar</span>
+          </button>
+        </div>
+      )}
+
+      {/* Skeleton mientras carga el catálogo */}
+      {cargandoPlanes && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4" aria-busy="true" aria-label="Cargando planes">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="p-5 rounded-2xl border-2 border-aurea-copper/15 bg-aurea-ivory/60 space-y-3 animate-pulse"
+            >
+              <div className="h-5 w-24 rounded bg-aurea-champagne/60" />
+              <div className="h-7 w-32 rounded bg-aurea-copper/20" />
+              <div className="h-3 w-full rounded bg-aurea-champagne/50" />
+              <div className="h-3 w-3/4 rounded bg-aurea-champagne/50" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Grid de Planes del catálogo */}
+      {!cargandoPlanes && planes.length > 0 && (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {PLANES_DISPONIBLES.map((plan) => {
+        {planes.map((plan) => {
           const seleccionado = planId === plan.id;
-          const precioActual = ciclo === 'anual' ? plan.precioAnual : plan.precioMensual;
+          const precioActual = ciclo === 'anual' ? plan.precio_anual : plan.precio_mensual;
+          const destacado = plan.id === planRecomendadoId;
 
           return (
             <div
@@ -139,7 +165,7 @@ export const Paso3PlanSaaS: React.FC<Paso3PlanSaaSProps> = ({
                   : 'border-aurea-copper/20 hover:border-aurea-copper/50 bg-white'
               }`}
             >
-              {plan.destacado && (
+              {destacado && (
                 <div className="absolute -top-3 right-4 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-aurea-copper text-aurea-navy uppercase tracking-wider shadow-sm">
                   Recomendado
                 </div>
@@ -168,22 +194,24 @@ export const Paso3PlanSaaS: React.FC<Paso3PlanSaaSProps> = ({
                   </span>
                 </div>
 
-                <p className="text-xs text-aurea-navy/70 mt-2 leading-relaxed">
-                  {plan.descripcion}
-                </p>
+                {plan.descripcion && (
+                  <p className="text-xs text-aurea-navy/70 mt-2 leading-relaxed">
+                    {plan.descripcion}
+                  </p>
+                )}
 
                 <div className="mt-4 pt-3 border-t border-aurea-copper/15 space-y-1.5 text-xs text-aurea-navy/80">
                   <div className="flex items-center gap-1.5">
                     <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Hasta <strong>{plan.locales}</strong> sedes operativas</span>
+                    <span>Hasta <strong>{plan.max_locales}</strong> sedes operativas</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Hasta <strong>{plan.mesas}</strong> mesas en salón</span>
+                    <span>Hasta <strong>{plan.max_mesas}</strong> mesas en salón</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Hasta <strong>{plan.usuarios}</strong> cuentas de personal</span>
+                    <span>Hasta <strong>{plan.max_usuarios}</strong> cuentas de personal</span>
                   </div>
                 </div>
               </div>
@@ -191,6 +219,15 @@ export const Paso3PlanSaaS: React.FC<Paso3PlanSaaSProps> = ({
           );
         })}
       </div>
+      )}
+
+      {/* El plan del borrador ya no existe o está inactivo */}
+      {!cargandoPlanes && planes.length > 0 && !planExiste && (
+        <p role="alert" className="text-[11px] text-rose-700 font-semibold flex items-center gap-1">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          <span>Selecciona uno de los planes disponibles para continuar.</span>
+        </p>
+      )}
 
       {/* Fechas de Vigencia */}
       <div className="p-4 sm:p-5 rounded-2xl bg-white border border-aurea-copper/20 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
@@ -215,10 +252,32 @@ export const Paso3PlanSaaS: React.FC<Paso3PlanSaaSProps> = ({
           <input
             type="date"
             value={fechaFinPeriodo}
+            min={fechaInicio || undefined}
             onChange={(e) => onChange({ fechaFinPeriodo: e.target.value })}
-            className="w-full px-3 py-2 rounded-xl bg-white border border-aurea-copper/30 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-aurea-copper/40"
+            aria-invalid={!periodoValido}
+            aria-describedby={!periodoValido ? 'error-periodo-contrato' : undefined}
+            className={`w-full px-3 py-2 rounded-xl bg-white border font-mono text-sm focus:outline-none focus:ring-2 ${
+              periodoValido
+                ? 'border-aurea-copper/30 focus:ring-aurea-copper/40'
+                : 'border-rose-400 focus:ring-rose-300'
+            }`}
           />
         </div>
+
+        {!periodoValido && (
+          <p
+            id="error-periodo-contrato"
+            role="alert"
+            className="sm:col-span-2 text-[11px] text-rose-700 font-semibold flex items-center gap-1"
+          >
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            <span>
+              {!fechaInicio || !fechaFinPeriodo
+                ? 'Indica la fecha de inicio y la de fin del periodo contratado.'
+                : 'La fecha de fin debe ser posterior a la fecha de inicio.'}
+            </span>
+          </p>
+        )}
       </div>
 
       {/* Botones de Navegación */}
@@ -235,7 +294,8 @@ export const Paso3PlanSaaS: React.FC<Paso3PlanSaaSProps> = ({
         <button
           type="button"
           onClick={onSiguiente}
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm bg-aurea-navy text-white hover:bg-opacity-95 shadow-md border border-aurea-copper/40 transition-all active:scale-[0.98]"
+          disabled={!esValido}
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm bg-aurea-navy text-white hover:bg-opacity-95 shadow-md border border-aurea-copper/40 transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <span>Continuar a Liquidación y Pago</span>
           <ArrowRight className="w-4 h-4 text-aurea-copper" />

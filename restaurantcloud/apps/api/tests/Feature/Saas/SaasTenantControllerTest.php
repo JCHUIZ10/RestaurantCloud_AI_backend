@@ -13,6 +13,11 @@ class SaasTenantControllerTest extends TestCase
 
     private string $testEmail = 'titular.controller.b2b@puertomarino.pe';
 
+    /** Segunda empresa (RUC válido por Módulo 11) para probar reutilización de voucher */
+    private string $testRucSegunda = '20612345679';
+
+    private string $testEmailSegunda = 'titular.segunda.b2b@puertomarino.pe';
+
     private string $tokenSaas;
 
     private string $tokenProp;
@@ -65,16 +70,18 @@ class SaasTenantControllerTest extends TestCase
 
     private function limpiarDatosPrueba(): void
     {
-        $empresa = DB::table('empresa')->where('ruc', $this->testRuc)->first();
-        if ($empresa) {
-            DB::table('pago')->where('empresa_id', $empresa->id)->delete();
-            DB::table('local')->where('empresa_id', $empresa->id)->delete();
-            DB::table('usuario')->where('empresa_id', $empresa->id)->delete();
-            DB::table('suscripcion')->where('empresa_id', $empresa->id)->delete();
-            DB::table('empresa')->where('id', $empresa->id)->delete();
+        foreach ([$this->testRuc, $this->testRucSegunda] as $ruc) {
+            $empresa = DB::table('empresa')->where('ruc', $ruc)->first();
+            if ($empresa) {
+                DB::table('pago')->where('empresa_id', $empresa->id)->delete();
+                DB::table('local')->where('empresa_id', $empresa->id)->delete();
+                DB::table('usuario')->where('empresa_id', $empresa->id)->delete();
+                DB::table('suscripcion')->where('empresa_id', $empresa->id)->delete();
+                DB::table('empresa')->where('id', $empresa->id)->delete();
+            }
         }
 
-        DB::table('usuario')->where('correo', $this->testEmail)->delete();
+        DB::table('usuario')->whereIn('correo', [$this->testEmail, $this->testEmailSegunda])->delete();
     }
 
     private function headersSaas(): array
@@ -91,6 +98,98 @@ class SaasTenantControllerTest extends TestCase
             'Authorization' => "Bearer {$this->tokenProp}",
             'Accept' => 'application/json',
         ];
+    }
+
+    /**
+     * Payload de alta manual válido; cada test de validación altera un solo campo.
+     *
+     * @return array<string, mixed>
+     */
+    private function payloadAltaValido(): array
+    {
+        return [
+            'ruc' => $this->testRuc,
+            'razon_social' => 'Cevichería Puerto Marino S.A.C.',
+            'propietario_nombre' => 'Jorge Medina Castro',
+            'propietario_email' => $this->testEmail,
+            'propietario_telefono' => '+51 991 882 334',
+            'plan_id' => 2,
+            'ciclo_facturacion' => 'anual',
+            'fecha_inicio' => now()->toDateString(),
+            'fecha_fin_periodo' => now()->addYear()->toDateString(),
+            'monto_cobrado_pen' => 800.0,
+            'origen_pago' => 'transferencia_bancaria',
+            'numero_operacion' => 'OP-90481239-BCP',
+            'fecha_operacion' => now()->toDateString(),
+            'nota_administrativa' => 'Abono anual confirmado en BCP por tesorería.',
+        ];
+    }
+
+    private function assertAltaRechazadaSinCrearEmpresa(array $payload): void
+    {
+        $this->postJson('/api/v1/saas/tenants/alta-manual', $payload, $this->headersSaas())
+            ->assertStatus(422)
+            ->assertJsonPath('exito', false);
+
+        $this->assertFalse(DB::table('empresa')->where('ruc', $this->testRuc)->exists());
+    }
+
+    public function test_alta_manual_rechaza_fin_de_periodo_anterior_o_igual_al_inicio(): void
+    {
+        $payload = $this->payloadAltaValido();
+        $payload['fecha_fin_periodo'] = now()->subDay()->toDateString();
+        $this->assertAltaRechazadaSinCrearEmpresa($payload);
+
+        $payload['fecha_fin_periodo'] = $payload['fecha_inicio'];
+        $this->assertAltaRechazadaSinCrearEmpresa($payload);
+    }
+
+    public function test_alta_manual_rechaza_fecha_de_operacion_futura(): void
+    {
+        $payload = $this->payloadAltaValido();
+        $payload['fecha_operacion'] = now()->addDays(2)->toDateString();
+
+        $this->assertAltaRechazadaSinCrearEmpresa($payload);
+    }
+
+    public function test_alta_manual_rechaza_telefono_que_no_es_movil_peruano(): void
+    {
+        $payload = $this->payloadAltaValido();
+        $payload['propietario_telefono'] = '01 445 1234'; // fijo de Lima
+
+        $this->assertAltaRechazadaSinCrearEmpresa($payload);
+    }
+
+    public function test_alta_manual_rechaza_voucher_ya_usado_en_otro_pago(): void
+    {
+        $this->postJson('/api/v1/saas/tenants/alta-manual', $this->payloadAltaValido(), $this->headersSaas())
+            ->assertStatus(201);
+
+        // Otra empresa con la misma constancia bancaria (distinta capitalización)
+        $payload = $this->payloadAltaValido();
+        $payload['ruc'] = $this->testRucSegunda;
+        $payload['razon_social'] = 'Pollería El Segundo Abono S.A.C.';
+        $payload['propietario_email'] = $this->testEmailSegunda;
+        $payload['numero_operacion'] = strtolower($payload['numero_operacion']);
+
+        $this->postJson('/api/v1/saas/tenants/alta-manual', $payload, $this->headersSaas())
+            ->assertStatus(409)
+            ->assertJsonPath('exito', false);
+
+        $this->assertFalse(DB::table('empresa')->where('ruc', $this->testRucSegunda)->exists());
+
+        // El mismo número con otro medio de pago sí es otra operación
+        $payload['origen_pago'] = 'yape_empresa';
+        $this->postJson('/api/v1/saas/tenants/alta-manual', $payload, $this->headersSaas())
+            ->assertStatus(201);
+    }
+
+    public function test_alta_manual_rechaza_numero_de_operacion_demasiado_corto(): void
+    {
+        $payload = $this->payloadAltaValido();
+        $payload['numero_operacion'] = 'OP1';
+
+        $this->assertAltaRechazadaSinCrearEmpresa($payload);
     }
 
     /**
@@ -177,7 +276,6 @@ class SaasTenantControllerTest extends TestCase
             'origen_pago' => 'transferencia_bancaria',
             'numero_operacion' => 'OP-90481239-BCP',
             'nota_administrativa' => 'Abono anual confirmado en BCP por tesorería.',
-            'enviar_email_bienvenida' => true,
         ];
 
         $response = $this->postJson('/api/v1/saas/tenants/alta-manual', $payload, $this->headersSaas());
@@ -189,12 +287,17 @@ class SaasTenantControllerTest extends TestCase
         $this->assertNotEmpty($datos['empresa_id']);
         $this->assertNotEmpty($datos['invitacion_token']);
         $this->assertStringContainsString('/activar-cuenta?token=', $datos['invitacion_url']);
+        $this->assertStringEndsWith($datos['invitacion_token'], $datos['invitacion_url']);
+        $this->assertArrayNotHasKey('email_enviado', $datos);
 
         $empresaId = $datos['empresa_id'];
         $token = $datos['invitacion_token'];
 
         // Verificar que no se creó sede ficticia en PostgreSQL
         $this->assertEquals(0, DB::table('local')->where('empresa_id', $empresaId)->count());
+
+        // El teléfono del titular se guarda normalizado al estándar peruano
+        $this->assertSame('+51 991 882 334', DB::table('empresa')->where('id', $empresaId)->value('telefono'));
 
         // 5. Test de Expediente 360° (Vista 2)
         $resDetalle = $this->getJson("/api/v1/saas/tenants/{$empresaId}", $this->headersSaas());

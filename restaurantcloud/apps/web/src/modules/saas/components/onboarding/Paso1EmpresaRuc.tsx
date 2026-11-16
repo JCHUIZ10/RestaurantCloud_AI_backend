@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Building2, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
 import { validarRucModulo11 } from '@/shared/utils';
+import { validarPaso1 } from './validacionPasos';
 
 interface Paso1EmpresaRucProps {
   ruc: string;
@@ -33,7 +34,7 @@ export const Paso1EmpresaRuc: React.FC<Paso1EmpresaRucProps> = ({
     }
   }, [ruc]);
 
-  const esValido = rucFeedback.valido && razonSocial.trim().length >= 3;
+  const esValido = validarPaso1({ ruc, razon_social: razonSocial });
 
   return (
     <div className="bg-white rounded-3xl border border-aurea-copper/25 p-6 sm:p-8 shadow-sm space-y-6">
@@ -46,7 +47,7 @@ export const Paso1EmpresaRuc: React.FC<Paso1EmpresaRucProps> = ({
             1. Identificación Legal y Fiscal de la Empresa
           </h2>
           <p className="text-xs sm:text-sm text-aurea-navy/70">
-            Ingreso de RUC con validación matemática Módulo 11 en tiempo real (cero llamadas externas).
+            El RUC se valida al instante con el dígito verificador de SUNAT (Módulo 11).
           </p>
         </div>
       </div>
