@@ -67,6 +67,15 @@ interface ContadorProps {
 
 const Contador: React.FC<ContadorProps> = ({ id, rotulo, valor, min, max, paso = 1, unidad, ayuda, invalido, foco, caja, onCambiar }) => {
   const acotar = (n: number) => Math.min(max, Math.max(min, n));
+  // Texto en edición: permite borrar y teclear sin que se ajuste al rango en cada tecla.
+  // Se confirma (y se acota) al salir del campo o al usar los botones.
+  const [texto, setTexto] = React.useState<string | null>(null);
+  const confirmar = () => {
+    if (texto === null) return;
+    const n = parseInt(texto, 10);
+    if (!isNaN(n)) onCambiar(acotar(n));
+    setTexto(null);
+  };
   const claseBoton =
     'w-12 h-12 shrink-0 rounded-xl bg-white border border-tinta-300 text-tinta-700 hover:bg-tinta-100 active:scale-95 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center shadow-sm transition-all';
 
@@ -81,7 +90,7 @@ const Contador: React.FC<ContadorProps> = ({ id, rotulo, valor, min, max, paso =
         </span>
       </div>
       <div className="flex items-center gap-2">
-        <button type="button" onClick={() => onCambiar(acotar(valor - paso))} disabled={valor <= min} aria-label="Disminuir" className={claseBoton}>
+        <button type="button" onClick={() => { setTexto(null); onCambiar(acotar(valor - paso)); }} disabled={valor <= min} aria-label="Disminuir" className={claseBoton}>
           <Minus className="w-4 h-4" aria-hidden="true" />
         </button>
         <div className="relative flex-1 min-w-0">
@@ -92,11 +101,17 @@ const Contador: React.FC<ContadorProps> = ({ id, rotulo, valor, min, max, paso =
             min={min}
             max={max}
             step={paso}
-            value={valor}
+            value={texto ?? valor}
             aria-invalid={invalido || undefined}
             onChange={(e) => {
+              setTexto(e.target.value);
+              // Aplica al instante si ya es un valor válido, para que el simulador se actualice
               const n = parseInt(e.target.value, 10);
-              if (!isNaN(n)) onCambiar(acotar(n));
+              if (!isNaN(n) && n >= min && n <= max) onCambiar(n);
+            }}
+            onBlur={confirmar}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') confirmar();
             }}
             className={cn(
               'w-full h-12 pr-10 text-center text-2xl font-mono font-bold bg-white rounded-xl border text-tinta-800 focus:outline-none focus:ring-2',
@@ -105,7 +120,7 @@ const Contador: React.FC<ContadorProps> = ({ id, rotulo, valor, min, max, paso =
           />
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-tinta-400 pointer-events-none">{unidad}</span>
         </div>
-        <button type="button" onClick={() => onCambiar(acotar(valor + paso))} disabled={valor >= max} aria-label="Aumentar" className={claseBoton}>
+        <button type="button" onClick={() => { setTexto(null); onCambiar(acotar(valor + paso)); }} disabled={valor >= max} aria-label="Aumentar" className={claseBoton}>
           <Plus className="w-4 h-4" aria-hidden="true" />
         </button>
       </div>

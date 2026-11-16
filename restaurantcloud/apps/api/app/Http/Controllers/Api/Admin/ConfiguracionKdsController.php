@@ -22,7 +22,11 @@ class ConfiguracionKdsController extends Controller
         $data = $this->validarConfiguracion($request);
 
         return $this->run(fn () => ApiResponse::ok(
-            $this->configuracionKds->actualizar($request->user()->local_id, $data),
+            $this->configuracionKds->actualizar(
+                $request->user()->local_id,
+                collect($data)->except('updated_at')->all(),
+                $data['updated_at'] ?? null,
+            ),
         ));
     }
 
@@ -43,6 +47,7 @@ class ConfiguracionKdsController extends Controller
             'alerta_sonora_comanda_roja' => ['required', 'boolean'],
             'intervalo_sonido_rojo_seg' => ['required', 'integer', 'between:15,300'],
             'vista_predeterminada' => ['required', 'in:fifo,all_day'],
+            'updated_at' => ['nullable', 'date'],
         ]);
     }
 
@@ -50,6 +55,8 @@ class ConfiguracionKdsController extends Controller
     {
         try {
             return $callback();
+        } catch (\DomainException $exception) {
+            return ApiResponse::error('ERR_KDS_MODIFICADA', $exception->getMessage(), 409);
         } catch (\InvalidArgumentException $exception) {
             return ApiResponse::error(
                 'ERR_UMBRALES_KDS_INCOHERENTES',

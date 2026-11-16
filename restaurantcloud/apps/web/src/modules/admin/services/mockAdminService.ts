@@ -96,6 +96,7 @@ import {
   MetodosPagoKPIsDTO,
 } from '@/types/admin';
 import { MOCK_CONFIGURACION_KDS } from '@/modules/cocina/services/mockCocinaService';
+import { VALORES_RECOMENDADOS_KDS } from '@/modules/admin/components/kds_config/valoresRecomendadosKds';
 
 // Identificadores Canónicos del Seed de Desarrollo Local (07_seed_local_aurea_completo.sql)
 import {
@@ -7995,24 +7996,12 @@ class MockAdminService {
 
     this.configuracionKds = {
       local_id: _localId,
-      tiempo_optimo_verde_min: 15,
-      tiempo_alerta_ambar_min: 25,
-      tiempo_maximo_pase_min: 3,
-      alerta_sonora_nueva_comanda: true,
-      alerta_sonora_comanda_roja: true,
-      intervalo_sonido_rojo_seg: 60,
-      vista_predeterminada: 'fifo',
+      ...VALORES_RECOMENDADOS_KDS,
       updated_at: new Date().toISOString(),
     };
 
     // Sincronizar con KDS cocina
-    MOCK_CONFIGURACION_KDS.tiempo_optimo_verde_min = 15;
-    MOCK_CONFIGURACION_KDS.tiempo_alerta_ambar_min = 25;
-    MOCK_CONFIGURACION_KDS.tiempo_maximo_pase_min = 3;
-    MOCK_CONFIGURACION_KDS.alerta_sonora_nueva_comanda = true;
-    MOCK_CONFIGURACION_KDS.alerta_sonora_comanda_roja = true;
-    MOCK_CONFIGURACION_KDS.intervalo_sonido_rojo_seg = 60;
-    MOCK_CONFIGURACION_KDS.vista_predeterminada = 'fifo';
+    Object.assign(MOCK_CONFIGURACION_KDS, VALORES_RECOMENDADOS_KDS);
 
     return {
       exito: true,

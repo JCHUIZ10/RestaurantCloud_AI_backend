@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Domains\Archivos\Services\TenantStorageService;
 use App\Domains\Carta\Services\CartaPublicaService;
+use App\Domains\Cocina\Services\ConfiguracionKdsService;
 use App\Domains\Inventario\Services\StockDeduccionService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
@@ -46,13 +47,7 @@ class CocinaController extends Controller
             return ApiResponse::ok([
                 'caja_abierta' => $cajaAbierta,
                 'local_id' => $localId,
-                'tiempo_optimo_verde_min' => 15,
-                'tiempo_alerta_ambar_min' => 25,
-                'tiempo_maximo_pase_min' => 3,
-                'alerta_sonora_nueva_comanda' => true,
-                'alerta_sonora_comanda_roja' => true,
-                'intervalo_sonido_rojo_seg' => 60,
-                'vista_predeterminada' => 'fifo',
+                ...ConfiguracionKdsService::VALORES_RECOMENDADOS,
             ]);
         }
 
@@ -79,8 +74,8 @@ class CocinaController extends Controller
 
         // 1. Obtener parámetros de semáforo de la sede
         $config = DB::table('configuracion_kds')->where('local_id', $localId)->first();
-        $tiempoOptimo = (int) ($config->tiempo_optimo_verde_min ?? 15);
-        $tiempoAlerta = (int) ($config->tiempo_alerta_ambar_min ?? 25);
+        $tiempoOptimo = (int) ($config->tiempo_optimo_verde_min ?? ConfiguracionKdsService::VALORES_RECOMENDADOS['tiempo_optimo_verde_min']);
+        $tiempoAlerta = (int) ($config->tiempo_alerta_ambar_min ?? ConfiguracionKdsService::VALORES_RECOMENDADOS['tiempo_alerta_ambar_min']);
 
         // 2. Comandas activas en salón con pedidos no cerrados
         $pedidos = DB::table('pedido as p')

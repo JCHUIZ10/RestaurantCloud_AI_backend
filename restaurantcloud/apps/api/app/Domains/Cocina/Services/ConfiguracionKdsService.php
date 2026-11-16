@@ -2,11 +2,12 @@
 
 namespace App\Domains\Cocina\Services;
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class ConfiguracionKdsService
 {
-    private const VALORES_RECOMENDADOS = [
+    public const VALORES_RECOMENDADOS = [
         'tiempo_optimo_verde_min' => 15,
         'tiempo_alerta_ambar_min' => 25,
         'tiempo_maximo_pase_min' => 3,
@@ -34,10 +35,36 @@ class ConfiguracionKdsService
         return $this->mapear($configuracion);
     }
 
-    public function actualizar(string $localId, array $data): array
+    /**
+     * @param  string|null  $versionEsperada  `updated_at` que la pantalla cargó; si ya cambió, otro administrador guardó antes.
+     */
+    public function actualizar(string $localId, array $data, ?string $versionEsperada = null): array
     {
         $this->validarCoherencia($data);
 
+        DB::transaction(function () use ($localId, $data, $versionEsperada): void {
+            $actual = DB::table('configuracion_kds')->where('local_id', $localId)->lockForUpdate()->first();
+
+            if ($actual && $versionEsperada !== null
+                && $this->aIso($actual->updated_at) !== $this->aIso($versionEsperada)) {
+                throw new \DomainException(
+                    'Otro administrador modificó los tiempos de cocina mientras los editabas. Se recargaron los valores vigentes.',
+                );
+            }
+
+            $this->guardar($localId, $data);
+        });
+
+        return $this->obtener($localId);
+    }
+
+    private function aIso(mixed $valor): string
+    {
+        return Carbon::parse($valor)->utc()->format('Y-m-d\TH:i:s.u\Z');
+    }
+
+    private function guardar(string $localId, array $data): void
+    {
         DB::table('configuracion_kds')->upsert(
             [[
                 'local_id' => $localId,
@@ -57,8 +84,6 @@ class ConfiguracionKdsService
                 'updated_at',
             ],
         );
-
-        return $this->obtener($localId);
     }
 
     public function restaurarValoresRecomendados(string $localId): array

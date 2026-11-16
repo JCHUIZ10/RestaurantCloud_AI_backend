@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useBlocker } from 'react-router-dom';
 import { ConfiguracionKdsDTO } from '@/types/admin';
 import { adminService, IS_REAL_API } from '@/services/serviceAdapter';
 import { KdsConfigHeader } from '../components/kds_config/KdsConfigHeader';
 import { KdsParametrosForm } from '../components/kds_config/KdsParametrosForm';
 import { KdsSimuladorSemaforo } from '../components/kds_config/KdsSimuladorSemaforo';
 import { DemoKdsConfigWidget } from '../components/kds_config/DemoKdsConfigWidget';
+import { VALORES_RECOMENDADOS_KDS } from '../components/kds_config/valoresRecomendadosKds';
 import { EstadoError, ModalConfirmacion, Skeleton, SoloDemo, useToast } from '@/components/ui';
 
 export const AdminConfiguracionKdsPage: React.FC = () => {
@@ -57,6 +59,18 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
       ? `El tiempo ámbar (${configBorrador.tiempo_alerta_ambar_min} min) debe ser mayor que el verde (${configBorrador.tiempo_optimo_verde_min} min).`
       : null;
 
+  // Cambios sin guardar: avisar antes de salir de la pantalla o cerrar la pestaña
+  const bloqueador = useBlocker(
+    ({ currentLocation, nextLocation }) => isDirty && currentLocation.pathname !== nextLocation.pathname
+  );
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const avisar = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', avisar);
+    return () => window.removeEventListener('beforeunload', avisar);
+  }, [isDirty]);
+
   /**
    * Reproductor de audio nativo con Web Audio API (Cero dependencias externas)
    */
@@ -71,6 +85,12 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
           return;
         }
         const ctx = new AudioCtx();
+        // Libera el contexto al terminar (Safari/iPad limitan cuántos pueden existir a la vez)
+        const cerrarAlTerminar = (osc: OscillatorNode) => {
+          osc.onended = () => {
+            void ctx.close();
+          };
+        };
 
         if (tipo === 'chime') {
           // Tono armónico ascendente (D5 587Hz -> A5 880Hz)
@@ -83,6 +103,7 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
           gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
           osc.connect(gain);
           gain.connect(ctx.destination);
+          cerrarAlTerminar(osc);
           osc.start();
           osc.stop(ctx.currentTime + 0.5);
         } else {
@@ -96,6 +117,7 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
           gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.55);
           osc.connect(gain);
           gain.connect(ctx.destination);
+          cerrarAlTerminar(osc);
           osc.start();
           osc.stop(ctx.currentTime + 0.55);
         }
@@ -124,12 +146,17 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
         alerta_sonora_comanda_roja: configBorrador.alerta_sonora_comanda_roja,
         intervalo_sonido_rojo_seg: configBorrador.intervalo_sonido_rojo_seg,
         vista_predeterminada: configBorrador.vista_predeterminada,
+        updated_at: configOriginal?.updated_at ?? null,
       });
 
       if (resp.exito && resp.datos) {
         setConfigOriginal(JSON.parse(JSON.stringify(resp.datos)));
         setConfigBorrador(JSON.parse(JSON.stringify(resp.datos)));
         mostrarToast('Tiempos de cocina guardados', 'exito');
+      } else if (resp.errores?.[0]?.codigo === 'ERR_KDS_MODIFICADA') {
+        // Otro administrador guardó antes: se descarta el borrador y se muestran los valores vigentes
+        mostrarToast(resp.errores[0].mensaje, 'info');
+        await cargarDatos();
       } else {
         mostrarToast(resp.errores?.[0]?.mensaje || 'No se pudo guardar la configuración', 'error');
       }
@@ -153,6 +180,8 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
         setConfigOriginal(JSON.parse(JSON.stringify(resp.datos)));
         setConfigBorrador(JSON.parse(JSON.stringify(resp.datos)));
         mostrarToast('Valores recomendados restablecidos', 'info');
+      } else {
+        mostrarToast(resp.errores?.[0]?.mensaje || 'No se pudieron restablecer los valores recomendados', 'error');
       }
     } catch {
       mostrarToast('Error al restablecer los valores recomendados', 'error');
@@ -208,9 +237,19 @@ export const AdminConfiguracionKdsPage: React.FC = () => {
         onConfirmar={handleRestaurarDefaults}
         tono="alerta"
         titulo="¿Volver a los valores recomendados?"
-        mensaje="Se guardan al instante: verde hasta 15 min, ámbar hasta 25 min y 3 min en el pase. Se pierden los cambios sin guardar."
+        mensaje={`Se guardan al instante: verde hasta ${VALORES_RECOMENDADOS_KDS.tiempo_optimo_verde_min} min, ámbar hasta ${VALORES_RECOMENDADOS_KDS.tiempo_alerta_ambar_min} min y ${VALORES_RECOMENDADOS_KDS.tiempo_maximo_pase_min} min en el pase. Se pierden los cambios sin guardar.`}
         textoConfirmar="Restablecer"
         cargando={isGuardando}
+      />
+
+      <ModalConfirmacion
+        abierto={bloqueador.state === 'blocked'}
+        onCerrar={() => bloqueador.reset?.()}
+        onConfirmar={() => bloqueador.proceed?.()}
+        tono="alerta"
+        titulo="¿Salir sin guardar?"
+        mensaje="Modificaste los tiempos de cocina pero no los guardaste. Si sales, se perderán esos cambios."
+        textoConfirmar="Salir sin guardar"
       />
 
       {/* Widget QA Sandbox flotante */}

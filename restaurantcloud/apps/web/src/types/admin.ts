@@ -1441,14 +1441,8 @@ export interface ActualizarConfiguracionKdsRequest {
   alerta_sonora_comanda_roja: boolean;
   intervalo_sonido_rojo_seg: number;
   vista_predeterminada: 'fifo' | 'all_day';
-}
-
-export interface EventoConfiguracionKdsActualizada {
-  local_id: string;
-  tiempo_optimo_verde_min: number;
-  tiempo_alerta_ambar_min: number;
-  tiempo_maximo_pase_min: number;
-  timestamp: string;
+  /** Versión (`updated_at`) que la pantalla cargó; permite detectar que otro administrador guardó antes. */
+  updated_at?: string | null;
 }
 
 // ============================================================================

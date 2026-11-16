@@ -1006,13 +1006,13 @@ export const realAdminService = {
   cargarFeriadosNacionalesPeru: (): Promise<ApiEnvelope<ResultadoFeriadosPeruDTO>> =>
     apiPost('/admin/horario/feriados-peru/cargar'),
   getConfiguracionKds: (): Promise<ApiEnvelope<ConfiguracionKdsDTO>> =>
-    apiGet('/admin/configuracion-kds'),
+    conErroresDeNegocio(() => apiGet('/admin/configuracion-kds')),
   actualizarConfiguracionKds: (
     payload: ActualizarConfiguracionKdsRequest,
   ): Promise<ApiEnvelope<ConfiguracionKdsDTO>> =>
-    apiPut('/admin/configuracion-kds', payload),
+    conErroresDeNegocio(() => apiPut('/admin/configuracion-kds', payload)),
   restaurarDefaultsConfiguracionKds: (): Promise<ApiEnvelope<ConfiguracionKdsDTO>> =>
-    apiPost('/admin/configuracion-kds/restaurar-valores-recomendados'),
+    conErroresDeNegocio(() => apiPost('/admin/configuracion-kds/restaurar-valores-recomendados')),
 
   // CU-ADMIN-10: Políticas y parámetros de reservas. Los errores de negocio (403 de plan, 409 de reservas
   // pendientes o de edición simultánea, 422) llegan como sobre con `exito: false`, con su código y detalles.
