@@ -80,29 +80,42 @@ export const AdminHorarioPage: React.FC = () => {
     setModalCrearAbierto(true);
   };
 
-  const cargarDatos = useCallback(async () => {
-    try {
-      setLoading(true);
-      setErrorCarga(false);
-      const [resHorario, resExcepciones] = await Promise.all([
-        horarioService.getHorarioSemana(),
-        horarioService.getExcepcionesHorario(),
-      ]);
+  /**
+   * Carga horario y fechas especiales. Con `silencioso` no reemplaza la pantalla por el esqueleto de carga:
+   * se usa para refrescar tras un cambio, y un fallo solo avisa por toast sin ocultar lo que ya se ve.
+   */
+  const cargarDatos = useCallback(
+    async ({ silencioso = false }: { silencioso?: boolean } = {}) => {
+      try {
+        if (!silencioso) {
+          setLoading(true);
+          setErrorCarga(false);
+        }
+        const [resHorario, resExcepciones] = await Promise.all([
+          horarioService.getHorarioSemana(),
+          horarioService.getExcepcionesHorario(),
+        ]);
 
-      if (resHorario.exito && resHorario.datos) {
+        // Una respuesta sin éxito no es un horario vacío: no se debe ofrecer el asistente de inicio
+        if (!resHorario.exito || !resHorario.datos || !resExcepciones.exito || !resExcepciones.datos) {
+          throw new Error('Respuesta incompleta del servidor');
+        }
+
         setDias(resHorario.datos.dias || []);
         setTotalHorasSemanales(resHorario.datos.total_horas_semanales || 0);
-      }
-
-      if (resExcepciones.exito && resExcepciones.datos) {
         setExcepciones(resExcepciones.datos);
+      } catch {
+        if (silencioso) {
+          mostrarToast('No se pudo actualizar la vista. Recarga la página para ver los datos al día.', 'error');
+        } else {
+          setErrorCarga(true);
+        }
+      } finally {
+        if (!silencioso) setLoading(false);
       }
-    } catch {
-      setErrorCarga(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [mostrarToast]
+  );
 
   useEffect(() => {
     cargarDatos();
@@ -126,7 +139,7 @@ export const AdminHorarioPage: React.FC = () => {
 
       if (resultado.ok) {
         setConflicto(null);
-        await cargarDatos();
+        await cargarDatos({ silencioso: true });
         mostrarToast(resultado.mensajeExito ?? 'Cambio guardado');
       } else if (resultado.reservasActualizadas) {
         refrescarConflicto(resultado.reservasActualizadas);
@@ -249,7 +262,7 @@ export const AdminHorarioPage: React.FC = () => {
   // Feriados y cierres
   // ---------------------------------------------------------------------------
 
-  // Cargar Feriados de Perú 2026
+  // Cargar los feriados nacionales de Perú de los próximos 12 meses
   const handleCargarFeriadosPeru = async () => {
     try {
       const res = await horarioService.cargarFeriadosNacionalesPeru();
@@ -258,7 +271,7 @@ export const AdminHorarioPage: React.FC = () => {
         return;
       }
 
-      await cargarDatos();
+      await cargarDatos({ silencioso: true });
       const omitidos = res.datos.omitidos_por_reservas ?? [];
       const base =
         res.datos.agregados > 0
@@ -349,7 +362,7 @@ export const AdminHorarioPage: React.FC = () => {
       const resultado = await registrarExcepcion(data);
       if (resultado.ok) {
         setModalCrearAbierto(false);
-        await cargarDatos();
+        await cargarDatos({ silencioso: true });
         mostrarToast(resultado.mensajeExito ?? 'Fecha registrada');
       } else if (resultado.reservasActualizadas) {
         // Apareció una reserva afectada entre la consulta y el guardado
@@ -392,7 +405,7 @@ export const AdminHorarioPage: React.FC = () => {
           ))}
         </div>
       ) : errorCarga ? (
-        <EstadoError mensaje="No se pudo cargar el horario del local." onReintentar={cargarDatos} />
+        <EstadoError mensaje="No se pudo cargar el horario del local." onReintentar={() => cargarDatos()} />
       ) : tabActiva === 'semana' ? (
         dias.length === 0 ? (
           <OnboardingHorarioVacio

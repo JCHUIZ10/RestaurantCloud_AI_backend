@@ -17,7 +17,7 @@ import { cn } from '@/shared/utils';
 interface ExcepcionesCalendarioViewProps {
   excepciones: ExcepcionHorarioDTO[];
   onNuevoCierre: () => void;
-  onCargarFeriadosPeru?: () => void;
+  onCargarFeriadosPeru?: () => Promise<void>;
   onEliminarExcepcion: (id: string) => Promise<void>;
 }
 
@@ -73,6 +73,7 @@ export const ExcepcionesCalendarioView: React.FC<ExcepcionesCalendarioViewProps>
   const [limite, setLimite] = useState(10);
   const [porEliminar, setPorEliminar] = useState<ExcepcionHorarioDTO | null>(null);
   const [eliminando, setEliminando] = useState(false);
+  const [cargandoFeriados, setCargandoFeriados] = useState(false);
 
   // Fecha de referencia actual en formato ISO (YYYY-MM-DD)
   const hoyISO = useMemo(() => {
@@ -121,6 +122,16 @@ export const ExcepcionesCalendarioView: React.FC<ExcepcionesCalendarioViewProps>
     } finally {
       setEliminando(false);
       setPorEliminar(null);
+    }
+  };
+
+  const cargarFeriados = async () => {
+    if (!onCargarFeriadosPeru || cargandoFeriados) return;
+    try {
+      setCargandoFeriados(true);
+      await onCargarFeriadosPeru();
+    } finally {
+      setCargandoFeriados(false);
     }
   };
 
@@ -197,7 +208,7 @@ export const ExcepcionesCalendarioView: React.FC<ExcepcionesCalendarioViewProps>
       />
       <div className="flex flex-col sm:flex-row gap-2 lg:ml-auto">
         {onCargarFeriadosPeru && (
-          <Button variant="outline" onClick={onCargarFeriadosPeru} className="w-full sm:w-auto">
+          <Button variant="outline" onClick={cargarFeriados} loading={cargandoFeriados} disabled={cargandoFeriados} className="w-full sm:w-auto">
             <CalendarPlus className="w-4 h-4 text-red-600" aria-hidden="true" />
             Cargar feriados nacionales
           </Button>

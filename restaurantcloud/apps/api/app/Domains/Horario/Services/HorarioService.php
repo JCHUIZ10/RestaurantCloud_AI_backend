@@ -17,23 +17,22 @@ class HorarioService
         private PoliticasReservaService $politicas,
     ) {}
 
-    private const FERIADOS_PERU_2026 = [
-        ['fecha' => '2026-01-01', 'motivo' => 'Anio Nuevo'],
-        ['fecha' => '2026-04-02', 'motivo' => 'Jueves Santo'],
-        ['fecha' => '2026-04-03', 'motivo' => 'Viernes Santo'],
-        ['fecha' => '2026-05-01', 'motivo' => 'Dia del Trabajo'],
-        ['fecha' => '2026-06-07', 'motivo' => 'Batalla de Arica y Dia de la Bandera'],
-        ['fecha' => '2026-06-29', 'motivo' => 'San Pedro y San Pablo'],
-        ['fecha' => '2026-07-23', 'motivo' => 'Dia de la Fuerza Aerea del Peru'],
-        ['fecha' => '2026-07-28', 'motivo' => 'Fiestas Patrias'],
-        ['fecha' => '2026-07-29', 'motivo' => 'Fiestas Patrias'],
-        ['fecha' => '2026-08-06', 'motivo' => 'Batalla de Junin'],
-        ['fecha' => '2026-08-30', 'motivo' => 'Santa Rosa de Lima'],
-        ['fecha' => '2026-10-08', 'motivo' => 'Combate de Angamos'],
-        ['fecha' => '2026-11-01', 'motivo' => 'Dia de Todos los Santos'],
-        ['fecha' => '2026-12-08', 'motivo' => 'Inmaculada Concepcion'],
-        ['fecha' => '2026-12-09', 'motivo' => 'Batalla de Ayacucho'],
-        ['fecha' => '2026-12-25', 'motivo' => 'Navidad'],
+    /** Feriados nacionales de fecha fija, indexados por mes-día. Jueves y Viernes Santo se calculan cada año. */
+    private const FERIADOS_PERU_FIJOS = [
+        '01-01' => 'Anio Nuevo',
+        '05-01' => 'Dia del Trabajo',
+        '06-07' => 'Batalla de Arica y Dia de la Bandera',
+        '06-29' => 'San Pedro y San Pablo',
+        '07-23' => 'Dia de la Fuerza Aerea del Peru',
+        '07-28' => 'Fiestas Patrias',
+        '07-29' => 'Fiestas Patrias',
+        '08-06' => 'Batalla de Junin',
+        '08-30' => 'Santa Rosa de Lima',
+        '10-08' => 'Combate de Angamos',
+        '11-01' => 'Dia de Todos los Santos',
+        '12-08' => 'Inmaculada Concepcion',
+        '12-09' => 'Batalla de Ayacucho',
+        '12-25' => 'Navidad',
     ];
 
     private const DIAS = [
@@ -156,7 +155,7 @@ class HorarioService
                 'nota' => 'Cancelada por cambio del horario de atención',
                 'accion' => 'CANCELACION_POR_CAMBIO_HORARIO',
                 'detalle' => ['motivo' => 'Cambio del horario semanal de atención'],
-            ]);
+            ], $this->mensajeDeCambioDeHorario());
         });
 
         return $this->semana($localId);
@@ -389,7 +388,7 @@ class HorarioService
                     'nota' => "Cancelada por cierre: {$motivo}",
                     'accion' => 'CANCELACION_POR_CIERRE',
                     'detalle' => ['fecha_cierre' => $data['fecha'], 'motivo' => $motivo],
-                ]);
+                ], $this->mensajeDeCierre($data));
             }
         });
 
@@ -412,14 +411,17 @@ class HorarioService
      */
     public function cargarFeriadosPeru(string $localId, string $usuarioId): array
     {
+        $feriados = $this->feriadosPeruProximos();
+
         $existentes = DB::table('horario_excepcion')
             ->where('local_id', $localId)
-            ->whereIn('fecha', collect(self::FERIADOS_PERU_2026)->pluck('fecha'))
+            ->whereIn('fecha', $feriados->pluck('fecha'))
             ->pluck('fecha')
+            ->map(fn (string $fecha): string => substr($fecha, 0, 10))
             ->all();
 
         $omitidos = [];
-        $nuevos = collect(self::FERIADOS_PERU_2026)
+        $nuevos = $feriados
             ->reject(fn (array $feriado) => in_array($feriado['fecha'], $existentes, true))
             ->filter(function (array $feriado) use ($localId, &$omitidos): bool {
                 $reservas = $this->reservasAfectadas($localId, ['fecha' => $feriado['fecha'], 'cerrado' => true])->count();
@@ -441,15 +443,72 @@ class HorarioService
                 'created_at' => now(),
             ]);
 
-        if ($nuevos->isNotEmpty()) {
-            DB::table('horario_excepcion')->insert($nuevos->all());
-        }
+        // insertOrIgnore: una carga simultánea no debe fallar por la restricción única (local, fecha)
+        $agregados = $nuevos->isNotEmpty() ? DB::table('horario_excepcion')->insertOrIgnore($nuevos->all()) : 0;
 
         return [
-            'agregados' => $nuevos->count(),
+            'agregados' => $agregados,
             'total' => DB::table('horario_excepcion')->where('local_id', $localId)->count(),
             'omitidos_por_reservas' => $omitidos,
         ];
+    }
+
+    /**
+     * Feriados nacionales desde hoy y hasta dentro de 12 meses.
+     *
+     * @return Collection<int, array{fecha: string, motivo: string}>
+     */
+    private function feriadosPeruProximos(): Collection
+    {
+        $hoy = Carbon::today(config('app.timezone'));
+        $limite = $hoy->copy()->addMonthsNoOverflow(12);
+
+        return collect([$hoy->year, $hoy->year + 1])
+            ->flatMap(fn (int $anio): array => $this->feriadosPeru($anio))
+            ->filter(fn (array $feriado): bool => $feriado['fecha'] >= $hoy->toDateString() && $feriado['fecha'] < $limite->toDateString())
+            ->sortBy('fecha')
+            ->values();
+    }
+
+    /**
+     * @return array<int, array{fecha: string, motivo: string}>
+     */
+    private function feriadosPeru(int $anio): array
+    {
+        $feriados = [];
+
+        foreach (self::FERIADOS_PERU_FIJOS as $mesDia => $motivo) {
+            $feriados[] = ['fecha' => "{$anio}-{$mesDia}", 'motivo' => $motivo];
+        }
+
+        $pascua = $this->domingoDePascua($anio);
+        $feriados[] = ['fecha' => $pascua->copy()->subDays(3)->toDateString(), 'motivo' => 'Jueves Santo'];
+        $feriados[] = ['fecha' => $pascua->copy()->subDays(2)->toDateString(), 'motivo' => 'Viernes Santo'];
+
+        return $feriados;
+    }
+
+    /**
+     * Domingo de Pascua (algoritmo de Meeus/Jones/Butcher); no depende de la extensión calendar de PHP.
+     */
+    private function domingoDePascua(int $anio): Carbon
+    {
+        $a = $anio % 19;
+        $b = intdiv($anio, 100);
+        $c = $anio % 100;
+        $d = intdiv($b, 4);
+        $e = $b % 4;
+        $f = intdiv($b + 8, 25);
+        $g = intdiv($b - $f + 1, 3);
+        $h = (19 * $a + $b - $d - $g + 15) % 30;
+        $i = intdiv($c, 4);
+        $k = $c % 4;
+        $l = (32 + 2 * $e + 2 * $i - $h - $k) % 7;
+        $m = intdiv($a + 11 * $h + 22 * $l, 451);
+        $mes = intdiv($h + $l - 7 * $m + 114, 31);
+        $dia = (($h + $l - 7 * $m + 114) % 31) + 1;
+
+        return Carbon::create($anio, $mes, $dia, 0, 0, 0, config('app.timezone'));
     }
 
     private function normalizarDias(array $dias): array
@@ -698,16 +757,31 @@ class HorarioService
      * @param  Collection<int, object>  $afectadas
      * @param  array<int, array{reserva_id: string, notificado: bool, metodo_notificacion: string}>  $avisosCliente
      * @param  array{motivo_cancelacion: string, nota: string, accion: string, detalle: array<string, mixed>}  $causa
+     * @param  \Closure(object, Carbon): string  $redactarMensaje  Mensaje de WhatsApp para cada cliente
      */
-    private function cancelarReservas(Collection $afectadas, ?string $excepcionId, string $localId, string $empresaId, string $usuarioId, array $avisosCliente, array $causa): void
+    private function cancelarReservas(Collection $afectadas, ?string $excepcionId, string $localId, string $empresaId, string $usuarioId, array $avisosCliente, array $causa, \Closure $redactarMensaje): void
     {
         $avisos = collect($avisosCliente)->keyBy('reserva_id');
+
+        // Una reserva que el administrador nunca vio (apareció tras la consulta previa) obliga a revisar la lista vigente
+        $nuncaVistas = $afectadas->reject(fn (object $reserva): bool => $avisos->has($reserva->id));
+
+        if ($nuncaVistas->isNotEmpty()) {
+            $reservas = $this->reservasAfectadasDto($afectadas, $redactarMensaje);
+
+            throw new PoliticasReservaException(
+                'ERR_RESERVAS_AFECTADAS',
+                'Las reservas afectadas cambiaron: ahora hay '.count($reservas).'. Revisa la lista actualizada y decide el aviso de cada una.',
+                409,
+                ['total_afectadas' => count($reservas), 'reservas' => $reservas],
+            );
+        }
 
         // Ninguna reserva se cancela sin que alguien decida si el cliente fue avisado (y por qué medio)
         $sinDecision = $afectadas->filter(function (object $reserva) use ($avisos): bool {
             $aviso = $avisos->get($reserva->id);
 
-            return $aviso === null || ($aviso['notificado'] && $aviso['metodo_notificacion'] === 'ninguno');
+            return $aviso['notificado'] && $aviso['metodo_notificacion'] === 'ninguno';
         })->pluck('id')->values()->all();
 
         if ($sinDecision !== []) {

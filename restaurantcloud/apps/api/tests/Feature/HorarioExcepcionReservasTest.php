@@ -177,10 +177,29 @@ class HorarioExcepcionReservasTest extends TestCase
         $this->assertDatabaseHas('reserva', ['id' => $ajena, 'estado' => 'confirmada', 'notificado_cliente' => false]);
     }
 
-    public function test_cancelar_exige_decidir_el_aviso_de_cada_reserva_y_no_guarda_nada_si_falta(): void
+    public function test_cancelar_con_una_reserva_nueva_devuelve_la_lista_vigente_y_no_guarda_nada(): void
+    {
+        $vista = $this->crearReserva($this->a('13:00'));
+        $nueva = $this->crearReserva($this->a('20:00'));
+
+        $respuesta = $this->postJson('/api/v1/admin/horario/excepciones', $this->cierre([
+            'cancelar_reservas' => true,
+            'reservas_notificadas' => [
+                ['reserva_id' => $vista, 'notificado' => true, 'metodo_notificacion' => 'whatsapp'],
+            ],
+        ]), $this->headers);
+
+        $respuesta->assertStatus(409)->assertJsonPath('errores.0.codigo', 'ERR_RESERVAS_AFECTADAS');
+        $this->assertEqualsCanonicalizing([$vista, $nueva], collect($respuesta->json('errores.0.detalles.reservas'))->pluck('id')->all());
+
+        $this->assertDatabaseMissing('horario_excepcion', ['local_id' => $this->localId, 'fecha' => $this->fecha->toDateString()]);
+        $this->assertDatabaseHas('reserva', ['id' => $vista, 'estado' => 'confirmada']);
+        $this->assertDatabaseHas('reserva', ['id' => $nueva, 'estado' => 'confirmada']);
+    }
+
+    public function test_cancelar_rechaza_un_aviso_sin_medio_y_no_guarda_nada(): void
     {
         $decidida = $this->crearReserva($this->a('13:00'));
-        $sinDecidir = $this->crearReserva($this->a('20:00'));
         $avisoSinMedio = $this->crearReserva($this->a('21:00'));
 
         $respuesta = $this->postJson('/api/v1/admin/horario/excepciones', $this->cierre([
@@ -192,20 +211,20 @@ class HorarioExcepcionReservasTest extends TestCase
         ]), $this->headers);
 
         $respuesta->assertStatus(422)->assertJsonPath('errores.0.codigo', 'ERR_AVISOS_INCOMPLETOS');
-        $this->assertEqualsCanonicalizing([$sinDecidir, $avisoSinMedio], $respuesta->json('errores.0.detalles.reservas_sin_decision'));
+        $this->assertSame([$avisoSinMedio], $respuesta->json('errores.0.detalles.reservas_sin_decision'));
 
         $this->assertDatabaseMissing('horario_excepcion', ['local_id' => $this->localId, 'fecha' => $this->fecha->toDateString()]);
         $this->assertDatabaseHas('reserva', ['id' => $decidida, 'estado' => 'confirmada']);
-        $this->assertDatabaseHas('reserva', ['id' => $sinDecidir, 'estado' => 'confirmada']);
     }
 
-    public function test_cambio_de_horario_semanal_tambien_exige_decidir_el_aviso(): void
+    public function test_cambio_de_horario_semanal_sin_avisos_devuelve_la_lista_y_conserva_el_horario(): void
     {
         $afectada = $this->crearReserva($this->a('20:00'));
 
-        $this->putJson('/api/v1/admin/horario', $this->semanaSoloAlmuerzo(['cancelar_reservas' => true]), $this->headers)
-            ->assertStatus(422)
-            ->assertJsonPath('errores.0.codigo', 'ERR_AVISOS_INCOMPLETOS');
+        $respuesta = $this->putJson('/api/v1/admin/horario', $this->semanaSoloAlmuerzo(['cancelar_reservas' => true]), $this->headers);
+
+        $respuesta->assertStatus(409)->assertJsonPath('errores.0.codigo', 'ERR_RESERVAS_AFECTADAS');
+        $this->assertSame([$afectada], collect($respuesta->json('errores.0.detalles.reservas'))->pluck('id')->all());
 
         $this->assertDatabaseHas('reserva', ['id' => $afectada, 'estado' => 'confirmada']);
         $this->assertDatabaseHas('horario_atencion', ['local_id' => $this->localId, 'nombre_turno' => 'Turno continuo']);
@@ -317,6 +336,7 @@ class HorarioExcepcionReservasTest extends TestCase
 
     public function test_feriados_nacionales_con_reservas_se_omiten_y_se_informan(): void
     {
+        Carbon::setTestNow(Carbon::parse('2026-11-16 10:00', config('app.timezone')));
         DB::table('horario_excepcion')->where('local_id', $this->localId)->whereDate('fecha', '2026-12-25')->delete();
         $this->crearReserva(Carbon::parse('2026-12-25 13:00', config('app.timezone')));
 
@@ -326,5 +346,33 @@ class HorarioExcepcionReservasTest extends TestCase
         $this->assertContains('2026-12-25', collect($respuesta->json('datos.omitidos_por_reservas'))->pluck('fecha')->all());
         $this->assertDatabaseMissing('horario_excepcion', ['local_id' => $this->localId, 'fecha' => '2026-12-25']);
         $this->assertDatabaseHas('horario_excepcion', ['local_id' => $this->localId, 'fecha' => '2026-12-08']);
+    }
+
+    public function test_feriados_nacionales_se_calculan_por_anio_y_omiten_fechas_pasadas(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2027-01-10 10:00', config('app.timezone')));
+        DB::table('horario_excepcion')->where('local_id', $this->localId)->whereBetween('fecha', ['2026-12-01', '2028-02-01'])->delete();
+
+        $this->postJson('/api/v1/admin/horario/feriados-peru/cargar', [], $this->headers)->assertOk();
+
+        foreach (['2027-03-25', '2027-03-26', '2027-12-25', '2028-01-01'] as $fecha) {
+            $this->assertDatabaseHas('horario_excepcion', ['local_id' => $this->localId, 'fecha' => $fecha]);
+        }
+        foreach (['2026-12-25', '2027-01-01'] as $fecha) {
+            $this->assertDatabaseMissing('horario_excepcion', ['local_id' => $this->localId, 'fecha' => $fecha]);
+        }
+    }
+
+    public function test_cargar_feriados_dos_veces_no_falla_ni_duplica(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-16 10:00', config('app.timezone')));
+        DB::table('horario_excepcion')->where('local_id', $this->localId)->whereBetween('fecha', ['2026-11-16', '2027-11-16'])->delete();
+
+        $this->postJson('/api/v1/admin/horario/feriados-peru/cargar', [], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('datos.agregados', 16);
+        $this->postJson('/api/v1/admin/horario/feriados-peru/cargar', [], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('datos.agregados', 0);
     }
 }
