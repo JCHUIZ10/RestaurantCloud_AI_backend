@@ -4,11 +4,17 @@ Guía corta para validar en el navegador todo lo que cambió en **Flujo de caja 
 
 **Cómo usarlo:** marca cada caso (☐ → ✅ / ❌). Si algo falla, anótalo en la tabla final con el número del caso.
 
+**Estado del módulo: CERRADO — validación aceptada el 15/11/2026.**
+
+**Resultado del plan:** 40 casos aprobados y 1 caso **No aplica** (3.8). Los 11 casos de los grupos 1 y 2 conservan la aprobación previa del usuario; los grupos 3 a 8 aportan 29 casos aprobados en esta ejecución, incluido el opcional 5.9. No se encontraron fallos funcionales en los escenarios ejecutados.
+
+**Caso 3.8 — No aplica:** la base local estaba vacía antes de cargar el escenario Aúrea; no existían compras a crédito anteriores a las migraciones. Este caso no se cuenta como aprobado ni se afirma validada una migración de créditos históricos.
+
 ---
 
 ## 0. Preparación (una sola vez)
 
-1. **Respaldo y migraciones de la base de desarrollo.** Esta base aún no tiene las 3 migraciones nuevas; sin ellas el visado, los pagos de crédito y los tipos de comprobante fallan.
+1. **Respaldo y migraciones de la base de desarrollo.** Antes de probar, verifica que todas las migraciones estén aplicadas; el visado, los pagos de crédito y los tipos de comprobante dependen de ellas.
 
    ```bash
    docker exec saas_postgres_db pg_dump -U saas_admin restaurantcloud_db > respaldo_antes_flujo_caja.sql
@@ -37,7 +43,7 @@ Guía corta para validar en el navegador todo lo que cambió en **Flujo de caja 
    docker exec saas_postgres_db psql -U saas_admin -d restaurantcloud_db -c "select proveedor_nombre, monto, origen_fondos, tipo_comprobante, estado from gasto_manual order by created_at desc limit 5;"
    ```
 
-☐ Preparación terminada (migraciones aplicadas sin error).
+✔ Preparación terminada: respaldo realizado, servicios activos y las 14 migraciones en estado "Ran". `migrate --force` confirmó que no había migraciones pendientes.
 
 ---
 
@@ -76,14 +82,14 @@ Entra a **Compras** (`/admin/compras`).
 
 | # | Caso | Pasos | Resultado esperado | ✔ |
 | :-: | :--- | :--- | :--- | :-: |
-| 3.1 | Compra en efectivo de la gaveta | *Nueva compra*, pago **Efectivo → De la gaveta del turno**, total pequeño (S/ 30). | Se registra; el cajero ve su esperado bajar S/ 30. Con la gaveta la fecha debe ser hoy. | ☐ |
-| 3.2 | Compra en caja chica | Otra compra en **Efectivo → Caja chica**. | Se registra; el esperado del cajero **no** cambia. | ☐ |
-| 3.3 | Compra a crédito | Compra con pago **Crédito** de S/ 60. | Sale con la insignia ámbar **"Por pagar"** y arriba aparece el aviso "las compras a crédito cuentan como egreso cuando se pagan". | ☐ |
-| 3.4 | El crédito aún no cuenta | Ve a *Flujo de caja → Hoy*. | La compra a crédito **no** suma a Egresos ni a Compras. La tarjeta de liquidez muestra una insignia **"Deuda con proveedores (por pagar): S/ 60"**. | ☐ |
-| 3.5 | Pagar con fecha pasada | En el detalle de la compra, **Marcar como pagada** → Transferencia, fecha de **hace 2 días**. | Queda "Pagada el …" y el KPI "Por pagar" baja. En el flujo, el egreso aparece en el periodo que contiene esa fecha y no en hoy. | ☐ |
-| 3.6 | Validación de fecha | En otro crédito intenta una fecha **futura** (el campo tiene tope) o anterior a la emisión. | No permite elegirla; el botón de pagar queda deshabilitado. | ☐ |
-| 3.7 | Pagar con la gaveta | Otro crédito → **Efectivo → De la gaveta**. | La fecha se fija en **hoy**; al pagar, el esperado del cajero baja por el total. | ☐ |
-| 3.8 | Créditos anteriores | Revisa si había compras a crédito antiguas. | Siguen **"Por pagar"** (no se marcaron pagadas); se regularizan con *Marcar como pagada* y su fecha real. | ☐ |
+| 3.1 | Compra en efectivo de la gaveta | *Nueva compra*, pago **Efectivo → De la gaveta del turno**, total pequeño (S/ 30). | Se registra; el cajero ve su esperado bajar S/ 30. Con la gaveta la fecha debe ser hoy. | ✔ |
+| 3.2 | Compra en caja chica | Otra compra en **Efectivo → Caja chica**. | Se registra; el esperado del cajero **no** cambia. | ✔ |
+| 3.3 | Compra a crédito | Compra con pago **Crédito** de S/ 60. | Sale con la insignia ámbar **"Por pagar"** y arriba aparece el aviso "las compras a crédito cuentan como egreso cuando se pagan". | ✔ |
+| 3.4 | El crédito aún no cuenta | Ve a *Flujo de caja → Hoy*. | La compra a crédito **no** suma a Egresos ni a Compras. La tarjeta de liquidez muestra una insignia **"Deuda con proveedores (por pagar): S/ 60"**. | ✔ |
+| 3.5 | Pagar con fecha pasada | En el detalle de la compra, **Marcar como pagada** → Transferencia, fecha de **hace 2 días**. | Queda "Pagada el …" y el KPI "Por pagar" baja. En el flujo, el egreso aparece en el periodo que contiene esa fecha y no en hoy. | ✔ |
+| 3.6 | Validación de fecha | En otro crédito intenta una fecha **futura** (el campo tiene tope) o anterior a la emisión. | No permite elegirla; el botón de pagar queda deshabilitado. | ✔ |
+| 3.7 | Pagar con la gaveta | Otro crédito → **Efectivo → De la gaveta**. | La fecha se fija en **hoy**; al pagar, el esperado del cajero baja por el total. | ✔ |
+| 3.8 | Créditos anteriores | Revisa si había compras a crédito antiguas. | Siguen **"Por pagar"** (no se marcaron pagadas); se regularizan con *Marcar como pagada* y su fecha real. | No aplica |
 
 ---
 
@@ -91,8 +97,8 @@ Entra a **Compras** (`/admin/compras`).
 
 | # | Caso | Pasos | Resultado esperado | ✔ |
 | :-: | :--- | :--- | :--- | :-: |
-| 4.1 | Cierra con el balance | Con los movimientos anteriores, en *Hoy* compara el **balance neto** con la tarjeta *Efectivo y digital (neto)*. | El total de la tarjeta es **igual al balance neto**. Muestra bancos, gavetas y, si hubo, "Caja chica pagada". | ☐ |
-| 4.2 | Porcentaje no engañoso | Registra un gasto por transferencia mayor a lo cobrado digitalmente. | El monto en bancos es negativo y los porcentajes desaparecen (sin "120 %" ni cifras raras). | ☐ |
+| 4.1 | Cierra con el balance | Con los movimientos anteriores, en *Hoy* compara el **balance neto** con la tarjeta *Efectivo y digital (neto)*. | El total de la tarjeta es **igual al balance neto**. Muestra bancos, gavetas y, si hubo, "Caja chica pagada". | ✔ |
+| 4.2 | Porcentaje no engañoso | Registra un gasto por transferencia mayor a lo cobrado digitalmente. | El monto en bancos es negativo y los porcentajes desaparecen (sin "120 %" ni cifras raras). | ✔ |
 
 ---
 
@@ -102,15 +108,15 @@ Primero **cierra un turno con el cajero** (`/cajero/turno` → contar efectivo �
 
 | # | Caso | Pasos | Resultado esperado | ✔ |
 | :-: | :--- | :--- | :--- | :-: |
-| 5.1 | Reporte Z del cajero | Revisa el Z que ve el cajero al cerrar. | Muestra las ventas, la fórmula del efectivo y los egresos pagados con la gaveta. **No** dice que se notificó a nadie. | ☐ |
-| 5.2 | Mismo Z para el admin | Admin → pestaña **Cierres Z**. El turno figura *Pendiente*; pulsa **Auditar Reporte Z**. | El visor muestra el **mismo documento** y se puede **descargar el PDF**. | ☐ |
-| 5.3 | Pendientes de toda la sede | Con el periodo en *Hoy*, deja un turno sin visar de otro día (o espera al día siguiente). | La pestaña muestra el contador y aparece el banner ámbar **"Hay N turnos sin visar fuera de este periodo"**. | ☐ |
-| 5.4 | Ver pendientes | Pulsa **Ver pendientes**. | La vista pasa al rango que contiene al turno más antiguo y ahí se ve. | ☐ |
-| 5.5 | Visar conforme | Visa un turno como *Conforme* (con o sin notas). | Pasa a **Auditado** y el contador baja. | ☐ |
-| 5.6 | Observar | En otro turno elige *Observado* con una nota corta y luego una válida (10+ letras). | La nota corta no deja guardar. Con nota válida queda **"Observado — por resolver"** y aparece el banner rosa de observados. | ☐ |
-| 5.7 | Levantar la observación | En ese turno pulsa **Levantar observación** y escribe cómo se resolvió (10+ letras). | Pasa a **"Observado y resuelto"**, con quién y cuándo, y el banner rosa desaparece. | ☐ |
-| 5.8 | Ver observados | Deja un turno observado sin resolver y en *Hoy* pulsa **Ver observados**. | Lleva al rango donde está y su botón rosa está disponible. | ☐ |
-| 5.9 | Turno sin Reporte Z (opcional) | Borra el Z de un turno cerrado: `delete from auditoria_caja_cierre where caja_id='<ID>';` y recarga. | Aparece la insignia **"Sin Z archivado"**. Al auditarlo se pide **nota de 10+ letras** incluso para conforme. | ☐ |
+| 5.1 | Reporte Z del cajero | Revisa el Z que ve el cajero al cerrar. | Muestra las ventas, la fórmula del efectivo y los egresos pagados con la gaveta. **No** dice que se notificó a nadie. | ✔ |
+| 5.2 | Mismo Z para el admin | Admin → pestaña **Cierres Z**. El turno figura *Pendiente*; pulsa **Auditar Reporte Z**. | El visor muestra el **mismo documento** y se puede **descargar el PDF**. | ✔ |
+| 5.3 | Pendientes de toda la sede | Con el periodo en *Hoy*, deja un turno sin visar de otro día (o espera al día siguiente). | La pestaña muestra el contador y aparece el banner ámbar **"Hay N turnos sin visar fuera de este periodo"**. | ✔ |
+| 5.4 | Ver pendientes | Pulsa **Ver pendientes**. | La vista pasa al rango que contiene al turno más antiguo y ahí se ve. | ✔ |
+| 5.5 | Visar conforme | Visa un turno como *Conforme* (con o sin notas). | Pasa a **Auditado** y el contador baja. | ✔ |
+| 5.6 | Observar | En otro turno elige *Observado* con una nota corta y luego una válida (10+ letras). | La nota corta no deja guardar. Con nota válida queda **"Observado — por resolver"** y aparece el banner rosa de observados. | ✔ |
+| 5.7 | Levantar la observación | En ese turno pulsa **Levantar observación** y escribe cómo se resolvió (10+ letras). | Pasa a **"Observado y resuelto"**, con quién y cuándo, y el banner rosa desaparece. | ✔ |
+| 5.8 | Ver observados | Deja un turno observado sin resolver y en *Hoy* pulsa **Ver observados**. | Lleva al rango donde está y su botón rosa está disponible. | ✔ |
+| 5.9 | Turno sin Reporte Z (opcional) | Borra el Z de un turno cerrado: `delete from auditoria_caja_cierre where caja_id='<ID>';` y recarga. | Aparece la insignia **"Sin Z archivado"**. Al auditarlo se pide **nota de 10+ letras** incluso para conforme. | ✔ |
 
 ---
 
@@ -120,12 +126,12 @@ Deja un **turno abierto** con el cajero (venta o dos en efectivo).
 
 | # | Caso | Pasos | Resultado esperado | ✔ |
 | :-: | :--- | :--- | :--- | :-: |
-| 6.1 | Aviso "Turno sin cerrar" | Simula un turno viejo: `update caja set fecha_apertura = now() - interval '2 days' where estado='abierta';` y recarga el admin. | La cabecera dice **"Turno sin cerrar"** y el banner de *Cierres Z* indica que sigue abierto pasada la hora de cierre. Es solo un aviso: **el turno sigue abierto**. | ☐ |
-| 6.2 | Abrir el cierre forzado | Pulsa **Cierre administrativo forzado**. | Se abre el modal con las cifras reales del turno (esperado, ventas, egresos). | ☐ |
-| 6.3 | Esperado en vivo | Con el modal abierto, el cajero cobra una venta en efectivo. Espera ~5 s. | El esperado se actualiza solo y aparece el aviso ámbar **"El efectivo esperado cambió de S/ X a S/ Y"**. | ☐ |
-| 6.4 | Justificación obligatoria | Ingresa el contado y una justificación de menos de 15 letras. | El botón de confirmar sigue deshabilitado hasta tener 15+ letras. | ☐ |
-| 6.5 | Confirmar | Confirma el cierre. | Aviso con la diferencia (faltante/sobrante/sin diferencia), la terminal queda libre y se **abre el Reporte Z** del turno para visarlo. El Z indica "cierre forzado" y la justificación. | ☐ |
-| 6.6 | Cajero cerró antes | Repite 6.2, y mientras el modal está abierto el cajero cierra su turno. | En unos segundos el modal se cierra con el aviso "El turno se cerró mientras lo revisabas". | ☐ |
+| 6.1 | Aviso "Turno sin cerrar" | Simula un turno viejo: `update caja set fecha_apertura = now() - interval '2 days' where estado='abierta';` y recarga el admin. | La cabecera dice **"Turno sin cerrar"** y el banner de *Cierres Z* indica que sigue abierto pasada la hora de cierre. Es solo un aviso: **el turno sigue abierto**. | ✔ |
+| 6.2 | Abrir el cierre forzado | Pulsa **Cierre administrativo forzado**. | Se abre el modal con las cifras reales del turno (esperado, ventas, egresos). | ✔ |
+| 6.3 | Esperado en vivo | Con el modal abierto, el cajero cobra una venta en efectivo. Espera ~5 s. | El esperado se actualiza solo y aparece el aviso ámbar **"El efectivo esperado cambió de S/ X a S/ Y"**. | ✔ |
+| 6.4 | Justificación obligatoria | Ingresa el contado y una justificación de menos de 15 letras. | El botón de confirmar sigue deshabilitado hasta tener 15+ letras. | ✔ |
+| 6.5 | Confirmar | Confirma el cierre. | Aviso con la diferencia (faltante/sobrante/sin diferencia), la terminal queda libre y se **abre el Reporte Z** del turno para visarlo. El Z indica "cierre forzado" y la justificación. | ✔ |
+| 6.6 | Cajero cerró antes | Repite 6.2, y mientras el modal está abierto el cajero cierra su turno. | En unos segundos el modal se cierra con el aviso "El turno se cerró mientras lo revisabas". | ✔ |
 
 ---
 
@@ -133,8 +139,8 @@ Deja un **turno abierto** con el cajero (venta o dos en efectivo).
 
 | # | Caso | Pasos | Resultado esperado | ✔ |
 | :-: | :--- | :--- | :--- | :-: |
-| 7.1 | Sin sede activa | Entra como **propietario** y abre el flujo de caja sin haber elegido sede. | Mensaje "Elige una sede…" con el botón **Ir a Mis sedes**. | ☐ |
-| 7.2 | Con sede | Entra a una sede desde *Mis sedes* y vuelve al flujo de caja. | Carga los datos de esa sede y puede descargar el PDF del Z. | ☐ |
+| 7.1 | Sin sede activa | Entra como **propietario** y abre el flujo de caja sin haber elegido sede. | Mensaje "Elige una sede…" con el botón **Ir a Mis sedes**. | ✔ |
+| 7.2 | Con sede | Entra a una sede desde *Mis sedes* y vuelve al flujo de caja. | Carga los datos de esa sede y puede descargar el PDF del Z. | ✔ |
 
 ---
 
@@ -144,9 +150,9 @@ Con la cuenta de **cajero** (zona que más se tocó por dentro):
 
 | # | Caso | Pasos | Resultado esperado | ✔ |
 | :-: | :--- | :--- | :--- | :-: |
-| 8.1 | Apertura y cobro | Abre un turno y cobra una venta en efectivo y otra con tarjeta. | Funciona igual que antes. | ☐ |
-| 8.2 | Cierre normal | Cierra el turno con el conteo exacto. | Z sin diferencia, con la fórmula y los egresos de la gaveta. Botón de PDF funciona. | ☐ |
-| 8.3 | Consulta del último Z | Entra a la consulta del último Reporte Z. | Se ve el documento con banner de "consulta" y el botón *Volver*. | ☐ |
+| 8.1 | Apertura y cobro | Abre un turno y cobra una venta en efectivo y otra con tarjeta. | Funciona igual que antes. | ✔ |
+| 8.2 | Cierre normal | Cierra el turno con el conteo exacto. | Z sin diferencia, con la fórmula y los egresos de la gaveta. Botón de PDF funciona. | ✔ |
+| 8.3 | Consulta del último Z | Entra a la consulta del último Reporte Z. | Se ve el documento con banner de "consulta" y el botón *Volver*. | ✔ |
 
 ---
 
@@ -160,7 +166,7 @@ docker exec -w /app saas_laravel_api php artisan test --compact tests/Feature/Ad
 npx tsc --noEmit -p tsconfig.app.json && npm test && npm run build
 ```
 
-Resultado esperado: backend `54 + … passed`, front `18 passed`, `tsc` y build sin errores.
+Resultado verificado el **15/11/2026**: backend **79 tests aprobados (577 verificaciones)** en la base aislada `restaurantcloud_test`; frontend **18 tests aprobados**; TypeScript y compilación Vite correctos mediante `npm run build`. Advertencia no bloqueante de Vite por tamaño de chunks. El bucket MinIO exclusivo de pruebas se preparó antes de la ejecución final del backend.
 
 ---
 
@@ -171,6 +177,14 @@ Resultado esperado: backend `54 + … passed`, front `18 passed`, `tsc` y build 
 
 | Caso | Qué pasó | Gravedad (alta / media / baja) |
 | :-: | :--- | :-: |
-|  |  |  |
-|  |  |  |
-|  |  |  |
+| Caso 3.8 | No aplica: no existían créditos anteriores a las migraciones en la base local. | No aplica |
+
+### Registro de cierre — 15/11/2026
+
+- **Versión validada:** rama `betta`, sincronizada con `origin/betta`, commit `4fbeb4477476466a1e8c5d380940c03e807507cd`.
+- **Conciliación comprobada:** compra de gaveta S/ 30 redujo el esperado de S/ 200 a S/ 170; compra de caja chica S/ 10 no lo alteró; pago de crédito desde gaveta S/ 60 lo redujo a S/ 110. Un crédito emitido el 12/11 y pagado el 13/11 se reflejó en esa fecha, fuera de «Hoy».
+- **Cierres comprobados:** cierre forzado con actualización en vivo del esperado de S/ 200 a S/ 209; cierre normal con fondo S/ 100 + venta en efectivo S/ 9 − gasto de gaveta S/ 20 = S/ 89, sin diferencia. Cobros con tarjeta, PDF, visado conforme, observación, resolución y consulta del último Z correctos.
+- **Concurrencia comprobada:** el modal administrativo se cerró automáticamente con el aviso «El turno se cerró mientras lo revisabas. Se actualizó la lista.» al cerrar primero el cajero.
+- **Caso opcional 5.9:** aprobado con copia previa del registro Z del turno de prueba 004; el registro se restauró y se retiró la copia temporal al finalizar.
+- **Estado final del entorno:** cuatro turnos cerrados y visados, cuatro Z archivados, sin turnos abiertos ni observaciones por resolver. Docker y frontend quedaron activos con API real. Se conservaron los movimientos de prueba, incluido un crédito auxiliar de S/ 5 sin pagar usado para validar fechas.
+- **Aceptación:** el usuario solicita dar por cerrado el módulo de **Flujo de caja y cierres** con estos resultados. El cierre corresponde al alcance de este plan; el caso 3.8 queda documentado como No aplica.
