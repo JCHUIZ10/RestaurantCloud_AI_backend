@@ -83,6 +83,42 @@ Se mantiene el formato que ya usa Laravel (`App\Support\ApiResponse`), para que 
 - Toda petición lleva `X-Request-Id` (lo genera el gateway si falta); cada servicio lo escribe en sus logs y lo reenvía en sus llamadas.
 - Cada servicio expone `GET /health` sin autenticación y su documentación OpenAPI.
 
+## 2.1 Convenciones de datos (todas las bases)
+
+El modelo de cada servicio está en la sección 2 de su ficha. Estas reglas valen para todos:
+
+**Propiedad y acceso**
+
+- Cada base pertenece a un solo servicio. Nadie más se conecta a ella; los demás obtienen los datos por API o por eventos.
+- El servicio se conecta con un usuario propio **sin privilegios de administración**. Las migraciones se ejecutan con otro usuario.
+- No hay claves foráneas entre bases. Los identificadores de otros servicios (`producto_id`, `mozo_id`, `local_id`…) se guardan como UUID de referencia, junto con una copia del nombre tal como estaba cuando ocurrió el hecho.
+
+**Multiempresa**
+
+- Toda tabla o colección con datos de negocio lleva `empresa_id` y `local_id`.
+- Toda consulta filtra por ellos, con los valores del JWT o de la petición interna firmada. El filtro se aplica en una única capa de acceso a datos, no en cada endpoint.
+- Los índices de consulta empiezan por `local_id`.
+
+**Tipos**
+
+- Dinero y cantidades: `numeric`, nunca coma flotante.
+- Instantes: `timestamptz` (PostgreSQL) o `Date` (MongoDB), siempre con zona. Jornadas: `date`.
+- Estados con valores fijos: restricción `CHECK` (PostgreSQL) o validador de esquema (MongoDB).
+
+**Integridad con eventos**
+
+- Aplicar un evento y registrar que se procesó ocurren en la misma transacción, o se garantiza con un índice único. Recibir el mismo evento dos veces no cambia nada.
+- Los datos derivados (agregados) se pueden reconstruir a partir de los datos base del mismo servicio.
+
+**Privacidad**
+
+- Ninguna base de microservicio guarda nombre, documento ni teléfono de comensales.
+
+**Evolución del esquema**
+
+- Los cambios se hacen con migraciones versionadas en la carpeta del servicio: Alembic en los servicios Python y un script de índices y validadores en el servicio con MongoDB. El núcleo sigue con migraciones de Laravel.
+- La base se puede reconstruir desde cero solo con las migraciones.
+
 ## 3. Estructura del contrato de un endpoint
 
 En la sección «API» de cada ficha, cada endpoint se documenta con esta plantilla:
