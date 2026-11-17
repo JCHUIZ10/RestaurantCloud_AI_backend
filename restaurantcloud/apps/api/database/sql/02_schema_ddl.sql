@@ -951,6 +951,25 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_outbox_comprobante_documento
     ON outbox_event (agregado_id, tipo_evento)
     WHERE tipo_evento = 'comprobante.digital.solicitado';
 
+-- Una fila por evento y microservicio destino: cada destino se reintenta por separado.
+-- Los destinos de cada tipo de evento se definen en config/eventos.php.
+CREATE TABLE IF NOT EXISTS outbox_entrega (
+    id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
+    evento_id UUID NOT NULL REFERENCES outbox_event(id) ON DELETE CASCADE,
+    destino VARCHAR(40) NOT NULL,
+    estado VARCHAR(12) NOT NULL DEFAULT 'pendiente'
+        CHECK (estado IN ('pendiente', 'entregado', 'fallido')),
+    intentos SMALLINT NOT NULL DEFAULT 0,
+    proximo_intento_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ultimo_error TEXT,
+    entregado_en TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (evento_id, destino)
+);
+
+CREATE INDEX IF NOT EXISTS ix_outbox_entrega_pendiente
+    ON outbox_entrega (proximo_intento_en) WHERE estado = 'pendiente';
+
 -- 7.8 Almacenamiento Centralizado de Archivos y Metadatos de MinIO (CU-SAAS-02, CU-ADMIN-04, CU-ADMIN-11, CU-CAJA-03, CU-CAJA-05)
 CREATE TABLE IF NOT EXISTS archivo (
     id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
