@@ -87,6 +87,13 @@ _Detalle de cada endpoint: por completar con la plantilla del README._
 
 Publica todos los eventos de origen `nucleo` del [catálogo](eventos.md). Cada uno se inserta en `outbox_event` dentro de la misma transacción del negocio y un worker lo envía después. No consume eventos.
 
+**Implementación** (`app/Domains/Eventos`):
+
+- `PublicadorEventos::publicar` guarda el sobre completo en `outbox_event.payload` y una fila de `outbox_entrega` por destino, sin llamadas de red. `EventosNucleo` arma los `datos` de cada evento a partir de las filas ya guardadas en la transacción.
+- Puntos de emisión: `venta.registrada` en `CajaController::cobrar` (cuenta completa y subcuenta), `comprobante.anulado` en `CajaController::emitirNotaCredito` y `pedido.anulado` en cada registro de `pedido_anulacion` de `MozoController` (ítem, comanda completa, comanda vacía y sustitución por quiebre).
+- Al confirmar la transacción se encola `EntregarEventoJob` (cola `eventos`) por cada entrega. Si eso falla, o para los reintentos, el comando `outbox:despachar-eventos` (cada minuto) encola las entregas vencidas. Cada entrega encolada queda reservada 2 minutos para no encolarla dos veces.
+- El flujo `comprobante.digital.solicitado` (PDF del comprobante) no cambia.
+
 ## 5. Dependencias y fallos
 
 | Depende de | Si no responde |
@@ -100,11 +107,13 @@ Publica todos los eventos de origen `nucleo` del [catálogo](eventos.md). Cada u
 |---|---|
 | `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY`, `JWT_MINUTOS` | Firma y duración del JWT |
 | `PRONOSTICO_URL`, `PRONOSTICO_SECRETO` | Dirección y secreto de ms-pronóstico |
-| `ANALITICA_URL`, `ANALITICA_SECRETO` | Destino de eventos |
-| `NOTIFICACIONES_URL`, `NOTIFICACIONES_SECRETO` | Destino de eventos |
+| `ANALITICA_URL`, `ANALITICA_SECRETO` | Destino de eventos. Sin URL, no se crean entregas para ese servicio |
+| `NOTIFICACIONES_URL`, `NOTIFICACIONES_SECRETO` | Destino de eventos. Sin URL, no se crean entregas para ese servicio |
+| `EVENTOS_MAX_INTENTOS`, `EVENTOS_TIMEOUT_SEGUNDOS` | Reintentos por destino (8) y espera de respuesta (5 s) |
+
+Los destinos de cada tipo de evento se definen en `config/eventos.php` (decidido: configuración, no base de datos). Un destino que no está configurado al publicar el evento no recibe ese evento aunque se configure después.
 
 ## 7. Decisiones abiertas
 
-- Tabla de suscripciones evento → servicios destino: en configuración o en base de datos.
 - Si aceptar una recomendación crea una ficha de compra en borrador.
 - Preparación de RLS: rol `rc_app` y prueba de aislamiento en la base (ver la sección 11 del documento de arquitectura).

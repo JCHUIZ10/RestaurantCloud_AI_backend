@@ -74,7 +74,7 @@ Se mantiene el formato que ya usa Laravel (`App\Support\ApiResponse`), para que 
 | Quién llama | Cómo se autentica |
 |---|---|
 | Navegador → microservicio | `Authorization: Bearer <JWT>`. El servicio valida la firma RS256 y toma `empresa_id`, `local_id` y `rol` del token; nunca del cuerpo ni de la URL |
-| Servidor → servidor (`/interno`) | Cabeceras `X-Timestamp` y `X-Firma` (HMAC-SHA256 de `timestamp.cuerpo` con el secreto del servicio destino). Se rechaza si el timestamp tiene más de 5 minutos |
+| Servidor → servidor (`/interno`) | Cabeceras `X-Timestamp` (segundos desde 1970, UTC) y `X-Firma` (HMAC-SHA256 en hexadecimal de `timestamp.cuerpo` con el secreto del servicio destino). La firma se calcula sobre los bytes exactos del cuerpo recibido, sin volver a serializarlo. Se rechaza si el timestamp tiene más de 5 minutos |
 
 **Otras reglas.**
 
@@ -171,7 +171,7 @@ Todos los eventos viajan como `POST /interno/eventos` del servicio destino, con 
 **Reglas de entrega.**
 
 - El receptor responde `202` si lo acepta. Si ya había procesado ese `id`, responde `200` y no hace nada (así tolera duplicados).
-- Cualquier otra respuesta, o no responder en 5 segundos, cuenta como fallo: el emisor reintenta con espera creciente hasta un máximo de intentos y luego marca el evento como `fallido` en `outbox_event`.
+- Cualquier otra respuesta, o no responder en 5 segundos, cuenta como fallo: el emisor reintenta ese destino con espera creciente (1, 2, 4… minutos, hasta 60) y a los 8 intentos marca su entrega como `fallida` en `outbox_entrega`. El evento en `outbox_event` queda `procesado` cuando todos sus destinos lo recibieron, o `fallido` si alguno agotó sus intentos.
 - No se garantiza el orden de llegada. El receptor usa `ocurrido_en` si el orden importa.
 - Un cambio incompatible en `datos` sube `version`; agregar campos opcionales no.
 - Los eventos no llevan datos personales de comensales (nombre, documento, teléfono).
