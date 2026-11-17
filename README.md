@@ -173,11 +173,15 @@ docker compose up -d --build
 ```
 
 #### ¿Qué contenedores se crean y levantan automáticamente?
-- **`saas_postgres_db` (PostgreSQL 16)**: Corre en el puerto `5432`. Arranca con la base vacía: la estructura (DDL, políticas RLS, planes comerciales y catálogo UBIGEO) la crean las **migraciones de Laravel**, que la API aplica sola al iniciar. La sede demo **"Áurea"** (productos, mesas, inventario y usuarios) se carga con `php artisan db:seed` en el Paso 4.
-- **`saas_redis` (Redis 7)**: Corre en el puerto `6379` para caché de alta velocidad, sesiones y colas.
-- **`saas_minio` & `saas_minio_init`**: Corre en los puertos `9000` (API S3) y `9001` (Consola Web). Crea automáticamente el bucket `restaurantcloud`.
-- **`saas_laravel_api` (API con FrankenPHP / Octane)**: Corre en el puerto `8080`. Instala dependencias con Composer si faltan, genera `APP_KEY` y levanta el servidor API de alto rendimiento.
-- **`saas_laravel_queue` & `saas_laravel_scheduler`**: Procesamiento asíncrono en segundo plano.
+- **`restaurantcloudIA_db` (PostgreSQL 16)**: Corre en el puerto `5432`. Arranca con la base vacía: la estructura (DDL, políticas RLS, planes comerciales y catálogo UBIGEO) la crean las **migraciones de Laravel**, que la API aplica sola al iniciar. La sede demo **"Áurea"** (productos, mesas, inventario y usuarios) se carga con `php artisan db:seed` en el Paso 4.
+- **`restaurantcloudIA_redis` (Redis 7)**: Corre en el puerto `6379` para caché de alta velocidad, sesiones y colas.
+- **`restaurantcloudIA_minio` & `restaurantcloudIA_minio_init`**: Corre en los puertos `9000` (API S3) y `9001` (Consola Web). Crea automáticamente el bucket `restaurantcloud`.
+- **`restaurantcloudIA_api` (API con FrankenPHP / Octane)**: Corre en el puerto `8080`. Instala dependencias con Composer si faltan, genera `APP_KEY` y levanta el servidor API de alto rendimiento.
+- **`restaurantcloudIA_queue` & `restaurantcloudIA_scheduler`**: Procesamiento asíncrono en segundo plano.
+- **`restaurantcloudIA_db_analitica` y `restaurantcloudIA_db_pronostico` (PostgreSQL 16)**: Bases de datos propias de los microservicios de analítica y pronóstico. Puertos `5433` y `5434`.
+- **`restaurantcloudIA_mongo` (MongoDB 7)**: Base de datos propia del microservicio de notificaciones. Puerto `27017`.
+
+> El proyecto de Docker Compose se llama `restaurantcloud-ia` y todos sus contenedores empiezan por `restaurantcloudIA_`, con volúmenes propios. Así no comparte datos con el entorno de la rama `monolito`. Ambos entornos usan los mismos puertos, por lo que no pueden estar encendidos a la vez: apaga uno con `docker compose down` antes de levantar el otro.
 
 #### Verificar que todo esté corriendo
 ```bash
@@ -197,8 +201,8 @@ docker compose logs -f api
 Espera a que la API termine de aplicar las migraciones (`docker compose logs -f api` muestra `Server running`). Luego carga la sede demo **Áurea** y crea las carpetas de almacenamiento de comprobantes y archivos en MinIO para esa empresa. Los datos de demostración son **sintéticos**.
 
 ```bash
-docker exec -it saas_laravel_api php artisan db:seed
-docker exec -it saas_laravel_api php artisan tenant:init-storage --test
+docker exec -it restaurantcloudIA_api php artisan db:seed
+docker exec -it restaurantcloudIA_api php artisan tenant:init-storage --test
 ```
 
 > Sin `db:seed` no existen la empresa ni los usuarios de la sección «Credenciales de Prueba» y no podrás iniciar sesión.
@@ -292,23 +296,23 @@ docker compose logs -f api
 # Reiniciar la base de datos limpia desde cero (elimina volúmenes; las migraciones recrean el esquema al iniciar la API)
 docker compose down -v
 docker compose up -d
-docker exec -it saas_laravel_api php artisan db:seed
-docker exec -it saas_laravel_api php artisan tenant:init-storage --test
+docker exec -it restaurantcloudIA_api php artisan db:seed
+docker exec -it restaurantcloudIA_api php artisan tenant:init-storage --test
 ```
 
 ### Comandos de la API Laravel (a través de Docker)
 ```bash
 # Correr las pruebas automatizadas del backend
-docker exec -it saas_laravel_api php artisan test
+docker exec -it restaurantcloudIA_api php artisan test
 
 # Ver listado de rutas de la API
-docker exec -it saas_laravel_api php artisan route:list
+docker exec -it restaurantcloudIA_api php artisan route:list
 
 # Entrar a la consola interactiva Tinker
-docker exec -it saas_laravel_api php artisan tinker
+docker exec -it restaurantcloudIA_api php artisan tinker
 
 # Limpiar caché de Laravel
-docker exec -it saas_laravel_api php artisan optimize:clear
+docker exec -it restaurantcloudIA_api php artisan optimize:clear
 ```
 
 ### Comandos del Frontend (desde `restaurantcloud/apps/web`)
@@ -337,5 +341,5 @@ npm run build
 3. **La API muestra error 500 o falta la clave:**  
    Genera la clave de la aplicación con:  
    ```bash
-   docker exec -it saas_laravel_api php artisan key:generate --force
+   docker exec -it restaurantcloudIA_api php artisan key:generate --force
    ```

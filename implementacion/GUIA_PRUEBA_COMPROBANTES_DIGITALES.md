@@ -52,8 +52,8 @@ docker compose restart api queue scheduler
 docker compose ps
 ```
 
-Debes ver activos `saas_laravel_api`, `saas_laravel_queue` y
-`saas_laravel_scheduler`.
+Debes ver activos `restaurantcloudIA_api`, `restaurantcloudIA_queue` y
+`restaurantcloudIA_scheduler`.
 
 ## Caso B: base de datos nueva
 

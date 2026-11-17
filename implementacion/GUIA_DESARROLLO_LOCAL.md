@@ -106,7 +106,7 @@ docker compose up -d
 docker compose ps
 ```
 
-El resultado esperado es que los contenedores `saas_postgres_db` y `saas_redis` estén en estado `running` o `healthy`.
+El resultado esperado es que los contenedores `restaurantcloudIA_db` y `restaurantcloudIA_redis` estén en estado `running` o `healthy`.
 
 Para inspeccionar errores:
 

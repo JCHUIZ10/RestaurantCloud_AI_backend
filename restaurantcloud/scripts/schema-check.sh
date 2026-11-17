@@ -5,12 +5,12 @@
 #   ./schema-check.sh                  -> compara restaurantcloud_db
 #   ./schema-check.sh <base_de_datos>  -> compara la BD indicada
 # Sale con código 1 si hay diferencias (las imprime).
-# Requiere los contenedores saas_postgres_db y saas_laravel_api en ejecución.
+# Requiere los contenedores restaurantcloudIA_db y restaurantcloudIA_api en ejecución.
 
 set -euo pipefail
 
-DB_CONTAINER="saas_postgres_db"
-API_CONTAINER="saas_laravel_api"
+DB_CONTAINER="restaurantcloudIA_db"
+API_CONTAINER="restaurantcloudIA_api"
 DB_USER="saas_admin"
 TARGET_DB="${1:-restaurantcloud_db}"
 REF_DB="restaurantcloud_schema_ref"

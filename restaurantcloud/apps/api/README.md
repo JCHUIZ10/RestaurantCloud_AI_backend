@@ -17,11 +17,11 @@ No edites los archivos de `database/sql` para cambiar una BD existente: no se vu
 
 ```bash
 # Nuevo cambio de esquema
-docker exec saas_laravel_api php artisan make:migration agregar_x_a_tabla --no-interaction
-docker exec saas_laravel_api php artisan migrate
+docker exec restaurantcloudIA_api php artisan make:migration agregar_x_a_tabla --no-interaction
+docker exec restaurantcloudIA_api php artisan migrate
 
 # Datos demo del local ÁUREA (desarrollo)
-docker exec saas_laravel_api php artisan db:seed --force
+docker exec restaurantcloudIA_api php artisan db:seed --force
 ```
 
 El contenedor `api` ejecuta `php artisan migrate --force` en cada arranque (`infra/docker/entrypoint.sh`).
@@ -44,5 +44,5 @@ La suite corre contra `restaurantcloud_test` y el bucket `restaurantcloud-test`,
 
 ```bash
 ./scripts/test-db-reset.sh                       # tras cambiar migraciones o semillas
-docker exec saas_laravel_api php artisan test
+docker exec restaurantcloudIA_api php artisan test
 ```

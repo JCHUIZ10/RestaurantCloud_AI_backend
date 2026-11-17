@@ -7,11 +7,11 @@ REM   init_minio_tenant.bat --all    -> Inicializa todas las empresas pendientes
 
 if "%~1"=="" (
     echo [RestaurantCloud] Inicializando espacio MinIO para la empresa de prueba AUREA...
-    docker exec saas_laravel_api php artisan tenant:init-storage --test
+    docker exec restaurantcloudIA_api php artisan tenant:init-storage --test
 ) else if "%~1"=="--all" (
     echo [RestaurantCloud] Inicializando espacio MinIO para todas las empresas pendientes...
-    docker exec saas_laravel_api php artisan tenant:init-storage --all
+    docker exec restaurantcloudIA_api php artisan tenant:init-storage --all
 ) else (
     echo [RestaurantCloud] Inicializando espacio MinIO para empresa %1...
-    docker exec saas_laravel_api php artisan tenant:init-storage %1
+    docker exec restaurantcloudIA_api php artisan tenant:init-storage %1
 )

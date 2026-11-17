@@ -4,12 +4,12 @@
 # y asegura el bucket MinIO de tests.
 # Uso:
 #   ./test-db-reset.sh
-# Requiere los contenedores saas_postgres_db y saas_laravel_api en ejecución.
+# Requiere los contenedores restaurantcloudIA_db y restaurantcloudIA_api en ejecución.
 
 set -euo pipefail
 
-DB_CONTAINER="saas_postgres_db"
-API_CONTAINER="saas_laravel_api"
+DB_CONTAINER="restaurantcloudIA_db"
+API_CONTAINER="restaurantcloudIA_api"
 DB_USER="saas_admin"
 TEST_DB="restaurantcloud_test"
 TEST_BUCKET="restaurantcloud-test"
