@@ -16,10 +16,56 @@ Estructura y reglas comunes: [README.md](README.md).
 
 ## 2. Datos que gestiona
 
-| Colección (propuesta) | Propósito |
+Motor: MongoDB. Reglas comunes: [README.md](README.md), sección 2.1.
+
+Una sola colección, `notificaciones`, con un documento por aviso y destinatario:
+
+```json
+{
+  "_id": "ObjectId",
+  "evento_id": "0f8b6c1e-2a4d-4c8e-9b1a-6f2d3e4a5b6c",
+  "empresa_id": "00000000-0000-4000-8000-000000000001",
+  "local_id": "00000000-0000-4000-8000-000000000010",
+  "destinatario": { "tipo": "rol", "rol": "admin_local", "usuario_id": null },
+  "tipo": "comprobante.anulado",
+  "severidad": "alerta",
+  "titulo": "Comprobante anulado",
+  "mensaje": "Carlos Ríos anuló un comprobante por S/ 75.00.",
+  "datos": { "comprobante_id": "7c1d9e42-…", "total": 75.00 },
+  "leida_por": [ { "usuario_id": "…", "en": "2026-11-16T21:45:00-05:00" } ],
+  "creada_en": "2026-11-16T21:40:11-05:00",
+  "expira_en": "2026-12-16T21:40:11-05:00"
+}
+```
+
+| Campo | Descripción |
 |---|---|
-| `notificaciones` | Un documento por aviso: empresa, local, destinatario (usuario o rol), tipo, título, mensaje, `datos` propios del tipo, usuarios que lo leyeron y fecha de caducidad (índice TTL) |
-| `eventos_procesados` | Identificadores de eventos ya aplicados (con TTL) |
+| `evento_id` | Evento que originó el aviso |
+| `destinatario` | `tipo` es `rol` (todos los usuarios de ese rol en el local) o `usuario` (una persona) |
+| `tipo` | Tipo del evento de origen; determina el título, el mensaje y la forma de `datos` |
+| `severidad` | `info`, `alerta` o `critica` |
+| `datos` | Campos propios de cada tipo, para que la interfaz enlace con el recurso |
+| `leida_por` | Usuarios que ya lo leyeron y cuándo |
+| `expira_en` | Fecha en que MongoDB lo borra |
+
+**Índices**
+
+| Índice | Para qué |
+|---|---|
+| `{ local_id: 1, "destinatario.rol": 1, creada_en: -1 }` | Bandeja de los avisos dirigidos a un rol |
+| `{ "destinatario.usuario_id": 1, creada_en: -1 }` (parcial: solo destinatario `usuario`) | Bandeja de los avisos personales |
+| `{ evento_id: 1, "destinatario.rol": 1, "destinatario.usuario_id": 1 }` **único** | Un mismo evento no crea dos veces el mismo aviso |
+| `{ expira_en: 1 }` con `expireAfterSeconds: 0` (TTL) | Borrado automático |
+
+**Decisiones de diseño**
+
+- **Por qué un documento y no tablas.** Cada tipo de aviso lleva `datos` distintos (un comprobante, un plato, una reserva, un pronóstico). En un modelo relacional haría falta una tabla por tipo o una columna genérica; aquí es el uso natural del motor.
+- **El índice único reemplaza a una colección de eventos procesados.** Si el mismo evento llega dos veces, la segunda inserción choca con el índice y se descarta.
+- **Un evento puede crear varios avisos** (por ejemplo, uno para `admin_local` y otro para `cajero`): un documento por destinatario.
+- **`leida_por` dentro del documento.** Un aviso a un rol lo leen como mucho los usuarios de ese rol en un local, que son pocos, así que la lista no crece sin control. Marcar como leído es una sola operación (`$addToSet`).
+- **Validación.** La colección tiene un validador de esquema (`$jsonSchema`) que exige los campos comunes y los valores permitidos de `destinatario.tipo` y `severidad`; `datos` queda libre.
+- **Caducidad.** `expira_en` se calcula al crear el aviso con `DIAS_RETENCION`.
+- **Sin datos de comensales.** Los mensajes pueden nombrar al personal (quién anuló, qué mozo), nunca al cliente.
 
 ## 3. API
 
