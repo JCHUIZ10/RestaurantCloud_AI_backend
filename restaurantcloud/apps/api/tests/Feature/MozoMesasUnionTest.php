@@ -602,8 +602,11 @@ class MozoMesasUnionTest extends TestCase
             $detalle = $this->getJson("/api/v1/mozo/mesas/{$mesaId}/detalle", $this->headers());
             $detalle->assertStatus(200)
                 ->assertJsonPath('datos.estado', 'ocupada')
-                ->assertJsonCount(2, 'datos.items')
-                ->assertJsonPath('datos.items.0.cantidad', 2);
+                ->assertJsonCount(2, 'datos.items');
+
+            // Las dos rondas pueden compartir el mismo created_at, así que no se asume el orden
+            $cantidades = collect($detalle->json('datos.items'))->pluck('cantidad')->map(fn ($c) => (int) $c)->sort()->values()->all();
+            $this->assertSame([1, 2], $cantidades);
         }
     }
 }
