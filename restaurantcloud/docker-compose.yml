@@ -141,6 +141,10 @@ services:
       STRIPE_KEY: ${STRIPE_KEY:-}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      ANALITICA_URL: ${ANALITICA_URL:-}
+      ANALITICA_SECRETO: ${ANALITICA_SECRETO:-}
+      NOTIFICACIONES_URL: ${NOTIFICACIONES_URL:-}
+      NOTIFICACIONES_SECRETO: ${NOTIFICACIONES_SECRETO:-}
     volumes:
 
       - ./apps/api:/app
@@ -180,6 +184,11 @@ services:
       AWS_URL: ${AWS_URL:-http://localhost:9000/restaurantcloud}
       AWS_USE_PATH_STYLE_ENDPOINT: "true"
       FILESYSTEM_DISK: s3
+      # El worker envía los eventos del outbox a los microservicios.
+      ANALITICA_URL: ${ANALITICA_URL:-}
+      ANALITICA_SECRETO: ${ANALITICA_SECRETO:-}
+      NOTIFICACIONES_URL: ${NOTIFICACIONES_URL:-}
+      NOTIFICACIONES_SECRETO: ${NOTIFICACIONES_SECRETO:-}
     volumes:
       - ./apps/api:/app
     depends_on:

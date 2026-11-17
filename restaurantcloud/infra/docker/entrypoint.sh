@@ -61,8 +61,8 @@ case "$ROLE" in
         fi
         ;;
     queue)
-        echo "PostgreSQL listo. Iniciando worker de documentos con phpredis..."
-        exec php artisan queue:work redis --queue=documentos --tries=3 --timeout=120 --sleep=1 --memory=256
+        echo "PostgreSQL listo. Iniciando worker de documentos y eventos con phpredis..."
+        exec php artisan queue:work redis --queue=documentos,eventos --tries=3 --timeout=120 --sleep=1 --memory=256
         ;;
     scheduler)
         echo "PostgreSQL listo. Iniciando scheduler de Laravel..."

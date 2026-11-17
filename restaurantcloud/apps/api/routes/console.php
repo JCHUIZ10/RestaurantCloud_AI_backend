@@ -22,3 +22,8 @@ Schedule::command('suscripciones:procesar-cobros')
 Schedule::command('outbox:despachar-comprobantes --limite=25')
     ->everyMinute()
     ->withoutOverlapping();
+
+// Etapa II: entregas de eventos a los microservicios que no se encolaron al confirmar o que deben reintentarse.
+Schedule::command('outbox:despachar-eventos --limite=50')
+    ->everyMinute()
+    ->withoutOverlapping();

@@ -54,6 +54,9 @@
         <server name="TELESCOPE_ENABLED" value="false"/>
         <server name="NIGHTWATCH_ENABLED" value="false"/>
         <server name="APIDEV_MOCK" value="true"/>
+        <!-- Sin destinos de eventos: cada prueba que los necesita los configura y simula el HTTP. -->
+        <server name="ANALITICA_URL" value=""/>
+        <server name="NOTIFICACIONES_URL" value=""/>
     </php>
 
 </phpunit>
