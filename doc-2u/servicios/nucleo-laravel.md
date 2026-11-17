@@ -15,10 +15,58 @@ Estructura y reglas comunes: [README.md](README.md). Esta ficha solo describe lo
 
 ## 2. Datos nuevos
 
-| Tabla (propuesta) | Propósito |
+Motor: PostgreSQL del núcleo (migraciones de Laravel). El esquema actual no se modifica; se agregan dos tablas.
+
+| Tabla | Propósito |
 |---|---|
-| `outbox_event` (existente, se generaliza) | Eventos pendientes de enviar a los microservicios |
-| `recomendacion_reposicion` | Cada recomendación calculada: ejecución del pronóstico que la originó, insumo, cantidad sugerida y decisión del administrador (aceptada, ajustada o descartada) |
+| `outbox_event` (existente, sin cambios) | Un evento por hecho de negocio, insertado en la misma transacción |
+| `outbox_entrega` (nueva) | Una fila por evento y servicio destino, con el estado de su envío |
+| `recomendacion_reposicion` (nueva) | Cada insumo recomendado a partir de un pronóstico y la decisión del administrador |
+
+```sql
+CREATE TABLE outbox_entrega (
+    id                 uuid PRIMARY KEY DEFAULT fn_uuid_v8(),
+    evento_id          uuid NOT NULL REFERENCES outbox_event (id) ON DELETE CASCADE,
+    destino            varchar(40) NOT NULL,        -- 'ms-analitica', 'ms-notificaciones'
+    estado             varchar(12) NOT NULL DEFAULT 'pendiente'
+                       CHECK (estado IN ('pendiente','entregado','fallido')),
+    intentos           smallint NOT NULL DEFAULT 0,
+    proximo_intento_en timestamptz NOT NULL DEFAULT now(),
+    ultimo_error       text,
+    entregado_en       timestamptz,
+    created_at         timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (evento_id, destino)
+);
+CREATE INDEX ix_outbox_entrega_pendiente
+    ON outbox_entrega (proximo_intento_en) WHERE estado = 'pendiente';
+
+CREATE TABLE recomendacion_reposicion (
+    id                uuid PRIMARY KEY DEFAULT fn_uuid_v8(),
+    local_id          uuid NOT NULL REFERENCES local (id) ON DELETE CASCADE,
+    ejecucion_id      uuid NOT NULL,                -- ejecución en ms-pronóstico (sin clave foránea)
+    insumo_id         uuid NOT NULL REFERENCES insumo (id) ON DELETE CASCADE,
+    consumo_previsto  numeric(12,3) NOT NULL,       -- pronóstico × receta
+    stock_al_calcular numeric(12,3) NOT NULL,
+    cantidad_sugerida numeric(12,3) NOT NULL CHECK (cantidad_sugerida >= 0),
+    estado            varchar(12) NOT NULL DEFAULT 'pendiente'
+                      CHECK (estado IN ('pendiente','aceptada','ajustada','descartada')),
+    cantidad_final    numeric(12,3),
+    decidido_por      uuid REFERENCES usuario (id) ON DELETE SET NULL,
+    decidido_en       timestamptz,
+    created_at        timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (ejecucion_id, insumo_id)
+);
+CREATE INDEX ix_recomendacion_local ON recomendacion_reposicion (local_id, created_at DESC);
+```
+
+**Decisiones de diseño**
+
+- **Por qué una tabla de entregas.** Un evento puede ir a dos servicios y uno puede fallar mientras el otro lo recibe. Con el estado por destino, se reintenta solo el que falló. `outbox_event` conserva su función actual (incluida la generación del PDF del comprobante, que no cambia).
+- **Qué destinos recibe cada tipo de evento** se define en configuración; al insertar el evento se crean sus filas de entrega en la misma transacción.
+- **Reintentos:** cada fallo aumenta `intentos` y aleja `proximo_intento_en`; al llegar al máximo, la entrega pasa a `fallido` y queda para revisión.
+- **`recomendacion_reposicion` guarda con qué se calculó** (`consumo_previsto`, `stock_al_calcular`), para poder explicar la cantidad sugerida aunque el stock cambie después.
+- **La decisión humana queda registrada** (`estado`, `cantidad_final`, quién y cuándo): la recomendación es apoyo a la decisión, nunca una compra automática.
+- Ambas tablas siguen las reglas del núcleo: política RLS por `local_id` en `recomendacion_reposicion`, igual que el resto de tablas de sede.
 
 ## 3. API nueva o modificada
 

@@ -16,11 +16,97 @@ Estructura y reglas comunes: [README.md](README.md).
 
 ## 2. Datos que gestiona
 
-| Tabla (propuesta) | Propósito |
+Motor: PostgreSQL. Reglas comunes: [README.md](README.md), sección 2.1.
+
+```mermaid
+erDiagram
+    modelo_version ||--o{ ejecucion : "usada en"
+    ejecucion ||--|{ prediccion : produce
+    modelo_version {
+        uuid id PK
+        varchar algoritmo
+        varchar estado
+    }
+    ejecucion {
+        uuid id PK
+        uuid local_id
+        uuid modelo_version_id FK
+        varchar estado
+    }
+    prediccion {
+        uuid ejecucion_id PK
+        uuid producto_id PK
+        date fecha PK
+        numeric unidades
+    }
+```
+
+| Tabla | Propósito |
 |---|---|
-| `modelo_version` | Algoritmo, parámetros, fecha de entrenamiento, métricas y ubicación del archivo |
-| `ejecucion` | Cada pronóstico pedido: local, horizonte, versión del modelo, rango de datos usado, duración y resultado |
-| `prediccion` | Una fila por ejecución, producto y día: unidades pronosticadas |
+| `modelo_version` | Cada modelo entrenado: con qué datos, con qué parámetros, qué métricas obtuvo y dónde está su archivo |
+| `ejecucion` | Cada pronóstico pedido: quién, para qué local, con qué versión del modelo y con qué datos |
+| `prediccion` | Unidades pronosticadas por producto y día de una ejecución |
+
+```sql
+CREATE TABLE modelo_version (
+    id            uuid PRIMARY KEY,
+    empresa_id    uuid,                             -- NULL si el modelo es global
+    local_id      uuid,                             -- NULL si el modelo es global
+    algoritmo     varchar(40) NOT NULL,             -- 'ingenuo_estacional', 'hist_gradient_boosting'
+    parametros    jsonb NOT NULL DEFAULT '{}',
+    variables     jsonb NOT NULL DEFAULT '[]',      -- variables de entrada usadas
+    datos_desde   date NOT NULL,
+    datos_hasta   date NOT NULL,
+    metricas      jsonb NOT NULL DEFAULT '{}',      -- MAE, RMSE, MASE, sesgo
+    artefacto_uri text,                             -- archivo del modelo; NULL en el baseline
+    estado        varchar(12) NOT NULL DEFAULT 'candidato'
+                  CHECK (estado IN ('candidato','vigente','retirado')),
+    entrenado_en  timestamptz NOT NULL DEFAULT now()
+);
+-- Como mucho un modelo vigente por local (o uno global)
+CREATE UNIQUE INDEX uq_modelo_vigente
+    ON modelo_version (COALESCE(local_id, '00000000-0000-0000-0000-000000000000'::uuid))
+    WHERE estado = 'vigente';
+
+CREATE TABLE ejecucion (
+    id                       uuid PRIMARY KEY,
+    empresa_id               uuid NOT NULL,
+    local_id                 uuid NOT NULL,
+    modelo_version_id        uuid NOT NULL REFERENCES modelo_version (id),
+    solicitada_por           uuid NOT NULL,         -- usuario del núcleo
+    fecha_inicio             date NOT NULL,         -- primer día pronosticado
+    horizonte_dias           smallint NOT NULL CHECK (horizonte_dias BETWEEN 1 AND 14),
+    datos_desde              date,
+    datos_hasta              date,
+    datos_actualizados_hasta timestamptz,           -- `ultimo_evento_en` que informó ms-analítica
+    estado                   varchar(12) NOT NULL CHECK (estado IN ('completada','fallida')),
+    error                    text,
+    duracion_ms              integer,
+    creada_en                timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_ejecucion_local ON ejecucion (local_id, creada_en DESC);
+
+CREATE TABLE prediccion (
+    ejecucion_id uuid NOT NULL REFERENCES ejecucion (id) ON DELETE CASCADE,
+    producto_id  uuid NOT NULL,
+    fecha        date NOT NULL,
+    unidades     numeric(10,2) NOT NULL CHECK (unidades >= 0),
+    metodo       varchar(12) NOT NULL CHECK (metodo IN ('modelo','baseline')),
+    PRIMARY KEY (ejecucion_id, producto_id, fecha)
+);
+```
+
+**Decisiones de diseño**
+
+- **Trazabilidad completa.** De cualquier número mostrado al administrador se puede llegar a la ejecución, a la versión del modelo y al rango de datos con que se calculó. Es lo que pide la guía («persistencia y trazabilidad del resultado de IA»).
+- **Solo se agrega, nunca se modifica.** Las ejecuciones y predicciones no se actualizan ni se sobrescriben. Así, en la Unidad III se puede comparar lo pronosticado con lo realmente vendido para calcular las métricas del experimento.
+- **El baseline es una versión más del modelo** (`algoritmo = 'ingenuo_estacional'`), no un caso aparte. El servicio funciona de punta a punta antes de entrenar nada.
+- **`metodo` por predicción.** Indica si ese plato se pronosticó con el modelo o con el baseline por falta de historial.
+- **No guarda ventas.** Las pide a ms-analítica en cada ejecución; guarda solo qué rango usó.
+- **No guarda la decisión del administrador.** Aceptar, ajustar o descartar la reposición se registra en el núcleo, que es el dueño del inventario.
+- **`parametros`, `variables` y `metricas` en `jsonb`**, porque cambian de un algoritmo a otro.
+- **El archivo del modelo no va en la base**, sino en el almacenamiento de objetos; aquí solo su ubicación.
+- `empresa_id` y `local_id` admiten nulo en `modelo_version` porque sigue abierta la decisión de un modelo por local o uno global.
 
 ## 3. API
 

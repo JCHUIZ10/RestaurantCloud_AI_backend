@@ -16,15 +16,170 @@ Estructura y reglas comunes: [README.md](README.md).
 
 ## 2. Datos que gestiona
 
-| Tabla (propuesta) | Propósito |
-|---|---|
-| `evento_procesado` | Identificadores de eventos ya aplicados, para tolerar duplicados |
-| `venta` | Una fila por comprobante: local, fecha y hora, mozo, medio de pago, total, estado (vigente o anulado) |
-| `venta_item` | Una fila por plato vendido: producto, categoría, cantidad, precio, costo |
-| `venta_diaria_producto` | Agregado por local, jornada y producto: unidades e ingreso. Es la serie que consume la IA |
-| `anulacion` | Ítems y comandas anulados antes del cobro, con merma, para el reporte de desempeño |
+Motor: PostgreSQL. Reglas comunes: [README.md](README.md), sección 2.1.
 
-No guarda nombres, documentos ni teléfonos de comensales.
+```mermaid
+erDiagram
+    venta ||--|{ venta_item : contiene
+    venta_item }o--|| producto_visto : "referencia"
+    producto_visto ||--o{ venta_diaria_producto : "agrega"
+    venta {
+        uuid comprobante_id PK
+        uuid local_id
+        date fecha_operativa
+        varchar estado
+    }
+    venta_item {
+        bigint id PK
+        uuid comprobante_id FK
+        uuid producto_id
+        int cantidad
+    }
+    producto_visto {
+        uuid producto_id PK
+        date primera_venta
+    }
+    venta_diaria_producto {
+        uuid local_id PK
+        uuid producto_id PK
+        date fecha_operativa PK
+        int unidades
+    }
+    anulacion {
+        uuid anulacion_id PK
+        uuid local_id
+    }
+    evento_procesado {
+        uuid evento_id PK
+    }
+    anulacion_pendiente {
+        uuid comprobante_id PK
+    }
+```
+
+| Tabla | Tipo | Propósito |
+|---|---|---|
+| `venta` | Base | Una fila por comprobante cobrado |
+| `venta_item` | Base | Una fila por plato de cada comprobante |
+| `anulacion` | Base | Ítems y comandas anulados antes del cobro |
+| `producto_visto` | Derivada | Último nombre y categoría conocidos de cada producto, y su primera venta |
+| `venta_diaria_producto` | Derivada | Unidades e ingreso por local, producto y jornada. Es la serie que consume la IA |
+| `evento_procesado` | Técnica | Eventos ya aplicados |
+| `anulacion_pendiente` | Técnica | Anulaciones que llegaron antes que su venta |
+
+```sql
+CREATE TABLE venta (
+    comprobante_id   uuid PRIMARY KEY,              -- lo asigna el núcleo
+    empresa_id       uuid NOT NULL,
+    local_id         uuid NOT NULL,
+    pedido_id        uuid NOT NULL,
+    tipo             varchar(15) NOT NULL CHECK (tipo IN ('boleta','factura','nota_venta')),
+    fecha            timestamptz NOT NULL,
+    fecha_operativa  date NOT NULL,
+    mozo_id          uuid NOT NULL,
+    mozo_nombre      varchar(150) NOT NULL,
+    comensales       smallint,
+    medio_pago       varchar(20) NOT NULL CHECK (medio_pago IN ('efectivo','tarjeta','billetera_digital')),
+    subtotal_consumo numeric(12,2) NOT NULL,
+    descuento        numeric(12,2) NOT NULL DEFAULT 0,
+    monto_recargo    numeric(12,2) NOT NULL DEFAULT 0,
+    total            numeric(12,2) NOT NULL,
+    promocion_id     uuid,
+    estado           varchar(10) NOT NULL DEFAULT 'vigente' CHECK (estado IN ('vigente','anulada')),
+    anulada_en       timestamptz,
+    recibido_en      timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_venta_local_jornada ON venta (local_id, fecha_operativa);
+CREATE INDEX ix_venta_local_fecha   ON venta (local_id, fecha);                    -- ventas por hora
+CREATE INDEX ix_venta_local_mozo    ON venta (local_id, mozo_id, fecha_operativa); -- desempeño
+
+CREATE TABLE venta_item (
+    id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    comprobante_id   uuid NOT NULL REFERENCES venta (comprobante_id) ON DELETE CASCADE,
+    local_id         uuid NOT NULL,                 -- copiado de venta para filtrar sin JOIN
+    fecha_operativa  date NOT NULL,
+    producto_id      uuid NOT NULL,
+    producto_nombre  varchar(150) NOT NULL,
+    categoria_id     uuid,
+    categoria_nombre varchar(100),
+    cantidad         integer NOT NULL CHECK (cantidad > 0),
+    precio_unitario  numeric(10,2) NOT NULL,
+    subtotal         numeric(12,2) NOT NULL,
+    costo_estandar   numeric(10,2)
+);
+CREATE INDEX ix_item_local_producto ON venta_item (local_id, producto_id, fecha_operativa);
+CREATE INDEX ix_item_comprobante    ON venta_item (comprobante_id);
+
+CREATE TABLE producto_visto (
+    producto_id      uuid PRIMARY KEY,
+    empresa_id       uuid NOT NULL,
+    local_id         uuid NOT NULL,
+    nombre           varchar(150) NOT NULL,
+    categoria_nombre varchar(100),
+    primera_venta    date NOT NULL,
+    ultima_venta     date NOT NULL
+);
+CREATE INDEX ix_producto_local ON producto_visto (local_id);
+
+CREATE TABLE venta_diaria_producto (
+    local_id        uuid NOT NULL,
+    producto_id     uuid NOT NULL,
+    fecha_operativa date NOT NULL,
+    empresa_id      uuid NOT NULL,
+    unidades        integer NOT NULL,
+    ingreso         numeric(14,2) NOT NULL,
+    PRIMARY KEY (local_id, producto_id, fecha_operativa)
+);
+
+CREATE TABLE anulacion (
+    anulacion_id       uuid PRIMARY KEY,            -- lo asigna el núcleo
+    empresa_id         uuid NOT NULL,
+    local_id           uuid NOT NULL,
+    pedido_id          uuid NOT NULL,
+    pedido_item_id     uuid,
+    producto_id        uuid,
+    producto_nombre    varchar(150),
+    cantidad           integer NOT NULL,
+    monto_total        numeric(12,2) NOT NULL,
+    tipo_anulacion     varchar(30) NOT NULL,
+    motivo_categoria   varchar(50),
+    es_merma           boolean NOT NULL DEFAULT false,
+    costo_merma        numeric(10,2),
+    minutos_espera     integer,
+    mozo_id            uuid,
+    mozo_nombre        varchar(150),
+    anulado_por_id     uuid,
+    anulado_por_nombre varchar(150),
+    anulado_en         timestamptz NOT NULL,
+    fecha_operativa    date NOT NULL
+);
+CREATE INDEX ix_anulacion_local_jornada ON anulacion (local_id, fecha_operativa);
+
+CREATE TABLE evento_procesado (
+    evento_id    uuid PRIMARY KEY,
+    tipo         varchar(60) NOT NULL,
+    procesado_en timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE anulacion_pendiente (
+    comprobante_id uuid PRIMARY KEY,
+    anulada_en     timestamptz NOT NULL,
+    recibido_en    timestamptz NOT NULL DEFAULT now()
+);
+```
+
+**Decisiones de diseño**
+
+- **Claves naturales del núcleo.** `comprobante_id` y `anulacion_id` son la clave primaria: garantizan que una venta no se inserte dos veces aunque fallara `evento_procesado`.
+- **Qué pasa al recibir cada evento**, siempre en una sola transacción:
+  - `venta.registrada`: inserta `venta` y `venta_item`, actualiza `producto_visto` y suma en `venta_diaria_producto`. Si hay una fila en `anulacion_pendiente` para ese comprobante, aplica la anulación y la borra.
+  - `comprobante.anulado`: marca la venta como `anulada` y resta sus ítems de `venta_diaria_producto`. Si la venta aún no existe, guarda la fila en `anulacion_pendiente`.
+  - `pedido.anulado`: inserta en `anulacion`.
+- **Un solo agregado.** Solo se materializa la serie diaria por producto, porque es la consulta más frecuente y la que usa la IA. Los demás reportes (por hora, por mozo, ranking) se calculan sobre `venta` y `venta_item` con sus índices. Se agregan más tablas derivadas solo si una consulta resulta lenta.
+- **Reconstruible.** `venta_diaria_producto` y `producto_visto` se pueden recalcular desde `venta` y `venta_item` (ventas con estado `vigente`).
+- **Desnormalización deliberada.** `local_id` y `fecha_operativa` se copian en `venta_item` para que las consultas por producto no necesiten unir con `venta`. Los nombres se guardan como estaban al vender: un reporte histórico no cambia si después se renombra el plato.
+- **Sin datos de comensales.**
+- **Retención:** `evento_procesado` puede purgarse pasados 30 días; el resto se conserva.
 
 ## 3. API
 
