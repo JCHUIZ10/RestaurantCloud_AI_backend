@@ -12,6 +12,7 @@ use App\Domains\Caja\Services\MetodoPagoLocalService;
 use App\Domains\Caja\Services\ReporteZDigitalService;
 use App\Domains\Caja\Services\ServicioPendienteService;
 use App\Domains\Carta\Services\CartaPublicaService;
+use App\Domains\Eventos\Services\EventosNucleo;
 use App\Domains\Promociones\Services\PromocionService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
@@ -1348,6 +1349,9 @@ class CajaController extends Controller
                 // scheduler conserva la recuperacion si Redis o el worker caen.
                 DB::afterCommit(fn () => GenerarComprobanteDigitalJob::dispatch($outboxEventId));
 
+                // Evento para los microservicios (venta.registrada), en la misma transacción del cobro.
+                app(EventosNucleo::class)->ventaRegistrada($comprobanteId);
+
                 // 7. Verificar si el pedido madre queda saldado al 100%
                 $tieneSubcuentas = DB::table('pedido_subcuenta')->where('pedido_id', $pedido->id)->where('estado', '!=', 'anulado')->exists();
                 $pedidoCerrado = $tieneSubcuentas
@@ -1969,6 +1973,9 @@ class CajaController extends Controller
                 ->value('id');
 
             DB::afterCommit(fn () => GenerarComprobanteDigitalJob::dispatch($outboxEventId));
+
+            // Evento para los microservicios (comprobante.anulado), en la misma transacción de la nota de crédito.
+            app(EventosNucleo::class)->comprobanteAnulado($ncId, $user->id);
 
             // 8. Calcular nuevo efectivo en gaveta
             $efectivoGavetaNuevo = app(HistorialComprobantesService::class)->efectivoEnGaveta($caja);

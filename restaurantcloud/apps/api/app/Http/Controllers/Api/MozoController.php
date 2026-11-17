@@ -6,6 +6,7 @@ use App\Domains\Archivos\Services\TenantStorageService;
 use App\Domains\Caja\Services\MetodoPagoLocalService;
 use App\Domains\Caja\Services\ReglasCobroItemService;
 use App\Domains\Caja\Services\ServicioPendienteService;
+use App\Domains\Eventos\Services\EventosNucleo;
 use App\Domains\Horario\Services\JornadaOperativaService;
 use App\Domains\Inventario\Services\StockDeduccionService;
 use App\Domains\Inventario\Services\ValidacionStockPedidoService;
@@ -2651,6 +2652,19 @@ class MozoController extends Controller
     }
 
     /**
+     * Guarda un registro inmutable de pedido_anulacion y publica su evento pedido.anulado
+     * en la misma transacción.
+     *
+     * @param  array<string, mixed>  $fila  Columnas de pedido_anulacion, incluido su `id`
+     */
+    private function registrarAnulacion(array $fila): void
+    {
+        DB::table('pedido_anulacion')->insert($fila);
+
+        app(EventosNucleo::class)->pedidoAnulado($fila['id']);
+    }
+
+    /**
      * Mapea categorías de frontend al CHECK constraint estricto de pedido_anulacion en PostgreSQL.
      */
     private function normalizarMotivoCategoria(string $categoria): string
@@ -2813,7 +2827,7 @@ class MozoController extends Controller
             $anulacionId = (string) Str::uuid();
             $motivoNormalizado = $this->normalizarMotivoCategoria($validated['motivo_categoria']);
 
-            DB::table('pedido_anulacion')->insert([
+            $this->registrarAnulacion([
                 'id' => $anulacionId,
                 'local_id' => $localId,
                 'pedido_id' => $item->pedido_id,
@@ -3104,7 +3118,7 @@ class MozoController extends Controller
                         ]);
 
                     // 2. Insertar en pedido_anulacion
-                    DB::table('pedido_anulacion')->insert([
+                    $this->registrarAnulacion([
                         'id' => (string) Str::uuid(),
                         'local_id' => $localId,
                         'pedido_id' => $pedido->id,
@@ -3133,7 +3147,7 @@ class MozoController extends Controller
                 }
             } else {
                 // Comanda vacía abierta sin platos
-                DB::table('pedido_anulacion')->insert([
+                $this->registrarAnulacion([
                     'id' => (string) Str::uuid(),
                     'local_id' => $localId,
                     'pedido_id' => $pedido->id,
@@ -3568,7 +3582,7 @@ class MozoController extends Controller
                 ? $validated['motivo_detalle']
                 : 'Quiebre de stock en cocina: '.$validated['motivo_detalle'];
 
-            DB::table('pedido_anulacion')->insert([
+            $this->registrarAnulacion([
                 'id' => $anulacionId,
                 'local_id' => $localId,
                 'pedido_id' => $item->pedido_id,
