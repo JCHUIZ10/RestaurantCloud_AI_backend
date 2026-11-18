@@ -452,4 +452,57 @@ class EventosOutboxPublicacionTest extends TestCase
             $eventos->map(fn (object $evento): string => json_decode($evento->payload, true)['datos']['tipo_anulacion'])->all(),
         );
     }
+
+    public function test_anular_una_comanda_vacia_publica_pedido_anulado_sin_producto(): void
+    {
+        $mesaId = $this->crearMesa();
+        $pedidoId = $this->crearPedido($mesaId, 'borrador');
+
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/anular-comanda", [
+            'motivo_categoria' => 'retiro_sin_consumo',
+            'motivo_detalle' => 'Los comensales se fueron antes de pedir',
+            'confirmar_vacio' => true,
+        ], $this->headers($this->tokenMozo))->assertStatus(200);
+
+        $anulacion = DB::table('pedido_anulacion')->where('pedido_id', $pedidoId)->first();
+        $this->assertNotNull($anulacion);
+
+        $sobre = $this->sobreDe('pedido.anulado', $anulacion->id);
+        $datos = $sobre['datos'];
+
+        $this->assertSame($pedidoId, $datos['pedido_id']);
+        $this->assertNull($datos['pedido_item_id']);
+        $this->assertNull($datos['producto_id']);
+        $this->assertSame('comanda_completa', $datos['tipo_anulacion']);
+        $this->assertEquals(0.00, $datos['monto_total']);
+        $this->assertFalse($datos['es_merma']);
+        $this->assertSame(2, DB::table('outbox_entrega')->where('evento_id', $sobre['id'])->count());
+    }
+
+    public function test_anular_por_quiebre_de_cocina_publica_pedido_anulado_como_cambio_de_plato(): void
+    {
+        $producto = $this->crearProducto(40.00, 11.00);
+        $mesaId = $this->crearMesa();
+        $pedidoId = $this->crearPedido($mesaId, 'enviado');
+        $itemId = $this->agregarItem($pedidoId, $producto['producto_id'], 1, 40.00, 'no_disponible');
+        $this->agregarItem($pedidoId, $producto['producto_id'], 1, 40.00, 'entregado');
+
+        $this->postJson("/api/v1/mozo/mesas/{$mesaId}/items/{$itemId}/anular-quiebre", [
+            'motivo_detalle' => 'Sin insumo en cocina, el cliente no desea sustituir',
+        ], $this->headers($this->tokenMozo))->assertStatus(200);
+
+        $anulacion = DB::table('pedido_anulacion')->where('pedido_item_id', $itemId)->first();
+        $this->assertNotNull($anulacion);
+
+        $sobre = $this->sobreDe('pedido.anulado', $anulacion->id);
+        $datos = $sobre['datos'];
+
+        $this->assertSame($itemId, $datos['pedido_item_id']);
+        $this->assertSame($producto['producto_id'], $datos['producto_id']);
+        $this->assertSame('item_individual', $datos['tipo_anulacion']);
+        $this->assertSame('cambio_plato', $datos['motivo_categoria']);
+        $this->assertEquals(40.00, $datos['monto_total']);
+        $this->assertFalse($datos['es_merma']);
+        $this->assertSame(2, DB::table('outbox_entrega')->where('evento_id', $sobre['id'])->count());
+    }
 }
