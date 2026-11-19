@@ -104,6 +104,23 @@ class EventosOutboxResilienciaTest extends TestCase
         $this->assertSame('pendiente', DB::table('outbox_event')->where('id', $eventoId)->value('estado'));
     }
 
+    public function test_la_espera_entre_reintentos_nunca_pasa_de_una_hora(): void
+    {
+        Http::fake(['analitica.test/*' => Http::response('caido', 503)]);
+        $eventoId = $this->publicar();
+        $entregaId = $this->entrega($eventoId)->id;
+        DB::table('outbox_entrega')->where('id', $entregaId)->update(['intentos' => 40]);
+
+        $this->entregar($entregaId);
+
+        $this->assertEqualsWithDelta(
+            now()->addMinutes(config('eventos.espera_maxima_min'))->timestamp,
+            strtotime($this->entrega($eventoId)->proximo_intento_en),
+            5,
+        );
+        $this->assertSame(60, config('eventos.espera_maxima_min'));
+    }
+
     public function test_un_destino_caido_por_mas_del_horizonte_pasa_a_fallido(): void
     {
         Http::fake(['analitica.test/*' => Http::response('caido', 503)]);
