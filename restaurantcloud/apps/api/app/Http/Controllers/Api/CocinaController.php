@@ -8,12 +8,12 @@ use App\Domains\Cocina\Services\ConfiguracionKdsService;
 use App\Domains\Inventario\Services\StockDeduccionService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
+use App\Support\Identificador;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
-use Illuminate\Support\Str;
 
 class CocinaController extends Controller
 {
@@ -697,7 +697,7 @@ class CocinaController extends Controller
 
                     // Clonar ítem que pasa a preparación
                     $orig = DB::table('pedido_item')->where('id', $item->id)->first();
-                    $nuevoId = (string) Str::uuid();
+                    $nuevoId = Identificador::ordenado();
                     DB::table('pedido_item')->insert([
                         'id' => $nuevoId,
                         'pedido_id' => $orig->pedido_id,
@@ -858,7 +858,7 @@ class CocinaController extends Controller
                         ]);
 
                     // Insertar nuevo ítem clonado con las porciones listas
-                    $nuevoId = (string) Str::uuid();
+                    $nuevoId = Identificador::ordenado();
                     DB::table('pedido_item')->insert([
                         'id' => $nuevoId,
                         'pedido_id' => $it->pedido_id,
@@ -1137,7 +1137,7 @@ class CocinaController extends Controller
             $prod = DB::table('producto')->where('id', $productoId)->first();
             if ($local && $prod) {
                 DB::table('notificacion')->insert([
-                    'id' => (string) Str::uuid(),
+                    'id' => Identificador::ordenado(),
                     'empresa_id' => $local->empresa_id,
                     'local_id' => $localId,
                     'usuario_id' => null,
@@ -1227,7 +1227,7 @@ class CocinaController extends Controller
             $prod = DB::table('producto')->where('id', $productoId)->first();
             if ($local && $prod) {
                 DB::table('notificacion')->insert([
-                    'id' => (string) Str::uuid(),
+                    'id' => Identificador::ordenado(),
                     'empresa_id' => $local->empresa_id,
                     'local_id' => $localId,
                     'usuario_id' => null,

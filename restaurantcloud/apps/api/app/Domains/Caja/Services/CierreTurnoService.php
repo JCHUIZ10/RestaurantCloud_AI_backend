@@ -3,10 +3,10 @@
 namespace App\Domains\Caja\Services;
 
 use App\Domains\Caja\Exceptions\CierreTurnoException;
+use App\Support\Identificador;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -137,7 +137,7 @@ class CierreTurnoService
                 ->first();
             $localNombre = $local ? $local->local_nombre : 'Áurea';
             $empresaRuc = $local ? $local->empresa_ruc : '20609876543';
-            $empresaId = $local ? $local->empresa_id : (string) Str::uuid();
+            $empresaId = $local ? $local->empresa_id : Identificador::ordenado();
 
             $reporteZ = [
                 'caja_id' => $caja->id,
@@ -210,7 +210,7 @@ class CierreTurnoService
             }
 
             DB::table('caja_movimiento')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'caja_id' => $caja->id,
                 'local_id' => $localId,
                 'tipo' => 'cierre',
@@ -222,7 +222,7 @@ class CierreTurnoService
 
             // El archivo del Z pertenece al cajero del turno, aunque lo cierre otra persona (administración)
             DB::table('auditoria_caja_cierre')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'caja_id' => $caja->id,
                 'local_id' => $localId,
                 'cajero_id' => $caja->cajero_id,
@@ -232,7 +232,7 @@ class CierreTurnoService
 
             if ($esForzado) {
                 DB::table('log_auditoria')->insert([
-                    'id' => (string) Str::uuid(),
+                    'id' => Identificador::ordenado(),
                     'empresa_id' => $empresaId,
                     'local_id' => $localId,
                     'usuario_id' => $usuarioId,

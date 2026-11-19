@@ -2,6 +2,7 @@
 
 namespace App\Domains\Auth\Services;
 
+use App\Support\Identificador;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -31,7 +32,7 @@ class SesionService
     {
         $token = 'rc_live_'.Str::random(60);
         $tokenHash = hash('sha256', $token);
-        $refreshToken = $refreshTokenExistente ?: ('rc_refresh_'.Str::uuid()->toString());
+        $refreshToken = $refreshTokenExistente ?: ('rc_refresh_'.Identificador::aleatorio());
 
         $sessionPayload = [
             'id' => $usuario->id,

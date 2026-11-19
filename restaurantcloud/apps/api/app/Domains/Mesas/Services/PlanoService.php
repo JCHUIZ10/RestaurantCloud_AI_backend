@@ -3,8 +3,8 @@
 namespace App\Domains\Mesas\Services;
 
 use App\Domains\Mesas\Exceptions\PlanoException;
+use App\Support\Identificador;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class PlanoService
 {
@@ -77,7 +77,7 @@ class PlanoService
         if ($cuota['pisos_activos_local'] >= $cuota['max_pisos_plan']) {
             throw new PlanoException('ERR_CUOTA_PISOS_EXCEDIDA', 'Se alcanzó el límite de ambientes por sede del plan.', 403);
         }
-        $id = (string) Str::uuid();
+        $id = Identificador::ordenado();
         DB::table('piso')->insert(['id' => $id, 'local_id' => $localId, ...$data, 'estado' => 'activo']);
 
         return $this->detallePiso($localId, $id);
@@ -121,7 +121,7 @@ class PlanoService
         $piso = $this->piso($localId, $pisoId);
         $this->asegurarMesas($empresaId, $localId, 1);
         $this->validarMesa($localId, $piso, $data);
-        $id = (string) Str::uuid();
+        $id = Identificador::ordenado();
         DB::table('mesa')->insert(['id' => $id, 'local_id' => $localId, 'piso_id' => $pisoId, ...$data, 'estado' => 'activa']);
 
         return (array) DB::table('mesa')->where('id', $id)->where('local_id', $localId)->first();

@@ -2,9 +2,9 @@
 
 namespace App\Domains\Inventario\Services;
 
+use App\Support\Identificador;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class ProveedorService
 {
@@ -293,7 +293,7 @@ class ProveedorService
     {
         $this->verificarNombreUnico($localId, $data['nombre']);
 
-        $id = (string) Str::uuid();
+        $id = Identificador::ordenado();
 
         return DB::transaction(function () use ($id, $localId, $data) {
             DB::table('proveedor')->insert([

@@ -3,8 +3,8 @@
 namespace App\Domains\Caja\Services;
 
 use App\Domains\Admin\Exceptions\FinanzasException;
+use App\Support\Identificador;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 /**
  * Salidas de efectivo de la gaveta del turno abierto que no son devoluciones: gastos operativos y
@@ -74,7 +74,7 @@ class EgresoGavetaService
     public function registrarMovimiento(object $caja, string $tipo, float $monto, string $referenciaId, string $descripcion): void
     {
         DB::table('caja_movimiento')->insert([
-            'id' => (string) Str::uuid(),
+            'id' => Identificador::ordenado(),
             'caja_id' => $caja->id,
             'local_id' => $caja->local_id,
             'tipo' => $tipo,

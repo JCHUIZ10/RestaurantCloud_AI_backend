@@ -3,10 +3,10 @@
 namespace App\Domains\Suscripcion\Services;
 
 use App\Domains\Suscripcion\Exceptions\CambioPlanException;
+use App\Support\Identificador;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 /**
  * Cambio de plan del propietario (CU-PROP-03). Upgrade inmediato con prorrateo propio:
@@ -84,7 +84,7 @@ class CambioPlanService
 
                 $stripePaymentId = $this->cobrar($empresa, $suscripcion, $nuevo, $calculo['cobro']);
 
-                $pagoId = (string) Str::uuid();
+                $pagoId = Identificador::ordenado();
                 DB::table('pago')->insert([
                     'id' => $pagoId,
                     'empresa_id' => $empresaId,

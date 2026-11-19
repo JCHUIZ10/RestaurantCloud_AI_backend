@@ -4,8 +4,8 @@ namespace App\Domains\Tenant\Services;
 
 use App\Domains\Archivos\Services\TenantStorageService;
 use App\Domains\Mesas\Services\CuotaSalonService;
+use App\Support\Identificador;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class LocalProvisioningService
 {
@@ -138,7 +138,7 @@ class LocalProvisioningService
             $telefonoNormalizado = $this->normalizarTelefonoPeru($datos['telefono'] ?? null);
 
             // 5. Crear registro en tabla local
-            $localId = (string) Str::uuid();
+            $localId = Identificador::ordenado();
             $esAutogestionado = ($modoAdmin === 'propietario');
 
             DB::table('local')->insert([
@@ -163,7 +163,7 @@ class LocalProvisioningService
             ]);
 
             // 5. Crear Piso inicial ("Salón Principal", cuadrícula 5x3)
-            $pisoId = (string) Str::uuid();
+            $pisoId = Identificador::ordenado();
             DB::table('piso')->insert([
                 'id' => $pisoId,
                 'local_id' => $localId,
@@ -213,7 +213,7 @@ class LocalProvisioningService
             // 9. Horario de Atención estándar (Lunes a Domingo, 12:00 a 23:00)
             for ($dia = 1; $dia <= 7; $dia++) {
                 DB::table('horario_atencion')->insert([
-                    'id' => (string) Str::uuid(),
+                    'id' => Identificador::ordenado(),
                     'local_id' => $localId,
                     'dia_semana' => $dia,
                     'nombre_turno' => 'Principal',
@@ -338,7 +338,7 @@ class LocalProvisioningService
             for ($col = 0; $col < 5; $col++) {
                 $numStr = str_pad((string) $numero, 2, '0', STR_PAD_LEFT);
                 DB::table('mesa')->insert([
-                    'id' => (string) Str::uuid(),
+                    'id' => Identificador::ordenado(),
                     'local_id' => $localId,
                     'piso_id' => $pisoId,
                     'numero' => $numStr,
@@ -371,7 +371,7 @@ class LocalProvisioningService
 
         foreach ($series as $s) {
             DB::table('comprobante_serie')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'local_id' => $localId,
                 'tipo_comprobante' => $s['tipo'],
                 'serie' => $s['serie'],
@@ -391,7 +391,7 @@ class LocalProvisioningService
         $orden = 1;
         foreach ($categorias as $nombre) {
             DB::table('categoria_producto')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'local_id' => $localId,
                 'nombre' => $nombre,
                 'orden' => $orden++,
@@ -411,7 +411,7 @@ class LocalProvisioningService
     {
         foreach ($insumos as $insumo) {
             DB::table('insumo')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'local_id' => $localId,
                 'nombre' => $insumo['nombre'],
                 'unidad_medida' => $insumo['unidad_medida'],

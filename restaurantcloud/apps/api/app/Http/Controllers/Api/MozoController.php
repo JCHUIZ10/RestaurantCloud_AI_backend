@@ -16,6 +16,7 @@ use App\Domains\Reservas\Services\AsignacionMesasReservaService;
 use App\Domains\Reservas\Services\PoliticasReservaService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
+use App\Support\Identificador;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -506,7 +507,7 @@ class MozoController extends Controller
                 ->where('local_id', $localId)
                 ->max('numero_comanda')) + 1;
 
-            $pedidoId = (string) Str::uuid();
+            $pedidoId = Identificador::ordenado();
 
             DB::table('pedido')->insert([
                 'id' => $pedidoId,
@@ -1749,7 +1750,7 @@ class MozoController extends Controller
             }
 
             $comensales = $validated['comensales'] ?? ($pedidoExistente?->comensales ?? $mesa->capacidad ?: 2);
-            $pedidoId = $pedidoExistente ? $pedidoExistente->id : (string) Str::uuid();
+            $pedidoId = $pedidoExistente ? $pedidoExistente->id : Identificador::ordenado();
 
             if (! $pedidoExistente) {
                 $siguienteComanda = ((int) DB::table('pedido')
@@ -1790,7 +1791,7 @@ class MozoController extends Controller
                 $estadoInicial = $requiereCocina ? 'en_cola' : 'listo';
                 $fechaListo = $requiereCocina ? null : now();
 
-                $itemId = (string) Str::uuid();
+                $itemId = Identificador::ordenado();
 
                 DB::table('pedido_item')->insert([
                     'id' => $itemId,
@@ -2569,7 +2570,7 @@ class MozoController extends Controller
             $totalNetoAcumulado = 0.0;
 
             foreach ($validated['subcuentas'] as $sub) {
-                $subcuentaId = (string) Str::uuid();
+                $subcuentaId = Identificador::ordenado();
                 $subtotalBruto = (float) $sub['subtotal_bruto'];
                 $descuento = (float) ($sub['descuento'] ?? 0.0);
                 $montoRecargo = (float) ($sub['monto_recargo'] ?? 0.0);
@@ -2604,7 +2605,7 @@ class MozoController extends Controller
                     $originalItemId = str_contains($rawId, '-u') ? explode('-u', $rawId)[0] : $rawId;
 
                     DB::table('pedido_subcuenta_item')->insert([
-                        'id' => (string) Str::uuid(),
+                        'id' => Identificador::ordenado(),
                         'subcuenta_id' => $subcuentaId,
                         'pedido_item_id' => $originalItemId,
                         'cantidad' => (int) $item['cantidad'],
@@ -2824,7 +2825,7 @@ class MozoController extends Controller
                 ]);
 
             // 2. Insertar registro inmutable en pedido_anulacion
-            $anulacionId = (string) Str::uuid();
+            $anulacionId = Identificador::ordenado();
             $motivoNormalizado = $this->normalizarMotivoCategoria($validated['motivo_categoria']);
 
             $this->registrarAnulacion([
@@ -2857,7 +2858,7 @@ class MozoController extends Controller
             // 3. Registrar en log_auditoria
             $empresaId = $user->empresa_id ?? DB::table('local')->where('id', $localId)->value('empresa_id');
             DB::table('log_auditoria')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'empresa_id' => $empresaId,
                 'local_id' => $localId,
                 'usuario_id' => $user->id,
@@ -3007,7 +3008,7 @@ class MozoController extends Controller
             ]);
 
             DB::table('log_auditoria')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'empresa_id' => $user->empresa_id ?? DB::table('local')->where('id', $localId)->value('empresa_id'),
                 'local_id' => $localId,
                 'usuario_id' => $user->id,
@@ -3119,7 +3120,7 @@ class MozoController extends Controller
 
                     // 2. Insertar en pedido_anulacion
                     $this->registrarAnulacion([
-                        'id' => (string) Str::uuid(),
+                        'id' => Identificador::ordenado(),
                         'local_id' => $localId,
                         'pedido_id' => $pedido->id,
                         'pedido_item_id' => $item->id,
@@ -3148,7 +3149,7 @@ class MozoController extends Controller
             } else {
                 // Comanda vacía abierta sin platos
                 $this->registrarAnulacion([
-                    'id' => (string) Str::uuid(),
+                    'id' => Identificador::ordenado(),
                     'local_id' => $localId,
                     'pedido_id' => $pedido->id,
                     'pedido_item_id' => null,
@@ -3194,7 +3195,7 @@ class MozoController extends Controller
 
             // 5. Registrar en log_auditoria
             DB::table('log_auditoria')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'empresa_id' => $empresaId,
                 'local_id' => $localId,
                 'usuario_id' => $user->id,
@@ -3430,7 +3431,7 @@ class MozoController extends Controller
                 ]);
 
             // 2. Crear nuevo ítem en comanda con prioridad
-            $nuevoItemId = (string) Str::uuid();
+            $nuevoItemId = Identificador::ordenado();
             $notaCocina = ! empty($validated['notas_cocina'])
                 ? 'SUSTITUCIÓN URGENTE (Quiebre): '.trim($validated['notas_cocina'])
                 : 'SUSTITUCIÓN URGENTE (Quiebre)';
@@ -3463,7 +3464,7 @@ class MozoController extends Controller
             // 4. Registrar en log de auditoría
             $empresaId = $user->empresa_id ?? DB::table('local')->where('id', $localId)->value('empresa_id');
             DB::table('log_auditoria')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'empresa_id' => $empresaId,
                 'local_id' => $localId,
                 'usuario_id' => $user->id,
@@ -3487,7 +3488,7 @@ class MozoController extends Controller
 
             // 5. Notificación prioritaria a Cocina
             DB::table('notificacion')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'empresa_id' => $empresaId,
                 'local_id' => $localId,
                 'usuario_id' => null,
@@ -3577,7 +3578,7 @@ class MozoController extends Controller
                 ]);
 
             // 2. Registro formal en pedido_anulacion (CHECK constraint motivo_categoria = 'cambio_plato')
-            $anulacionId = (string) Str::uuid();
+            $anulacionId = Identificador::ordenado();
             $motivoDetalleCompleto = strlen($validated['motivo_detalle']) >= 10
                 ? $validated['motivo_detalle']
                 : 'Quiebre de stock en cocina: '.$validated['motivo_detalle'];
@@ -3612,7 +3613,7 @@ class MozoController extends Controller
             // 3. Auditoría en log_auditoria
             $empresaId = $user->empresa_id ?? DB::table('local')->where('id', $localId)->value('empresa_id');
             DB::table('log_auditoria')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'empresa_id' => $empresaId,
                 'local_id' => $localId,
                 'usuario_id' => $user->id,
@@ -3633,7 +3634,7 @@ class MozoController extends Controller
 
             // 4. Notificación para Administrador de Sede (CU-ADMIN-12)
             DB::table('notificacion')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'empresa_id' => $empresaId,
                 'local_id' => $localId,
                 'usuario_id' => null,
@@ -3988,7 +3989,7 @@ class MozoController extends Controller
                 return ApiResponse::error($e->codigo, $e->getMessage(), $e->status);
             }
 
-            $reservaId = (string) Str::uuid();
+            $reservaId = Identificador::ordenado();
 
             $bloqueoPrevioMin = $politica['bloqueo_previo'];
             $minutosRestantes = (int) round(($fechaHora->timestamp - now()->timestamp) / 60);
@@ -4020,7 +4021,7 @@ class MozoController extends Controller
             }
 
             DB::table('log_auditoria')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'empresa_id' => $user->empresa_id,
                 'local_id' => $localId,
                 'usuario_id' => $user->id,
@@ -4165,7 +4166,7 @@ class MozoController extends Controller
                 ->where('local_id', $localId)
                 ->max('numero_comanda') ?? 0;
 
-            $pedidoId = (string) Str::uuid();
+            $pedidoId = Identificador::ordenado();
             DB::table('pedido')->insert([
                 'id' => $pedidoId,
                 'local_id' => $localId,
@@ -4188,7 +4189,7 @@ class MozoController extends Controller
 
             // 5. Log auditoría
             DB::table('log_auditoria')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'empresa_id' => $user->empresa_id,
                 'local_id' => $localId,
                 'usuario_id' => $user->id,
@@ -4252,7 +4253,7 @@ class MozoController extends Controller
             ]);
 
         DB::table('log_auditoria')->insert([
-            'id' => (string) Str::uuid(),
+            'id' => Identificador::ordenado(),
             'empresa_id' => $user->empresa_id,
             'local_id' => $localId,
             'usuario_id' => $user->id,
@@ -4311,7 +4312,7 @@ class MozoController extends Controller
             ]);
 
         DB::table('log_auditoria')->insert([
-            'id' => (string) Str::uuid(),
+            'id' => Identificador::ordenado(),
             'empresa_id' => $user->empresa_id,
             'local_id' => $localId,
             'usuario_id' => $user->id,
@@ -4403,7 +4404,7 @@ class MozoController extends Controller
             $numerosNuevos = $nuevas->pluck('numero')->sort()->values();
 
             DB::table('log_auditoria')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'empresa_id' => $user->empresa_id,
                 'local_id' => $localId,
                 'usuario_id' => $user->id,

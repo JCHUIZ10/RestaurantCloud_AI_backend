@@ -4,6 +4,7 @@ namespace App\Domains\Administradores\Services;
 
 use App\Domains\Suscripcion\Services\UsoRecursosEmpresa;
 use App\Models\Usuario;
+use App\Support\Identificador;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Redis;
@@ -153,7 +154,7 @@ class AdministradorService
             $telefonoNormalizado = $this->normalizarTelefonoPeru($datos['telefono'] ?? null);
 
             // 5. Crear usuario en PostgreSQL con estado 'pendiente_activacion' y local_id = NULL
-            $usuarioId = (string) Str::uuid();
+            $usuarioId = Identificador::ordenado();
             $hashProvisional = Hash::make(Str::random(40));
 
             DB::table('usuario')->insert([

@@ -2,6 +2,7 @@
 
 namespace App\Domains\Admin\Services;
 
+use App\Support\Identificador;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -127,7 +128,7 @@ class AnulacionExportacionService
 
         $directorio = storage_path('app/tmp/exportaciones');
         File::ensureDirectoryExists($directorio);
-        $ruta = $directorio.'/'.Str::uuid().'.xlsx';
+        $ruta = $directorio.'/'.Identificador::aleatorio().'.xlsx';
 
         try {
             $total = $this->escribirLibro($ruta, $localId, $localNombre, $desde, $hasta, (string) ($usuario->nombre ?? 'Administrador'));
@@ -138,7 +139,7 @@ class AnulacionExportacionService
 
         if ($local?->empresa_id) {
             DB::table('log_auditoria')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'empresa_id' => $local->empresa_id,
                 'local_id' => $localId,
                 'usuario_id' => $usuario->id,

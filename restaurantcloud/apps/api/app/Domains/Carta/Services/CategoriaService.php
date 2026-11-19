@@ -2,8 +2,8 @@
 
 namespace App\Domains\Carta\Services;
 
+use App\Support\Identificador;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class CategoriaService
 {
@@ -62,7 +62,7 @@ class CategoriaService
         return DB::transaction(function () use ($localId, $data) {
             $nombre = trim($data['nombre']);
             $this->verificarNombre($localId, $nombre);
-            $id = (string) Str::uuid();
+            $id = Identificador::ordenado();
 
             $posicion = $data['posicion'] ?? 'fin';
 
@@ -283,7 +283,7 @@ class CategoriaService
                     ]);
                 }
 
-                $nuevaId = (string) Str::uuid();
+                $nuevaId = Identificador::ordenado();
                 DB::table('categoria_producto')->insert([
                     'id' => $nuevaId,
                     'local_id' => $localId,
@@ -333,7 +333,7 @@ class CategoriaService
     private function insertarCategoria(string $localId, string $nombre, int $orden): void
     {
         DB::table('categoria_producto')->insert([
-            'id' => (string) Str::uuid(),
+            'id' => Identificador::ordenado(),
             'local_id' => $localId,
             'nombre' => $nombre,
             'orden' => $orden,

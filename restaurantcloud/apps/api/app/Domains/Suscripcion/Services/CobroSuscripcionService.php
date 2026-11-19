@@ -2,6 +2,7 @@
 
 namespace App\Domains\Suscripcion\Services;
 
+use App\Support\Identificador;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -252,7 +253,7 @@ class CobroSuscripcionService
                 }
             }
 
-            $pagoId = (string) Str::uuid();
+            $pagoId = Identificador::ordenado();
 
             if ($error === null) {
                 $this->registrarCobroExitoso($suscripcion, $empresa, $plan, $ciclo, $cambio, $pagoId, $monto, $stripePaymentId);

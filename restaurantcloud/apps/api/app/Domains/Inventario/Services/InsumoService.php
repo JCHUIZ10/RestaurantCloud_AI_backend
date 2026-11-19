@@ -3,9 +3,9 @@
 namespace App\Domains\Inventario\Services;
 
 use App\Domains\Carta\Services\CartaPublicaService;
+use App\Support\Identificador;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class InsumoService
 {
@@ -105,7 +105,7 @@ class InsumoService
         $this->validarUnidad($data['unidad_medida'] ?? '');
         $this->verificarNombreUnico($localId, $data['nombre']);
 
-        $id = (string) Str::uuid();
+        $id = Identificador::ordenado();
         $stockActual = (float) ($data['stock_actual'] ?? 0);
         $estado = $data['estado'] ?? ($stockActual > 0 ? 'activo' : 'agotado');
 

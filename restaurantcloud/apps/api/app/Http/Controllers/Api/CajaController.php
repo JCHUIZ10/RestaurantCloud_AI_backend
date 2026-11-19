@@ -16,6 +16,7 @@ use App\Domains\Eventos\Services\EventosNucleo;
 use App\Domains\Promociones\Services\PromocionService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
+use App\Support\Identificador;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Filesystem\AwsS3V3Adapter;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +25,6 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Psr\Http\Message\StreamInterface;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -254,7 +254,7 @@ class CajaController extends Controller
 
         foreach ($destinatarios as $rol) {
             DB::table('notificacion')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'empresa_id' => $empresaId,
                 'local_id' => $localId,
                 'usuario_id' => null,
@@ -271,7 +271,7 @@ class CajaController extends Controller
         }
 
         DB::table('log_auditoria')->insert([
-            'id' => (string) Str::uuid(),
+            'id' => Identificador::ordenado(),
             'empresa_id' => $empresaId,
             'local_id' => $localId,
             'usuario_id' => $user->id,
@@ -326,7 +326,7 @@ class CajaController extends Controller
             $ultimoCorrelativo = (int) (DB::table('caja')->where('local_id', $localId)->max('correlativo') ?? 0);
             $correlativo = $ultimoCorrelativo + 1;
 
-            $cajaId = (string) Str::uuid();
+            $cajaId = Identificador::ordenado();
 
             // Insertar caja abierta
             DB::table('caja')->insert([
@@ -344,7 +344,7 @@ class CajaController extends Controller
 
             // Registrar movimiento inicial de apertura
             DB::table('caja_movimiento')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'caja_id' => $cajaId,
                 'local_id' => $localId,
                 'tipo' => 'apertura',
@@ -1212,8 +1212,8 @@ class CajaController extends Controller
                 );
                 $correlativo = (int) $siguienteSerie->correlativo;
 
-                $comprobanteId = (string) Str::uuid();
-                $tokenQr = (string) Str::uuid();
+                $comprobanteId = Identificador::ordenado();
+                $tokenQr = Identificador::aleatorio(); // va en la URL pública /c/{token}: no debe poder adivinarse
 
                 // 1. Insertar comprobante fiscal
                 DB::table('comprobante')->insert([
@@ -1261,7 +1261,7 @@ class CajaController extends Controller
                     $itemIgv = round($itemSubtotal - $itemBase, 2);
 
                     DB::table('comprobante_item')->insert([
-                        'id' => (string) Str::uuid(),
+                        'id' => Identificador::ordenado(),
                         'comprobante_id' => $comprobanteId,
                         'pedido_item_id' => $it->id,
                         'producto_id' => $it->producto_id,
@@ -1310,7 +1310,7 @@ class CajaController extends Controller
 
                 // 5. Registrar movimiento de ingreso en caja_movimiento
                 DB::table('caja_movimiento')->insert([
-                    'id' => (string) Str::uuid(),
+                    'id' => Identificador::ordenado(),
                     'caja_id' => $caja->id,
                     'local_id' => $localId,
                     'tipo' => 'ingreso_venta',
@@ -1324,7 +1324,7 @@ class CajaController extends Controller
                 // 6. Persistir la solicitud de documento en la misma transaccion
                 // financiera. El scheduler la enviara al worker de Redis.
                 DB::table('outbox_event')->insert([
-                    'id' => (string) Str::uuid(),
+                    'id' => Identificador::ordenado(),
                     'empresa_id' => $user->empresa_id,
                     'local_id' => $localId,
                     'agregado_tipo' => 'comprobante',
@@ -1812,8 +1812,8 @@ class CajaController extends Controller
             );
             $correlativoNC = (int) $siguiente->correlativo;
 
-            $ncId = (string) Str::uuid();
-            $tokenQr = (string) Str::uuid();
+            $ncId = Identificador::ordenado();
+            $tokenQr = Identificador::aleatorio(); // va en la URL pública /c/{token}: no debe poder adivinarse
 
             // 1. Insertar Nota de Crédito en comprobante
             DB::table('comprobante')->insert([
@@ -1854,7 +1854,7 @@ class CajaController extends Controller
             $originalItems = DB::table('comprobante_item')->where('comprobante_id', $comp->id)->get();
             foreach ($originalItems as $orig) {
                 DB::table('comprobante_item')->insert([
-                    'id' => (string) Str::uuid(),
+                    'id' => Identificador::ordenado(),
                     'comprobante_id' => $ncId,
                     'pedido_item_id' => $orig->pedido_item_id,
                     'producto_id' => $orig->producto_id,
@@ -1879,7 +1879,7 @@ class CajaController extends Controller
             // 4. Registrar egreso en gaveta de caja si corresponde a efectivo
             if ($devuelveEnEfectivo) {
                 DB::table('caja_movimiento')->insert([
-                    'id' => (string) Str::uuid(),
+                    'id' => Identificador::ordenado(),
                     'caja_id' => $caja->id,
                     'local_id' => $localId,
                     'tipo' => 'egreso_devolucion',
@@ -1951,7 +1951,7 @@ class CajaController extends Controller
 
             // 7. Evento Outbox para generación asíncrona de PDF / XML
             DB::table('outbox_event')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'empresa_id' => $user->empresa_id,
                 'local_id' => $localId,
                 'agregado_tipo' => 'comprobante',
@@ -2124,7 +2124,7 @@ class CajaController extends Controller
                     ->where('l.id', $caja->local_id)
                     ->select(['e.id as empresa_id'])
                     ->first();
-                $empresaId = $local ? $local->empresa_id : (string) Str::uuid();
+                $empresaId = $local ? $local->empresa_id : Identificador::ordenado();
 
                 try {
                     $archivo = $service->generarPdf($id, $reporteData, $empresaId, $caja->local_id, $user->id);

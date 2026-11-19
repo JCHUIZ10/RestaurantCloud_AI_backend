@@ -2,10 +2,10 @@
 
 namespace App\Domains\Admin\Services;
 
+use App\Support\Identificador;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use RuntimeException;
 
 class AnulacionAuditoriaService
@@ -152,7 +152,7 @@ class AnulacionAuditoriaService
             $empresaId = DB::table('local')->where('id', $localId)->value('empresa_id');
             if ($empresaId) {
                 DB::table('log_auditoria')->insert([
-                    'id' => (string) Str::uuid(),
+                    'id' => Identificador::ordenado(),
                     'empresa_id' => $empresaId,
                     'local_id' => $localId,
                     'usuario_id' => $usuarioId,

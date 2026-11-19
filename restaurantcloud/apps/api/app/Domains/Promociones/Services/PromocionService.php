@@ -3,9 +3,9 @@
 namespace App\Domains\Promociones\Services;
 
 use App\Domains\Carta\Services\CartaPublicaService;
+use App\Support\Identificador;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class PromocionService
 {
@@ -309,7 +309,7 @@ class PromocionService
         $diasSemana = ! empty($data['dias_semana']) ? $data['dias_semana'] : [1, 2, 3, 4, 5, 6, 7];
         $diasPg = '{'.implode(',', array_map('intval', $diasSemana)).'}';
 
-        $id = Str::uuid()->toString();
+        $id = Identificador::ordenado();
 
         DB::table('promocion')->insert([
             'id' => $id,

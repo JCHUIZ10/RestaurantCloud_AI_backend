@@ -4,11 +4,11 @@ namespace App\Domains\Horario\Services;
 
 use App\Domains\Reservas\Exceptions\PoliticasReservaException;
 use App\Domains\Reservas\Services\PoliticasReservaService;
+use App\Support\Identificador;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class HorarioService
 {
@@ -241,7 +241,7 @@ class HorarioService
 
             foreach ($dia['turnos'] as $turno) {
                 DB::table('horario_atencion')->insert([
-                    'id' => (string) Str::uuid(),
+                    'id' => Identificador::ordenado(),
                     'local_id' => $localId,
                     'dia_semana' => $dia['dia_semana'],
                     'nombre_turno' => $turno['nombre_turno'],
@@ -344,7 +344,7 @@ class HorarioService
     {
         $this->validarExcepcion($data);
 
-        $id = (string) Str::uuid();
+        $id = Identificador::ordenado();
 
         DB::transaction(function () use ($localId, $empresaId, $usuarioId, $data, $id): void {
             $existe = DB::table('horario_excepcion')
@@ -432,7 +432,7 @@ class HorarioService
                 return $reservas === 0;
             })
             ->map(fn (array $feriado): array => [
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'local_id' => $localId,
                 'fecha' => $feriado['fecha'],
                 'cerrado' => true,
@@ -811,7 +811,7 @@ class HorarioService
             ]);
 
             DB::table('log_auditoria')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'empresa_id' => $empresaId,
                 'local_id' => $localId,
                 'usuario_id' => $usuarioId,

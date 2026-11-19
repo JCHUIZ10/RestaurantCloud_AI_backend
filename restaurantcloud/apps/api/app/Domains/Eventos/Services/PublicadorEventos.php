@@ -3,10 +3,10 @@
 namespace App\Domains\Eventos\Services;
 
 use App\Domains\Eventos\Jobs\EntregarEventoJob;
+use App\Support\Identificador;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -38,7 +38,7 @@ class PublicadorEventos
         array $datos,
         ?CarbonInterface $ocurridoEn = null,
     ): string {
-        $eventoId = (string) Str::uuid();
+        $eventoId = Identificador::ordenado();
         $ahora = now();
         $destinos = $this->destinosDe($tipo);
 
@@ -76,7 +76,7 @@ class PublicadorEventos
         // La entrega nace reservada: la encola el commit y el despacho periódico solo la recoge si eso falla.
         $reservadaHasta = $ahora->copy()->addSeconds((int) config('eventos.reserva_segundos'));
         $entregas = array_map(fn (string $destino): array => [
-            'id' => (string) Str::uuid(),
+            'id' => Identificador::ordenado(),
             'evento_id' => $eventoId,
             'destino' => $destino,
             'estado' => 'pendiente',

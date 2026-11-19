@@ -7,6 +7,7 @@ use App\Domains\Tenant\Exceptions\EnlaceActivacionException;
 use App\Domains\Tenant\Services\TenantProvisioningService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
+use App\Support\Identificador;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -360,7 +361,7 @@ class SaasTenantController extends Controller
             // Queda registrada como administrativa: pagar no la levanta, solo la reactivación del equipo SaaS
             if (! CobroSuscripcionService::haySuspensionAdministrativa($id)) {
                 DB::table('suscripcion_suspension')->insert([
-                    'id' => (string) Str::uuid(),
+                    'id' => Identificador::ordenado(),
                     'empresa_id' => $id,
                     'suscripcion_id' => DB::table('suscripcion')->where('empresa_id', $id)->latest('created_at')->value('id'),
                     'tipo_evento' => 'suspension_temporal',

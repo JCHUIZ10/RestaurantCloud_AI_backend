@@ -9,13 +9,13 @@ use App\Domains\Tenant\Services\TenantProvisioningService;
 use App\Http\Controllers\Controller;
 use App\Models\Usuario;
 use App\Support\ApiResponse;
+use App\Support\Identificador;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
-use Illuminate\Support\Str;
 use RuntimeException;
 
 class RegistroController extends Controller
@@ -116,7 +116,7 @@ class RegistroController extends Controller
         }
 
         // 3. Generar sesión temporal en Redis (TTL 30 min)
-        $registroId = (string) Str::uuid();
+        $registroId = Identificador::ordenado();
         $otp = str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
 
         $sessionData = [

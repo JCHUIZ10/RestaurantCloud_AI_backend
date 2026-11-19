@@ -101,6 +101,7 @@ El modelo de cada servicio está en la sección 2 de su ficha. Estas reglas vale
 
 **Tipos**
 
+- **Identificadores:** la clave de una fila es un UUID ordenado por tiempo (versión 7, o la función `fn_uuid_v8()` del núcleo, que usa la misma estructura): los primeros 48 bits son el instante en milisegundos, así que las filas nuevas se insertan al final del índice de la clave primaria y no lo fragmentan. Un secreto que viaja en una URL o autentica algo (token de QR, token de refresco) es un UUID versión 4 o una cadena aleatoria, nunca un UUID ordenado: este revela cuándo se creó y tiene menos bits aleatorios. En el núcleo, `App\Support\Identificador::ordenado()` y `::aleatorio()`; una prueba impide usar `Str::uuid()` directamente.
 - Dinero y cantidades: `numeric`, nunca coma flotante.
 - Instantes: `timestamptz` (PostgreSQL) o `Date` (MongoDB), siempre con zona. Jornadas: `date`.
 - Estados con valores fijos: restricción `CHECK` (PostgreSQL) o validador de esquema (MongoDB).

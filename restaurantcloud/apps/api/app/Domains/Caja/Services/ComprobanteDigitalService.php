@@ -4,12 +4,12 @@ namespace App\Domains\Caja\Services;
 
 use App\Domains\Archivos\Services\TenantStorageService;
 use App\Models\Archivo;
+use App\Support\Identificador;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use RuntimeException;
 
 class ComprobanteDigitalService
@@ -57,7 +57,7 @@ class ComprobanteDigitalService
             $pdfContent = "%PDF-1.4\n%Fallback PDF for Comprobante {$comprobante->serie}-{$comprobante->correlativo}\n%%EOF";
         }
 
-        $archivoId = (string) Str::uuid();
+        $archivoId = Identificador::ordenado();
         $objectKey = $this->storage->generarKeyComprobante(
             $comprobante->empresa_id,
             $comprobante->local_id,

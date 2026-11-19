@@ -4,10 +4,10 @@ namespace App\Domains\Reservas\Services;
 
 use App\Domains\Horario\Services\JornadaOperativaService;
 use App\Domains\Reservas\Exceptions\PoliticasReservaException;
+use App\Support\Identificador;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 /**
  * Políticas de reserva de un local (CU-ADMIN-10): única fuente de sus valores para el
@@ -319,7 +319,7 @@ class PoliticasReservaService
     private function auditar(string $empresaId, string $localId, string $usuarioId, string $accion, array $detalle): void
     {
         DB::table('log_auditoria')->insert([
-            'id' => (string) Str::uuid(),
+            'id' => Identificador::ordenado(),
             'empresa_id' => $empresaId,
             'local_id' => $localId,
             'usuario_id' => $usuarioId,

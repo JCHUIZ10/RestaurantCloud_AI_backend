@@ -2,6 +2,7 @@
 
 namespace App\Domains\Personal\Services;
 
+use App\Support\Identificador;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -69,7 +70,7 @@ class PersonalService
             }
 
             $passwordTemporal = 'Rc@'.Str::upper(Str::random(10));
-            $id = (string) Str::uuid();
+            $id = Identificador::ordenado();
             DB::table('usuario')->insert([
                 'id' => $id,
                 'empresa_id' => $empresaId,

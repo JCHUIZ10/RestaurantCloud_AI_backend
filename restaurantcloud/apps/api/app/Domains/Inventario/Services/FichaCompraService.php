@@ -5,9 +5,9 @@ namespace App\Domains\Inventario\Services;
 use App\Domains\Admin\Exceptions\FinanzasException;
 use App\Domains\Caja\Services\EgresoGavetaService;
 use App\Domains\Carta\Services\CartaPublicaService;
+use App\Support\Identificador;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class FichaCompraService
 {
@@ -458,7 +458,7 @@ class FichaCompraService
             }
 
             // 1. Inserción de cabecera de compra. Si el efectivo sale de la gaveta, se valida y bloquea el turno antes.
-            $fichaId = (string) Str::uuid();
+            $fichaId = Identificador::ordenado();
             $cajaGaveta = $origenEfectivo === 'gaveta_turno'
                 ? $this->egresosGaveta->reservar($localId, $totalFinal, Carbon::parse($fechaEmision)->toDateString())
                 : null;
@@ -499,7 +499,7 @@ class FichaCompraService
             $insumosActualizadosIds = [];
             foreach ($itemsProcesados as $item) {
                 DB::table('ficha_compra_detalle')->insert([
-                    'id' => (string) Str::uuid(),
+                    'id' => Identificador::ordenado(),
                     'ficha_compra_id' => $fichaId,
                     'insumo_id' => $item['insumo_id'],
                     'cantidad' => $item['cantidad'],
@@ -534,7 +534,7 @@ class FichaCompraService
 
                 // Registrar en kardex auditoria_stock_ajuste
                 DB::table('auditoria_stock_ajuste')->insert([
-                    'id' => (string) Str::uuid(),
+                    'id' => Identificador::ordenado(),
                     'local_id' => $localId,
                     'insumo_id' => $insumo->id,
                     'usuario_id' => $usuarioId,

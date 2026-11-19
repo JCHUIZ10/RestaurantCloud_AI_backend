@@ -3,11 +3,11 @@
 namespace App\Domains\Carta\Services;
 
 use App\Domains\Archivos\Services\TenantStorageService;
+use App\Support\Identificador;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Throwable;
 
 class ProductoService
@@ -189,7 +189,7 @@ class ProductoService
             $this->verificarCategoria($data['categoria_id'], $localId);
             $this->verificarNombre($localId, $data['nombre']);
 
-            $id = (string) Str::uuid();
+            $id = Identificador::ordenado();
 
             try {
                 DB::table('producto')->insert([
@@ -401,7 +401,7 @@ class ProductoService
             ]);
 
             DB::table('log_auditoria')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'empresa_id' => $empresaId,
                 'local_id' => $localId,
                 'usuario_id' => $usuarioId,

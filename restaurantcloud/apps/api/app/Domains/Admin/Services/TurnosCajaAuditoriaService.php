@@ -6,10 +6,10 @@ use App\Domains\Admin\Exceptions\FinanzasException;
 use App\Domains\Caja\Services\BalanceTurnoService;
 use App\Domains\Caja\Services\HistorialComprobantesService;
 use App\Domains\Horario\Services\JornadaOperativaService;
+use App\Support\Identificador;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 /**
  * Auditoría de turnos de caja para la administración (CU-ADMIN-14): historial de turnos con sus
@@ -132,7 +132,7 @@ class TurnosCajaAuditoriaService
             ]);
 
             DB::table('log_auditoria')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'empresa_id' => DB::table('local')->where('id', $localId)->value('empresa_id'),
                 'local_id' => $localId,
                 'usuario_id' => $usuarioId,
@@ -191,7 +191,7 @@ class TurnosCajaAuditoriaService
             ]);
 
             DB::table('log_auditoria')->insert([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'empresa_id' => DB::table('local')->where('id', $localId)->value('empresa_id'),
                 'local_id' => $localId,
                 'usuario_id' => $usuarioId,

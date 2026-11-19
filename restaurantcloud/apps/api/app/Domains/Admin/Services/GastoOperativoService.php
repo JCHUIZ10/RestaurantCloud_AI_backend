@@ -4,10 +4,10 @@ namespace App\Domains\Admin\Services;
 
 use App\Domains\Admin\Exceptions\FinanzasException;
 use App\Domains\Caja\Services\EgresoGavetaService;
+use App\Support\Identificador;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 /**
  * Gastos operativos de la sede (CU-ADMIN-14): alquiler, servicios, limpieza, caja chica, etc.
@@ -51,7 +51,7 @@ class GastoOperativoService
     {
         $monto = round((float) $datos['monto'], 2);
         $enEfectivo = $datos['origen_fondos'] === 'efectivo_caja';
-        $gastoId = (string) Str::uuid();
+        $gastoId = Identificador::ordenado();
 
         DB::transaction(function () use ($localId, $usuarioId, $datos, $monto, $enEfectivo, $gastoId): void {
             $caja = $enEfectivo ? $this->egresosGaveta->reservar($localId, $monto, $datos['fecha']) : null;
@@ -206,7 +206,7 @@ class GastoOperativoService
     private function auditar(string $localId, string $usuarioId, string $accion, string $gastoId, array $detalle): void
     {
         DB::table('log_auditoria')->insert([
-            'id' => (string) Str::uuid(),
+            'id' => Identificador::ordenado(),
             'empresa_id' => DB::table('local')->where('id', $localId)->value('empresa_id'),
             'local_id' => $localId,
             'usuario_id' => $usuarioId,

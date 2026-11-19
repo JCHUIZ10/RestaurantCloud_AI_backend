@@ -3,6 +3,7 @@
 namespace App\Domains\Archivos\Services;
 
 use App\Models\Archivo;
+use App\Support\Identificador;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -74,7 +75,7 @@ class TenantStorageService
                     'object_key' => $manifestKey,
                 ],
                 [
-                    'id' => (string) Str::uuid(),
+                    'id' => Identificador::ordenado(),
                     'local_id' => null,
                     'bucket' => $this->bucket,
                     'nombre_original' => 'manifest.json',
@@ -140,7 +141,7 @@ class TenantStorageService
                     'object_key' => $manifestKey,
                 ],
                 [
-                    'id' => (string) Str::uuid(),
+                    'id' => Identificador::ordenado(),
                     'local_id' => $localId,
                     'bucket' => $this->bucket,
                     'nombre_original' => 'manifest.json',
@@ -185,7 +186,7 @@ class TenantStorageService
         string $extension,
         ?string $archivoId = null
     ): string {
-        $uuid = $archivoId ?: (string) Str::uuid();
+        $uuid = $archivoId ?: Identificador::ordenado();
         $ext = ltrim($extension, '.');
 
         if ($localId) {
@@ -206,7 +207,7 @@ class TenantStorageService
         string $extension,
         ?string $archivoId = null
     ): string {
-        $uuid = $archivoId ?: (string) Str::uuid();
+        $uuid = $archivoId ?: Identificador::ordenado();
         $ext = ltrim($extension, '.');
 
         if ($localId) {
@@ -267,7 +268,7 @@ class TenantStorageService
             $contenido = (string) file_get_contents($foto->getRealPath());
         }
 
-        $archivoId = (string) Str::uuid();
+        $archivoId = Identificador::ordenado();
         $objectKey = $this->generarKeyProducto($empresaId, $localId, $productoId, $extension, $archivoId);
         $miniaturaKey = $miniatura !== null ? $this->claveMiniatura($objectKey) : null;
         $nombreOriginal = Str::limit($foto->getClientOriginalName(), 255, '');
@@ -284,7 +285,7 @@ class TenantStorageService
 
             $this->registrarArchivoCatalogo($archivoId, 'producto', $objectKey, $contenido, $mime, $nombreOriginal, $empresaId, $localId, $productoId, $usuarioId);
             if ($miniaturaKey !== null) {
-                $this->registrarArchivoCatalogo((string) Str::uuid(), 'producto_miniatura', $miniaturaKey, $miniatura, 'image/webp', $nombreOriginal, $empresaId, $localId, $productoId, $usuarioId);
+                $this->registrarArchivoCatalogo(Identificador::ordenado(), 'producto_miniatura', $miniaturaKey, $miniatura, 'image/webp', $nombreOriginal, $empresaId, $localId, $productoId, $usuarioId);
             }
         } catch (Throwable $e) {
             // Compensación: sin metadato los objetos quedarían huérfanos en MinIO.
@@ -457,7 +458,7 @@ class TenantStorageService
         string $cajaId,
         ?string $archivoId = null
     ): string {
-        $uuid = $archivoId ?: (string) Str::uuid();
+        $uuid = $archivoId ?: Identificador::ordenado();
 
         return "privado/empresas/{$empresaId}/locales/{$localId}/reportes-z/{$cajaId}/{$uuid}.pdf";
     }
@@ -470,7 +471,7 @@ class TenantStorageService
         string $solicitudId,
         ?string $archivoId = null
     ): string {
-        $uuid = $archivoId ?: (string) Str::uuid();
+        $uuid = $archivoId ?: Identificador::ordenado();
 
         return "privado/empresas/{$empresaId}/portabilidad/{$solicitudId}/{$uuid}.zip";
     }
@@ -484,7 +485,7 @@ class TenantStorageService
         string $extension,
         ?string $archivoId = null
     ): string {
-        $uuid = $archivoId ?: (string) Str::uuid();
+        $uuid = $archivoId ?: Identificador::ordenado();
         $ext = ltrim($extension, '.');
 
         return "privado/empresas/{$empresaId}/temporales/exportaciones/{$exportacionId}/{$uuid}.{$ext}";

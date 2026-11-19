@@ -4,6 +4,7 @@ namespace App\Domains\Tenant\Services;
 
 use App\Domains\Archivos\Services\TenantStorageService;
 use App\Domains\Tenant\Exceptions\EnlaceActivacionException;
+use App\Support\Identificador;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -113,7 +114,7 @@ class TenantProvisioningService
             }
 
             // A. Crear Empresa
-            $empresaId = (string) Str::uuid();
+            $empresaId = Identificador::ordenado();
             $tipoIdentidad = in_array($datos['tipo_identidad_fiscal'] ?? '', ['RUC_20', 'RUC_10'], true)
                 ? $datos['tipo_identidad_fiscal']
                 : (str_starts_with($ruc, '20') ? 'RUC_20' : 'RUC_10');
@@ -136,7 +137,7 @@ class TenantProvisioningService
             ]);
 
             // B. Crear Suscripción Inicial
-            $suscripcionId = (string) Str::uuid();
+            $suscripcionId = Identificador::ordenado();
             $ciclo = ($datos['ciclo_facturacion'] ?? 'mensual') === 'anual' ? 'anual' : 'mensual';
             $fechaInicio = now();
             $fechaFin = $ciclo === 'anual'
@@ -162,7 +163,7 @@ class TenantProvisioningService
             ]);
 
             // C. Crear Usuario Propietario (Cuenta Corporativa: local_id = NULL)
-            $usuarioId = (string) Str::uuid();
+            $usuarioId = Identificador::ordenado();
             DB::table('usuario')->insert([
                 'id' => $usuarioId,
                 'empresa_id' => $empresaId,
@@ -178,7 +179,7 @@ class TenantProvisioningService
             ]);
 
             // D. Registrar Pago Inicial
-            $pagoId = (string) Str::uuid();
+            $pagoId = Identificador::ordenado();
             $monto = (float) ($datos['monto_pagado'] ?? (
                 ($datos['ciclo_facturacion'] ?? 'mensual') === 'anual'
                     ? $plan->precio_anual
@@ -305,7 +306,7 @@ class TenantProvisioningService
             $this->asegurarVoucherNoUsado($origenPago, $numeroOperacion);
 
             // A. Crear Empresa
-            $empresaId = (string) Str::uuid();
+            $empresaId = Identificador::ordenado();
             $tipoIdentidad = in_array($datos['tipo_identidad_fiscal'] ?? '', ['RUC_20', 'RUC_10'], true)
                 ? $datos['tipo_identidad_fiscal']
                 : (str_starts_with($ruc, '20') ? 'RUC_20' : 'RUC_10');
@@ -328,7 +329,7 @@ class TenantProvisioningService
             ]);
 
             // B. Crear Suscripción Inicial (Con 5 días de gracia reglamentarios)
-            $suscripcionId = (string) Str::uuid();
+            $suscripcionId = Identificador::ordenado();
             $ciclo = ($datos['ciclo_facturacion'] ?? 'anual') === 'anual' ? 'anual' : 'mensual';
             $fechaInicio = ! empty($datos['fecha_inicio']) ? Carbon::parse($datos['fecha_inicio']) : now();
             $fechaFin = ! empty($datos['fecha_fin_periodo'])
@@ -355,7 +356,7 @@ class TenantProvisioningService
             // C. Crear Usuario Propietario (Sin contraseña provisional: Capability Token)
             // Nota arquitectónica: No se crean sedes ficticias por defecto en el aprovisionamiento.
             // El titular registrará su primera sede real en la Consola del Propietario tras activar su cuenta.
-            $usuarioId = (string) Str::uuid();
+            $usuarioId = Identificador::ordenado();
             $hashProvisional = Hash::make(Str::random(40));
 
             DB::table('usuario')->insert([
@@ -373,7 +374,7 @@ class TenantProvisioningService
             ]);
 
             // E. Registrar Pago Inicial Verificado (PostgreSQL 16)
-            $pagoId = (string) Str::uuid();
+            $pagoId = Identificador::ordenado();
             $fechaOperacion = ! empty($datos['fecha_operacion']) ? Carbon::parse($datos['fecha_operacion']) : now();
 
             DB::table('pago')->insert([

@@ -4,11 +4,11 @@ namespace App\Domains\Suscripcion\Services;
 
 use App\Domains\Archivos\Services\TenantStorageService;
 use App\Models\Archivo;
+use App\Support\Identificador;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
@@ -55,7 +55,7 @@ class ReciboSuscripcionService
         $pdf->render();
         $pdfContent = $pdf->output();
 
-        $archivoId = (string) Str::uuid();
+        $archivoId = Identificador::ordenado();
         $objectKey = $this->storage->generarKeyReciboSuscripcion($pago->empresa_id, $pagoId, $archivoId);
         $nombre = "Constancia-{$pago->numero_recibo}.pdf";
 

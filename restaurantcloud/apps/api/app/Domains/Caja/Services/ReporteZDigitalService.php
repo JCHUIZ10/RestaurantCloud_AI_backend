@@ -4,10 +4,10 @@ namespace App\Domains\Caja\Services;
 
 use App\Domains\Archivos\Services\TenantStorageService;
 use App\Models\Archivo;
+use App\Support\Identificador;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use RuntimeException;
 
 class ReporteZDigitalService
@@ -53,7 +53,7 @@ class ReporteZDigitalService
             $pdfContent = "%PDF-1.4\n%Fallback PDF for Reporte Z Turno {$correlativoStr}\n%%EOF";
         }
 
-        $archivoId = (string) Str::uuid();
+        $archivoId = Identificador::ordenado();
         $objectKey = $this->storage->generarKeyReporteZ(
             $empresaId,
             $localId,

@@ -2,8 +2,8 @@
 
 namespace App\Domains\Caja\Services;
 
+use App\Support\Identificador;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class MetodoPagoLocalService
 {
@@ -217,7 +217,7 @@ class MetodoPagoLocalService
 
         foreach ($base as $metodo) {
             DB::table('metodo_pago_local')->insertOrIgnore([
-                'id' => (string) Str::uuid(),
+                'id' => Identificador::ordenado(),
                 'local_id' => $localId,
                 ...$metodo,
                 'comision_porcentaje' => 0,
