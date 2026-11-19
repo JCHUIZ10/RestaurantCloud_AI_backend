@@ -1,71 +1,96 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
+**Última actualización:** 18/11/2026. Etapas 0 a 3 cerradas; la siguiente es la 4.
+
 ## Contexto
 
-La rama `monolito` conserva el producto de la Unidad I. En `betta` ya está el diseño completo de la arquitectura distribuida (`doc-2u/`): tres microservicios alrededor del núcleo Laravel, cada uno con su base de datos, contratos de API y de eventos, y modelo de datos validado. El entorno local ya se renombró (`restaurantcloud-ia`, contenedores `restaurantcloudIA_*`) y tiene las bases de los microservicios levantadas. **Todavía no hay código de microservicios.**
+La rama `monolito` conserva el producto de la Unidad I. En `betta` está el diseño de la arquitectura distribuida (`doc-2u/`): tres microservicios alrededor del núcleo Laravel, cada uno con su base de datos y sus contratos de API y de eventos. El entorno local se llama `restaurantcloud-ia` (contenedores `restaurantcloudIA_*`).
 
 La guía evalúa en la semana 11: microservicios, Docker e integración (25 %), aplicación funcional (20 %), IA integrada (15 %), y además exige API documentada, imágenes en Artifact Registry, un despliegue PaaS, un laboratorio de GKE y el protocolo experimental.
 
-Este plan ordena el trabajo en etapas que dejan algo demostrable cada una. Las etapas 0 a 3 están detalladas; las siguientes son la hoja de ruta y se detallan al llegar.
+El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resumen lo hecho; las siguientes son la hoja de ruta y se detallan al llegar.
 
-**Reglas de trabajo:** commits pequeños por tema, sin línea de coautoría; `vendor/bin/pint --dirty --format agent` antes de cada commit de PHP; ningún `git push` sin confirmación; cualquier cambio de contrato se refleja en `doc-2u/servicios/`.
+**Reglas de trabajo:** commits pequeños por tema, sin línea de coautoría; Pint sobre los archivos PHP tocados antes de cada commit; ningún `git push` sin confirmación; cualquier cambio de contrato se refleja en `doc-2u/servicios/`.
 
----
+## Estado
 
-## Etapa 0. Cerrar la preparación del entorno (pendiente)
-
-**Estado:** cambios hechos, sin commit. La suite sobre el entorno renombrado dio 591 de 592; falló `MozoMesasUnionTest::test_comanda_enviada_desde_mesa_anexa…`, que pasa sola y con todo el grupo Mozo. Hay una segunda ejecución completa en curso con informe guardado en `storage/logs/fase0.txt`.
-
-1. Leer el resultado de la segunda ejecución.
-   - **Si pasa:** anotar la falla como aislada y no reproducida, y seguir.
-   - **Si vuelve a fallar:** diagnosticar con el mensaje del informe. Hipótesis a comprobar: la prueba solo inserta una caja si no hay una abierta, así que depende del estado que dejen otras pruebas o de la semilla; y la ejecución cruzó horas cercanas a la medianoche. Corregir la prueba para que prepare su propio estado.
-2. Commit del entorno: `docker-compose.yml`, `.env.example`, README, guías, scripts y eliminación de `services/ai`.
-3. **Cambios ajenos en el árbol de trabajo:** hay archivos movidos y borrados que no hice yo (los `PLAN_PENDIENTE_*` pasaron de `restaurantcloud/implementacion/` a `implementacion/`; se borraron `docs/adr/.gitkeep`, los diagramas `diagrama_arquitectura_web.*` y `plan_pruebas_manuales_flujo_caja.md`). No se incluyen en mi commit; se pregunta al usuario si los commitea él o si se agregan en un commit aparte.
-
-## Etapa 1. Núcleo: publicar eventos
-
-Contrato: `doc-2u/servicios/nucleo-laravel.md` y `eventos.md`. Todo en `restaurantcloud/apps/api`.
-
-1. **Migración** `outbox_entrega` (SQL ya validado). Se crea con `php artisan make:migration`.
-2. **`config/eventos.php`:** mapa tipo de evento → destinos, y por destino su URL y secreto desde variables de entorno (`ANALITICA_URL`, `ANALITICA_SECRETO`…). Un destino sin URL configurada se omite, para que el núcleo funcione sin microservicios.
-3. **`App\Domains\Eventos\Services\PublicadorEventos`:** método `publicar(tipo, empresaId, localId, agregadoTipo, agregadoId, datos)` que inserta en `outbox_event` y una fila en `outbox_entrega` por destino. Se llama dentro de la transacción del negocio; no hace llamadas de red.
-4. **Emisión de los tres eventos:**
-   - `venta.registrada`: en `CajaController::cobrar`, junto a la inserción del comprobante (línea ~1218), que cubre cuenta completa y subcuenta. `fecha_operativa` se obtiene con `JornadaOperativaService::fechaOperativa` (`app/Domains/Horario/Services`).
-   - `comprobante.anulado`: en `CajaController::emitirNotaCredito` (~1815).
-   - `pedido.anulado`: en las cuatro inserciones de `pedido_anulacion` de `MozoController` (~2816, 3107, 3136, 3571), mediante un único método auxiliar que arma el evento desde la fila insertada.
-5. **Despacho:** comando `outbox:despachar-eventos` (modelo: `app/Console/Commands/DespacharOutboxComprobantes.php`) y job `EntregarEventoJob` (modelo: `app/Domains/Caja/Jobs/GenerarComprobanteDigitalJob.php`) que envía con `Http::timeout(5)`, cabeceras `X-Timestamp` y `X-Firma` (HMAC-SHA256 de `timestamp.cuerpo`). Respuesta 2xx → `entregado`; otro resultado → suma intento y reprograma con espera creciente; a los 8 intentos → `fallido`. Se agenda cada minuto en `routes/console.php`.
-6. **No se modifica** el flujo `comprobante.digital.solicitado`.
-
-**Pruebas (PHPUnit, patrón de `CobroFiscalComprobanteTest`):** el cobro crea el evento con el cuerpo del contrato y sus entregas; un cobro que falla no deja eventos; la nota de crédito y la anulación emiten los suyos; el job marca `entregado` o reprograma (`Http::fake`); la firma se calcula como dice el contrato.
-
-## Etapa 2. ms-analítica
-
-Contrato y modelo: `doc-2u/servicios/ms-analitica.md`. Carpeta nueva `restaurantcloud/services/analitica`.
-
-1. **Esqueleto** FastAPI con capas `app/api`, `app/dominio`, `app/datos`, `app/config.py`; `/health`; logs JSON con `X-Request-Id`. Dependencias: FastAPI, SQLAlchemy 2, Alembic, psycopg, pytest.
-2. **Base:** migración Alembic con las 7 tablas del diseño. Usuario de aplicación sin privilegios de administración, creado por un script de inicialización; las migraciones usan el usuario administrador del contenedor.
-3. **`POST /interno/eventos`:** dependencia que verifica la firma y la antigüedad del timestamp; validación del sobre con Pydantic; un manejador por tipo de evento, cada uno en una transacción con `evento_procesado`.
-4. **`GET /interno/series/ventas-diarias`:** serie continua con `generate_series`, desde `producto_visto.primera_venta`.
-5. **Dockerfile** multietapa, usuario no root, escucha en `PORT`. Servicio `analitica` en `docker-compose.yml` como `restaurantcloudIA_analitica` (puerto 8001), dependiente de `db-analitica`.
-6. `.env.example` y `README.md` del servicio.
-
-**Pruebas (pytest contra PostgreSQL real):** venta nueva, duplicada y anulada; anulación antes que la venta; firma inválida o vencida; tipo desconocido → `ignorado`; serie con días sin ventas; un local no ve datos de otro.
-
-## Etapa 3. Integración de punta a punta
-
-1. Con el Compose completo: cobrar desde el POS y ver la venta en ms-analítica en menos de un minuto.
-2. Anular el comprobante y ver la serie corregida.
-3. Apagar ms-analítica, cobrar, encenderlo y ver que el evento llega por reintento.
-4. Guardar evidencias (peticiones, respuestas, capturas) para «Pruebas de integración» del informe.
-5. Actualizar las fichas de `doc-2u/servicios/` si algo del contrato cambió.
+| Etapa | Estado | Verificación |
+|---|---|---|
+| 0. Preparación del entorno | Cerrada | Suite del núcleo en verde en tres ejecuciones completas |
+| 1. Núcleo: publicar eventos | Cerrada | Pruebas de publicación y de entrega |
+| 2. ms-analítica | Cerrada | 80 pruebas de pytest contra PostgreSQL real |
+| 3. Integración de punta a punta | Cerrada | `scripts/smoke-analitica.sh`: 39 comprobaciones |
+| Extra: resiliencia de la entrega | Cerrada | 23 pruebas de resiliencia y escenario de caída real |
+| Extra: identificadores ordenados | Cerrada | Suite completa: 639 pruebas |
+| 4. Datos sintéticos | **Siguiente** | — |
 
 ---
 
-## Hoja de ruta posterior (se detalla al llegar)
+## Etapa 0. Preparación del entorno — cerrada
+
+- Compose renombrado a `restaurantcloud-ia`, contenedores `restaurantcloudIA_*` y una base por servicio (`db-analitica`, `db-pronostico`, `mongo-notificaciones`). Estructura de `services/` e `infra/` creada (`doc-2u/02-organizacion-carpetas-proyecto.md`).
+- La falla aislada de `MozoMesasUnionTest` no volvió a aparecer en tres ejecuciones completas posteriores (607, 633 y 639 pruebas en verde). Se da por no reproducida.
+- Los cambios ajenos del árbol de trabajo los commiteó el usuario.
+
+## Etapa 1. Núcleo: publicar eventos — cerrada
+
+Todo en `restaurantcloud/apps/api`; contrato en `doc-2u/servicios/nucleo-laravel.md` y `eventos.md`.
+
+- Migración `outbox_entrega`, `config/eventos.php`, `PublicadorEventos` y `EventosNucleo` (arma los `datos` desde las filas ya guardadas en la transacción).
+- Emisión de `venta.registrada` (cobro de cuenta y de subcuenta), `comprobante.anulado` (nota de crédito) y `pedido.anulado`. Las cuatro inserciones de `pedido_anulacion` de `MozoController` pasan por un único método, y cada una tiene su prueba: ítem, comanda con ítems, comanda vacía y quiebre de cocina.
+- `outbox:despachar-eventos` (cada minuto) y `EntregarEventoJob`, firmado con HMAC-SHA256.
+- **Cambio sobre lo previsto:** un 422 del destino ya no se reintenta; pasa directo a `fallido`, como dice el contrato.
+
+## Etapa 2. ms-analítica — cerrada
+
+Carpeta `restaurantcloud/services/analitica`; contrato en `doc-2u/servicios/ms-analitica.md`.
+
+- Python 3.12, FastAPI, SQLAlchemy 2 (Core) y Alembic, con uv. Capas `api`, `dominio`, `datos` y `soporte` (respuesta común, firma, `X-Request-Id`, logs JSON). La capa `soporte` no importa de las demás, para poder copiarla a otro servicio.
+- `POST /interno/eventos`: el evento y su registro en `evento_procesado` se guardan en una sola transacción que se confirma **antes** de responder. Es idempotente por evento y por clave natural (`comprobante_id`, `anulacion_id`), tolera el desorden (anulación antes que la venta) y serializa los eventos de un mismo comprobante con un bloqueo de PostgreSQL.
+- `GET /interno/series/ventas-diarias`: serie continua con `generate_series`, con ceros en los días sin ventas.
+- Base: usuario `analitica_app` sin privilegios de DDL, creado por `infra/postgres/analitica/01-usuarios.sh`, que es idempotente y se puede reejecutar sobre un volumen existente. Las migraciones las aplica el contenedor `analitica-migraciones` con el usuario administrador.
+- Dockerfile multietapa con usuario no root; servicio `restaurantcloudIA_analitica` en el puerto 8001.
+- **Decisiones que cambiaron el contrato** (ya reflejadas en la ficha):
+  - Un GET se firma sobre su cadena de consulta, para que sus parámetros no se puedan alterar.
+  - El rango máximo de 730 días cuenta ambos extremos.
+  - `ultimo_evento_en` es la llegada de la última venta del local.
+  - pandas se incorpora con los reportes; la serie se arma en SQL.
+
+## Etapa 3. Integración de punta a punta — cerrada
+
+`scripts/smoke-analitica.sh` (desde `restaurantcloud/`) cubre los tres escenarios con el POS real, sin datos sintéticos:
+
+1. Cobrar y ver la venta en ms-analítica: llegó en unos 15 s.
+2. Anular con nota de crédito y ver la serie corregida: volvió a 0.
+3. Apagar ms-analítica, cobrar, encenderla: el evento llegó solo en 68 s, sin contar como fallo.
+
+Antes comprueba lo que ninguna prueba unitaria ve: que el worker escucha la cola `eventos`, que `ANALITICA_URL` está definida y que el secreto de firma coincide en los tres lados.
+
+- **Evidencias:** el script las guarda en `doc-2u/evidencias/smoke-analitica/<fecha>/`, carpeta que **no se versiona** (se regenera con el script). Para el informe se toman extractos de ahí.
+- **Contratos de forma:** `doc-2u/servicios/contratos/` describe la forma de cada evento real. El núcleo comprueba que emite exactamente eso, y ms-analítica que lo acepta, sin compartir código. Se regeneran con `ACTUALIZAR_CONTRATOS=1` cuando un cambio es intencional (`doc-2u/servicios/README.md`).
+
+## Extra: resiliencia de la entrega de eventos — cerrada
+
+Surgió al revisar qué pasa si ms-analítica se apaga por mantenimiento: con 8 intentos, una caída de más de unas 2 horas dejaba entregas fallidas.
+
+- Cada fallo se clasifica en `outbox_entrega.motivo_fallo`. Si el destino no responde, rechaza la firma o no está configurado, no se gastan intentos y se espera hasta `EVENTOS_HORIZONTE_DIAS` (7). Un 500 cuenta contra el límite de 8; un 422 pasa a `fallido` al instante.
+- `PausaDeDestinos`: con el destino caído se retienen sus entregas; al vencer la pausa sale una sola de prueba y, cuando responde, las retenidas se adelantan en orden cronológico.
+- `outbox:estado` y `outbox:reenviar-eventos`, con `--dry-run`, filtros y comprobación de `/health`. Reenviar es seguro porque el receptor es idempotente.
+
+## Extra: identificadores ordenados por tiempo — cerrada
+
+La base genera ids con `fn_uuid_v8()`, pero el código pasaba los suyos con `Str::uuid()`, que es versión 4 (aleatoria), y fragmentaba los índices.
+
+- `App\Support\Identificador::ordenado()` (UUID v7) para claves de fila y `::aleatorio()` (v4) para secretos: `token_qr`, token de refresco y archivo temporal de exportación.
+- Una prueba de arquitectura impide usar `Str::uuid()` en `app/`. Los ids existentes no cambian.
+
+---
+
+## Hoja de ruta (se detalla al llegar)
 
 | Etapa | Contenido | Requisito de la guía que cubre |
 |---|---|---|
-| 4. Datos sintéticos | Generador versionado de ventas históricas (estacionalidad semanal, feriados, promociones) que entra por el mismo evento `venta.registrada`; job diario de `snapshot_stock_diario` | Datos para la IA; dataset del protocolo |
+| **4. Datos sintéticos** | Generador versionado de ventas históricas (estacionalidad semanal, feriados, promociones) que entra por el mismo evento `venta.registrada`; job diario de `snapshot_stock_diario` | Datos para la IA; dataset del protocolo |
 | 5. ms-pronóstico | Servicio con baseline de punta a punta; endpoints del núcleo; tabla `recomendacion_reposicion`; pantalla de pronóstico y reposición en React; después, HistGradientBoosting | IA integrada en un flujo real (15 %) |
 | 6. JWT y gateway | JWT RS256 en login y refresh; Kong con rutas y validación; reportes públicos de ms-analítica (alcance de CU-ADMIN-13 por definir) | Arquitectura distribuida; seguridad |
 | 7. ms-notificaciones | Servicio Node/Fastify con MongoDB, bandeja y SSE; campana en React; el núcleo deja de insertar en `notificacion` | Tercer microservicio |
@@ -73,16 +98,26 @@ Contrato y modelo: `doc-2u/servicios/ms-analitica.md`. Carpeta nueva `restaurant
 | 9. Seguridad | Rol `rc_app`, prueba de RLS en la base e inventario de consultas sin contexto | Seguridad y configuración |
 | 10. Informe | OpenAPI de cada servicio, diagramas exportados, protocolo experimental, plan de migración, plan hacia la semana 16 | Informe y documentación |
 
-Orden recomendado si el tiempo aprieta: 4 → 5 → 8 antes que 6 y 7, porque IA y despliegue pesan más en la nota. Con ms-analítica y ms-pronóstico habría dos microservicios; el tercero (notificaciones) es obligatorio para la guía, así que no puede omitirse, solo reducirse a bandeja sin tiempo real.
+Orden recomendado si el tiempo aprieta: 4 → 5 → 8 antes que 6 y 7, porque IA y despliegue pesan más en la nota. ms-notificaciones es obligatorio para la guía, así que no puede omitirse, solo reducirse a bandeja sin tiempo real.
+
+## Pendientes conocidos
+
+- **Carga inicial de ventas históricas.** Un evento publicado antes de configurar `ANALITICA_URL` no tiene entrega para ese destino y no se recupera solo. Se resuelve en la etapa 4: el generador de datos sintéticos entra por `venta.registrada`, y la misma vía sirve para reenviar el histórico real.
+- **Conciliación por jornada** (pieza 5 de la propuesta de resiliencia): ms-analítica expone totales por jornada y el núcleo reenvía lo que no cuadre. Junto con ms-pronóstico.
+- **Alerta de entregas fallidas** en ms-notificaciones (etapa 7).
+- **Imágenes en producción:** al desplegar hay que **reconstruir** las imágenes de `api`, `queue` y `scheduler`, no solo reiniciarlas. Con una imagen antigua el worker no escucha la cola `eventos`, y los cambios de configuración (`ANALITICA_URL`) solo se aplican al recrear el contenedor.
+- **Montaje de contratos:** el contenedor `api` monta `doc-2u/servicios/contratos` solo para las pruebas; no va en `docker-compose.prod.yml`.
+- **Datos de la prueba de humo en la base de desarrollo:** producto, mesas y pedidos `SMOKE`, comprobantes reales y una caja que el script abrió y dejó abierta. Antes de una demostración conviene recrear la base de desarrollo.
 
 ## Riesgos
 
-- **`CajaController::cobrar` es el punto más delicado.** El evento agrega dos inserciones dentro de la transacción y ninguna llamada de red. Se cubre con las pruebas de cobro existentes más las nuevas.
+- **`CajaController::cobrar` es el punto más delicado.** La publicación del evento son dos inserciones dentro de la transacción, sin llamadas de red; cubierto por las pruebas de cobro y por la prueba de humo.
 - **`docker-compose.prod.yml` conserva los nombres `saas_*`.** Renombrarlo crearía volúmenes vacíos en el servidor desplegado; se decide en la etapa 8.
-- **La suite completa tarda 10 a 14 minutos.** Durante el desarrollo se ejecutan solo las clases afectadas; la suite completa, al cerrar cada etapa.
+- **La suite completa del núcleo tarda unos 14 minutos.** Durante el desarrollo se ejecutan las clases afectadas; la suite completa, al cerrar cada etapa.
 
 ## Verificación
 
-- Etapa 1: `docker exec restaurantcloudIA_api php artisan test --compact tests/Feature/<clases nuevas y de cobro>`; al cierre, suite completa en verde.
-- Etapa 2: `pytest` del servicio en verde; `docker compose up -d analitica` y `curl http://localhost:8001/health` → 200.
-- Etapa 3: los tres escenarios manuales anteriores, comprobando en `outbox_entrega` (estado `entregado`) y en las tablas `venta` y `venta_diaria_producto` de `analitica_db`.
+- **Núcleo:** `docker exec restaurantcloudIA_api php artisan test --compact` (639 pruebas al 18/11).
+- **ms-analítica:** `uv run pytest` en `services/analitica`, con `TEST_DATABASE_URL` y `TEST_APP_DATABASE_URL` (80 pruebas).
+- **Integración:** `./scripts/smoke-analitica.sh` (o `--rapido`, sin el escenario de caída).
+- **Estado de las entregas:** `docker exec restaurantcloudIA_api php artisan outbox:estado`.
