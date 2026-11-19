@@ -44,6 +44,7 @@ services/analitica/
 │   ├── api/          Endpoints (rutas públicas e /interno)
 │   ├── dominio/      Reglas: qué hacer con cada evento, cómo armar un reporte
 │   ├── datos/        Acceso a la base; aquí vive el filtro por empresa y local
+│   ├── soporte/      Piezas transversales sin reglas de negocio: formato de respuesta, firma, X-Request-Id, logs
 │   └── config.py     Lectura de variables de entorno
 ├── migrations/       Alembic
 ├── tests/
@@ -53,6 +54,8 @@ services/analitica/
 ```
 
 El servicio de Node usa `src/` en lugar de `app/`, con las mismas capas.
+
+**Dependencias entre capas:** `api → dominio → datos`. Cualquier capa puede usar `soporte`, pero `soporte` no importa nada de las demás; por eso se puede copiar a otro servicio sin arrastrar lógica de negocio.
 
 **Ningún servicio importa código de otro.** Lo único que comparten es el contrato documentado en `doc-2u/servicios/`.
 

@@ -148,7 +148,7 @@ Líneas continuas: llamadas síncronas. Líneas punteadas: comunicación asíncr
 
 | Elemento | Elección | Por qué |
 |---|---|---|
-| ms-analítica | **Python 3.12 + FastAPI + pandas** | Agregaciones y exportación a Excel/CSV; comparte stack con la IA |
+| ms-analítica | **Python 3.12 + FastAPI + pandas** | Agregaciones y exportación a Excel/CSV; comparte stack con la IA. La serie de ventas se arma en SQL; pandas entra con los reportes y la exportación |
 | ms-analítica, base | **PostgreSQL** | Datos tabulares y temporales; SQL analítico y funciones de ventana |
 | ms-pronóstico | **Python 3.12 + FastAPI + scikit-learn** | Ecosistema de aprendizaje automático; FastAPI genera la documentación OpenAPI automáticamente |
 | ms-pronóstico, base | **PostgreSQL** | Trazabilidad relacional: versión de modelo → ejecución → predicciones |

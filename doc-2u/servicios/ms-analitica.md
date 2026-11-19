@@ -7,7 +7,7 @@ Estructura y reglas comunes: [README.md](README.md).
 | | |
 |---|---|
 | **Responsabilidad** | Reportes de ventas y desempeño (CU-ADMIN-13) y series de ventas para la IA. Solo lee ventas ya cerradas; no emite comprobantes ni cobra |
-| **Stack** | Python 3.12, FastAPI, pandas |
+| **Stack** | Python 3.12, FastAPI, SQLAlchemy 2, Alembic. pandas se incorpora con los reportes y la exportación (CU-ADMIN-13): la serie de ventas se arma en SQL |
 | **Base de datos** | PostgreSQL propia |
 | **Código** | `restaurantcloud/services/analitica` |
 | **Puerto local** | 8001 |
@@ -218,18 +218,21 @@ Están detallados los dos endpoints de los que depende la IA. Los de reportes se
 | HTTP | Código | Cuándo |
 |---|---|---|
 | 401 | `ERR_FIRMA_INVALIDA` | Falta la firma, no coincide o el timestamp tiene más de 5 minutos |
-| 422 | `ERR_EVENTO_INVALIDO` | El sobre o `datos` no cumplen el contrato de esa versión |
+| 422 | `ERR_EVENTO_INVALIDO` | El cuerpo no es JSON, el sobre está incompleto, la `version` no está soportada, o `datos` no cumple el contrato. `detalles.campos` lista cada campo y su motivo |
 | 503 | `ERR_BD_NO_DISPONIBLE` | No se pudo guardar; el emisor debe reintentar |
 
 **Notas**
 
-- Guardar el `id` en `evento_procesado` y aplicar el evento ocurren en una sola transacción: o se hacen ambas cosas o ninguna.
-- Un 422 indica un error del emisor que el reintento no arregla; el núcleo lo marca como `fallido` para revisión.
+- Guardar el `id` en `evento_procesado` y aplicar el evento ocurren en una sola transacción, y esa transacción termina antes de responder: un 202 significa que el evento quedó guardado.
+- Un 422 indica un error del emisor que el reintento no arregla; el núcleo lo marca como `fallido` para revisión, sin reintentos, y conserva el código de error en `outbox_entrega.ultimo_error`.
+- Los eventos de una misma venta pueden llegar a la vez o en desorden. El servicio serializa los eventos de un mismo comprobante, y una anulación que llega antes que su venta queda en `anulacion_pendiente`: al llegar la venta entra ya anulada y no suma a la serie.
+- Un evento con el mismo `comprobante_id` o `anulacion_id` que otro ya aplicado, aunque traiga otro `id`, no duplica nada.
+- El nombre y la categoría de un producto solo se actualizan con una venta igual o más reciente que la última registrada.
 
 ### GET /interno/series/ventas-diarias
 
 **Propósito:** entregar a ms-pronóstico las unidades vendidas por jornada y producto de un local.
-**Autenticación:** firma HMAC.
+**Autenticación:** firma HMAC sobre la cadena de consulta (sección 2 del [README](README.md)), tal como se envía. Sin firma válida responde 401 antes de validar los parámetros.
 
 **Parámetros**
 
@@ -239,7 +242,7 @@ Están detallados los dos endpoints de los que depende la IA. Los de reportes se
 | `local_id` | query | uuid | sí | Local |
 | `desde` | query | día | sí | Primera jornada |
 | `hasta` | query | día | sí | Última jornada (incluida) |
-| `producto_ids` | query | lista de uuid | no | Limita la respuesta a esos productos |
+| `producto_ids` | query | lista de uuid | no | Limita la respuesta a esos productos. Se repite el parámetro por cada uno: `producto_ids=a&producto_ids=b` |
 
 **Respuesta 200**
 
@@ -273,14 +276,16 @@ Están detallados los dos endpoints de los que depende la IA. Los de reportes se
 | HTTP | Código | Cuándo |
 |---|---|---|
 | 401 | `ERR_FIRMA_INVALIDA` | Firma ausente o incorrecta |
-| 422 | `ERR_RANGO_INVALIDO` | `desde` posterior a `hasta`, o rango mayor a 730 días |
+| 422 | `ERR_RANGO_INVALIDO` | `desde` posterior a `hasta`, o rango mayor a 730 días (contando ambos extremos: 730 se acepta y 731 no) |
+| 422 | `ERR_VALIDACION` | Falta un parámetro o no tiene el formato esperado (uuid o `YYYY-MM-DD`) |
 
 **Notas**
 
-- La serie de cada producto es continua: incluye con `unidades: 0` las jornadas sin ventas entre su `primera_venta` y `hasta`. Así el modelo no tiene que rellenar huecos.
-- Las ventas anuladas ya están descontadas.
+- La serie de cada producto es continua: incluye con `unidades: 0` las jornadas sin ventas entre `max(primera_venta, desde)` y `hasta`. Así el modelo no tiene que rellenar huecos. Un producto cuya primera venta es posterior a `hasta` no aparece.
+- Las ventas anuladas ya están descontadas. Un producto cuya única venta se anuló sigue apareciendo, con ceros desde su `primera_venta`.
 - Un local sin ventas en el rango devuelve `productos: []` con 200; no es un error.
-- `ultimo_evento_en` permite a ms-pronóstico saber qué tan al día están los datos y registrarlo en la ejecución.
+- Los productos se ordenan por nombre. Solo se devuelven los del `empresa_id` y `local_id` indicados.
+- `ultimo_evento_en` es el instante en que llegó la última venta del local (`MAX(venta.recibido_en)`), en la zona horaria del servicio, o `null` si no hay ventas. Permite a ms-pronóstico saber qué tan al día están los datos y registrarlo en la ejecución.
 - Limitación conocida: un cero puede significar que no hubo demanda, que el local estuvo cerrado o que el plato estuvo agotado, y analítica no los distingue. Se resuelve al diseñar las variables del modelo (ver «Decisiones abiertas»).
 
 ## 4. Eventos
@@ -308,9 +313,10 @@ Ningún otro componente se detiene si ms-analítica cae, salvo ms-pronóstico, q
 |---|---|
 | `PORT` | Puerto de escucha |
 | `DATABASE_URL` | Conexión a su PostgreSQL (usuario sin privilegios de administración) |
-| `JWT_PUBLIC_KEY` | Clave pública para validar los JWT |
-| `SECRETO_INTERNO` | Secreto HMAC para `/interno` |
+| `JWT_PUBLIC_KEY` | Clave pública para validar los JWT. Se usa en las rutas públicas de reportes (aún no implementadas) |
+| `SECRETO_INTERNO` | Secreto HMAC para `/interno`; es el mismo `ANALITICA_SECRETO` del núcleo |
 | `ZONA_HORARIA` | `America/Lima` |
+| `MIGRATIONS_DATABASE_URL` | Conexión del usuario administrador. La usa solo el contenedor `analitica-migraciones`, no el servicio |
 
 ## 7. Decisiones abiertas
 

@@ -35,10 +35,18 @@ CREATE TABLE outbox_entrega (
     ultimo_error       text,
     entregado_en       timestamptz,
     created_at         timestamptz NOT NULL DEFAULT now(),
+    motivo_fallo       varchar(20)                  -- clase del último fallo
+                       CHECK (motivo_fallo IN ('no_disponible','no_autorizado','sin_configurar',
+                                               'error_receptor','rechazado')),
+    fallos_receptor    smallint NOT NULL DEFAULT 0, -- fallos que cuentan contra el límite de intentos
+    fallando_desde     timestamptz,                 -- primer fallo de la racha actual
+    reenvios           smallint NOT NULL DEFAULT 0, -- veces devuelta a pendiente por un operador
     UNIQUE (evento_id, destino)
 );
 CREATE INDEX ix_outbox_entrega_pendiente
     ON outbox_entrega (proximo_intento_en) WHERE estado = 'pendiente';
+CREATE INDEX ix_outbox_entrega_fallido
+    ON outbox_entrega (destino, created_at) WHERE estado = 'fallido';
 
 CREATE TABLE recomendacion_reposicion (
     id                uuid PRIMARY KEY DEFAULT fn_uuid_v8(),
@@ -63,7 +71,19 @@ CREATE INDEX ix_recomendacion_local ON recomendacion_reposicion (local_id, creat
 
 - **Por qué una tabla de entregas.** Un evento puede ir a dos servicios y uno puede fallar mientras el otro lo recibe. Con el estado por destino, se reintenta solo el que falló. `outbox_event` conserva su función actual (incluida la generación del PDF del comprobante, que no cambia).
 - **Qué destinos recibe cada tipo de evento** se define en configuración; al insertar el evento se crean sus filas de entrega en la misma transacción.
-- **Reintentos:** cada fallo aumenta `intentos` y aleja `proximo_intento_en`; al llegar al máximo, la entrega pasa a `fallido` y queda para revisión.
+- **Reintentos según la causa del fallo.** `intentos` cuenta todos los envíos y aleja `proximo_intento_en` (1, 2, 4… hasta 60 minutos), pero solo algunos fallos acercan la entrega a `fallido`:
+
+  | Respuesta del destino | `motivo_fallo` | Qué ocurre |
+  |---|---|---|
+  | Sin conexión, timeout, 502/503/504 | `no_disponible` | No gasta intentos. Pasa a `fallido` tras `EVENTOS_HORIZONTE_DIAS` (7) fallando sin interrupción |
+  | 401/403 | `no_autorizado` | Igual: es una configuración que se corrige en el servidor |
+  | Destino sin URL o secreto | `sin_configurar` | Igual |
+  | 500 u otro 4xx | `error_receptor` | Cuenta en `fallos_receptor`; a los 8 pasa a `fallido` |
+  | 422 | `rechazado` | Pasa a `fallido` al instante |
+
+  Con esto, un mantenimiento largo de un microservicio no deja entregas fallidas: los eventos se entregan solos cuando vuelve.
+- **Pausa por destino.** Un fallo que afecta al destino (los tres primeros de la tabla) lo pausa: las entregas pendientes se retienen sin gastar intentos ni timeouts. Al vencer la pausa sale una sola entrega de prueba y, cuando el destino responde, las retenidas se adelantan en orden cronológico. El estado vive en la caché (Redis); si se pierde, el sistema vuelve al comportamiento normal y se degrada de nuevo en el siguiente fallo.
+- **Reenvío de fallidos.** Una entrega `fallido` no se reintenta sola. `outbox:reenviar-eventos` la devuelve a pendiente, con los contadores en cero y vencimiento en la fecha de su evento, para que se envíe de la más antigua a la más reciente. Reenvía el evento tal como se guardó, sin reconstruirlo con los datos de hoy. Es seguro porque el receptor tolera duplicados por las claves del núcleo (`comprobante_id`, `anulacion_id`), no solo por `evento_procesado`, que se purga a los 30 días.
 - **`recomendacion_reposicion` guarda con qué se calculó** (`consumo_previsto`, `stock_al_calcular`), para poder explicar la cantidad sugerida aunque el stock cambie después.
 - **La decisión humana queda registrada** (`estado`, `cantidad_final`, quién y cuándo): la recomendación es apoyo a la decisión, nunca una compra automática.
 - Ambas tablas siguen las reglas del núcleo: política RLS por `local_id` en `recomendacion_reposicion`, igual que el resto de tablas de sede.
@@ -92,6 +112,10 @@ Publica todos los eventos de origen `nucleo` del [catálogo](eventos.md). Cada u
 - `PublicadorEventos::publicar` guarda el sobre completo en `outbox_event.payload` y una fila de `outbox_entrega` por destino, sin llamadas de red. `EventosNucleo` arma los `datos` de cada evento a partir de las filas ya guardadas en la transacción.
 - Puntos de emisión: `venta.registrada` en `CajaController::cobrar` (cuenta completa y subcuenta), `comprobante.anulado` en `CajaController::emitirNotaCredito` y `pedido.anulado` en cada registro de `pedido_anulacion` de `MozoController` (ítem, comanda completa, comanda vacía y sustitución por quiebre).
 - Al confirmar la transacción se encola `EntregarEventoJob` (cola `eventos`) por cada entrega. Si eso falla, o para los reintentos, el comando `outbox:despachar-eventos` (cada minuto) encola las entregas vencidas. Cada entrega encolada queda reservada 2 minutos para no encolarla dos veces.
+- `PausaDeDestinos` lleva la pausa por destino y `MotivoFallo` clasifica los fallos.
+- Comandos de operación:
+  - `outbox:estado`: por destino, pendientes, reintentando, fallidos (con su motivo y tipo de evento), antigüedad del más viejo y si el destino está en pausa.
+  - `outbox:reenviar-eventos --destino=…`: devuelve los fallidos a pendiente. Opciones `--desde`, `--hasta`, `--tipo`, `--incluir-rechazados` (los 422 no entran por defecto), `--dry-run` (muestra qué haría sin cambiar nada) y `--forzar` (sin comprobar `/health` del destino). Conviene ejecutar siempre primero con `--dry-run`.
 - El flujo `comprobante.digital.solicitado` (PDF del comprobante) no cambia.
 
 ## 5. Dependencias y fallos
@@ -99,7 +123,7 @@ Publica todos los eventos de origen `nucleo` del [catálogo](eventos.md). Cada u
 | Depende de | Si no responde |
 |---|---|
 | ms-pronóstico | La pantalla de pronóstico informa que no está disponible; el resto del sistema sigue igual |
-| ms-analítica, ms-notificaciones | Los eventos quedan en el outbox y se reintentan |
+| ms-analítica, ms-notificaciones | Los eventos quedan en el outbox y se reintentan sin límite de intentos durante 7 días; si vuelve antes, se entregan solos y en orden |
 
 ## 6. Configuración nueva
 
@@ -109,7 +133,8 @@ Publica todos los eventos de origen `nucleo` del [catálogo](eventos.md). Cada u
 | `PRONOSTICO_URL`, `PRONOSTICO_SECRETO` | Dirección y secreto de ms-pronóstico |
 | `ANALITICA_URL`, `ANALITICA_SECRETO` | Destino de eventos. Sin URL, no se crean entregas para ese servicio |
 | `NOTIFICACIONES_URL`, `NOTIFICACIONES_SECRETO` | Destino de eventos. Sin URL, no se crean entregas para ese servicio |
-| `EVENTOS_MAX_INTENTOS`, `EVENTOS_TIMEOUT_SEGUNDOS` | Reintentos por destino (8) y espera de respuesta (5 s) |
+| `EVENTOS_MAX_INTENTOS`, `EVENTOS_TIMEOUT_SEGUNDOS` | Fallos del receptor tolerados por entrega (8) y espera de respuesta (5 s) |
+| `EVENTOS_HORIZONTE_DIAS` | Días que se espera a un destino que no responde antes de dar la entrega por fallida (7) |
 
 Los destinos de cada tipo de evento se definen en `config/eventos.php` (decidido: configuración, no base de datos). Un destino que no está configurado al publicar el evento no recibe ese evento aunque se configure después.
 

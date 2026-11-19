@@ -74,7 +74,7 @@ Se mantiene el formato que ya usa Laravel (`App\Support\ApiResponse`), para que 
 | Quién llama | Cómo se autentica |
 |---|---|
 | Navegador → microservicio | `Authorization: Bearer <JWT>`. El servicio valida la firma RS256 y toma `empresa_id`, `local_id` y `rol` del token; nunca del cuerpo ni de la URL |
-| Servidor → servidor (`/interno`) | Cabeceras `X-Timestamp` (segundos desde 1970, UTC) y `X-Firma` (HMAC-SHA256 en hexadecimal de `timestamp.cuerpo` con el secreto del servicio destino). La firma se calcula sobre los bytes exactos del cuerpo recibido, sin volver a serializarlo. Se rechaza si el timestamp tiene más de 5 minutos |
+| Servidor → servidor (`/interno`) | Cabeceras `X-Timestamp` (segundos desde 1970, UTC) y `X-Firma` (HMAC-SHA256 en hexadecimal de `timestamp.cuerpo` con el secreto del servicio destino). La firma se calcula sobre los bytes exactos del cuerpo recibido, sin volver a serializarlo. En una petición GET, que no tiene cuerpo, se firma la cadena de consulta tal como se envía (por ejemplo `empresa_id=…&local_id=…`), de modo que ningún parámetro se puede alterar sin invalidar la firma. Se rechaza si el timestamp tiene más de 5 minutos |
 
 **Otras reglas.**
 
@@ -171,7 +171,14 @@ Todos los eventos viajan como `POST /interno/eventos` del servicio destino, con 
 **Reglas de entrega.**
 
 - El receptor responde `202` si lo acepta. Si ya había procesado ese `id`, responde `200` y no hace nada (así tolera duplicados).
-- Cualquier otra respuesta, o no responder en 5 segundos, cuenta como fallo: el emisor reintenta ese destino con espera creciente (1, 2, 4… minutos, hasta 60) y a los 8 intentos marca su entrega como `fallida` en `outbox_entrega`. El evento en `outbox_event` queda `procesado` cuando todos sus destinos lo recibieron, o `fallido` si alguno agotó sus intentos.
+- Cualquier otra respuesta, o no responder en 5 segundos, cuenta como fallo y el emisor reintenta ese destino con espera creciente (1, 2, 4… minutos, hasta 60). Qué pasa después depende de la causa:
+  - **El destino no responde** (sin conexión, timeout, 502/503/504), **rechaza la firma** (401/403) **o no está configurado:** no es culpa del evento, no gasta intentos y se sigue esperando. La entrega pasa a `fallida` solo si lleva 7 días fallando sin interrupción.
+  - **El destino responde con un error** (500 u otro 4xx): a los 8 intentos la entrega pasa a `fallida`.
+  - **El destino responde 422:** el evento no cumple el contrato y reintentarlo no lo arregla; pasa a `fallida` de inmediato.
+
+  El evento en `outbox_event` queda `procesado` cuando todos sus destinos lo recibieron, o `fallido` si alguno quedó `fallida`.
+- Mientras un destino no responde, el emisor pausa sus envíos: al vencer cada pausa sale una sola entrega de prueba y, cuando el destino responde, el resto se reenvía en orden cronológico. Un destino caído no satura la cola ni afecta a los demás.
+- Las entregas `fallidas` se revisan con `outbox:estado` y se devuelven a pendiente con `outbox:reenviar-eventos`. Reenviar es seguro: el receptor tolera duplicados.
 - No se garantiza el orden de llegada. El receptor usa `ocurrido_en` si el orden importa.
 - Un cambio incompatible en `datos` sube `version`; agregar campos opcionales no.
 - Los eventos no llevan datos personales de comensales (nombre, documento, teléfono).
