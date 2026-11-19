@@ -24,3 +24,6 @@ go.work.sum
 # env file
 .env
 producto-documento/*
+
+# Evidencias generadas por scripts/smoke-analitica.sh: salida de cada corrida, se regenera cuando haga falta.
+doc-2u/evidencias/
