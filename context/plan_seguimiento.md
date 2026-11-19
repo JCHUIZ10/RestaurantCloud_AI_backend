@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 18/11/2026. Etapas 0 a 3 cerradas; la siguiente es la 4.
+**Última actualización:** 18/11/2026. Etapas 0 a 3 cerradas; la 4 está en curso.
 
 ## Contexto
 
@@ -22,7 +22,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | 3. Integración de punta a punta | Cerrada | `scripts/smoke-analitica.sh`: 39 comprobaciones |
 | Extra: resiliencia de la entrega | Cerrada | 23 pruebas de resiliencia y escenario de caída real |
 | Extra: identificadores ordenados | Cerrada | Suite completa: 639 pruebas |
-| 4. Datos sintéticos | **Siguiente** | — |
+| 4. Datos sintéticos | **En curso** | Ver el detalle de la etapa 4 |
 
 ---
 
@@ -86,11 +86,41 @@ La base genera ids con `fn_uuid_v8()`, pero el código pasaba los suyos con `Str
 
 ---
 
+## Etapa 4. Datos sintéticos — en curso
+
+### Decisiones de diseño de la IA (acordadas antes de empezar)
+
+- **Un solo modelo de IA:** el pronóstico de demanda **por plato** en ms-pronóstico. No hay un segundo modelo para la reposición: no existen ejemplos de «la compra correcta» con los que entrenarlo.
+- **CU-ADMIN-07** (administrador) convierte el pronóstico en una lista de compras dentro del núcleo: `pronóstico × receta + stock de seguridad − stock_actual`. Es un cálculo, no IA. El stock de seguridad sale de **P90 − P50** del modelo (regresión cuantílica de HistGradientBoosting), de modo que la incertidumbre del modelo llega a la cantidad sugerida.
+- **CU-PROP-08** (propietario) muestra el mismo pronóstico por plato y por local, con el resumen de reposición de cada sede. Si el historial es insuficiente, usa el baseline y lo indica.
+- **Aceptar, ajustar o descartar** la recomendación: *aceptar* abre la ficha de compra (CU-ADMIN-06) prellenada; *ajustar* es editar esa ficha; *descartar* es un botón. La IA nunca compra sola. La tasa de aceptación y la diferencia entre lo sugerido y lo comprado son métricas del protocolo.
+- **Cobertura:** selector de 3, 5 o 7 días en la pantalla (3 por defecto). Sin cambios de esquema.
+- **`snapshot_stock_diario` sale de la etapa 4.** Ningún dato de entrenamiento ni la recomendación la usan, y es por insumo mientras el modelo es por plato. Queda en el esquema sin uso (quitarla obliga a tocar RLS y el seed). Su valor real sería detectar **demanda censurada** (días con platos agotados); eso queda como limitación conocida y, de abordarse, sería con un evento `producto.disponibilidad_cambiada`. CU-SISTEMA-01 queda diferido.
+
+### Decisiones sobre los datos sintéticos
+
+- **No viajan por red ni por el outbox.** Un generador dentro de ms-analítica aplica cada venta con la misma función de dominio que procesa `venta.registrada` (`aplicar_venta_registrada`), sin HTTP. Son decenas de miles de ventas y se cargan en minutos; en producción se ejecuta con `docker exec` en el servidor, así que no consume el ancho de banda de quien lo lanza.
+- **El núcleo no recibe comprobantes falsos:** caja, reportes del POS y series SUNAT quedan limpios. La IA solo necesita el pronóstico, las recetas y el stock actual.
+- **Sin marca de «sintético».** Es un MVP que se reemplazará por datos reales. Para eso el generador produce datos **solo hasta una fecha de corte** (por defecto, ayer) y rechaza hoy o el futuro. Pasar a datos reales es purgar en ms-analítica todo lo anterior al corte (`purgar`).
+- **Reproducible:** semilla fija y perfil versionado (`aurea_v1`). Como la demanda esperada se conoce, el generador puede exportarla («la verdad») para el protocolo.
+- **Carta:** se amplía ÁUREA Miraflores (hoy 5 platos, 6 insumos y 1 mozo) **solo agregando** filas, sin cambiar ningún valor existente, porque las pruebas del núcleo dependen del seed. **Historial:** 24 meses, para que cada feriado y temporada aparezca dos veces (un año para entrenar y otro para evaluar).
+
+### Pasos
+
+1. Documentar las decisiones (este paso).
+2. ms-analítica: exponer `aplicar_venta_registrada`.
+3. ms-analítica: paquete `app/sinteticos/` (feriados de Perú, perfil, generador, comandos `generar` y `purgar`).
+4. Núcleo: ampliar el seed de ÁUREA (≈20 platos, ≈16 insumos con recetas, 3 mozos).
+5. Núcleo: comando `carta:exportar` que entrega al generador la carta, los mozos y las promociones del local.
+6. Verificación de punta a punta y cierre.
+
+---
+
 ## Hoja de ruta (se detalla al llegar)
 
 | Etapa | Contenido | Requisito de la guía que cubre |
 |---|---|---|
-| **4. Datos sintéticos** | Generador versionado de ventas históricas (estacionalidad semanal, feriados, promociones) que entra por el mismo evento `venta.registrada`; job diario de `snapshot_stock_diario` | Datos para la IA; dataset del protocolo |
+| 4. Datos sintéticos | Ver el detalle de la etapa 4, arriba | Datos para la IA; dataset del protocolo |
 | 5. ms-pronóstico | Servicio con baseline de punta a punta; endpoints del núcleo; tabla `recomendacion_reposicion`; pantalla de pronóstico y reposición en React; después, HistGradientBoosting | IA integrada en un flujo real (15 %) |
 | 6. JWT y gateway | JWT RS256 en login y refresh; Kong con rutas y validación; reportes públicos de ms-analítica (alcance de CU-ADMIN-13 por definir) | Arquitectura distribuida; seguridad |
 | 7. ms-notificaciones | Servicio Node/Fastify con MongoDB, bandeja y SSE; campana en React; el núcleo deja de insertar en `notificacion` | Tercer microservicio |
@@ -102,7 +132,10 @@ Orden recomendado si el tiempo aprieta: 4 → 5 → 8 antes que 6 y 7, porque IA
 
 ## Pendientes conocidos
 
-- **Carga inicial de ventas históricas.** Un evento publicado antes de configurar `ANALITICA_URL` no tiene entrega para ese destino y no se recupera solo. Se resuelve en la etapa 4: el generador de datos sintéticos entra por `venta.registrada`, y la misma vía sirve para reenviar el histórico real.
+- **Carga inicial de ventas históricas.** Un evento publicado antes de configurar `ANALITICA_URL` no tiene entrega para ese destino y no se recupera solo. El generador sintético de la etapa 4 **no** entra por el outbox (ver sus decisiones); el histórico real, si se necesita, se reenvía con `outbox:reenviar-eventos`.
+- **Plan y predicción (etapa 5).** En `06_seed_initial_data.sql` el plan Pro tiene `incluye_prediccion_ia = false`, y CU-PROP-08 dice «Pro/Enterprise». Hay que alinear plan, seed y caso de uso, y ÁUREA está en el plan Pro.
+- **Promociones como variable del modelo (etapa 5).** Para pronosticar días futuros con promoción, el núcleo debe enviar a ms-pronóstico las promociones planificadas; ms-analítica solo conoce las usadas.
+- **Demanda censurada.** Los días con platos agotados subestiman la demanda y el modelo la aprende más baja. Sin historial de disponibilidad no se puede corregir; limitación a documentar en el informe.
 - **Conciliación por jornada** (pieza 5 de la propuesta de resiliencia): ms-analítica expone totales por jornada y el núcleo reenvía lo que no cuadre. Junto con ms-pronóstico.
 - **Alerta de entregas fallidas** en ms-notificaciones (etapa 7).
 - **Imágenes en producción:** al desplegar hay que **reconstruir** las imágenes de `api`, `queue` y `scheduler`, no solo reiniciarlas. Con una imagen antigua el worker no escucha la cola `eventos`, y los cambios de configuración (`ANALITICA_URL`) solo se aplican al recrear el contenedor.

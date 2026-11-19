@@ -376,24 +376,29 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 ---
 
-### CU-PROP-08: Ver predicciones de demanda a nivel empresa (Pospuesto a Fase Futura / Backlog)
+### CU-PROP-08: Ver predicciones de demanda a nivel empresa (Unidad II — etapa 5)
 
 **Actor(es):** Propietario del restaurante
 
 **Precondiciones:** El plan de la empresa incluye el módulo de predicción (Pro/Enterprise); existe historial de ventas suficiente.
 
+> [!NOTE]
+> **Origen de los datos:** la demanda estimada es la salida del modelo de pronóstico por plato de ms-pronóstico (el único modelo de IA del sistema), alimentado con las ventas históricas de ms-analítica. El núcleo solo la consulta y la presenta; no recalcula nada.
+
 #### Flujo principal
 
 1. El propietario accede al módulo "Predicción".
-2. Selecciona local(es) y horizonte de tiempo (ej. próximo fin de semana).
-3. El sistema muestra la demanda estimada y recomendaciones de inventario asociadas.
+2. Selecciona local(es) y horizonte de tiempo (de 1 a 7 días; ej. próximo fin de semana).
+3. El sistema muestra, por local y por plato, las unidades estimadas por día, la comparación entre locales y, por cada local, un resumen de la reposición de insumos que resulta (la misma de `CU-ADMIN-07`).
+4. Cada cifra indica con qué datos se calculó: fecha de la última venta considerada y versión del modelo.
 
 #### Flujos alternativos
 
 - El plan no incluye este módulo (Starter) → el sistema muestra pantalla de upgrade.
-- No hay suficiente historial de datos → el sistema informa que la predicción aún no es confiable.
+- No hay suficiente historial de datos de un plato → ese plato se pronostica con el método base (ingenuo estacional) y se marca como «estimación básica».
+- ms-pronóstico no responde → el sistema informa que el pronóstico no está disponible; el resto de la aplicación no se ve afectado.
 
-**Postcondiciones:** Ninguna (consulta).
+**Postcondiciones:** Ninguna (consulta). Cada ejecución queda registrada en ms-pronóstico para auditar y comparar con lo realmente vendido.
 
 ---
 
@@ -654,24 +659,32 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 ---
 
-### CU-ADMIN-07: Ver recomendaciones de reposición de insumos (IA) (Pospuesto a Fase Futura / Backlog)
+### CU-ADMIN-07: Ver recomendaciones de reposición de insumos (IA) (Unidad II — etapa 5)
 
 **Actor(es):** Administrador del local
 
 **Precondiciones:** El plan incluye módulo de predicción; existe historial suficiente.
 
+> [!NOTE]
+> **Cómo se calcula:** la IA pronostica las unidades de cada **plato** (ms-pronóstico); el núcleo, dueño de recetas y stock, lo convierte en insumos: `consumo previsto = Σ unidades pronosticadas × cantidad de la receta`. La cantidad sugerida es `max(0, consumo de la cobertura + stock de seguridad − stock_actual)`, donde el stock de seguridad es la diferencia entre el percentil alto (P90) y la mediana (P50) del pronóstico, convertida a insumos. No hay un segundo modelo: la reposición es un cálculo sobre la salida del modelo de demanda.
+
 #### Flujo principal
 
-1. El administrador accede a "Recomendaciones de inventario".
-2. El sistema muestra una lista de insumos sugeridos para reponer, ordenada por prioridad: crítico (insumo ya por debajo del stock mínimo) y atención (acercándose al mínimo según demanda proyectada).
+1. El administrador accede a "Recomendaciones de inventario" y elige la cobertura: 3, 5 o 7 días (3 por defecto).
+2. El sistema muestra una lista de insumos sugeridos para reponer, ordenada por prioridad: crítico (insumo ya por debajo del stock mínimo) y atención (el consumo previsto lo llevaría por debajo del mínimo dentro de la cobertura).
 3. Cada ítem muestra: stock actual, cantidad sugerida a comprar, el último proveedor al que se compró ese insumo (con su precio y fecha de esa compra), y costo estimado.
-4. El administrador puede descargar la lista en PDF o Excel como guía de compra.
+4. El administrador puede **aceptar** la recomendación: el sistema abre la ficha de compra (`CU-ADMIN-06`) **prellenada** con los insumos y las cantidades sugeridas, agrupados por último proveedor. El registro de la compra sigue siendo manual: la IA nunca compra por sí sola.
+5. Puede **ajustar** las cantidades editando esa misma ficha, o **descartar** la recomendación con un botón.
+6. Puede descargar la lista en PDF o Excel como guía de compra.
 
 #### Flujos alternativos
 
 - Un insumo no tiene ninguna compra previa registrada → aparece en la lista sin sugerencia de proveedor/precio, solo con la cantidad recomendada.
+- Un insumo no figura en ninguna receta → no tiene pronóstico; solo se marca como crítico si está por debajo del stock mínimo.
+- Un plato con historial insuficiente → se pronostica con el método base (ingenuo estacional) y la lista lo indica.
+- ms-pronóstico no responde → el sistema informa que la recomendación no está disponible; el resto de la aplicación no se ve afectado.
 
-**Postcondiciones:** Ninguna dentro del sistema (es informativo); el archivo descargado no genera ningún registro.
+**Postcondiciones:** La recomendación y la decisión del administrador (aceptada, ajustada o descartada) quedan registradas en `recomendacion_reposicion`, al igual que la versión del modelo y los datos con que se calculó, para medir la tasa de aceptación y la diferencia entre lo sugerido y lo comprado. No se crea ninguna compra hasta que el administrador la registre.
 
 ---
 
@@ -1849,7 +1862,10 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 **Postcondiciones:** Notificación persistida en PostgreSQL 16 con `leida = true` y `fecha_leida` registrada; contador de campana actualizado en tiempo real.
 
-### CU-SISTEMA-01: Generar snapshot diario de stock e insumos
+### CU-SISTEMA-01: Generar snapshot diario de stock e insumos (Diferido)
+
+> [!NOTE]
+> **Diferido en la Unidad II:** ni el entrenamiento del modelo ni la recomendación usan este historial (las ventas vienen de ms-analítica y la reposición usa el stock actual). La tabla `snapshot_stock_diario` se conserva sin uso. Su valor sería corregir la demanda censurada (días con platos agotados), para lo cual haría falta además registrar los cambios de disponibilidad de los platos.
 
 **Actor(es):** Sistema (proceso automático, sin intervención humana)
 

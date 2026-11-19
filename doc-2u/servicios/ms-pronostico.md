@@ -153,4 +153,10 @@ Si ms-pronóstico cae, el salón, la cocina y la caja siguen funcionando.
 - Cuándo se entrena: bajo demanda, programado o fuera del servicio (script) con carga del archivo resultante.
 - Un modelo por local o uno global con el local como variable.
 - Variables de entrada definitivas (rezagos, medias móviles, día de la semana, feriados, promociones).
-- Datos sintéticos de entrenamiento: se definen al llegar a esta etapa.
+
+**Decididas**
+
+- **Datos sintéticos de entrenamiento:** los genera un comando dentro de ms-analítica (`python -m app.sinteticos`), con semilla y perfil versionado, hasta una fecha de corte y sin pasar por el outbox del núcleo. Para reemplazarlos por datos reales se purga todo lo anterior al corte.
+- **Un solo modelo de IA** (pronóstico por plato). Además de la mediana, el modelo entrega un percentil alto (P90, regresión cuantílica de HistGradientBoosting); el núcleo usa `P90 − P50` como stock de seguridad al calcular la reposición. La reposición no es un segundo modelo.
+- **Reposición en el núcleo:** cobertura elegida en pantalla (3, 5 o 7 días, 3 por defecto). Aceptar la recomendación prellena la ficha de compra; ajustar y descartar quedan del lado del núcleo.
+- **Limitación conocida:** sin historial de disponibilidad, los días con platos agotados subestiman la demanda (demanda censurada).
