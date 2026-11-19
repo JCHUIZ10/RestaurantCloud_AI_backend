@@ -141,7 +141,7 @@ services:
       STRIPE_KEY: ${STRIPE_KEY:-}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
-      ANALITICA_URL: ${ANALITICA_URL:-}
+      ANALITICA_URL: ${ANALITICA_URL:-http://analitica:8001}
       ANALITICA_SECRETO: ${ANALITICA_SECRETO:-}
       NOTIFICACIONES_URL: ${NOTIFICACIONES_URL:-}
       NOTIFICACIONES_SECRETO: ${NOTIFICACIONES_SECRETO:-}
@@ -185,7 +185,7 @@ services:
       AWS_USE_PATH_STYLE_ENDPOINT: "true"
       FILESYSTEM_DISK: s3
       # El worker envía los eventos del outbox a los microservicios.
-      ANALITICA_URL: ${ANALITICA_URL:-}
+      ANALITICA_URL: ${ANALITICA_URL:-http://analitica:8001}
       ANALITICA_SECRETO: ${ANALITICA_SECRETO:-}
       NOTIFICACIONES_URL: ${NOTIFICACIONES_URL:-}
       NOTIFICACIONES_SECRETO: ${NOTIFICACIONES_SECRETO:-}
@@ -247,12 +247,58 @@ services:
       POSTGRES_USER: ${ANALITICA_DB_USER}
       POSTGRES_PASSWORD: ${ANALITICA_DB_PASSWORD}
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
+      # Los usa 01-usuarios.sh para crear el usuario de la aplicación (solo al inicializar el volumen).
+      ANALITICA_DB_APP_USER: ${ANALITICA_DB_APP_USER}
+      ANALITICA_DB_APP_PASSWORD: ${ANALITICA_DB_APP_PASSWORD}
     ports:
       - "${ANALITICA_DB_PORT:-5433}:5432"
     volumes:
       - analitica_data:/var/lib/postgresql/data
+      - ./infra/postgres/analitica:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${ANALITICA_DB_USER} -d ${ANALITICA_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - saas_network
+
+  # ---------------------------------------------------------------------------
+  # ms-analítica
+  # ---------------------------------------------------------------------------
+  # Corre una vez las migraciones con el usuario administrador y termina; así las credenciales
+  # de administrador no quedan en el contenedor que atiende las peticiones.
+  analitica-migraciones:
+    build:
+      context: ./services/analitica
+    container_name: restaurantcloudIA_analitica_migraciones
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      MIGRATIONS_DATABASE_URL: postgresql+psycopg://${ANALITICA_DB_USER}:${ANALITICA_DB_PASSWORD}@db-analitica:5432/${ANALITICA_DB_NAME}
+    depends_on:
+      db-analitica:
+        condition: service_healthy
+    networks:
+      - saas_network
+
+  analitica:
+    build:
+      context: ./services/analitica
+    container_name: restaurantcloudIA_analitica
+    restart: unless-stopped
+    ports:
+      - "${ANALITICA_PORT:-8001}:8001"
+    environment:
+      PORT: 8001
+      DATABASE_URL: postgresql+psycopg://${ANALITICA_DB_APP_USER}:${ANALITICA_DB_APP_PASSWORD}@db-analitica:5432/${ANALITICA_DB_NAME}
+      SECRETO_INTERNO: ${ANALITICA_SECRETO}
+      ZONA_HORARIA: America/Lima
+    depends_on:
+      analitica-migraciones:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3)"]
       interval: 10s
       timeout: 5s
       retries: 5
