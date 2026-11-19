@@ -1,0 +1,28 @@
+{
+    "comensales": "null",
+    "comprobante_id": "uuid",
+    "descuento": "number",
+    "fecha": "datetime",
+    "fecha_operativa": "date",
+    "items": [
+        {
+            "cantidad": "int",
+            "categoria_id": "uuid",
+            "categoria_nombre": "string",
+            "costo_estandar": "number",
+            "nombre": "string",
+            "precio_unitario": "number",
+            "producto_id": "uuid",
+            "subtotal": "number"
+        }
+    ],
+    "medio_pago": "efectivo",
+    "monto_recargo": "number",
+    "mozo_id": "uuid",
+    "mozo_nombre": "string",
+    "pedido_id": "uuid",
+    "promocion_id": "null",
+    "subtotal_consumo": "number",
+    "tipo": "boleta",
+    "total": "number"
+}

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
+use Tests\Concerns\VerificaContratoDeEventos;
 use Tests\TestCase;
 
 /**
@@ -15,6 +16,8 @@ use Tests\TestCase;
  */
 class EventosOutboxPublicacionTest extends TestCase
 {
+    use VerificaContratoDeEventos;
+
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
 
     private string $localId = '00000000-0000-4000-8000-000000000010';
@@ -251,6 +254,7 @@ class EventosOutboxPublicacionTest extends TestCase
         $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/', $sobre['ocurrido_en']);
 
         $datos = $sobre['datos'];
+        $this->assertContratoDeEvento('venta.registrada.cuenta_completa', $datos);
         $this->assertSame($comprobanteId, $datos['comprobante_id']);
         $this->assertSame($pedidoId, $datos['pedido_id']);
         $this->assertSame('boleta', $datos['tipo']);
@@ -327,6 +331,7 @@ class EventosOutboxPublicacionTest extends TestCase
         $comprobanteId = DB::table('comprobante')->where('subcuenta_id', $subcuentaId)->value('id');
         $datos = $this->sobreDe('venta.registrada', $comprobanteId)['datos'];
 
+        $this->assertContratoDeEvento('venta.registrada.subcuenta', $datos);
         $this->assertNull($datos['comensales']);
         $this->assertEquals(38.00, $datos['total']);
         $this->assertSame(1, $datos['items'][0]['cantidad']);
@@ -374,6 +379,7 @@ class EventosOutboxPublicacionTest extends TestCase
         $notaCreditoId = DB::table('comprobante')->where('comprobante_modificado_id', $comprobanteId)->value('id');
         $sobre = $this->sobreDe('comprobante.anulado', $comprobanteId);
 
+        $this->assertContratoDeEvento('comprobante.anulado', $sobre['datos']);
         $this->assertEquals([
             'comprobante_id' => $comprobanteId,
             'nota_credito_id' => $notaCreditoId,
@@ -405,6 +411,7 @@ class EventosOutboxPublicacionTest extends TestCase
         $sobre = $this->sobreDe('pedido.anulado', $anulacion->id);
         $datos = $sobre['datos'];
 
+        $this->assertContratoDeEvento('pedido.anulado.item', $datos);
         $this->assertSame($anulacion->id, $datos['anulacion_id']);
         $this->assertSame($pedidoId, $datos['pedido_id']);
         $this->assertSame($itemId, $datos['pedido_item_id']);
@@ -470,6 +477,7 @@ class EventosOutboxPublicacionTest extends TestCase
         $sobre = $this->sobreDe('pedido.anulado', $anulacion->id);
         $datos = $sobre['datos'];
 
+        $this->assertContratoDeEvento('pedido.anulado.comanda_vacia', $datos);
         $this->assertSame($pedidoId, $datos['pedido_id']);
         $this->assertNull($datos['pedido_item_id']);
         $this->assertNull($datos['producto_id']);

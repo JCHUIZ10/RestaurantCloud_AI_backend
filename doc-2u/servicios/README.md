@@ -183,6 +183,13 @@ Todos los eventos viajan como `POST /interno/eventos` del servicio destino, con 
 - Un cambio incompatible en `datos` sube `version`; agregar campos opcionales no.
 - Los eventos no llevan datos personales de comensales (nombre, documento, teléfono).
 
+**Contratos de forma verificados por pruebas.** La carpeta [contratos/](contratos/) tiene un archivo JSON por cada caso de evento real (por ejemplo `venta.registrada.subcuenta.json`) con los campos de `datos` y el tipo de cada uno: `uuid`, `string`, `int`, `number`, `bool`, `date`, `datetime`, `null`, o el valor fijo de un campo enumerado (`tipo`, `medio_pago`…). Los dos lados se verifican contra el mismo archivo sin compartir código:
+
+- El **núcleo** comprueba que lo que emite tiene exactamente esa forma (mismos campos, mismos tipos, mismos nulos).
+- Cada **receptor** convierte el archivo en un ejemplo y comprueba que lo acepta con sus propios modelos y lo aplica.
+
+Si un evento cambia sin actualizar el contrato falla la prueba del núcleo, y si el contrato cambia y el receptor no lo acepta falla la del receptor. Cuando el cambio es intencional se regenera el archivo con `docker exec -e ACTUALIZAR_CONTRATOS=1 restaurantcloudIA_api php artisan test tests/Feature/EventosOutboxPublicacionTest.php` y se revisa el diff junto con las pruebas del receptor. Los valores de ejemplo no se guardan: solo la forma.
+
 En [eventos.md](eventos.md), cada evento se documenta con esta plantilla:
 
 ````markdown

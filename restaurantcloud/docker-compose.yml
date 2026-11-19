@@ -148,6 +148,8 @@ services:
     volumes:
 
       - ./apps/api:/app
+      # Contratos de forma de los eventos (doc-2u/servicios/contratos): las pruebas del núcleo los verifican.
+      - ../doc-2u/servicios/contratos:/contratos
     depends_on:
       db:
         condition: service_healthy

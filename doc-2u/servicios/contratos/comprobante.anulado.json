@@ -1,0 +1,9 @@
+{
+    "anulado_por_id": "uuid",
+    "anulado_por_nombre": "string",
+    "comprobante_id": "uuid",
+    "fecha": "datetime",
+    "motivo_codigo": "01",
+    "nota_credito_id": "uuid",
+    "total": "number"
+}

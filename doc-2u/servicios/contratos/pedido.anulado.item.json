@@ -1,0 +1,20 @@
+{
+    "anulacion_id": "uuid",
+    "anulado_en": "datetime",
+    "anulado_por_id": "uuid",
+    "anulado_por_nombre": "string",
+    "cantidad": "int",
+    "costo_merma": "number",
+    "es_merma": "bool",
+    "fecha_operativa": "date",
+    "minutos_espera": "int",
+    "monto_total": "number",
+    "motivo_categoria": "demora_cliente",
+    "mozo_id": "uuid",
+    "mozo_nombre": "string",
+    "pedido_id": "uuid",
+    "pedido_item_id": "uuid",
+    "producto_id": "uuid",
+    "producto_nombre": "string",
+    "tipo_anulacion": "item_individual"
+}
