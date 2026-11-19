@@ -2,6 +2,7 @@
 
 import json
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import Connection
@@ -58,7 +59,7 @@ def procesar(conexion: Connection, sobre: Sobre, datos: BaseModel) -> Resultado:
         return "duplicado"
 
     if isinstance(datos, VentaRegistrada):
-        _venta_registrada(conexion, sobre, datos)
+        aplicar_venta_registrada(conexion, sobre.empresa_id, sobre.local_id, datos)
     elif isinstance(datos, ComprobanteAnulado):
         _comprobante_anulado(conexion, sobre, datos)
     elif isinstance(datos, PedidoAnulado):
@@ -66,26 +67,32 @@ def procesar(conexion: Connection, sobre: Sobre, datos: BaseModel) -> Resultado:
     return "aceptado"
 
 
-def _venta_registrada(conexion: Connection, sobre: Sobre, datos: VentaRegistrada) -> None:
+def aplicar_venta_registrada(
+    conexion: Connection, empresa_id: UUID, local_id: UUID, datos: VentaRegistrada
+) -> None:
+    """Guarda una venta y la suma a la serie diaria, en la transacción de `conexion`.
+
+    Es pública porque el generador de datos sintéticos aplica sus ventas por esta misma vía,
+    sin pasar por HTTP. No registra el evento como procesado: eso lo hace `procesar`.
+    Es idempotente por `comprobante_id`.
+    """
     ventas.bloquear_comprobante(conexion, datos.comprobante_id)
     # Si la anulación llegó antes que la venta, la venta entra ya anulada y no suma a la serie.
     anulada_en = ventas.tomar_anulacion_pendiente(conexion, datos.comprobante_id)
 
     insertada = ventas.insertar_venta(
-        conexion, sobre.empresa_id, sobre.local_id, datos.model_dump(exclude={"items"}), anulada_en
+        conexion, empresa_id, local_id, datos.model_dump(exclude={"items"}), anulada_en
     )
     if not insertada:
         return  # el mismo comprobante llegó en otro evento: no se duplica
 
     items = [item.model_dump() for item in datos.items]
-    ventas.insertar_items(conexion, sobre.local_id, datos.comprobante_id, datos.fecha_operativa, items)
+    ventas.insertar_items(conexion, local_id, datos.comprobante_id, datos.fecha_operativa, items)
     totales = ventas.totales_de_items(items)
-    ventas.registrar_productos_vistos(conexion, sobre.empresa_id, sobre.local_id, datos.fecha_operativa, totales)
+    ventas.registrar_productos_vistos(conexion, empresa_id, local_id, datos.fecha_operativa, totales)
 
     if anulada_en is None:
-        ventas.sumar_al_agregado_diario(
-            conexion, sobre.empresa_id, sobre.local_id, datos.fecha_operativa, totales, signo=1
-        )
+        ventas.sumar_al_agregado_diario(conexion, empresa_id, local_id, datos.fecha_operativa, totales, signo=1)
     else:
         ventas.borrar_anulacion_pendiente(conexion, datos.comprobante_id)
 
