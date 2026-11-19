@@ -198,6 +198,21 @@ def test_anulacion_antes_que_la_venta_queda_pendiente_y_se_aplica_al_llegar_la_v
     assert _uno(bd, "SELECT count(*) AS n FROM producto_visto").n == 2
 
 
+def test_anular_una_venta_de_otro_dia_resta_de_la_jornada_de_la_venta_original(cliente, bd):
+    datos = datos_venta(fecha_operativa="2026-11-10")
+    enviar(cliente, sobre("venta.registrada", datos))
+    anulacion = datos_anulacion_comprobante(datos["comprobante_id"])
+    anulacion["fecha"] = "2026-11-11T09:30:00-05:00"  # se anula al día siguiente
+
+    assert enviar(cliente, sobre("comprobante.anulado", anulacion)).status_code == 202
+
+    filas = bd.execute(
+        text("SELECT fecha_operativa, unidades FROM venta_diaria_producto WHERE producto_id = :p"),
+        {"p": PRODUCTO_LOMO},
+    ).all()
+    assert [(str(f.fecha_operativa), f.unidades) for f in filas] == [("2026-11-10", 0)]
+
+
 # ---------------------------------------------------------------- pedido.anulado
 
 
@@ -248,6 +263,19 @@ def test_un_tipo_que_el_servicio_no_usa_responde_200_ignorado_sin_guardar_nada(c
     assert respuesta.status_code == 200
     assert respuesta.json()["datos"]["estado"] == "ignorado"
     assert _uno(bd, "SELECT count(*) AS n FROM evento_procesado").n == 0
+
+
+def test_los_campos_nuevos_que_el_servicio_no_conoce_se_ignoran(cliente, bd):
+    """Agregar campos opcionales a un evento no sube la versión (contrato): el receptor debe tolerarlos."""
+    datos = datos_venta()
+    datos["campo_nuevo_en_datos"] = {"cualquier": "cosa"}
+    datos["items"][0]["campo_nuevo_en_item"] = 7
+    evento = sobre("venta.registrada", datos)
+    evento["campo_nuevo_en_sobre"] = "valor"
+
+    assert enviar(cliente, evento).status_code == 202
+    assert _uno(bd, "SELECT count(*) AS n FROM venta").n == 1
+    assert _agregado(bd, PRODUCTO_LOMO) == (2, Decimal("76.00"))
 
 
 def test_una_version_no_soportada_responde_422(cliente):

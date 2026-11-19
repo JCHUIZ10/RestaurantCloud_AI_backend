@@ -169,6 +169,20 @@ def test_un_rango_de_exactamente_730_dias_se_acepta(cliente):
     assert consultar_serie(cliente, "2025-01-01", "2027-01-01").status_code == 422  # 731 días
 
 
+def test_un_producto_id_que_no_es_uuid_responde_422_de_validacion(cliente):
+    respuesta = consultar_serie(cliente, "2026-11-01", "2026-11-02", producto_ids=["no-es-un-uuid"])
+
+    assert respuesta.status_code == 422
+    assert respuesta.json()["errores"][0]["codigo"] == "ERR_VALIDACION"
+
+
+def test_fechas_con_formato_invalido_responden_422_de_validacion(cliente):
+    respuesta = consultar_serie(cliente, "01/11/2026", "2026-11-02")
+
+    assert respuesta.status_code == 422
+    assert respuesta.json()["errores"][0]["codigo"] == "ERR_VALIDACION"
+
+
 def test_faltan_parametros_responde_422_de_validacion(cliente):
     consulta = urlencode([("empresa_id", EMPRESA), ("local_id", LOCAL)])
 
