@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Domains\Eventos\Jobs\EntregarEventoJob;
+use App\Domains\Eventos\Services\PausaDeDestinos;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -17,10 +18,14 @@ class DespacharOutboxEventos extends Command
         $limite = max(1, min((int) $this->option('limite'), 200));
         $reservaSegundos = (int) config('eventos.reserva_segundos');
 
+        // Un destino en pausa (no responde) no recibe envíos hasta que venza: encolarlos solo llenaría la cola.
+        $pausados = app(PausaDeDestinos::class)->destinosPausados();
+        $excluirPausados = $pausados === [] ? '' : 'AND destino NOT IN ('.implode(',', array_fill(0, count($pausados), '?')).')';
+
         // Reserva y lee en una sola sentencia: dos despachos simultáneos no encolan la misma entrega,
         // y una entrega encolada no se vuelve a encolar hasta que venza su reserva.
         $entregas = DB::select(
-            <<<'SQL'
+            <<<SQL
                 UPDATE outbox_entrega
                    SET proximo_intento_en = NOW() + make_interval(secs => ?)
                  WHERE id IN (
@@ -28,13 +33,14 @@ class DespacharOutboxEventos extends Command
                          FROM outbox_entrega
                         WHERE estado = 'pendiente'
                           AND proximo_intento_en <= NOW()
+                          {$excluirPausados}
                         ORDER BY proximo_intento_en
                         LIMIT ?
                           FOR UPDATE SKIP LOCKED
                  )
              RETURNING id
             SQL,
-            [$reservaSegundos, $limite],
+            [$reservaSegundos, ...$pausados, $limite],
         );
 
         foreach ($entregas as $entrega) {

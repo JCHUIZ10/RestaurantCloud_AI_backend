@@ -46,13 +46,20 @@ return [
     |--------------------------------------------------------------------------
     |
     | Cada fallo reprograma la entrega con espera creciente (1, 2, 4… minutos,
-    | hasta `espera_maxima_min`). Al llegar a `max_intentos` pasa a fallido.
+    | hasta `espera_maxima_min`). Según el motivo del fallo:
+    |   - El destino no responde, rechaza el secreto o no está configurado: no es
+    |     culpa del evento, no gasta intentos y se sigue esperando. Pasa a fallido
+    |     solo si lleva `horizonte_dias` fallando sin interrupción.
+    |   - El destino responde con un error: pasa a fallido tras `max_intentos`.
+    |   - El destino responde 422: pasa a fallido al instante.
     | `reserva_segundos` aparta una entrega ya encolada para que el despacho
     | periódico no la vuelva a encolar mientras el worker la procesa.
     |
     */
 
     'max_intentos' => (int) env('EVENTOS_MAX_INTENTOS', 8),
+
+    'horizonte_dias' => (int) env('EVENTOS_HORIZONTE_DIAS', 7),
 
     'timeout_segundos' => (int) env('EVENTOS_TIMEOUT_SEGUNDOS', 5),
 

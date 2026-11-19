@@ -108,6 +108,8 @@ class EventosOutboxEntregaTest extends TestCase
         $this->assertStringContainsString('HTTP 503', $entrega->ultimo_error);
         $this->assertEqualsWithDelta(now()->addMinute()->timestamp, strtotime($entrega->proximo_intento_en), 5);
 
+        // El destino queda en pausa hasta que venza la espera; después sale un único envío de prueba.
+        $this->travel(2)->minutes();
         $this->entregar($entregaId);
 
         $entrega = $this->entrega($eventoId);
@@ -134,12 +136,44 @@ class EventosOutboxEntregaTest extends TestCase
         Http::fake(['analitica.test/*' => Http::response(null, 500)]);
         $eventoId = $this->publicar();
         $entregaId = $this->entrega($eventoId)->id;
-        DB::table('outbox_entrega')->where('id', $entregaId)->update(['intentos' => 7]);
+        DB::table('outbox_entrega')->where('id', $entregaId)->update(['intentos' => 7, 'fallos_receptor' => 7]);
 
         $this->entregar($entregaId);
 
         $this->assertSame('fallido', $this->entrega($eventoId)->estado);
         $this->assertSame(8, $this->entrega($eventoId)->intentos);
+        $this->assertSame('fallido', DB::table('outbox_event')->where('id', $eventoId)->value('estado'));
+    }
+
+    public function test_un_422_del_destino_pasa_directo_a_fallido_sin_reintentos(): void
+    {
+        Http::fake(['analitica.test/*' => Http::response('{"errores":[{"codigo":"ERR_EVENTO_INVALIDO"}]}', 422)]);
+        $eventoId = $this->publicar();
+        $entregaId = $this->entrega($eventoId)->id;
+
+        $this->entregar($entregaId);
+
+        $entrega = $this->entrega($eventoId);
+        $this->assertSame('fallido', $entrega->estado);
+        $this->assertSame(1, $entrega->intentos);
+        $this->assertStringContainsString('HTTP 422', $entrega->ultimo_error);
+        $this->assertStringContainsString('ERR_EVENTO_INVALIDO', $entrega->ultimo_error);
+        $this->assertSame('fallido', DB::table('outbox_event')->where('id', $eventoId)->value('estado'));
+    }
+
+    public function test_un_422_de_un_destino_no_detiene_la_entrega_a_los_demas(): void
+    {
+        Http::fake([
+            'analitica.test/*' => Http::response(null, 422),
+            'notificaciones.test/*' => Http::response(null, 202),
+        ]);
+        $eventoId = $this->publicar('comprobante.anulado');
+
+        $this->entregar($this->entrega($eventoId, 'ms-analitica')->id);
+        $this->entregar($this->entrega($eventoId, 'ms-notificaciones')->id);
+
+        $this->assertSame('fallido', $this->entrega($eventoId, 'ms-analitica')->estado);
+        $this->assertSame('entregado', $this->entrega($eventoId, 'ms-notificaciones')->estado);
         $this->assertSame('fallido', DB::table('outbox_event')->where('id', $eventoId)->value('estado'));
     }
 
