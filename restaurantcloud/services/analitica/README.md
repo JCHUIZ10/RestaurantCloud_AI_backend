@@ -41,4 +41,15 @@ uv sync
 uv run pytest
 ```
 
+## Prueba de humo de punta a punta
+
+`scripts/smoke-analitica.sh` (desde `restaurantcloud/`) comprueba el flujo completo contra el Compose en marcha, con el POS real: cobra y verifica la venta en ms-analítica y en la serie, anula con una nota de crédito y verifica la corrección, y por último apaga ms-analítica, cobra, la enciende y verifica que el evento llega por reintento. Antes de empezar comprueba lo que las pruebas unitarias no pueden: que el worker escucha la cola `eventos`, que `ANALITICA_URL` está definida y que el secreto de firma coincide.
+
+```bash
+./scripts/smoke-analitica.sh            # los tres escenarios (unos 3 minutos)
+./scripts/smoke-analitica.sh --rapido   # sin el escenario de caída
+```
+
+Usa datos reales de la base de desarrollo (producto, mesas y pedidos con el prefijo `SMOKE`; los comprobantes no se pueden borrar) y guarda las evidencias en `doc-2u/evidencias/smoke-analitica/<fecha>/`.
+
 Para crear una migración nueva: `uv run alembic revision -m "descripcion"` con `MIGRATIONS_DATABASE_URL` definida.
