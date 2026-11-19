@@ -23,6 +23,16 @@ class TotalProducto:
     ingreso: Decimal
 
 
+def _por_fila(conexion: Connection, sentencia, filas: list[dict]) -> None:
+    """Ejecuta la sentencia una vez por fila.
+
+    Un comprobante trae unas pocas filas. `executemany` las envía en modo pipeline, que desde un cliente
+    en Windows hacia Docker puede tardar cientos de milisegundos por llamada; fila a fila no.
+    """
+    for fila in filas:
+        conexion.execute(sentencia, fila)
+
+
 def bloquear_comprobante(conexion: Connection, comprobante_id: UUID) -> None:
     """Serializa los eventos de un mismo comprobante (la venta y su anulación pueden llegar a la vez)."""
     conexion.execute(
@@ -98,7 +108,8 @@ def insertar_items(
     fecha_operativa: date,
     items: list[dict],
 ) -> None:
-    conexion.execute(
+    _por_fila(
+        conexion,
         text(
             """
             INSERT INTO venta_item (
@@ -144,7 +155,8 @@ def registrar_productos_vistos(
     El nombre solo se reemplaza si esta venta es igual o más reciente que la última registrada:
     los eventos pueden llegar desordenados y no deben pisar un nombre más nuevo.
     """
-    conexion.execute(
+    _por_fila(
+        conexion,
         text(
             """
             INSERT INTO producto_visto (
@@ -184,7 +196,8 @@ def sumar_al_agregado_diario(
     signo: int,
 ) -> None:
     """Suma (signo = 1) o resta (signo = -1) unidades e ingreso a la serie diaria por producto."""
-    conexion.execute(
+    _por_fila(
+        conexion,
         text(
             """
             INSERT INTO venta_diaria_producto (local_id, producto_id, fecha_operativa, empresa_id, unidades, ingreso)

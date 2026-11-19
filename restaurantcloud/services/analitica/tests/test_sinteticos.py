@@ -11,58 +11,9 @@ from app.sinteticos.carta import Carta
 from app.sinteticos.feriados import eventos_de_demanda, feriados_peru, pascua
 from app.sinteticos.generador import demanda_esperada, generar, generar_dia, tickets_esperados
 from app.sinteticos.perfil import cargar_perfil
+from tests.ayudas import PROMOCION
 
-EMPRESA = "00000000-0000-4000-8000-000000000001"
-LOCAL = "00000000-0000-4000-8000-000000000010"
-PROMO = "00000000-0000-4000-8000-000000000441"
-
-
-def _producto(numero: int, nombre: str, categoria: int, categoria_nombre: str, precio: str) -> dict:
-    return {
-        "producto_id": f"00000000-0000-4000-8000-0000000004{numero}",
-        "nombre": nombre,
-        "categoria_id": f"00000000-0000-4000-8000-0000000004{categoria:02d}",
-        "categoria_nombre": categoria_nombre,
-        "precio": precio,
-        "costo_estandar": "10.00",
-    }
-
-
-@pytest.fixture(scope="module")
-def perfil():
-    return cargar_perfil("aurea_v1")
-
-
-@pytest.fixture(scope="module")
-def carta():
-    return Carta.model_validate(
-        {
-            "empresa_id": EMPRESA,
-            "local_id": LOCAL,
-            "productos": [
-                _producto(31, "Ceviche Clásico", 1, "Entradas", "38.00"),
-                _producto(32, "Lomo Saltado Criollo", 2, "Fondos", "42.00"),
-                _producto(33, "Inca Kola 500ml", 3, "Bebidas", "9.00"),
-                _producto(34, "Suspiro Limeño", 4, "Postres", "18.00"),
-                _producto(35, "Causa Limeña de Pollo", 1, "Entradas", "24.00"),
-            ],
-            "mozos": [
-                {"id": "00000000-0000-4000-8000-000000000103", "nombre": "Carlos Huamán"},
-                {"id": "00000000-0000-4000-8000-000000000106", "nombre": "Mozo Dos"},
-            ],
-            "promociones": [
-                {
-                    "id": PROMO,
-                    "tipo_descuento": "porcentaje",
-                    "valor": "15.00",
-                    "dias_semana": [1, 2, 3, 4, 5],
-                    "hora_inicio": "12:00:00",
-                    "hora_fin": "16:00:00",
-                    "monto_minimo_consumo": "50.00",
-                }
-            ],
-        }
-    )
+PROMO = PROMOCION
 
 
 # ---------- calendario ----------

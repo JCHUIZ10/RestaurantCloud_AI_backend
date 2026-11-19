@@ -13,7 +13,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, text
 
-from tests.ayudas import SECRETO
+from tests.ayudas import SECRETO, carta_demo
 
 RAIZ = Path(__file__).resolve().parent.parent
 
@@ -67,3 +67,17 @@ def bd(motor_admin):
 def cliente():
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture(scope="session")
+def perfil():
+    from app.sinteticos.perfil import cargar_perfil
+
+    return cargar_perfil("aurea_v1")
+
+
+@pytest.fixture(scope="session")
+def carta():
+    from app.sinteticos.carta import Carta
+
+    return Carta.model_validate(carta_demo())

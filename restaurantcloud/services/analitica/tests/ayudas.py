@@ -15,6 +15,50 @@ PRODUCTO_LOMO = "00000000-0000-4000-8000-000000000431"
 PRODUCTO_INCA = "00000000-0000-4000-8000-000000000435"
 
 
+PROMOCION = "00000000-0000-4000-8000-000000000441"
+
+
+def carta_demo() -> dict:
+    """Carta de ÁUREA tal como la entrega `carta:exportar` (los ids coinciden con el seed del núcleo)."""
+
+    def producto(numero, nombre, categoria, categoria_nombre, precio):
+        return {
+            "producto_id": f"00000000-0000-4000-8000-0000000004{numero}",
+            "nombre": nombre,
+            "categoria_id": f"00000000-0000-4000-8000-0000000004{categoria:02d}",
+            "categoria_nombre": categoria_nombre,
+            "precio": precio,
+            "costo_estandar": "10.00",
+        }
+
+    return {
+        "empresa_id": EMPRESA,
+        "local_id": LOCAL,
+        "productos": [
+            producto(31, "Ceviche Clásico", 1, "Entradas", "38.00"),
+            producto(32, "Lomo Saltado Criollo", 2, "Fondos", "42.00"),
+            producto(33, "Inca Kola 500ml", 3, "Bebidas", "9.00"),
+            producto(34, "Suspiro Limeño", 4, "Postres", "18.00"),
+            producto(35, "Causa Limeña de Pollo", 1, "Entradas", "24.00"),
+        ],
+        "mozos": [
+            {"id": "00000000-0000-4000-8000-000000000103", "nombre": "Carlos Huamán"},
+            {"id": "00000000-0000-4000-8000-000000000106", "nombre": "Mozo Dos"},
+        ],
+        "promociones": [
+            {
+                "id": PROMOCION,
+                "tipo_descuento": "porcentaje",
+                "valor": "15.00",
+                "dias_semana": [1, 2, 3, 4, 5],
+                "hora_inicio": "12:00:00",
+                "hora_fin": "16:00:00",
+                "monto_minimo_consumo": "50.00",
+            }
+        ],
+    }
+
+
 def nuevo_id() -> str:
     return str(uuid.uuid4())
 

@@ -53,3 +53,30 @@ uv run pytest
 Usa datos reales de la base de desarrollo (producto, mesas y pedidos con el prefijo `SMOKE`; los comprobantes no se pueden borrar) y guarda las evidencias en `doc-2u/evidencias/smoke-analitica/<fecha>/`.
 
 Para crear una migración nueva: `uv run alembic revision -m "descripcion"` con `MIGRATIONS_DATABASE_URL` definida.
+
+## Datos sintéticos de ventas
+
+Para entrenar y evaluar el pronóstico hace falta historial, y un local nuevo no lo tiene. `python -m app.sinteticos` genera ventas con las reglas de un perfil versionado (`app/sinteticos/perfiles/`) y las guarda con la **misma función** que procesa el evento `venta.registrada` (`aplicar_venta_registrada`), sin HTTP ni outbox. El núcleo no recibe comprobantes falsos.
+
+- **Reproducible:** el mismo perfil, semilla y rango dan siempre las mismas ventas, y el sorteo de un día no depende del resto del rango. Cada día se guarda en su propia transacción y repetir el comando no duplica nada.
+- **Hasta una fecha de corte:** `--hasta` es ayer por defecto y se rechaza hoy o el futuro; lo reciente solo debe venir de ventas reales.
+- **Es una carga local:** corre dentro del contenedor y no usa la red. Con unas 1.700 ventas al mes, 24 meses tardan unos minutos.
+
+```bash
+# La carta, los mozos y las promociones del local los entrega el núcleo.
+docker exec restaurantcloudIA_api php artisan carta:exportar <local_id> \
+  | docker exec -i restaurantcloudIA_analitica \
+      python -m app.sinteticos generar --carta - --perfil aurea_v1 --semilla 2026 --meses 24 \
+      --verdad /tmp/verdad.csv        # opcional: demanda esperada por plato y día
+```
+
+`--verdad` guarda la demanda esperada del generador: es la referencia con la que el protocolo mide qué tan cerca queda el modelo de la demanda real subyacente.
+
+Para reemplazar el histórico sintético por datos reales se borra todo lo anterior al corte (sin `--confirmar` solo cuenta). **Borra lo anterior al corte sea sintético o real**; la tabla `producto_visto` se reconstruye con lo que queda.
+
+```bash
+docker exec restaurantcloudIA_analitica python -m app.sinteticos purgar \
+  --empresa <empresa_id> --local <local_id> --hasta 2026-11-17 [--confirmar]
+```
+
+Un perfil nuevo es un archivo JSON más en `app/sinteticos/perfiles/`: no se edita uno ya usado, para que un conjunto de datos siga siendo reproducible. Las pruebas de carga corren contra PostgreSQL y tardan casi dos minutos.
