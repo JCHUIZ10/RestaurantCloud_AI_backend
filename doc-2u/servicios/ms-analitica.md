@@ -320,8 +320,10 @@ Ningún otro componente se detiene si ms-analítica cae, salvo ms-pronóstico, q
 
 ## 7. Decisiones abiertas
 
-- Carga inicial: cómo se copian a analítica las ventas anteriores a la activación del servicio (reenviar eventos históricos desde el núcleo).
+- Carga inicial de ventas reales: cómo se copian a analítica las anteriores a la activación del servicio (reenviar eventos históricos desde el núcleo con `outbox:reenviar-eventos`). Las sintéticas ya no dependen de esto: ver abajo.
 - Días cerrados y platos agotados: cómo llegan a la IA para no confundirlos con falta de demanda (por ejemplo, que el núcleo los envíe a ms-pronóstico junto con la petición, o un evento diario de disponibilidad).
 - Alcance de los reportes de CU-ADMIN-13 que entran en la Unidad II.
+
+Resuelto: los datos sintéticos de entrenamiento del pronóstico no pasan por el núcleo ni por HTTP. `python -m app.sinteticos generar` los guarda con la misma función de dominio que procesa `venta.registrada`, hasta una fecha de corte, y `purgar` los reemplaza por datos reales (ver el README del servicio). Un local con 24 meses de historial son unas 39 mil ventas y se cargan en menos de 4 minutos.
 
 Resuelto: el costo del plato viaja en `venta.registrada` (`producto.costo_estandar`), así que la rentabilidad se puede calcular desde la primera versión.

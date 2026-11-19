@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 18/11/2026. Etapas 0 a 3 cerradas; la 4 está en curso.
+**Última actualización:** 18/11/2026. Etapas 0 a 4 cerradas; la siguiente es la 5.
 
 ## Contexto
 
@@ -22,7 +22,8 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | 3. Integración de punta a punta | Cerrada | `scripts/smoke-analitica.sh`: 39 comprobaciones |
 | Extra: resiliencia de la entrega | Cerrada | 23 pruebas de resiliencia y escenario de caída real |
 | Extra: identificadores ordenados | Cerrada | Suite completa: 639 pruebas |
-| 4. Datos sintéticos | **En curso** | Ver el detalle de la etapa 4 |
+| 4. Datos sintéticos | Cerrada | 24 meses de ÁUREA en 3 min 45 s; 111 pruebas de ms-analítica; humo: 28 comprobaciones |
+| 5. ms-pronóstico | **Siguiente** | — |
 
 ---
 
@@ -86,7 +87,7 @@ La base genera ids con `fn_uuid_v8()`, pero el código pasaba los suyos con `Str
 
 ---
 
-## Etapa 4. Datos sintéticos — en curso
+## Etapa 4. Datos sintéticos — cerrada
 
 ### Decisiones de diseño de la IA (acordadas antes de empezar)
 
@@ -105,14 +106,30 @@ La base genera ids con `fn_uuid_v8()`, pero el código pasaba los suyos con `Str
 - **Reproducible:** semilla fija y perfil versionado (`aurea_v1`). Como la demanda esperada se conoce, el generador puede exportarla («la verdad») para el protocolo.
 - **Carta:** se amplía ÁUREA Miraflores (hoy 5 platos, 6 insumos y 1 mozo) **solo agregando** filas, sin cambiar ningún valor existente, porque las pruebas del núcleo dependen del seed. **Historial:** 24 meses, para que cada feriado y temporada aparezca dos veces (un año para entrenar y otro para evaluar).
 
-### Pasos
+### Qué se hizo
 
-1. Documentar las decisiones (este paso).
-2. ms-analítica: exponer `aplicar_venta_registrada`.
-3. ms-analítica: paquete `app/sinteticos/` (feriados de Perú, perfil, generador, comandos `generar` y `purgar`).
-4. Núcleo: ampliar el seed de ÁUREA (≈20 platos, ≈16 insumos con recetas, 3 mozos).
-5. Núcleo: comando `carta:exportar` que entrega al generador la carta, los mozos y las promociones del local.
-6. Verificación de punta a punta y cierre.
+1. **`aplicar_venta_registrada`** (ms-analítica): la lógica de guardar una venta y sumarla a la serie es pública y la usan por igual el evento real y el generador. Las inserciones de ítems, productos vistos y serie pasan de `executemany` a una ejecución por fila: el modo pipeline tardaba cientos de milisegundos por llamada desde un cliente Windows hacia Docker.
+2. **`app/sinteticos/`** (ms-analítica): calendario de feriados de Perú con Semana Santa calculada y fechas de demanda (Día de la Madre, San Valentín…); perfil versionado `aurea_v1` (día de la semana, mes, tendencia +8 %, días de pago, feriados, campañas de la promoción, popularidad por plato, medio de pago, franjas horarias); generador puro cuyo sorteo de un día depende solo de (semilla, local, fecha).
+3. **Comandos** `python -m app.sinteticos generar|purgar`: una transacción por día, idempotente por comprobante, rechaza hoy y el futuro, `--verdad` exporta la demanda esperada por plato y día; `purgar` borra todo lo anterior a un corte y reconstruye `producto_visto` (sin `--confirmar` solo cuenta).
+4. **Seed de ÁUREA** ampliado solo con filas nuevas: 20 platos, 16 insumos, 46 líneas de receta con insumos compartidos y 3 mozos.
+5. **`php artisan carta:exportar <local_id>`** (núcleo): entrega la carta, los mozos y las promociones activos en el JSON que lee el generador.
+
+### Resultado de la verificación
+
+- **Carga de 24 meses de ÁUREA** (2024-11-18 a 2026-11-17) dentro del contenedor: 730 días, 39.036 ventas, 302.227 unidades, en **3 min 45 s**. No sale tráfico a internet.
+- **Serie por `GET /interno/series/ventas-diarias` firmado:** 20 platos × 730 días continuos, respuesta en 0,16 s. Ceros solo en los 4 días cerrados (25/12 y 01/01 de ambos años). Promedio de unidades por día de la semana, lunes a domingo: 278, 323, 326, 371, 518, 571, 514. Verano alto y junio bajo; enero de 2026 supera a enero de 2025 en un 13 % (tendencia y campaña de promoción).
+- **`smoke-analitica.sh --rapido`:** 28 comprobaciones; una venta real de hoy llega, se suma a la serie y se corrige al anular, aparte del histórico.
+- Suites: ms-analítica 111 pruebas; núcleo 639 en verde con el seed ampliado, más 4 de `carta:exportar`.
+
+### Cómo se usa
+
+```bash
+docker exec restaurantcloudIA_api php artisan carta:exportar <local_id> \
+  | docker exec -i restaurantcloudIA_analitica python -m app.sinteticos generar --carta - \
+      --perfil aurea_v1 --semilla 2026 --meses 24 --verdad /tmp/verdad.csv
+```
+
+Detalle y la purga al pasar a datos reales: `restaurantcloud/services/analitica/README.md`.
 
 ---
 
@@ -120,7 +137,6 @@ La base genera ids con `fn_uuid_v8()`, pero el código pasaba los suyos con `Str
 
 | Etapa | Contenido | Requisito de la guía que cubre |
 |---|---|---|
-| 4. Datos sintéticos | Ver el detalle de la etapa 4, arriba | Datos para la IA; dataset del protocolo |
 | 5. ms-pronóstico | Servicio con baseline de punta a punta; endpoints del núcleo; tabla `recomendacion_reposicion`; pantalla de pronóstico y reposición en React; después, HistGradientBoosting | IA integrada en un flujo real (15 %) |
 | 6. JWT y gateway | JWT RS256 en login y refresh; Kong con rutas y validación; reportes públicos de ms-analítica (alcance de CU-ADMIN-13 por definir) | Arquitectura distribuida; seguridad |
 | 7. ms-notificaciones | Servicio Node/Fastify con MongoDB, bandeja y SSE; campana en React; el núcleo deja de insertar en `notificacion` | Tercer microservicio |
@@ -140,6 +156,7 @@ Orden recomendado si el tiempo aprieta: 4 → 5 → 8 antes que 6 y 7, porque IA
 - **Alerta de entregas fallidas** en ms-notificaciones (etapa 7).
 - **Imágenes en producción:** al desplegar hay que **reconstruir** las imágenes de `api`, `queue` y `scheduler`, no solo reiniciarlas. Con una imagen antigua el worker no escucha la cola `eventos`, y los cambios de configuración (`ANALITICA_URL`) solo se aplican al recrear el contenedor.
 - **Montaje de contratos:** el contenedor `api` monta `doc-2u/servicios/contratos` solo para las pruebas; no va en `docker-compose.prod.yml`.
+- **Histórico sintético en la base de desarrollo.** `analitica_db` tiene 730 días de ÁUREA hasta 2026-11-17, y `ultimo_evento_en` de la serie vale la hora de esa carga, no la de una venta real: ms-pronóstico no debe interpretarlo como actividad reciente. Al activar datos reales se ejecuta `purgar` con el corte.
 - **Datos de la prueba de humo en la base de desarrollo:** producto, mesas y pedidos `SMOKE`, comprobantes reales y una caja que el script abrió y dejó abierta. Antes de una demostración conviene recrear la base de desarrollo.
 
 ## Riesgos
@@ -150,7 +167,7 @@ Orden recomendado si el tiempo aprieta: 4 → 5 → 8 antes que 6 y 7, porque IA
 
 ## Verificación
 
-- **Núcleo:** `docker exec restaurantcloudIA_api php artisan test --compact` (639 pruebas al 18/11).
-- **ms-analítica:** `uv run pytest` en `services/analitica`, con `TEST_DATABASE_URL` y `TEST_APP_DATABASE_URL` (80 pruebas).
+- **Núcleo:** `docker exec restaurantcloudIA_api php artisan test --compact` (639 pruebas en la última corrida completa, 18/11, más 4 de `carta:exportar` ejecutadas aparte). Si se cambia el seed, antes `./scripts/test-db-reset.sh`.
+- **ms-analítica:** `uv run pytest` en `services/analitica`, con `TEST_DATABASE_URL` y `TEST_APP_DATABASE_URL` (111 pruebas, unos 2 minutos desde el host).
 - **Integración:** `./scripts/smoke-analitica.sh` (o `--rapido`, sin el escenario de caída).
 - **Estado de las entregas:** `docker exec restaurantcloudIA_api php artisan outbox:estado`.
