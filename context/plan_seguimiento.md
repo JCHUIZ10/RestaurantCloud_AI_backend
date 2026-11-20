@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 18/11/2026. Etapas 0 a 4 cerradas; la siguiente es la 5.
+**Última actualización:** 20/11/2026. Etapas 0 a 4 cerradas; la siguiente es la 5A (modelo de pronóstico en `model-ia/`).
 
 ## Contexto
 
@@ -23,7 +23,8 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | Extra: resiliencia de la entrega | Cerrada | 23 pruebas de resiliencia y escenario de caída real |
 | Extra: identificadores ordenados | Cerrada | Suite completa: 639 pruebas |
 | 4. Datos sintéticos | Cerrada | 24 meses de ÁUREA en 3 min 45 s; 111 pruebas de ms-analítica; humo: 28 comprobaciones |
-| 5. ms-pronóstico | **Siguiente** | — |
+| 5A. Modelo de pronóstico (`model-ia`) | **Siguiente** | — |
+| 5B. ms-pronóstico | Pendiente | — |
 
 ---
 
@@ -133,11 +134,64 @@ Detalle y la purga al pasar a datos reales: `restaurantcloud/services/analitica/
 
 ---
 
+## Etapa 5A. Modelo de pronóstico (`model-ia/`) — siguiente
+
+Se construye el modelo **aparte**, antes del servicio. Todo el trabajo y los cuadernos van en `model-ia/`. El diseño está en `model-ia/DECISIONES.md` (D-01 a D-23) y la entrada y salida en `model-ia/CONTRATO.md`. La integración con ms-pronóstico es de la 5B; aquí solo se comprueba que la serie de ms-analítica cumple el contrato.
+
+### Decisiones acordadas (20/11)
+
+- **Datos:** Stuttgart (real, público) para el experimento del artículo; ÁUREA (sintético) para la demostración y como experimento de control contra su demanda verdadera (D-01).
+- **Un modelo por local**, con el plato como variable. El de Stuttgart queda para el artículo; el que se publica para la demostración se entrena con la serie de ÁUREA. El modelo global queda como trabajo futuro (D-06).
+- **ms-pronóstico no entrena: descarga el modelo.** Solo comparte con `model-ia` el paquete `rc_pronostico` (variables, baselines, reglas y carga verificada), con versión fijada y `version_variables` en la ficha (D-02).
+- **Se pronostica desde mañana con datos hasta ayer**, con distancias de 2 a 8 días (D-03).
+- **Repositorio:** Cloud Storage. Mientras no exista la nube, una carpeta local `model-ia/repositorio/` con la misma estructura y un puntero `vigente.json` que solo se mueve si el modelo supera la puerta de calidad (D-22).
+
+### Estructura de `model-ia/`
+
+```text
+model-ia/
+  README.md  CONTRATO.md  DECISIONES.md
+  pyproject.toml  uv.lock  .env.example      entorno uv propio (D-19)
+  datos/stuttgart/                           CSV y FICHA.md (DOI, licencia, SHA-256)
+  src/rc_pronostico/                         inferencia: lo instala ms-pronóstico
+  src/modelado/                              fuentes, partición, ajuste, entrenamiento,
+                                             métricas, estadística y publicación
+  configuracion/                             rejilla y configuración congelada
+  cuadernos/                                 exploración, coherencia y resultados
+  resultados/                                tablas y figuras del informe (versionadas)
+  salidas/  repositorio/                     corridas y modelos (no versionadas)
+  tests/
+```
+
+Los cuadernos exploran y presentan resultados; la lógica va en `src/` con sus pruebas.
+
+### Pasos
+
+| # | Paso | Verificación |
+|---|---|---|
+| 1 | Entorno y datos: proyecto de uv, dataset de Stuttgart con su ficha y validador del contrato | SHA-256 del CSV igual al de D-18; skops guarda y carga el HistGradientBoosting con variables categóricas y predice lo mismo (D-16) |
+| 2 | Coherencia con ms-analítica: el cuaderno lee la serie de ÁUREA con el GET firmado | La serie pasa el validador; los cierres detectados son los 4 días esperados; calendario del generador frente a `holidays` comparado; diferencia con `--verdad` medida (D-23) |
+| 3 | Paquete `rc_pronostico`: calendario, variables, baselines, reglas 4.1 y garantías 4.2 | Prueba de que ninguna variable del corte `d` cambia al borrar los datos posteriores a `d`; reglas por plato; determinismo |
+| 4 | Experimento: validación, configuración congelada, unos 52 cortes semanales en la prueba de Stuttgart y control con ÁUREA | Configuración commiteada antes de ejecutar la prueba; métricas de D-14 y pruebas de D-15 generadas con un comando en `resultados/` |
+| 5 | Artefacto y publicación de los modelos de Stuttgart y de ÁUREA | Carga en un entorno limpio con solo `rc_pronostico`: SHA-256, versiones y predicciones idénticas; un modelo que no supera D-17 no mueve `vigente.json` |
+
+### Detalles del entrenamiento que se cuidan
+
+- **Fuga por el horizonte:** una fila (`d`, `h`) entra a un entrenamiento con corte `c` solo si `d + h ≤ c`. No basta con `d ≤ c`. Aplica también al tramo de validación.
+- Días cerrados como dato faltante, no como 0 (D-05). `early_stopping=False` y `random_state = 2026` (D-11).
+- La prueba se ejecuta **una sola vez**, con la configuración ya congelada.
+
+### Pendiente para empezar
+
+- Ruta local del CSV de Stuttgart (la aporta el usuario).
+
+---
+
 ## Hoja de ruta (se detalla al llegar)
 
 | Etapa | Contenido | Requisito de la guía que cubre |
 |---|---|---|
-| 5. ms-pronóstico | Servicio con baseline de punta a punta; endpoints del núcleo; tabla `recomendacion_reposicion`; pantalla de pronóstico y reposición en React; después, HistGradientBoosting | IA integrada en un flujo real (15 %) |
+| 5B. ms-pronóstico | Servicio con baseline de punta a punta; descarga y verificación del modelo publicado en la 5A; cambios de D-21 en su ficha; endpoints del núcleo; tabla `recomendacion_reposicion`; pantalla de pronóstico y reposición en React | IA integrada en un flujo real (15 %) |
 | 6. JWT y gateway | JWT RS256 en login y refresh; Kong con rutas y validación; reportes públicos de ms-analítica (alcance de CU-ADMIN-13 por definir) | Arquitectura distribuida; seguridad |
 | 7. ms-notificaciones | Servicio Node/Fastify con MongoDB, bandeja y SSE; campana en React; el núcleo deja de insertar en `notificacion` | Tercer microservicio |
 | 8. Nube | Imagen de la API con el código dentro; imágenes en Artifact Registry; VM con todo el sistema; ms-pronóstico en Cloud Run; laboratorio de GKE | Registro, PaaS, Kubernetes |
@@ -149,8 +203,9 @@ Orden recomendado si el tiempo aprieta: 4 → 5 → 8 antes que 6 y 7, porque IA
 ## Pendientes conocidos
 
 - **Carga inicial de ventas históricas.** Un evento publicado antes de configurar `ANALITICA_URL` no tiene entrega para ese destino y no se recupera solo. El generador sintético de la etapa 4 **no** entra por el outbox (ver sus decisiones); el histórico real, si se necesita, se reenvía con `outbox:reenviar-eventos`.
-- **Plan y predicción (etapa 5).** En `06_seed_initial_data.sql` el plan Pro tiene `incluye_prediccion_ia = false`, y CU-PROP-08 dice «Pro/Enterprise». Hay que alinear plan, seed y caso de uso, y ÁUREA está en el plan Pro.
-- **Promociones como variable del modelo (etapa 5).** Para pronosticar días futuros con promoción, el núcleo debe enviar a ms-pronóstico las promociones planificadas; ms-analítica solo conoce las usadas.
+- **Plan y predicción (etapa 5B).** En `06_seed_initial_data.sql` el plan Pro tiene `incluye_prediccion_ia = false`, y CU-PROP-08 dice «Pro/Enterprise». Hay que alinear plan, seed y caso de uso, y ÁUREA está en el plan Pro.
+- **Promociones como variable del modelo.** Quedan fuera de la versión 1 del modelo (D-12). Para pronosticar días futuros con promoción, el núcleo debe enviar a ms-pronóstico las promociones planificadas; ms-analítica solo conoce las usadas.
+- **Quién envía cierres y feriados en producción (etapa 5B).** ms-analítica no los entrega; el modelo usa la regla de respaldo para los cierres y la librería `holidays` para los feriados (D-23).
 - **Demanda censurada.** Los días con platos agotados subestiman la demanda y el modelo la aprende más baja. Sin historial de disponibilidad no se puede corregir; limitación a documentar en el informe.
 - **Conciliación por jornada** (pieza 5 de la propuesta de resiliencia): ms-analítica expone totales por jornada y el núcleo reenvía lo que no cuadre. Junto con ms-pronóstico.
 - **Alerta de entregas fallidas** en ms-notificaciones (etapa 7).

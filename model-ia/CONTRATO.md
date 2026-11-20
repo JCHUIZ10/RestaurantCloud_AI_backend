@@ -1,6 +1,6 @@
 # Contrato del modelo de pronóstico
 
-**Versión del contrato:** 0.1 (borrador, 19/11/2026)
+**Versión del contrato:** 0.2 (borrador, 20/11/2026)
 **Decisiones y riesgos que lo sustentan:** [DECISIONES.md](DECISIONES.md)
 
 Este documento fija qué recibe el modelo, qué devuelve y qué garantiza. Lo cumplen por igual el experimento de `model-ia/` y ms-pronóstico. Si cambia, cambia primero aquí.
@@ -30,6 +30,8 @@ Una fila por plato y día **operativo** (`fecha_operativa`, no fecha de calendar
 - **`datos_hasta` es el último día completo** (ayer). El día en curso nunca entra, porque está incompleto.
 - **Mínimo útil:** 56 días abiertos del local (ver 4.1).
 
+**De dónde sale:** en el sistema, de `GET /interno/series/ventas-diarias` de ms-analítica, que ya cumple la continuidad y las unidades netas; en el experimento, del archivo de Stuttgart. Las diferencias entre lo que pide este contrato y lo que entrega ms-analítica están en D-23.
+
 ### 2.2 Calendario
 
 | Campo | Tipo | Regla |
@@ -37,7 +39,7 @@ Una fila por plato y día **operativo** (`fecha_operativa`, no fecha de calendar
 | `dias_cerrados` | lista de fechas | Días en que el local no abrió, en el historial **y** en el periodo a pronosticar |
 | `feriados` | lista de fechas | Feriados del país del local, en el historial **y** en el periodo a pronosticar |
 
-Los dos entran **como dato**, no se deducen dentro del modelo, para que el mismo código sirva para Perú (ÁUREA) y para Alemania (Stuttgart). Si `dias_cerrados` no llega, se aplica la regla de respaldo de D-05.
+Los dos entran **como dato**, no se deducen dentro del modelo, para que el mismo código sirva para Perú (ÁUREA) y para Alemania (Stuttgart). Si `dias_cerrados` no llega, se aplica la regla de respaldo de D-05. ms-analítica no entrega ninguno de los dos (D-23).
 
 ### 2.3 Petición
 
@@ -92,18 +94,21 @@ Las cifras son decimales porque son un valor esperado; redondear para comprar es
 
 ## 5. Artefacto del modelo
 
-Lo que produce el entrenamiento y consume ms-pronóstico:
+Lo produce el entrenamiento en `model-ia`, se publica en el repositorio de modelos y ms-pronóstico lo **descarga**; el servicio no entrena (D-02).
 
 | Pieza | Contenido |
 |---|---|
-| Archivo del modelo | Los dos regresores (cuantil 0,5 y 0,9) y la tabla `producto_id → código de categoría` |
-| Ficha (`ficha.json`) | `modelo_version`, `local_id`, algoritmo, hiperparámetros, lista exacta de variables y su orden, versiones de Python, scikit-learn y numpy, rango y huella de los datos de entrenamiento, métricas de validación frente al baseline, SHA-256 del archivo |
+| Archivo del modelo (`modelo.skops`) | Los dos regresores (cuantil 0,5 y 0,9) y la tabla `producto_id → código de categoría` |
+| Ficha (`ficha.json`) | `modelo_version`, `local_id`, algoritmo, hiperparámetros, lista exacta de variables y su orden, `version_variables`, versiones de Python, scikit-learn y numpy, rango y huella de los datos de entrenamiento, métricas de validación frente al baseline, SHA-256 del archivo |
+
+Ubicación en el repositorio (D-22): `modelos/{local_id}/{modelo_version}/` con los dos archivos, que nunca se sobrescriben, y `modelos/{local_id}/vigente.json`, que apunta a la versión en uso.
 
 Reglas de seguridad y compatibilidad:
 
-- ms-pronóstico **verifica el SHA-256** del archivo contra la ficha antes de cargarlo, y solo carga archivos de su propio bucket.
+- ms-pronóstico **verifica el SHA-256** del archivo contra la ficha antes de cargarlo, y solo carga archivos de su propio repositorio.
 - La versión de scikit-learn con que se entrenó y con que se carga **debe ser idéntica**. Si no coincide, el servicio no carga el modelo y usa el baseline.
-- Un modelo solo pasa a `vigente` si su MAE de validación es **menor** que el del baseline (D-17).
+- `version_variables` de la ficha **debe ser igual** a la del paquete `rc_pronostico` instalado en el servicio, porque es el código que arma las variables. Si no coincide, el servicio usa el baseline.
+- Un modelo solo pasa a `vigente` si su MAE de validación es **menor** que el del baseline (D-17). El puntero `vigente.json` solo se actualiza en ese caso.
 
 ## 6. Fuera de este contrato
 

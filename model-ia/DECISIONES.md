@@ -1,6 +1,6 @@
 # Decisiones y riesgos del modelo
 
-**Última actualización:** 19/11/2026
+**Última actualización:** 20/11/2026
 **Contrato que resulta de estas decisiones:** [CONTRATO.md](CONTRATO.md)
 
 Cada entrada dice qué podía salir mal, qué se decidió y por qué. Las marcadas **Por confirmar** son una propuesta que todavía no está acordada.
@@ -10,8 +10,8 @@ Cada entrada dice qué podía salir mal, qué se decidió y por qué. Las marcad
 | # | Tema | Estado |
 |---|---|---|
 | D-01 | Datos del experimento | Decidida |
-| D-02 | Dónde vive el código del modelo | **Por confirmar** |
-| D-03 | Desde qué día se pronostica | **Por confirmar** |
+| D-02 | Dónde se construye el modelo y cómo llega a ms-pronóstico | Decidida |
+| D-03 | Desde qué día se pronostica | Decidida |
 | D-04 | Cómo se arma el horizonte de 7 días | Decidida |
 | D-05 | Días cerrados frente a días sin ventas | Decidida |
 | D-06 | Un modelo por local, con el plato como variable | Decidida |
@@ -30,6 +30,8 @@ Cada entrada dice qué podía salir mal, qué se decidió y por qué. Las marcad
 | D-19 | Entorno propio de `model-ia` | Decidida |
 | D-20 | Limitaciones que se declaran | Decidida |
 | D-21 | Cambios que esto obliga en `doc-2u/servicios/ms-pronostico.md` | Pendiente para la integración |
+| D-22 | Repositorio de modelos | Decidida |
+| D-23 | Coherencia de la entrada con ms-analítica | Decidida; verificación con datos pendiente |
 
 ---
 
@@ -48,21 +50,36 @@ Lo revisado del archivo de Stuttgart: 760 días con datos en un rango de 765; fa
 
 **Del archivo solo se usan** `DEMAND_DATE`, las 7 columnas de platos e `ISHOLIDAY`. Las otras 280 columnas (rezagos ya calculados, clima, totales) se ignoran: las variables las calcula nuestro propio código, el mismo que usa el servicio.
 
-## D-02. Dónde vive el código del modelo — Por confirmar
+## D-02. Dónde se construye el modelo y cómo llega a ms-pronóstico
 
 **Riesgo:** si el experimento calcula las variables con un código y ms-pronóstico con otro, el modelo recibe en producción algo distinto de lo que vio al entrenar (*training-serving skew*). Es una de las fallas más comunes y no se ve en las métricas del experimento.
 
-**Propuesta:** `model-ia/` contiene un paquete de Python sin acceso a red ni a bases de datos (variables, modelos, baselines, métricas y la carga y verificación del artefacto). El experimento lo usa directamente, y ms-pronóstico lo instala como dependencia local en su imagen.
+**Decisión:**
 
-No rompe la regla de que un servicio no importa código de otro, porque `model-ia` es una librería, no un servicio.
+- **El modelo se construye aparte, en `model-ia/`.** Ahí se exploran los datos, se ajusta, se entrena, se evalúa y se publica en el repositorio de modelos (D-22).
+- **ms-pronóstico no entrena.** Al arrancar, o cuando cambia la versión vigente, **descarga** el artefacto del repositorio, verifica su huella y su compatibilidad (CONTRATO, 5) y lo usa para predecir.
+- **Lo único que se comparte es el cálculo de las variables.** Para predecir, el servicio tiene que armar las mismas variables que vio el modelo al entrenar, y eso es código, no datos: ningún formato de archivo (skops, ONNX, joblib) lo lleva dentro. Por eso `model-ia` separa dos piezas:
 
-**Alternativa descartada:** copiar el código al servicio. Dos copias terminan divergiendo.
+| Pieza | Contenido | Llega a ms-pronóstico |
+|---|---|---|
+| `rc_pronostico` (paquete de inferencia) | Validación de la entrada, calendario, variables, baselines, reglas por plato (CONTRATO, 4.1) y carga verificada del artefacto. Sin acceso a red ni a bases de datos | Sí, como dependencia con **versión fijada** en su imagen |
+| Entrenamiento y experimento | Fuentes de datos, partición, ajuste, entrenamiento, métricas, pruebas estadísticas y publicación | **No** |
 
-## D-03. Desde qué día se pronostica — Por confirmar
+- La ficha del artefacto registra `version_variables`, un entero que sube cada vez que cambia el cálculo de las variables. Si no coincide con el del paquete instalado en el servicio, el servicio no usa ese modelo y pronostica con el baseline.
+
+No rompe la regla de que un servicio no importa código de otro, porque `rc_pronostico` es una librería, no un servicio.
+
+**Alternativas descartadas:**
+- Copiar el código de las variables al servicio: dos copias terminan divergiendo.
+- Que ms-pronóstico entrene: cada imagen arrastraría las dependencias del experimento y el entrenamiento competiría con las peticiones.
+
+## D-03. Desde qué día se pronostica
 
 **Riesgo:** si se usan las ventas del día en curso, que está incompleto, se subestima la demanda.
 
-**Propuesta:** el pronóstico empieza **mañana** y usa datos **hasta ayer**. Hay un día de distancia (hoy) entre el último dato y el primer día pronosticado, así que los 7 días pedidos quedan entre 2 y 8 días después del último dato.
+**Decisión:** el pronóstico empieza **mañana** y usa datos **hasta ayer**. Hay un día de distancia (hoy) entre el último dato y el primer día pronosticado, así que los 7 días pedidos quedan entre 2 y 8 días después del último dato.
+
+**Por qué:** la recomendación de reposición sirve para comprar con anticipación, y la compra de hoy ya está hecha cuando el administrador abre la pantalla. Empezar hoy obligaría a usar el día incompleto o a pronosticar un día que ya está en curso. El contrato admite igualmente `fecha_inicio` = hoy (distancia 1) para quien lo necesite.
 
 Consecuencias:
 - El modelo se entrena con distancias de 1 a 8 días.
@@ -95,6 +112,17 @@ Consecuencias:
 - La tabla `producto_id → código` va dentro del artefacto.
 - Un plato que el modelo no vio va al baseline (CONTRATO, 4.1).
 - HistGradientBoosting admite hasta 255 categorías por variable. Es un límite de la carta, no de las ventas, y ningún local de la demo se acerca.
+
+**Consecuencias (confirmadas el 20/11/2026):**
+- **En el experimento la pregunta no aplica:** Stuttgart es un solo restaurante, así que su modelo «por local» es el de sus 7 platos juntos.
+- **El modelo de Stuttgart no sirve para ÁUREA:** los platos son otros y el plato es una variable. El modelo de Stuttgart queda para el artículo, y el que se publica para la demostración se entrena con la serie de ÁUREA leída de ms-analítica.
+- **Cada local necesita su propio entrenamiento**, que se hace en `model-ia` y se publica en el repositorio (D-02, D-22). Mientras un local no tenga modelo vigente, se pronostica con el baseline.
+- **Los hiperparámetros se eligen una sola vez**, en la validación de Stuttgart (D-11), y se congelan. El modelo de cada local se entrena con ellos y solo pasa a `vigente` si supera la puerta de calidad (D-17).
+
+**Modelo global: trabajo futuro.** Un modelo único sin el plato como variable (con variables escaladas por el nivel de cada plato) cubriría locales y platos nuevos sin entrenar de nuevo. No entra en la versión 1 por tres razones:
+- Juntaría en un solo modelo las ventas de varios inquilinos, cuando el sistema los aísla con RLS.
+- Hoy mezclaría datos reales de Alemania con datos sintéticos de Perú.
+- Con un solo restaurante real no se puede evaluar si mejora.
 
 ## D-07. Variables de entrada
 
@@ -206,7 +234,7 @@ Se reportan en total, por plato, por distancia `h` y por día de la semana. Los 
 
 **Decisión:**
 - Formato **skops** (carga solo tipos permitidos, sin ejecutar código arbitrario). **A verificar** al crear el entorno que guarde y cargue `HistGradientBoostingRegressor` con variables categóricas. Si no, se usa `joblib` con verificación obligatoria del SHA-256.
-- La ficha registra el SHA-256 y el servicio lo verifica antes de cargar (CONTRATO, 5).
+- La ficha registra el SHA-256 y el servicio lo verifica antes de cargar (CONTRATO, 5). Dónde se publica: D-22.
 - La versión de scikit-learn queda fijada igual en `model-ia` y en ms-pronóstico. Si no coincide, el servicio usa el baseline.
 
 ## D-17. Puerta de calidad para usar un modelo
@@ -245,4 +273,52 @@ Se aplican al empezar la integración, no ahora:
 
 - `prediccion`: agregar `unidades_p90`, y ampliar `metodo` con `cerrado` y `sin_historial`.
 - `ejecucion`: `horizonte_dias` de 1 a 7 (hoy permite hasta 14); agregar `huella_datos`.
-- Sección 7: cerrar «un modelo por local o global» (D-06), «variables» (D-07) y «cuándo se entrena» (comando aparte, semanal).
+- Sección 7: cerrar «un modelo por local o global» (D-06), «variables» (D-07) y «cuándo se entrena»: fuera del servicio, en `model-ia`, y el servicio solo descarga el artefacto (D-02).
+- Sección 6: `MODELOS_BUCKET` pasa a `MODELOS_REPOSITORIO`, que admite `file://` y `gs://` (D-22).
+- Sección 2: `modelo_version` registra `artefacto_sha256` y `version_variables`; `empresa_id` y `local_id` dejan de admitir nulo (no hay modelo global en la versión 1).
+- Lectura de la serie: pedirla por tramos de hasta 730 días cuando el historial supere ese rango (D-23).
+
+## D-22. Repositorio de modelos
+
+**Riesgo:** si el servicio carga «el último archivo» de una carpeta, un modelo a medio subir o uno que no pasó la puerta de calidad puede entrar en producción. Si una versión se sobrescribe, se pierde la trazabilidad de las predicciones ya guardadas.
+
+**Decisión:**
+- El repositorio es el **almacenamiento de objetos de GCP (Cloud Storage)**, el mismo que la ficha de ms-pronóstico llama `MODELOS_BUCKET`. Mientras no exista la infraestructura de la nube (etapa 8 del plan), se usa una **carpeta local con la misma estructura**. El código de publicación y el de carga reciben la raíz como `file://…` o `gs://…`, así que pasar a la nube es cambiar una variable.
+- Estructura:
+
+```text
+modelos/
+  {local_id}/
+    {modelo_version}/        ← inmutable: nunca se sobrescribe
+      modelo.skops
+      ficha.json
+    vigente.json             ← puntero: { modelo_version, sha256, publicado_en }
+```
+
+- **Publicar** es: subir los dos archivos a una carpeta nueva y, **solo si el modelo pasó la puerta de calidad (D-17)**, reescribir `vigente.json` al final. Un modelo que no la pasa queda en el repositorio como `candidato` y el puntero no cambia.
+- **ms-pronóstico lee el puntero**, descarga esa versión, verifica el SHA-256 y la compatibilidad (CONTRATO, 5) y la registra en su tabla `modelo_version`. Si algo falla, sigue con el modelo anterior o con el baseline.
+- La carpeta local es `model-ia/repositorio/` y no se versiona. Cómo se monta en el contenedor de ms-pronóstico se define en la integración.
+
+**Alternativas descartadas:** Hugging Face Hub y GitHub Releases. Funcionan, pero quedan fuera de GCP, donde se despliega el resto del sistema.
+
+## D-23. Coherencia de la entrada con ms-analítica
+
+**Riesgo:** que el modelo se entrene con una forma de datos (Stuttgart) y en producción reciba otra (la serie de ms-analítica), sin que ninguna métrica lo muestre.
+
+Revisión de `GET /interno/series/ventas-diarias` (`app/datos/series.py`) frente a la sección 2 del CONTRATO:
+
+| El contrato pide | ms-analítica entrega | Qué se hace |
+|---|---|---|
+| Serie continua desde la primera venta, con 0 en los días sin ventas | Lo mismo, con `generate_series` desde `max(primera_venta, desde)` | Coincide |
+| Unidades netas por `fecha_operativa` | Las anulaciones ya vienen descontadas, por jornada operativa | Coincide |
+| `dias_cerrados` | No los entrega | Se aplica la regla de respaldo de D-05 (el local entero vendió 0). En ÁUREA debe detectar el 25/12 y el 01/01 de cada año |
+| `feriados` | No los entrega | `model-ia` usa la librería `holidays` (Perú; en Stuttgart, la columna `ISHOLIDAY`). Quién los envía en producción se define en la integración |
+| `datos_hasta` = ayer | Acepta cualquier `hasta` | Lo controla quien pide la serie; el validador rechaza una serie que incluya hoy |
+| Historial completo | Como máximo 730 días por petición | Suficiente para ÁUREA hoy (730 días); al crecer, se pide por tramos |
+
+Además:
+- **`ultimo_evento_en` no indica datos frescos** en la base de desarrollo: vale la hora de la carga sintética.
+- **Calendario del generador frente a `holidays`:** el generador de ÁUREA tiene su propia lista de feriados de Perú (`app/sinteticos/feriados.py`). Si difiere de la librería, el experimento de control mediría también esa diferencia. Se comparan año por año y cualquier diferencia se documenta.
+- **Fechas de demanda que no son feriado** (San Valentín, Día de la Madre, Nochebuena…): el generador las usa y el modelo no las conoce. Queda como limitación del experimento de control, no como error.
+
+**Verificación con datos (pendiente, paso 2 de la etapa):** un validador del contrato en `rc_pronostico` y un cuaderno que lee la serie de ÁUREA con el GET firmado, la valida, comprueba los cierres detectados y la compara con la demanda verdadera que exporta `--verdad`.
