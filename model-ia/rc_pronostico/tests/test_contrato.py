@@ -35,6 +35,16 @@ def test_historial_invalido(mutar):
         validar_historial(mutar(historial()))
 
 
+def test_historial_no_puede_incluir_hoy():
+    h = historial()
+    ultimo = h.fecha.max()
+    validar_historial(h, hoy=ultimo + pd.Timedelta(days=1))  # termina ayer: ok
+    with pytest.raises(ErrorContrato):
+        validar_historial(h, hoy=ultimo)  # incluye hoy
+    with pytest.raises(ErrorContrato):
+        validar_historial(h, hoy=ultimo - pd.Timedelta(days=3))  # incluye el futuro
+
+
 def test_peticion_valida():
     p = validar_peticion(
         {"fecha_inicio": "2024-01-12", "horizonte_dias": 7, "productos": ["a"]}, "2024-01-10"

@@ -17,12 +17,13 @@ class ErrorContrato(ValueError):
     """La entrada no cumple el contrato."""
 
 
-def validar_historial(historial: pd.DataFrame) -> pd.DataFrame:
+def validar_historial(historial: pd.DataFrame, hoy: date | pd.Timestamp | None = None) -> pd.DataFrame:
     """Valida el historial y lo devuelve normalizado y ordenado.
 
     Reglas: columnas exactas, unidades enteras >= 0 sin nulos, sin duplicados,
     una fila por día y plato sin huecos desde su primera fila, y todos los platos
-    terminan el mismo día (`datos_hasta`).
+    terminan el mismo día (`datos_hasta`). Si se pasa `hoy`, el historial debe terminar antes
+    de ese día: el día en curso está incompleto y nunca entra (CONTRATO 2.1).
     """
     faltan = [c for c in COLUMNAS_HISTORIAL if c not in historial.columns]
     if faltan:
@@ -60,6 +61,8 @@ def validar_historial(historial: pd.DataFrame) -> pd.DataFrame:
         raise ErrorContrato(f"Historial con huecos (no continuo) en: {malos}")
     if g.max().nunique() != 1:
         raise ErrorContrato("Los platos no terminan el mismo día (`datos_hasta`)")
+    if hoy is not None and g.max().iloc[0] >= pd.Timestamp(hoy).normalize():
+        raise ErrorContrato("El historial incluye el día en curso o el futuro (`datos_hasta` debe ser ayer o antes)")
     return h
 
 
