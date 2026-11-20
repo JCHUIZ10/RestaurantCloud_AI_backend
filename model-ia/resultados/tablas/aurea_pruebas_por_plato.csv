@@ -1,0 +1,41 @@
+plato,comparador,n_cortes,MAE_modelo,MAE_comparador,diferencia,mejora_pct,DM_HLN,p_unilateral,IC95_bajo,IC95_alto,p_Holm,significativo
+Agua Mineral 625ml,Ingenuo estacional,52,3.2749,4.4693,1.1944,26.7253,6.6851,0.0,0.8443,1.5367,0.0,True
+Ají de Gallina,Ingenuo estacional,52,5.1845,6.8333,1.6488,24.1295,6.3352,0.0,1.1415,2.1519,0.0,True
+Arroz con Mariscos,Ingenuo estacional,52,7.2093,9.7395,2.5302,25.9788,7.0078,0.0,1.8411,3.2323,0.0,True
+Causa Limeña de Pollo,Ingenuo estacional,52,3.0158,4.1314,1.1156,27.0028,7.5683,0.0,0.8269,1.3957,0.0,True
+Cerveza Cusqueña,Ingenuo estacional,52,8.4828,11.7289,3.2462,27.6767,6.2392,0.0,2.2448,4.2171,0.0,True
+Ceviche Clásico,Ingenuo estacional,52,6.1056,8.5284,2.4228,28.4086,7.6423,0.0,1.8404,3.038,0.0,True
+Ceviche Mixto,Ingenuo estacional,52,5.5827,7.9034,2.3207,29.3629,8.5758,0.0,1.787,2.8412,0.0,True
+Chaufa de Mariscos,Ingenuo estacional,52,5.7236,8.3434,2.6198,31.4002,9.4626,0.0,2.0624,3.1453,0.0,True
+Chicha Morada (jarra),Ingenuo estacional,52,6.6163,9.185,2.5687,27.9658,8.6013,0.0,1.9812,3.1436,0.0,True
+Choritos a la Chalaca,Ingenuo estacional,52,3.0404,4.1209,1.0804,26.2188,7.416,0.0,0.7926,1.3513,0.0,True
+Inca Kola 500ml,Ingenuo estacional,52,8.0602,10.652,2.5918,24.3319,5.6031,0.0,1.6841,3.4636,0.0,True
+Jalea Mixta,Ingenuo estacional,52,6.7433,9.1273,2.384,26.1197,6.3691,0.0,1.6339,3.0948,0.0,True
+Leche de Tigre,Ingenuo estacional,52,2.7344,3.446,0.7116,20.6495,5.1401,0.0,0.4493,0.9733,0.0,True
+Limonada Frozen,Ingenuo estacional,52,7.487,10.7793,3.2924,30.5433,8.4415,0.0,2.5491,4.0324,0.0,True
+Lomo Saltado Criollo,Ingenuo estacional,52,8.2723,11.2706,2.9983,26.6031,7.7595,0.0,2.2343,3.7308,0.0,True
+Mazamorra Morada,Ingenuo estacional,52,4.427,6.2244,1.7974,28.8769,6.7292,0.0,1.2806,2.321,0.0,True
+Papa a la Huancaína,Ingenuo estacional,52,3.7247,5.2221,1.4973,28.673,8.9618,0.0,1.164,1.8142,0.0,True
+Suspiro Limeño,Ingenuo estacional,52,5.7245,7.3246,1.6001,21.846,7.0651,0.0,1.138,2.0264,0.0,True
+Tacu Tacu con Lomo,Ingenuo estacional,52,4.0701,5.6667,1.5966,28.1747,7.3449,0.0,1.1735,2.0195,0.0,True
+Tiradito de Pescado,Ingenuo estacional,52,3.4122,4.7752,1.363,28.5425,7.2467,0.0,0.9913,1.7275,0.0,True
+Agua Mineral 625ml,Media del mismo día (4),52,3.2749,3.4878,0.2129,6.1034,2.4567,0.0087,0.0412,0.3819,0.0489,True
+Ají de Gallina,Media del mismo día (4),52,5.1845,5.4413,0.2568,4.7193,2.0883,0.0209,0.0198,0.494,0.0836,False
+Arroz con Mariscos,Media del mismo día (4),52,7.2093,7.9633,0.754,9.4683,4.373,0.0,0.4222,1.0945,0.0005,True
+Causa Limeña de Pollo,Media del mismo día (4),52,3.0158,3.1997,0.1839,5.7483,2.0678,0.0219,0.0188,0.361,0.0836,False
+Cerveza Cusqueña,Media del mismo día (4),52,8.4828,9.5846,1.1018,11.4959,4.4316,0.0,0.6278,1.5821,0.0004,True
+Ceviche Clásico,Media del mismo día (4),52,6.1056,6.7705,0.6649,9.8205,4.4086,0.0,0.3757,0.962,0.0005,True
+Ceviche Mixto,Media del mismo día (4),52,5.5827,6.107,0.5243,8.5852,4.1409,0.0001,0.2797,0.7651,0.0009,True
+Chaufa de Mariscos,Media del mismo día (4),52,5.7236,6.2389,0.5153,8.26,3.4762,0.0005,0.2247,0.8001,0.0058,True
+Chicha Morada (jarra),Media del mismo día (4),52,6.6163,7.2193,0.603,8.3525,3.3849,0.0007,0.2579,0.9501,0.0069,True
+Choritos a la Chalaca,Media del mismo día (4),52,3.0404,3.3519,0.3114,9.2916,3.9412,0.0001,0.1564,0.4629,0.0016,True
+Inca Kola 500ml,Media del mismo día (4),52,8.0602,8.5101,0.4499,5.2866,1.7095,0.0467,-0.0756,0.9421,0.0934,False
+Jalea Mixta,Media del mismo día (4),52,6.7433,7.2508,0.5075,6.9997,2.6783,0.005,0.1274,0.8776,0.0348,True
+Leche de Tigre,Media del mismo día (4),52,2.7344,2.9839,0.2495,8.3605,3.0966,0.0016,0.0942,0.4073,0.0127,True
+Limonada Frozen,Media del mismo día (4),52,7.487,8.3325,0.8456,10.1479,4.5588,0.0,0.4936,1.1999,0.0003,True
+Lomo Saltado Criollo,Media del mismo día (4),52,8.2723,8.8598,0.5875,6.6311,2.4841,0.0082,0.1247,1.0328,0.0489,True
+Mazamorra Morada,Media del mismo día (4),52,4.427,4.9068,0.4799,9.7795,4.3082,0.0,0.2626,0.7,0.0006,True
+Papa a la Huancaína,Media del mismo día (4),52,3.7247,4.1284,0.4037,9.7783,3.545,0.0004,0.1819,0.6156,0.0051,True
+Suspiro Limeño,Media del mismo día (4),52,5.7245,5.9694,0.2449,4.1033,1.4918,0.071,-0.0765,0.5624,0.0934,False
+Tacu Tacu con Lomo,Media del mismo día (4),52,4.0701,4.4145,0.3444,7.8014,3.1855,0.0012,0.1399,0.559,0.0111,True
+Tiradito de Pescado,Media del mismo día (4),52,3.4122,3.7612,0.349,9.2787,4.5992,0.0,0.2024,0.4975,0.0003,True

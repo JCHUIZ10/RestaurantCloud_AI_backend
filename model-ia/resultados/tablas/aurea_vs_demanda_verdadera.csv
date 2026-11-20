@@ -1,0 +1,5 @@
+predictor,MAE_vs_esperada,sesgo_vs_esperada,MAE_vs_vendido
+Modelo,2.3954,-1.5903,5.4503
+Ingenuo estacional,5.5117,-0.6383,7.4698
+Media del mismo día (4),3.1947,-0.6541,5.9257
+Lo vendido (piso de ruido),5.094,-0.6577,0.0

@@ -1,0 +1,61 @@
+plato,predictor,n,MAE,RMSE,MASE,WAPE,sesgo,cobertura_P90,pinball_P90
+Agua Mineral 625ml,Modelo,362,3.2811,4.3428,0.7294,0.3051,-0.648,0.8536,0.8294
+Agua Mineral 625ml,Ingenuo estacional,362,4.4696,5.8305,0.9936,0.4156,-0.0276,0.8232,1.0106
+Agua Mineral 625ml,Media del mismo día (4),362,3.4926,4.643,0.7764,0.3248,-0.0902,0.8232,1.0106
+Ají de Gallina,Modelo,362,5.1988,6.7647,0.7101,0.2555,-0.9129,0.8646,1.3305
+Ají de Gallina,Ingenuo estacional,362,6.8398,8.8932,0.9343,0.3361,-0.0276,0.8343,1.5501
+Ají de Gallina,Media del mismo día (4),362,5.456,7.1465,0.7452,0.2681,-0.0716,0.8343,1.5501
+Arroz con Mariscos,Modelo,362,7.2112,9.6025,0.742,0.2371,-1.2233,0.8425,1.8408
+Arroz con Mariscos,Ingenuo estacional,362,9.7431,12.8367,1.0026,0.3204,-0.0304,0.8619,2.0091
+Arroz con Mariscos,Media del mismo día (4),362,7.9671,10.2497,0.8198,0.262,-0.044,0.8619,2.0091
+Causa Limeña de Pollo,Modelo,362,3.0123,3.8641,0.7426,0.3355,-0.3034,0.8702,0.7422
+Causa Limeña de Pollo,Ingenuo estacional,362,4.1215,5.2606,1.0161,0.4591,-0.0276,0.8398,0.9228
+Causa Limeña de Pollo,Media del mismo día (4),362,3.1994,4.1383,0.7887,0.3564,0.0129,0.8398,0.9228
+Cerveza Cusqueña,Modelo,362,8.5002,11.5718,0.8025,0.2461,-1.7647,0.8674,2.3713
+Cerveza Cusqueña,Ingenuo estacional,362,11.7182,15.6463,1.1064,0.3393,0.1878,0.8177,2.771
+Cerveza Cusqueña,Media del mismo día (4),362,9.5884,12.6966,0.9053,0.2777,0.1257,0.8177,2.771
+Ceviche Clásico,Modelo,362,6.1098,8.1245,0.751,0.2511,-1.2642,0.8425,1.7058
+Ceviche Clásico,Ingenuo estacional,362,8.5249,11.0846,1.0479,0.3504,-0.0387,0.8204,2.0037
+Ceviche Clásico,Media del mismo día (4),362,6.7751,8.8896,0.8328,0.2784,-0.0882,0.8204,2.0037
+Ceviche Mixto,Modelo,362,5.5889,7.5317,0.7348,0.2595,-1.1836,0.8591,1.4467
+Ceviche Mixto,Ingenuo estacional,362,7.895,10.2739,1.038,0.3666,-0.0552,0.8204,1.8155
+Ceviche Mixto,Media del mismo día (4),362,6.1054,8.0938,0.8028,0.2835,-0.1722,0.8204,1.8155
+Chaufa de Mariscos,Modelo,362,5.7296,7.4363,0.7823,0.2591,-0.7109,0.8757,1.4015
+Chaufa de Mariscos,Ingenuo estacional,362,8.3398,10.664,1.1387,0.3771,0.1464,0.8343,1.677
+Chaufa de Mariscos,Media del mismo día (4),362,6.2362,7.9141,0.8515,0.282,0.1699,0.8343,1.677
+Chicha Morada (jarra),Modelo,362,6.6297,8.7993,0.7614,0.2428,-1.3189,0.8398,1.7279
+Chicha Morada (jarra),Ingenuo estacional,362,9.1934,12.0819,1.0559,0.3367,0.0,0.8011,2.0835
+Chicha Morada (jarra),Media del mismo día (4),362,7.2297,9.7158,0.8303,0.2648,0.0516,0.8011,2.0835
+Choritos a la Chalaca,Modelo,362,3.0413,3.9625,0.7405,0.3125,-0.3259,0.8785,0.7416
+Choritos a la Chalaca,Ingenuo estacional,362,4.116,5.3019,1.0022,0.4229,0.0608,0.837,0.8315
+Choritos a la Chalaca,Media del mismo día (4),362,3.3538,4.2703,0.8166,0.3446,0.1121,0.837,0.8315
+Inca Kola 500ml,Modelo,362,8.0665,10.1858,0.7488,0.245,-1.8058,0.8425,1.9463
+Inca Kola 500ml,Ingenuo estacional,362,10.6436,13.669,0.9881,0.3232,-0.0856,0.8177,2.3679
+Inca Kola 500ml,Media del mismo día (4),362,8.5064,11.0425,0.7897,0.2583,-0.0322,0.8177,2.3679
+Jalea Mixta,Modelo,362,6.7526,8.7735,0.7543,0.2407,-1.2387,0.8591,1.7208
+Jalea Mixta,Ingenuo estacional,362,9.1215,11.6337,1.0189,0.3251,0.0497,0.8315,1.8223
+Jalea Mixta,Media del mismo día (4),362,7.2567,9.4506,0.8106,0.2586,0.0108,0.8315,1.8223
+Leche de Tigre,Modelo,362,2.7352,3.5024,0.7979,0.3732,-0.0844,0.8867,0.6696
+Leche de Tigre,Ingenuo estacional,362,3.4392,4.5811,1.0032,0.4693,0.047,0.8481,0.8404
+Leche de Tigre,Media del mismo día (4),362,2.9823,3.8175,0.8699,0.4069,0.0361,0.8481,0.8404
+Limonada Frozen,Modelo,362,7.4892,9.9177,0.7435,0.2313,-1.43,0.8425,2.0831
+Limonada Frozen,Ingenuo estacional,362,10.7624,14.1734,1.0684,0.3324,0.0829,0.8425,2.3498
+Limonada Frozen,Media del mismo día (4),362,8.3223,10.8351,0.8262,0.2571,0.0087,0.8425,2.3498
+Lomo Saltado Criollo,Modelo,362,8.293,10.7371,0.7449,0.2327,-2.1046,0.8591,2.0482
+Lomo Saltado Criollo,Ingenuo estacional,362,11.268,14.6449,1.0122,0.3162,0.0138,0.8343,2.2482
+Lomo Saltado Criollo,Media del mismo día (4),362,8.8697,11.357,0.7967,0.2489,-0.064,0.8343,2.2482
+Mazamorra Morada,Modelo,362,4.4326,5.7959,0.826,0.281,-0.3787,0.8702,1.1882
+Mazamorra Morada,Ingenuo estacional,362,6.2238,8.0836,1.1598,0.3945,-0.0249,0.8425,1.2878
+Mazamorra Morada,Media del mismo día (4),362,4.9098,6.3117,0.9149,0.3112,-0.0157,0.8425,1.2878
+Papa a la Huancaína,Modelo,362,3.7269,4.8252,0.7894,0.3079,-0.5877,0.8646,0.9572
+Papa a la Huancaína,Ingenuo estacional,362,5.2155,6.681,1.1047,0.4309,0.0276,0.8315,1.1084
+Papa a la Huancaína,Media del mismo día (4),362,4.1183,5.2866,0.8723,0.3402,-0.0115,0.8315,1.1084
+Suspiro Limeño,Modelo,362,5.7291,7.2883,0.7675,0.2726,-0.766,0.8812,1.3653
+Suspiro Limeño,Ingenuo estacional,362,7.326,9.5368,0.9814,0.3486,0.0387,0.8619,1.5653
+Suspiro Limeño,Media del mismo día (4),362,5.971,7.6903,0.7999,0.2841,0.0787,0.8619,1.5653
+Tacu Tacu con Lomo,Modelo,362,4.07,5.4514,0.7514,0.2892,-0.2772,0.884,1.1125
+Tacu Tacu con Lomo,Ingenuo estacional,362,5.663,7.4674,1.0454,0.4024,0.0387,0.8453,1.2049
+Tacu Tacu con Lomo,Media del mismo día (4),362,4.4151,5.863,0.8151,0.3138,0.0435,0.8453,1.2049
+Tiradito de Pescado,Modelo,362,3.4087,4.4135,0.7415,0.3198,-0.3223,0.8674,0.864
+Tiradito de Pescado,Ingenuo estacional,362,4.7707,6.0625,1.0377,0.4475,0.0138,0.8398,0.9755
+Tiradito de Pescado,Media del mismo día (4),362,3.7578,4.7794,0.8174,0.3525,0.012,0.8398,0.9755
