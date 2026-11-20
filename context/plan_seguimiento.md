@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 20/11/2026. Etapas 0 a 4 cerradas; la siguiente es la 5A (modelo de pronóstico en `model-ia/`).
+**Última actualización:** 20/11/2026. Etapas 0 a 4 y 5A cerradas; la siguiente es la 5B (ms-pronóstico).
 
 ## Contexto
 
@@ -23,8 +23,8 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | Extra: resiliencia de la entrega | Cerrada | 23 pruebas de resiliencia y escenario de caída real |
 | Extra: identificadores ordenados | Cerrada | Suite completa: 639 pruebas |
 | 4. Datos sintéticos | Cerrada | 24 meses de ÁUREA en 3 min 45 s; 111 pruebas de ms-analítica; humo: 28 comprobaciones |
-| 5A. Modelo de pronóstico (`model-ia`) | **Siguiente** | — |
-| 5B. ms-pronóstico | Pendiente | — |
+| 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
+| 5B. ms-pronóstico | **Siguiente** | — |
 
 ---
 
@@ -134,9 +134,9 @@ Detalle y la purga al pasar a datos reales: `restaurantcloud/services/analitica/
 
 ---
 
-## Etapa 5A. Modelo de pronóstico (`model-ia/`) — siguiente
+## Etapa 5A. Modelo de pronóstico (`model-ia/`) — cerrada
 
-Se construye el modelo **aparte**, antes del servicio. Todo el trabajo y los cuadernos van en `model-ia/`. El diseño está en `model-ia/DECISIONES.md` (D-01 a D-23) y la entrada y salida en `model-ia/CONTRATO.md`. La integración con ms-pronóstico es de la 5B; aquí solo se comprueba que la serie de ms-analítica cumple el contrato.
+El modelo se construyó **aparte**, antes del servicio, en cuadernos de Jupyter. El diseño está en `model-ia/DECISIONES.md` (D-01 a D-23), la entrada y salida en `model-ia/CONTRATO.md` (versión 0.3) y cómo usarlo en `model-ia/README.md`. La integración con ms-pronóstico es de la 5B.
 
 ### Decisiones acordadas (20/11)
 
@@ -146,44 +146,58 @@ Se construye el modelo **aparte**, antes del servicio. Todo el trabajo y los cua
 - **Se pronostica desde mañana con datos hasta ayer**, con distancias de 2 a 8 días (D-03).
 - **Repositorio:** Cloud Storage. Mientras no exista la nube, una carpeta local `model-ia/repositorio/` con la misma estructura y un puntero `vigente.json` que solo se mueve si el modelo supera la puerta de calidad (D-22).
 
-### Estructura de `model-ia/`
+### Estructura de `model-ia/` (como quedó)
 
 ```text
 model-ia/
-  README.md  CONTRATO.md  DECISIONES.md
-  pyproject.toml  uv.lock  .env.example      entorno uv propio (D-19)
-  datos/stuttgart/                           CSV y FICHA.md (DOI, licencia, SHA-256)
-  src/rc_pronostico/                         inferencia: lo instala ms-pronóstico
-  src/modelado/                              fuentes, partición, ajuste, entrenamiento,
-                                             métricas, estadística y publicación
-  configuracion/                             rejilla y configuración congelada
-  cuadernos/                                 exploración, coherencia y resultados
+  README.md  CONTRATO.md  DECISIONES.md  PLAN.md
+  pyproject.toml  uv.lock  .env.example      workspace de uv propio (D-19)
+  rc_pronostico/                             paquete que instalará ms-pronóstico, con sus pruebas
+    src/rc_pronostico/                       contrato, calendario, variables, baselines, reglas,
+                                             artefacto y pronosticar
+  cuadernos/                                 00_entorno a 07_entrenar_y_publicar, con sus salidas
+  ejecutar_cuadernos.sh                      ejecuta 00 a 07 en orden
+  configuracion/                             rejilla, tramos y congelada.json
+  dataset/stuttgart/                         CSV y FICHA.md (DOI, licencia, SHA-256)
   resultados/                                tablas y figuras del informe (versionadas)
-  salidas/  repositorio/                     corridas y modelos (no versionadas)
-  tests/
+  salidas/  repositorio/                     datos intermedios y modelos (no versionados)
 ```
 
-Los cuadernos exploran y presentan resultados; la lógica va en `src/` con sus pruebas.
+Los cuadernos contienen el trabajo (datos, ajuste, evaluación, métricas, estadística y publicación). Solo lo que el servicio necesita para predecir igual que al entrenar vive en `rc_pronostico/`, porque ms-pronóstico no puede importar un cuaderno.
 
-### Pasos
+### Qué se hizo y qué se encontró
 
-| # | Paso | Verificación |
+| # | Cuaderno | Resultado |
 |---|---|---|
-| 1 | Entorno y datos: proyecto de uv, dataset de Stuttgart con su ficha y validador del contrato | SHA-256 del CSV igual al de D-18; skops guarda y carga el HistGradientBoosting con variables categóricas y predice lo mismo (D-16) |
-| 2 | Coherencia con ms-analítica: el cuaderno lee la serie de ÁUREA con el GET firmado | La serie pasa el validador; los cierres detectados son los 4 días esperados; calendario del generador frente a `holidays` comparado; diferencia con `--verdad` medida (D-23) |
-| 3 | Paquete `rc_pronostico`: calendario, variables, baselines, reglas 4.1 y garantías 4.2 | Prueba de que ninguna variable del corte `d` cambia al borrar los datos posteriores a `d`; reglas por plato; determinismo |
-| 4 | Experimento: validación, configuración congelada, unos 52 cortes semanales en la prueba de Stuttgart y control con ÁUREA | Configuración commiteada antes de ejecutar la prueba; métricas de D-14 y pruebas de D-15 generadas con un comando en `resultados/` |
-| 5 | Artefacto y publicación de los modelos de Stuttgart y de ÁUREA | Carga en un entorno limpio con solo `rc_pronostico`: SHA-256, versiones y predicciones idénticas; un modelo que no supera D-17 no mueve `vigente.json` |
+| 00 | Entorno | skops guarda y carga el HistGradientBoosting cuantil con categóricas y predice lo mismo; hay que declarar 7 tipos de scikit-learn como confiables (D-16) |
+| 01 | Stuttgart | SHA-256 igual al de D-18; 765 días × 7 platos, 5 cierres, 22 feriados |
+| 02 | ÁUREA | GET firmado: 20 platos × 730 días; la regla de respaldo detecta exactamente los 4 cierres; `holidays` agrega 3 feriados por año al calendario del generador; piso de ruido MAE 4,96 (D-23 verificada) |
+| 03 | Variables y baselines | Sin fuga: alterar el futuro no cambia variables ni baselines |
+| 04 | Ajuste | 32 configuraciones; gana `quantile`, `learning_rate` 0,05, 200 iteraciones, 15 hojas, 50 muestras mínimas (MAE de validación 4,24) |
+| 05 | Evaluación | 52 cortes semanales por fuente; la prueba se ejecutó una sola vez con la configuración ya commiteada |
+| 06 | Resultados | Ver abajo |
+| 07 | Publicación | Un modelo vigente por fuente; un candidato malo queda como candidato y el puntero no se mueve; carga en entorno limpio con predicciones idénticas |
 
-### Detalles del entrenamiento que se cuidan
+**Resultados de la prueba (h de 2 a 8):**
 
-- **Fuga por el horizonte:** una fila (`d`, `h`) entra a un entrenamiento con corte `c` solo si `d + h ≤ c`. No basta con `d ≤ c`. Aplica también al tramo de validación.
+| | Modelo | Ingenuo estacional | Media del mismo día (4) |
+|---|---|---|---|
+| Stuttgart, MAE | 4,85 | 6,24 (−22,3 %, significativo en 7 de 7 platos) | 5,10 (−4,8 %, significativo en 4 de 7) |
+| ÁUREA, MAE | 5,45 | 7,47 (−27,0 %) | 5,93 (−8,0 %, significativo en 16 de 20) |
+
+El P90 cubre 86,1 % de los días en Stuttgart (objetivo 90 %). En ÁUREA, frente a la demanda verdadera, el modelo tiene MAE 2,40 contra un piso de ruido de 5,09. Puerta D-17 en las últimas 8 semanas: Stuttgart 5,23 contra 6,22 del ingenuo; ÁUREA 4,87 contra 6,37. Las limitaciones están en D-20.
+
+### Detalles del entrenamiento que se cuidaron
+
+- **Fuga por el horizonte:** una fila (`d`, `h`) entra a un entrenamiento con corte `c` solo si `d + h ≤ c`; el historial posterior al corte se descarta antes de calcular nada.
 - Días cerrados como dato faltante, no como 0 (D-05). `early_stopping=False` y `random_state = 2026` (D-11).
-- La prueba se ejecuta **una sola vez**, con la configuración ya congelada.
+- La prueba se ejecutó **una sola vez**; antes se ensayó la mecánica con la ventana de validación.
 
-### Pendiente para empezar
+### Para la 5B
 
-- Ruta local del CSV de Stuttgart (la aporta el usuario).
+- Aplicar los cambios de D-21 a `doc-2u/servicios/ms-pronostico.md` y usar `rc_pronostico` con `scikit-learn==1.7.2` y `skops==0.13.0`.
+- Definir cómo se monta `model-ia/repositorio/` en el contenedor y quién envía cierres y feriados futuros.
+- Trabajo futuro: una rejilla más amplia o validación con varios bloques (D-20). Se decidió dejar la rejilla de D-11 como estaba.
 
 ---
 

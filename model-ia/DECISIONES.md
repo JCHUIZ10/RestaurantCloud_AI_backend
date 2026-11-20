@@ -24,14 +24,14 @@ Cada entrada dice qué podía salir mal, qué se decidió y por qué. Las marcad
 | D-13 | Criterios de inclusión y exclusión | Decidida |
 | D-14 | Métricas, definidas antes de ejecutar | Decidida |
 | D-15 | Prueba estadística | Decidida |
-| D-16 | Formato y seguridad del artefacto | Decidida; formato a verificar |
+| D-16 | Formato y seguridad del artefacto | Decidida; skops verificado |
 | D-17 | Puerta de calidad para usar un modelo | Decidida |
 | D-18 | Reproducibilidad | Decidida |
 | D-19 | Entorno propio de `model-ia` | Decidida |
 | D-20 | Limitaciones que se declaran | Decidida |
-| D-21 | Cambios que esto obliga en `doc-2u/servicios/ms-pronostico.md` | Pendiente para la integración |
+| D-21 | Cambios que esto obliga en `doc-2u/servicios/ms-pronostico.md` | Completa; se aplica al empezar la integración |
 | D-22 | Repositorio de modelos | Decidida |
-| D-23 | Coherencia de la entrada con ms-analítica | Decidida; verificación con datos pendiente |
+| D-23 | Coherencia de la entrada con ms-analítica | Decidida; verificada con datos |
 
 ---
 
@@ -233,7 +233,7 @@ Se reportan en total, por plato, por distancia `h` y por día de la semana. Los 
 **Riesgo:** cargar un archivo `pickle` o `joblib` ejecuta código; un archivo alterado en el bucket compromete el servicio. Además, un modelo entrenado con una versión de scikit-learn puede no cargar, o predecir distinto, con otra.
 
 **Decisión:**
-- Formato **skops** (carga solo tipos permitidos, sin ejecutar código arbitrario). **A verificar** al crear el entorno que guarde y cargue `HistGradientBoostingRegressor` con variables categóricas. Si no, se usa `joblib` con verificación obligatoria del SHA-256.
+- Formato **skops** (carga solo tipos permitidos, sin ejecutar código arbitrario). Verificado que guarda y carga `HistGradientBoostingRegressor` con variables categóricas (abajo); no hizo falta `joblib`.
 - **Verificado en el cuaderno 00 (scikit-learn 1.7.2, skops 0.13.0):** skops guarda y carga el HGB cuantil con categóricas y las predicciones son idénticas; rechaza tipos no listados y el SHA-256 detecta un byte alterado. skops pide declarar como confiables 7 tipos internos de scikit-learn (`functools.partial`, `IdentityLink`, `Interval`, `PinballLoss`, `_BinMapper`, `TreePredictor`, `check_array`). `artefacto.py` llevará esa lista **explícita y fija**, no `get_untrusted_types` del propio archivo, para que un archivo con tipos extra no se acepte.
 - La ficha registra el SHA-256 y el servicio lo verifica antes de cargar (CONTRATO, 5). Dónde se publica: D-22.
 - La versión de scikit-learn queda fijada igual en `model-ia` y en ms-pronóstico. Si no coincide, el servicio usa el baseline.
@@ -267,6 +267,10 @@ Se reportan en total, por plato, por distancia `h` y por día de la semana. Los 
 - **Solo 7 platos** en Stuttgart.
 - **La reposición no se evalúa** con datos reales: Stuttgart no tiene recetas ni stock. Coincide con la sección 6.5.6 de la Unidad I.
 - **ÁUREA es sintético:** sus métricas solo muestran que el modelo recupera un patrón conocido.
+- **Configuración en una esquina de la rejilla:** la elegida en la validación (8 semanas, 441 filas) tiene el menor `learning_rate`, `max_iter` y `max_leaf_nodes` de D-11. No se exploró más regularización; la rejilla es la fijada de antemano.
+- **`h` y día de la semana coinciden:** los cortes semanales caen siempre en el mismo día, así que el error por `h` mezcla distancia y día. El escenario operativo (h de 2 a 8) cubre cada día una vez y es el que se compara.
+- **El P90 queda corto:** cubre 86 % en Stuttgart frente al 90 % objetivo, y el baseline 83 %.
+- **Resultado frente al baseline difícil:** el modelo mejora al ingenuo con claridad (−22 % de MAE en Stuttgart) y a la media del mismo día con poco margen (−4,8 %, significativo en 4 de 7 platos).
 
 ## D-21. Cambios que esto obliga en `doc-2u/servicios/ms-pronostico.md`
 
@@ -278,6 +282,9 @@ Se aplican al empezar la integración, no ahora:
 - Sección 6: `MODELOS_BUCKET` pasa a `MODELOS_REPOSITORIO`, que admite `file://` y `gs://` (D-22).
 - Sección 2: `modelo_version` registra `artefacto_sha256` y `version_variables`; `empresa_id` y `local_id` dejan de admitir nulo (no hay modelo global en la versión 1).
 - Lectura de la serie: pedirla por tramos de hasta 730 días cuando el historial supere ese rango (D-23).
+- `prediccion.motivo`: lista cerrada de CONTRATO 4.1 (`historial_minimo`, `modelo_no_disponible`, `producto_no_visto`, `historial_reciente_insuficiente`).
+- Dependencias del servicio: instala `rc_pronostico` con `scikit-learn==1.7.2` y `skops==0.13.0` (los de `uv.lock`). Usa `artefacto.cargar(raiz, local_id)`; si lanza `ErrorArtefacto` (huella, versión, variables o tipo no confiable), llama a `pronosticar(..., artefacto=None)` y responde con baseline. Pasa `hoy=` a `pronosticar` para rechazar un historial que incluya el día en curso.
+- Quién envía en producción los cierres y feriados futuros: pendiente de la integración (D-05, D-23). Sin cierres futuros, un día cerrado conocido solo por el núcleo se pronosticaría como abierto.
 
 ## D-22. Repositorio de modelos
 
