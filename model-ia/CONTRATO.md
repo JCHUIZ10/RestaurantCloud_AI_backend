@@ -1,6 +1,6 @@
 # Contrato del modelo de pronóstico
 
-**Versión del contrato:** 0.2 (borrador, 20/11/2026)
+**Versión del contrato:** 0.3 (borrador, 20/11/2026)
 **Decisiones y riesgos que lo sustentan:** [DECISIONES.md](DECISIONES.md)
 
 Este documento fija qué recibe el modelo, qué devuelve y qué garantiza. Lo cumplen por igual el experimento de `model-ia/` y ms-pronóstico. Si cambia, cambia primero aquí.
@@ -81,15 +81,18 @@ Las cifras son decimales porque son un valor esperado; redondear para comprar es
 | Situación del plato | `metodo` | `p50` | `p90` |
 |---|---|---|---|
 | El día pedido es un día cerrado | `cerrado` | 0 | 0 |
-| El modelo lo vio al entrenar con ≥ 8 semanas de historial, y hay ≥ 28 días abiertos recientes | `modelo` | Modelo cuantil 0,5 | Modelo cuantil 0,9 |
+| El modelo lo vio al entrenar con ≥ 8 semanas de historial, y hay ≥ 28 días abiertos entre los últimos 56 días | `modelo` | Modelo cuantil 0,5 | Modelo cuantil 0,9 |
 | Tiene ≥ 7 días abiertos, pero no cumple lo anterior | `baseline` | Ingenuo estacional (D-09) | Percentil 90 de los mismos días de la semana disponibles (hasta 8); si hay menos de 4, igual a `p50` |
 | Tiene de 1 a 6 días abiertos | `baseline`, motivo `historial_minimo` | Promedio de los días disponibles | Máximo observado |
 | No tiene ninguna venta | `sin_historial` | 0 | 0 |
+
+**Motivos** (`motivo`, cuando `metodo = baseline`): `historial_minimo` (de 1 a 6 días abiertos), `modelo_no_disponible` (no hay artefacto vigente o no se pudo cargar), `producto_no_visto` (el modelo no lo vio al entrenar con ≥ 8 semanas) y `historial_reciente_insuficiente` (menos de 28 días abiertos en los últimos 56). Un plato cerrado ese día lleva `cerrado` y `motivo` nulo; uno sin ventas, `sin_historial` y `motivo` nulo.
 
 ### 4.2 Garantías numéricas
 
 - `p50` y `p90` se recortan a 0 por debajo.
 - Si el modelo devuelve `p90 < p50` (cruce de cuantiles), se usa `p90 = p50`.
+- `p50` y `p90` se redondean a 2 decimales (después de aplicar las garantías anteriores).
 - El resultado es determinista: mismo modelo y misma entrada dan la misma salida.
 
 ## 5. Artefacto del modelo

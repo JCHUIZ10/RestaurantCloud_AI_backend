@@ -10,7 +10,7 @@ import pandas as pd
 def _fechas(valores: Iterable[Any] | None) -> pd.DatetimeIndex:
     if valores is None:
         return pd.DatetimeIndex([])
-    return pd.DatetimeIndex(pd.to_datetime(list(valores))).normalize()
+    return pd.DatetimeIndex(pd.to_datetime(list(valores), format="ISO8601")).normalize()
 
 
 def feriados(calendario: dict[str, Any] | None) -> pd.DatetimeIndex:
