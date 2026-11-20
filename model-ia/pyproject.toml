@@ -1,0 +1,26 @@
+[project]
+name = "model-ia"
+version = "0.1.0"
+description = "Experimento y entrenamiento del modelo de pronóstico de demanda (etapa 5A)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "rc-pronostico",
+    "jupyterlab",
+    "nbconvert",
+    "ipykernel",
+    "matplotlib",
+    "scipy",
+    "holidays",
+    "httpx",
+    "pyarrow",
+    "python-dotenv",
+]
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.uv.workspace]
+members = ["rc_pronostico"]
+
+[tool.uv.sources]
+rc-pronostico = { workspace = true }

@@ -234,6 +234,7 @@ Se reportan en total, por plato, por distancia `h` y por día de la semana. Los 
 
 **Decisión:**
 - Formato **skops** (carga solo tipos permitidos, sin ejecutar código arbitrario). **A verificar** al crear el entorno que guarde y cargue `HistGradientBoostingRegressor` con variables categóricas. Si no, se usa `joblib` con verificación obligatoria del SHA-256.
+- **Verificado en el cuaderno 00 (scikit-learn 1.7.2, skops 0.13.0):** skops guarda y carga el HGB cuantil con categóricas y las predicciones son idénticas; rechaza tipos no listados y el SHA-256 detecta un byte alterado. skops pide declarar como confiables 7 tipos internos de scikit-learn (`functools.partial`, `IdentityLink`, `Interval`, `PinballLoss`, `_BinMapper`, `TreePredictor`, `check_array`). `artefacto.py` llevará esa lista **explícita y fija**, no `get_untrusted_types` del propio archivo, para que un archivo con tipos extra no se acepte.
 - La ficha registra el SHA-256 y el servicio lo verifica antes de cargar (CONTRATO, 5). Dónde se publica: D-22.
 - La versión de scikit-learn queda fijada igual en `model-ia` y en ms-pronóstico. Si no coincide, el servicio usa el baseline.
 
