@@ -1,0 +1,10 @@
+{
+  "descripcion": "Rejilla fija de D-11. 16 combinaciones de hiperparametros por 2 perdidas de P50 (D-08) = 32.",
+  "learning_rate": [0.05, 0.1],
+  "max_iter": [200, 500],
+  "max_leaf_nodes": [15, 31],
+  "min_samples_leaf": [20, 50],
+  "perdida_p50": ["quantile", "poisson"],
+  "early_stopping": false,
+  "random_state": 2026
+}

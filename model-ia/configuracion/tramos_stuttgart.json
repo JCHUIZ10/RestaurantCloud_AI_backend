@@ -1,0 +1,8 @@
+{
+  "descripcion": "Tramos de D-10 para Stuttgart.",
+  "arranque": ["2013-10-04", "2013-11-07"],
+  "entrenamiento_inicial_hasta": "2014-11-07",
+  "validacion": ["2014-09-13", "2014-11-07"],
+  "prueba": ["2014-11-08", "2015-11-07"],
+  "horizontes_operativos": [2, 8]
+}

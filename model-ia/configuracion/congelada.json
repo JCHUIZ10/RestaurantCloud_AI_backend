@@ -1,0 +1,51 @@
+{
+ "descripcion": "Configuracion elegida en la validacion de Stuttgart (D-11). No se modifica despues de ver la prueba.",
+ "p50": {
+  "loss": "quantile",
+  "quantile": 0.5
+ },
+ "p90": {
+  "loss": "quantile",
+  "quantile": 0.9
+ },
+ "hiperparametros": {
+  "learning_rate": 0.05,
+  "max_iter": 200,
+  "max_leaf_nodes": 15,
+  "min_samples_leaf": 50
+ },
+ "categorical_features": [
+  "producto"
+ ],
+ "early_stopping": false,
+ "random_state": 2026,
+ "version_variables": "1",
+ "variables": [
+  "dia_semana",
+  "dia_mes",
+  "mes",
+  "es_feriado",
+  "vispera_feriado",
+  "pos_feriado",
+  "h",
+  "producto",
+  "lag0",
+  "lag1",
+  "lag2",
+  "lag3",
+  "lag4",
+  "lag5",
+  "lag6",
+  "media_7",
+  "media_28",
+  "desv_28",
+  "ultimo_mismo_dia",
+  "media_mismo_dia_4",
+  "tendencia"
+ ],
+ "criterio": "menor MAE con h de 2 a 8 en la validacion 2014-09-13 a 2014-11-07",
+ "mae_validacion_operativo": 4.239349,
+ "combinacion": 2,
+ "datos_sha256": "eb7d66f029043e000016015666410ab0b6921d268b20c290a01b1c8949673e8b",
+ "filas_entrenamiento": 17248
+}
