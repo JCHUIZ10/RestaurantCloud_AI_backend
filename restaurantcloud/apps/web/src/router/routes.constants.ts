@@ -33,6 +33,7 @@ export const ROUTES = {
   PROPIETARIO_SUSCRIPCION: '/propietario/suscripcion',
   PROPIETARIO_CAMBIAR_PLAN: '/propietario/cambiar-plan',
   PROPIETARIO_CONSERVAR_RECURSOS: '/propietario/suscripcion/conservar',
+  PROPIETARIO_PREDICCION: '/propietario/prediccion',
 
   // Portal Administrador de Local
   // [ACTIVOS PRIMER AVANCE]:
@@ -49,6 +50,9 @@ export const ROUTES = {
   ADMIN_CONFIGURACION_KDS: '/admin/configuracion-kds',
   ADMIN_METODOS_PAGO: '/admin/metodos-pago',
   ADMIN_ANULACIONES: '/admin/anulaciones',
+  ADMIN_PLANIFICAR_SEMANA: '/admin/planificar-semana',
+  ADMIN_PLATOS_SEMANA: '/admin/planificar-semana/platos',
+  ADMIN_PREPARAR_COMPRA: '/admin/planificar-semana/compra',
   ADMIN_FLUJO_CAJA: '/admin/finanzas/flujo-caja',
   ADMIN_REPORTES_CIERRES_Z: '/admin/finanzas/flujo-caja',
   // [PRÓXIMO ENTREGABLE - FASE 2]: Módulos diferidos del Administrador

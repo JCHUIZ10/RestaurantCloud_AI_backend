@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Banknote } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ComprasHeader,
   ComprasKpis,
@@ -20,6 +21,7 @@ import {
 } from '@/types/admin';
 import { adminService } from '@/services/serviceAdapter';
 import { useToast } from '@/components/ui';
+import type { CompraSugerida } from '@/types/prediccion';
 
 const KPIS_INICIALES: FichasCompraKPIsDTO = {
   gasto_mes_total: 0,
@@ -50,9 +52,22 @@ export const AdminComprasPage: React.FC = () => {
 
   // Modales
   const [modalRegistroAbierto, setModalRegistroAbierto] = useState(false);
+  // Compra que llega desde «Preparar la compra»: se abre el registro con todo cargado
+  const [compraSugerida, setCompraSugerida] = useState<CompraSugerida | null>(null);
+  const ubicacion = useLocation();
+  const navegar = useNavigate();
   const [fichaDetalleId, setFichaDetalleId] = useState<string | null>(null);
   const [fichaParaAnular, setFichaParaAnular] = useState<FichaCompraResumenDTO | null>(null);
   const [platosReactivablesPendientes, setPlatosReactivablesPendientes] = useState<PlatoReactivableDTO[]>([]);
+
+  useEffect(() => {
+    const sugerida = (ubicacion.state as { compraSugerida?: CompraSugerida } | null)?.compraSugerida;
+    if (!sugerida) return;
+    setCompraSugerida(sugerida);
+    setModalRegistroAbierto(true);
+    // Se limpia el estado para que recargar la página no vuelva a abrir el formulario
+    navegar(ubicacion.pathname, { replace: true, state: null });
+  }, [ubicacion, navegar]);
 
   const { mostrar } = useToast();
   const mostrarExito = useCallback((mensaje: string) => mostrar(mensaje, 'ok'), [mostrar]);
@@ -203,8 +218,12 @@ export const AdminComprasPage: React.FC = () => {
 
       <ModalRegistrarCompra
         abierto={modalRegistroAbierto}
-        onCerrar={() => setModalRegistroAbierto(false)}
+        onCerrar={() => {
+          setModalRegistroAbierto(false);
+          setCompraSugerida(null);
+        }}
         onCompraRegistrada={handleCompraRegistrada}
+        inicial={compraSugerida}
       />
 
       <ModalDetalleAuditoriaCompra

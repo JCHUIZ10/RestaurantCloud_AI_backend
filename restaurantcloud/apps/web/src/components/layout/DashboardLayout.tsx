@@ -19,7 +19,8 @@ import {
   Flame,
   Wallet,
   ArrowLeft,
-  CreditCard
+  CreditCard,
+  TrendingUp
 } from 'lucide-react';
 import { ROUTES } from '@/router/routes.constants';
 import { ETIQUETA_ROL, homeDeRol, iniciales } from '@/router/accesoPorRol';
@@ -42,6 +43,7 @@ const LINKS_SAAS: EnlaceMenu[] = [
 // Consola Propietario (Resumen General diferido para próxima unidad)
 const LINKS_PROPIETARIO: EnlaceMenu[] = [
   { label: 'Mis sedes', href: ROUTES.PROPIETARIO_SEDES, icon: Building2 },
+  { label: 'Predicción', href: ROUTES.PROPIETARIO_PREDICCION, icon: TrendingUp },
   { label: 'Administradores', href: ROUTES.PROPIETARIO_ADMINISTRADORES, icon: Users },
   { label: 'Suscripción', href: ROUTES.PROPIETARIO_SUSCRIPCION, icon: CreditCard },
 ];
@@ -55,6 +57,7 @@ const LINKS_ADMIN: EnlaceMenu[] = [
   { label: 'Insumos e inventario', href: ROUTES.ADMIN_INVENTARIO, icon: Package },
   { label: 'Proveedores', href: ROUTES.ADMIN_PROVEEDORES, icon: Truck },
   { label: 'Compras', href: ROUTES.ADMIN_COMPRAS, icon: Receipt },
+  { label: 'Planificar la semana', href: ROUTES.ADMIN_PLANIFICAR_SEMANA, icon: TrendingUp },
   { label: 'Personal de sede', href: ROUTES.ADMIN_PERSONAL, icon: Users },
   { label: 'Horario y feriados', href: ROUTES.ADMIN_HORARIO, icon: Clock },
   { label: 'Políticas de reserva', href: ROUTES.ADMIN_POLITICAS_RESERVA, icon: CalendarCheck2 },

@@ -20,6 +20,10 @@ import { MozoReservasPage } from '@/modules/mozo/pages/MozoReservasPage';
 import { CocinaKdsPage } from '@/modules/cocina/pages/CocinaKdsPage';
 import { CocinaStockRapidoPage } from '@/modules/cocina/pages/CocinaStockRapidoPage';
 import { AdminPlanoMesasPage } from '@/modules/admin/pages/AdminPlanoMesasPage';
+import { AdminPlanificarSemanaPage } from '@/modules/admin/pages/AdminPlanificarSemanaPage';
+import { AdminPlatosSemanaPage } from '@/modules/admin/pages/AdminPlatosSemanaPage';
+import { AdminPrepararCompraPage } from '@/modules/admin/pages/AdminPrepararCompraPage';
+import { PropietarioPrediccionPage } from '@/modules/propietario/pages/PropietarioPrediccionPage';
 import { AdminCategoriasPage } from '@/modules/admin/pages/AdminCategoriasPage';
 import { AdminInsumosPage } from '@/modules/admin/pages/AdminInsumosPage';
 import { AdminProductosPage } from '@/modules/admin/pages/AdminProductosPage';
@@ -174,6 +178,10 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
         element: <PropietarioLocalesPage />,
       },
       {
+        path: 'prediccion',
+        element: <PropietarioPrediccionPage />,
+      },
+      {
         path: 'administradores',
         element: <PropietarioAdministradoresPage />,
       },
@@ -262,6 +270,18 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
       {
         path: 'anulaciones',
         element: <AdminAnulacionesPage />,
+      },
+      {
+        path: 'planificar-semana',
+        element: <AdminPlanificarSemanaPage />,
+      },
+      {
+        path: 'planificar-semana/platos',
+        element: <AdminPlatosSemanaPage />,
+      },
+      {
+        path: 'planificar-semana/compra',
+        element: <AdminPrepararCompraPage />,
       },
       {
         path: 'promociones',

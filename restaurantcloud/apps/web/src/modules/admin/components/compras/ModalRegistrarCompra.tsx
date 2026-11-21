@@ -29,6 +29,7 @@ import {
 } from '@/types/admin';
 import { adminService } from '@/services/serviceAdapter';
 import { useAuthStore } from '@/stores/authStore';
+import type { CompraSugerida } from '@/types/prediccion';
 import { generarEnlaceWhatsApp, cn, hoyServidorStr, mensajeDeErrorApi } from '@/shared/utils';
 import { Button, EstadoError, IconButton, Modal, Skeleton } from '@/components/ui';
 import { ModalProveedorAlVuelo } from './ModalProveedorAlVuelo';
@@ -40,6 +41,8 @@ interface ModalRegistrarCompraProps {
   abierto: boolean;
   onCerrar: () => void;
   onCompraRegistrada: (ficha: FichaCompraResumenDTO, platosReactivables: PlatoReactivableDTO[]) => void;
+  /** Compra sugerida por la predicción: el formulario se abre con su proveedor y sus insumos ya cargados */
+  inicial?: CompraSugerida | null;
 }
 
 const CLASE_CONTROL =
@@ -71,6 +74,7 @@ export const ModalRegistrarCompra: React.FC<ModalRegistrarCompraProps> = ({
   abierto,
   onCerrar,
   onCompraRegistrada,
+  inicial,
 }) => {
   const idForm = useId();
   const usuario = useAuthStore((s) => s.usuario);
@@ -117,7 +121,18 @@ export const ModalRegistrarCompra: React.FC<ModalRegistrarCompraProps> = ({
   // Reseteo limpio al abrir
   useEffect(() => {
     if (abierto) {
-      setLineas([]);
+      setLineas(
+        (inicial?.lineas ?? []).map((l, i) => ({
+          id_temp: `sugerida-${Date.now()}-${i}`,
+          insumo_id: l.insumo_id,
+          insumo_nombre: l.insumo_nombre,
+          unidad_medida: l.unidad_medida,
+          cantidad: l.cantidad,
+          precio_unitario: l.precio_unitario,
+          subtotal: Number((l.cantidad * l.precio_unitario).toFixed(2)),
+          costo_anterior: l.precio_unitario,
+        }))
+      );
       setNumeroComprobante('');
       setObservaciones('');
       setErrorValidacion(null);
@@ -162,7 +177,10 @@ export const ModalRegistrarCompra: React.FC<ModalRegistrarCompraProps> = ({
         const lista = resProv.datos.proveedores;
         setProveedores(lista);
         if (lista.length > 0) {
-          if (!proveedorId || !lista.some((p: ProveedorResumenDTO) => p.id === proveedorId)) {
+          const sugerido = inicial?.proveedorId && lista.some((p: ProveedorResumenDTO) => p.id === inicial.proveedorId) ? inicial.proveedorId : null;
+          if (sugerido) {
+            setProveedorId(sugerido);
+          } else if (!proveedorId || !lista.some((p: ProveedorResumenDTO) => p.id === proveedorId)) {
             setProveedorId(lista[0].id);
           }
         }
