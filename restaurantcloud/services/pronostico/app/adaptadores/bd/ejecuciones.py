@@ -5,8 +5,8 @@ import json
 from sqlalchemy import Engine, text
 from sqlalchemy.exc import IntegrityError
 
-from app.casos_de_uso.puertos import SolicitudYaCompletada
-from app.casos_de_uso.tipos import EjecucionGuardada, FilaPrediccion, ModeloInfo, NuevaEjecucion
+from app.aplicacion.puertos import SolicitudYaCompletada
+from app.aplicacion.tipos import EjecucionGuardada, FilaPrediccion, ModeloInfo, NuevaEjecucion
 
 INSERTAR_EJECUCION = text(
     """

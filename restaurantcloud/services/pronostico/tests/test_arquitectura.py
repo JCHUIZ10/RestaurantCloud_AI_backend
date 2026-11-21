@@ -36,11 +36,15 @@ def _violaciones(carpeta: str, prohibidos) -> list[str]:
     return encontrados
 
 
-@pytest.mark.parametrize("carpeta", ["casos_de_uso", "dominio"])
-def test_casos_de_uso_y_dominio_no_conocen_la_tecnologia_ni_los_adaptadores(carpeta):
+@pytest.mark.parametrize("carpeta", ["aplicacion", "dominio"])
+def test_aplicacion_y_dominio_no_conocen_la_tecnologia_ni_los_adaptadores(carpeta):
     prohibidos = (*TECNOLOGIA, "app.adaptadores", "app.api", "app.composicion", "app.soporte")
 
     assert _violaciones(carpeta, prohibidos) == []
+
+
+def test_el_dominio_no_depende_de_la_aplicacion():
+    assert _violaciones("dominio", ("app.aplicacion",)) == []
 
 
 def test_la_api_no_conoce_los_adaptadores_ni_la_base():
@@ -66,6 +70,6 @@ def test_los_adaptadores_no_dependen_de_la_api():
 
 def test_soporte_solo_depende_de_la_configuracion():
     # Se copia tal cual de ms-analítica: no debe importar las capas del servicio.
-    prohibidos = ("app.api", "app.casos_de_uso", "app.dominio", "app.adaptadores", "app.composicion")
+    prohibidos = ("app.api", "app.aplicacion", "app.dominio", "app.adaptadores", "app.composicion")
 
     assert _violaciones("soporte", prohibidos) == []

@@ -1,7 +1,7 @@
 import pytest
 
-from app.adaptadores.almacen_local import AlmacenLocal
-from app.casos_de_uso.puertos import ErrorAlmacen
+from app.adaptadores.almacenamiento.local import AlmacenLocal
+from app.aplicacion.puertos import ErrorAlmacen
 from app.composicion import crear_almacen
 
 

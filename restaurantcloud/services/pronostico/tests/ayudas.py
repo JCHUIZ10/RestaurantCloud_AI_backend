@@ -4,12 +4,12 @@ import time
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
-from app.adaptadores.almacen_local import AlmacenLocal
+from app.adaptadores.almacenamiento.local import AlmacenLocal
 from app.adaptadores.bd.ejecuciones import RegistroEjecucionesSql
-from app.adaptadores.sin_modelos import SinModelos
-from app.casos_de_uso.contenedor import Contenedor
-from app.casos_de_uso.puertos import FuenteNoDisponible, RespuestaInvalida
-from app.casos_de_uso.tipos import ParametrosPronostico, ProductoSerie, SerieVentas
+from tests.dobles import SinModelos
+from app.aplicacion.contenedor import Contenedor
+from app.aplicacion.puertos import FuenteNoDisponible, RespuestaInvalida
+from app.aplicacion.tipos import ParametrosPronostico, ProductoSerie, SerieVentas
 from app.soporte.firma import calcular_firma
 from tests.conftest import SECRETO
 

@@ -1,6 +1,6 @@
 from fastapi import Request
 
-from app.casos_de_uso.contenedor import Contenedor
+from app.aplicacion.contenedor import Contenedor
 
 
 def contenedor(request: Request) -> Contenedor:

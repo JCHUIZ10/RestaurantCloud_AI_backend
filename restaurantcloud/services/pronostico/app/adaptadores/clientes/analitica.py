@@ -6,8 +6,8 @@ from urllib.parse import urlencode
 
 import httpx
 
-from app.casos_de_uso.puertos import FuenteNoDisponible, RespuestaInvalida
-from app.casos_de_uso.tipos import ProductoSerie, SerieVentas
+from app.aplicacion.puertos import FuenteNoDisponible, RespuestaInvalida
+from app.aplicacion.tipos import ProductoSerie, SerieVentas
 from app.soporte.firma import calcular_firma
 from app.soporte.request_id import request_id_actual
 

@@ -1,13 +1,7 @@
 """Traducción de los errores de los casos de uso al formato de error HTTP del sistema."""
 
-from app.dominio.errores import (
-    ErrorAnaliticaNoDisponible,
-    ErrorCasoDeUso,
-    ErrorFechasInvalidas,
-    ErrorNoEncontrado,
-    ErrorSerieInvalida,
-    ErrorValidacion,
-)
+from app.aplicacion.errores import ErrorAnaliticaNoDisponible, ErrorNoEncontrado, ErrorSerieInvalida
+from app.dominio.errores import ErrorCasoDeUso, ErrorFechasInvalidas, ErrorValidacion
 from app.soporte.respuestas import ErrorApi
 
 _TRADUCCION: dict[type[ErrorCasoDeUso], tuple[int, str]] = {

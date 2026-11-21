@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 
 from app.api.dependencias import contenedor
-from app.casos_de_uso.consultar_salud import consultar_salud
-from app.casos_de_uso.contenedor import Contenedor
+from app.aplicacion.casos_de_uso.consultar_salud import consultar_salud
+from app.aplicacion.contenedor import Contenedor
 from app.soporte.respuestas import ErrorApi, respuesta_ok
 
 router = APIRouter()

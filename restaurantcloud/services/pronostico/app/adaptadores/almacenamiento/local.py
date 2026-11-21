@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from app.casos_de_uso.puertos import ErrorAlmacen, RutaInexistente
+from app.aplicacion.puertos import ErrorAlmacen, RutaInexistente
 
 
 class AlmacenLocal:

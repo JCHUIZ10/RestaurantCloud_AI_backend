@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from app.casos_de_uso.puertos import (
+from app.aplicacion.puertos import (
     AlmacenArtefactos,
     FuenteSeries,
     ModelosVigentes,
@@ -10,7 +10,7 @@ from app.casos_de_uso.puertos import (
     Reloj,
     SondaBd,
 )
-from app.casos_de_uso.tipos import ParametrosPronostico
+from app.aplicacion.tipos import ParametrosPronostico
 
 
 @dataclass

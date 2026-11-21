@@ -1,4 +1,4 @@
-"""Errores de negocio de los casos de uso. La capa `api` los traduce a códigos HTTP."""
+"""Errores de las reglas del dominio y base de todos los errores de negocio. La capa `api` los traduce a HTTP."""
 
 from typing import Any
 
@@ -23,15 +23,3 @@ class ErrorValidacion(ErrorCasoDeUso):
 
 class ErrorFechasInvalidas(ErrorCasoDeUso):
     """`jornada_actual` o `fecha_inicio` fuera de lo permitido."""
-
-
-class ErrorAnaliticaNoDisponible(ErrorCasoDeUso):
-    """ms-analítica no respondió o rechazó la petición."""
-
-
-class ErrorSerieInvalida(ErrorCasoDeUso):
-    """La serie recibida no cumple el contrato del historial (CONTRATO 2.1)."""
-
-
-class ErrorNoEncontrado(ErrorCasoDeUso):
-    """La ejecución no existe, o es de otro local o de otra empresa (no se distingue)."""

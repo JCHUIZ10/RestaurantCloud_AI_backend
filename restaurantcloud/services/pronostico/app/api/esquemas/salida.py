@@ -3,7 +3,7 @@
 from itertools import groupby
 from zoneinfo import ZoneInfo
 
-from app.casos_de_uso.tipos import EstadoModelo, ResultadoPronostico
+from app.aplicacion.tipos import EstadoModelo, ResultadoPronostico
 
 METODOS = ("modelo", "baseline", "cerrado", "sin_historial")
 

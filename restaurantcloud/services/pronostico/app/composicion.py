@@ -2,16 +2,16 @@
 
 from rc_pronostico.artefacto import raiz_local
 
-from app.adaptadores.almacen_local import AlmacenLocal
-from app.adaptadores.analitica_http import AnaliticaHttp
+from app.adaptadores.almacenamiento.local import AlmacenLocal
+from app.adaptadores.clientes.analitica import AnaliticaHttp
 from app.adaptadores.bd.conexion import SondaBdSql, get_engine
 from app.adaptadores.bd.ejecuciones import RegistroEjecucionesSql
 from app.adaptadores.bd.modelos import RegistroModelosSql
-from app.adaptadores.reloj_sistema import RelojSistema
-from app.casos_de_uso.contenedor import Contenedor
-from app.casos_de_uso.proveedor_modelos import ProveedorModelos
-from app.casos_de_uso.puertos import AlmacenArtefactos
-from app.casos_de_uso.tipos import ParametrosPronostico
+from app.adaptadores.reloj import RelojSistema
+from app.aplicacion.contenedor import Contenedor
+from app.aplicacion.servicios.proveedor_modelos import ProveedorModelos
+from app.aplicacion.puertos import AlmacenArtefactos
+from app.aplicacion.tipos import ParametrosPronostico
 from app.config import Settings
 
 

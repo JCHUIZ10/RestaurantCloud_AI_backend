@@ -5,11 +5,11 @@ from pydantic import ValidationError
 
 from app.api.dependencias import contenedor
 from app.api.errores import traducir
-from app.api.esquemas import PronosticoEntrada
-from app.api.vistas import vista_ejecucion
-from app.casos_de_uso.consultar_ejecucion import consultar_ejecucion
-from app.casos_de_uso.contenedor import Contenedor
-from app.casos_de_uso.generar_pronostico import generar_pronostico
+from app.api.esquemas.entrada import PronosticoEntrada
+from app.api.esquemas.salida import vista_ejecucion
+from app.aplicacion.casos_de_uso.consultar_ejecucion import consultar_ejecucion
+from app.aplicacion.contenedor import Contenedor
+from app.aplicacion.casos_de_uso.generar_pronostico import generar_pronostico
 from app.dominio.errores import ErrorCasoDeUso
 from app.soporte.firma import verificar_firma
 from app.soporte.respuestas import ErrorApi, respuesta_ok

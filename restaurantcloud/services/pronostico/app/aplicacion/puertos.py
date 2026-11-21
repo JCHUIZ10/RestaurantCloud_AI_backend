@@ -7,7 +7,7 @@ la nube. Los adaptadores que las cumplen viven en `app/adaptadores/`.
 from datetime import date
 from typing import Protocol
 
-from app.casos_de_uso.tipos import (
+from app.aplicacion.tipos import (
     EjecucionGuardada,
     EstadoModelo,
     ModeloEnUso,

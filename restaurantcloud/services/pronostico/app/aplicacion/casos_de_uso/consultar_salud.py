@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from app.casos_de_uso.puertos import AlmacenArtefactos, SondaBd
+from app.aplicacion.puertos import AlmacenArtefactos, SondaBd
 
 
 @dataclass(frozen=True)

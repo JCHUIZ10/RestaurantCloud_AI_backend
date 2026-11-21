@@ -9,7 +9,7 @@ from rc_pronostico.artefacto import uuid_v7
 from rc_pronostico.contrato import ErrorContrato, validar_historial
 from rc_pronostico.pronosticar import pronosticar
 
-from app.casos_de_uso.puertos import (
+from app.aplicacion.puertos import (
     FuenteNoDisponible,
     FuenteSeries,
     ModelosVigentes,
@@ -18,7 +18,7 @@ from app.casos_de_uso.puertos import (
     RespuestaInvalida,
     SolicitudYaCompletada,
 )
-from app.casos_de_uso.tipos import (
+from app.aplicacion.tipos import (
     FilaPrediccion,
     NuevaEjecucion,
     ParametrosPronostico,
@@ -26,14 +26,10 @@ from app.casos_de_uso.tipos import (
     SerieVentas,
     SolicitudPronostico,
 )
+from app.aplicacion.errores import ErrorAnaliticaNoDisponible, ErrorSerieInvalida
 from app.dominio.advertencias import advertencias
 from app.dominio.calendario import construir_calendario
-from app.dominio.errores import (
-    ErrorAnaliticaNoDisponible,
-    ErrorCasoDeUso,
-    ErrorSerieInvalida,
-    ErrorValidacion,
-)
+from app.dominio.errores import ErrorCasoDeUso, ErrorValidacion
 from app.dominio.periodo import Periodo, resolver_periodo
 
 logger = logging.getLogger(__name__)

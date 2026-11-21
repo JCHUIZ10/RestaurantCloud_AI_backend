@@ -9,16 +9,11 @@ import pytest
 from sqlalchemy import text
 
 from app.adaptadores.bd.conexion import get_engine
-from app.casos_de_uso.consultar_ejecucion import consultar_ejecucion
-from app.casos_de_uso.generar_pronostico import generar_pronostico
-from app.casos_de_uso.tipos import ModeloEnUso, ProductoPedido, SolicitudPronostico
-from app.dominio.errores import (
-    ErrorAnaliticaNoDisponible,
-    ErrorFechasInvalidas,
-    ErrorNoEncontrado,
-    ErrorSerieInvalida,
-    ErrorValidacion,
-)
+from app.aplicacion.casos_de_uso.consultar_ejecucion import consultar_ejecucion
+from app.aplicacion.casos_de_uso.generar_pronostico import generar_pronostico
+from app.aplicacion.tipos import ModeloEnUso, ProductoPedido, SolicitudPronostico
+from app.aplicacion.errores import ErrorAnaliticaNoDisponible, ErrorNoEncontrado, ErrorSerieInvalida
+from app.dominio.errores import ErrorFechasInvalidas, ErrorValidacion
 from rc_pronostico.variables import LISTA_VARIABLES
 from tests.ayudas import (
     EMPRESA, HOY, LOCAL, OTRO_LOCAL, PARAMETROS, PRODUCTO_A, PRODUCTO_B, PRODUCTO_C, USUARIO, RelojFijo, SeriesFalsas,

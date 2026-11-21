@@ -19,8 +19,8 @@ from tempfile import TemporaryDirectory
 
 from rc_pronostico.artefacto import Artefacto, ErrorArtefacto, cargar_version
 
-from app.casos_de_uso.puertos import AlmacenArtefactos, ErrorAlmacen, RegistroModelos, RutaInexistente
-from app.casos_de_uso.tipos import EstadoModelo, ModeloEnUso, ModeloRegistrado
+from app.aplicacion.puertos import AlmacenArtefactos, ErrorAlmacen, RegistroModelos, RutaInexistente
+from app.aplicacion.tipos import EstadoModelo, ModeloEnUso, ModeloRegistrado
 
 logger = logging.getLogger(__name__)
 

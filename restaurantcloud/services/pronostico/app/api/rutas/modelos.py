@@ -3,9 +3,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 
 from app.api.dependencias import contenedor
-from app.api.vistas import vista_modelo
-from app.casos_de_uso.consultar_modelo_vigente import consultar_modelo_vigente
-from app.casos_de_uso.contenedor import Contenedor
+from app.api.esquemas.salida import vista_modelo
+from app.aplicacion.casos_de_uso.consultar_modelo_vigente import consultar_modelo_vigente
+from app.aplicacion.contenedor import Contenedor
 from app.soporte.firma import verificar_firma
 from app.soporte.respuestas import respuesta_ok
 

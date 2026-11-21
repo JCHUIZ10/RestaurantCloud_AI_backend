@@ -428,23 +428,29 @@ Puertos y adaptadores, en versión ligera: hay una interfaz solo donde existen d
 app/
   main.py                    crea la aplicación; composicion.py arma los adaptadores y los inyecta
   config.py
-  api/                       FastAPI: rutas, esquemas y traducción de errores a HTTP
-  casos_de_uso/              consultar_salud, generar_pronostico, consultar_ejecucion, consultar_modelo_vigente
-    puertos.py               AlmacenArtefactos, SondaBd, y después FuenteSeries, RegistroEjecuciones, Reloj
-    proveedor_modelos.py     puntero, caché, verificación y respaldo (independiente del almacenamiento)
+  api/                       cómo se habla HTTP
+    rutas/                   salud, pronosticos, modelos
+    esquemas/                entrada.py (valida el cuerpo) y salida.py (forma JSON de la respuesta)
+    errores.py               traducción de errores a HTTP
+  aplicacion/                qué hace el servicio
+    casos_de_uso/            consultar_salud, generar_pronostico, consultar_ejecucion, consultar_modelo_vigente
+    servicios/               proveedor_modelos: puntero, caché, verificación y respaldo (independiente del almacenamiento)
+    puertos.py               AlmacenArtefactos, SondaBd, FuenteSeries, RegistroEjecuciones, Reloj, ModelosVigentes, RegistroModelos
+    tipos.py  errores.py  contenedor.py
   dominio/                   reglas propias y puras: ventana de datos, unión de cierres, advertencias
-  adaptadores/
-    almacen_local.py         file://
-    almacen_gcs.py           gs:// (etapa 8)
-    analitica.py             httpx y firma HMAC
+  adaptadores/               con quién habla, agrupado por quién está al otro lado
+    clientes/analitica.py    httpx y firma HMAC
+    almacenamiento/          local.py (file://); gcs.py llega en la etapa 8
     bd/                      SQLAlchemy Core: conexión, tablas y consultas
+    reloj.py
   soporte/                   firma, logs, X-Request-Id, respuestas (copiado de ms-analítica)
 ```
 
 **Reglas de dependencias** (las comprueba `tests/test_arquitectura.py`):
 
-- `api` depende de `casos_de_uso`; no importa `adaptadores`.
-- `casos_de_uso` y `dominio` no importan FastAPI, Starlette, SQLAlchemy, httpx ni `adaptadores`.
+- `api` depende de `aplicacion`; no importa `adaptadores`.
+- `aplicacion` y `dominio` no importan FastAPI, Starlette, SQLAlchemy, httpx ni `adaptadores`.
+- `dominio` no importa `aplicacion`.
 - Solo `composicion.py` conoce los adaptadores concretos.
 
 **Qué no tiene interfaz, a propósito:** PostgreSQL (SQLAlchemy Core ya aísla el driver, y se prueba contra una base real), FastAPI y el algoritmo del modelo (lo absorbe `rc_pronostico` y el artefacto).

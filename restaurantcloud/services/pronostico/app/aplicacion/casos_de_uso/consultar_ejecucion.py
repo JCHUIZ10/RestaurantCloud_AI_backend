@@ -1,9 +1,9 @@
 """Caso de uso: recuperar una ejecución guardada (ficha, GET /interno/pronosticos/{id})."""
 
-from app.casos_de_uso.puertos import RegistroEjecuciones
-from app.casos_de_uso.tipos import ParametrosPronostico, ResultadoPronostico
+from app.aplicacion.puertos import RegistroEjecuciones
+from app.aplicacion.tipos import ParametrosPronostico, ResultadoPronostico
 from app.dominio.advertencias import advertencias
-from app.dominio.errores import ErrorNoEncontrado
+from app.aplicacion.errores import ErrorNoEncontrado
 
 
 def consultar_ejecucion(

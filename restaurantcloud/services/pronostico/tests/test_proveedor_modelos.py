@@ -10,12 +10,12 @@ import pytest
 from rc_pronostico.artefacto import uuid_v7
 from sqlalchemy import text
 
-from app.adaptadores.almacen_local import AlmacenLocal
+from app.adaptadores.almacenamiento.local import AlmacenLocal
 from app.adaptadores.bd.conexion import get_engine
 from app.adaptadores.bd.modelos import RegistroModelosSql
-from app.casos_de_uso.generar_pronostico import generar_pronostico
-from app.casos_de_uso.proveedor_modelos import ProveedorModelos
-from app.casos_de_uso.tipos import ProductoPedido, SolicitudPronostico
+from app.aplicacion.casos_de_uso.generar_pronostico import generar_pronostico
+from app.aplicacion.servicios.proveedor_modelos import ProveedorModelos
+from app.aplicacion.tipos import ProductoPedido, SolicitudPronostico
 from tests.ayudas import EMPRESA, HOY, LOCAL, PARAMETROS, RelojFijo, SeriesFalsas, USUARIO, id_nuevo, serie_sintetica
 from tests.test_equivalencia_ventana import REPOSITORIO
 

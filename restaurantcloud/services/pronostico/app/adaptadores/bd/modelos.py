@@ -4,7 +4,7 @@ import json
 
 from sqlalchemy import Engine, text
 
-from app.casos_de_uso.tipos import ModeloRegistrado
+from app.aplicacion.tipos import ModeloRegistrado
 
 RETIRAR_OTROS = text(
     """

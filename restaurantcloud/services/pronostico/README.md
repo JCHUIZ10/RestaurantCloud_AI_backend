@@ -13,10 +13,10 @@ Contrato con el resto del sistema: [`doc-2u/servicios/ms-pronostico.md`](../../.
 ```text
 app/
   main.py  composicion.py  config.py
-  api/               rutas FastAPI; no conoce adaptadores ni la base
-  casos_de_uso/      generar_pronostico, consultar_ejecucion, consultar_modelo_vigente, consultar_salud, proveedor_modelos y sus puertos
-  dominio/           reglas puras: periodo, calendario (cierres y feriados), advertencias y errores
-  adaptadores/       lo que cambia con la tecnología: almacén local, cliente HTTP de ms-analítica, reloj, base de datos (gs:// llega en la etapa 8)
+  api/               HTTP: rutas/, esquemas/ (entrada.py valida el cuerpo, salida.py arma el JSON), errores y dependencias
+  aplicacion/        qué hace el servicio: casos_de_uso/, servicios/ (proveedor_modelos), puertos, tipos, errores y contenedor
+  dominio/           reglas puras: periodo, calendario (cierres y feriados), advertencias y errores de validación
+  adaptadores/       con quién habla: clientes/ (ms-analítica), almacenamiento/ (local; gs:// en la etapa 8), bd/, reloj
   soporte/           firma, logs, X-Request-Id y respuestas (copiado de ms-analítica)
 migrations/          Alembic
 tests/

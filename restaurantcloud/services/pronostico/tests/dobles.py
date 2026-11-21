@@ -3,7 +3,7 @@ desplegar sin repositorio de modelos."""
 
 from datetime import datetime, timezone
 
-from app.casos_de_uso.tipos import EstadoModelo, ModeloEnUso
+from app.aplicacion.tipos import EstadoModelo, ModeloEnUso
 
 
 class SinModelos:

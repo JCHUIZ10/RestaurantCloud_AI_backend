@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
-from app.api import modelos, pronosticos, salud
-from app.casos_de_uso.contenedor import Contenedor
+from app.api.rutas import modelos, pronosticos, salud
+from app.aplicacion.contenedor import Contenedor
 from app.composicion import construir_contenedor
 from app.config import get_settings
 from app.soporte.logs import configurar_logs

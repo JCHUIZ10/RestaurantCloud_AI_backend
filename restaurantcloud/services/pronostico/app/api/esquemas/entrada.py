@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, StrictInt, field_validator
 
-from app.casos_de_uso.tipos import ProductoPedido, SolicitudPronostico
+from app.aplicacion.tipos import ProductoPedido, SolicitudPronostico
 
 
 class ProductoEntrada(BaseModel):

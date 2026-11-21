@@ -6,8 +6,8 @@ from urllib.parse import parse_qs
 import httpx
 import pytest
 
-from app.adaptadores.analitica_http import AnaliticaHttp
-from app.casos_de_uso.puertos import FuenteNoDisponible, RespuestaInvalida
+from app.adaptadores.clientes.analitica import AnaliticaHttp
+from app.aplicacion.puertos import FuenteNoDisponible, RespuestaInvalida
 from app.soporte.firma import calcular_firma
 from app.soporte.request_id import request_id_actual
 
