@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 20/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está en curso: 5B.0, 5B.1 y 5B.2 cerradas, sigue la 5B.3.
+**Última actualización:** 20/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está en curso: 5B.0 a 5B.3 cerradas, sigue la 5B.4 (el núcleo).
 
 ## Contexto
 
@@ -24,7 +24,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | Extra: identificadores ordenados | Cerrada | Suite completa: 639 pruebas |
 | 4. Datos sintéticos | Cerrada | 24 meses de ÁUREA en 3 min 45 s; 111 pruebas de ms-analítica; humo: 28 comprobaciones |
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
-| 5B. ms-pronóstico | **En curso** (5B.0 a 5B.2 cerradas) | Ficha con D-21 aplicada; servicio en el puerto 8002 con pronóstico baseline de punta a punta y 161 pruebas |
+| 5B. ms-pronóstico | **En curso** (5B.0 a 5B.3 cerradas) | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA); 200 pruebas |
 
 ---
 
@@ -210,8 +210,8 @@ Se divide en pasos que dejan algo demostrable cada uno. 5B.0 a 5B.3 dejan el ser
 | 5B.0 Ficha | D-21 aplicada a `doc-2u/servicios/ms-pronostico.md`; detalle de los 3 endpoints, carga del modelo, configuración y decisiones cerradas | El contrato antes que el código | Cerrada |
 | 5B.1 Esqueleto | Arquitectura de puertos y adaptadores, `soporte/` copiado de ms-analítica, `/health`, Alembic con las 3 tablas y permisos mínimos (0002), usuario `pronostico_app` sin DDL, Dockerfile con `rc_pronostico`, servicio y migraciones en el compose (puerto 8002) | Contenedor arriba, migrado y sano; 66 pruebas; el modelo de la 5A carga dentro de la imagen | Cerrada |
 | 5B.2 Baseline | `POST /interno/pronosticos` con `artefacto=None`, serie de ms-analítica (365 días), calendario, guardado de solo agregado, idempotencia por `solicitud_id`, `GET /interno/pronosticos/{id}`, 503 si ms-analítica cae | Pronóstico de punta a punta sin modelo; 161 pruebas; probado contra ms-analítica real | Cerrada |
-| 5B.3 Modelo | `rc_pronostico` en la imagen (dependencia por ruta y contexto adicional), repositorio montado de solo lectura, carga verificada, registro en `modelo_version`, vuelta al modelo anterior o al baseline, `GET /interno/modelos/vigente` | `metodo = modelo` en ÁUREA; un archivo alterado no se usa | **Siguiente** |
-| 5B.4 Núcleo | Cliente firmado, `POST /api/v1/admin/pronosticos` y compañía, `jornada_actual` y cierres futuros, `recomendacion_reposicion`, reposición con `P90 − P50`, plan Pro y `incluye_prediccion_ia` | Reposición sugerida por API | — |
+| 5B.3 Modelo | `rc_pronostico` en la imagen (dependencia por ruta y contexto adicional), repositorio montado de solo lectura, carga verificada, registro en `modelo_version`, vuelta al modelo anterior o al baseline, `GET /interno/modelos/vigente` | `metodo = modelo` en ÁUREA; un archivo alterado no se usa | Cerrada |
+| 5B.4 Núcleo | Cliente firmado, `POST /api/v1/admin/pronosticos` y compañía, `jornada_actual` y cierres futuros, `recomendacion_reposicion`, reposición con `P90 − P50`, plan Pro y `incluye_prediccion_ia` | Reposición sugerida por API | **Siguiente** |
 | 5B.5 React | Pantalla de pronóstico y reposición (CU-ADMIN-07) y vista del propietario (CU-PROP-08) | Flujo de la demostración | — |
 | 5B.6 Humo | `scripts/smoke-pronostico.sh` con evidencias | Prueba de punta a punta para el informe | — |
 
@@ -241,6 +241,14 @@ Se divide en pasos que dejan algo demostrable cada uno. 5B.0 a 5B.3 dejan el ser
 - **Ventana de 365 días verificada:** con el modelo real publicado en la 5A, 365 y 730 días de historial dan el mismo pronóstico. Con 20 días ya cambia (120 de 140 filas); con 40 o más no. Por eso `VENTANA_HISTORIAL_DIAS` va de 70 a 730.
 - **Límite del aviso `datos_desactualizados`:** con tolerancia de 3 días no detecta una falla de entrega de 1 o 2 días. Con el histórico sintético terminando el 17/11, el 18 y 19 se tomaron como cierres **sin advertencia**.
 - Un `ModelosVigentes` (puerto) con `SinModelos` deja listo el enchufe para la 5B.3: solo hay que cambiar el adaptador.
+
+### Lo que dejó la 5B.3 (20/11)
+
+- **`ProveedorModelos`** (casos de uso) decide cuándo recargar, verifica y respalda; el almacén solo lee bytes. Modelo en memoria por local, puntero revisado cada 60 s, como mucho 50 locales (el menos usado se descarta), un candado por local. Cambiar de proveedor de almacenamiento es escribir un adaptador de `AlmacenArtefactos`.
+- **Verificado con el modelo real de la 5A** (copiado a un repositorio temporal que sí se altera): carga única aunque lleguen 8 peticiones a la vez; solo se relee el puntero pasado el intervalo; una versión nueva retira a la anterior en `modelo_version` y el puntero que vuelve atrás reactiva la fila; archivo alterado, SHA-256 distinto, ficha de otro local o sin aprobar, scikit-learn distinto y puntero roto **se rechazan y se sigue con el modelo anterior**; tras un reinicio con el puntero roto se carga la versión registrada. Se comprobó con mutaciones que las pruebas detectan quitar la puerta de calidad y el respaldo en memoria.
+- **Humo real:** `GET /interno/modelos/vigente` → modelo `01a1fa8e…`, MAE 4,87 frente a 6,37 del ingenuo. Pronóstico de los 20 platos de ÁUREA: 140 de 140 filas con `metodo = modelo`, 389 ms la primera petición (incluye cargar el modelo) y unos 290 ms las siguientes.
+- Una prueba de la 5B.2 era intermitente (ordenaba por un UUID v7, que dentro del mismo milisegundo no tiene orden); se corrigió y se repitió 8 veces.
+- **Pendiente para la nube (etapa 8):** `gs://` no tiene adaptador todavía; `crear_almacen` lo rechaza al arrancar con un mensaje claro.
 
 ### Antes de la demostración
 

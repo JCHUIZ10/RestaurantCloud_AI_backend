@@ -125,6 +125,8 @@ CREATE TABLE prediccion (
 - **No guarda la decisión del administrador.** Aceptar, ajustar o descartar la reposición se registra en el núcleo (`recomendacion_reposicion`), que es el dueño del inventario.
 - **También se registran las ejecuciones fallidas** (`estado = 'fallida'`, con su código de error), para saber cuántas veces el pronóstico no estuvo disponible y por qué.
 - **Copia del nombre del plato** en `prediccion`, como pide la regla común de identificadores ajenos.
+- **Tabla de control de Alembic.** Además de las tres tablas, la base tiene `alembic_version` (una fila con la última migración aplicada). La crea y la usa solo `pronostico-migraciones`; el usuario del servicio no tiene permisos sobre ella.
+- **Nombres en singular**, como el resto del sistema (README, sección 2.1). `modelo_version` conserva el nombre del campo `modelo_version` de la ficha del artefacto y de `vigente.json`, que es el vínculo entre el repositorio y la tabla.
 
 ## 3. API
 
@@ -292,7 +294,7 @@ Todas las rutas `/interno` usan la firma HMAC del [README](README.md), sección 
       "version_variables": "1",
       "datos_desde": "2024-11-18",
       "datos_hasta": "2026-11-17",
-      "metricas": { "mae_modelo": 4.87, "mae_ingenuo": 6.37, "cortes": 8, "aprobada": true },
+      "metricas": { "tramo": ["2026-09-23", "2026-11-17"], "cortes": 8, "filas": 1100, "mae_modelo": 4.87, "mae_ingenuo": 6.37, "aprobada": true, "criterio": "mae_modelo < mae_ingenuo (h 2 a 8, últimas 8 semanas)" },
       "artefacto_sha256": "66310cae…ee2e",
       "publicado_en": "2026-11-20T20:03:42+00:00"
     },
@@ -303,6 +305,7 @@ Todas las rutas `/interno` usan la firma HMAC del [README](README.md), sección 
 }
 ```
 
+- `metricas` son las `metricas_validacion` de la ficha del modelo, tal cual.
 - Sin modelo usable: `metodo = "baseline"` y `modelo = null`.
 - `ultimo_error` explica la última carga fallida aunque se siga usando el modelo anterior (por ejemplo, `"El SHA-256 del modelo no coincide con la ficha o el puntero"`). Es `null` si la última revisión fue correcta.
 - Consultarlo revisa el puntero en ese momento, sin esperar `MODELOS_REVISAR_SEGUNDOS`.
@@ -333,14 +336,16 @@ Cómo pasa un archivo del repositorio de modelos (D-22) a una predicción:
    - comprueba que `version_variables` y la lista de variables coincidan con el paquete instalado;
    - carga con skops aceptando solo la lista fija de tipos de D-16.
 
-   El servicio comprueba además que `ficha.aprobado_puerta` sea `true` y que `ficha.local_id` sea el local pedido.
+   El servicio comprueba además que `ficha.aprobado_puerta` sea `true`, que `ficha.local_id` sea el local pedido y que `ficha.modelo_version` sea la versión a la que apunta el puntero. El puntero debe traer un UUID y un SHA-256 válidos: así ninguna ruta del almacén se arma con texto libre.
 3. **Si carga bien**, en una transacción registra la versión como `vigente` en `modelo_version` y pasa la anterior a `retirado`. Si el puntero vuelve a una versión ya registrada, esa fila vuelve a `vigente`.
 4. **Si falla** (`ErrorArtefacto`), sigue con el último modelo verificado del local:
    - si es el que tiene en memoria, lo usa;
    - si no lo tiene (por ejemplo, tras reiniciar), carga la versión `vigente` de su tabla con `cargar_version` y su SHA-256, porque las versiones del repositorio son inmutables;
    - si tampoco hay una, pronostica con el baseline (`motivo = modelo_no_disponible`).
 
-   El error queda en el log y en `ultimo_error`. Nunca se usa un modelo sin verificar.
+   El error queda en el log y en `ultimo_error`. Nunca se usa un modelo sin verificar. Un modelo que falla **no se reintenta en cada petición**: la revisión cuenta como hecha y se vuelve a intentar pasado `MODELOS_REVISAR_SEGUNDOS`, para no copiar el archivo una y otra vez.
+
+   Un local sin `vigente.json` no es un error: es un local sin modelo publicado, se pronostica con el baseline y `ultimo_error` es nulo. Solo se avisa si había un modelo y el puntero desapareció (se sigue con el que está en memoria).
 5. **Memoria acotada.** La caché guarda como mucho `MODELOS_MAX_EN_MEMORIA` locales (50, unos 150 MB) y descarta el menos usado. Una instancia de Cloud Run tiene memoria limitada.
 6. **Varias réplicas o procesos** cargan cada uno su copia, sin coordinarse. Como las versiones son inmutables y se identifican por su SHA-256, todas usan el mismo modelo. Tras un arranque en frío, la primera petición de cada local paga la carga.
 

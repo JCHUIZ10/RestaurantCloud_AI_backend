@@ -99,6 +99,10 @@ El modelo de cada servicio está en la sección 2 de su ficha. Estas reglas vale
 - Toda consulta filtra por ellos, con los valores del JWT o de la petición interna firmada. El filtro se aplica en una única capa de acceso a datos, no en cada endpoint.
 - Los índices de consulta empiezan por `local_id`.
 
+**Nombres**
+
+- Tablas y columnas en español, en minúsculas y `snake_case`, y **en singular** (`venta`, `ejecucion`, `horario_atencion`), como las 50 tablas del núcleo. El plural es para las rutas de la API, no para las tablas.
+
 **Tipos**
 
 - **Identificadores:** la clave de una fila es un UUID ordenado por tiempo (versión 7, o la función `fn_uuid_v8()` del núcleo, que usa la misma estructura): los primeros 48 bits son el instante en milisegundos, así que las filas nuevas se insertan al final del índice de la clave primaria y no lo fragmentan. Un secreto que viaja en una URL o autentica algo (token de QR, token de refresco) es un UUID versión 4 o una cadena aleatoria, nunca un UUID ordenado: este revela cuándo se creó y tiene menos bits aleatorios. En el núcleo, `App\Support\Identificador::ordenado()` y `::aleatorio()`; una prueba impide usar `Str::uuid()` directamente.
@@ -117,7 +121,7 @@ El modelo de cada servicio está en la sección 2 de su ficha. Estas reglas vale
 
 **Evolución del esquema**
 
-- Los cambios se hacen con migraciones versionadas en la carpeta del servicio: Alembic en los servicios Python y un script de índices y validadores en el servicio con MongoDB. El núcleo sigue con migraciones de Laravel.
+- Los cambios se hacen con migraciones versionadas en la carpeta del servicio: Alembic en los servicios Python (que lleva su propia tabla de control, `alembic_version`, con la última migración aplicada; no es una tabla de datos del servicio) y un script de índices y validadores en el servicio con MongoDB. El núcleo sigue con migraciones de Laravel.
 - La base se puede reconstruir desde cero solo con las migraciones.
 
 ## 3. Estructura del contrato de un endpoint
