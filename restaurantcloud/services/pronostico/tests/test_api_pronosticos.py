@@ -62,6 +62,7 @@ def test_crea_el_pronostico_y_responde_201_con_la_forma_de_la_ficha(cliente):
     assert (datos["fecha_inicio"], datos["horizonte_dias"]) == ("2026-11-21", 7)
     assert datos["datos"]["desde"] == "2025-11-20" and datos["datos"]["hasta"] == "2026-11-19"
     assert len(datos["datos"]["huella"]) == 64
+    assert datos["historial"] == {"dias_con_ventas": 364}
     assert datos["datos"]["actualizados_hasta"].endswith("-05:00")
     assert datos["resumen"] == {"modelo": 0, "baseline": 12, "cerrado": 3, "sin_historial": 6}
     assert datos["advertencias"] == []

@@ -90,6 +90,7 @@ CREATE TABLE ejecucion (
     estado                   varchar(12) NOT NULL CHECK (estado IN ('completada','fallida')),
     error                    varchar(40),               -- código de error si falló
     duracion_ms              integer,
+    dias_con_ventas          integer CHECK (dias_con_ventas >= 0), -- días de la ventana con ventas del local; nulo en las fallidas (migración 0003)
     creada_en                timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX ix_ejecucion_local ON ejecucion (local_id, creada_en DESC);
@@ -208,6 +209,7 @@ Todas las rutas `/interno` usan la firma HMAC del [README](README.md), sección 
       "huella": "e4c8c839…f68",
       "actualizados_hasta": "2026-11-19T23:12:40-05:00"
     },
+    "historial": { "dias_con_ventas": 361 },
     "resumen": { "modelo": 12, "baseline": 0, "cerrado": 2, "sin_historial": 0 },
     "advertencias": [],
     "predicciones": [
@@ -228,6 +230,7 @@ Todas las rutas `/interno` usan la firma HMAC del [README](README.md), sección 
 - `modelo` es `null` cuando no había modelo vigente o no se pudo cargar; entonces todo lo que no es `cerrado` ni `sin_historial` lleva `metodo = baseline` y `motivo = modelo_no_disponible`.
 - `resumen` cuenta filas (plato × día) por método.
 - `predicciones` va ordenada por nombre del plato, igual en el POST y en el GET (el POST responde con lo que quedó guardado), y cada plato trae sus días en orden. Los platos pedidos que no tienen ventas también aparecen, como `sin_historial`.
+- `historial.dias_con_ventas` cuenta los días de la ventana en que el local, sumando todos sus platos, vendió algo (no los días cerrados ni los anteriores a su primera venta). El núcleo lo usa para decidir el nivel de la predicción de un local nuevo ([03-prediccion-en-locales-nuevos.md](../03-prediccion-en-locales-nuevos.md), N-1). Es `null` en una ejecución fallida y en las anteriores a la migración 0003.
 - La respuesta incluye además `estado`, `error` (nulo si la ejecución se completó), `solicitada_por` y `creada_en`.
 - `advertencias` es informativa y no cambia el resultado. Valor posible: `datos_desactualizados`, si `actualizados_hasta` falta o es anterior a `datos_hasta − 3 días`. Indica que ms-analítica puede no estar recibiendo ventas: esos días aparecen en 0 y la regla de respaldo los toma como cerrados.
 
@@ -408,7 +411,7 @@ Si ms-pronóstico cae, el salón, la cocina y la caja siguen funcionando.
 
 **Abiertas**
 
-- **Locales nuevos** ([03-prediccion-en-locales-nuevos.md](../03-prediccion-en-locales-nuevos.md)): la respuesta agrega `historial.dias_con_ventas` para que el núcleo muestre el nivel de la predicción (N-1). Propuesta del 21/11, por implementar.
+- **Locales nuevos** ([03-prediccion-en-locales-nuevos.md](../03-prediccion-en-locales-nuevos.md)): `historial.dias_con_ventas` ya está en la respuesta (21/11, migración 0003). Falta en el núcleo calcular el nivel (N-1) y el resto de las decisiones N-2 a N-6.
 - **Promociones planificadas** como variable (versión 2 del modelo, D-12): el núcleo tendría que enviarlas en la petición, como los cierres.
 
 **Resueltas el 20/11 (5B.1)**

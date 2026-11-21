@@ -43,6 +43,11 @@ def _historial(serie: SerieVentas) -> pd.DataFrame:
     return pd.DataFrame(filas, columns=["producto_id", "fecha", "unidades"])
 
 
+def _dias_con_ventas(serie: SerieVentas) -> int:
+    """Días de la ventana en que el local, sumando todos sus platos, vendió algo."""
+    return len({fecha for p in serie.productos for fecha, unidades in p.filas if unidades > 0})
+
+
 def _sin_historial(solicitud: SolicitudPronostico, periodo: Periodo) -> list[FilaPrediccion]:
     dias = pd.date_range(periodo.fecha_inicio, periodo.fecha_fin, freq="D")
     return [
@@ -118,7 +123,8 @@ def generar_pronostico(
     nueva = base(
         modelo_version_id=modelo.modelo_version_id if modelo else None,
         datos_desde=periodo.datos_desde, datos_hasta=periodo.datos_hasta,
-        datos_actualizados_hasta=serie.ultimo_evento_en, predicciones=predicciones, **datos,
+        datos_actualizados_hasta=serie.ultimo_evento_en, dias_con_ventas=_dias_con_ventas(serie),
+        predicciones=predicciones, **datos,
     )
     try:
         registro.guardar(nueva)

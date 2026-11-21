@@ -51,6 +51,7 @@ def vista_ejecucion(resultado: ResultadoPronostico, zona_horaria: str) -> dict:
             "huella": e.huella_datos,
             "actualizados_hasta": instante(e.datos_actualizados_hasta),
         },
+        "historial": {"dias_con_ventas": e.dias_con_ventas},
         "resumen": resumen,
         "advertencias": resultado.advertencias,
         "predicciones": por_plato,

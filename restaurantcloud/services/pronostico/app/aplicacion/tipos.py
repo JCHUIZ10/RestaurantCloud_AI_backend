@@ -126,6 +126,7 @@ class NuevaEjecucion:
     estado: str  # completada | fallida
     error: str | None
     duracion_ms: int
+    dias_con_ventas: int | None = None  # días de la ventana en que el local vendió algo; nulo si no se leyó la serie
     predicciones: list[FilaPrediccion] = field(default_factory=list)
 
 
@@ -146,6 +147,7 @@ class EjecucionGuardada:
     estado: str
     error: str | None
     duracion_ms: int | None
+    dias_con_ventas: int | None
     creada_en: datetime
     modelo: ModeloInfo | None
     predicciones: list[FilaPrediccion]

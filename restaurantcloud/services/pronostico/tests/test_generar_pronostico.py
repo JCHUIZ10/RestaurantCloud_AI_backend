@@ -1,7 +1,7 @@
 """El caso de uso completo con la base real y una fuente de series falsa."""
 
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import numpy as np
@@ -58,6 +58,7 @@ def test_pronostico_con_baseline_de_punta_a_punta(ejecutar, bd):
     assert (e.fecha_inicio, e.horizonte_dias) == (date(2026, 11, 21), 7)
     assert (e.datos_desde, e.datos_hasta) == (date(2025, 11, 20), date(2026, 11, 19))
     assert len(e.huella_datos) == 64
+    assert e.dias_con_ventas == 364  # 365 días de ventana menos el cierre del 25 de diciembre
     assert len(e.predicciones) == 3 * 7
 
     por_plato = {}
@@ -137,6 +138,7 @@ def test_si_ms_analitica_cae_se_guarda_la_ejecucion_fallida_y_se_informa(ejecuta
     assert fallida["estado"] == "fallida" and fallida["error"] == "ERR_ANALITICA_NO_DISPONIBLE"
     assert str(fallida["id"]) == error.value.ejecucion_id  # el error lleva el id para rastrearlo
     assert fallida["datos_desde"] is None and fallida["huella_datos"] is None
+    assert fallida["dias_con_ventas"] is None  # no llegó a leer la serie
     assert _filas(bd, "SELECT count(*) AS n FROM prediccion")[0]["n"] == 0
 
 
@@ -192,7 +194,27 @@ def test_un_local_sin_ventas_en_la_ventana_no_llama_al_modelo_y_todo_es_sin_hist
     assert e.estado == "completada" and len(e.predicciones) == 21
     assert {p.metodo for p in e.predicciones} == {"sin_historial"}
     assert e.huella_datos is None and e.modelo is None
+    assert e.dias_con_ventas == 0
     assert (e.datos_desde, e.datos_hasta) == (date(2025, 11, 20), date(2026, 11, 19))
+
+
+def test_un_local_que_empezo_hace_12_dias_cuenta_solo_esos_dias_con_ventas(ejecutar):
+    # ms-analítica solo devuelve los días desde la primera venta: la serie es más corta que la ventana.
+    nuevo = SeriesFalsas(lambda d, h: serie_sintetica({PRODUCTO_A: 20}, h - timedelta(days=11), h))
+
+    resultado = ejecutar(solicitud(dias_cerrados=()), series=nuevo)
+
+    assert resultado.ejecucion.estado == "completada"
+    assert resultado.ejecucion.dias_con_ventas == 12
+
+
+def test_los_dias_sin_ventas_dentro_de_la_serie_no_cuentan(ejecutar):
+    cerrados = (date(2026, 11, 10), date(2026, 11, 11), date(2026, 11, 12))
+    serie = SeriesFalsas(lambda d, h: serie_sintetica({PRODUCTO_A: 20, PRODUCTO_B: 8}, d, h, cerrados))
+
+    resultado = ejecutar(solicitud(dias_cerrados=()), series=serie)
+
+    assert resultado.ejecucion.dias_con_ventas == 365 - 3
 
 
 def test_las_fechas_invalidas_se_rechazan_sin_guardar_nada(ejecutar, bd):
@@ -291,6 +313,7 @@ def test_se_recupera_la_ejecucion_guardada_con_las_mismas_predicciones(ejecutar,
     assert recuperada.nueva is False
     assert recuperada.ejecucion.predicciones == creada.ejecucion.predicciones
     assert recuperada.ejecucion.huella_datos == creada.ejecucion.huella_datos
+    assert recuperada.ejecucion.dias_con_ventas == creada.ejecucion.dias_con_ventas == 364
 
 
 def test_una_ejecucion_de_otro_local_o_empresa_no_se_distingue_de_una_que_no_existe(ejecutar, tmp_path):

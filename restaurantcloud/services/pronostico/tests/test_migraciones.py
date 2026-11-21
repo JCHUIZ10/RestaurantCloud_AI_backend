@@ -65,7 +65,7 @@ def test_las_tres_tablas_existen_y_la_migracion_queda_en_la_ultima_version(bd):
     version = bd.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
 
     assert {"modelo_version", "ejecucion", "prediccion"} <= tablas
-    assert version == "0002"
+    assert version == "0003"
 
 
 # --- Reglas de integridad del esquema ---

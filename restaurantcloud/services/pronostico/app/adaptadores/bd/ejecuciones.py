@@ -13,11 +13,11 @@ INSERTAR_EJECUCION = text(
     INSERT INTO ejecucion (id, solicitud_id, empresa_id, local_id, solicitada_por, modelo_version_id,
                            version_rc_pronostico, jornada_actual, fecha_inicio, horizonte_dias, datos_desde,
                            datos_hasta, huella_datos, calendario, datos_actualizados_hasta, estado, error,
-                           duracion_ms)
+                           duracion_ms, dias_con_ventas)
     VALUES (:id, :solicitud_id, :empresa_id, :local_id, :solicitada_por, :modelo_version_id,
             :version_rc_pronostico, :jornada_actual, :fecha_inicio, :horizonte_dias, :datos_desde,
             :datos_hasta, :huella_datos, CAST(:calendario AS jsonb), :datos_actualizados_hasta, :estado, :error,
-            :duracion_ms)
+            :duracion_ms, :dias_con_ventas)
     """
 )
 
@@ -103,7 +103,8 @@ class RegistroEjecucionesSql:
             fecha_inicio=fila["fecha_inicio"], horizonte_dias=fila["horizonte_dias"], datos_desde=fila["datos_desde"],
             datos_hasta=fila["datos_hasta"], huella_datos=fila["huella_datos"], calendario=fila["calendario"],
             datos_actualizados_hasta=fila["datos_actualizados_hasta"], estado=fila["estado"], error=fila["error"],
-            duracion_ms=fila["duracion_ms"], creada_en=fila["creada_en"], modelo=modelo,
+            duracion_ms=fila["duracion_ms"], dias_con_ventas=fila["dias_con_ventas"], creada_en=fila["creada_en"],
+            modelo=modelo,
             predicciones=[
                 FilaPrediccion(str(p[0]), p[1], p[2], float(p[3]), float(p[4]), p[5], p[6]) for p in predicciones
             ],
@@ -113,5 +114,5 @@ class RegistroEjecucionesSql:
 _COLUMNAS = (
     "id", "solicitud_id", "empresa_id", "local_id", "solicitada_por", "modelo_version_id", "version_rc_pronostico",
     "jornada_actual", "fecha_inicio", "horizonte_dias", "datos_desde", "datos_hasta", "huella_datos",
-    "datos_actualizados_hasta", "estado", "error", "duracion_ms",
+    "datos_actualizados_hasta", "estado", "error", "duracion_ms", "dias_con_ventas",
 )
