@@ -178,6 +178,8 @@ class ActivacionCuentaController extends Controller
         $esAdminSinLocal = ($usuario->rol === 'admin_local' && empty($usuario->local_id));
         $sessionToken = null;
         $refreshToken = null;
+        $jwt = null;
+        $jwtExpiraEn = null;
 
         if (! $esAdminSinLocal) {
             // Generar sesión autenticada en Redis solo si tiene sede activa
@@ -185,6 +187,8 @@ class ActivacionCuentaController extends Controller
                 $sesion = $this->sesiones->emitir($usuario);
                 $sessionToken = $sesion['token'];
                 $refreshToken = $sesion['refresh_token'];
+                $jwt = $sesion['jwt'];
+                $jwtExpiraEn = $sesion['jwt_expira_en'];
             } catch (RuntimeException $e) {
                 // Sin sesión automática: el usuario inicia sesión manualmente.
             }
@@ -197,6 +201,8 @@ class ActivacionCuentaController extends Controller
         return ApiResponse::ok([
             'token' => $sessionToken,
             'refresh_token' => $refreshToken,
+            'jwt' => $jwt,
+            'jwt_expira_en' => $jwtExpiraEn,
             'requiere_asignacion_sede' => $esAdminSinLocal,
             'usuario' => [
                 'id' => $usuario->id,

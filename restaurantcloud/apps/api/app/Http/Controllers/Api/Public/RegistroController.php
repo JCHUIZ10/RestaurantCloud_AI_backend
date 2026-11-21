@@ -566,6 +566,8 @@ class RegistroController extends Controller
                 'mensaje' => '¡Empresa registrada y suscripción activada con éxito!',
                 'token' => $sesion['token'] ?? null,
                 'refresh_token' => $sesion['refresh_token'] ?? null,
+                'jwt' => $sesion['jwt'] ?? null,
+                'jwt_expira_en' => $sesion['jwt_expira_en'] ?? null,
                 'empresa' => [
                     'id' => $resultado['empresa']['id'],
                     'razon_social' => $resultado['empresa']['razon_social'],

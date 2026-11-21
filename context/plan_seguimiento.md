@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 21/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está en curso: 6.0 (ficha) cerrada; sigue la 6.1 (JWT en el núcleo).
+**Última actualización:** 21/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está en curso: 6.0 (ficha) y 6.1 (JWT en el núcleo) cerradas; sigue la 6.2 (validación del JWT en ms-analítica).
 
 ## Contexto
 
@@ -25,7 +25,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | 4. Datos sintéticos | Cerrada | 24 meses de ÁUREA en 3 min 45 s; 111 pruebas de ms-analítica; humo: 28 comprobaciones |
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
 | 5B. ms-pronóstico | Cerrada salvo la revisión en navegador | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo; humo: 108 comprobaciones |
-| 6. JWT y gateway | **En curso** (6.0 cerrada) | Ficha: claims del JWT, renovación, 4 reportes y políticas de Kong |
+| 6. JWT y gateway | **En curso** (6.0 y 6.1 cerradas) | Ficha; JWT RS256 en todos los inicios de sesión, firma verificada con `openssl`; 11 pruebas nuevas y 103 de los flujos de sesión en verde |
 
 ---
 
@@ -318,7 +318,7 @@ Se divide como la 5B: primero el contrato, después cada pieza probada por sí s
 | Paso | Contenido | Demostrable | Estado |
 |---|---|---|---|
 | 6.0 Ficha | Claims del JWT, `POST /auth/token-servicios`, `GET /auth/clave-publica`, los 4 reportes de ms-analítica en detalle, rutas y políticas de Kong | El contrato antes que el código | Cerrada |
-| 6.1 JWT en el núcleo | `firebase/php-jwt`, emisor RS256 dentro de `SesionService` (login, selección de cuenta, refresh, activación y registro), endpoint de renovación, clave pública, `php artisan jwt:claves`, variables en `.env.example` | Login que devuelve un JWT verificable con la clave pública | Pendiente |
+| 6.1 JWT en el núcleo | Emisor RS256 propio con `openssl` (sin dependencias nuevas) dentro de `SesionService` (login, selección de cuenta, refresh, activación y registro), endpoint de renovación, clave pública, `php artisan jwt:claves`, variables en `.env.example` | Login que devuelve un JWT verificable con la clave pública | Cerrada |
 | 6.2 JWT en ms-analítica | `soporte/jwt.py` (copiable a ms-notificaciones), dependencia de sesión con rol, empresa, sede y módulos | Pruebas de firma, caducidad, emisor, audiencia, rol y sede | Pendiente |
 | 6.3 Reportes | `ventas/resumen`, `ventas/por-hora`, `productos/ranking` (con ingeniería de menú) y `personal/desempeno`, con pytest contra PostgreSQL real | Reportes de ÁUREA con el histórico sintético | Pendiente |
 | 6.4 Kong | `infra/kong` (DB-less, plantilla con la clave pública), servicio en el compose (puerto 8000), JWT en `/api/v1/analitica`, límite de peticiones, CORS, `X-Request-Id`; Vite pasa a apuntar a Kong | Todo el tráfico del navegador entra por Kong; `/interno` no se expone | Pendiente |
@@ -334,6 +334,15 @@ Se divide como la 5B: primero el contrato, después cada pieza probada por sí s
 - **Sin claves no se rompe nada:** si `JWT_PRIVATE_KEY` no está configurada, el login sigue funcionando con `jwt: null` y la renovación responde 503. Tampoco se emite JWT a una empresa suspendida.
 - **Kong:** valida firma y caducidad (`exp`, con una vida máxima de 15 minutos); cada servicio vuelve a validar firma, emisor, audiencia y claims. En producción, Caddy (TLS y SPA) queda delante de Kong; se implementa en la etapa 8.
 - **Hallazgo para la etapa 9:** `trustProxies(at: '*')` confía en `X-Forwarded-For` de cualquier origen; el bloqueo de login por IP se puede eludir si la API se alcanza sin pasar por el proxy.
+
+### Lo que dejó la 6.1 (21/11)
+
+- **Sin dependencias nuevas.** Se probó `firebase/php-jwt`, pero el `CLAUDE.md` del núcleo pide aprobación para cambiar dependencias, así que se revirtió: `App\Support\JwtRs256` firma y verifica RS256 con la extensión `openssl` (unas 80 líneas). Si se prefiere la librería, el cambio queda dentro de esa clase.
+- **`TokenServicios`** arma los claims del contrato (`modulos` sale del plan vigente de la empresa) y `SesionService` lo llama al crear cualquier sesión: login, selección de cuenta, refresh, activación y registro devuelven `jwt` y `jwt_expira_en`. Sin claves o con la empresa suspendida, `jwt` es `null` y la sesión sigue igual.
+- **Endpoints:** `POST /api/v1/auth/token-servicios` (renueva solo el JWT; la sesión no cambia) y `GET /api/v1/auth/clave-publica` (con `kid`, emisor y audiencia), ambos con 503 `ERR_JWT_NO_CONFIGURADO` si faltan claves.
+- **Claves:** `php artisan jwt:claves` imprime un par en formato `.env` (PEM en una línea con `\n` literales). Variables en `.env.example` y en el servicio `api` del compose; el `.env` local ya tiene un par generado.
+- **Verificado:** 11 pruebas (`JwtServiciosTest`: claims, firma alterada y de otra clave, propietario sin sede, módulos según el plan, refresh, renovación sin rotar la sesión, sin sesión, empresa suspendida, sin claves, clave pública y el comando) y 103 de los flujos que crean sesiones, en verde con claves y sin ellas. En vivo: la firma de un JWT emitido por el contenedor la acepta `openssl dgst -verify` (herramienta independiente del código que firma).
+- **Pendiente para la 6.4:** recrear `api` tras cambiar las claves (las variables del compose solo se leen al crear el contenedor).
 
 ---
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Domains\Auth\Services\SesionService;
+use App\Domains\Auth\Services\TokenServicios;
 use App\Http\Controllers\Controller;
 use App\Models\Usuario;
 use App\Support\ApiResponse;
@@ -15,7 +16,61 @@ use RuntimeException;
 
 class AuthController extends Controller
 {
-    public function __construct(private SesionService $sesiones) {}
+    public function __construct(private SesionService $sesiones, private TokenServicios $tokenServicios) {}
+
+    /**
+     * Renueva solo el JWT de microservicios, sin rotar la sesión (doc-2u/servicios/nucleo-laravel.md).
+     */
+    public function tokenServicios(Request $request): JsonResponse
+    {
+        if (! $this->tokenServicios->configurado()) {
+            return $this->jwtNoConfigurado();
+        }
+
+        $user = $request->user();
+        if ($this->tokenServicios->empresaSuspendida($user)) {
+            return ApiResponse::error(
+                'EMPRESA_SUSPENDIDA',
+                'El acceso de tu empresa está suspendido por falta de pago. Regulariza tu suscripción para continuar.',
+                403
+            );
+        }
+
+        try {
+            return ApiResponse::ok($this->tokenServicios->emitir($user));
+        } catch (RuntimeException $e) {
+            report($e);
+
+            return $this->jwtNoConfigurado();
+        }
+    }
+
+    /**
+     * Clave pública con la que Kong y los microservicios validan el JWT. Es pública por diseño.
+     */
+    public function clavePublica(): JsonResponse
+    {
+        if (! $this->tokenServicios->configurado()) {
+            return $this->jwtNoConfigurado();
+        }
+
+        return ApiResponse::ok([
+            'algoritmo' => 'RS256',
+            'kid' => $this->tokenServicios->kid(),
+            'emisor' => (string) config('jwt.emisor'),
+            'audiencia' => (string) config('jwt.audiencia'),
+            'clave_publica' => $this->tokenServicios->clavePublica(),
+        ]);
+    }
+
+    private function jwtNoConfigurado(): JsonResponse
+    {
+        return ApiResponse::error(
+            'ERR_JWT_NO_CONFIGURADO',
+            'El servidor no tiene configuradas las claves del token de servicios.',
+            503
+        );
+    }
 
     /**
      * Autenticación multi-rol y resolución multi-cuenta con emisión de token almacenado en Redis.
@@ -297,6 +352,8 @@ class AuthController extends Controller
             'requiere_seleccion' => false,
             'token' => $sesion['token'],
             'refresh_token' => $sesion['refresh_token'],
+            'jwt' => $sesion['jwt'],
+            'jwt_expira_en' => $sesion['jwt_expira_en'],
             'usuario' => [
                 'id' => $user->id,
                 'nombre' => $user->nombre,

@@ -20,11 +20,14 @@ class SesionService
 
     private const TTL_REFRESH_SEGUNDOS = 604800;
 
+    public function __construct(private TokenServicios $tokenServicios) {}
+
     /**
-     * Persiste una sesión nueva en Redis para el usuario indicado.
+     * Persiste una sesión nueva en Redis para el usuario indicado. Incluye el JWT para
+     * microservicios cuando corresponde (ver TokenServicios); su ausencia no impide la sesión.
      *
      * @param  object  $usuario  Modelo Usuario o fila de la tabla usuario.
-     * @return array{token: string, refresh_token: string}
+     * @return array{token: string, refresh_token: string, jwt: ?string, jwt_expira_en: ?string}
      *
      * @throws RuntimeException Si Redis no confirma la sesión; no se entrega token a medias.
      */
@@ -63,9 +66,13 @@ class SesionService
             throw new RuntimeException('No fue posible persistir la sesión en Redis.', 0, $e);
         }
 
+        $jwt = $this->tokenServicios->emitirSiCorresponde($usuario);
+
         return [
             'token' => $token,
             'refresh_token' => $refreshToken,
+            'jwt' => $jwt['jwt'] ?? null,
+            'jwt_expira_en' => $jwt['jwt_expira_en'] ?? null,
         ];
     }
 }

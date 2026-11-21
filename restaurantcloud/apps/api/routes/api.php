@@ -23,8 +23,8 @@ use App\Http\Controllers\Api\CocinaController;
 use App\Http\Controllers\Api\MozoController;
 use App\Http\Controllers\Api\Propietario\AdministradorController;
 use App\Http\Controllers\Api\Propietario\CambioPlanController;
-use App\Http\Controllers\Api\Propietario\PrediccionController;
 use App\Http\Controllers\Api\Propietario\LocalController;
+use App\Http\Controllers\Api\Propietario\PrediccionController;
 use App\Http\Controllers\Api\Propietario\SuscripcionController;
 use App\Http\Controllers\Api\Public\ActivacionCuentaController;
 use App\Http\Controllers\Api\Public\CartaPublicaController;
@@ -78,11 +78,13 @@ Route::prefix('v1')->group(function (): void {
     Route::post('/auth/login', [AuthController::class, 'login'])->name('login');
     Route::post('/auth/seleccionar-cuenta', [AuthController::class, 'seleccionarCuenta']);
     Route::post('/auth/refresh', [AuthController::class, 'refresh']);
+    Route::get('/auth/clave-publica', [AuthController::class, 'clavePublica']);
 
     // Rutas protegidas con Caché de Sesión en Redis (Alta Velocidad)
     Route::middleware(['auth.redis', 'tenant.context'])->group(function (): void {
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
+        Route::post('/auth/token-servicios', [AuthController::class, 'tokenServicios']);
 
         Route::prefix('admin')->middleware('role:admin_local,propietario,admin_saas')->group(function (): void {
             // Rutas de administración de sede: accesibles por admin_local, propietario y admin_saas

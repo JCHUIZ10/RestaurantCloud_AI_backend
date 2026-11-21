@@ -147,6 +147,9 @@ services:
       NOTIFICACIONES_SECRETO: ${NOTIFICACIONES_SECRETO:-}
       PRONOSTICO_URL: ${PRONOSTICO_URL:-http://pronostico:8002}
       PRONOSTICO_SECRETO: ${PRONOSTICO_SECRETO:-}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+      JWT_MINUTOS: ${JWT_MINUTOS:-10}
     volumes:
 
       - ./apps/api:/app
