@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api import salud
+from app.api import pronosticos, salud
 from app.casos_de_uso.contenedor import Contenedor
 from app.composicion import construir_contenedor
 from app.config import get_settings
@@ -20,6 +20,7 @@ def crear_app(contenedor: Contenedor | None = None) -> FastAPI:
     app.add_middleware(RequestIdMiddleware)
     registrar_manejadores(app)
     app.include_router(salud.router)
+    app.include_router(pronosticos.router)
     return app
 
 

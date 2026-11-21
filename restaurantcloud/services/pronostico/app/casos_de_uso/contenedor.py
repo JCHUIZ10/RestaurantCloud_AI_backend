@@ -2,10 +2,23 @@
 
 from dataclasses import dataclass
 
-from app.casos_de_uso.puertos import AlmacenArtefactos, SondaBd
+from app.casos_de_uso.puertos import (
+    AlmacenArtefactos,
+    FuenteSeries,
+    ModelosVigentes,
+    RegistroEjecuciones,
+    Reloj,
+    SondaBd,
+)
+from app.casos_de_uso.tipos import ParametrosPronostico
 
 
 @dataclass
 class Contenedor:
     almacen: AlmacenArtefactos
     sonda_bd: SondaBd
+    series: FuenteSeries
+    registro: RegistroEjecuciones
+    modelos: ModelosVigentes
+    reloj: Reloj
+    parametros: ParametrosPronostico

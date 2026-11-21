@@ -11,6 +11,9 @@ dependencies = [
     "alembic>=1.14",
     "pydantic-settings>=2.6",
     "tzdata>=2024.2",
+    "httpx>=0.27",
+    # La misma versión que usó model-ia para los feriados del entrenamiento (cuaderno 02).
+    "holidays==0.109",
     # Cálculo del pronóstico, compartido con model-ia (D-02). Trae scikit-learn==1.7.2 y skops==0.13.0.
     "rc-pronostico",
     # Mismas versiones que model-ia/uv.lock: el modelo se entrenó con ellas.
@@ -21,7 +24,6 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.3",
-    "httpx>=0.27",
 ]
 
 [tool.uv]

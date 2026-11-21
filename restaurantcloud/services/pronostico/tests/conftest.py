@@ -29,6 +29,8 @@ REPOSITORIO = tempfile.mkdtemp(prefix="repositorio-pruebas-")
 os.environ["DATABASE_URL"] = URL_APP
 os.environ["SECRETO_INTERNO"] = SECRETO
 os.environ["MODELOS_REPOSITORIO"] = REPOSITORIO
+os.environ["ANALITICA_URL"] = "http://analitica.invalido:8001"  # las pruebas no la llaman
+os.environ["ANALITICA_SECRETO"] = "secreto-analitica-de-pruebas"
 os.environ["MIGRATIONS_DATABASE_URL"] = URL_ADMIN
 # La migración 0002 concede los permisos a este usuario.
 os.environ["APP_DB_USER"] = make_url(URL_APP).username

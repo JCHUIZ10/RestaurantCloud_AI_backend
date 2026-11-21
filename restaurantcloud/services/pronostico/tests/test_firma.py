@@ -7,21 +7,15 @@ import pytest
 from fastapi import Depends
 from fastapi.testclient import TestClient
 
-from app.adaptadores.almacen_local import AlmacenLocal
-from app.casos_de_uso.contenedor import Contenedor
+from app.adaptadores.bd.conexion import get_engine
 from app.main import crear_app
 from app.soporte.firma import calcular_firma, verificar_firma
-from tests.ayudas import cabeceras_firmadas
-
-
-class _Sonda:
-    def responde(self) -> bool:
-        return True
+from tests.ayudas import cabeceras_firmadas, contenedor_de_prueba
 
 
 @pytest.fixture(scope="module")
 def protegido(tmp_path_factory):
-    app = crear_app(Contenedor(almacen=AlmacenLocal(tmp_path_factory.mktemp("repo")), sonda_bd=_Sonda()))
+    app = crear_app(contenedor_de_prueba(get_engine(), tmp_path_factory.mktemp("repo")))
 
     @app.post("/interno/ejemplo")
     def post_ejemplo(contenido: bytes = Depends(verificar_firma)):

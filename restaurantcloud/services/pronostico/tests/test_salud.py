@@ -2,21 +2,14 @@ import uuid
 
 from fastapi.testclient import TestClient
 
-from app.adaptadores.almacen_local import AlmacenLocal
-from app.adaptadores.bd.conexion import SondaBdSql, get_engine
-from app.casos_de_uso.contenedor import Contenedor
+from app.adaptadores.bd.conexion import get_engine
 from app.main import crear_app
-
-
-class BdCaida:
-    def responde(self) -> bool:
-        return False
+from tests.ayudas import contenedor_de_prueba
 
 
 def _cliente(tmp_path, *, repositorio_existe=True, bd_responde=True) -> TestClient:
-    raiz = tmp_path if repositorio_existe else tmp_path / "no-existe"
-    sonda = SondaBdSql(get_engine()) if bd_responde else BdCaida()
-    return TestClient(crear_app(Contenedor(almacen=AlmacenLocal(raiz), sonda_bd=sonda)))
+    contenedor = contenedor_de_prueba(get_engine(), tmp_path, bd_responde=bd_responde, repositorio=repositorio_existe)
+    return TestClient(crear_app(contenedor))
 
 
 def test_health_responde_200_sin_firma_con_el_formato_comun(cliente):

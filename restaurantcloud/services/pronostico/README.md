@@ -4,7 +4,7 @@ Pronóstico de demanda por plato (componente de IA). No entrena: usa el modelo q
 
 Stack: Python 3.12 · FastAPI · SQLAlchemy 2 · Alembic · PostgreSQL propio · `rc_pronostico` (paquete de `model-ia`)
 
-**Estado:** esqueleto (etapa 5B.1): `/health`, base con sus 3 tablas y arquitectura de puertos y adaptadores. Los endpoints de pronóstico llegan con la 5B.2 y la carga del modelo con la 5B.3.
+**Estado:** etapa 5B.2. `POST` y `GET /interno/pronosticos` funcionan de punta a punta con el baseline (ms-analítica real, base y firma HMAC). La carga del modelo llega con la 5B.3 (`GET /interno/modelos/vigente` también).
 
 Contrato con el resto del sistema: [`doc-2u/servicios/ms-pronostico.md`](../../../doc-2u/servicios/ms-pronostico.md). Este servicio no importa código de otros servicios; solo usa la librería `rc_pronostico`.
 
@@ -14,9 +14,9 @@ Contrato con el resto del sistema: [`doc-2u/servicios/ms-pronostico.md`](../../.
 app/
   main.py  composicion.py  config.py
   api/               rutas FastAPI; no conoce adaptadores ni la base
-  casos_de_uso/      lógica de aplicación y sus puertos (puertos.py, contenedor.py)
-  dominio/           reglas propias y puras
-  adaptadores/       lo que cambia con la tecnología: almacén local, base de datos (gs:// y ms-analítica después)
+  casos_de_uso/      generar_pronostico, consultar_ejecucion, consultar_salud y sus puertos (puertos.py, contenedor.py)
+  dominio/           reglas puras: periodo, calendario (cierres y feriados), advertencias y errores
+  adaptadores/       lo que cambia con la tecnología: almacén local, cliente HTTP de ms-analítica, reloj, base de datos (gs:// llega en la etapa 8)
   soporte/           firma, logs, X-Request-Id y respuestas (copiado de ms-analítica)
 migrations/          Alembic
 tests/
@@ -47,5 +47,7 @@ export TEST_DATABASE_URL=postgresql+psycopg://pronostico_admin:dev_pronostico_12
 export TEST_APP_DATABASE_URL=postgresql+psycopg://pronostico_app:cambiar_en_local@localhost:5434/pronostico_db_test
 uv run pytest
 ```
+
+El pronóstico real necesita ms-analítica arriba (`docker compose up -d analitica`) con ventas cargadas; las pruebas la simulan.
 
 Si cambia `model-ia/rc_pronostico/pyproject.toml`, hay que ejecutar `uv lock` aquí y reconstruir la imagen.
