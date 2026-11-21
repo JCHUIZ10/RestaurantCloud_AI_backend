@@ -16,6 +16,13 @@ class Settings(BaseSettings):
     zona_horaria: str = "America/Lima"
     # Antigüedad máxima aceptada del X-Timestamp de una petición firmada.
     firma_tolerancia_segundos: int = 300
+    # JWT de las rutas públicas (reportes). Clave pública PEM, con "\n" literales si va en una línea.
+    # Sin ella esas rutas responden 503; /interno y /health no la necesitan.
+    jwt_public_key: str | None = None
+    jwt_emisor: str = "restaurantcloud-nucleo"
+    jwt_audiencia: str = "restaurantcloud-servicios"
+    # Tolerancia de reloj entre el núcleo y este servicio al validar exp y nbf.
+    jwt_tolerancia_segundos: int = 30
 
 
 @lru_cache

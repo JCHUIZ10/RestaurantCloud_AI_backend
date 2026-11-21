@@ -5,6 +5,10 @@ import time
 import uuid
 from urllib.parse import urlencode
 
+import jwt
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+
 from app.soporte.firma import calcular_firma
 
 SECRETO = "secreto-de-pruebas"
@@ -173,3 +177,52 @@ def enviar(cliente, evento: dict, **kwargs):
         content=cuerpo,
         headers={"Content-Type": "application/json", **cabeceras_firmadas(cuerpo, **kwargs)},
     )
+
+
+# ---- JWT de las rutas públicas ----
+# Par RSA generado al importar: la pública se la da el conftest al servicio y la privada firma los tokens de prueba.
+_CLAVE = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+CLAVE_PRIVADA_PEM = _CLAVE.private_bytes(
+    serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
+).decode()
+CLAVE_PUBLICA_PEM = (
+    _CLAVE.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo).decode()
+)
+EMISOR = "restaurantcloud-nucleo"
+AUDIENCIA = "restaurantcloud-servicios"
+USUARIO = "00000000-0000-4000-8000-000000000102"
+
+
+def claims_jwt(rol="admin_local", empresa_id=EMPRESA, local_id=LOCAL, modulos=("prediccion", "reportes_avanzados"), **cambios):
+    """Los claims que emite el núcleo (doc-2u/servicios/README.md, sección 2). `cambios` pisa o, con None, quita uno."""
+    ahora = int(time.time())
+    claims = {
+        "iss": EMISOR,
+        "aud": AUDIENCIA,
+        "sub": USUARIO,
+        "rol": rol,
+        "empresa_id": empresa_id,
+        "local_id": local_id,
+        "modulos": list(modulos),
+        "iat": ahora,
+        "nbf": ahora,
+        "exp": ahora + 600,
+        "jti": nuevo_id(),
+    }
+    claims.update(cambios)
+    return claims
+
+
+def emitir_jwt(clave=None, algoritmo="RS256", **kwargs) -> str:
+    """Un JWT firmado como el del núcleo. Un claim pasado como `None` en `kwargs` se omite del token."""
+    claims = claims_jwt(**kwargs)
+    return jwt.encode(
+        {k: v for k, v in claims.items() if v is not None or k in ("empresa_id", "local_id")},
+        clave or CLAVE_PRIVADA_PEM,
+        algorithm=algoritmo,
+        headers={"kid": "prueba"},
+    )
+
+
+def cabecera_bearer(token: str | None = None, **kwargs) -> dict:
+    return {"Authorization": f"Bearer {token or emitir_jwt(**kwargs)}"}

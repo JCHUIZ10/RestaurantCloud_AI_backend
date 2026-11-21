@@ -301,6 +301,8 @@ services:
       DATABASE_URL: postgresql+psycopg://${ANALITICA_DB_APP_USER}:${ANALITICA_DB_APP_PASSWORD}@db-analitica:5432/${ANALITICA_DB_NAME}
       SECRETO_INTERNO: ${ANALITICA_SECRETO}
       ZONA_HORARIA: America/Lima
+      # Clave pública con la que valida los JWT de las rutas de reportes (la misma del núcleo).
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
     depends_on:
       analitica-migraciones:
         condition: service_completed_successfully

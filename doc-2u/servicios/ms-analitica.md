@@ -434,6 +434,8 @@ Ningún otro componente se detiene si ms-analítica cae, salvo ms-pronóstico, q
 | `PORT` | Puerto de escucha |
 | `DATABASE_URL` | Conexión a su PostgreSQL (usuario sin privilegios de administración) |
 | `JWT_PUBLIC_KEY` | Clave pública PEM para validar los JWT de las rutas de reportes (se acepta con `\n` literales). Sin ella, esas rutas responden 503 `ERR_JWT_NO_CONFIGURADO`; `/interno` y `/health` no la necesitan |
+| `JWT_EMISOR`, `JWT_AUDIENCIA` | Valores esperados de `iss` y `aud` (`restaurantcloud-nucleo` y `restaurantcloud-servicios`) |
+| `JWT_TOLERANCIA_SEGUNDOS` | Tolerancia de reloj al validar `exp` y `nbf` (30) |
 | `SECRETO_INTERNO` | Secreto HMAC para `/interno`; es el mismo `ANALITICA_SECRETO` del núcleo |
 | `ZONA_HORARIA` | `America/Lima` |
 | `MIGRATIONS_DATABASE_URL` | Conexión del usuario administrador. La usa solo el contenedor `analitica-migraciones`, no el servicio |

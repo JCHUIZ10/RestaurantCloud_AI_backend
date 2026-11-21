@@ -13,7 +13,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, text
 
-from tests.ayudas import SECRETO, carta_demo
+from tests.ayudas import CLAVE_PUBLICA_PEM, SECRETO, carta_demo
 
 RAIZ = Path(__file__).resolve().parent.parent
 
@@ -25,6 +25,7 @@ if not URL_ADMIN or not URL_APP:
 # El servicio lee su configuración al importarse: se fija antes de importar `app`.
 os.environ["DATABASE_URL"] = URL_APP
 os.environ["SECRETO_INTERNO"] = SECRETO
+os.environ["JWT_PUBLIC_KEY"] = CLAVE_PUBLICA_PEM.strip().replace("\n", "\\n")  # en una línea, como llega del .env
 os.environ["MIGRATIONS_DATABASE_URL"] = URL_ADMIN
 
 from fastapi.testclient import TestClient  # noqa: E402

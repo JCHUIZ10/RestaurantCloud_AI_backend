@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 21/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está en curso: 6.0 (ficha) y 6.1 (JWT en el núcleo) cerradas; sigue la 6.2 (validación del JWT en ms-analítica).
+**Última actualización:** 21/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está en curso: 6.0 (ficha), 6.1 (JWT en el núcleo) y 6.2 (validación en ms-analítica) cerradas; sigue la 6.3 (los 4 reportes).
 
 ## Contexto
 
@@ -25,7 +25,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | 4. Datos sintéticos | Cerrada | 24 meses de ÁUREA en 3 min 45 s; 111 pruebas de ms-analítica; humo: 28 comprobaciones |
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
 | 5B. ms-pronóstico | Cerrada salvo la revisión en navegador | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo; humo: 108 comprobaciones |
-| 6. JWT y gateway | **En curso** (6.0 y 6.1 cerradas) | Ficha; JWT RS256 en todos los inicios de sesión, firma verificada con `openssl`; 11 pruebas nuevas y 103 de los flujos de sesión en verde |
+| 6. JWT y gateway | **En curso** (6.0 a 6.2 cerradas) | Ficha; JWT RS256 en todos los inicios de sesión y validado por ms-analítica (un token del núcleo en PHP lo acepta el código Python); 11 pruebas nuevas en el núcleo y 33 en ms-analítica (148 en total) |
 
 ---
 
@@ -319,7 +319,7 @@ Se divide como la 5B: primero el contrato, después cada pieza probada por sí s
 |---|---|---|---|
 | 6.0 Ficha | Claims del JWT, `POST /auth/token-servicios`, `GET /auth/clave-publica`, los 4 reportes de ms-analítica en detalle, rutas y políticas de Kong | El contrato antes que el código | Cerrada |
 | 6.1 JWT en el núcleo | Emisor RS256 propio con `openssl` (sin dependencias nuevas) dentro de `SesionService` (login, selección de cuenta, refresh, activación y registro), endpoint de renovación, clave pública, `php artisan jwt:claves`, variables en `.env.example` | Login que devuelve un JWT verificable con la clave pública | Cerrada |
-| 6.2 JWT en ms-analítica | `soporte/jwt.py` (copiable a ms-notificaciones), dependencia de sesión con rol, empresa, sede y módulos | Pruebas de firma, caducidad, emisor, audiencia, rol y sede | Pendiente |
+| 6.2 JWT en ms-analítica | `soporte/jwt.py` (copiable a ms-notificaciones), dependencia de sesión con rol, empresa, sede y módulos | Pruebas de firma, caducidad, emisor, audiencia, rol y sede | Cerrada |
 | 6.3 Reportes | `ventas/resumen`, `ventas/por-hora`, `productos/ranking` (con ingeniería de menú) y `personal/desempeno`, con pytest contra PostgreSQL real | Reportes de ÁUREA con el histórico sintético | Pendiente |
 | 6.4 Kong | `infra/kong` (DB-less, plantilla con la clave pública), servicio en el compose (puerto 8000), JWT en `/api/v1/analitica`, límite de peticiones, CORS, `X-Request-Id`; Vite pasa a apuntar a Kong | Todo el tráfico del navegador entra por Kong; `/interno` no se expone | Pendiente |
 | 6.5 React | Cliente de microservicios con renovación del JWT y pantalla «Reportes» de 3 pestañas (CU-ADMIN-13) | Flujo del navegador a ms-analítica por Kong | Pendiente |
@@ -343,6 +343,15 @@ Se divide como la 5B: primero el contrato, después cada pieza probada por sí s
 - **Claves:** `php artisan jwt:claves` imprime un par en formato `.env` (PEM en una línea con `\n` literales). Variables en `.env.example` y en el servicio `api` del compose; el `.env` local ya tiene un par generado.
 - **Verificado:** 11 pruebas (`JwtServiciosTest`: claims, firma alterada y de otra clave, propietario sin sede, módulos según el plan, refresh, renovación sin rotar la sesión, sin sesión, empresa suspendida, sin claves, clave pública y el comando) y 103 de los flujos que crean sesiones, en verde con claves y sin ellas. En vivo: la firma de un JWT emitido por el contenedor la acepta `openssl dgst -verify` (herramienta independiente del código que firma).
 - **Pendiente para la 6.4:** recrear `api` tras cambiar las claves (las variables del compose solo se leen al crear el contenedor).
+
+### Lo que dejó la 6.2 (21/11)
+
+- **`app/soporte/jwt.py`** (copiable a ms-notificaciones; solo usa `config` y `respuestas`): `verificar_jwt` valida con PyJWT firma RS256, emisor, audiencia, `exp`, `nbf` (30 s de tolerancia de reloj) y los claims obligatorios. El algoritmo está fijado a RS256: un token `alg: none` o HS256 firmado con la clave pública, conocida, se rechaza. `contexto_de_sede(roles, modulo)` es la dependencia de las rutas de reportes y comprueba en este orden: token (401), rol (403), módulo del plan (403) y sede (`X-Local-Id` solo para el propietario; 403 si quien tiene sede pide otra, 422 si falta).
+- **Dependencias nuevas aprobadas:** `pyjwt[crypto]` (RS256 exige `cryptography`; entran también `cffi` y `pycparser`). En ms-analítica sí se justifica una librería: ahí se verifica, y esa es la parte delicada.
+- **Un fallo que encontró una prueba:** con una clave pública mal formada, PyJWT lanza `InvalidKeyError`, que no es un token inválido, y la petición terminaba en 500. Ahora responde 503 `ERR_JWT_NO_CONFIGURADO`, porque es un error de despliegue y no del cliente.
+- **Configuración:** `JWT_PUBLIC_KEY` (PEM, con `\n` literales o con saltos reales), `JWT_EMISOR`, `JWT_AUDIENCIA` y `JWT_TOLERANCIA_SEGUNDOS`; el compose pasa `JWT_PUBLIC_KEY` al servicio.
+- **Verificado:** 33 pruebas nuevas (sin base de datos, con una app mínima) y la suite completa en verde: 148. Con mutaciones se comprobó que las pruebas detectan quitar la audiencia (13 fallan), el emisor, el algoritmo fijo y la comprobación de rol. **Entre lenguajes:** un JWT emitido por el núcleo real (PHP) lo valida `verificar_jwt`, con la clave tal como la publica `GET /auth/clave-publica` y en una línea con `\n`; también **dentro del contenedor** de ms-analítica reconstruido, con la clave tal como la pasa el compose.
+- **Todavía sin ruta que lo use:** `/interno` y `/health` no piden JWT; las rutas de reportes llegan en la 6.3.
 
 ---
 
