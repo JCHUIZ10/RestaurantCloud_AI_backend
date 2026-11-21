@@ -370,6 +370,8 @@ services:
       SECRETO_INTERNO: ${PRONOSTICO_SECRETO}
       ZONA_HORARIA: America/Lima
       MODELOS_REPOSITORIO: file:///repositorio
+      ANALITICA_URL: http://analitica:8001
+      ANALITICA_SECRETO: ${ANALITICA_SECRETO}
     volumes:
       # Solo lectura: publicar modelos es tarea de model-ia (cuaderno 07), no del servicio.
       - ../model-ia/repositorio:/repositorio:ro
