@@ -26,6 +26,7 @@ import { getCartaPublicaPorSlug } from '@/modules/cliente/services/mockCartaServ
 import { realPlanoService } from './api/planoService';
 import { realSaasTenantsService, type SaasTenantsService } from './api/realSaasTenantsService';
 import { realFlujoCajaService } from './api/realFlujoCajaService';
+import { realPrediccionService } from './api/realPrediccionService';
 
 export const IS_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 
@@ -34,6 +35,9 @@ export const mozoService = realMozoService;
 
 // Módulo Plano de Mesas (CU-ADMIN-01): 100% conectado directamente a la API de Laravel
 export const planoService = realPlanoService;
+
+// Predicción de demanda y reposición (CU-ADMIN-07, CU-PROP-08): 100% conectado a la API de Laravel
+export const prediccionService = realPrediccionService;
 
 // Módulo Caja POS: 100% conectado directamente a la API de Laravel
 export const cajaService = realCajaService;
