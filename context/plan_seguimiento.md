@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 20/11/2026. Etapas 0 a 4 y 5A cerradas; la siguiente es la 5B (ms-pronóstico).
+**Última actualización:** 20/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está en curso: 5B.0 cerrada, sigue la 5B.1.
 
 ## Contexto
 
@@ -24,7 +24,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | Extra: identificadores ordenados | Cerrada | Suite completa: 639 pruebas |
 | 4. Datos sintéticos | Cerrada | 24 meses de ÁUREA en 3 min 45 s; 111 pruebas de ms-analítica; humo: 28 comprobaciones |
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
-| 5B. ms-pronóstico | **Siguiente** | — |
+| 5B. ms-pronóstico | **En curso** (5B.0 cerrada) | Ficha `doc-2u/servicios/ms-pronostico.md` con D-21 aplicada |
 
 ---
 
@@ -201,6 +201,36 @@ El P90 cubre 86,1 % de los días en Stuttgart (objetivo 90 %). En ÁUREA, frente
 
 ---
 
+## Etapa 5B. ms-pronóstico — en curso
+
+Se divide en pasos que dejan algo demostrable cada uno. 5B.0 a 5B.3 dejan el servicio probado por sí solo (pytest), antes de tocar el núcleo.
+
+| Paso | Contenido | Demostrable | Estado |
+|---|---|---|---|
+| 5B.0 Ficha | D-21 aplicada a `doc-2u/servicios/ms-pronostico.md`; detalle de los 3 endpoints, carga del modelo, configuración y decisiones cerradas | El contrato antes que el código | Cerrada |
+| 5B.1 Esqueleto | `app/soporte/` copiado de ms-analítica, config, `/health`, Alembic con las 3 tablas, usuario `pronostico_app` sin DDL, Dockerfile, servicio y migraciones en el compose (puerto 8002) | Contenedor arriba, migrado y sano | Siguiente |
+| 5B.2 Baseline | `POST /interno/pronosticos` con `artefacto=None`, serie de ms-analítica (365 días), calendario, guardado de solo agregado, idempotencia por `solicitud_id`, `GET /interno/pronosticos/{id}`, 503 si ms-analítica cae | Pronóstico de punta a punta sin modelo | — |
+| 5B.3 Modelo | `rc_pronostico` en la imagen (dependencia por ruta y contexto adicional), repositorio montado de solo lectura, carga verificada, registro en `modelo_version`, vuelta al modelo anterior o al baseline, `GET /interno/modelos/vigente` | `metodo = modelo` en ÁUREA; un archivo alterado no se usa | — |
+| 5B.4 Núcleo | Cliente firmado, `POST /api/v1/admin/pronosticos` y compañía, `jornada_actual` y cierres futuros, `recomendacion_reposicion`, reposición con `P90 − P50`, plan Pro y `incluye_prediccion_ia` | Reposición sugerida por API | — |
+| 5B.5 React | Pantalla de pronóstico y reposición (CU-ADMIN-07) y vista del propietario (CU-PROP-08) | Flujo de la demostración | — |
+| 5B.6 Humo | `scripts/smoke-pronostico.sh` con evidencias | Prueba de punta a punta para el informe | — |
+
+### Decisiones de la 5B.0 (20/11)
+
+- **El núcleo informa la `jornada_actual`** (la conoce por su horario y la zona horaria del local). ms-pronóstico pide datos hasta la jornada anterior y pasa `hoy = jornada_actual` a `pronosticar`, así que no deduce fechas en UTC.
+- **Ventana de 365 días en una sola petición** a ms-analítica, sin filtrar productos. Da el mismo pronóstico que el historial completo (las variables miran 63 días atrás) y evita los tramos de 730.
+- **Cierres:** regla de respaldo para el historial, unida a los cierres del periodo que envía el núcleo. **Feriados:** `holidays==0.109` en el servicio, como en el entrenamiento.
+- **El baseline no es una fila de `modelo_version`:** sin modelo, `ejecucion.modelo_version_id` es nulo.
+- **El modelo se revisa por local en cada pronóstico** (como mucho cada 60 s); si una versión nueva no se verifica, se sigue con la anterior y, si no hay, con el baseline.
+- **`pronostico.generado` pasa a la etapa 7**, junto con su consumidor.
+- **Versiones fijadas como en `model-ia/uv.lock`:** scikit-learn 1.7.2, skops 0.13.0, numpy 2.5.5, pandas 3.1.1 y holidays 0.109.
+
+### Antes de la demostración
+
+- El histórico sintético de `analitica_db` termina el 2026-11-17. Los días posteriores llegan en 0 y la regla de respaldo los toma como cerrados. Extender la carga sintética hasta ayer antes de demostrar.
+
+---
+
 ## Hoja de ruta (se detalla al llegar)
 
 | Etapa | Contenido | Requisito de la guía que cubre |
@@ -219,7 +249,7 @@ Orden recomendado si el tiempo aprieta: 4 → 5 → 8 antes que 6 y 7, porque IA
 - **Carga inicial de ventas históricas.** Un evento publicado antes de configurar `ANALITICA_URL` no tiene entrega para ese destino y no se recupera solo. El generador sintético de la etapa 4 **no** entra por el outbox (ver sus decisiones); el histórico real, si se necesita, se reenvía con `outbox:reenviar-eventos`.
 - **Plan y predicción (etapa 5B).** En `06_seed_initial_data.sql` el plan Pro tiene `incluye_prediccion_ia = false`, y CU-PROP-08 dice «Pro/Enterprise». Hay que alinear plan, seed y caso de uso, y ÁUREA está en el plan Pro.
 - **Promociones como variable del modelo.** Quedan fuera de la versión 1 del modelo (D-12). Para pronosticar días futuros con promoción, el núcleo debe enviar a ms-pronóstico las promociones planificadas; ms-analítica solo conoce las usadas.
-- **Quién envía cierres y feriados en producción (etapa 5B).** ms-analítica no los entrega; el modelo usa la regla de respaldo para los cierres y la librería `holidays` para los feriados (D-23).
+- ~~**Quién envía cierres y feriados en producción.**~~ Resuelto en la 5B.0: el núcleo envía los cierres del periodo pronosticado; los del historial salen de la regla de respaldo y los feriados de `holidays` en ms-pronóstico.
 - **Demanda censurada.** Los días con platos agotados subestiman la demanda y el modelo la aprende más baja. Sin historial de disponibilidad no se puede corregir; limitación a documentar en el informe.
 - **Conciliación por jornada** (pieza 5 de la propuesta de resiliencia): ms-analítica expone totales por jornada y el núcleo reenvía lo que no cuadre. Junto con ms-pronóstico.
 - **Alerta de entregas fallidas** en ms-notificaciones (etapa 7).

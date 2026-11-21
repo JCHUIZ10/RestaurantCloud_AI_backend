@@ -14,7 +14,7 @@ Sobre, reglas de entrega y plantilla: [README.md](README.md), sección 4.
 | `reserva.creada` | núcleo | | ✔ | Se registra una reserva |
 | `reserva.cancelada` | núcleo | | ✔ | Se cancela una reserva o se registra un no-show |
 | `caja.cerrada` | núcleo | | ✔ | Se cierra un turno de caja con diferencia en el arqueo |
-| `pronostico.generado` | ms-pronóstico | | ✔ | Termina una ejecución de pronóstico |
+| `pronostico.generado` | ms-pronóstico | | ✔ | Termina una ejecución de pronóstico. Se implementa con ms-notificaciones (etapa 7) |
 
 La lista es la propuesta inicial. Un evento se agrega solo cuando algún servicio lo necesita.
 

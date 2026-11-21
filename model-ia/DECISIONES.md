@@ -29,7 +29,7 @@ Cada entrada dice qué podía salir mal, qué se decidió y por qué. Las marcad
 | D-18 | Reproducibilidad | Decidida |
 | D-19 | Entorno propio de `model-ia` | Decidida |
 | D-20 | Limitaciones que se declaran | Decidida |
-| D-21 | Cambios que esto obliga en `doc-2u/servicios/ms-pronostico.md` | Completa; se aplica al empezar la integración |
+| D-21 | Cambios que esto obliga en `doc-2u/servicios/ms-pronostico.md` | Aplicada en la ficha (etapa 5B.0), con dos ajustes |
 | D-22 | Repositorio de modelos | Decidida |
 | D-23 | Coherencia de la entrada con ms-analítica | Decidida; verificada con datos |
 
@@ -101,7 +101,7 @@ Consecuencias:
 - En Stuttgart, los días cerrados son los que no tienen fila.
 - En el pronóstico, un día cerrado conocido devuelve 0 con `metodo = cerrado`.
 
-**Pendiente para la integración:** quién envía los cierres futuros. El núcleo conoce los horarios y las excepciones del local.
+**Resuelto en la integración (ficha de ms-pronóstico, 5B.0):** los cierres del historial los detecta la regla de respaldo, como al entrenar ÁUREA, y los del periodo pronosticado los envía el núcleo en la petición (`dias_cerrados`), a partir de `horario_atencion` y `horario_excepcion`. ms-pronóstico pasa a `rc_pronostico` la unión de las dos listas, porque si llega una lista `rc_pronostico` no aplica la regla de respaldo.
 
 ## D-06. Un modelo por local, con el plato como variable
 
@@ -284,7 +284,14 @@ Se aplican al empezar la integración, no ahora:
 - Lectura de la serie: pedirla por tramos de hasta 730 días cuando el historial supere ese rango (D-23).
 - `prediccion.motivo`: lista cerrada de CONTRATO 4.1 (`historial_minimo`, `modelo_no_disponible`, `producto_no_visto`, `historial_reciente_insuficiente`).
 - Dependencias del servicio: instala `rc_pronostico` con `scikit-learn==1.7.2` y `skops==0.13.0` (los de `uv.lock`). Usa `artefacto.cargar(raiz, local_id)`; si lanza `ErrorArtefacto` (huella, versión, variables o tipo no confiable), llama a `pronosticar(..., artefacto=None)` y responde con baseline. Pasa `hoy=` a `pronosticar` para rechazar un historial que incluya el día en curso.
-- Quién envía en producción los cierres y feriados futuros: pendiente de la integración (D-05, D-23). Sin cierres futuros, un día cerrado conocido solo por el núcleo se pronosticaría como abierto.
+- Quién envía en producción los cierres y feriados futuros: resuelto en la ficha (ver abajo).
+
+**Aplicada (20/11/2026, etapa 5B.0)** en [`doc-2u/servicios/ms-pronostico.md`](../doc-2u/servicios/ms-pronostico.md). Dos ajustes sobre lo previsto:
+
+- **Ventana de 365 días en vez de tramos.** Las variables miran como mucho 63 días antes del corte y las reglas, 56. Con una ventana de 365 días el pronóstico es igual al del historial completo (salvo un plato sin ventas en el último año, que queda `sin_historial`) y nunca se llega al límite de 730 días de ms-analítica. Se comprueba con una prueba del servicio.
+- **Cierres y feriados:** cierres pasados por la regla de respaldo, unidos a los futuros que envía el núcleo; feriados con `holidays==0.109` dentro del servicio, como en el cuaderno 02. Además, el núcleo informa la `jornada_actual` y el servicio pasa `hoy = jornada_actual` a `pronosticar`.
+
+También cambió, respecto de la primera ficha, que el baseline ya no es una fila de `modelo_version`: una ejecución sin modelo tiene `modelo_version_id` nulo.
 
 ## D-22. Repositorio de modelos
 

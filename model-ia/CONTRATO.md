@@ -117,4 +117,4 @@ Reglas de seguridad y compatibilidad:
 
 - Promociones, precio y clima: no son variables de la versión 1 (D-12).
 - Demanda censurada por platos agotados: limitación conocida (D-20).
-- Cómo se transporta todo esto entre el núcleo, ms-pronóstico y ms-analítica: se define en la integración.
+- Cómo se transporta todo esto entre el núcleo, ms-pronóstico y ms-analítica: en la ficha del servicio, [`doc-2u/servicios/ms-pronostico.md`](../doc-2u/servicios/ms-pronostico.md).
