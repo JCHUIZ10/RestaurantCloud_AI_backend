@@ -41,6 +41,13 @@ return [
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
     ],
 
+    // ms-pronóstico (doc-2u/servicios/ms-pronostico.md). Las rutas /interno se firman con HMAC.
+    'pronostico' => [
+        'url' => env('PRONOSTICO_URL'),
+        'secreto' => env('PRONOSTICO_SECRETO'),
+        'timeout_segundos' => (int) env('PRONOSTICO_TIMEOUT_SEGUNDOS', 30),
+    ],
+
     'apiperu' => [
         'base_url' => env('APIDEV_BASE_URL', 'https://api.apiperu.dev'),
         'token' => env('APIDEV_TOKEN'),
@@ -48,4 +55,3 @@ return [
     ],
 
 ];
-

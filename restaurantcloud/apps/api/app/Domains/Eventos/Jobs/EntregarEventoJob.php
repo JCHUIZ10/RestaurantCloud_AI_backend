@@ -4,6 +4,7 @@ namespace App\Domains\Eventos\Jobs;
 
 use App\Domains\Eventos\Enums\MotivoFallo;
 use App\Domains\Eventos\Services\PausaDeDestinos;
+use App\Support\FirmaInterna;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -128,7 +129,7 @@ class EntregarEventoJob implements ShouldQueue
      */
     public static function firmar(string $timestamp, string $cuerpo, string $secreto): string
     {
-        return hash_hmac('sha256', "{$timestamp}.{$cuerpo}", $secreto);
+        return FirmaInterna::firmar($timestamp, $cuerpo, $secreto);
     }
 
     private function registrarFallo(object $entrega, string $error, MotivoFallo $motivo): void
