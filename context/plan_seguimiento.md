@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 21/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está en curso: 6.0 (ficha), 6.1 (JWT en el núcleo) y 6.2 (validación en ms-analítica) cerradas; sigue la 6.3 (los 4 reportes).
+**Última actualización:** 21/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está en curso: 6.0 a 6.3 cerradas (ficha, JWT en el núcleo, validación en ms-analítica y los 4 reportes); sigue la 6.4 (Kong).
 
 ## Contexto
 
@@ -25,7 +25,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | 4. Datos sintéticos | Cerrada | 24 meses de ÁUREA en 3 min 45 s; 111 pruebas de ms-analítica; humo: 28 comprobaciones |
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
 | 5B. ms-pronóstico | Cerrada salvo la revisión en navegador | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo; humo: 108 comprobaciones |
-| 6. JWT y gateway | **En curso** (6.0 a 6.2 cerradas) | Ficha; JWT RS256 en todos los inicios de sesión y validado por ms-analítica (un token del núcleo en PHP lo acepta el código Python); 11 pruebas nuevas en el núcleo y 33 en ms-analítica (148 en total) |
+| 6. JWT y gateway | **En curso** (6.0 a 6.3 cerradas) | JWT RS256 en todos los inicios de sesión, validado por ms-analítica; 4 reportes de CU-ADMIN-13 sobre los 2 años de ÁUREA en menos de 0,1 s; núcleo: 11 pruebas nuevas; ms-analítica: 180 |
 
 ---
 
@@ -320,7 +320,7 @@ Se divide como la 5B: primero el contrato, después cada pieza probada por sí s
 | 6.0 Ficha | Claims del JWT, `POST /auth/token-servicios`, `GET /auth/clave-publica`, los 4 reportes de ms-analítica en detalle, rutas y políticas de Kong | El contrato antes que el código | Cerrada |
 | 6.1 JWT en el núcleo | Emisor RS256 propio con `openssl` (sin dependencias nuevas) dentro de `SesionService` (login, selección de cuenta, refresh, activación y registro), endpoint de renovación, clave pública, `php artisan jwt:claves`, variables en `.env.example` | Login que devuelve un JWT verificable con la clave pública | Cerrada |
 | 6.2 JWT en ms-analítica | `soporte/jwt.py` (copiable a ms-notificaciones), dependencia de sesión con rol, empresa, sede y módulos | Pruebas de firma, caducidad, emisor, audiencia, rol y sede | Cerrada |
-| 6.3 Reportes | `ventas/resumen`, `ventas/por-hora`, `productos/ranking` (con ingeniería de menú) y `personal/desempeno`, con pytest contra PostgreSQL real | Reportes de ÁUREA con el histórico sintético | Pendiente |
+| 6.3 Reportes | `ventas/resumen`, `ventas/por-hora`, `productos/ranking` (con ingeniería de menú) y `personal/desempeno`, con pytest contra PostgreSQL real | Reportes de ÁUREA con el histórico sintético | Cerrada |
 | 6.4 Kong | `infra/kong` (DB-less, plantilla con la clave pública), servicio en el compose (puerto 8000), JWT en `/api/v1/analitica`, límite de peticiones, CORS, `X-Request-Id`; Vite pasa a apuntar a Kong | Todo el tráfico del navegador entra por Kong; `/interno` no se expone | Pendiente |
 | 6.5 React | Cliente de microservicios con renovación del JWT y pantalla «Reportes» de 3 pestañas (CU-ADMIN-13) | Flujo del navegador a ms-analítica por Kong | Pendiente |
 | 6.6 Humo | `scripts/smoke-gateway.sh` con evidencias | Prueba de punta a punta para el informe | Pendiente |
@@ -351,7 +351,16 @@ Se divide como la 5B: primero el contrato, después cada pieza probada por sí s
 - **Un fallo que encontró una prueba:** con una clave pública mal formada, PyJWT lanza `InvalidKeyError`, que no es un token inválido, y la petición terminaba en 500. Ahora responde 503 `ERR_JWT_NO_CONFIGURADO`, porque es un error de despliegue y no del cliente.
 - **Configuración:** `JWT_PUBLIC_KEY` (PEM, con `\n` literales o con saltos reales), `JWT_EMISOR`, `JWT_AUDIENCIA` y `JWT_TOLERANCIA_SEGUNDOS`; el compose pasa `JWT_PUBLIC_KEY` al servicio.
 - **Verificado:** 33 pruebas nuevas (sin base de datos, con una app mínima) y la suite completa en verde: 148. Con mutaciones se comprobó que las pruebas detectan quitar la audiencia (13 fallan), el emisor, el algoritmo fijo y la comprobación de rol. **Entre lenguajes:** un JWT emitido por el núcleo real (PHP) lo valida `verificar_jwt`, con la clave tal como la publica `GET /auth/clave-publica` y en una línea con `\n`; también **dentro del contenedor** de ms-analítica reconstruido, con la clave tal como la pasa el compose.
-- **Todavía sin ruta que lo use:** `/interno` y `/health` no piden JWT; las rutas de reportes llegan en la 6.3.
+- **`/interno` y `/health` no piden JWT**; las rutas de reportes lo usan desde la 6.3.
+
+### Lo que dejó la 6.3 (21/11)
+
+- **Cuatro rutas en `app/api/reportes.py`**, con el mismo reparto que la serie: SQL en `app/datos/reportes.py` y cálculos puros en `app/dominio/reportes.py` (periodo anterior, cocientes, variaciones y la matriz de ingeniería de menú). Todo se calcula en SQL sobre `venta`, `venta_item` y `anulacion`; no hizo falta pandas ni tablas derivadas nuevas.
+- **Empresa siempre del token.** Cada consulta filtra por `empresa_id` y `local_id`; `venta_item` no guarda la empresa, así que se filtra a través de su `venta`. Una sede de otra empresa responde vacía.
+- **Decisiones de cálculo** (ya en la ficha): una métrica sin base vale `null`, no 0; `comprobantes_por_dia` divide entre días con ventas, para que los cierres no bajen el promedio; el ticket por comensal usa solo los comprobantes que traen comensales (una subcuenta no los trae); un plato al que le falte `costo_estandar` en alguna venta del periodo queda sin costo y fuera de la matriz; empate de hora punta, la más temprana; montos con redondeo comercial.
+- **Verificado:** 32 pruebas nuevas (8 del dominio sin base, con la matriz calculada a mano, y 24 de integración contra PostgreSQL con ventas que entran por `POST /interno/eventos`); suite completa de ms-analítica en verde, **180**. **Mutaciones:** quitar el filtro de anuladas, usar la hora UTC, quitar el filtro de empresa en ventas, promediar por días del calendario o tratar las anulaciones sin mozo como un mozo hace fallar pruebas. Quitar el filtro de empresa del **ranking** y de las **anulaciones** al principio no rompía ninguna, porque la prueba de aislamiento solo miraba el resumen; se agregó una que recorre las cuatro rutas con datos de otra empresa en la misma sede, y ahora ambas mutaciones se detectan.
+- **Con los datos reales de ÁUREA** (contenedor reconstruido y JWT emitido por el núcleo): del 1 al 20 de noviembre, S/ 257 578 en 1 115 comprobantes, ticket promedio S/ 231,01, +15,7 % frente al periodo anterior, hora punta a las 14:00, 20 platos con los cuatro cuadrantes poblados (Lomo Saltado Criollo, estrella) y 3 mozos. Cuadran entre sí: la suma de las 24 franjas es el total del resumen y los comprobantes del desempeño suman los del resumen. Un año completo: 19 838 comprobantes en 363 días (los 2 cierres). **Tiempos:** menos de 0,1 s en todas, incluido el ranking de 366 días. Respuestas en `doc-2u/evidencias/reportes-6.3/` (no se versiona).
+- **Límite conocido:** el histórico sintético no tiene anulaciones previas al cobro (`pedido.anulado`), así que en ÁUREA esa parte del desempeño sale en 0; las pruebas la cubren con datos propios.
 
 ---
 

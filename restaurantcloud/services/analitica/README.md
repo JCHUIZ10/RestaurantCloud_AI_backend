@@ -1,19 +1,19 @@
 # ms-analítica
 
-Recibe los eventos de ventas del núcleo Laravel, mantiene la serie diaria de unidades por producto y la entrega a ms-pronóstico. Contrato: `doc-2u/servicios/ms-analitica.md` y `eventos.md` (raíz del repositorio). Este servicio no importa código de otros servicios.
+Recibe los eventos de ventas del núcleo Laravel, mantiene la serie diaria de unidades por producto y la entrega a ms-pronóstico, y sirve al navegador los reportes de ventas y desempeño (CU-ADMIN-13). Contrato: `doc-2u/servicios/ms-analitica.md` y `eventos.md` (raíz del repositorio). Este servicio no importa código de otros servicios.
 
-**Stack:** Python 3.12 · FastAPI · SQLAlchemy 2 (Core) · Alembic · PostgreSQL propio · uv.
+**Stack:** Python 3.12 · FastAPI · SQLAlchemy 2 (Core) · Alembic · PyJWT · PostgreSQL propio · uv.
 
-**Estado:** completo para la Etapa 2: recibe los tres eventos (`POST /interno/eventos`) y entrega la serie (`GET /interno/series/ventas-diarias`).
+**Estado:** recibe los tres eventos (`POST /interno/eventos`), entrega la serie (`GET /interno/series/ventas-diarias`) y expone los cuatro reportes de CU-ADMIN-13 bajo `/api/v1/analitica` (`ventas/resumen`, `ventas/por-hora`, `productos/ranking` y `personal/desempeno`), protegidos con el JWT del núcleo (etapa 6). Sin `JWT_PUBLIC_KEY`, los reportes responden 503 y el resto sigue igual.
 
 ## Estructura
 
 ```
 app/
   api/       endpoints (routers); validan, llaman a dominio y responden
-  dominio/   qué hacer con cada evento, validación del rango de una serie
+  dominio/   qué hacer con cada evento, rangos, y cálculos de los reportes (ingeniería de menú)
   datos/     acceso a la base; aquí vive el filtro por empresa y local
-  soporte/   piezas transversales sin reglas de negocio: respuestas, firma, X-Request-Id, logs
+  soporte/   piezas transversales sin reglas de negocio: respuestas, firma, JWT y sede, X-Request-Id, logs
   config.py  variables de entorno
 migrations/  Alembic (las 7 tablas del diseño)
 tests/       pytest contra PostgreSQL real
