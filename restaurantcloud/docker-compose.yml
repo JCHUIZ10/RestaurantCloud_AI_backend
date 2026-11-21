@@ -316,12 +316,68 @@ services:
       POSTGRES_USER: ${PRONOSTICO_DB_USER}
       POSTGRES_PASSWORD: ${PRONOSTICO_DB_PASSWORD}
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
+      # Los usa 01-usuarios.sh para crear el usuario de la aplicación (solo al inicializar el volumen).
+      PRONOSTICO_DB_APP_USER: ${PRONOSTICO_DB_APP_USER}
+      PRONOSTICO_DB_APP_PASSWORD: ${PRONOSTICO_DB_APP_PASSWORD}
     ports:
       - "${PRONOSTICO_DB_PORT:-5434}:5432"
     volumes:
       - pronostico_data:/var/lib/postgresql/data
+      - ./infra/postgres/pronostico:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${PRONOSTICO_DB_USER} -d ${PRONOSTICO_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - saas_network
+
+  # ---------------------------------------------------------------------------
+  # ms-pronóstico
+  # ---------------------------------------------------------------------------
+  # Corre una vez las migraciones con el usuario administrador y termina (igual que ms-analítica).
+  # `model_ia` es el contexto adicional del que la imagen toma el paquete rc_pronostico.
+  pronostico-migraciones:
+    build:
+      context: ./services/pronostico
+      additional_contexts:
+        model_ia: ../model-ia
+    container_name: restaurantcloudIA_pronostico_migraciones
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      MIGRATIONS_DATABASE_URL: postgresql+psycopg://${PRONOSTICO_DB_USER}:${PRONOSTICO_DB_PASSWORD}@db-pronostico:5432/${PRONOSTICO_DB_NAME}
+      # Usuario al que la migración 0002 concede sus permisos.
+      APP_DB_USER: ${PRONOSTICO_DB_APP_USER}
+    depends_on:
+      db-pronostico:
+        condition: service_healthy
+    networks:
+      - saas_network
+
+  pronostico:
+    build:
+      context: ./services/pronostico
+      additional_contexts:
+        model_ia: ../model-ia
+    container_name: restaurantcloudIA_pronostico
+    restart: unless-stopped
+    ports:
+      - "${PRONOSTICO_PORT:-8002}:8002"
+    environment:
+      PORT: 8002
+      DATABASE_URL: postgresql+psycopg://${PRONOSTICO_DB_APP_USER}:${PRONOSTICO_DB_APP_PASSWORD}@db-pronostico:5432/${PRONOSTICO_DB_NAME}
+      SECRETO_INTERNO: ${PRONOSTICO_SECRETO}
+      ZONA_HORARIA: America/Lima
+      MODELOS_REPOSITORIO: file:///repositorio
+    volumes:
+      # Solo lectura: publicar modelos es tarea de model-ia (cuaderno 07), no del servicio.
+      - ../model-ia/repositorio:/repositorio:ro
+    depends_on:
+      pronostico-migraciones:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health', timeout=3)"]
       interval: 10s
       timeout: 5s
       retries: 5
