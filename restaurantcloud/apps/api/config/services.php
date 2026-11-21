@@ -46,6 +46,8 @@ return [
         'url' => env('PRONOSTICO_URL'),
         'secreto' => env('PRONOSTICO_SECRETO'),
         'timeout_segundos' => (int) env('PRONOSTICO_TIMEOUT_SEGUNDOS', 30),
+        // Reserva mínima de la reposición en los días sin modelo (doc-2u/03-prediccion-en-locales-nuevos.md, N-2).
+        'reserva_minima' => (float) env('PREDICCION_RESERVA_MINIMA', 0.35),
     ],
 
     'apiperu' => [

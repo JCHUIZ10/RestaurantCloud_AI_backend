@@ -61,6 +61,30 @@ class PronosticoCliente
     }
 
     /**
+     * Métricas del modelo vigente de un local (GET /interno/modelos/vigente). `null` si el local no tiene
+     * modelo o el servicio no responde: sirven para mostrar la precisión, no para decidir nada.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function metricasDelModelo(string $empresaId, string $localId): ?array
+    {
+        $consulta = "empresa_id={$empresaId}&local_id={$localId}";
+
+        try {
+            $respuesta = $this->enviar(
+                fn (string $url, string $secreto): Response => $this->peticion($consulta, $secreto)
+                    ->get("{$url}/interno/modelos/vigente?{$consulta}"),
+            );
+        } catch (PronosticoException) {
+            return null;
+        }
+
+        $metricas = $respuesta->successful() ? $respuesta->json('datos.modelo.metricas') : null;
+
+        return is_array($metricas) ? $metricas : null;
+    }
+
+    /**
      * @param  \Closure(string, string): Response  $llamada
      */
     private function enviar(\Closure $llamada): Response

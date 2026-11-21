@@ -3,6 +3,7 @@
 namespace App\Domains\Pronostico\Services;
 
 use App\Domains\Pronostico\Exceptions\PronosticoException;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -12,24 +13,33 @@ use Illuminate\Support\Facades\DB;
  * Por insumo y para los primeros `cobertura` días del pronóstico:
  *
  *     consumo_previsto  = Σ P50 del plato × cantidad por plato (receta)
- *     margen_seguridad  = Σ (P90 − P50) del plato × cantidad por plato
+ *     margen_seguridad  = Σ reserva del plato × cantidad por plato
  *     cantidad_sugerida = máx(0, consumo_previsto + margen_seguridad − stock)
  *
- * El margen es lo que el modelo considera posible por encima de lo esperado: se pide para tener el
- * insumo aun en un día de más demanda. La recomendación es apoyo a la decisión; no genera compras.
+ * La reserva de un día es `P90 − P50`. En los días sin modelo (`baseline`) no baja de `reserva_minima × P50`,
+ * porque con pocos días de ventas el P90 no es confiable (doc-2u/03-prediccion-en-locales-nuevos.md, N-2).
+ * Un insumo por debajo de su stock mínimo siempre entra, aunque ninguna receta lo consuma (N-4).
+ * La recomendación es apoyo a la decisión; no genera compras.
  */
 class ReposicionService
 {
+    /** Unidades que se compran enteras: se redondea hacia arriba. */
+    private const UNIDADES_CONTABLES = ['und', 'botella', 'lata', 'caja', 'paquete', 'saco', 'bidon', 'jaba'];
+
+    private const ORDEN_PRIORIDAD = "CASE r.prioridad WHEN 'urgente' THEN 0 WHEN 'pronto' THEN 1 ELSE 2 END";
+
     /**
      * @param  array<int, array<string, mixed>>  $predicciones  `predicciones` de ms-pronóstico
      * @param  array<string, list<array{insumo_id: string, cantidad: float}>>  $recetas  por producto_id
-     * @param  array<string, float>  $stock  stock actual por insumo_id
-     * @return array<string, array{consumo_previsto: float, margen_seguridad: float, stock_al_calcular: float, cantidad_sugerida: float}>
+     * @param  array<string, array{stock: float, minimo: float, unidad: string}>  $insumos  insumos activos de la sede
+     * @return array<string, array{consumo_previsto: float, margen_seguridad: float, stock_al_calcular: float, stock_minimo_al_calcular: float, cantidad_sugerida: float, alcanza_dias: int|null, prioridad: string, motivo: string}>
      */
-    public function calcular(array $predicciones, array $recetas, array $stock, int $cobertura): array
+    public function calcular(array $predicciones, array $recetas, array $insumos, int $cobertura, float $reservaMinima = 0.0): array
     {
         $consumo = [];
         $margen = [];
+        $porDia = [];
+        $horizonte = 0;
 
         foreach ($predicciones as $plato) {
             $receta = $recetas[$plato['producto_id']] ?? [];
@@ -37,16 +47,25 @@ class ReposicionService
                 continue;
             }
 
-            $dias = array_slice($plato['dias'], 0, $cobertura);
-            $p50 = array_sum(array_map(fn (array $dia): float => (float) $dia['p50'], $dias));
-            $holgura = array_sum(array_map(
-                fn (array $dia): float => max(0.0, (float) $dia['p90'] - (float) $dia['p50']),
-                $dias,
-            ));
+            foreach ($plato['dias'] as $i => $dia) {
+                $p50 = (float) $dia['p50'];
+                $reserva = max(0.0, (float) $dia['p90'] - $p50);
+                if (($dia['metodo'] ?? null) === 'baseline') {
+                    $reserva = max($reserva, $reservaMinima * $p50);
+                }
+                $horizonte = max($horizonte, $i + 1);
 
-            foreach ($receta as $linea) {
-                $consumo[$linea['insumo_id']] = ($consumo[$linea['insumo_id']] ?? 0.0) + $p50 * $linea['cantidad'];
-                $margen[$linea['insumo_id']] = ($margen[$linea['insumo_id']] ?? 0.0) + $holgura * $linea['cantidad'];
+                foreach ($receta as $linea) {
+                    $insumoId = $linea['insumo_id'];
+                    if (! isset($insumos[$insumoId])) {
+                        continue;
+                    }
+                    $porDia[$insumoId][$i] = ($porDia[$insumoId][$i] ?? 0.0) + $p50 * $linea['cantidad'];
+                    if ($i < $cobertura) {
+                        $consumo[$insumoId] = ($consumo[$insumoId] ?? 0.0) + $p50 * $linea['cantidad'];
+                        $margen[$insumoId] = ($margen[$insumoId] ?? 0.0) + $reserva * $linea['cantidad'];
+                    }
+                }
             }
         }
 
@@ -56,16 +75,67 @@ class ReposicionService
                 continue;
             }
 
-            $actual = $stock[$insumoId] ?? 0.0;
+            $datos = $insumos[$insumoId];
+            $alcanza = $this->diasQueAlcanza($porDia[$insumoId], $horizonte, $datos['stock']);
             $resultado[$insumoId] = [
                 'consumo_previsto' => round($previsto, 3),
                 'margen_seguridad' => round($margen[$insumoId], 3),
-                'stock_al_calcular' => round($actual, 3),
-                'cantidad_sugerida' => round(max(0.0, $previsto + $margen[$insumoId] - $actual), 3),
+                'stock_al_calcular' => round($datos['stock'], 3),
+                'stock_minimo_al_calcular' => round($datos['minimo'], 3),
+                'cantidad_sugerida' => $this->redondear(max(0.0, $previsto + $margen[$insumoId] - $datos['stock']), $datos['unidad']),
+                'alcanza_dias' => $alcanza,
+                'prioridad' => match (true) {
+                    $datos['stock'] < $datos['minimo'], $alcanza === 0 => 'urgente',
+                    $alcanza < $cobertura => 'pronto',
+                    default => 'cubierto',
+                },
+                'motivo' => 'consumo',
+            ];
+        }
+
+        foreach ($insumos as $insumoId => $datos) {
+            if (isset($resultado[$insumoId]) || $datos['stock'] >= $datos['minimo']) {
+                continue;
+            }
+            $resultado[$insumoId] = [
+                'consumo_previsto' => 0.0,
+                'margen_seguridad' => 0.0,
+                'stock_al_calcular' => round($datos['stock'], 3),
+                'stock_minimo_al_calcular' => round($datos['minimo'], 3),
+                'cantidad_sugerida' => $this->redondear($datos['minimo'] - $datos['stock'], $datos['unidad']),
+                'alcanza_dias' => null,
+                'prioridad' => 'urgente',
+                'motivo' => 'bajo_minimo',
             ];
         }
 
         return $resultado;
+    }
+
+    /**
+     * Días seguidos, desde el primero, que el stock cubre el consumo más probable.
+     *
+     * @param  array<int, float>  $consumoPorDia
+     */
+    private function diasQueAlcanza(array $consumoPorDia, int $horizonte, float $stock): int
+    {
+        $acumulado = 0.0;
+        for ($i = 0; $i < $horizonte; $i++) {
+            $acumulado += $consumoPorDia[$i] ?? 0.0;
+            if ($acumulado > $stock) {
+                return $i;
+            }
+        }
+
+        return $horizonte;
+    }
+
+    private function redondear(float $cantidad, string $unidad): float
+    {
+        // Se pide de más antes que de menos; el round previo quita el ruido de la coma flotante.
+        return in_array($unidad, self::UNIDADES_CONTABLES, true)
+            ? (float) ceil(round($cantidad, 4))
+            : ceil(round($cantidad * 10, 4)) / 10;
     }
 
     /**
@@ -85,8 +155,15 @@ class ReposicionService
             ->exists();
 
         if (! $yaCalculada) {
-            [$recetas, $stock] = $this->recetasYStock($localId, array_column($pronostico['predicciones'], 'producto_id'));
-            $calculo = $this->calcular($pronostico['predicciones'], $recetas, $stock, $cobertura);
+            $insumos = $this->insumosActivos($localId);
+            $recetas = $this->recetas($localId, array_column($pronostico['predicciones'], 'producto_id'));
+            $calculo = $this->calcular(
+                $pronostico['predicciones'],
+                $recetas,
+                array_map(fn (object $i): array => ['stock' => (float) $i->stock_actual, 'minimo' => (float) $i->stock_minimo, 'unidad' => $i->unidad_medida], $insumos),
+                $cobertura,
+                (float) config('services.pronostico.reserva_minima'),
+            );
 
             $ahora = now();
             $filas = [];
@@ -97,6 +174,8 @@ class ReposicionService
                     'insumo_id' => $insumoId,
                     'cobertura_dias' => $cobertura,
                     ...$fila,
+                    'costo_unitario_al_calcular' => (float) $insumos[$insumoId]->costo_unitario,
+                    'proveedor_id' => $insumos[$insumoId]->ultimo_proveedor_id,
                     'created_at' => $ahora,
                 ];
             }
@@ -111,34 +190,15 @@ class ReposicionService
      */
     public function deEjecucion(string $ejecucionId, string $localId): array
     {
-        return DB::table('recomendacion_reposicion as r')
-            ->join('insumo as i', 'i.id', '=', 'r.insumo_id')
+        return $this->consulta()
             ->where('r.ejecucion_id', $ejecucionId)
             ->where('r.local_id', $localId)
+            ->orderByRaw(self::ORDEN_PRIORIDAD)
             ->orderByDesc('r.cantidad_sugerida')
             ->orderBy('i.nombre')
             ->get($this->columnas())
             ->map(fn (object $fila): array => $this->presentar($fila))
             ->all();
-    }
-
-    /**
-     * Última ejecución con recomendaciones del local.
-     *
-     * @return array{ejecucion_id: string, cobertura_dias: int, creada_en: string}|null
-     */
-    public function ultimaEjecucion(string $localId): ?array
-    {
-        $fila = DB::table('recomendacion_reposicion')
-            ->where('local_id', $localId)
-            ->orderByDesc('created_at')
-            ->first(['ejecucion_id', 'cobertura_dias', 'created_at']);
-
-        return $fila === null ? null : [
-            'ejecucion_id' => $fila->ejecucion_id,
-            'cobertura_dias' => (int) $fila->cobertura_dias,
-            'creada_en' => $this->instante($fila->created_at),
-        ];
     }
 
     /**
@@ -175,37 +235,96 @@ class ReposicionService
             throw new PronosticoException('ERR_REPOSICION_YA_DECIDIDA', "Esta recomendación ya fue {$actual->estado}.", 409);
         }
 
-        return $this->presentar(
-            DB::table('recomendacion_reposicion as r')
-                ->join('insumo as i', 'i.id', '=', 'r.insumo_id')
-                ->where('r.id', $id)
-                ->first($this->columnas()),
-        );
+        return $this->presentar($this->consulta()->where('r.id', $id)->first($this->columnas()));
     }
 
     /**
-     * Recetas de los platos pedidos y stock de los insumos que usan (solo insumos no inactivos).
+     * Varias decisiones a la vez (la pantalla de compra): o se guardan todas o ninguna.
      *
-     * @param  list<string>  $productos
-     * @return array{0: array<string, list<array{insumo_id: string, cantidad: float}>>, 1: array<string, float>}
+     * @param  list<array{id: string, estado: string, cantidad_final?: float|null}>  $decisiones
+     * @return list<array<string, mixed>>
      */
-    private function recetasYStock(string $localId, array $productos): array
+    public function decidirLote(array $decisiones, string $localId, string $usuarioId): array
     {
+        return DB::transaction(fn (): array => array_map(
+            fn (array $d): array => $this->decidir($d['id'], $localId, $usuarioId, $d['estado'], $d['cantidad_final'] ?? null),
+            $decisiones,
+        ));
+    }
+
+    /**
+     * Resumen de una reposición: cuántas líneas por prioridad, cuánto cuesta y cómo van las decisiones.
+     * Lo descartado no cuenta para la compra.
+     *
+     * @param  list<array<string, mixed>>  $reposicion
+     * @return array{por_prioridad: array<string, int>, costo: float, proveedores: int, decisiones: array<string, int>}
+     */
+    public function totales(array $reposicion): array
+    {
+        $porPrioridad = ['urgente' => 0, 'pronto' => 0, 'cubierto' => 0];
+        $decisiones = ['pendientes' => 0, 'aceptadas' => 0, 'ajustadas' => 0, 'descartadas' => 0];
+        $costo = 0.0;
+        $proveedores = [];
+
+        foreach ($reposicion as $linea) {
+            $decisiones[['pendiente' => 'pendientes', 'aceptada' => 'aceptadas', 'ajustada' => 'ajustadas', 'descartada' => 'descartadas'][$linea['estado']]]++;
+            if ($linea['estado'] === 'descartada') {
+                continue;
+            }
+            $porPrioridad[$linea['prioridad']]++;
+            if ($linea['costo_estimado'] > 0) {
+                $costo += $linea['costo_estimado'];
+                $proveedores[$linea['proveedor']['id'] ?? 'sin'] = true;
+            }
+        }
+
+        return [
+            'por_prioridad' => $porPrioridad,
+            'costo' => round($costo, 2),
+            'proveedores' => count($proveedores),
+            'decisiones' => $decisiones,
+        ];
+    }
+
+    /**
+     * @return array<string, object>
+     */
+    private function insumosActivos(string $localId): array
+    {
+        return DB::table('insumo')
+            ->where('local_id', $localId)
+            ->where('estado', '<>', 'inactivo')
+            ->get(['id', 'unidad_medida', 'stock_actual', 'stock_minimo', 'costo_unitario', 'ultimo_proveedor_id'])
+            ->keyBy('id')
+            ->all();
+    }
+
+    /**
+     * @param  list<string>  $productos
+     * @return array<string, list<array{insumo_id: string, cantidad: float}>>
+     */
+    private function recetas(string $localId, array $productos): array
+    {
+        $recetas = [];
         $filas = DB::table('producto_insumo as pi')
             ->join('insumo as i', 'i.id', '=', 'pi.insumo_id')
             ->where('i.local_id', $localId)
             ->where('i.estado', '<>', 'inactivo')
             ->whereIn('pi.producto_id', $productos)
-            ->get(['pi.producto_id', 'pi.insumo_id', 'pi.cantidad_descuenta', 'i.stock_actual']);
+            ->get(['pi.producto_id', 'pi.insumo_id', 'pi.cantidad_descuenta']);
 
-        $recetas = [];
-        $stock = [];
         foreach ($filas as $fila) {
             $recetas[$fila->producto_id][] = ['insumo_id' => $fila->insumo_id, 'cantidad' => (float) $fila->cantidad_descuenta];
-            $stock[$fila->insumo_id] = (float) $fila->stock_actual;
         }
 
-        return [$recetas, $stock];
+        return $recetas;
+    }
+
+    private function consulta(): Builder
+    {
+        return DB::table('recomendacion_reposicion as r')
+            ->join('insumo as i', 'i.id', '=', 'r.insumo_id')
+            ->leftJoin('proveedor as p', 'p.id', '=', 'r.proveedor_id');
     }
 
     /**
@@ -215,8 +334,10 @@ class ReposicionService
     {
         return [
             'r.id', 'r.ejecucion_id', 'r.insumo_id', 'i.nombre as insumo', 'i.unidad_medida', 'r.cobertura_dias',
-            'r.consumo_previsto', 'r.margen_seguridad', 'r.stock_al_calcular', 'r.cantidad_sugerida',
-            'r.estado', 'r.cantidad_final', 'r.decidido_en',
+            'r.consumo_previsto', 'r.margen_seguridad', 'r.stock_al_calcular', 'r.stock_minimo_al_calcular',
+            'r.cantidad_sugerida', 'r.prioridad', 'r.motivo', 'r.alcanza_dias', 'r.estado', 'r.cantidad_final',
+            'r.decidido_en', 'r.costo_unitario_al_calcular', 'r.proveedor_id', 'p.nombre as proveedor_nombre',
+            'i.fecha_ultima_compra',
         ];
     }
 
@@ -225,18 +346,31 @@ class ReposicionService
      */
     private function presentar(object $fila): array
     {
+        $cantidad = $fila->cantidad_final === null ? (float) $fila->cantidad_sugerida : (float) $fila->cantidad_final;
+
         return [
             'id' => $fila->id,
             'insumo_id' => $fila->insumo_id,
             'insumo' => $fila->insumo,
             'unidad_medida' => $fila->unidad_medida,
+            'prioridad' => $fila->prioridad,
+            'motivo' => $fila->motivo,
+            'alcanza_dias' => $fila->alcanza_dias === null ? null : (int) $fila->alcanza_dias,
             'consumo_previsto' => (float) $fila->consumo_previsto,
             'margen_seguridad' => (float) $fila->margen_seguridad,
             'stock_al_calcular' => (float) $fila->stock_al_calcular,
+            'stock_minimo' => (float) $fila->stock_minimo_al_calcular,
             'cantidad_sugerida' => (float) $fila->cantidad_sugerida,
             'estado' => $fila->estado,
             'cantidad_final' => $fila->cantidad_final === null ? null : (float) $fila->cantidad_final,
             'decidido_en' => $fila->decidido_en === null ? null : $this->instante($fila->decidido_en),
+            'costo_estimado' => round($cantidad * (float) $fila->costo_unitario_al_calcular, 2),
+            'proveedor' => $fila->proveedor_id === null ? null : [
+                'id' => $fila->proveedor_id,
+                'nombre' => $fila->proveedor_nombre,
+                'precio' => (float) $fila->costo_unitario_al_calcular,
+                'ultima_compra' => $fila->fecha_ultima_compra === null ? null : $this->instante($fila->fecha_ultima_compra),
+            ],
         ];
     }
 
