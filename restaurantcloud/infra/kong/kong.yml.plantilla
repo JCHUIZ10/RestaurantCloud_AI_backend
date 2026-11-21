@@ -1,0 +1,76 @@
+# Configuración declarativa de Kong (modo sin base de datos). Contrato: doc-2u/servicios/api-gateway.md.
+#
+# Es una plantilla: al arrancar el contenedor, `generar-config.lua` reemplaza cada nombre en mayúsculas
+# rodeado de dos guiones bajos por el valor de la variable de entorno del mismo nombre, como cadena
+# JSON (que también es YAML válido).
+# La clave pública cambia por entorno y por eso no se escribe aquí.
+_format_version: "3.0"
+_transform: true
+
+services:
+  # Núcleo Laravel: valida su propio token de sesión; Kong solo enruta.
+  - name: nucleo
+    url: http://api:8080
+    routes:
+      - name: nucleo-api
+        paths: ["/api/v1"]
+        strip_path: false
+      - name: nucleo-salud
+        paths: ["/up"]
+        strip_path: false
+
+  # ms-analítica: solo sus rutas públicas. /interno no tiene ruta, así que Kong responde 404.
+  # Kong elige el prefijo más largo: /api/v1/analitica gana a /api/v1.
+  - name: analitica
+    url: http://analitica:8001
+    routes:
+      - name: analitica-reportes
+        paths: ["/api/v1/analitica"]
+        strip_path: false
+    plugins:
+      - name: jwt
+        config:
+          # El claim `iss` elige la credencial (consumidor `nucleo`).
+          key_claim_name: iss
+          claims_to_verify: ["exp", "nbf"]
+          # Rechaza tokens con más de 15 minutos de vida restante: el núcleo emite de 10.
+          maximum_expiration: 900
+          header_names: ["authorization"]
+          # El token solo viaja en la cabecera: ni en la URL (quedaría en los logs) ni en cookies.
+          uri_param_names: []
+          cookie_names: []
+          run_on_preflight: false
+      # Más estricto que el global; en Kong la instancia del servicio reemplaza a la global.
+      - name: rate-limiting
+        config:
+          minute: 120
+          limit_by: ip
+          policy: local
+
+consumers:
+  - username: nucleo
+    jwt_secrets:
+      - key: __JWT_EMISOR__
+        algorithm: RS256
+        rsa_public_key: __JWT_PUBLIC_KEY__
+
+plugins:
+  - name: correlation-id
+    config:
+      header_name: X-Request-Id
+      generator: uuid
+      echo_downstream: true
+  # Un restaurante tiene varias tabletas detrás de una misma IP: el límite global es amplio.
+  - name: rate-limiting
+    config:
+      minute: 1200
+      limit_by: ip
+      policy: local
+  - name: cors
+    config:
+      origins: __KONG_CORS_ORIGENES__
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+      headers: ["Authorization", "Content-Type", "Accept", "X-Local-Id", "X-Request-Id"]
+      exposed_headers: ["X-Request-Id"]
+      credentials: true
+      max_age: 3600

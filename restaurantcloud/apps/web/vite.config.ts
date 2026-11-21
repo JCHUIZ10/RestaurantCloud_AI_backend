@@ -19,8 +19,10 @@ export default defineConfig({
     port: 5173,
     host: true,
     proxy: {
+      // Todo /api entra por Kong (puerto 8000), como en producción: enruta al núcleo y a los
+      // microservicios. VITE_PROXY_DESTINO=http://127.0.0.1:8080 va directo al núcleo, sin Kong.
       '/api': {
-        target: 'http://127.0.0.1:8080',
+        target: process.env.VITE_PROXY_DESTINO || 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
     },

@@ -393,6 +393,42 @@ services:
     networks:
       - saas_network
 
+  # Punto de entrada único de la API (doc-2u/servicios/api-gateway.md). Genera su configuración
+  # declarativa con la clave pública al arrancar; sin JWT_PUBLIC_KEY no arranca.
+  kong:
+    image: kong:3.9.1
+    container_name: restaurantcloudIA_kong
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/kong-config/arrancar.sh"]
+    environment:
+      KONG_DATABASE: "off"
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+      # Sin API de administración: la configuración solo cambia con el archivo versionado.
+      KONG_ADMIN_LISTEN: "off"
+      KONG_STATUS_LISTEN: 127.0.0.1:8100
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_NGINX_WORKER_PROCESSES: "2"
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+      JWT_EMISOR: ${JWT_EMISOR:-restaurantcloud-nucleo}
+      KONG_CORS_ORIGENES: ${KONG_CORS_ORIGENES:-http://localhost:5173}
+    ports:
+      - "${KONG_PORT:-8000}:8000"
+    volumes:
+      - ./infra/kong:/kong-config:ro
+    depends_on:
+      api:
+        condition: service_started
+      analitica:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - saas_network
+
   mongo-notificaciones:
     image: mongo:7
     container_name: restaurantcloudIA_mongo

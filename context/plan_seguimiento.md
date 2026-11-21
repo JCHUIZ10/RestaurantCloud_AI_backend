@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 21/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está en curso: 6.0 a 6.3 cerradas (ficha, JWT en el núcleo, validación en ms-analítica y los 4 reportes); sigue la 6.4 (Kong).
+**Última actualización:** 21/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está en curso: 6.0 a 6.4 cerradas (ficha, JWT en el núcleo, validación en ms-analítica, los 4 reportes y Kong); sigue la 6.5 (pantalla de reportes en React).
 
 ## Contexto
 
@@ -25,7 +25,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | 4. Datos sintéticos | Cerrada | 24 meses de ÁUREA en 3 min 45 s; 111 pruebas de ms-analítica; humo: 28 comprobaciones |
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
 | 5B. ms-pronóstico | Cerrada salvo la revisión en navegador | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo; humo: 108 comprobaciones |
-| 6. JWT y gateway | **En curso** (6.0 a 6.3 cerradas) | JWT RS256 en todos los inicios de sesión, validado por ms-analítica; 4 reportes de CU-ADMIN-13 sobre los 2 años de ÁUREA en menos de 0,1 s; núcleo: 11 pruebas nuevas; ms-analítica: 180 |
+| 6. JWT y gateway | **En curso** (6.0 a 6.4 cerradas) | JWT RS256 en todos los inicios de sesión, validado por Kong y por ms-analítica; 4 reportes de CU-ADMIN-13 en menos de 0,1 s; Kong 3.9.1 como entrada única, verificado en vivo (rutas, JWT, `/interno` oculto, límites, CORS, `X-Request-Id`) |
 
 ---
 
@@ -321,7 +321,7 @@ Se divide como la 5B: primero el contrato, después cada pieza probada por sí s
 | 6.1 JWT en el núcleo | Emisor RS256 propio con `openssl` (sin dependencias nuevas) dentro de `SesionService` (login, selección de cuenta, refresh, activación y registro), endpoint de renovación, clave pública, `php artisan jwt:claves`, variables en `.env.example` | Login que devuelve un JWT verificable con la clave pública | Cerrada |
 | 6.2 JWT en ms-analítica | `soporte/jwt.py` (copiable a ms-notificaciones), dependencia de sesión con rol, empresa, sede y módulos | Pruebas de firma, caducidad, emisor, audiencia, rol y sede | Cerrada |
 | 6.3 Reportes | `ventas/resumen`, `ventas/por-hora`, `productos/ranking` (con ingeniería de menú) y `personal/desempeno`, con pytest contra PostgreSQL real | Reportes de ÁUREA con el histórico sintético | Cerrada |
-| 6.4 Kong | `infra/kong` (DB-less, plantilla con la clave pública), servicio en el compose (puerto 8000), JWT en `/api/v1/analitica`, límite de peticiones, CORS, `X-Request-Id`; Vite pasa a apuntar a Kong | Todo el tráfico del navegador entra por Kong; `/interno` no se expone | Pendiente |
+| 6.4 Kong | `infra/kong` (DB-less, plantilla con la clave pública), servicio en el compose (puerto 8000), JWT en `/api/v1/analitica`, límite de peticiones, CORS, `X-Request-Id`; Vite pasa a apuntar a Kong | Todo el tráfico del navegador entra por Kong; `/interno` no se expone | Cerrada |
 | 6.5 React | Cliente de microservicios con renovación del JWT y pantalla «Reportes» de 3 pestañas (CU-ADMIN-13) | Flujo del navegador a ms-analítica por Kong | Pendiente |
 | 6.6 Humo | `scripts/smoke-gateway.sh` con evidencias | Prueba de punta a punta para el informe | Pendiente |
 
@@ -361,6 +361,21 @@ Se divide como la 5B: primero el contrato, después cada pieza probada por sí s
 - **Verificado:** 32 pruebas nuevas (8 del dominio sin base, con la matriz calculada a mano, y 24 de integración contra PostgreSQL con ventas que entran por `POST /interno/eventos`); suite completa de ms-analítica en verde, **180**. **Mutaciones:** quitar el filtro de anuladas, usar la hora UTC, quitar el filtro de empresa en ventas, promediar por días del calendario o tratar las anulaciones sin mozo como un mozo hace fallar pruebas. Quitar el filtro de empresa del **ranking** y de las **anulaciones** al principio no rompía ninguna, porque la prueba de aislamiento solo miraba el resumen; se agregó una que recorre las cuatro rutas con datos de otra empresa en la misma sede, y ahora ambas mutaciones se detectan.
 - **Con los datos reales de ÁUREA** (contenedor reconstruido y JWT emitido por el núcleo): del 1 al 20 de noviembre, S/ 257 578 en 1 115 comprobantes, ticket promedio S/ 231,01, +15,7 % frente al periodo anterior, hora punta a las 14:00, 20 platos con los cuatro cuadrantes poblados (Lomo Saltado Criollo, estrella) y 3 mozos. Cuadran entre sí: la suma de las 24 franjas es el total del resumen y los comprobantes del desempeño suman los del resumen. Un año completo: 19 838 comprobantes en 363 días (los 2 cierres). **Tiempos:** menos de 0,1 s en todas, incluido el ranking de 366 días. Respuestas en `doc-2u/evidencias/reportes-6.3/` (no se versiona).
 - **Límite conocido:** el histórico sintético no tiene anulaciones previas al cobro (`pedido.anulado`), así que en ÁUREA esa parte del desempeño sale en 0; las pruebas la cubren con datos propios.
+
+### Lo que dejó la 6.4 (21/11)
+
+- **`infra/kong/`:** `kong.yml.plantilla` (servicios `nucleo` y `analitica`, consumidor `nucleo` con la clave RS256 y los plugins `jwt`, `rate-limiting`, `cors` y `correlation-id`), `generar-config.lua` y `arrancar.sh`. La imagen no trae `envsubst`; el generador usa el `resty` que sí trae y escribe cada valor como cadena JSON, así que la clave PEM entra igual con saltos reales o con `\n` literales (ambos probados). Sin clave, con un valor que no es PEM o con una variable desconocida en la plantilla, **Kong no arranca**; esa validación encontró de inmediato un `__VARIABLE__` olvidado en un comentario.
+- **Compose:** servicio `restaurantcloudIA_kong` con `kong:3.9.1` (versión exacta), puerto 8000, sin API de administración (`KONG_ADMIN_LISTEN=off`) y con `kong health` como comprobación de salud. Variables nuevas en `.env.example`: `KONG_PORT` y `KONG_CORS_ORIGENES`. `.gitattributes` fija LF en `infra/kong/`, porque un `.sh` con CRLF falla dentro del contenedor.
+- **Vite** reenvía `/api` a Kong (`VITE_PROXY_DESTINO` permite volver directo al núcleo). Comprobado: navegador → Vite → Kong → núcleo o ms-analítica.
+- **Verificado en vivo** (con un JWT emitido por el núcleo y otros dos firmados con la clave real fuera de regla):
+  - Enrutamiento: `/up`, login, `/auth/me` y la clave pública llegan al núcleo; los reportes, a ms-analítica.
+  - JWT: 200 con el token del núcleo; 401 sin token, con la firma alterada, caducado (`token expired`), con 1 hora de vida (`exceeds maximum allowed expiration`), en la URL (`?jwt=`) y con el token de sesión del núcleo.
+  - Ocultos (404 desde Kong): `/interno/series/ventas-diarias`, `/interno/eventos`, `/api/v1/analitica/../../interno/eventos` y `/health` de ms-analítica.
+  - Límites: 130 peticiones seguidas a ms-analítica dan 429 desde la 121 (con `Retry-After`); las mismas 130 al núcleo, todas 200.
+  - CORS: la preflight desde `http://localhost:5173` responde con origen, credenciales, cabeceras y métodos; una petición real lleva **una sola** `Access-Control-Allow-Origin` (no se duplica con la de Laravel).
+  - `X-Request-Id`: Kong lo genera si falta y respeta el que llega.
+- **Hallazgo verificado (para la etapa 9):** Laravel ve la IP real del cliente detrás de Kong (172.20.0.1, no la de Kong), pero si el cliente manda su propio `X-Forwarded-For`, Kong lo deja pasar y Laravel lo toma (`203.0.113.9`), así que se podría eludir el bloqueo de login por IP. En producción el puerto de Kong no se publica y Caddy queda delante; que Caddy no confíe en el `X-Forwarded-For` del cliente se comprueba en la etapa 8. Detalle en la ficha del gateway.
+- **Límites:** el CORS con un solo origen siempre devuelve ese origen (el navegador bloquea al que no coincide); ms-analítica no escribe líneas de acceso, así que el `X-Request-Id` solo aparece en sus líneas de error.
 
 ---
 
