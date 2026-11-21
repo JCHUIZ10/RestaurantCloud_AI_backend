@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\CocinaController;
 use App\Http\Controllers\Api\MozoController;
 use App\Http\Controllers\Api\Propietario\AdministradorController;
 use App\Http\Controllers\Api\Propietario\CambioPlanController;
+use App\Http\Controllers\Api\Propietario\PrediccionController;
 use App\Http\Controllers\Api\Propietario\LocalController;
 use App\Http\Controllers\Api\Propietario\SuscripcionController;
 use App\Http\Controllers\Api\Public\ActivacionCuentaController;
@@ -120,6 +121,8 @@ Route::prefix('v1')->group(function (): void {
             Route::middleware(['role:admin_local,propietario', 'modulo.prediccion'])->group(function (): void {
                 Route::post('/pronosticos', [PronosticoController::class, 'generar']);
                 Route::get('/pronosticos/ultimo', [PronosticoController::class, 'ultimo']);
+                Route::get('/pronosticos/ultimo/exportar', [PronosticoController::class, 'exportar']);
+                Route::post('/reposiciones/decisiones', [PronosticoController::class, 'decidirLote']);
                 Route::patch('/reposiciones/{id}', [PronosticoController::class, 'decidir'])->whereUuid('id');
             });
 
@@ -243,6 +246,9 @@ Route::prefix('v1')->group(function (): void {
         });
         // Propietario (CU-PROP-04: Gestión de Locales / CU-PROP-05: Administradores de Local)
         Route::prefix('propietario')->middleware('role:propietario,admin_saas')->group(function (): void {
+            // CU-PROP-08: predicción de demanda de todas las sedes (planes que la incluyen)
+            Route::get('/pronosticos', [PrediccionController::class, 'index'])->middleware(['role:propietario', 'modulo.prediccion']);
+
             // CU-PROP-04: Registrar y Administrar Locales
             Route::prefix('locales')->group(function (): void {
                 Route::get('/', [LocalController::class, 'index']);
