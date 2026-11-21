@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 21/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está en curso: 5B.0 a 5B.5 cerradas (falta revisar las pantallas en un navegador), sigue la 5B.6 (la prueba de punta a punta).
+**Última actualización:** 21/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está en curso: 5B.0 a 5B.6 cerradas (falta revisar las pantallas en un navegador), la 5B está terminada salvo la revisión en navegador; sigue la etapa 6 (JWT y gateway) o la 8 (nube), según el orden que se decida.
 
 ## Contexto
 
@@ -213,7 +213,7 @@ Se divide en pasos que dejan algo demostrable cada uno. 5B.0 a 5B.3 dejan el ser
 | 5B.3 Modelo | `rc_pronostico` en la imagen (dependencia por ruta y contexto adicional), repositorio montado de solo lectura, carga verificada, registro en `modelo_version`, vuelta al modelo anterior o al baseline, `GET /interno/modelos/vigente` | `metodo = modelo` en ÁUREA; un archivo alterado no se usa | Cerrada |
 | 5B.4 Núcleo | Cliente firmado, `POST /api/v1/admin/pronosticos`, `GET …/ultimo` y `PATCH /api/v1/admin/reposiciones/{id}`, `jornada_actual` y cierres futuros, `recomendacion_reposicion`, reposición con `P90 − P50`, plan Pro con `incluye_prediccion_ia` | Reposición sugerida por API con el modelo real de ÁUREA | Cerrada |
 | 5B.5 React | Pantalla de pronóstico y reposición (CU-ADMIN-07) y vista del propietario (CU-PROP-08) | Flujo de la demostración; 59 pruebas de vitest, `build` y `check:ui` en verde; **sin revisar en navegador** | Cerrada |
-| 5B.6 Humo | `scripts/smoke-pronostico.sh` con evidencias | Prueba de punta a punta para el informe | **Siguiente** |
+| 5B.6 Humo | `scripts/smoke-pronostico.sh` con evidencias | Prueba de punta a punta para el informe; 108 comprobaciones (99 con `--rapido`) en verde | Cerrada |
 
 ### Decisiones de la 5B.0 (20/11)
 
@@ -274,7 +274,7 @@ Se divide en pasos que dejan algo demostrable cada uno. 5B.0 a 5B.3 dejan el ser
 - **Compra prellenada:** «Registrar compra» guarda las decisiones (lo cambiado como ajustado y el resto como aceptado, en un lote) y abre el formulario de Compras con el proveedor y los insumos ya cargados (`ModalRegistrarCompra` recibe `inicial`; el traspaso viaja en el estado de navegación y se limpia al abrirlo).
 - **Decisiones de diseño:** una decisión no se deshace (el backend la registra como auditoría), por eso la maqueta no tiene «Deshacer»; cambiar la cobertura calcula un pronóstico nuevo; en la vista del propietario el selector de periodo (mañana, fin de semana, 7 días) afecta al panorama y a los totales, y la comparación de platos es de la semana completa.
 - **Verificado:** `tsc`, `npm run build`, `check:ui` (0 hallazgos en los archivos nuevos) y 59 pruebas de vitest en verde (30 nuevas: utilidades, componentes por nivel y estado, y el flujo de «Preparar la compra» con su traspaso a Compras). **No se vieron en un navegador:** falta revisar a 360, 768 y 1280 px.
-- **Pendiente:** N-7 (aviso de «listo para entrenar»), revisar las pantallas en un navegador (360, 768 y 1280 px) y la prueba de punta a punta de la 5B.6.
+- **Pendiente:** N-7 (aviso de «listo para entrenar»), revisar las pantallas en un navegador (360, 768 y 1280 px).
 
 ### Lo que dejó la Fase D: datos y documentación (21/11)
 
@@ -282,9 +282,30 @@ Se divide en pasos que dejan algo demostrable cada uno. 5B.0 a 5B.3 dejan el ser
 - **Producto de humo.** «SMOKE Lomo 44eed1», de una prueba antigua, tenía una venta registrada: se **desactivó** en vez de borrarlo, para no romper ese historial. Sale de la carta y de la predicción (20 platos en lugar de 21).
 - **Documentación al día:** ficha del núcleo (tablas, fórmula, redondeo, prioridades, endpoints nuevos y `PREDICCION_RESERVA_MINIMA`), ficha de ms-pronóstico, `doc-2u/03-prediccion-en-locales-nuevos.md` (estado de cada decisión) y `context/cu.md` (CU-ADMIN-07 y CU-PROP-08 con los niveles, las prioridades y la reserva mínima).
 
+### Lo que dejó la 5B.6: prueba de punta a punta (21/11)
+
+`scripts/smoke-pronostico.sh` (desde `restaurantcloud/`) recorre el flujo con los servicios reales y deja evidencias en `doc-2u/evidencias/smoke-pronostico/<fecha>/` (no se versiona). **108 comprobaciones en verde** (99 con `--rapido`), unos 40 s; sin contraseñas (sesiones temporales en Redis).
+
+1. **Condiciones previas:** contenedores, `PRONOSTICO_URL`, secretos que coinciden núcleo ↔ ms-pronóstico ↔ ms-analítica, y rechazo de peticiones sin firma o con firma alterada.
+2. **Histórico y modelo:** el histórico llega hasta ayer (si no, lo completa) y el modelo vigente existe, está aprobado y mejora al método ingenuo.
+3. **Local con historial (ÁUREA):** nivel 3, confianza igual a las métricas del modelo, 140 de 140 filas por el modelo, P90 ≥ P50, sin aviso de ventas atrasadas, fórmula de reposición y redondeo por unidad, prioridades, costo y conteos coherentes; `GET ultimo` devuelve la misma ejecución; cobertura 3 consume menos que cobertura 5.
+4. **Decisiones:** aceptar, ajustar y descartar; ajustar sin cantidad da 422; una decisión tomada no se cambia (409); lote válido; lote con una ya decidida se rechaza **entero** (ninguna se guarda); los totales cuadran.
+5. **Lista de compra:** Excel válido (con un insumo pendiente dentro) y PDF; un formato desconocido da 422.
+6. **Sede nueva sin ventas:** nivel 0 sin confianza, avance en 0, solo el insumo bajo su mínimo (`bajo_minimo`, urgente, 3 L), el de stock de sobra no aparece, `ultimo` no da 404, la solicitud queda guardada; vista del propietario con ÁUREA en nivel 3 y la sede nueva en nivel 0, y un administrador de sede no la ve (403).
+7. **Caída de ms-pronóstico:** 503 controlado (`ERR_PRONOSTICO_NO_DISPONIBLE`) en 8 s, la última lista y la vista del propietario siguen respondiendo, y al encenderlo se vuelve a generar.
+
+Cómo resuelve lo que podía estropear la prueba:
+
+- **Datos que deja:** al terminar **borra** la sede de prueba con su carta e insumos, y los pronósticos, recomendaciones y decisiones de esa ejecución (también en ms-pronóstico), solo lo posterior a su hora de inicio; la base de desarrollo queda como estaba. `--conservar` lo deja para investigar un fallo.
+- **Histórico que se vence:** compara el último día con ventas con «ayer» (hora de Lima). Si falta, lo completa con el mismo comando, perfil y semilla (determinista, no duplica); `--sin-extender` solo avisa y omite la comprobación del aviso de ventas atrasadas.
+- **Modelo sin reentrenar:** exige que exista, esté aprobado y se use; la fecha de entrenamiento solo se informa. La confianza mostrada se compara con las métricas del propio modelo, así que sigue valiendo cuando se reentrene.
+- **Servicio apagado:** si el script se interrumpe con ms-pronóstico apagado por él, lo enciende al salir; las sesiones temporales se borran siempre.
+- **Sin dependencias en la máquina:** el JSON se revisa con PHP dentro del contenedor del núcleo (no hace falta `jq` ni Python).
+- **Sin probar todavía:** la rama de «histórico atrasado» (hoy el histórico está al día); se ejercita sola mañana, cuando «ayer» ya no coincida con el 20/11.
+
 ### Antes de la demostración
 
-- **Repetir la extensión del histórico el día de la demostración.** El histórico sintético llega hasta el 2026-11-20 (Fase D); cada día que pasa, los días nuevos llegan en 0 y la regla de respaldo los toma como cierres. Se repite con el mismo comando y `--hasta` igual a ayer (ver la Fase D).
+- **El histórico se completa solo al correr `./scripts/smoke-pronostico.sh`** (o a mano, con el mismo comando y `--hasta` igual a ayer, ver la Fase D). El histórico sintético llegaba hasta el 2026-11-20; cada día que pasa, los días nuevos llegan en 0 y la regla de respaldo los toma como cierres.
 - **Revisar las pantallas en un navegador** a 360, 768 y 1280 px: se construyeron y probaron por código, pero no se vieron renderizadas.
 
 ---
@@ -326,5 +347,5 @@ Orden recomendado si el tiempo aprieta: 4 → 5 → 8 antes que 6 y 7, porque IA
 
 - **Núcleo:** `docker exec restaurantcloudIA_api php artisan test --compact` (639 pruebas en la última corrida completa, 18/11, más 4 de `carta:exportar` ejecutadas aparte). Si se cambia el seed, antes `./scripts/test-db-reset.sh`.
 - **ms-analítica:** `uv run pytest` en `services/analitica`, con `TEST_DATABASE_URL` y `TEST_APP_DATABASE_URL` (111 pruebas, unos 2 minutos desde el host).
-- **Integración:** `./scripts/smoke-analitica.sh` (o `--rapido`, sin el escenario de caída).
+- **Integración:** `./scripts/smoke-analitica.sh` (o `--rapido`, sin el escenario de caída) y `./scripts/smoke-pronostico.sh` (o `--rapido`; ver la 5B.6).
 - **Estado de las entregas:** `docker exec restaurantcloudIA_api php artisan outbox:estado`.
