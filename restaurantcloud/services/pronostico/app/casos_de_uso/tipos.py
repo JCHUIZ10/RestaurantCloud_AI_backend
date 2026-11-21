@@ -58,6 +58,33 @@ class ModeloEnUso:
 
 
 @dataclass(frozen=True)
+class ModeloRegistrado:
+    """Un modelo que el servicio cargó y verificó (tabla `modelo_version`)."""
+
+    id: str  # el `modelo_version` que asignó model-ia
+    empresa_id: str
+    local_id: str
+    algoritmo: str
+    version_variables: str
+    datos_desde: date
+    datos_hasta: date
+    metricas: dict[str, Any]
+    ficha: dict[str, Any]
+    artefacto_uri: str
+    artefacto_sha256: str
+    publicado_en: datetime
+
+
+@dataclass(frozen=True)
+class EstadoModelo:
+    """Qué modelo usará el próximo pronóstico de un local y qué pasó en la última revisión."""
+
+    modelo: ModeloRegistrado | None  # None: se pronostica con el baseline
+    revisado_en: datetime
+    ultimo_error: str | None  # por qué falló la última carga, aunque se siga usando el modelo anterior
+
+
+@dataclass(frozen=True)
 class ModeloInfo:
     modelo_version: str
     algoritmo: str

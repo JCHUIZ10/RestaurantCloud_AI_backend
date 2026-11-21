@@ -7,11 +7,22 @@ la nube. Los adaptadores que las cumplen viven en `app/adaptadores/`.
 from datetime import date
 from typing import Protocol
 
-from app.casos_de_uso.tipos import EjecucionGuardada, ModeloEnUso, NuevaEjecucion, SerieVentas
+from app.casos_de_uso.tipos import (
+    EjecucionGuardada,
+    EstadoModelo,
+    ModeloEnUso,
+    ModeloRegistrado,
+    NuevaEjecucion,
+    SerieVentas,
+)
 
 
 class ErrorAlmacen(Exception):
     """El almacén no pudo leer la ruta pedida (no existe, no es legible o está fuera de la raíz)."""
+
+
+class RutaInexistente(ErrorAlmacen):
+    """La ruta no existe en el almacén (distinto de un error al leerla)."""
 
 
 class FuenteNoDisponible(Exception):
@@ -90,3 +101,18 @@ class ModelosVigentes(Protocol):
     def obtener(self, empresa_id: str, local_id: str) -> ModeloEnUso | None:
         """`None` si no hay un modelo vigente utilizable: se pronostica con el baseline. No lanza."""
         ...
+
+    def estado(self, empresa_id: str, local_id: str) -> EstadoModelo:
+        """Revisa el puntero ahora, sin esperar el intervalo, y dice qué modelo se usaría. No lanza."""
+        ...
+
+
+class RegistroModelos(Protocol):
+    """Modelos cargados y verificados (`modelo_version`). Un local tiene como mucho uno vigente."""
+
+    def marcar_vigente(self, modelo: ModeloRegistrado) -> None:
+        """Lo registra como vigente y retira al vigente anterior del local, en una sola transacción.
+        Si ya estaba registrado (el puntero volvió a una versión anterior), vuelve a vigente."""
+        ...
+
+    def vigente(self, local_id: str) -> ModeloRegistrado | None: ...

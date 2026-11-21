@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from app.casos_de_uso.puertos import ErrorAlmacen
+from app.casos_de_uso.puertos import ErrorAlmacen, RutaInexistente
 
 
 class AlmacenLocal:
@@ -16,6 +16,8 @@ class AlmacenLocal:
             raise ErrorAlmacen(f"Ruta fuera del repositorio: {ruta!r}")
         try:
             return destino.read_bytes()
+        except FileNotFoundError:
+            raise RutaInexistente(f"No existe {ruta!r}") from None
         except OSError as error:
             raise ErrorAlmacen(f"No se pudo leer {ruta!r}: {error.strerror or type(error).__name__}") from None
 

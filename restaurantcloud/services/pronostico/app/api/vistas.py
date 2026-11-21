@@ -3,7 +3,7 @@
 from itertools import groupby
 from zoneinfo import ZoneInfo
 
-from app.casos_de_uso.tipos import ResultadoPronostico
+from app.casos_de_uso.tipos import EstadoModelo, ResultadoPronostico
 
 METODOS = ("modelo", "baseline", "cerrado", "sin_historial")
 
@@ -54,4 +54,27 @@ def vista_ejecucion(resultado: ResultadoPronostico, zona_horaria: str) -> dict:
         "resumen": resumen,
         "advertencias": resultado.advertencias,
         "predicciones": por_plato,
+    }
+
+
+def vista_modelo(estado: EstadoModelo, local_id: str, zona_horaria: str) -> dict:
+    zona = ZoneInfo(zona_horaria)
+    m = estado.modelo
+    return {
+        "local_id": local_id,
+        "metodo": "baseline" if m is None else "modelo",
+        "modelo": None
+        if m is None
+        else {
+            "modelo_version": m.id,
+            "algoritmo": m.algoritmo,
+            "version_variables": m.version_variables,
+            "datos_desde": m.datos_desde.isoformat(),
+            "datos_hasta": m.datos_hasta.isoformat(),
+            "metricas": m.metricas,
+            "artefacto_sha256": m.artefacto_sha256,
+            "publicado_en": m.publicado_en.astimezone(zona).isoformat(timespec="seconds"),
+        },
+        "revisado_en": estado.revisado_en.astimezone(zona).isoformat(timespec="seconds"),
+        "ultimo_error": estado.ultimo_error,
     }

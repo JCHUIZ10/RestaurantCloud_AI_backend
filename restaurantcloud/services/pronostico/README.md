@@ -4,7 +4,7 @@ Pronóstico de demanda por plato (componente de IA). No entrena: usa el modelo q
 
 Stack: Python 3.12 · FastAPI · SQLAlchemy 2 · Alembic · PostgreSQL propio · `rc_pronostico` (paquete de `model-ia`)
 
-**Estado:** etapa 5B.2. `POST` y `GET /interno/pronosticos` funcionan de punta a punta con el baseline (ms-analítica real, base y firma HMAC). La carga del modelo llega con la 5B.3 (`GET /interno/modelos/vigente` también).
+**Estado:** etapa 5B.2. `POST` y `GET /interno/pronosticos` funcionan de punta a punta con el baseline (ms-analítica real, base y firma HMAC). El modelo publicado por `model-ia` se carga, se verifica y se usa (5B.3); `GET /interno/modelos/vigente` dice cuál.
 
 Contrato con el resto del sistema: [`doc-2u/servicios/ms-pronostico.md`](../../../doc-2u/servicios/ms-pronostico.md). Este servicio no importa código de otros servicios; solo usa la librería `rc_pronostico`.
 
@@ -14,7 +14,7 @@ Contrato con el resto del sistema: [`doc-2u/servicios/ms-pronostico.md`](../../.
 app/
   main.py  composicion.py  config.py
   api/               rutas FastAPI; no conoce adaptadores ni la base
-  casos_de_uso/      generar_pronostico, consultar_ejecucion, consultar_salud y sus puertos (puertos.py, contenedor.py)
+  casos_de_uso/      generar_pronostico, consultar_ejecucion, consultar_modelo_vigente, consultar_salud, proveedor_modelos y sus puertos
   dominio/           reglas puras: periodo, calendario (cierres y feriados), advertencias y errores
   adaptadores/       lo que cambia con la tecnología: almacén local, cliente HTTP de ms-analítica, reloj, base de datos (gs:// llega en la etapa 8)
   soporte/           firma, logs, X-Request-Id y respuestas (copiado de ms-analítica)

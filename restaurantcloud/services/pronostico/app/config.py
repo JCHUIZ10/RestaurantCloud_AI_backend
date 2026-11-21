@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # mucho 63 días atrás, así que 365 da el mismo pronóstico que todo el historial.
     ventana_historial_dias: int = Field(default=365, ge=70, le=730)
     pais_feriados: str = "PE"
+    # Cada cuánto, como mucho, se relee el puntero vigente.json de un local, y cuántos locales se guardan en memoria.
+    modelos_revisar_segundos: int = Field(default=60, ge=0)
+    modelos_max_en_memoria: int = Field(default=50, ge=1)
 
 
 @lru_cache
