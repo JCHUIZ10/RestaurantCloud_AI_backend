@@ -225,7 +225,8 @@ Todas las rutas `/interno` usan la firma HMAC del [README](README.md), sección 
 
 - `modelo` es `null` cuando no había modelo vigente o no se pudo cargar; entonces todo lo que no es `cerrado` ni `sin_historial` lleva `metodo = baseline` y `motivo = modelo_no_disponible`.
 - `resumen` cuenta filas (plato × día) por método.
-- `predicciones` sigue el orden de `productos` de la petición, y cada plato trae los `horizonte_dias` días en orden.
+- `predicciones` va ordenada por nombre del plato, igual en el POST y en el GET (el POST responde con lo que quedó guardado), y cada plato trae sus días en orden. Los platos pedidos que no tienen ventas también aparecen, como `sin_historial`.
+- La respuesta incluye además `estado`, `error` (nulo si la ejecución se completó), `solicitada_por` y `creada_en`.
 - `advertencias` es informativa y no cambia el resultado. Valor posible: `datos_desactualizados`, si `actualizados_hasta` falta o es anterior a `datos_hasta − 3 días`. Indica que ms-analítica puede no estar recibiendo ventas: esos días aparecen en 0 y la regla de respaldo los toma como cerrados.
 
 **Errores**
@@ -235,8 +236,8 @@ Todas las rutas `/interno` usan la firma HMAC del [README](README.md), sección 
 | 401 | `ERR_FIRMA_INVALIDA` | Firma ausente, incorrecta o con más de 5 minutos |
 | 422 | `ERR_VALIDACION` | Cuerpo que no es JSON, campo faltante o con formato inválido, `horizonte_dias` fuera de 1 a 7, `productos` vacío, con repetidos o con más de 500, `dias_cerrados` fuera del periodo. `detalles.campos` lista cada campo y su motivo |
 | 422 | `ERR_FECHAS_INVALIDAS` | `jornada_actual` no está entre ayer y hoy según el reloj del servicio, o `fecha_inicio` no es `jornada_actual` ni el día siguiente |
-| 502 | `ERR_SERIE_INVALIDA` | ms-analítica respondió una serie que no cumple el contrato del historial (CONTRATO 2.1): huecos, días repetidos o datos de la jornada en curso. Se guarda la ejecución como `fallida` |
-| 503 | `ERR_ANALITICA_NO_DISPONIBLE` | ms-analítica no responde en `ANALITICA_TIMEOUT_SEGUNDOS`, responde 5xx o rechaza la firma (401, que es un error de configuración). Se guarda la ejecución como `fallida` |
+| 502 | `ERR_SERIE_INVALIDA` | ms-analítica respondió con otra forma que la pactada, o con una serie que no cumple el contrato del historial (CONTRATO 2.1): huecos, días repetidos, datos de la jornada en curso o que no terminan en `datos_hasta`. Se guarda la ejecución como `fallida` y `detalles.ejecucion_id` la identifica |
+| 503 | `ERR_ANALITICA_NO_DISPONIBLE` | ms-analítica no responde en `ANALITICA_TIMEOUT_SEGUNDOS`, responde con cualquier estado distinto de 200 (5xx, o un 401 por secreto distinto, que es un error de configuración) o falla la red. Se guarda la ejecución como `fallida` y `detalles.ejecucion_id` la identifica |
 | 503 | `ERR_BD_NO_DISPONIBLE` | No se pudo guardar la ejecución. No se devuelve un pronóstico sin guardar |
 
 **Notas**
@@ -260,7 +261,7 @@ Todas las rutas `/interno` usan la firma HMAC del [README](README.md), sección 
 | `empresa_id` | query | uuid | sí | Empresa del local |
 | `local_id` | query | uuid | sí | Local dueño de la ejecución |
 
-**Respuesta 200:** la misma forma que la respuesta del POST, más `estado`, `creada_en` y `solicitada_por`. Una ejecución `fallida` se devuelve con `estado = "fallida"`, su `error` y `predicciones: []`.
+**Respuesta 200:** la misma forma que la respuesta del POST. Una ejecución `fallida` se devuelve con `estado = "fallida"`, su `error` y `predicciones: []`.
 
 **Errores**
 
@@ -376,7 +377,7 @@ Si ms-pronóstico cae, el salón, la cocina y la caja siguen funcionando.
 | `MODELOS_REPOSITORIO` | Raíz del repositorio de modelos: `file:///repositorio` en local (carpeta `model-ia/repositorio/` montada de solo lectura) o `gs://…` en la nube. El esquema elige el adaptador de `AlmacenArtefactos`; un esquema sin adaptador impide arrancar |
 | `MODELOS_MAX_EN_MEMORIA` | Locales con modelo cargado a la vez (50) |
 | `MODELOS_REVISAR_SEGUNDOS` | Cada cuánto, como mucho, se relee `vigente.json` de un local (60) |
-| `VENTANA_HISTORIAL_DIAS` | Días de historial que se piden a ms-analítica (365; máximo 730) |
+| `VENTANA_HISTORIAL_DIAS` | Días de historial que se piden a ms-analítica (365; de 70 a 730). El mínimo cubre las 8 semanas del P90 del baseline (63 días); con 20 días el pronóstico ya cambia |
 | `PAIS_FERIADOS` | País de los feriados de `holidays` (`PE`) |
 | `ZONA_HORARIA` | `America/Lima`. Solo para comprobar que `jornada_actual` es razonable y para las fechas de los logs |
 
@@ -412,7 +413,7 @@ Si ms-pronóstico cae, el salón, la cocina y la caja siguen funcionando.
 **Limitaciones conocidas**
 
 - **Demanda censurada:** sin historial de disponibilidad, los días con platos agotados subestiman la demanda (D-20).
-- **Un día sin ventas por falla de entrega se toma como cerrado.** Si ms-analítica deja de recibir ventas, esos días llegan en 0 y la regla de respaldo los trata como cierres; por eso existe la advertencia `datos_desactualizados`.
+- **Un día sin ventas por falla de entrega se toma como cerrado.** Si ms-analítica deja de recibir ventas, esos días llegan en 0 y la regla de respaldo los trata como cierres; por eso existe la advertencia `datos_desactualizados`. Con su tolerancia de 3 días **no detecta una falla de 1 o 2 días**: se observó con el histórico sintético, que terminaba dos días antes (el 18 y el 19 de noviembre se tomaron como cierres sin advertencia). Un cierre real de un solo día no se puede distinguir de esto sin información del núcleo.
 
 ## 8. Arquitectura interna
 

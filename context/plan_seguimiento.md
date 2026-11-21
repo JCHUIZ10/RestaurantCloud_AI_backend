@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 20/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está en curso: 5B.0 y 5B.1 cerradas, sigue la 5B.2.
+**Última actualización:** 20/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está en curso: 5B.0, 5B.1 y 5B.2 cerradas, sigue la 5B.3.
 
 ## Contexto
 
@@ -24,7 +24,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | Extra: identificadores ordenados | Cerrada | Suite completa: 639 pruebas |
 | 4. Datos sintéticos | Cerrada | 24 meses de ÁUREA en 3 min 45 s; 111 pruebas de ms-analítica; humo: 28 comprobaciones |
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
-| 5B. ms-pronóstico | **En curso** (5B.0 y 5B.1 cerradas) | Ficha con D-21 aplicada; esqueleto sano en el puerto 8002 con 66 pruebas |
+| 5B. ms-pronóstico | **En curso** (5B.0 a 5B.2 cerradas) | Ficha con D-21 aplicada; servicio en el puerto 8002 con pronóstico baseline de punta a punta y 161 pruebas |
 
 ---
 
@@ -209,8 +209,8 @@ Se divide en pasos que dejan algo demostrable cada uno. 5B.0 a 5B.3 dejan el ser
 |---|---|---|---|
 | 5B.0 Ficha | D-21 aplicada a `doc-2u/servicios/ms-pronostico.md`; detalle de los 3 endpoints, carga del modelo, configuración y decisiones cerradas | El contrato antes que el código | Cerrada |
 | 5B.1 Esqueleto | Arquitectura de puertos y adaptadores, `soporte/` copiado de ms-analítica, `/health`, Alembic con las 3 tablas y permisos mínimos (0002), usuario `pronostico_app` sin DDL, Dockerfile con `rc_pronostico`, servicio y migraciones en el compose (puerto 8002) | Contenedor arriba, migrado y sano; 66 pruebas; el modelo de la 5A carga dentro de la imagen | Cerrada |
-| 5B.2 Baseline | `POST /interno/pronosticos` con `artefacto=None`, serie de ms-analítica (365 días), calendario, guardado de solo agregado, idempotencia por `solicitud_id`, `GET /interno/pronosticos/{id}`, 503 si ms-analítica cae | Pronóstico de punta a punta sin modelo | **Siguiente** |
-| 5B.3 Modelo | `rc_pronostico` en la imagen (dependencia por ruta y contexto adicional), repositorio montado de solo lectura, carga verificada, registro en `modelo_version`, vuelta al modelo anterior o al baseline, `GET /interno/modelos/vigente` | `metodo = modelo` en ÁUREA; un archivo alterado no se usa | — |
+| 5B.2 Baseline | `POST /interno/pronosticos` con `artefacto=None`, serie de ms-analítica (365 días), calendario, guardado de solo agregado, idempotencia por `solicitud_id`, `GET /interno/pronosticos/{id}`, 503 si ms-analítica cae | Pronóstico de punta a punta sin modelo; 161 pruebas; probado contra ms-analítica real | Cerrada |
+| 5B.3 Modelo | `rc_pronostico` en la imagen (dependencia por ruta y contexto adicional), repositorio montado de solo lectura, carga verificada, registro en `modelo_version`, vuelta al modelo anterior o al baseline, `GET /interno/modelos/vigente` | `metodo = modelo` en ÁUREA; un archivo alterado no se usa | **Siguiente** |
 | 5B.4 Núcleo | Cliente firmado, `POST /api/v1/admin/pronosticos` y compañía, `jornada_actual` y cierres futuros, `recomendacion_reposicion`, reposición con `P90 − P50`, plan Pro y `incluye_prediccion_ia` | Reposición sugerida por API | — |
 | 5B.5 React | Pantalla de pronóstico y reposición (CU-ADMIN-07) y vista del propietario (CU-PROP-08) | Flujo de la demostración | — |
 | 5B.6 Humo | `scripts/smoke-pronostico.sh` con evidencias | Prueba de punta a punta para el informe | — |
@@ -233,6 +233,14 @@ Se divide en pasos que dejan algo demostrable cada uno. 5B.0 a 5B.3 dejan el ser
 - **`/health` degradado:** sin repositorio de modelos responde 200 `degradado`, no 503, porque el servicio sigue pronosticando con el baseline.
 - **Imagen de 768 MB** por numpy, pandas, scipy y scikit-learn. Es el costo de predecir con `rc_pronostico`; a considerar en el arranque en frío de Cloud Run (etapa 8).
 - Se agregaron `PRONOSTICO_DB_APP_USER`, `PRONOSTICO_DB_APP_PASSWORD`, `PRONOSTICO_PORT`, `PRONOSTICO_URL` y `PRONOSTICO_SECRETO` a `.env.example` (y al `.env` local).
+
+### Lo que dejó la 5B.2 (20/11)
+
+- **`POST` y `GET /interno/pronosticos`** de punta a punta con el baseline: 161 pruebas (base real, ms-analítica simulada, firma, validación, idempotencia, fallos). Humo real contra ms-analítica con los 20 platos de ÁUREA: 201 en 489 ms; el reintento devuelve 200 con la misma ejecución y el GET es igual al POST.
+- **Una ejecución fallida también se guarda** (con `detalles.ejecucion_id` en el error) y un `solicitud_id` fallido se puede reintentar hasta completarse.
+- **Ventana de 365 días verificada:** con el modelo real publicado en la 5A, 365 y 730 días de historial dan el mismo pronóstico. Con 20 días ya cambia (120 de 140 filas); con 40 o más no. Por eso `VENTANA_HISTORIAL_DIAS` va de 70 a 730.
+- **Límite del aviso `datos_desactualizados`:** con tolerancia de 3 días no detecta una falla de entrega de 1 o 2 días. Con el histórico sintético terminando el 17/11, el 18 y 19 se tomaron como cierres **sin advertencia**.
+- Un `ModelosVigentes` (puerto) con `SinModelos` deja listo el enchufe para la 5B.3: solo hay que cambiar el adaptador.
 
 ### Antes de la demostración
 
