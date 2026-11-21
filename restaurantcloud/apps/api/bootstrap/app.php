@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureModuloPrediccion;
 use App\Http\Middleware\EnsureModuloReservas;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\RedisTokenAuth;
@@ -25,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.context' => TenantContext::class,
             'role' => EnsureRole::class,
             'modulo.reservas' => EnsureModuloReservas::class,
+            'modulo.prediccion' => EnsureModuloPrediccion::class,
         ]);
     })
 

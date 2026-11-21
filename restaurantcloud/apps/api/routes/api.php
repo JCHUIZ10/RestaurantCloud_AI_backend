@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\Admin\PoliticaReservaController;
 use App\Http\Controllers\Api\Admin\ProductoController;
 use App\Http\Controllers\Api\Admin\ProductoFotoController;
 use App\Http\Controllers\Api\Admin\PromocionController;
+use App\Http\Controllers\Api\Admin\PronosticoController;
 use App\Http\Controllers\Api\Admin\ProveedorController;
 use App\Http\Controllers\Api\Admin\RecetaController;
 use App\Http\Controllers\Api\AuthController;
@@ -114,6 +115,13 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/productos/{id}/receta', [RecetaController::class, 'show']);
             Route::put('/productos/{id}/receta', [RecetaController::class, 'update']);
             Route::get('/productos/{id}/capacidad', [RecetaController::class, 'capacidad']);
+
+            // Predicción de demanda y reposición sugerida: solo planes que la incluyen (CU-ADMIN-07, CU-PROP-08)
+            Route::middleware(['role:admin_local,propietario', 'modulo.prediccion'])->group(function (): void {
+                Route::post('/pronosticos', [PronosticoController::class, 'generar']);
+                Route::get('/pronosticos/ultimo', [PronosticoController::class, 'ultimo']);
+                Route::patch('/reposiciones/{id}', [PronosticoController::class, 'decidir'])->whereUuid('id');
+            });
 
             Route::prefix('insumos')->group(function (): void {
                 Route::get('/', [InsumoController::class, 'index']);
