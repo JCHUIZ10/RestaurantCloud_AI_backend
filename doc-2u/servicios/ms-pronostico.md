@@ -411,7 +411,7 @@ Si ms-pronóstico cae, el salón, la cocina y la caja siguen funcionando.
 
 **Abiertas**
 
-- **Locales nuevos** ([03-prediccion-en-locales-nuevos.md](../03-prediccion-en-locales-nuevos.md)): `historial.dias_con_ventas` ya está en la respuesta (21/11, migración 0003). Falta en el núcleo calcular el nivel (N-1) y el resto de las decisiones N-2 a N-6.
+- **Locales nuevos** ([03-prediccion-en-locales-nuevos.md](../03-prediccion-en-locales-nuevos.md)): resuelto el 21/11. `historial.dias_con_ventas` está en la respuesta (migración 0003) y el núcleo calcula con él el nivel de la predicción y el resto de las decisiones N-1 a N-6. Queda abierta N-7 (aviso de «listo para entrenar»).
 - **Promociones planificadas** como variable (versión 2 del modelo, D-12): el núcleo tendría que enviarlas en la petición, como los cierres.
 
 **Resueltas el 20/11 (5B.1)**

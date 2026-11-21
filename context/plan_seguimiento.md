@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 20/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está en curso: 5B.0 a 5B.4 cerradas, sigue la 5B.5 (la pantalla de React).
+**Última actualización:** 21/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está en curso: 5B.0 a 5B.5 cerradas (falta revisar las pantallas en un navegador), sigue la 5B.6 (la prueba de punta a punta).
 
 ## Contexto
 
@@ -24,7 +24,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | Extra: identificadores ordenados | Cerrada | Suite completa: 639 pruebas |
 | 4. Datos sintéticos | Cerrada | 24 meses de ÁUREA en 3 min 45 s; 111 pruebas de ms-analítica; humo: 28 comprobaciones |
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
-| 5B. ms-pronóstico | **En curso** (5B.0 a 5B.4 cerradas) | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo |
+| 5B. ms-pronóstico | **En curso** (5B.0 a 5B.5 cerradas) | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo |
 
 ---
 
@@ -212,8 +212,8 @@ Se divide en pasos que dejan algo demostrable cada uno. 5B.0 a 5B.3 dejan el ser
 | 5B.2 Baseline | `POST /interno/pronosticos` con `artefacto=None`, serie de ms-analítica (365 días), calendario, guardado de solo agregado, idempotencia por `solicitud_id`, `GET /interno/pronosticos/{id}`, 503 si ms-analítica cae | Pronóstico de punta a punta sin modelo; 161 pruebas; probado contra ms-analítica real | Cerrada |
 | 5B.3 Modelo | `rc_pronostico` en la imagen (dependencia por ruta y contexto adicional), repositorio montado de solo lectura, carga verificada, registro en `modelo_version`, vuelta al modelo anterior o al baseline, `GET /interno/modelos/vigente` | `metodo = modelo` en ÁUREA; un archivo alterado no se usa | Cerrada |
 | 5B.4 Núcleo | Cliente firmado, `POST /api/v1/admin/pronosticos`, `GET …/ultimo` y `PATCH /api/v1/admin/reposiciones/{id}`, `jornada_actual` y cierres futuros, `recomendacion_reposicion`, reposición con `P90 − P50`, plan Pro con `incluye_prediccion_ia` | Reposición sugerida por API con el modelo real de ÁUREA | Cerrada |
-| 5B.5 React | Pantalla de pronóstico y reposición (CU-ADMIN-07) y vista del propietario (CU-PROP-08) | Flujo de la demostración | **Siguiente** |
-| 5B.6 Humo | `scripts/smoke-pronostico.sh` con evidencias | Prueba de punta a punta para el informe | — |
+| 5B.5 React | Pantalla de pronóstico y reposición (CU-ADMIN-07) y vista del propietario (CU-PROP-08) | Flujo de la demostración; 59 pruebas de vitest, `build` y `check:ui` en verde; **sin revisar en navegador** | Cerrada |
+| 5B.6 Humo | `scripts/smoke-pronostico.sh` con evidencias | Prueba de punta a punta para el informe | **Siguiente** |
 
 ### Decisiones de la 5B.0 (20/11)
 
@@ -274,11 +274,18 @@ Se divide en pasos que dejan algo demostrable cada uno. 5B.0 a 5B.3 dejan el ser
 - **Compra prellenada:** «Registrar compra» guarda las decisiones (lo cambiado como ajustado y el resto como aceptado, en un lote) y abre el formulario de Compras con el proveedor y los insumos ya cargados (`ModalRegistrarCompra` recibe `inicial`; el traspaso viaja en el estado de navegación y se limpia al abrirlo).
 - **Decisiones de diseño:** una decisión no se deshace (el backend la registra como auditoría), por eso la maqueta no tiene «Deshacer»; cambiar la cobertura calcula un pronóstico nuevo; en la vista del propietario el selector de periodo (mañana, fin de semana, 7 días) afecta al panorama y a los totales, y la comparación de platos es de la semana completa.
 - **Verificado:** `tsc`, `npm run build`, `check:ui` (0 hallazgos en los archivos nuevos) y 59 pruebas de vitest en verde (30 nuevas: utilidades, componentes por nivel y estado, y el flujo de «Preparar la compra» con su traspaso a Compras). **No se vieron en un navegador:** falta revisar a 360, 768 y 1280 px.
-- **Pendiente:** N-7 (aviso de «listo para entrenar»), prueba en navegador, la prueba de punta a punta de la 5B.6, borrar el producto «SMOKE Lomo…» y extender el histórico sintético hasta ayer.
+- **Pendiente:** N-7 (aviso de «listo para entrenar»), revisar las pantallas en un navegador (360, 768 y 1280 px) y la prueba de punta a punta de la 5B.6.
+
+### Lo que dejó la Fase D: datos y documentación (21/11)
+
+- **Histórico sintético hasta ayer.** `python -m app.sinteticos generar … --semilla 2026 --meses 24 --hasta 2026-11-20` con el mismo perfil y semilla: el generador es determinista y no duplica, así que solo agregó los días 18, 19 y 20 (39 073 ventas en total, 730 días). Con eso desaparece la limitación de que los días posteriores al 17 llegaban en 0 y se tomaban como cierres: el pronóstico real ya no trae `datos_desactualizados` y sigue dando 140 de 140 filas con `modelo`. **El modelo publicado sigue entrenado hasta el 17/11**; no se reentrenó.
+- **Producto de humo.** «SMOKE Lomo 44eed1», de una prueba antigua, tenía una venta registrada: se **desactivó** en vez de borrarlo, para no romper ese historial. Sale de la carta y de la predicción (20 platos en lugar de 21).
+- **Documentación al día:** ficha del núcleo (tablas, fórmula, redondeo, prioridades, endpoints nuevos y `PREDICCION_RESERVA_MINIMA`), ficha de ms-pronóstico, `doc-2u/03-prediccion-en-locales-nuevos.md` (estado de cada decisión) y `context/cu.md` (CU-ADMIN-07 y CU-PROP-08 con los niveles, las prioridades y la reserva mínima).
 
 ### Antes de la demostración
 
-- El histórico sintético de `analitica_db` termina el 2026-11-17. Los días posteriores llegan en 0 y la regla de respaldo los toma como cerrados. Extender la carga sintética hasta ayer antes de demostrar.
+- **Repetir la extensión del histórico el día de la demostración.** El histórico sintético llega hasta el 2026-11-20 (Fase D); cada día que pasa, los días nuevos llegan en 0 y la regla de respaldo los toma como cierres. Se repite con el mismo comando y `--hasta` igual a ayer (ver la Fase D).
+- **Revisar las pantallas en un navegador** a 360, 768 y 1280 px: se construyeron y probaron por código, pero no se vieron renderizadas.
 
 ---
 

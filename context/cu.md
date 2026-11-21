@@ -395,7 +395,7 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 #### Flujos alternativos
 
 - El plan no incluye este módulo (Starter) → el sistema muestra pantalla de upgrade.
-- No hay suficiente historial de datos de un plato → ese plato se pronostica con el método base (ingenuo estacional) y se marca como «estimación básica».
+- No hay suficiente historial → la predicción tiene un **nivel** (Esperando tus primeras ventas, En preparación, Casi a punto o Al punto) que se muestra con su avance. Un plato con pocas ventas se calcula con lo vendido en los mismos días de semanas anteriores y se marca «en preparación»; uno sin ventas aparece como «sin ventas todavía». Solo el nivel «Al punto» (modelo propio del local) muestra la precisión del modelo. Detalle: `doc-2u/03-prediccion-en-locales-nuevos.md`.
 - ms-pronóstico no responde → el sistema informa que el pronóstico no está disponible; el resto de la aplicación no se ve afectado.
 
 **Postcondiciones:** Ninguna (consulta). Cada ejecución queda registrada en ms-pronóstico para auditar y comparar con lo realmente vendido.
@@ -666,12 +666,12 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 **Precondiciones:** El plan incluye módulo de predicción; existe historial suficiente.
 
 > [!NOTE]
-> **Cómo se calcula:** la IA pronostica las unidades de cada **plato** (ms-pronóstico); el núcleo, dueño de recetas y stock, lo convierte en insumos: `consumo previsto = Σ unidades pronosticadas × cantidad de la receta`. La cantidad sugerida es `max(0, consumo de la cobertura + stock de seguridad − stock_actual)`, donde el stock de seguridad es la diferencia entre el percentil alto (P90) y la mediana (P50) del pronóstico, convertida a insumos. No hay un segundo modelo: la reposición es un cálculo sobre la salida del modelo de demanda.
+> **Cómo se calcula:** la IA pronostica las unidades de cada **plato** (ms-pronóstico); el núcleo, dueño de recetas y stock, lo convierte en insumos: `consumo previsto = Σ unidades pronosticadas × cantidad de la receta`. La cantidad sugerida es `max(0, consumo de la cobertura + stock de seguridad − stock_actual)`, donde el stock de seguridad es la diferencia entre el percentil alto (P90) y la mediana (P50) del pronóstico, convertida a insumos; en los días sin modelo propio no baja del 35 % de lo más probable. Las unidades contables se redondean hacia arriba al entero y los kilos y litros a un decimal. No hay un segundo modelo: la reposición es un cálculo sobre la salida del modelo de demanda.
 
 #### Flujo principal
 
 1. El administrador accede a "Recomendaciones de inventario" y elige la cobertura: 3, 5 o 7 días (3 por defecto).
-2. El sistema muestra una lista de insumos sugeridos para reponer, ordenada por prioridad: crítico (insumo ya por debajo del stock mínimo) y atención (el consumo previsto lo llevaría por debajo del mínimo dentro de la cobertura).
+2. El sistema muestra una lista de insumos sugeridos para reponer, ordenada por prioridad: **comprar cuanto antes** (ya por debajo del stock mínimo o no alcanza para el primer día), **se acaban en estos días** (el consumo previsto lo llevaría a cero dentro de la cobertura) y **tienes suficiente**. Un insumo por debajo de su mínimo aparece aunque ninguna receta lo consuma.
 3. Cada ítem muestra: stock actual, cantidad sugerida a comprar, el último proveedor al que se compró ese insumo (con su precio y fecha de esa compra), y costo estimado.
 4. El administrador puede **aceptar** la recomendación: el sistema abre la ficha de compra (`CU-ADMIN-06`) **prellenada** con los insumos y las cantidades sugeridas, agrupados por último proveedor. El registro de la compra sigue siendo manual: la IA nunca compra por sí sola.
 5. Puede **ajustar** las cantidades editando esa misma ficha, o **descartar** la recomendación con un botón.
@@ -681,7 +681,7 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 
 - Un insumo no tiene ninguna compra previa registrada → aparece en la lista sin sugerencia de proveedor/precio, solo con la cantidad recomendada.
 - Un insumo no figura en ninguna receta → no tiene pronóstico; solo se marca como crítico si está por debajo del stock mínimo.
-- Un plato con historial insuficiente → se pronostica con el método base (ingenuo estacional) y la lista lo indica.
+- Un plato con historial insuficiente o un local nuevo → la lista indica el nivel de la predicción (ver CU-PROP-08); un local sin ventas igual recibe los insumos que están por debajo de su mínimo.
 - ms-pronóstico no responde → el sistema informa que la recomendación no está disponible; el resto de la aplicación no se ve afectado.
 
 **Postcondiciones:** La recomendación y la decisión del administrador (aceptada, ajustada o descartada) quedan registradas en `recomendacion_reposicion`, al igual que la versión del modelo y los datos con que se calculó, para medir la tasa de aceptación y la diferencia entre lo sugerido y lo comprado. No se crea ninguna compra hasta que el administrador la registre.
