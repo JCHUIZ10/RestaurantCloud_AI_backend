@@ -1,6 +1,6 @@
 # Predicción en locales nuevos: niveles, reserva mínima y avisos
 
-**Estado:** decidido y con el backend implementado el 21/11/2026 (sección 8); falta la parte de pantallas (5B.5). Confirmados por el responsable del proyecto: los nombres culinarios de los niveles (N-1) y la reserva mínima del 35 % (N-2).
+**Estado:** decidido y con el backend implementado el 21/11/2026 (sección 8); pantallas hechas el mismo día (5B.5). Confirmados por el responsable del proyecto: los nombres culinarios de los niveles (N-1) y la reserva mínima del 35 % (N-2).
 **Afecta a:** ms-pronóstico, núcleo Laravel y frontend. No cambia el modelo ni `rc_pronostico`.
 **Casos de uso:** CU-ADMIN-07 (reposición) y CU-PROP-08 (predicción de la empresa).
 
@@ -139,12 +139,12 @@ Valor decidido: **35 %**, configurable con `PREDICCION_RESERVA_MINIMA` (0,35).
 
 | Decisión | Estado | Dónde |
 |---|---|---|
-| N-1 niveles | Backend hecho: `historial.dias_con_ventas` en ms-pronóstico y `nivel` en el núcleo (`progreso` y `confianza` según el nivel). Falta mostrar los nombres en pantalla | `ms-pronostico` migración 0003; `PronosticoService::nivel` |
+| N-1 niveles | Hecho: `historial.dias_con_ventas` en ms-pronóstico, `nivel` en el núcleo (`progreso` y `confianza` según el nivel) y los nombres en pantalla (`IndicadorNivel`) | `ms-pronostico` migración 0003; `PronosticoService::nivel` |
 | N-2 reserva mínima | Hecho, configurable con `PREDICCION_RESERVA_MINIMA` | `ReposicionService::calcular` |
 | N-3 recordar cada pronóstico | Hecho | tabla `solicitud_pronostico`; `GET …/ultimo` ya no da 404 a un local sin recomendaciones |
 | N-4 insumos bajo mínimo | Hecho (`motivo = bajo_minimo`, siempre `urgente`) | `ReposicionService::calcular` |
 | N-5 aviso de ventas atrasadas | Hecho en el núcleo, contrastado con los comprobantes | `PronosticoService::advertenciasVigentes` |
-| N-6 textos según el nivel | Backend entrega `confianza` (solo nivel 3) y `progreso` (niveles 0 a 2); los textos son de la pantalla | 5B.5 |
+| N-6 textos según el nivel | Hecho: la pantalla muestra la precisión solo en el nivel 3 y el avance en los niveles 0 a 2 | `IndicadorNivel`, `AvisosPrediccion` |
 | N-7 aviso de «listo para entrenar» | Pendiente, posterior a la 5B | — |
 
 **Comprobado con ÁUREA** (modelo propio, nivel 3): 360 días con ventas, confianza «error de 4,9 platos, 24 % mejor que repetir la semana anterior», 16 recomendaciones (4 urgentes, 9 pronto, 3 cubiertas) por S/ 6 766,93 en 2 proveedores. Las pruebas cubren los niveles 0, 1, 2 y 3 con ms-pronóstico simulado.
