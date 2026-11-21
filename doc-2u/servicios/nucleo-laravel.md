@@ -121,14 +121,55 @@ CREATE INDEX ix_solicitud_pronostico_local ON solicitud_pronostico (local_id, cr
 
 | Método | Ruta | Cambio | Propósito |
 |---|---|---|---|
-| POST | `/api/v1/auth/login` | Modificado | La respuesta incluye además el JWT para microservicios |
-| POST | `/api/v1/auth/refresh` | Modificado | Renueva también el JWT |
+| POST | `/api/v1/auth/login`, `/auth/seleccionar-cuenta`, `/auth/refresh` | Modificado | La respuesta incluye además el JWT para microservicios (también la activación de cuenta y el autologin del registro) |
+| POST | `/api/v1/auth/token-servicios` | Nuevo | Renueva solo el JWT, sin rotar la sesión |
 | GET | `/api/v1/auth/clave-publica` | Nuevo | Clave pública con la que se validan los JWT |
 | POST | `/api/v1/admin/pronosticos` | Nuevo | Pide un pronóstico a ms-pronóstico y calcula la reposición |
 | GET | `/api/v1/admin/pronosticos/ultimo` | Nuevo | Último pronóstico y su recomendación |
 | PATCH | `/api/v1/admin/reposiciones/{id}` | Nuevo | El administrador acepta, ajusta o descarta una recomendación |
 
 Roles de las rutas de pronóstico: `admin_local` y `propietario`, y solo si el plan de la empresa incluye `incluye_prediccion_ia`.
+
+### JWT para microservicios
+
+El formato del token y cómo se valida están en [README.md](README.md), sección 2. Lo emite `SesionService`, el único punto que crea sesiones, así que todo inicio de sesión lo trae.
+
+**Respuesta de login, selección de cuenta, refresh, activación y registro:** a los campos actuales (`token`, `refresh_token`, `usuario`) se agregan:
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `jwt` | cadena o `null` | JWT para las rutas de microservicios. `null` si el servidor no tiene claves configuradas o la empresa está suspendida |
+| `jwt_expira_en` | fecha y hora o `null` | Caducidad del JWT |
+
+`modulos` se calcula con el plan vigente de la empresa: `prediccion` si `incluye_prediccion_ia`, `reportes_avanzados` si `incluye_reportes_avanzados`.
+
+### POST /api/v1/auth/token-servicios
+
+**Propósito:** entregar un JWT nuevo sin rotar la sesión. El frontend lo llama poco antes de que caduque el anterior, o tras un 401 de un microservicio.
+**Roles:** cualquier usuario autenticado.
+**Autenticación:** token de sesión.
+
+**Respuesta 200**
+
+```json
+{ "exito": true, "datos": { "jwt": "eyJ…", "jwt_expira_en": "2026-11-21T15:10:00-05:00" } }
+```
+
+| HTTP | Código | Cuándo |
+|---|---|---|
+| 401 | `TOKEN_INVALIDO_O_EXPIRADO` | La sesión no existe o caducó (lo responde `auth.redis`) |
+| 403 | `EMPRESA_SUSPENDIDA` | La empresa está suspendida |
+| 503 | `ERR_JWT_NO_CONFIGURADO` | El servidor no tiene `JWT_PRIVATE_KEY` |
+
+Los datos del usuario salen de la sesión, igual que en el resto de rutas; el plan se lee en cada emisión, así que un cambio de plan llega en la siguiente renovación.
+
+### GET /api/v1/auth/clave-publica
+
+**Propósito:** publicar la clave con la que se validan los JWT, para configurar un servicio o el gateway.
+**Autenticación:** ninguna (es pública por diseño).
+
+**Respuesta 200:** `datos` = `{ "algoritmo": "RS256", "kid": "3f2a…", "emisor": "restaurantcloud-nucleo", "audiencia": "restaurantcloud-servicios", "clave_publica": "-----BEGIN PUBLIC KEY-----
+…" }`. 503 `ERR_JWT_NO_CONFIGURADO` si no hay claves.
 
 ### POST /api/v1/admin/pronosticos
 
@@ -265,7 +306,7 @@ Publica todos los eventos de origen `nucleo` del [catálogo](eventos.md). Cada u
 
 | Variable | Descripción |
 |---|---|
-| `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY`, `JWT_MINUTOS` | Firma y duración del JWT |
+| `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY`, `JWT_MINUTOS` | Claves PEM (se aceptan con `\n` literales, para caber en una línea del `.env`) y duración del JWT (10). Sin clave privada no se emiten JWT. `php artisan jwt:claves` genera un par nuevo |
 | `PREDICCION_RESERVA_MINIMA` | Reserva mínima de la reposición en los días sin modelo, como fracción de lo más probable (0,35) |
 | `PRONOSTICO_URL`, `PRONOSTICO_SECRETO`, `PRONOSTICO_TIMEOUT_SEGUNDOS` | Dirección y secreto de ms-pronóstico, y espera máxima de su respuesta (30 s). El cliente es `PronosticoCliente`; firma con `App\Support\FirmaInterna`, la misma función que el outbox |
 | `ANALITICA_URL`, `ANALITICA_SECRETO` | Destino de eventos. Sin URL, no se crean entregas para ese servicio |

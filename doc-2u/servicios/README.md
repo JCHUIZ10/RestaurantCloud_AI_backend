@@ -73,8 +73,34 @@ Se mantiene el formato que ya usa Laravel (`App\Support\ApiResponse`), para que 
 
 | Quién llama | Cómo se autentica |
 |---|---|
-| Navegador → microservicio | `Authorization: Bearer <JWT>`. El servicio valida la firma RS256 y toma `empresa_id`, `local_id` y `rol` del token; nunca del cuerpo ni de la URL |
+| Navegador → microservicio | `Authorization: Bearer <JWT>`. El servicio valida la firma RS256 y toma `empresa_id`, `local_id`, `rol` y `modulos` del token; nunca del cuerpo ni de la URL. Única excepción: el propietario, cuyo token no trae sede, la elige con la cabecera `X-Local-Id` (la misma que usa el núcleo), y el servicio filtra igualmente por el `empresa_id` del token |
 | Servidor → servidor (`/interno`) | Cabeceras `X-Timestamp` (segundos desde 1970, UTC) y `X-Firma` (HMAC-SHA256 en hexadecimal de `timestamp.cuerpo` con el secreto del servicio destino). La firma se calcula sobre los bytes exactos del cuerpo recibido, sin volver a serializarlo. En una petición GET, que no tiene cuerpo, se firma la cadena de consulta tal como se envía (por ejemplo `empresa_id=…&local_id=…`), de modo que ningún parámetro se puede alterar sin invalidar la firma. Se rechaza si el timestamp tiene más de 5 minutos |
+
+**El JWT.** Lo emite solo el núcleo y lo validan Kong y cada microservicio con la clave pública.
+
+| Parte | Valor |
+|---|---|
+| Cabecera | `alg: RS256`, `typ: JWT`, `kid`: los primeros 16 caracteres hexadecimales del SHA-256 de la clave pública (permite rotarla) |
+| `iss` | `restaurantcloud-nucleo` |
+| `aud` | `restaurantcloud-servicios` |
+| `sub` | Id del usuario |
+| `rol` | `admin_saas`, `propietario`, `admin_local`, `cajero`, `mozo`, `cocina` |
+| `empresa_id` | Empresa del usuario (`null` solo en `admin_saas`) |
+| `local_id` | Sede del usuario; `null` para propietario y `admin_saas` |
+| `modulos` | Módulos del plan de la empresa que habilitan rutas de microservicios: `prediccion`, `reportes_avanzados` |
+| `iat`, `nbf`, `exp` | Emisión, validez desde y caducidad (`JWT_MINUTOS`, 10 por defecto) |
+| `jti` | Identificador aleatorio del token |
+
+Al validar, un servicio exige la firma con la clave configurada, `iss`, `aud`, `exp` y `nbf` (con 30 s de tolerancia de reloj) y los claims `sub`, `rol` y `empresa_id`. El token no se revoca: dura poco y se renueva con `POST /api/v1/auth/token-servicios` ([nucleo-laravel.md](nucleo-laravel.md)).
+
+| HTTP | Código | Cuándo |
+|---|---|---|
+| 401 | `ERR_TOKEN_INVALIDO` | Falta el token, la firma no coincide, el emisor o la audiencia no son los esperados, o falta un claim |
+| 401 | `ERR_TOKEN_EXPIRADO` | El token caducó; el cliente debe renovarlo |
+| 403 | `ERR_ROL_NO_PERMITIDO` | El rol no puede usar la ruta |
+| 403 | `ERR_MODULO_NO_INCLUIDO` | El plan de la empresa no incluye el módulo de la ruta |
+| 403 | `ERR_SEDE_NO_PERMITIDA` | Un usuario con sede en el token pide otra con `X-Local-Id` |
+| 422 | `ERR_SEDE_REQUERIDA` | El token no trae sede y la petición no lleva `X-Local-Id` |
 
 **Otras reglas.**
 

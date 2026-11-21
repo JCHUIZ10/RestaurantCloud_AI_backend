@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 21/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está en curso: 5B.0 a 5B.6 cerradas (falta revisar las pantallas en un navegador), la 5B está terminada salvo la revisión en navegador; sigue la etapa 6 (JWT y gateway) o la 8 (nube), según el orden que se decida.
+**Última actualización:** 21/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está en curso: 6.0 (ficha) cerrada; sigue la 6.1 (JWT en el núcleo).
 
 ## Contexto
 
@@ -24,7 +24,8 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | Extra: identificadores ordenados | Cerrada | Suite completa: 639 pruebas |
 | 4. Datos sintéticos | Cerrada | 24 meses de ÁUREA en 3 min 45 s; 111 pruebas de ms-analítica; humo: 28 comprobaciones |
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
-| 5B. ms-pronóstico | **En curso** (5B.0 a 5B.5 cerradas) | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo |
+| 5B. ms-pronóstico | Cerrada salvo la revisión en navegador | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo; humo: 108 comprobaciones |
+| 6. JWT y gateway | **En curso** (6.0 cerrada) | Ficha: claims del JWT, renovación, 4 reportes y políticas de Kong |
 
 ---
 
@@ -201,7 +202,7 @@ El P90 cubre 86,1 % de los días en Stuttgart (objetivo 90 %). En ÁUREA, frente
 
 ---
 
-## Etapa 5B. ms-pronóstico — en curso
+## Etapa 5B. ms-pronóstico — cerrada salvo la revisión en navegador
 
 Se divide en pasos que dejan algo demostrable cada uno. 5B.0 a 5B.3 dejan el servicio probado por sí solo (pytest), antes de tocar el núcleo.
 
@@ -310,12 +311,36 @@ Cómo resuelve lo que podía estropear la prueba:
 
 ---
 
+## Etapa 6. JWT y gateway — en curso
+
+Se divide como la 5B: primero el contrato, después cada pieza probada por sí sola y al final la prueba de punta a punta a través de Kong.
+
+| Paso | Contenido | Demostrable | Estado |
+|---|---|---|---|
+| 6.0 Ficha | Claims del JWT, `POST /auth/token-servicios`, `GET /auth/clave-publica`, los 4 reportes de ms-analítica en detalle, rutas y políticas de Kong | El contrato antes que el código | Cerrada |
+| 6.1 JWT en el núcleo | `firebase/php-jwt`, emisor RS256 dentro de `SesionService` (login, selección de cuenta, refresh, activación y registro), endpoint de renovación, clave pública, `php artisan jwt:claves`, variables en `.env.example` | Login que devuelve un JWT verificable con la clave pública | Pendiente |
+| 6.2 JWT en ms-analítica | `soporte/jwt.py` (copiable a ms-notificaciones), dependencia de sesión con rol, empresa, sede y módulos | Pruebas de firma, caducidad, emisor, audiencia, rol y sede | Pendiente |
+| 6.3 Reportes | `ventas/resumen`, `ventas/por-hora`, `productos/ranking` (con ingeniería de menú) y `personal/desempeno`, con pytest contra PostgreSQL real | Reportes de ÁUREA con el histórico sintético | Pendiente |
+| 6.4 Kong | `infra/kong` (DB-less, plantilla con la clave pública), servicio en el compose (puerto 8000), JWT en `/api/v1/analitica`, límite de peticiones, CORS, `X-Request-Id`; Vite pasa a apuntar a Kong | Todo el tráfico del navegador entra por Kong; `/interno` no se expone | Pendiente |
+| 6.5 React | Cliente de microservicios con renovación del JWT y pantalla «Reportes» de 3 pestañas (CU-ADMIN-13) | Flujo del navegador a ms-analítica por Kong | Pendiente |
+| 6.6 Humo | `scripts/smoke-gateway.sh` con evidencias | Prueba de punta a punta para el informe | Pendiente |
+
+### Decisiones de la 6.0 (21/11)
+
+- **Alcance de CU-ADMIN-13:** resumen con comparación con el periodo anterior, horas punta, ranking con matriz de ingeniería de menú y desempeño por mozo con anulaciones, más la pantalla de 3 pestañas. **Fuera:** exportar (queda para la Unidad III), rotación de mesa, upselling de segunda ronda, turnos y nota de quiebre de stock (los eventos no traen esos datos) y desglose de IGV (`venta.registrada` no lo trae).
+- **Renovación del JWT con un endpoint propio**, `POST /api/v1/auth/token-servicios`, autenticado con el token de sesión: devuelve solo un JWT nuevo y no rota la sesión, así dos pestañas no se invalidan entre sí cada 10 minutos. Login, selección de cuenta, refresh, activación y registro lo devuelven también, porque todos pasan por `SesionService`.
+- **Sede del propietario:** su JWT no trae `local_id`; elige la sede con la misma cabecera `X-Local-Id` que ya usa el núcleo, y el servicio filtra **siempre** por el `empresa_id` del token. Una sede de otra empresa responde como una sede sin ventas, sin revelar si existe. Un `admin_local` con un `X-Local-Id` distinto al de su token recibe 403.
+- **Plan en el token:** claim `modulos` (`prediccion`, `reportes_avanzados`). Resumen y horas punta, para todos los planes; ranking y desempeño, solo con `reportes_avanzados`. Un cambio de plan llega al token en la siguiente renovación (10 minutos como mucho).
+- **Sin claves no se rompe nada:** si `JWT_PRIVATE_KEY` no está configurada, el login sigue funcionando con `jwt: null` y la renovación responde 503. Tampoco se emite JWT a una empresa suspendida.
+- **Kong:** valida firma y caducidad (`exp`, con una vida máxima de 15 minutos); cada servicio vuelve a validar firma, emisor, audiencia y claims. En producción, Caddy (TLS y SPA) queda delante de Kong; se implementa en la etapa 8.
+- **Hallazgo para la etapa 9:** `trustProxies(at: '*')` confía en `X-Forwarded-For` de cualquier origen; el bloqueo de login por IP se puede eludir si la API se alcanza sin pasar por el proxy.
+
+---
+
 ## Hoja de ruta (se detalla al llegar)
 
 | Etapa | Contenido | Requisito de la guía que cubre |
 |---|---|---|
-| 5B. ms-pronóstico | Servicio con baseline de punta a punta; descarga y verificación del modelo publicado en la 5A; cambios de D-21 en su ficha; endpoints del núcleo; tabla `recomendacion_reposicion`; pantalla de pronóstico y reposición en React | IA integrada en un flujo real (15 %) |
-| 6. JWT y gateway | JWT RS256 en login y refresh; Kong con rutas y validación; reportes públicos de ms-analítica (alcance de CU-ADMIN-13 por definir) | Arquitectura distribuida; seguridad |
 | 7. ms-notificaciones | Servicio Node/Fastify con MongoDB, bandeja y SSE; campana en React; el núcleo deja de insertar en `notificacion` | Tercer microservicio |
 | 8. Nube | Imagen de la API con el código dentro; imágenes en Artifact Registry; VM con todo el sistema; ms-pronóstico en Cloud Run; laboratorio de GKE | Registro, PaaS, Kubernetes |
 | 9. Seguridad | Rol `rc_app`, prueba de RLS en la base e inventario de consultas sin contexto | Seguridad y configuración |
