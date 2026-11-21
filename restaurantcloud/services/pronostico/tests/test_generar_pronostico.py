@@ -153,7 +153,7 @@ def test_una_solicitud_fallida_se_puede_reintentar_y_completar(ejecutar, bd):
     resultado = ejecutar(s)  # ms-analítica volvió
 
     assert resultado.nueva is True and resultado.ejecucion.estado == "completada"
-    assert [f["estado"] for f in _filas(bd, "SELECT estado FROM ejecucion ORDER BY id")] == ["fallida", "completada"]
+    assert [f["estado"] for f in _filas(bd, "SELECT estado FROM ejecucion ORDER BY creada_en")] == ["fallida", "completada"]
 
 
 def test_una_respuesta_con_formato_roto_se_guarda_como_serie_invalida(ejecutar, bd):
