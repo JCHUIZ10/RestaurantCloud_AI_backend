@@ -135,3 +135,45 @@ def test_la_linea_de_comandos_purga(bd, perfil, carta, capsys):
 
     assert main(["purgar", "--empresa", EMPRESA, "--local", LOCAL, "--hasta", "2026-03-31", "--confirmar"]) == 0
     assert _contar(bd, "venta") == 0
+
+
+def _generar_por_linea(tmp_path, capsys, *opciones):
+    archivo_carta = tmp_path / "carta.json"
+    archivo_carta.write_text(json.dumps(carta_demo()), encoding="utf-8")
+    assert main(["generar", "--carta", str(archivo_carta), *opciones]) == 0
+    return json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+
+
+def test_incremental_sin_historial_hace_la_carga_completa(bd, tmp_path, capsys):
+    resumen = _generar_por_linea(tmp_path, capsys, "--incremental", "--meses", "1", "--hasta", "2026-03-31")
+
+    assert resumen["modo"] == "completa"
+    assert resumen["desde"] == "2026-03-01" and resumen["dias"] == 31
+
+
+def test_incremental_continua_desde_el_dia_siguiente_a_la_ultima_venta(bd, perfil, carta, tmp_path, capsys):
+    cargador.cargar(carta, perfil, DESDE, date(2026, 3, 15), semilla=2026)
+
+    resumen = _generar_por_linea(tmp_path, capsys, "--incremental", "--hasta", "2026-03-31")
+
+    assert resumen["modo"] == "incremental"
+    assert resumen["desde"] == "2026-03-16" and resumen["hasta"] == "2026-03-31" and resumen["dias"] == 16
+    assert _contar(bd, "venta", "fecha_operativa > '2026-03-15'") == resumen["ventas"] > 0
+
+
+def test_incremental_ya_al_dia_no_genera_nada(bd, perfil, carta, tmp_path, capsys):
+    cargador.cargar(carta, perfil, DESDE, HASTA, semilla=2026)
+    ventas = _contar(bd, "venta")
+
+    resumen = _generar_por_linea(tmp_path, capsys, "--incremental", "--hasta", HASTA.isoformat())
+
+    assert resumen["al_dia"] is True and resumen["dias"] == 0
+    assert _contar(bd, "venta") == ventas
+
+
+def test_incremental_no_toma_como_historial_lo_posterior_al_corte(bd, perfil, carta, tmp_path, capsys):
+    cargador.cargar(carta, perfil, DESDE, HASTA, semilla=2026)
+
+    resumen = _generar_por_linea(tmp_path, capsys, "--incremental", "--hasta", "2026-03-10")
+
+    assert resumen["al_dia"] is True  # ya hay datos hasta el 10 de marzo

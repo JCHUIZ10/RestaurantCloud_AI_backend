@@ -70,6 +70,8 @@ docker exec restaurantcloudIA_api php artisan carta:exportar <local_id> \
       --verdad /tmp/verdad.csv        # opcional: demanda esperada por plato y día
 ```
 
+Para ponerlo al día después de unos días, sin repetir la carga completa, usa `--incremental`: genera solo desde el día siguiente a la última venta cargada hasta ayer (si ya está al día, no hace nada; si el local no tiene ventas, hace la carga completa). La guía de cada comando y cuándo usarlo está en `docs/comandos_datos_sinteticos.md`.
+
 `--verdad` guarda la demanda esperada del generador: es la referencia con la que el protocolo mide qué tan cerca queda el modelo de la demanda real subyacente.
 
 Para reemplazar el histórico sintético por datos reales se borra todo lo anterior al corte (sin `--confirmar` solo cuenta). **Borra lo anterior al corte sea sintético o real**; la tabla `producto_visto` se reconstruye con lo que queda.

@@ -21,7 +21,12 @@ def _parser() -> argparse.ArgumentParser:
     generar.add_argument("--carta", required=True, help="JSON de `carta:exportar` (archivo, o - para la entrada estándar)")
     generar.add_argument("--perfil", default="aurea_v1")
     generar.add_argument("--semilla", type=int, default=2026)
-    generar.add_argument("--meses", type=int, default=24)
+    generar.add_argument("--meses", type=int, default=24, help="meses hacia atrás desde --hasta (la carga completa)")
+    generar.add_argument(
+        "--incremental",
+        action="store_true",
+        help="solo genera desde el día siguiente a la última venta cargada hasta --hasta (ignora --meses; sin historial hace la carga completa)",
+    )
     generar.add_argument("--hasta", type=date.fromisoformat, help="último día (AAAA-MM-DD); por defecto, ayer")
     generar.add_argument("--verdad", help="archivo CSV donde guardar la demanda esperada por plato y día")
 
@@ -40,6 +45,15 @@ def _generar(args: argparse.Namespace) -> dict:
     hasta = args.hasta or cargador.ayer_en_lima()
     cargador.validar_hasta(hasta)
     desde = cargador.restar_meses(hasta, args.meses) + timedelta(days=1)
+    modo = "completa"
+    if args.incremental:
+        ultimo = cargador.ultimo_dia_cargado(carta.empresa_id, carta.local_id, hasta)
+        if ultimo is not None:
+            modo = "incremental"
+            desde = ultimo + timedelta(days=1)
+            if desde > hasta:
+                return {"orden": "generar", "modo": modo, "al_dia": True, "ultimo_dia": str(ultimo), "hasta": str(hasta),
+                        "dias": 0, "ventas": 0, "unidades": 0}
 
     salida = open(args.verdad, "w", newline="", encoding="utf-8") if args.verdad else None  # noqa: SIM115
     try:
@@ -56,7 +70,7 @@ def _generar(args: argparse.Namespace) -> dict:
     finally:
         if salida:
             salida.close()
-    return {"orden": "generar", "perfil": perfil.nombre, "semilla": args.semilla, "desde": str(desde), "hasta": str(hasta),
+    return {"orden": "generar", "modo": modo, "perfil": perfil.nombre, "semilla": args.semilla, "desde": str(desde), "hasta": str(hasta),
             "dias": resumen.dias, "ventas": resumen.ventas, "unidades": resumen.unidades}
 
 

@@ -305,7 +305,7 @@ Cómo resuelve lo que podía estropear la prueba:
 
 ### Antes de la demostración
 
-- **El histórico se completa solo al correr `./scripts/smoke-pronostico.sh`** (o a mano, con el mismo comando y `--hasta` igual a ayer, ver la Fase D). El histórico sintético llegaba hasta el 2026-11-20; cada día que pasa, los días nuevos llegan en 0 y la regla de respaldo los toma como cierres.
+- **El histórico se completa solo al correr `./scripts/smoke-pronostico.sh`** (o a mano con `generar --incremental`, que genera solo los días que faltan; guía en `restaurantcloud/docs/comandos_datos_sinteticos.md`). El histórico sintético llegaba hasta el 2026-11-20; cada día que pasa, los días nuevos llegan en 0 y la regla de respaldo los toma como cierres.
 - **Revisar las pantallas en un navegador** a 360, 768 y 1280 px: se construyeron y probaron por código, pero no se vieron renderizadas.
 
 ---

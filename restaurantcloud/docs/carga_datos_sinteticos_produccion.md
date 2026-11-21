@@ -64,6 +64,7 @@ docker compose exec -T api php artisan carta:exportar <local_id> \
 
 - **Es reanudable y repetible.** Cada día se guarda en su propia transacción y el sorteo de un día depende solo de (semilla, local, fecha). Si se corta a medias, vuelve a lanzar la misma orden: los días ya cargados no se duplican. Cargar un mes y luego 24 deja el mismo resultado que cargar 24 de una vez.
 - **No cambies la semilla ni el perfil entre ejecuciones sobre el mismo rango**: con otra semilla los comprobantes tienen otros ids y se sumarían a los anteriores.
+- **Para ponerlo al día más adelante** usa `--incremental` en lugar de repetir la carga completa (ver `comandos_datos_sinteticos.md`).
 - **`--verdad`** guarda la demanda esperada por plato y día, la referencia del protocolo experimental. Se escribe dentro del contenedor; cópiala fuera (`docker compose cp analitica:/tmp/verdad.csv ./verdad_<fecha>.csv`) y guárdala con el resto de la evidencia, porque el contenedor se recrea en cada despliegue.
 
 ## 5. Un perfil por local

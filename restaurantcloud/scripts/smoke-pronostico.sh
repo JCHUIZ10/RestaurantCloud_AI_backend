@@ -293,15 +293,15 @@ titulo "1. Histórico al día y modelo vigente"
 
 # Un histórico que no llega hasta ayer hace que los días nuevos lleguen en 0 y se tomen por cierres: el pronóstico
 # saldría con el aviso de ventas atrasadas. El histórico sintético es de desarrollo (determinista y sin duplicados),
-# así que se completa con el mismo comando de siempre; el aviso solo se ignora con --sin-extender.
+# así que se completa con `generar --incremental` (solo los días que faltan); el aviso solo se ignora con --sin-extender.
 AYER=$(sql_nucleo "select ((now() at time zone 'America/Lima')::date - 1)")
 ULTIMO_DIA=$(sql_analitica "select coalesce(max(fecha_operativa)::text, 'ninguno') from venta_diaria_producto where local_id = '$LOCAL'")
 if [ "$ULTIMO_DIA" \< "$AYER" ]; then
     if [ "$EXTENDER" = 1 ]; then
-        aviso "El histórico llega hasta $ULTIMO_DIA y ayer fue $AYER: se completa (puede tardar unos minutos)"
+        aviso "El histórico llega hasta $ULTIMO_DIA y ayer fue $AYER: se completa (solo los días que faltan)"
         INICIO_EXTENSION=$(ahora)
         SALIDA_EXTENSION=$(docker exec "$API" php artisan carta:exportar "$LOCAL" \
-            | docker exec -i "$ANALITICA" python -m app.sinteticos generar --carta - --perfil aurea_v1 --semilla 2026 --meses 24 2>&1)
+            | docker exec -i "$ANALITICA" python -m app.sinteticos generar --carta - --incremental --perfil aurea_v1 --semilla 2026 2>&1)
         guardar "01-extension-del-historico.txt" "$SALIDA_EXTENSION"
         ULTIMO_DIA=$(sql_analitica "select coalesce(max(fecha_operativa)::text, 'ninguno') from venta_diaria_producto where local_id = '$LOCAL'")
         aviso "Extensión terminada en $(($(ahora) - INICIO_EXTENSION)) s"

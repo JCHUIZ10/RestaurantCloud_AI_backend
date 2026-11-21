@@ -113,5 +113,14 @@ def purgar(empresa_id: UUID, local_id: UUID, hasta: date, confirmar: bool) -> di
     return conteo
 
 
+def ultimo_dia_cargado(empresa_id: UUID, local_id: UUID, hasta: date) -> date | None:
+    """Último día con ventas del local hasta `hasta` (incluido), o None si no hay historial."""
+    with transaccion() as conexion:
+        return conexion.execute(
+            text("SELECT max(fecha_operativa) FROM venta WHERE empresa_id = :empresa AND local_id = :local AND fecha_operativa <= :hasta"),
+            {"empresa": empresa_id, "local": local_id, "hasta": hasta},
+        ).scalar_one()
+
+
 def ayer_en_lima() -> date:
     return hoy_en_lima() - timedelta(days=1)
