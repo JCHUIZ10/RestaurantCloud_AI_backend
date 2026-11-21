@@ -198,7 +198,8 @@ class CambioPlanTest extends TestCase
         $respuesta = $this->postJson('/api/v1/propietario/suscripcion/ejecutar-upgrade', ['nuevo_plan_id' => 3], $this->headers())
             ->assertOk()
             ->assertJsonPath('datos.plan_nombre', 'Enterprise')
-            ->assertJsonPath('datos.modulos_activados', ['Predicción de demanda IA']);
+            // Pro ya incluye reservas, reportes, asistente y predicción: Enterprise solo sube los límites
+            ->assertJsonPath('datos.modulos_activados', []);
 
         $this->assertSame(3, DB::table('suscripcion')->where('id', $this->suscripcionId)->value('plan_id'));
         $this->assertSame(3, DB::table('empresa')->where('id', $this->empresaId)->value('plan_id'));

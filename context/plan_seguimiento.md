@@ -211,7 +211,7 @@ Se divide en pasos que dejan algo demostrable cada uno. 5B.0 a 5B.3 dejan el ser
 | 5B.1 Esqueleto | Arquitectura de puertos y adaptadores, `soporte/` copiado de ms-analítica, `/health`, Alembic con las 3 tablas y permisos mínimos (0002), usuario `pronostico_app` sin DDL, Dockerfile con `rc_pronostico`, servicio y migraciones en el compose (puerto 8002) | Contenedor arriba, migrado y sano; 66 pruebas; el modelo de la 5A carga dentro de la imagen | Cerrada |
 | 5B.2 Baseline | `POST /interno/pronosticos` con `artefacto=None`, serie de ms-analítica (365 días), calendario, guardado de solo agregado, idempotencia por `solicitud_id`, `GET /interno/pronosticos/{id}`, 503 si ms-analítica cae | Pronóstico de punta a punta sin modelo; 161 pruebas; probado contra ms-analítica real | Cerrada |
 | 5B.3 Modelo | `rc_pronostico` en la imagen (dependencia por ruta y contexto adicional), repositorio montado de solo lectura, carga verificada, registro en `modelo_version`, vuelta al modelo anterior o al baseline, `GET /interno/modelos/vigente` | `metodo = modelo` en ÁUREA; un archivo alterado no se usa | Cerrada |
-| 5B.4 Núcleo | Cliente firmado, `POST /api/v1/admin/pronosticos` y compañía, `jornada_actual` y cierres futuros, `recomendacion_reposicion`, reposición con `P90 − P50`, plan Pro y `incluye_prediccion_ia` | Reposición sugerida por API | **Siguiente** |
+| 5B.4 Núcleo | Cliente firmado, `POST /api/v1/admin/pronosticos` y compañía, `jornada_actual` y cierres futuros, `recomendacion_reposicion`, reposición con `P90 − P50` | Reposición sugerida por API | **Siguiente** |
 | 5B.5 React | Pantalla de pronóstico y reposición (CU-ADMIN-07) y vista del propietario (CU-PROP-08) | Flujo de la demostración | — |
 | 5B.6 Humo | `scripts/smoke-pronostico.sh` con evidencias | Prueba de punta a punta para el informe | — |
 
@@ -272,7 +272,7 @@ Orden recomendado si el tiempo aprieta: 4 → 5 → 8 antes que 6 y 7, porque IA
 ## Pendientes conocidos
 
 - **Carga inicial de ventas históricas.** Un evento publicado antes de configurar `ANALITICA_URL` no tiene entrega para ese destino y no se recupera solo. El generador sintético de la etapa 4 **no** entra por el outbox (ver sus decisiones); el histórico real, si se necesita, se reenvía con `outbox:reenviar-eventos`.
-- **Plan y predicción (etapa 5B).** En `06_seed_initial_data.sql` el plan Pro tiene `incluye_prediccion_ia = false`, y CU-PROP-08 dice «Pro/Enterprise». Hay que alinear plan, seed y caso de uso, y ÁUREA está en el plan Pro.
+- ~~**Plan y predicción (etapa 5B).**~~ Resuelto: el plan Pro tiene `incluye_prediccion_ia = true` en `06_seed_initial_data.sql` (como ya decía el wireframe de CU-PROP-03 y CU-PROP-08: «Pro/Enterprise»), así que ÁUREA, que está en el Pro, puede usar la predicción. Una base ya creada se actualiza con `UPDATE plan SET incluye_prediccion_ia = true WHERE id = 2`.
 - **Promociones como variable del modelo.** Quedan fuera de la versión 1 del modelo (D-12). Para pronosticar días futuros con promoción, el núcleo debe enviar a ms-pronóstico las promociones planificadas; ms-analítica solo conoce las usadas.
 - ~~**Quién envía cierres y feriados en producción.**~~ Resuelto en la 5B.0: el núcleo envía los cierres del periodo pronosticado; los del historial salen de la regla de respaldo y los feriados de `holidays` en ms-pronóstico.
 - **Demanda censurada.** Los días con platos agotados subestiman la demanda y el modelo la aprende más baja. Sin historial de disponibilidad no se puede corregir; limitación a documentar en el informe.

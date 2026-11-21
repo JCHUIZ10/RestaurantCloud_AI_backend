@@ -45,7 +45,7 @@ INSERT INTO plan (
     true, 
     true, 
     true, 
-    false, 
+    true, 
     true, 
     true
 ),
