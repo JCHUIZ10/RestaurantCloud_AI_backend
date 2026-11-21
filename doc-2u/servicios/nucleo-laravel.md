@@ -53,7 +53,9 @@ CREATE TABLE recomendacion_reposicion (
     local_id          uuid NOT NULL REFERENCES local (id) ON DELETE CASCADE,
     ejecucion_id      uuid NOT NULL,                -- ejecución en ms-pronóstico (sin clave foránea)
     insumo_id         uuid NOT NULL REFERENCES insumo (id) ON DELETE CASCADE,
-    consumo_previsto  numeric(12,3) NOT NULL,       -- pronóstico × receta
+    cobertura_dias    smallint NOT NULL CHECK (cobertura_dias IN (3,5,7)),
+    consumo_previsto  numeric(12,3) NOT NULL,       -- Σ P50 × receta
+    margen_seguridad  numeric(12,3) NOT NULL DEFAULT 0, -- Σ (P90 − P50) × receta
     stock_al_calcular numeric(12,3) NOT NULL,
     cantidad_sugerida numeric(12,3) NOT NULL CHECK (cantidad_sugerida >= 0),
     estado            varchar(12) NOT NULL DEFAULT 'pendiente'
@@ -84,7 +86,8 @@ CREATE INDEX ix_recomendacion_local ON recomendacion_reposicion (local_id, creat
   Con esto, un mantenimiento largo de un microservicio no deja entregas fallidas: los eventos se entregan solos cuando vuelve.
 - **Pausa por destino.** Un fallo que afecta al destino (los tres primeros de la tabla) lo pausa: las entregas pendientes se retienen sin gastar intentos ni timeouts. Al vencer la pausa sale una sola entrega de prueba y, cuando el destino responde, las retenidas se adelantan en orden cronológico. El estado vive en la caché (Redis); si se pierde, el sistema vuelve al comportamiento normal y se degrada de nuevo en el siguiente fallo.
 - **Reenvío de fallidos.** Una entrega `fallido` no se reintenta sola. `outbox:reenviar-eventos` la devuelve a pendiente, con los contadores en cero y vencimiento en la fecha de su evento, para que se envíe de la más antigua a la más reciente. Reenvía el evento tal como se guardó, sin reconstruirlo con los datos de hoy. Es seguro porque el receptor tolera duplicados por las claves del núcleo (`comprobante_id`, `anulacion_id`), no solo por `evento_procesado`, que se purga a los 30 días.
-- **`recomendacion_reposicion` guarda con qué se calculó** (`consumo_previsto`, `stock_al_calcular`), para poder explicar la cantidad sugerida aunque el stock cambie después.
+- **`recomendacion_reposicion` guarda con qué se calculó** (`consumo_previsto`, `margen_seguridad`, `stock_al_calcular` y `cobertura_dias`), para poder explicar la cantidad sugerida aunque el stock cambie después. La crea la migración `2026_11_20_000001`.
+- **Fórmula de la reposición.** Para los primeros `cobertura_dias` días del pronóstico y por insumo: `consumo_previsto = Σ P50 del plato × cantidad por plato`, `margen_seguridad = Σ (P90 − P50) × cantidad por plato` y `cantidad_sugerida = máx(0, consumo_previsto + margen_seguridad − stock)`. La cantidad por plato es `producto_insumo.cantidad_descuenta`. Sumar los P90 de varios días es conservador (la suma de cuantiles no es el cuantil de la suma): se prefiere pedir de más que quedarse sin insumo. Los insumos `inactivo` no entran. Un insumo con stock de sobra queda en la lista con cantidad 0.
 - **La decisión humana queda registrada** (`estado`, `cantidad_final`, quién y cuándo): la recomendación es apoyo a la decisión, nunca una compra automática.
 - Ambas tablas siguen las reglas del núcleo: política RLS por `local_id` en `recomendacion_reposicion`, igual que el resto de tablas de sede.
 
@@ -101,7 +104,75 @@ CREATE INDEX ix_recomendacion_local ON recomendacion_reposicion (local_id, creat
 
 Roles de las rutas de pronóstico: `admin_local` y `propietario`, y solo si el plan de la empresa incluye `incluye_prediccion_ia`.
 
-_Detalle de cada endpoint: por completar con la plantilla del README._
+### POST /api/v1/admin/pronosticos
+
+**Propósito:** pedir un pronóstico de los platos activos de la sede a ms-pronóstico y calcular la reposición de insumos.
+**Roles:** `admin_local`, `propietario` (con sede seleccionada). **Plan:** `incluye_prediccion_ia`.
+**Autenticación:** token de sesión.
+
+| Campo del cuerpo | Tipo | Obligatorio | Descripción |
+|---|---|---|---|
+| `cobertura_dias` | 3, 5 o 7 | no (7) | Días de consumo que cubre la reposición |
+| `solicitud_id` | uuid | no | Para reintentar sin duplicar: con el mismo id se devuelve la misma ejecución y las mismas recomendaciones. Por defecto el núcleo genera uno |
+
+**Qué envía a ms-pronóstico:** `jornada_actual` (`JornadaOperativaService::fechaJornadaDe`, la misma que usan los eventos), `fecha_inicio = jornada_actual + 1`, `horizonte_dias = 7` (siempre; la cobertura se recorta de este lado), los platos con `activo = true` (hasta 500, por nombre) y `dias_cerrados`: los días del periodo en que `JornadaOperativaService::resolver` dice que el local no atiende (día sin turnos o excepción con `cerrado`). Si el local no tiene ningún horario configurado no envía cierres, porque no puede saber cuándo abre.
+
+**Respuesta 201**
+
+```json
+{
+  "exito": true,
+  "datos": {
+    "cobertura_dias": 3,
+    "pronostico": { "ejecucion_id": "…", "modelo": { }, "resumen": { "modelo": 140, "baseline": 0, "cerrado": 0, "sin_historial": 7 }, "predicciones": [ ] },
+    "reposicion": [
+      {
+        "id": "…", "insumo_id": "…", "insumo": "Pescado fresco", "unidad_medida": "kg",
+        "consumo_previsto": 58.77, "margen_seguridad": 20.56, "stock_al_calcular": 15.0, "cantidad_sugerida": 64.32,
+        "estado": "pendiente", "cantidad_final": null, "decidido_en": null
+      }
+    ]
+  }
+}
+```
+
+`pronostico` es la respuesta de ms-pronóstico tal cual. `reposicion` va ordenada por `cantidad_sugerida` descendente.
+
+**Errores**
+
+| HTTP | Código | Cuándo |
+|---|---|---|
+| 403 | `ERR_MODULO_PREDICCION_NO_CONTRATADO` | El plan de la empresa no incluye la predicción; el mensaje nombra los planes que sí |
+| 422 | `ERR_VALIDACION` | `cobertura_dias` no es 3, 5 o 7, o `solicitud_id` no es uuid |
+| 422 | `ERR_LOCAL_REQUERIDO` | El propietario no seleccionó una sede |
+| 422 | `ERR_SIN_PRODUCTOS` | La carta no tiene platos activos |
+| 503 | `ERR_PRONOSTICO_NO_DISPONIBLE` | ms-pronóstico no responde, no está configurado o responde un error de servidor |
+| 503 | `ERR_ANALITICA_NO_DISPONIBLE` | ms-pronóstico no pudo leer el historial. `detalles.ejecucion_id` identifica la ejecución fallida |
+| 502 | `ERR_SERIE_INVALIDA` | El historial no cumple el contrato de ms-pronóstico |
+| 502 | `ERR_PRONOSTICO_RECHAZADO` | ms-pronóstico rechazó la firma o la forma de la petición: es un defecto del núcleo, no del usuario |
+
+### GET /api/v1/admin/pronosticos/ultimo
+
+**Propósito:** el último pronóstico con recomendaciones de la sede y su reposición, sin recalcular.
+**Roles y plan:** los mismos.
+
+**Respuesta 200:** `cobertura_dias`, `creada_en`, `pronostico` (se pide a ms-pronóstico por su `ejecucion_id`) y `reposicion` (con las decisiones ya tomadas). Si ms-pronóstico no responde, la respuesta sigue siendo 200 con `pronostico = null`: la reposición es del núcleo y no depende de él.
+
+**Errores:** 404 `ERR_SIN_PRONOSTICO` si la sede nunca generó uno (solo cuentan ejecuciones que produjeron recomendaciones), más los 403 y 422 de arriba.
+
+### PATCH /api/v1/admin/reposiciones/{id}
+
+**Propósito:** el administrador acepta, ajusta o descarta una recomendación. No genera ninguna compra.
+**Roles y plan:** los mismos.
+
+| Campo del cuerpo | Tipo | Obligatorio | Descripción |
+|---|---|---|---|
+| `estado` | `aceptada`, `ajustada` o `descartada` | sí | `aceptada` guarda `cantidad_final = cantidad_sugerida`; `descartada` la deja en nulo |
+| `cantidad_final` | número ≥ 0 | solo con `ajustada` | Cantidad que el administrador decide pedir |
+
+**Respuesta 200:** la recomendación con su estado, `cantidad_final` y `decidido_en`; `decidido_por` queda en la tabla.
+
+**Errores:** 404 `ERR_NO_ENCONTRADO` (no existe o es de otra sede, sin distinguir), 409 `ERR_REPOSICION_YA_DECIDIDA` (una decisión no se cambia: queda como registro de quién y cuándo; dos decisiones simultáneas las resuelve la base, gana una), 422 `ERR_VALIDACION`.
 
 ## 4. Eventos
 
@@ -130,7 +201,7 @@ Publica todos los eventos de origen `nucleo` del [catálogo](eventos.md). Cada u
 | Variable | Descripción |
 |---|---|
 | `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY`, `JWT_MINUTOS` | Firma y duración del JWT |
-| `PRONOSTICO_URL`, `PRONOSTICO_SECRETO` | Dirección y secreto de ms-pronóstico |
+| `PRONOSTICO_URL`, `PRONOSTICO_SECRETO`, `PRONOSTICO_TIMEOUT_SEGUNDOS` | Dirección y secreto de ms-pronóstico, y espera máxima de su respuesta (30 s). El cliente es `PronosticoCliente`; firma con `App\Support\FirmaInterna`, la misma función que el outbox |
 | `ANALITICA_URL`, `ANALITICA_SECRETO` | Destino de eventos. Sin URL, no se crean entregas para ese servicio |
 | `NOTIFICACIONES_URL`, `NOTIFICACIONES_SECRETO` | Destino de eventos. Sin URL, no se crean entregas para ese servicio |
 | `EVENTOS_MAX_INTENTOS`, `EVENTOS_TIMEOUT_SEGUNDOS` | Fallos del receptor tolerados por entrega (8) y espera de respuesta (5 s) |

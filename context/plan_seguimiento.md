@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 20/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está en curso: 5B.0 a 5B.3 cerradas, sigue la 5B.4 (el núcleo).
+**Última actualización:** 20/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está en curso: 5B.0 a 5B.4 cerradas, sigue la 5B.5 (la pantalla de React).
 
 ## Contexto
 
@@ -24,7 +24,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | Extra: identificadores ordenados | Cerrada | Suite completa: 639 pruebas |
 | 4. Datos sintéticos | Cerrada | 24 meses de ÁUREA en 3 min 45 s; 111 pruebas de ms-analítica; humo: 28 comprobaciones |
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
-| 5B. ms-pronóstico | **En curso** (5B.0 a 5B.3 cerradas) | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA); 200 pruebas |
+| 5B. ms-pronóstico | **En curso** (5B.0 a 5B.4 cerradas) | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo |
 
 ---
 
@@ -211,8 +211,8 @@ Se divide en pasos que dejan algo demostrable cada uno. 5B.0 a 5B.3 dejan el ser
 | 5B.1 Esqueleto | Arquitectura de puertos y adaptadores, `soporte/` copiado de ms-analítica, `/health`, Alembic con las 3 tablas y permisos mínimos (0002), usuario `pronostico_app` sin DDL, Dockerfile con `rc_pronostico`, servicio y migraciones en el compose (puerto 8002) | Contenedor arriba, migrado y sano; 66 pruebas; el modelo de la 5A carga dentro de la imagen | Cerrada |
 | 5B.2 Baseline | `POST /interno/pronosticos` con `artefacto=None`, serie de ms-analítica (365 días), calendario, guardado de solo agregado, idempotencia por `solicitud_id`, `GET /interno/pronosticos/{id}`, 503 si ms-analítica cae | Pronóstico de punta a punta sin modelo; 161 pruebas; probado contra ms-analítica real | Cerrada |
 | 5B.3 Modelo | `rc_pronostico` en la imagen (dependencia por ruta y contexto adicional), repositorio montado de solo lectura, carga verificada, registro en `modelo_version`, vuelta al modelo anterior o al baseline, `GET /interno/modelos/vigente` | `metodo = modelo` en ÁUREA; un archivo alterado no se usa | Cerrada |
-| 5B.4 Núcleo | Cliente firmado, `POST /api/v1/admin/pronosticos` y compañía, `jornada_actual` y cierres futuros, `recomendacion_reposicion`, reposición con `P90 − P50` | Reposición sugerida por API | **Siguiente** |
-| 5B.5 React | Pantalla de pronóstico y reposición (CU-ADMIN-07) y vista del propietario (CU-PROP-08) | Flujo de la demostración | — |
+| 5B.4 Núcleo | Cliente firmado, `POST /api/v1/admin/pronosticos`, `GET …/ultimo` y `PATCH /api/v1/admin/reposiciones/{id}`, `jornada_actual` y cierres futuros, `recomendacion_reposicion`, reposición con `P90 − P50`, plan Pro con `incluye_prediccion_ia` | Reposición sugerida por API con el modelo real de ÁUREA | Cerrada |
+| 5B.5 React | Pantalla de pronóstico y reposición (CU-ADMIN-07) y vista del propietario (CU-PROP-08) | Flujo de la demostración | **Siguiente** |
 | 5B.6 Humo | `scripts/smoke-pronostico.sh` con evidencias | Prueba de punta a punta para el informe | — |
 
 ### Decisiones de la 5B.0 (20/11)
@@ -249,6 +249,17 @@ Se divide en pasos que dejan algo demostrable cada uno. 5B.0 a 5B.3 dejan el ser
 - **Humo real:** `GET /interno/modelos/vigente` → modelo `01a1fa8e…`, MAE 4,87 frente a 6,37 del ingenuo. Pronóstico de los 20 platos de ÁUREA: 140 de 140 filas con `metodo = modelo`, 389 ms la primera petición (incluye cargar el modelo) y unos 290 ms las siguientes.
 - Una prueba de la 5B.2 era intermitente (ordenaba por un UUID v7, que dentro del mismo milisegundo no tiene orden); se corrigió y se repitió 8 veces.
 - **Pendiente para la nube (etapa 8):** `gs://` no tiene adaptador todavía; `crear_almacen` lo rechaza al arrancar con un mensaje claro.
+
+### Lo que dejó la 5B.4 (20/11)
+
+- **Cliente firmado en el núcleo** (`PronosticoCliente`): firma el cuerpo del POST y la cadena de consulta del GET, reenvía `X-Request-Id` y traduce cada fallo de ms-pronóstico a un error del núcleo (503 si no responde o no está configurado, 503 `ERR_ANALITICA_NO_DISPONIBLE` y 502 `ERR_SERIE_INVALIDA` con el `ejecucion_id` de la ejecución fallida, 502 si rechaza la firma o la forma). La función de firma salió de `EntregarEventoJob` a `App\Support\FirmaInterna`, que usan el outbox y este cliente.
+- **Qué envía el núcleo:** `jornada_actual` con la misma función que los eventos (`fechaJornadaDe`), los platos activos y los cierres del periodo calculados con `JornadaOperativaService::resolver`, es decir, el horario semanal y las excepciones con `cerrado`, sin reimplementarlos. Siempre pide 7 días; la cobertura (3, 5 o 7) se recorta del lado del núcleo. Un local sin horario configurado no envía cierres.
+- **Reposición:** `consumo_previsto + margen_seguridad − stock`, con `margen = Σ (P90 − P50)`; los insumos inactivos no entran; el stock y la cobertura quedan guardados en cada fila. Tabla `recomendacion_reposicion` (migración `2026_11_20_000001`, con RLS por sede). Se agregaron `cobertura_dias` y `margen_seguridad` a lo que decía la ficha, para poder explicar la cantidad sugerida.
+- **Idempotencia:** un reintento con el mismo `solicitud_id` recupera la misma ejecución y las mismas recomendaciones; no las recalcula con el stock de hoy.
+- **Decisión humana:** `PATCH` acepta, ajusta o descarta y registra quién y cuándo; una vez decidida no cambia (409). La decisión es atómica en la base.
+- **Plan:** la ruta exige `incluye_prediccion_ia` (`modulo.prediccion`, 403 con los planes que la incluyen); Pro ya la tiene (commit anterior).
+- **Verificado:** 24 pruebas nuevas (6 de la fórmula sin base y 18 del flujo con ms-pronóstico simulado: firma, cuerpo enviado, cierres, reintento, errores, decisiones, plan y rol). Humo real con el modelo de ÁUREA: `POST` 201 en 1,6 s con 140 filas `metodo = modelo` y 7 `sin_historial` (el plato 21 no tiene historial), 16 recomendaciones; `GET …/ultimo` las devuelve junto con el pronóstico.
+- **Limitación conocida:** `GET …/ultimo` solo conoce ejecuciones que produjeron recomendaciones (no hay tabla de ejecuciones en el núcleo). Una sede sin recetas no tiene «último».
 
 ### Antes de la demostración
 
