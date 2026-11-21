@@ -117,7 +117,7 @@ CREATE TABLE prediccion (
 **Decisiones de diseño**
 
 - **Trazabilidad completa.** De cualquier número que vea el administrador se llega a la ejecución, al modelo (con su SHA-256 y su ficha), al rango y la huella de los datos y al calendario usado. Es lo que pide la guía («persistencia y trazabilidad del resultado de IA»).
-- **Solo se agrega, nunca se modifica.** Las ejecuciones y predicciones no se actualizan. En la Unidad III se compara lo pronosticado con lo vendido para medir el experimento en producción. La única fila que cambia es `modelo_version.estado` (de `vigente` a `retirado` y al revés).
+- **Solo se agrega, nunca se modifica, y lo hace cumplir la base.** El usuario del servicio puede leer e insertar en `ejecucion` y `prediccion`, pero no actualizar ni borrar (migración 0002). En la Unidad III se compara lo pronosticado con lo vendido para medir el experimento en producción. Lo único que puede cambiar es `modelo_version.estado` y `retirado_en` (de `vigente` a `retirado` y al revés).
 - **`modelo_version` solo registra lo que el servicio cargó y verificó.** Su `id` es el mismo `modelo_version` que asignó `model-ia` al publicar, así que el registro y el repositorio coinciden sin tabla de correspondencia. Los candidatos que no pasaron la puerta de calidad no llegan aquí: el servicio solo sigue el puntero `vigente.json` (D-22).
 - **El baseline no es una fila de `modelo_version`.** Si no hay modelo vigente o no se pudo cargar, `ejecucion.modelo_version_id` queda en `NULL` y cada predicción lleva `metodo = baseline` con `motivo = modelo_no_disponible`. Cambia lo previsto en la primera versión de esta ficha: una «versión» falsa por local no aporta trazabilidad y obligaba a inventar sus métricas.
 - **`metodo` y `motivo` por predicción**, con las listas cerradas del CONTRATO (4.1). Las restricciones `CHECK` impiden un baseline sin motivo o un motivo en otro método.
@@ -310,14 +310,23 @@ Todas las rutas `/interno` usan la firma HMAC del [README](README.md), sección 
 
 ### GET /health
 
-Sin autenticación. 200 con `{"estado": "ok", "bd": "ok", "repositorio": "ok"}` si la base responde y la raíz del repositorio de modelos se puede leer; 503 con el componente que falla si no. No consulta a ms-analítica, para que una caída de esta no marque a ms-pronóstico como caído.
+Sin autenticación. Responde 200 con `{"estado": "ok", "servicio": "ms-pronostico", "bd": "ok", "repositorio": "ok"}` si la base responde y el repositorio de modelos se puede leer.
+
+- **La base no responde:** 503 `ERR_BD_NO_DISPONIBLE`. Sin base no se puede guardar ninguna ejecución.
+- **El repositorio no responde:** sigue siendo 200, con `estado = "degradado"` y `repositorio = "no_disponible"`. El servicio sigue pronosticando con el último modelo verificado o con el baseline (sección 5), así que la plataforma no debe reiniciarlo ni sacarlo de rotación por eso.
+- No consulta a ms-analítica, para que una caída de esta no marque a ms-pronóstico como caído.
 
 ### Carga del modelo
 
+Dos piezas con responsabilidades distintas (sección 8):
+
+- **`AlmacenArtefactos`** (puerto): lee bytes de una ruta del repositorio (`modelos/{local_id}/vigente.json`, `…/ficha.json`, `…/modelo.skops`) y dice si el repositorio responde. Tiene un adaptador por proveedor (carpeta local hoy, Cloud Storage en la etapa 8). Es lo único que cambia al cambiar de proveedor.
+- **`ProveedorModelos`** (servicio de aplicación): las reglas de abajo. No sabe de dónde vienen los bytes.
+
 Cómo pasa un archivo del repositorio de modelos (D-22) a una predicción:
 
-1. **Cuándo se revisa.** El servicio no carga nada al arrancar. En cada pronóstico de un local lee `modelos/{local_id}/vigente.json`, como mucho una vez cada `MODELOS_REVISAR_SEGUNDOS` (60) por local. Si el puntero no cambió, usa el modelo que ya tiene en memoria.
-2. **Cómo se carga.** Si el puntero cambió, o el proceso aún no tiene ese local, llama a `rc_pronostico.artefacto.cargar(MODELOS_REPOSITORIO, local_id)`. Esa función:
+1. **Cuándo se revisa.** El servicio no carga nada al arrancar. En cada pronóstico de un local lee `modelos/{local_id}/vigente.json`, como mucho una vez cada `MODELOS_REVISAR_SEGUNDOS` (60) por local. Si el puntero no cambió, usa el modelo que ya tiene en memoria. El modelo no se vuelve a descargar en cada petición: cargarlo cuesta unos 0,5 s y 2 a 3 MB de memoria, y predecir, milisegundos.
+2. **Cómo se carga.** Si el puntero cambió, o el proceso aún no tiene ese local, copia la versión (`modelo.skops` y `ficha.json`) del almacén a una carpeta temporal y llama a `rc_pronostico.artefacto.cargar_version(carpeta, local_id, versión, sha256 del puntero)`. Una carga a la vez por local (candado). Esa función:
    - verifica el SHA-256 del archivo contra la ficha y el puntero;
    - comprueba que la versión de scikit-learn sea idéntica;
    - comprueba que `version_variables` y la lista de variables coincidan con el paquete instalado;
@@ -331,7 +340,8 @@ Cómo pasa un archivo del repositorio de modelos (D-22) a una predicción:
    - si tampoco hay una, pronostica con el baseline (`motivo = modelo_no_disponible`).
 
    El error queda en el log y en `ultimo_error`. Nunca se usa un modelo sin verificar.
-5. **Varias réplicas o procesos** cargan cada uno su copia. Como el modelo se identifica por su SHA-256, todas usan el mismo.
+5. **Memoria acotada.** La caché guarda como mucho `MODELOS_MAX_EN_MEMORIA` locales (50, unos 150 MB) y descarta el menos usado. Una instancia de Cloud Run tiene memoria limitada.
+6. **Varias réplicas o procesos** cargan cada uno su copia, sin coordinarse. Como las versiones son inmutables y se identifican por su SHA-256, todas usan el mismo modelo. Tras un arranque en frío, la primera petición de cada local paga la carga.
 
 ## 4. Eventos
 
@@ -359,10 +369,12 @@ Si ms-pronóstico cae, el salón, la cocina y la caja siguen funcionando.
 | `PORT` | Puerto de escucha (8002) |
 | `DATABASE_URL` | Conexión a su PostgreSQL con el usuario `pronostico_app`, sin privilegios de DDL |
 | `MIGRATIONS_DATABASE_URL` | Conexión del usuario administrador. La usa solo el contenedor `pronostico-migraciones`, no el servicio |
+| `APP_DB_USER` | Nombre del usuario de la aplicación, al que la migración 0002 concede sus permisos. Solo lo usa `pronostico-migraciones` |
 | `SECRETO_INTERNO` | Secreto HMAC para `/interno`; es el `PRONOSTICO_SECRETO` del núcleo |
 | `ANALITICA_URL`, `ANALITICA_SECRETO` | Dirección de ms-analítica y su secreto (el `SECRETO_INTERNO` de ms-analítica) |
 | `ANALITICA_TIMEOUT_SEGUNDOS` | Espera máxima de la serie (10) |
-| `MODELOS_REPOSITORIO` | Raíz del repositorio de modelos: `file:///repositorio` en local (carpeta `model-ia/repositorio/` montada de solo lectura) o `gs://…` en la nube |
+| `MODELOS_REPOSITORIO` | Raíz del repositorio de modelos: `file:///repositorio` en local (carpeta `model-ia/repositorio/` montada de solo lectura) o `gs://…` en la nube. El esquema elige el adaptador de `AlmacenArtefactos`; un esquema sin adaptador impide arrancar |
+| `MODELOS_MAX_EN_MEMORIA` | Locales con modelo cargado a la vez (50) |
 | `MODELOS_REVISAR_SEGUNDOS` | Cada cuánto, como mucho, se relee `vigente.json` de un local (60) |
 | `VENTANA_HISTORIAL_DIAS` | Días de historial que se piden a ms-analítica (365; máximo 730) |
 | `PAIS_FERIADOS` | País de los feriados de `holidays` (`PE`) |
@@ -390,10 +402,43 @@ Si ms-pronóstico cae, el salón, la cocina y la caja siguen funcionando.
 
 **Abiertas**
 
-- **`gs://` en `rc_pronostico`:** hoy `artefacto.raiz_local` solo admite rutas locales y `file://`. Se agrega con la infraestructura de la nube (etapa 8): leer desde Cloud Storage o sincronizar el bucket a una carpeta del contenedor.
 - **Promociones planificadas** como variable (versión 2 del modelo, D-12): el núcleo tendría que enviarlas en la petición, como los cierres.
+
+**Resueltas el 20/11 (5B.1)**
+
+- **`gs://` no entra en `rc_pronostico`.** La librería sigue leyendo solo del disco. El servicio copia la versión desde el almacén a una carpeta temporal y la carga con `cargar_version`, que verifica el SHA-256 antes de leer. Cambiar de proveedor (Cloud Storage, S3, otro) es escribir un adaptador de `AlmacenArtefactos`, sin tocar `ProveedorModelos` ni `rc_pronostico`. La seguridad no depende del proveedor.
+- **El modelo se mantiene en memoria por local** y se revisa su puntero cada 60 s (sección 3, «Carga del modelo»).
 
 **Limitaciones conocidas**
 
 - **Demanda censurada:** sin historial de disponibilidad, los días con platos agotados subestiman la demanda (D-20).
 - **Un día sin ventas por falla de entrega se toma como cerrado.** Si ms-analítica deja de recibir ventas, esos días llegan en 0 y la regla de respaldo los trata como cierres; por eso existe la advertencia `datos_desactualizados`.
+
+## 8. Arquitectura interna
+
+Puertos y adaptadores, en versión ligera: hay una interfaz solo donde existen dos implementaciones (la real y una de prueba, o la de hoy y la de la etapa 8). El cálculo del pronóstico ya está aislado en `rc_pronostico`, que no tiene red ni base de datos.
+
+```text
+app/
+  main.py                    crea la aplicación; composicion.py arma los adaptadores y los inyecta
+  config.py
+  api/                       FastAPI: rutas, esquemas y traducción de errores a HTTP
+  casos_de_uso/              consultar_salud, generar_pronostico, consultar_ejecucion, consultar_modelo_vigente
+    puertos.py               AlmacenArtefactos, SondaBd, y después FuenteSeries, RegistroEjecuciones, Reloj
+    proveedor_modelos.py     puntero, caché, verificación y respaldo (independiente del almacenamiento)
+  dominio/                   reglas propias y puras: ventana de datos, unión de cierres, advertencias
+  adaptadores/
+    almacen_local.py         file://
+    almacen_gcs.py           gs:// (etapa 8)
+    analitica.py             httpx y firma HMAC
+    bd/                      SQLAlchemy Core: conexión, tablas y consultas
+  soporte/                   firma, logs, X-Request-Id, respuestas (copiado de ms-analítica)
+```
+
+**Reglas de dependencias** (las comprueba `tests/test_arquitectura.py`):
+
+- `api` depende de `casos_de_uso`; no importa `adaptadores`.
+- `casos_de_uso` y `dominio` no importan FastAPI, Starlette, SQLAlchemy, httpx ni `adaptadores`.
+- Solo `composicion.py` conoce los adaptadores concretos.
+
+**Qué no tiene interfaz, a propósito:** PostgreSQL (SQLAlchemy Core ya aísla el driver, y se prueba contra una base real), FastAPI y el algoritmo del modelo (lo absorbe `rc_pronostico` y el artefacto).

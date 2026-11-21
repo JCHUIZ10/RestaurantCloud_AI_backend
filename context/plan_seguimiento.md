@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 20/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está en curso: 5B.0 cerrada, sigue la 5B.1.
+**Última actualización:** 20/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está en curso: 5B.0 y 5B.1 cerradas, sigue la 5B.2.
 
 ## Contexto
 
@@ -24,7 +24,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | Extra: identificadores ordenados | Cerrada | Suite completa: 639 pruebas |
 | 4. Datos sintéticos | Cerrada | 24 meses de ÁUREA en 3 min 45 s; 111 pruebas de ms-analítica; humo: 28 comprobaciones |
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
-| 5B. ms-pronóstico | **En curso** (5B.0 cerrada) | Ficha `doc-2u/servicios/ms-pronostico.md` con D-21 aplicada |
+| 5B. ms-pronóstico | **En curso** (5B.0 y 5B.1 cerradas) | Ficha con D-21 aplicada; esqueleto sano en el puerto 8002 con 66 pruebas |
 
 ---
 
@@ -208,8 +208,8 @@ Se divide en pasos que dejan algo demostrable cada uno. 5B.0 a 5B.3 dejan el ser
 | Paso | Contenido | Demostrable | Estado |
 |---|---|---|---|
 | 5B.0 Ficha | D-21 aplicada a `doc-2u/servicios/ms-pronostico.md`; detalle de los 3 endpoints, carga del modelo, configuración y decisiones cerradas | El contrato antes que el código | Cerrada |
-| 5B.1 Esqueleto | `app/soporte/` copiado de ms-analítica, config, `/health`, Alembic con las 3 tablas, usuario `pronostico_app` sin DDL, Dockerfile, servicio y migraciones en el compose (puerto 8002) | Contenedor arriba, migrado y sano | Siguiente |
-| 5B.2 Baseline | `POST /interno/pronosticos` con `artefacto=None`, serie de ms-analítica (365 días), calendario, guardado de solo agregado, idempotencia por `solicitud_id`, `GET /interno/pronosticos/{id}`, 503 si ms-analítica cae | Pronóstico de punta a punta sin modelo | — |
+| 5B.1 Esqueleto | Arquitectura de puertos y adaptadores, `soporte/` copiado de ms-analítica, `/health`, Alembic con las 3 tablas y permisos mínimos (0002), usuario `pronostico_app` sin DDL, Dockerfile con `rc_pronostico`, servicio y migraciones en el compose (puerto 8002) | Contenedor arriba, migrado y sano; 66 pruebas; el modelo de la 5A carga dentro de la imagen | Cerrada |
+| 5B.2 Baseline | `POST /interno/pronosticos` con `artefacto=None`, serie de ms-analítica (365 días), calendario, guardado de solo agregado, idempotencia por `solicitud_id`, `GET /interno/pronosticos/{id}`, 503 si ms-analítica cae | Pronóstico de punta a punta sin modelo | **Siguiente** |
 | 5B.3 Modelo | `rc_pronostico` en la imagen (dependencia por ruta y contexto adicional), repositorio montado de solo lectura, carga verificada, registro en `modelo_version`, vuelta al modelo anterior o al baseline, `GET /interno/modelos/vigente` | `metodo = modelo` en ÁUREA; un archivo alterado no se usa | — |
 | 5B.4 Núcleo | Cliente firmado, `POST /api/v1/admin/pronosticos` y compañía, `jornada_actual` y cierres futuros, `recomendacion_reposicion`, reposición con `P90 − P50`, plan Pro y `incluye_prediccion_ia` | Reposición sugerida por API | — |
 | 5B.5 React | Pantalla de pronóstico y reposición (CU-ADMIN-07) y vista del propietario (CU-PROP-08) | Flujo de la demostración | — |
@@ -224,6 +224,15 @@ Se divide en pasos que dejan algo demostrable cada uno. 5B.0 a 5B.3 dejan el ser
 - **El modelo se revisa por local en cada pronóstico** (como mucho cada 60 s); si una versión nueva no se verifica, se sigue con la anterior y, si no hay, con el baseline.
 - **`pronostico.generado` pasa a la etapa 7**, junto con su consumidor.
 - **Versiones fijadas como en `model-ia/uv.lock`:** scikit-learn 1.7.2, skops 0.13.0, numpy 2.5.5, pandas 3.1.1 y holidays 0.109.
+
+### Lo que dejó la 5B.1 (20/11)
+
+- **Arquitectura ligera de puertos y adaptadores.** Hay interfaz solo donde hay dos implementaciones: `AlmacenArtefactos` (carpeta hoy, Cloud Storage en la etapa 8) y `SondaBd`; en la 5B.2 se suman `FuenteSeries`, `RegistroEjecuciones` y `Reloj`. `tests/test_arquitectura.py` hace cumplir las reglas de dependencias (se comprobó que fallan al violarlas).
+- **Descargar el modelo no es un caso de uso:** el almacén solo lee bytes y `ProveedorModelos` (5B.3) decide cuándo recargar, verifica y respalda. Modelo en memoria por local, puntero revisado cada 60 s, como mucho 50 locales.
+- **«Solo se agrega» lo hace cumplir la base:** la migración 0002 da a `pronostico_app` solo `SELECT` e `INSERT` en `ejecucion` y `prediccion` (verificado: `permission denied` al hacer `UPDATE` o `DELETE`).
+- **`/health` degradado:** sin repositorio de modelos responde 200 `degradado`, no 503, porque el servicio sigue pronosticando con el baseline.
+- **Imagen de 768 MB** por numpy, pandas, scipy y scikit-learn. Es el costo de predecir con `rc_pronostico`; a considerar en el arranque en frío de Cloud Run (etapa 8).
+- Se agregaron `PRONOSTICO_DB_APP_USER`, `PRONOSTICO_DB_APP_PASSWORD`, `PRONOSTICO_PORT`, `PRONOSTICO_URL` y `PRONOSTICO_SECRETO` a `.env.example` (y al `.env` local).
 
 ### Antes de la demostración
 
