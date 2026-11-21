@@ -261,6 +261,11 @@ Se divide en pasos que dejan algo demostrable cada uno. 5B.0 a 5B.3 dejan el ser
 - **Verificado:** 24 pruebas nuevas (6 de la fórmula sin base y 18 del flujo con ms-pronóstico simulado: firma, cuerpo enviado, cierres, reintento, errores, decisiones, plan y rol). Humo real con el modelo de ÁUREA: `POST` 201 en 1,6 s con 140 filas `metodo = modelo` y 7 `sin_historial` (el plato 21 no tiene historial), 16 recomendaciones; `GET …/ultimo` las devuelve junto con el pronóstico.
 - **Limitación conocida:** `GET …/ultimo` solo conoce ejecuciones que produjeron recomendaciones (no hay tabla de ejecuciones en el núcleo). Una sede sin recetas no tiene «último».
 
+### Pendiente antes de la 5B.5 (21/11)
+
+- **Predicción en locales nuevos:** decisiones N-1 a N-6 de [doc-2u/03-prediccion-en-locales-nuevos.md](../doc-2u/03-prediccion-en-locales-nuevos.md) (niveles, reserva mínima, `solicitud_pronostico`, insumos bajo mínimo, aviso de atraso, textos según el nivel). Nombres culinarios de los niveles y reserva del 35 % confirmados el 21/11.
+- **Datos que pide la maqueta de la 5B.5:** días que alcanza cada insumo, último proveedor y precio, costo estimado, redondeo de unidades, precisión del modelo, vista de varias sedes para el propietario, ficha de compra prellenada y descarga en PDF o Excel.
+
 ### Antes de la demostración
 
 - El histórico sintético de `analitica_db` termina el 2026-11-17. Los días posteriores llegan en 0 y la regla de respaldo los toma como cerrados. Extender la carga sintética hasta ayer antes de demostrar.

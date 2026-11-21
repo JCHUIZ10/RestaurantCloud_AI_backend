@@ -408,6 +408,7 @@ Si ms-pronóstico cae, el salón, la cocina y la caja siguen funcionando.
 
 **Abiertas**
 
+- **Locales nuevos** ([03-prediccion-en-locales-nuevos.md](../03-prediccion-en-locales-nuevos.md)): la respuesta agrega `historial.dias_con_ventas` para que el núcleo muestre el nivel de la predicción (N-1). Propuesta del 21/11, por implementar.
 - **Promociones planificadas** como variable (versión 2 del modelo, D-12): el núcleo tendría que enviarlas en la petición, como los cierres.
 
 **Resueltas el 20/11 (5B.1)**
