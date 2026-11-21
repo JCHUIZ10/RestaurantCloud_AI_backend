@@ -261,10 +261,13 @@ Se divide en pasos que dejan algo demostrable cada uno. 5B.0 a 5B.3 dejan el ser
 - **Verificado:** 24 pruebas nuevas (6 de la fórmula sin base y 18 del flujo con ms-pronóstico simulado: firma, cuerpo enviado, cierres, reintento, errores, decisiones, plan y rol). Humo real con el modelo de ÁUREA: `POST` 201 en 1,6 s con 140 filas `metodo = modelo` y 7 `sin_historial` (el plato 21 no tiene historial), 16 recomendaciones; `GET …/ultimo` las devuelve junto con el pronóstico.
 - **Limitación conocida:** `GET …/ultimo` solo conoce ejecuciones que produjeron recomendaciones (no hay tabla de ejecuciones en el núcleo). Una sede sin recetas no tiene «último».
 
-### Pendiente antes de la 5B.5 (21/11)
+### Lo que dejó la Fase B del backend (21/11)
 
-- **Predicción en locales nuevos:** decisiones N-1 a N-6 de [doc-2u/03-prediccion-en-locales-nuevos.md](../doc-2u/03-prediccion-en-locales-nuevos.md) (niveles, reserva mínima, `solicitud_pronostico`, insumos bajo mínimo, aviso de atraso, textos según el nivel). Nombres culinarios de los niveles y reserva del 35 % confirmados el 21/11.
-- **Datos que pide la maqueta de la 5B.5:** días que alcanza cada insumo, último proveedor y precio, costo estimado, redondeo de unidades, precisión del modelo, vista de varias sedes para el propietario, ficha de compra prellenada y descarga en PDF o Excel.
+- **Predicción en locales nuevos** ([doc-2u/03-prediccion-en-locales-nuevos.md](../doc-2u/03-prediccion-en-locales-nuevos.md), sección 8): `historial.dias_con_ventas` en ms-pronóstico (migración 0003); en el núcleo, nivel de la predicción (0 a 3) con `confianza` o `progreso`, tabla `solicitud_pronostico` (el «último pronóstico» ya no depende de que haya recomendaciones), reserva mínima del 35 % en los días sin modelo, insumos bajo su mínimo siempre en la lista y aviso de ventas atrasadas contrastado con los comprobantes.
+- **Datos que pedía la maqueta:** prioridad (`urgente`, `pronto`, `cubierto`) y días que alcanza cada insumo, último proveedor con precio, costo estimado, redondeo de unidades (contables hacia arriba al entero; kg y L a un decimal hacia arriba) y totales por prioridad, costo, proveedores y decisiones.
+- **Endpoints nuevos:** `POST /api/v1/admin/reposiciones/decisiones` (lote atómico), `GET /api/v1/admin/pronosticos/ultimo/exportar?formato=xlsx|pdf` (agrupado por proveedor) y `GET /api/v1/propietario/pronosticos` (todas las sedes y panorama).
+- **Verificado:** 19 pruebas unitarias de la fórmula y 35 de flujo con ms-pronóstico simulado. Humo real con ÁUREA (nivel 3): 16 recomendaciones, S/ 6 766,93 en 2 proveedores, Excel y PDF válidos y vista del propietario.
+- **Pendiente para la 5B.5 (pantallas):** nombres culinarios de los niveles, textos de confianza según el nivel, ficha de compra prellenada (`ModalRegistrarCompra`) y las cuatro pantallas. Después: N-7 (aviso de «listo para entrenar»).
 
 ### Antes de la demostración
 

@@ -55,9 +55,15 @@ CREATE TABLE recomendacion_reposicion (
     insumo_id         uuid NOT NULL REFERENCES insumo (id) ON DELETE CASCADE,
     cobertura_dias    smallint NOT NULL CHECK (cobertura_dias IN (3,5,7)),
     consumo_previsto  numeric(12,3) NOT NULL,       -- Σ P50 × receta
-    margen_seguridad  numeric(12,3) NOT NULL DEFAULT 0, -- Σ (P90 − P50) × receta
+    margen_seguridad  numeric(12,3) NOT NULL DEFAULT 0, -- Σ reserva × receta (P90 − P50, con mínimo en días sin modelo)
     stock_al_calcular numeric(12,3) NOT NULL,
+    stock_minimo_al_calcular numeric(12,3) NOT NULL DEFAULT 0,
     cantidad_sugerida numeric(12,3) NOT NULL CHECK (cantidad_sugerida >= 0),
+    prioridad         varchar(10) NOT NULL DEFAULT 'cubierto' CHECK (prioridad IN ('urgente','pronto','cubierto')),
+    motivo            varchar(12) NOT NULL DEFAULT 'consumo' CHECK (motivo IN ('consumo','bajo_minimo')),
+    alcanza_dias      smallint,                     -- días seguidos que el stock cubre el consumo más probable
+    costo_unitario_al_calcular numeric(10,2) NOT NULL DEFAULT 0,
+    proveedor_id      uuid REFERENCES proveedor (id) ON DELETE SET NULL, -- último proveedor del insumo
     estado            varchar(12) NOT NULL DEFAULT 'pendiente'
                       CHECK (estado IN ('pendiente','aceptada','ajustada','descartada')),
     cantidad_final    numeric(12,3),
@@ -67,6 +73,19 @@ CREATE TABLE recomendacion_reposicion (
     UNIQUE (ejecucion_id, insumo_id)
 );
 CREATE INDEX ix_recomendacion_local ON recomendacion_reposicion (local_id, created_at DESC);
+
+CREATE TABLE solicitud_pronostico (            -- una fila por pronóstico pedido, haya o no dejado recomendaciones
+    id               uuid PRIMARY KEY DEFAULT fn_uuid_v8(),
+    local_id         uuid NOT NULL REFERENCES local (id) ON DELETE CASCADE,
+    ejecucion_id     uuid NOT NULL UNIQUE,         -- ejecución en ms-pronóstico (sin clave foránea)
+    cobertura_dias   smallint NOT NULL CHECK (cobertura_dias IN (3,5,7)),
+    nivel            smallint NOT NULL CHECK (nivel BETWEEN 0 AND 3),
+    dias_con_ventas  integer CHECK (dias_con_ventas >= 0),
+    modelo_version   uuid,
+    solicitada_por   uuid REFERENCES usuario (id) ON DELETE SET NULL,
+    created_at       timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_solicitud_pronostico_local ON solicitud_pronostico (local_id, created_at DESC);
 ```
 
 **Decisiones de diseño**
@@ -86,9 +105,15 @@ CREATE INDEX ix_recomendacion_local ON recomendacion_reposicion (local_id, creat
   Con esto, un mantenimiento largo de un microservicio no deja entregas fallidas: los eventos se entregan solos cuando vuelve.
 - **Pausa por destino.** Un fallo que afecta al destino (los tres primeros de la tabla) lo pausa: las entregas pendientes se retienen sin gastar intentos ni timeouts. Al vencer la pausa sale una sola entrega de prueba y, cuando el destino responde, las retenidas se adelantan en orden cronológico. El estado vive en la caché (Redis); si se pierde, el sistema vuelve al comportamiento normal y se degrada de nuevo en el siguiente fallo.
 - **Reenvío de fallidos.** Una entrega `fallido` no se reintenta sola. `outbox:reenviar-eventos` la devuelve a pendiente, con los contadores en cero y vencimiento en la fecha de su evento, para que se envíe de la más antigua a la más reciente. Reenvía el evento tal como se guardó, sin reconstruirlo con los datos de hoy. Es seguro porque el receptor tolera duplicados por las claves del núcleo (`comprobante_id`, `anulacion_id`), no solo por `evento_procesado`, que se purga a los 30 días.
-- **`recomendacion_reposicion` guarda con qué se calculó** (`consumo_previsto`, `margen_seguridad`, `stock_al_calcular` y `cobertura_dias`), para poder explicar la cantidad sugerida aunque el stock cambie después. La crea la migración `2026_11_20_000001`.
-- **Fórmula de la reposición.** Para los primeros `cobertura_dias` días del pronóstico y por insumo: `consumo_previsto = Σ P50 del plato × cantidad por plato`, `margen_seguridad = Σ (P90 − P50) × cantidad por plato` y `cantidad_sugerida = máx(0, consumo_previsto + margen_seguridad − stock)`. La cantidad por plato es `producto_insumo.cantidad_descuenta`. Sumar los P90 de varios días es conservador (la suma de cuantiles no es el cuantil de la suma): se prefiere pedir de más que quedarse sin insumo. Los insumos `inactivo` no entran. Un insumo con stock de sobra queda en la lista con cantidad 0.
-- **Locales nuevos** ([03-prediccion-en-locales-nuevos.md](../03-prediccion-en-locales-nuevos.md), propuesta del 21/11): niveles de la predicción, reserva mínima del 35 % en los días sin modelo, tabla `solicitud_pronostico` para recordar cada pronóstico, insumos bajo mínimo siempre en la lista y aviso de ventas atrasadas contrastado con los comprobantes del núcleo.
+- **`recomendacion_reposicion` guarda con qué se calculó** (`consumo_previsto`, `margen_seguridad`, `stock_al_calcular` y `cobertura_dias`), para poder explicar la cantidad sugerida aunque el stock cambie después. La crea la migración `2026_11_20_000001`; la `2026_11_21_000001` agrega `prioridad`, `motivo`, `alcanza_dias`, el mínimo y el costo del momento y el último proveedor, y crea `solicitud_pronostico`.
+- **Fórmula de la reposición.** Para los primeros `cobertura_dias` días del pronóstico y por insumo: `consumo_previsto = Σ P50 del plato × cantidad por plato`, `margen_seguridad = Σ reserva del plato × cantidad por plato` y `cantidad_sugerida = máx(0, consumo_previsto + margen_seguridad − stock)`. La cantidad por plato es `producto_insumo.cantidad_descuenta`. La reserva de un día es `P90 − P50`; en los días con `metodo = baseline` no baja de `PREDICCION_RESERVA_MINIMA × P50` (35 %, ver abajo). Sumar los P90 de varios días es conservador (la suma de cuantiles no es el cuantil de la suma): se prefiere pedir de más que quedarse sin insumo. Los insumos `inactivo` no entran. Un insumo con stock de sobra queda en la lista con cantidad 0.
+- **Redondeo.** Se pide de más antes que de menos: las unidades contables (`und`, `botella`, `lata`, `caja`, `paquete`, `saco`, `bidon`, `jaba`) se redondean hacia arriba al entero y `kg` y `L` hacia arriba a un decimal.
+- **Prioridad y días que alcanza.** `alcanza_dias` son los días seguidos, desde el primero, que el stock cubre el consumo más probable (P50) del horizonte de 7 días. `urgente`: el stock ya está por debajo del mínimo o no alcanza ni para el primer día; `pronto`: alcanza menos días que la cobertura; `cubierto`: el resto.
+- **Insumos bajo su mínimo** (N-4). Todo insumo activo con `stock_actual < stock_minimo` entra en la lista aunque ninguna receta lo consuma, con `motivo = bajo_minimo`, prioridad `urgente` y la cantidad que lo devuelve a su mínimo. Así un local sin ventas ni pronóstico útil igual recibe avisos.
+- **Nivel de la predicción** (N-1). `solicitud_pronostico.nivel` se calcula con `historial.dias_con_ventas` de ms-pronóstico y si el local tiene modelo: 0 sin ventas, 1 con menos de 28 días de ventas, 2 con 28 o más y sin modelo, 3 con modelo propio. Los nombres que ve el usuario están en [03-prediccion-en-locales-nuevos.md](../03-prediccion-en-locales-nuevos.md).
+- **Reserva mínima** (N-2). `PREDICCION_RESERVA_MINIMA` (0,35) solo se aplica a los días `baseline` y solo en la reposición: el pronóstico guardado en ms-pronóstico no cambia.
+- **Aviso de ventas atrasadas** (N-5). Se conserva `datos_desactualizados` solo si la sede tiene comprobantes emitidos posteriores a `datos.actualizados_hasta`; un local nuevo no ve un aviso de fallo.
+- **Precisión del modelo** (N-6). En el nivel 3, `confianza` sale de `GET /interno/modelos/vigente`: `error_promedio` es el MAE del modelo y `mejora_pct` cuánto mejora al ingenuo estacional. Las métricas de una versión no cambian: se guardan en la caché un día por `modelo_version`.
 - **La decisión humana queda registrada** (`estado`, `cantidad_final`, quién y cuándo): la recomendación es apoyo a la decisión, nunca una compra automática.
 - Ambas tablas siguen las reglas del núcleo: política RLS por `local_id` en `recomendacion_reposicion`, igual que el resto de tablas de sede.
 
@@ -124,20 +149,34 @@ Roles de las rutas de pronóstico: `admin_local` y `propietario`, y solo si el p
 {
   "exito": true,
   "datos": {
+    "nivel": 3,
     "cobertura_dias": 3,
-    "pronostico": { "ejecucion_id": "…", "modelo": { }, "resumen": { "modelo": 140, "baseline": 0, "cerrado": 0, "sin_historial": 7 }, "predicciones": [ ] },
+    "creada_en": "2026-11-21T14:55:02-05:00",
+    "confianza": { "error_promedio": 4.9, "mejora_pct": 24 },
+    "progreso": null,
+    "pronostico": { "ejecucion_id": "…", "modelo": { }, "historial": { "dias_con_ventas": 360 }, "advertencias": [], "resumen": { "modelo": 140, "baseline": 0, "cerrado": 0, "sin_historial": 0 }, "predicciones": [ ] },
     "reposicion": [
       {
         "id": "…", "insumo_id": "…", "insumo": "Pescado fresco", "unidad_medida": "kg",
-        "consumo_previsto": 58.77, "margen_seguridad": 20.56, "stock_al_calcular": 15.0, "cantidad_sugerida": 64.32,
-        "estado": "pendiente", "cantidad_final": null, "decidido_en": null
+        "prioridad": "urgente", "motivo": "consumo", "alcanza_dias": 0,
+        "consumo_previsto": 45.61, "margen_seguridad": 18.35, "stock_al_calcular": 15.0, "stock_minimo": 5.0,
+        "cantidad_sugerida": 49.0, "estado": "pendiente", "cantidad_final": null, "decidido_en": null,
+        "costo_estimado": 1372.0,
+        "proveedor": { "id": "…", "nombre": "Mercado Mayorista San Pedro", "precio": 28.0, "ultima_compra": "2026-11-18T…" }
       }
-    ]
+    ],
+    "totales": {
+      "por_prioridad": { "urgente": 4, "pronto": 9, "cubierto": 3 },
+      "costo": 6766.93, "proveedores": 2,
+      "decisiones": { "pendientes": 16, "aceptadas": 0, "ajustadas": 0, "descartadas": 0 }
+    }
   }
 }
 ```
 
-`pronostico` es la respuesta de ms-pronóstico tal cual. `reposicion` va ordenada por `cantidad_sugerida` descendente.
+- `nivel`: 0 a 3 (ver las decisiones). `confianza` solo en el nivel 3; `progreso` (`dias_con_ventas` y `faltan_para_siguiente`, nulo si el paso depende de entrenar el modelo) solo en los niveles 0 a 2.
+- `pronostico` es la respuesta de ms-pronóstico, con `advertencias` ya contrastadas con las ventas del núcleo. `reposicion` va ordenada por prioridad y luego por `cantidad_sugerida` descendente.
+- `costo_estimado` usa la cantidad decidida (`cantidad_final`) o, si aún no hay decisión, la sugerida, por el precio de la última compra. `proveedor` es nulo si el insumo nunca se compró. `totales` no cuenta lo descartado.
 
 **Errores**
 
@@ -157,9 +196,9 @@ Roles de las rutas de pronóstico: `admin_local` y `propietario`, y solo si el p
 **Propósito:** el último pronóstico con recomendaciones de la sede y su reposición, sin recalcular.
 **Roles y plan:** los mismos.
 
-**Respuesta 200:** `cobertura_dias`, `creada_en`, `pronostico` (se pide a ms-pronóstico por su `ejecucion_id`) y `reposicion` (con las decisiones ya tomadas). Si ms-pronóstico no responde, la respuesta sigue siendo 200 con `pronostico = null`: la reposición es del núcleo y no depende de él.
+**Respuesta 200:** la misma forma que el `POST` (`nivel`, `confianza`, `progreso`, `pronostico`, `reposicion` con las decisiones ya tomadas y `totales`). El `pronostico` se pide a ms-pronóstico por su `ejecucion_id`; si no responde, la respuesta sigue siendo 200 con `pronostico = null`: la reposición es del núcleo y no depende de él.
 
-**Errores:** 404 `ERR_SIN_PRONOSTICO` si la sede nunca generó uno (solo cuentan ejecuciones que produjeron recomendaciones), más los 403 y 422 de arriba.
+**Errores:** 404 `ERR_SIN_PRONOSTICO` si la sede nunca generó uno (cuenta cualquier pronóstico, haya dejado recomendaciones o no), más los 403 y 422 de arriba.
 
 ### PATCH /api/v1/admin/reposiciones/{id}
 
@@ -174,6 +213,31 @@ Roles de las rutas de pronóstico: `admin_local` y `propietario`, y solo si el p
 **Respuesta 200:** la recomendación con su estado, `cantidad_final` y `decidido_en`; `decidido_por` queda en la tabla.
 
 **Errores:** 404 `ERR_NO_ENCONTRADO` (no existe o es de otra sede, sin distinguir), 409 `ERR_REPOSICION_YA_DECIDIDA` (una decisión no se cambia: queda como registro de quién y cuándo; dos decisiones simultáneas las resuelve la base, gana una), 422 `ERR_VALIDACION`.
+
+### POST /api/v1/admin/reposiciones/decisiones
+
+**Propósito:** decidir varias recomendaciones a la vez (la pantalla de compra). O se guardan todas o ninguna.
+**Roles y plan:** los mismos.
+
+**Cuerpo:** `decisiones`, de 1 a 200 elementos `{ id, estado, cantidad_final? }` con las mismas reglas del `PATCH`; los `id` no se repiten.
+**Respuesta 200:** las recomendaciones decididas, en el mismo orden.
+**Errores:** 404 `ERR_NO_ENCONTRADO` o 409 `ERR_REPOSICION_YA_DECIDIDA` si una falla (no se guarda ninguna), 422 `ERR_VALIDACION` (`detalles.campos[].campo` indica, por ejemplo, `decisiones.0.cantidad_final`).
+
+### GET /api/v1/admin/pronosticos/ultimo/exportar
+
+**Propósito:** descargar la lista de compra del último pronóstico, para llevarla al proveedor.
+**Roles y plan:** los mismos.
+
+**Parámetros:** `formato` en la consulta, `xlsx` (por defecto) o `pdf`.
+**Respuesta 200:** el archivo `compra_sugerida_<local>_<fecha>`, agrupado por proveedor, con lo que el administrador no descartó (su cantidad decidida o, si no decidió, la sugerida), precio, subtotal y total. Los insumos sin proveedor van en un grupo aparte.
+**Errores:** 404 `ERR_SIN_PRONOSTICO`, 404 `ERR_SIN_COMPRA` (todo cubierto o descartado), 422 `ERR_VALIDACION` (formato).
+
+### GET /api/v1/propietario/pronosticos
+
+**Propósito:** la predicción de todas las sedes activas de la empresa (CU-PROP-08).
+**Roles:** `propietario`. **Plan:** `incluye_prediccion_ia`.
+
+**Respuesta 200:** `sedes` y `panorama`. Cada sede trae `estado` (`ok`, `sin_pronostico` o `no_disponible` si ms-pronóstico no responde), `nivel`, `dias_con_ventas`, `creada_en`, `cobertura_dias`, un `pronostico` reducido a lo que compara (`fecha_inicio`, `total_semana`, `dias[{fecha, total_p50, total_p90}]`, `platos[{nombre, total_p50}]`, `advertencias`) y el `totales` de su reposición. `panorama` suma por día las sedes con pronóstico. No genera pronósticos: el propietario genera el de una sede con `POST /api/v1/admin/pronosticos` y la cabecera `X-Local-Id`.
 
 ## 4. Eventos
 
@@ -202,6 +266,7 @@ Publica todos los eventos de origen `nucleo` del [catálogo](eventos.md). Cada u
 | Variable | Descripción |
 |---|---|
 | `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY`, `JWT_MINUTOS` | Firma y duración del JWT |
+| `PREDICCION_RESERVA_MINIMA` | Reserva mínima de la reposición en los días sin modelo, como fracción de lo más probable (0,35) |
 | `PRONOSTICO_URL`, `PRONOSTICO_SECRETO`, `PRONOSTICO_TIMEOUT_SEGUNDOS` | Dirección y secreto de ms-pronóstico, y espera máxima de su respuesta (30 s). El cliente es `PronosticoCliente`; firma con `App\Support\FirmaInterna`, la misma función que el outbox |
 | `ANALITICA_URL`, `ANALITICA_SECRETO` | Destino de eventos. Sin URL, no se crean entregas para ese servicio |
 | `NOTIFICACIONES_URL`, `NOTIFICACIONES_SECRETO` | Destino de eventos. Sin URL, no se crean entregas para ese servicio |
