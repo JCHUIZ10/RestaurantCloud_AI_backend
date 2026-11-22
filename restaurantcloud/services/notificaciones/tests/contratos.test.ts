@@ -24,17 +24,11 @@ const ARCHIVOS = readdirSync(CONTRATOS)
   .sort();
 
 /**
- * Tipos que este servicio ya consume pero cuyo contrato aún no genera el núcleo: llegan en la 7.3,
- * junto con el código que los emite. Cuando aparece el archivo, la prueba de abajo exige quitarlo
- * de esta lista; al terminar la 7.3 debe quedar vacía.
+ * Tipos que este servicio consume pero cuyo contrato aún no genera el núcleo. Vacía desde que el núcleo
+ * emite los siete (7.3): un tipo nuevo se anota aquí solo mientras el núcleo no lo emita, y la prueba de
+ * abajo exige quitarlo en cuanto aparece su archivo.
  */
-const PENDIENTES_DEL_NUCLEO = new Set([
-  'pedido.item_sustituido',
-  'producto.agotado',
-  'plato.listo',
-  'caja.turno_previo_pendiente',
-  'caja.cerrada',
-]);
+const PENDIENTES_DEL_NUCLEO = new Set<string>();
 
 const MUESTRAS: Record<string, () => unknown> = {
   uuid: () => randomUUID(),

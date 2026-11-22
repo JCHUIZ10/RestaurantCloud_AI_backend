@@ -10,10 +10,15 @@ use Tests\TestCase;
 class MozoQuiebreSustitucionTest extends TestCase
 {
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
+
     private string $localId = '00000000-0000-4000-8000-000000000010';
+
     private string $mozoId = '00000000-0000-4000-8000-000000000102';
+
     private string $cocineroId = '00000000-0000-4000-8000-000000000104';
+
     private string $tokenMozo;
+
     private string $tokenCocinero;
 
     protected function setUp(): void
@@ -21,7 +26,7 @@ class MozoQuiebreSustitucionTest extends TestCase
         parent::setUp();
 
         // Sesión Mozo
-        $rawTokenMozo = 'test_token_mozo_quiebre_' . Str::random(32);
+        $rawTokenMozo = 'test_token_mozo_quiebre_'.Str::random(32);
         $tokenHashMozo = hash('sha256', $rawTokenMozo);
         $sessionMozo = [
             'id' => $this->mozoId,
@@ -36,7 +41,7 @@ class MozoQuiebreSustitucionTest extends TestCase
         $this->tokenMozo = $rawTokenMozo;
 
         // Sesión Cocinero
-        $rawTokenCocinero = 'test_token_cocinero_quiebre_' . Str::random(32);
+        $rawTokenCocinero = 'test_token_cocinero_quiebre_'.Str::random(32);
         $tokenHashCocinero = hash('sha256', $rawTokenCocinero);
         $sessionCocinero = [
             'id' => $this->cocineroId,
@@ -54,7 +59,7 @@ class MozoQuiebreSustitucionTest extends TestCase
     private function headersMozo(): array
     {
         return [
-            'Authorization' => 'Bearer ' . $this->tokenMozo,
+            'Authorization' => 'Bearer '.$this->tokenMozo,
             'Accept' => 'application/json',
         ];
     }
@@ -62,7 +67,7 @@ class MozoQuiebreSustitucionTest extends TestCase
     private function headersCocinero(): array
     {
         return [
-            'Authorization' => 'Bearer ' . $this->tokenCocinero,
+            'Authorization' => 'Bearer '.$this->tokenCocinero,
             'Accept' => 'application/json',
         ];
     }
@@ -73,7 +78,7 @@ class MozoQuiebreSustitucionTest extends TestCase
         DB::table('piso')->insert([
             'id' => $pisoId,
             'local_id' => $this->localId,
-            'nombre' => 'Piso ' . Str::random(6),
+            'nombre' => 'Piso '.Str::random(6),
             'columnas' => 5,
             'filas' => 3,
             'estado' => 'activo',
@@ -112,7 +117,7 @@ class MozoQuiebreSustitucionTest extends TestCase
         DB::table('categoria_producto')->insert([
             'id' => $catId,
             'local_id' => $this->localId,
-            'nombre' => $nombre . ' ' . Str::random(6),
+            'nombre' => $nombre.' '.Str::random(6),
             'orden' => 1,
             'activa' => true,
             'created_at' => now(),
@@ -129,14 +134,14 @@ class MozoQuiebreSustitucionTest extends TestCase
         }
 
         $prodId = (string) Str::uuid();
-        $nombreUnico = $nombre . ' ' . Str::random(6);
+        $nombreUnico = $nombre.' '.Str::random(6);
 
         DB::table('producto')->insert([
             'id' => $prodId,
             'local_id' => $this->localId,
             'categoria_id' => $catId,
             'nombre' => $nombreUnico,
-            'descripcion' => 'Descripción de ' . $nombreUnico,
+            'descripcion' => 'Descripción de '.$nombreUnico,
             'precio' => $precio,
             'disponibilidad' => $disp,
             'activo' => true,
@@ -296,13 +301,16 @@ class MozoQuiebreSustitucionTest extends TestCase
             ->first();
         $this->assertNotNull($auditoria);
 
-        // Verificar notificación para cocina
-        $notif = DB::table('notificacion')
-            ->where('tipo', 'sustitucion_plato_urgente')
-            ->where('entidad_id', $nuevoItemId)
+        // El aviso a cocina sale como evento; ms-notificaciones lo reparte
+        $evento = DB::table('outbox_event')
+            ->where('agregado_id', $nuevoItemId)
+            ->where('tipo_evento', 'pedido.item_sustituido')
             ->first();
-        $this->assertNotNull($notif);
-        $this->assertEquals('cocina', $notif->rol_destinatario);
+        $this->assertNotNull($evento);
+        $datos = json_decode($evento->payload, true)['datos'];
+        $this->assertSame($item1Id, $datos['pedido_item_original_id']);
+        $this->assertSame($nuevoItemId, $datos['pedido_item_nuevo_id']);
+        $this->assertSame($nombreSustituto, $datos['producto_nuevo_nombre']);
     }
 
     public function test_sustituir_plato_rechaza_si_nuevo_producto_esta_agotado(): void

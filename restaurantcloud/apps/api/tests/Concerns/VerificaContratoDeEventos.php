@@ -19,13 +19,13 @@ namespace Tests\Concerns;
 trait VerificaContratoDeEventos
 {
     /** Campos de texto cuyo valor es parte del contrato (valores fijos): se guardan tal cual. */
-    private const CAMPOS_ENUMERADOS = ['tipo', 'medio_pago', 'tipo_anulacion', 'motivo_categoria', 'motivo_codigo'];
+    private const CAMPOS_ENUMERADOS = ['tipo', 'medio_pago', 'tipo_anulacion', 'motivo_categoria', 'motivo_codigo', 'causa'];
 
     /**
      * Campos que son enteros por naturaleza. Cualquier otro número es "number": la base guarda 38.00 como
      * 38 y un monto puede llegar con o sin decimales, así que el valor no dice si el campo es entero.
      */
-    private const CAMPOS_ENTEROS = ['cantidad', 'comensales', 'minutos_espera'];
+    private const CAMPOS_ENTEROS = ['cantidad', 'comensales', 'minutos_espera', 'turno_correlativo'];
 
     protected function assertContratoDeEvento(string $caso, array $datos): void
     {

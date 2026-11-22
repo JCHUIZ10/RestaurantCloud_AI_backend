@@ -305,12 +305,12 @@ class CajaCoreOperativoTest extends TestCase
             ->assertJsonPath('datos.notificados', 1)
             ->assertJsonPath('datos.ya_notificado', false);
 
-        $this->assertDatabaseHas('notificacion', [
-            'local_id' => $this->localId,
-            'rol_destinatario' => 'admin_local',
-            'tipo' => 'turno_previo_pendiente',
-            'entidad_id' => $cajaPendienteId,
-        ]);
+        $evento = DB::table('outbox_event')
+            ->where('tipo_evento', 'caja.turno_previo_pendiente')
+            ->where('agregado_id', $cajaPendienteId)
+            ->first();
+        $this->assertNotNull($evento);
+        $this->assertTrue(json_decode($evento->payload, true)['datos']['hay_admin_local']);
         $this->assertDatabaseHas('log_auditoria', [
             'accion' => 'caja.turno_previo.aviso_administracion',
             'entidad_id' => $cajaPendienteId,
@@ -322,7 +322,7 @@ class CajaCoreOperativoTest extends TestCase
 
         $this->assertSame(
             1,
-            DB::table('notificacion')->where('tipo', 'turno_previo_pendiente')->where('entidad_id', $cajaPendienteId)->count()
+            DB::table('outbox_event')->where('tipo_evento', 'caja.turno_previo_pendiente')->where('agregado_id', $cajaPendienteId)->count()
         );
     }
 

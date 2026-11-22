@@ -10,15 +10,18 @@ use Tests\TestCase;
 class CocinaDisponibilidadQuiebresTest extends TestCase
 {
     private string $empresaId = '00000000-0000-4000-8000-000000000001';
+
     private string $localId = '00000000-0000-4000-8000-000000000010';
+
     private string $cocineroId = '00000000-0000-4000-8000-000000000103';
+
     private string $tokenCocinero;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $rawToken = 'test_token_cocinero_' . Str::random(32);
+        $rawToken = 'test_token_cocinero_'.Str::random(32);
         $tokenHash = hash('sha256', $rawToken);
 
         $sessionPayload = [
@@ -38,7 +41,7 @@ class CocinaDisponibilidadQuiebresTest extends TestCase
     private function headers(): array
     {
         return [
-            'Authorization' => 'Bearer ' . $this->tokenCocinero,
+            'Authorization' => 'Bearer '.$this->tokenCocinero,
             'Accept' => 'application/json',
         ];
     }
@@ -49,7 +52,7 @@ class CocinaDisponibilidadQuiebresTest extends TestCase
         DB::table('insumo')->insert([
             'id' => $id,
             'local_id' => $this->localId,
-            'nombre' => $nombre . ' ' . Str::random(6),
+            'nombre' => $nombre.' '.Str::random(6),
             'unidad_medida' => 'kg',
             'stock_actual' => $stock,
             'stock_minimo' => 1.0,
@@ -58,6 +61,7 @@ class CocinaDisponibilidadQuiebresTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+
         return $id;
     }
 
@@ -70,7 +74,7 @@ class CocinaDisponibilidadQuiebresTest extends TestCase
             'id' => $productoId,
             'local_id' => $this->localId,
             'categoria_id' => $categoria->id,
-            'nombre' => $nombre . ' ' . Str::random(6),
+            'nombre' => $nombre.' '.Str::random(6),
             'precio' => 42.0,
             'requiere_preparacion' => true,
             'disponibilidad' => 'disponible',
@@ -201,13 +205,15 @@ class CocinaDisponibilidadQuiebresTest extends TestCase
         $this->assertEquals('no_disponible', $itemDB->estado);
         $this->assertEquals('quiebre_stock_cocina', $itemDB->motivo_anulacion);
 
-        // Notificación generada
-        $notif = DB::table('notificacion')
-            ->where('entidad_id', $prodId)
-            ->where('tipo', 'quiebre_manual_cocina')
+        // El aviso sale como evento: ms-notificaciones decide a quién llega
+        $evento = DB::table('outbox_event')
+            ->where('agregado_id', $prodId)
+            ->where('tipo_evento', 'producto.agotado')
             ->first();
-        $this->assertNotNull($notif);
-        $this->assertEquals('admin_local', $notif->rol_destinatario);
+        $this->assertNotNull($evento);
+        $datos = json_decode($evento->payload, true)['datos'];
+        $this->assertSame('manual_cocina', $datos['causa']);
+        $this->assertSame($prodId, $datos['producto_id']);
     }
 
     /**

@@ -1,0 +1,13 @@
+{
+    "cantidad": "int",
+    "diferencia_monto": "number",
+    "fecha": "datetime",
+    "mesa_numero": "string",
+    "pedido_id": "uuid",
+    "pedido_item_nuevo_id": "uuid",
+    "pedido_item_original_id": "uuid",
+    "producto_nuevo_nombre": "string",
+    "producto_original_nombre": "string",
+    "sustituido_por_id": "uuid",
+    "sustituido_por_nombre": "string"
+}

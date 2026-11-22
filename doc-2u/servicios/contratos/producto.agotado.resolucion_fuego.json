@@ -1,0 +1,9 @@
+{
+    "causa": "resolucion_fuego",
+    "fecha": "datetime",
+    "marcado_por_id": "uuid",
+    "marcado_por_nombre": "string",
+    "motivo": "string",
+    "producto_id": "uuid",
+    "producto_nombre": "string"
+}

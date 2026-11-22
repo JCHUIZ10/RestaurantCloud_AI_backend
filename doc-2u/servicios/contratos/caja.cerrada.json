@@ -1,0 +1,13 @@
+{
+    "caja_id": "uuid",
+    "cajero_id": "uuid",
+    "cajero_nombre": "string",
+    "cerrado_por_id": "uuid",
+    "cerrado_por_nombre": "string",
+    "cierre_forzado": "bool",
+    "discrepancia": "number",
+    "efectivo_contado": "number",
+    "efectivo_esperado": "number",
+    "fecha": "datetime",
+    "turno_correlativo": "int"
+}

@@ -1,0 +1,14 @@
+{
+    "fecha": "datetime",
+    "items": [
+        {
+            "cantidad": "int",
+            "pedido_item_id": "uuid",
+            "producto_nombre": "string"
+        }
+    ],
+    "mesa_numero": "string",
+    "mozo_id": "uuid",
+    "mozo_nombre": "string",
+    "pedido_id": "uuid"
+}

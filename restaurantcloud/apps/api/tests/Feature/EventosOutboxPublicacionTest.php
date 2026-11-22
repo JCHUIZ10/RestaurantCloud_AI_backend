@@ -26,9 +26,13 @@ class EventosOutboxPublicacionTest extends TestCase
 
     private string $cajeroId = '00000000-0000-4000-8000-000000000105';
 
+    private string $cocineroId = '00000000-0000-4000-8000-000000000106';
+
     private string $tokenCajero;
 
     private string $tokenMozo;
+
+    private string $tokenCocina;
 
     protected function setUp(): void
     {
@@ -43,6 +47,7 @@ class EventosOutboxPublicacionTest extends TestCase
 
         $this->tokenCajero = $this->sesion($this->cajeroId, 'cajero');
         $this->tokenMozo = $this->sesion($this->mozoId, 'mozo');
+        $this->tokenCocina = $this->sesion($this->cocineroId, 'cocina');
     }
 
     private function sesion(string $usuarioId, string $rol): string
@@ -512,5 +517,204 @@ class EventosOutboxPublicacionTest extends TestCase
         $this->assertEquals(40.00, $datos['monto_total']);
         $this->assertFalse($datos['es_merma']);
         $this->assertSame(2, DB::table('outbox_entrega')->where('evento_id', $sobre['id'])->count());
+    }
+
+    public function test_cocina_apaga_un_plato_y_se_publica_producto_agotado_solo_para_notificaciones(): void
+    {
+        $producto = $this->crearProducto(40.00, 11.00);
+
+        $this->postJson("/api/v1/cocina/productos/{$producto['producto_id']}/marcar-agotado", [], $this->headers($this->tokenCocina))
+            ->assertStatus(200)
+            ->assertJsonPath('datos.requiere_resolucion', false);
+
+        $sobre = $this->sobreDe('producto.agotado', $producto['producto_id']);
+
+        $this->assertContratoDeEvento('producto.agotado.manual_cocina', $sobre['datos']);
+        $this->assertEquals([
+            'producto_id' => $producto['producto_id'],
+            'producto_nombre' => $producto['nombre'],
+            'causa' => 'manual_cocina',
+            'motivo' => null,
+            'marcado_por_id' => $this->cocineroId,
+            'marcado_por_nombre' => DB::table('usuario')->where('id', $this->cocineroId)->value('nombre'),
+            'fecha' => $sobre['ocurrido_en'],
+        ], $sobre['datos']);
+        $this->assertSame(['ms-notificaciones'], DB::table('outbox_entrega')->where('evento_id', $sobre['id'])->pluck('destino')->all());
+    }
+
+    public function test_resolver_las_ordenes_en_fuego_publica_producto_agotado_con_su_motivo(): void
+    {
+        $producto = $this->crearProducto(40.00, 11.00);
+        $pedidoId = $this->crearPedido($this->crearMesa(), 'enviado');
+        $itemId = $this->agregarItem($pedidoId, $producto['producto_id'], 2, 40.00, 'en_preparacion');
+
+        $this->postJson("/api/v1/cocina/productos/{$producto['producto_id']}/resolver-fuego", [
+            'items_no_alcanzados_ids' => [$itemId],
+            'motivo' => 'Solo alcanzó para una porción',
+        ], $this->headers($this->tokenCocina))->assertStatus(200);
+
+        $datos = $this->sobreDe('producto.agotado', $producto['producto_id'])['datos'];
+
+        $this->assertSame('resolucion_fuego', $datos['causa']);
+        $this->assertSame('Solo alcanzó para una porción', $datos['motivo']);
+        $this->assertContratoDeEvento('producto.agotado.resolucion_fuego', $datos);
+    }
+
+    public function test_marcar_un_plato_listo_publica_plato_listo_para_el_mozo_de_la_comanda(): void
+    {
+        $producto = $this->crearProducto(40.00, 11.00);
+        $mesaId = $this->crearMesa();
+        $pedidoId = $this->crearPedido($mesaId, 'enviado');
+        $itemId = $this->agregarItem($pedidoId, $producto['producto_id'], 2, 40.00, 'en_preparacion');
+
+        $this->patchJson("/api/v1/cocina/items/{$itemId}/estado", ['estado' => 'listo'], $this->headers($this->tokenCocina))
+            ->assertStatus(200);
+
+        $sobre = $this->sobreDe('plato.listo', $pedidoId);
+
+        $this->assertContratoDeEvento('plato.listo', $sobre['datos']);
+        $this->assertSame($this->mozoId, $sobre['datos']['mozo_id']);
+        $this->assertSame((string) DB::table('mesa')->where('id', $mesaId)->value('numero'), $sobre['datos']['mesa_numero']);
+        $this->assertEquals([
+            ['pedido_item_id' => $itemId, 'producto_nombre' => $producto['nombre'], 'cantidad' => 2],
+        ], $sobre['datos']['items']);
+        $this->assertSame(['ms-notificaciones'], DB::table('outbox_entrega')->where('evento_id', $sobre['id'])->pluck('destino')->all());
+
+        // Repetir la misma marca no avisa dos veces al mozo
+        $this->patchJson("/api/v1/cocina/items/{$itemId}/estado", ['estado' => 'listo'], $this->headers($this->tokenCocina))
+            ->assertStatus(200);
+        $this->assertSame(1, DB::table('outbox_event')->where('tipo_evento', 'plato.listo')->where('agregado_id', $pedidoId)->count());
+    }
+
+    public function test_despachar_la_comanda_publica_un_solo_plato_listo_con_todos_los_platos(): void
+    {
+        $producto = $this->crearProducto(40.00, 11.00);
+        $pedidoId = $this->crearPedido($this->crearMesa(), 'enviado');
+        $this->agregarItem($pedidoId, $producto['producto_id'], 1, 40.00, 'en_cola');
+        $this->agregarItem($pedidoId, $producto['producto_id'], 3, 40.00, 'en_preparacion');
+
+        $this->postJson("/api/v1/cocina/pedidos/{$pedidoId}/despachar", [], $this->headers($this->tokenCocina))
+            ->assertStatus(200);
+
+        $this->assertSame(1, DB::table('outbox_event')->where('tipo_evento', 'plato.listo')->where('agregado_id', $pedidoId)->count());
+        $items = $this->sobreDe('plato.listo', $pedidoId)['datos']['items'];
+        $this->assertSame([1, 3], collect($items)->pluck('cantidad')->sort()->values()->all());
+    }
+
+    public function test_listar_una_tanda_publica_un_plato_listo_por_cada_comanda_afectada(): void
+    {
+        $producto = $this->crearProducto(40.00, 11.00);
+        $primera = $this->crearPedido($this->crearMesa(), 'enviado');
+        $segunda = $this->crearPedido($this->crearMesa(), 'enviado');
+        $this->agregarItem($primera, $producto['producto_id'], 1, 40.00, 'en_preparacion');
+        $this->agregarItem($segunda, $producto['producto_id'], 1, 40.00, 'en_preparacion');
+
+        $this->postJson('/api/v1/cocina/consolidado/marcar-listo', [
+            'producto_id' => $producto['producto_id'],
+            'cantidad' => 2,
+        ], $this->headers($this->tokenCocina))->assertStatus(200)->assertJsonPath('datos.listos', 2);
+
+        foreach ([$primera, $segunda] as $pedidoId) {
+            $this->assertSame(1, DB::table('outbox_event')->where('tipo_evento', 'plato.listo')->where('agregado_id', $pedidoId)->count());
+        }
+    }
+
+    public function test_sustituir_un_plato_publica_pedido_item_sustituido(): void
+    {
+        $original = $this->crearProducto(38.00, 12.00);
+        $nuevo = $this->crearProducto(42.00, 13.00);
+        $mesaId = $this->crearMesa();
+        $pedidoId = $this->crearPedido($mesaId, 'enviado');
+        $itemId = $this->agregarItem($pedidoId, $original['producto_id'], 1, 38.00, 'no_disponible');
+        $this->agregarItem($pedidoId, $original['producto_id'], 1, 38.00, 'entregado');
+
+        $res = $this->postJson("/api/v1/mozo/mesas/{$mesaId}/items/{$itemId}/sustituir", [
+            'nuevo_producto_id' => $nuevo['producto_id'],
+            'cantidad' => 1,
+        ], $this->headers($this->tokenMozo));
+        $res->assertStatus(200);
+        $nuevoItemId = $res->json('datos.nuevo_item_id');
+
+        $sobre = $this->sobreDe('pedido.item_sustituido', $nuevoItemId);
+
+        $this->assertContratoDeEvento('pedido.item_sustituido', $sobre['datos']);
+        $this->assertEquals([
+            'pedido_id' => $pedidoId,
+            'mesa_numero' => (string) DB::table('mesa')->where('id', $mesaId)->value('numero'),
+            'pedido_item_original_id' => $itemId,
+            'pedido_item_nuevo_id' => $nuevoItemId,
+            'producto_original_nombre' => $original['nombre'],
+            'producto_nuevo_nombre' => $nuevo['nombre'],
+            'cantidad' => 1,
+            'diferencia_monto' => 4.00,
+            'sustituido_por_id' => $this->mozoId,
+            'sustituido_por_nombre' => 'Carlos Huamán',
+            'fecha' => $sobre['ocurrido_en'],
+        ], $sobre['datos']);
+        $this->assertSame(['ms-notificaciones'], DB::table('outbox_entrega')->where('evento_id', $sobre['id'])->pluck('destino')->all());
+    }
+
+    public function test_avisar_a_la_administracion_del_turno_previo_publica_el_evento_una_sola_vez(): void
+    {
+        DB::table('caja')->where('local_id', $this->localId)->where('estado', 'abierta')->update(['estado' => 'cerrada', 'fecha_cierre' => now()]);
+        $cajaId = (string) Str::uuid();
+        DB::table('caja')->insert([
+            'id' => $cajaId,
+            'local_id' => $this->localId,
+            'cajero_id' => $this->mozoId,
+            'monto_apertura' => 100.00,
+            'estado' => 'abierta',
+            'fecha_apertura' => now(),
+        ]);
+
+        $url = '/api/v1/caja/turno-previo/notificar-administracion';
+        $this->postJson($url, [], $this->headers($this->tokenCajero))->assertStatus(200)->assertJsonPath('datos.ya_notificado', false);
+        $this->postJson($url, [], $this->headers($this->tokenCajero))->assertStatus(200)->assertJsonPath('datos.ya_notificado', true);
+
+        $this->assertSame(1, DB::table('outbox_event')->where('tipo_evento', 'caja.turno_previo_pendiente')->where('agregado_id', $cajaId)->count());
+        $sobre = $this->sobreDe('caja.turno_previo_pendiente', $cajaId);
+
+        $this->assertContratoDeEvento('caja.turno_previo_pendiente', $sobre['datos']);
+        $this->assertSame($this->cajeroId, $sobre['datos']['solicitante_id']);
+        $this->assertTrue($sobre['datos']['hay_admin_local']);
+    }
+
+    public function test_cerrar_caja_con_diferencia_publica_caja_cerrada(): void
+    {
+        $cajaId = $this->abrirTurnoLimpio();
+
+        $this->postJson('/api/v1/caja/cierre', [
+            'monto_real_fisico' => 285.00,
+            'comentario_discrepancia' => 'Faltan quince soles, se revisa el vuelto.',
+        ], $this->headers($this->tokenCajero))->assertStatus(200);
+
+        $sobre = $this->sobreDe('caja.cerrada', $cajaId);
+
+        $this->assertContratoDeEvento('caja.cerrada', $sobre['datos']);
+        $this->assertEquals(300.00, $sobre['datos']['efectivo_esperado']);
+        $this->assertEquals(285.00, $sobre['datos']['efectivo_contado']);
+        $this->assertEquals(-15.00, $sobre['datos']['discrepancia']);
+        $this->assertFalse($sobre['datos']['cierre_forzado']);
+        $this->assertSame($this->cajeroId, $sobre['datos']['cerrado_por_id']);
+    }
+
+    public function test_cerrar_caja_cuadrada_no_publica_nada(): void
+    {
+        $cajaId = $this->abrirTurnoLimpio();
+
+        $this->postJson('/api/v1/caja/cierre', ['monto_real_fisico' => 300.00], $this->headers($this->tokenCajero))->assertStatus(200);
+
+        $this->assertSame(0, DB::table('outbox_event')->where('tipo_evento', 'caja.cerrada')->where('agregado_id', $cajaId)->count());
+    }
+
+    /** Turno del cajero con S/ 300 de apertura, sin mesas activas que impidan cerrarlo. */
+    private function abrirTurnoLimpio(): string
+    {
+        DB::table('pedido')->where('local_id', $this->localId)->whereIn('estado', ['borrador', 'enviado', 'cuenta_pedida'])->update(['estado' => 'cobrado']);
+        DB::table('caja')->where('local_id', $this->localId)->where('estado', 'abierta')->update(['estado' => 'cerrada', 'fecha_cierre' => now()]);
+
+        return $this->postJson('/api/v1/caja/apertura', ['monto_apertura' => 300.00], $this->headers($this->tokenCajero))
+            ->assertStatus(201)
+            ->json('datos.id');
     }
 }

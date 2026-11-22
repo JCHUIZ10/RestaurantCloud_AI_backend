@@ -1,0 +1,9 @@
+{
+    "caja_id": "uuid",
+    "cajero_pendiente_nombre": "string",
+    "fecha": "datetime",
+    "hay_admin_local": "bool",
+    "solicitante_id": "uuid",
+    "solicitante_nombre": "string",
+    "turno_correlativo": "int"
+}

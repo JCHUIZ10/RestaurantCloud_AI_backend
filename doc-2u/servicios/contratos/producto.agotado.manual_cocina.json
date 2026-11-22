@@ -1,0 +1,9 @@
+{
+    "causa": "manual_cocina",
+    "fecha": "datetime",
+    "marcado_por_id": "uuid",
+    "marcado_por_nombre": "string",
+    "motivo": "null",
+    "producto_id": "uuid",
+    "producto_nombre": "string"
+}
