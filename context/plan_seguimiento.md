@@ -26,7 +26,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
 | 5B. ms-pronóstico | Cerrada salvo la revisión en navegador | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo; humo: 108 comprobaciones |
 | 6. JWT y gateway | Cerrada | JWT RS256 en todos los inicios de sesión, validado por Kong y por ms-analítica; 4 reportes de CU-ADMIN-13 en menos de 0,1 s; Kong 3.9.1 como entrada única; pantalla «Reportes de ventas» en React con 149 pruebas de vitest; `scripts/smoke-gateway.sh`: 138 comprobaciones (121 con `--rapido`) |
-| 7. ms-notificaciones | En curso (7.0 a 7.2 cerradas) | Ficha del contrato cerrada; servicio en el puerto 8003 que recibe eventos firmados y crea avisos sin duplicarlos; el núcleo ya le envía los eventos; 131 pruebas de vitest contra MongoDB real |
+| 7. ms-notificaciones | En curso (7.0 a 7.3 cerradas) | Ficha del contrato cerrada; servicio en el puerto 8003 que recibe eventos firmados y crea avisos sin duplicarlos; el núcleo publica los siete eventos y ya no guarda avisos (tabla `notificacion` retirada); 137 pruebas de vitest contra MongoDB real |
 
 ---
 
@@ -440,7 +440,7 @@ Servicio Node 22, TypeScript, Fastify y MongoDB que convierte eventos del núcle
 | 7.0 Ficha | API en detalle, tabla de evento a aviso, eventos nuevos en el catálogo, decisiones cerradas | El contrato antes que el código | Cerrada |
 | 7.1 Esqueleto | Servicio Fastify, compose (puerto 8003), usuario de Mongo sin privilegios, esquema (validador e índices con TTL) | `GET /health` y colección con sus índices | Cerrada |
 | 7.2 Recepción | `/interno/eventos` con firma HMAC, reglas puras, duplicado por índice único, contratos compartidos | Un evento crea avisos y un duplicado no | Cerrada |
-| 7.3 Núcleo | Eventos nuevos y sus contratos, quitar las 5 inserciones, retirar la tabla `notificacion` | Una acción real produce un aviso en Mongo | Pendiente |
+| 7.3 Núcleo | Eventos nuevos y sus contratos, quitar las 5 inserciones, retirar la tabla `notificacion` | Una acción real produce un aviso en Mongo | Cerrada |
 | 7.4 Bandeja y SSE | 5 rutas con JWT, filtro único, reparto en memoria, latido | `curl -N` recibe el aviso al instante | Pendiente |
 | 7.5 Kong | Servicio con JWT; flujo sin búfer y lectura de 16 min | Todo por el puerto 8000 | Pendiente |
 | 7.6 React | Maqueta aprobada y campana en los dos layouts | Campana en vivo en los 5 roles | Pendiente |
@@ -482,6 +482,18 @@ Servicio Node 22, TypeScript, Fastify y MongoDB que convierte eventos del núcle
 - **Entre lenguajes:** desde el contenedor del núcleo, con `FirmaInterna` y `json_encode` con `JSON_UNESCAPED_UNICODE` (como el outbox), un `pedido.anulado` con «Martín Ñahui» y «Ají de gallina» enviado a `http://notificaciones:8003` dio 202 con 2 avisos (administrador y cocina, este como crítico); repetido, 200 `duplicado`; con otro secreto, 401. Los avisos de prueba se borraron después.
 - **Destino activado:** `NOTIFICACIONES_URL` toma por defecto `http://notificaciones:8003` en el compose (`api` y `queue`) y en `.env.example`. Se recrearon `api`, `queue` y `scheduler`; `outbox:estado` muestra `ms-notificaciones` sin pendientes ni fallidos. Desde ahora, cada `comprobante.anulado` y `pedido.anulado` real llega también aquí. Un evento real de punta a punta por el outbox se comprueba en la 7.3, con los eventos nuevos.
 - **Verificado:** 131 pruebas (49 de la 7.1 y 82 nuevas: firma, reglas, recepción contra MongoDB real y contratos) y `tsc` sin errores. **Mutaciones:** aceptar cualquier firma bien formada (5 pruebas fallan), tratar el duplicado como error (3), quitar el aviso a cocina (2), fechar el aviso al recibirlo (1) y no limitar los timestamps del futuro (1).
+
+### Lo que dejó la 7.3 (22/11)
+
+- **Cinco eventos nuevos en `EventosNucleo`:** `pedido.item_sustituido`, `producto.agotado`, `plato.listo`, `caja.turno_previo_pendiente` y `caja.cerrada`, cada uno dentro de la transacción del hecho que lo origina. Las cinco inserciones en `notificacion` desaparecieron. La anulación por quiebre de cocina no necesitó evento propio: ya publicaba `pedido.anulado`.
+- **`plato.listo` es uno por comanda y por acción de cocina.** Marcar un ítem, despachar la comanda o listar una tanda (que reparte por FIFO y puede tocar varias comandas, con un evento por comanda). Repetir el marcado de un ítem ya listo no avisa otra vez. Una comanda sin mozo no genera evento. `despacharPedido` pasó a una transacción para que el evento y el cambio de estado se guarden juntos.
+- **`caja.cerrada` solo con diferencia:** un cierre cuadrado no publica nada (hay prueba). Lo publica `CierreTurnoService` dentro de la transacción del cierre y cubre también el cierre forzado.
+- **Turno previo, una sola vez:** la deduplicación pasó de leer `notificacion` a consultar `log_auditoria`; el evento y su registro se guardan en una transacción. Se pierde el matiz de volver a avisar si el aviso anterior estaba leído.
+- **Tabla retirada:** migración `2026_11_22_000001_retirar_tabla_notificacion` (con `down()` que recrea tabla, índices y política RLS). Como con incidentes, `02_schema_ddl.sql` conserva la tabla y la migración la quita; `schema-check.sh` confirma que el esquema coincide.
+- **Contratos:** seis archivos nuevos en `doc-2u/servicios/contratos/` (`producto.agotado` tiene dos, uno por causa). El trait de contratos trata `causa` como valor fijo y `turno_correlativo` como entero. La lista de pendientes de `contratos.test.ts` quedó vacía.
+- **De punta a punta:** un `producto.agotado` publicado en el núcleo salió por el outbox (entrega `entregado` al primer intento) y creó en Mongo dos avisos, uno para el administrador y otro para los mozos. Los datos de prueba se borraron.
+- **Verificado:** 9 pruebas nuevas en `EventosOutboxPublicacionTest` y 3 pruebas existentes pasadas de comprobar la tabla a comprobar el evento; 137 pruebas de vitest y `tsc` sin errores; Pint; suite completa del núcleo: 714 pasan y 3 fallan. Los 3 fallos son de `AdminFlujoCajaTest` ("periodo hoy" a las 3 de la madrugada) y fallan igual sin estos cambios.
+- **Pendiente anotado:** esas 3 pruebas dependen de la hora del día; conviene fijar el reloj en ellas.
 
 ---
 
