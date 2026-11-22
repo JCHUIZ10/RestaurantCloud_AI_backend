@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 22/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está cerrada: ficha, JWT en el núcleo, validación en ms-analítica, los 4 reportes, Kong, la pantalla de reportes en React y la prueba de punta a punta del gateway. La etapa 7 (ms-notificaciones) está en curso: la ficha, el servicio, el núcleo, la bandeja, el canal SSE y Kong (7.0 a 7.5) están cerrados; faltan React y la prueba de punta a punta.
+**Última actualización:** 22/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está cerrada: ficha, JWT en el núcleo, validación en ms-analítica, los 4 reportes, Kong, la pantalla de reportes en React y la prueba de punta a punta del gateway. La etapa 7 (ms-notificaciones) está en curso: la ficha, el servicio, el núcleo, la bandeja, el canal SSE, Kong y la campana de React (7.0 a 7.6) están cerrados; falta la prueba de punta a punta.
 
 ## Contexto
 
@@ -26,7 +26,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
 | 5B. ms-pronóstico | Cerrada salvo la revisión en navegador | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo; humo: 108 comprobaciones |
 | 6. JWT y gateway | Cerrada | JWT RS256 en todos los inicios de sesión, validado por Kong y por ms-analítica; 4 reportes de CU-ADMIN-13 en menos de 0,1 s; Kong 3.9.1 como entrada única; pantalla «Reportes de ventas» en React con 149 pruebas de vitest; `scripts/smoke-gateway.sh`: 138 comprobaciones (121 con `--rapido`) |
-| 7. ms-notificaciones | En curso (7.0 a 7.5 cerradas) | Ficha del contrato cerrada; servicio en el puerto 8003 que recibe eventos firmados y crea avisos sin duplicarlos; el núcleo publica los siete eventos y ya no guarda avisos (tabla `notificacion` retirada); 137 pruebas de vitest contra MongoDB real |
+| 7. ms-notificaciones | En curso (7.0 a 7.6 cerradas) | Ficha del contrato cerrada; servicio en el puerto 8003 que recibe eventos firmados y crea avisos sin duplicarlos; el núcleo publica los siete eventos y ya no guarda avisos (tabla `notificacion` retirada); 137 pruebas de vitest contra MongoDB real |
 
 ---
 
@@ -443,7 +443,7 @@ Servicio Node 22, TypeScript, Fastify y MongoDB que convierte eventos del núcle
 | 7.3 Núcleo | Eventos nuevos y sus contratos, quitar las 5 inserciones, retirar la tabla `notificacion` | Una acción real produce un aviso en Mongo | Cerrada |
 | 7.4 Bandeja y SSE | 5 rutas con JWT, filtro único, reparto en memoria, latido | `curl -N` recibe el aviso al instante | Cerrada |
 | 7.5 Kong | Servicio con JWT; flujo sin búfer y lectura de 16 min | Todo por el puerto 8000 | Cerrada |
-| 7.6 React | Maqueta aprobada y campana en los dos layouts | Campana en vivo en los 5 roles | Pendiente |
+| 7.6 React | Maqueta aprobada y campana en los dos layouts | Campana en vivo en los 5 roles | Cerrada |
 | 7.7 Humo | `scripts/smoke-notificaciones.sh` | Prueba de punta a punta | Pendiente |
 | 7.8 Cierre | Fichas, README del servicio y este plan | Etapa cerrada | Pendiente |
 
@@ -511,6 +511,17 @@ Servicio Node 22, TypeScript, Fastify y MongoDB que convierte eventos del núcle
 - **Dos servicios de Kong con el mismo destino:** `notificaciones` (ruta `/api/v1/notificaciones`; conexión 3 s, lectura y escritura 30 s, 1 reintento) y `notificaciones-flujo` (ruta `/api/v1/notificaciones/stream`; lectura 16 min, sin reintentos, `response_buffering` y `request_buffering` desactivados). Los tiempos son propiedades del servicio, por eso no basta con una ruta más. Ambos llevan `jwt` (RS256, máximo 15 min) y `rate-limiting` de 120 por minuto, como ms-analítica; Kong elige el prefijo más largo.
 - **No se expone:** `/interno` y `/health` dan 404 desde Kong. Kong ahora espera a que `notificaciones` esté sano.
 - **Verificado por el puerto 8000** con un JWT real del núcleo: sin token 401 (bandeja y canal), contador 200, `/interno/eventos` y `/health` 404, y un `plato.listo` firmado llegó por `curl -N` en menos de 0.4 s, con `Transfer-Encoding: chunked` y el límite de 120 por minuto. `smoke-gateway.sh --rapido`: 121 comprobaciones correctas. El corte real a los 16 minutos no se probó; lo cubren los 15 minutos máximos del JWT y el cierre del servicio.
+
+### Lo que dejó la 7.6 (22/11)
+
+- **Maqueta aprobada** (`wireframe/usuario/CU-TRANS-01-notificaciones-sistema/maqueta-notificaciones.html`) con dos decisiones del usuario: la campana de las terminales (mozo, cocina, caja) es un botón flotante que **se oculta sin avisos sin leer** y entra animada cuando llega uno; en administración y propietario **nunca se oculta**. Además, los avisos que no son críticos tienen un aviso flotante discreto de 4 s (el crítico dura 6 s).
+- **Servicio y canal:** `realNotificacionesService` sobre `clienteMicroservicios` (que ya renueva el JWT y reintenta tras un 401) y `flujoNotificaciones.ts`: lector de SSE sobre `fetch` sin dependencias. Con `renovar` pide un JWT nuevo y reabre sin espera; si el canal cae, reintenta con espera creciente (1 s, 2 s… hasta 30 s) y consulta el contador cada 30 s; un 403 lo detiene y un 401 se reintenta una vez.
+- **Componentes** en `components/notificaciones/`: `useNotificaciones` (estado puro en un reductor), `CampanaNotificaciones`, `PanelNotificaciones` (440 px, modal, con trampa de foco) y `AvisosFlotantes` (crítico `role="alert"`, normal `role="status"`). `Alt+N` abre y cierra, `Esc` cierra y devuelve el foco a la campana. El propietario ve el nombre de la sede en cada aviso (se pide el directorio al abrir el panel). Abrir el detalle marca el aviso como leído pero lo deja a la vista; «Marcar leída» lo saca de «No leídas».
+- **Montaje:** una sola instancia por pantalla. `DashboardLayout` la monta en la sidebar (escritorio) o en la barra superior (tableta y teléfono), para `admin_local` y `propietario`; `TerminalLayout` monta la flotante para `mozo`, `cocina` y `cajero`. Solo con la API real (`IS_REAL_API`).
+- **Retirado:** `DropdownCampanaNotificaciones`, `NotificacionCampanaDTO`, los métodos de campana del servicio real y del mock (incluidas las semillas y `simularNuevaAnulacionSse`).
+- **Verificado:** 234 pruebas de vitest (la suite completa), `tsc -b`, `npm run build` y `check:ui` sin hallazgos en los archivos nuevos (los 4 406 del resto son anteriores). **Mutaciones detectadas:** campana flotante siempre visible o que se oculta con el panel abierto, `Alt+N`, foco que no vuelve, aviso sin deduplicar, crítico de 4 s, crítico que no se anuncia con el panel abierto, contador de críticas, marcar dos veces, reconexión sin recargar, respaldo sin contador, canal que no se cierra, `role=alert`, detalle que no marca (o que saca el aviso), trampa de foco, `renovar` sin JWT nuevo, 403 que reintenta, sin respaldo, lector que pierde el trozo incompleto y sin `X-Local-Id`. La única superviviente es equivalente (el latido ya se ignora por otra rama).
+- **Revisión con Playwright** (real, contra Kong y ms-notificaciones, con sesiones del núcleo) a 360, 768 y 1280 px en administración, propietario, mozo y cocina: la campana aparece donde corresponde, el panel cabe en la ventana (360 px ocupa todo el ancho, 440 px en el resto), no hay desbordes horizontales ni errores de consola, `Esc` lo cierra, y un aviso en vivo llegó a la pantalla en unos 160 ms.
+- **Notas:** `networkidle` nunca se alcanza con el canal abierto, así que las pruebas de navegador esperan `load`. Con firma HMAC, el cliente `curl` de Git Bash en Windows rompe el cuerpo con acentos; para firmar a mano se usa Python.
 
 ---
 
