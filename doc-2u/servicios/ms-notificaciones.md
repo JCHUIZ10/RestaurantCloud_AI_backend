@@ -185,14 +185,16 @@ Cada `aviso` lleva `id:` con el id del aviso. El canal solo envía avisos **crea
 
 | HTTP | Cuándo | `datos` |
 |---|---|---|
-| 202 | Se creó al menos un aviso | `{ "avisos_creados": 2 }` |
-| 200 | El evento ya estaba procesado: todos sus avisos chocaron con el índice único | `{ "avisos_creados": 0, "duplicado": true }` |
-| 202 | Tipo de evento que este servicio no convierte en avisos (por ejemplo `venta.registrada`) | `{ "avisos_creados": 0, "ignorado": true }` |
+| 202 | Se creó al menos un aviso | `{ "estado": "aceptado", "evento_id": "…", "avisos_creados": 2 }` |
+| 200 | El evento ya estaba procesado: todos sus avisos chocaron con el índice único | `{ "estado": "duplicado", "evento_id": "…", "avisos_creados": 0 }` |
+| 200 | Tipo de evento que este servicio no convierte en avisos (por ejemplo `venta.registrada`), o evento que no produce ningún aviso (un `caja.cerrada` sin diferencia) | `{ "estado": "ignorado", "evento_id": "…", "avisos_creados": 0 }` |
 | 401 | Falta la firma, no coincide o el timestamp está fuera de los 5 minutos | `ERR_FIRMA_INVALIDA` |
-| 422 | El sobre no cumple el contrato, la `version` no es la soportada o a `datos` le falta un campo obligatorio | `ERR_EVENTO_INVALIDO` |
+| 422 | El cuerpo no es JSON, el sobre no cumple el contrato, la `version` no es la soportada o a `datos` le falta un campo obligatorio o tiene un tipo incorrecto (con la lista en `detalles.campos`) | `ERR_EVENTO_INVALIDO` |
 | 503 | MongoDB no responde | `ERR_BD_NO_DISPONIBLE` |
 
-Un tipo desconocido responde 202 y no 422, para que añadir un evento al núcleo antes que a este servicio no lo marque como fallido. Si un reintento encuentra avisos creados a medias (cayó entre dos inserciones), crea los que faltan y responde 202.
+Mismas respuestas que ms-analítica. Un tipo desconocido responde 200 `ignorado` y no 422, para que añadir un evento al núcleo antes que a este servicio no lo marque como fallido (el núcleo da por entregada cualquier respuesta 2xx). La firma se comprueba **antes** de leer el cuerpo, sobre sus bytes exactos. Si un reintento encuentra avisos creados a medias (cayó entre dos inserciones), crea los que faltan y responde 202. Los campos que el servicio no usa se ignoran, así que agregar un campo opcional al evento no rompe nada.
+
+**Fechas del aviso.** `creada_en` es el momento del hecho (`ocurrido_en` del evento), no el de la recepción: si el servicio estuvo caído y los eventos llegan tarde por el outbox, la bandeja los ordena y muestra «hace cuánto» según cuándo ocurrieron. `expira_en` = `creada_en` + `DIAS_RETENCION`.
 
 ### GET /health
 

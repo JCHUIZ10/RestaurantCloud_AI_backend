@@ -4,7 +4,9 @@ Convierte los eventos del núcleo en avisos para el personal (por rol o por pers
 
 **Stack:** Node.js 22 · TypeScript · Fastify 5 · driver oficial de MongoDB · jose (JWT) · MongoDB propio · vitest.
 
-**Estado (etapa 7.1):** esqueleto en marcha: configuración validada al arrancar, `GET /health`, formato de respuesta común, `X-Request-Id`, logs JSON, imagen Docker y esquema de MongoDB (validador e índices, incluido el TTL). La recepción de eventos (7.2), la bandeja y el canal SSE (7.4) vienen después.
+**Estado (etapa 7.2):** recibe eventos firmados en `POST /interno/eventos` y los convierte en avisos con las reglas de la ficha (siete tipos), sin duplicarlos si llegan dos veces. El núcleo ya los envía (`NOTIFICACIONES_URL`). También están `GET /health`, el formato de respuesta común, `X-Request-Id`, los logs JSON y el esquema de MongoDB. La bandeja y el canal SSE (7.4) vienen después.
+
+**Cómo se procesa un evento:** `api/eventos.ts` recibe el cuerpo como bytes y comprueba la firma (`soporte/firma.ts`) antes de leerlo; `dominio/procesador.ts` valida el sobre y los datos (`dominio/eventos.ts`, con el vocabulario de los contratos) y aplica la regla del tipo (`dominio/reglas.ts`, funciones puras); `datos/avisos.ts` inserta sin orden y trata el choque con el índice único como «ya procesado».
 
 ## Estructura
 

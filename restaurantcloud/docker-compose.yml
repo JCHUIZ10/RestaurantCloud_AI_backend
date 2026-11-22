@@ -143,7 +143,7 @@ services:
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       ANALITICA_URL: ${ANALITICA_URL:-http://analitica:8001}
       ANALITICA_SECRETO: ${ANALITICA_SECRETO:-}
-      NOTIFICACIONES_URL: ${NOTIFICACIONES_URL:-}
+      NOTIFICACIONES_URL: ${NOTIFICACIONES_URL:-http://notificaciones:8003}
       NOTIFICACIONES_SECRETO: ${NOTIFICACIONES_SECRETO:-}
       PRONOSTICO_URL: ${PRONOSTICO_URL:-http://pronostico:8002}
       PRONOSTICO_SECRETO: ${PRONOSTICO_SECRETO:-}
@@ -194,7 +194,7 @@ services:
       # El worker envía los eventos del outbox a los microservicios.
       ANALITICA_URL: ${ANALITICA_URL:-http://analitica:8001}
       ANALITICA_SECRETO: ${ANALITICA_SECRETO:-}
-      NOTIFICACIONES_URL: ${NOTIFICACIONES_URL:-}
+      NOTIFICACIONES_URL: ${NOTIFICACIONES_URL:-http://notificaciones:8003}
       NOTIFICACIONES_SECRETO: ${NOTIFICACIONES_SECRETO:-}
     volumes:
       - ./apps/api:/app
