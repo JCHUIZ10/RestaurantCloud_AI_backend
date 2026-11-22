@@ -26,7 +26,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
 | 5B. ms-pronóstico | Cerrada salvo la revisión en navegador | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo; humo: 108 comprobaciones |
 | 6. JWT y gateway | Cerrada | JWT RS256 en todos los inicios de sesión, validado por Kong y por ms-analítica; 4 reportes de CU-ADMIN-13 en menos de 0,1 s; Kong 3.9.1 como entrada única; pantalla «Reportes de ventas» en React con 149 pruebas de vitest; `scripts/smoke-gateway.sh`: 138 comprobaciones (121 con `--rapido`) |
-| 7. ms-notificaciones | En curso (7.0 cerrada) | Ficha del contrato cerrada; el resto, pendiente |
+| 7. ms-notificaciones | En curso (7.0 y 7.1 cerradas) | Ficha del contrato cerrada; servicio en el puerto 8003 con esquema de MongoDB y usuario sin privilegios; 49 pruebas de vitest contra MongoDB real |
 
 ---
 
@@ -438,7 +438,7 @@ Servicio Node 22, TypeScript, Fastify y MongoDB que convierte eventos del núcle
 | Paso | Contenido | Demostrable | Estado |
 |---|---|---|---|
 | 7.0 Ficha | API en detalle, tabla de evento a aviso, eventos nuevos en el catálogo, decisiones cerradas | El contrato antes que el código | Cerrada |
-| 7.1 Esqueleto | Servicio Fastify, compose (puerto 8003), usuario de Mongo sin privilegios, esquema (validador e índices con TTL) | `GET /health` y colección con sus índices | Pendiente |
+| 7.1 Esqueleto | Servicio Fastify, compose (puerto 8003), usuario de Mongo sin privilegios, esquema (validador e índices con TTL) | `GET /health` y colección con sus índices | Cerrada |
 | 7.2 Recepción | `/interno/eventos` con firma HMAC, reglas puras, duplicado por índice único, contratos compartidos | Un evento crea avisos y un duplicado no | Pendiente |
 | 7.3 Núcleo | Eventos nuevos y sus contratos, quitar las 5 inserciones, retirar la tabla `notificacion` | Una acción real produce un aviso en Mongo | Pendiente |
 | 7.4 Bandeja y SSE | 5 rutas con JWT, filtro único, reparto en memoria, latido | `curl -N` recibe el aviso al instante | Pendiente |
@@ -458,6 +458,17 @@ Servicio Node 22, TypeScript, Fastify y MongoDB que convierte eventos del núcle
 - **Una sola instancia**, con el reparto en memoria; el límite queda documentado.
 - **Diferencias con el wireframe de CU-TRANS-01** (escrito para Go y PostgreSQL) documentadas en la ficha: rutas, `severidad` en lugar de `prioridad` y lectura por usuario.
 - **Dependencias aprobadas con el plan:** `fastify`, `mongodb` (driver oficial) y `jose`; en desarrollo `typescript`, `tsx`, `vitest` y `@types/node`. Versiones exactas.
+
+### Lo que dejó la 7.1 (22/11)
+
+- **`services/notificaciones/`** con la misma división que ms-analítica (`api`, `dominio`, `datos`, `soporte`). La configuración se valida entera al arrancar y un error lista todas las variables que faltan. Respuestas con el formato común (`ERR_BD_NO_DISPONIBLE`, como ms-analítica, en lugar del `ERR_BASE_NO_DISPONIBLE` que decía la ficha), fechas con la zona explícita (`-05:00`) calculadas con `Intl`, sin librerías, y `X-Request-Id` que se respeta o se genera; un valor con saltos de línea o de más de 128 caracteres se reemplaza, para que no se pueda inyectar texto en los logs. Logs JSON con `request_id`.
+- **Versiones:** fastify 5.12.8, mongodb 7.8.0, jose 6.2.15, typescript 5.9.3 (la misma serie del frontend), tsx 4.23.15, vitest 5.1.0 y @types/node 22.20.5; imagen `node:22.23.3-alpine`. Las versiones más nuevas de mongodb, jose y vitest tenían menos de dos semanas y se dejaron pasar.
+- **Esquema** (`src/datos/esquema.ts`, aplicado por el servicio de una pasada `notificaciones-migraciones` con el administrador): validador `strict` con uuid, fechas `Date`, los cinco roles con bandeja y la coherencia del destinatario (un aviso a un rol no nombra a una persona, y uno personal no va a un rol). Cinco índices: los cuatro de la ficha y `bandeja_rol_empresa`, para la bandeja del propietario, que no tiene sede. Repetirlo no cambia nada, y un índice existente con otra definición no se toca: se informa el conflicto.
+- **Usuario de la aplicación con un rol propio** (`notificaciones_app`): solo `find`, `insert`, `update` y `remove` sobre la colección, el equivalente del usuario de las bases PostgreSQL. Se descartó `readWrite` porque permite borrar la colección, crear índices y leer otras colecciones. Las credenciales van aparte de la URI. El contenedor del servicio corre como `node` y no recibe las del administrador.
+- **El servicio arranca aunque MongoDB no responda:** el driver conecta en la primera operación. Verificado en vivo: con MongoDB apagado, `/health` responde 503 `ERR_BD_NO_DISPONIBLE` en 3 s, con el error y su `request_id` en el log, y al encenderlo vuelve a 200 en 1 s sin reiniciar el servicio.
+- **Hallazgo en el entorno:** el volumen de MongoDB (creado el 19/11) se había inicializado sin las variables del administrador. La imagen activa igual la autenticación, así que no había ningún usuario y ninguna clave funcionaba. El volumen estaba vacío (se comprobó abriéndolo sin autenticación). En lugar de borrarlo, el administrador se creó con la excepción de localhost, y después se aplicó el script del usuario. El procedimiento quedó en el README del servicio.
+- **Verificado:** 49 pruebas de vitest (configuración, fechas, esquema contra MongoDB real con validador, índices, idempotencia, conflicto de índices y permisos del usuario, y `/health` con `X-Request-Id`), `tsc` sin errores, imagen construida y servicio sano en el compose. **Mutaciones:** quitar el `unique` del índice rompe 2 pruebas y quitar la regla de coherencia del destinatario rompe 3.
+- **Sin tocar todavía:** `NOTIFICACIONES_URL` del núcleo sigue vacía. Si se configurara ahora, `comprobante.anulado` y `pedido.anulado` irían a una ruta que aún no existe y las entregas acabarían fallidas. Se activa al terminar la 7.2.
 
 ---
 

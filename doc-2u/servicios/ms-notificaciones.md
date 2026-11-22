@@ -50,12 +50,15 @@ Una sola colección, `notificaciones`, con un documento por aviso y destinatario
 
 **Índices**
 
-| Índice | Para qué |
-|---|---|
-| `{ local_id: 1, "destinatario.rol": 1, creada_en: -1 }` | Bandeja de los avisos dirigidos a un rol |
-| `{ "destinatario.usuario_id": 1, creada_en: -1 }` (parcial: solo destinatario `usuario`) | Bandeja de los avisos personales |
-| `{ evento_id: 1, "destinatario.rol": 1, "destinatario.usuario_id": 1 }` **único** | Un mismo evento no crea dos veces el mismo aviso |
-| `{ expira_en: 1 }` con `expireAfterSeconds: 0` (TTL) | Borrado automático |
+| Nombre | Índice | Para qué |
+|---|---|---|
+| `bandeja_rol` | `{ local_id: 1, "destinatario.rol": 1, creada_en: -1 }` | Bandeja de los avisos dirigidos a un rol en una sede |
+| `bandeja_rol_empresa` | `{ empresa_id: 1, "destinatario.rol": 1, creada_en: -1 }` | Bandeja del propietario, que ve su rol en todas las sedes de la empresa (excepción a «los índices empiezan por `local_id`»: su consulta no tiene sede) |
+| `bandeja_usuario` | `{ "destinatario.usuario_id": 1, creada_en: -1 }` (parcial: solo destinatario `usuario`) | Bandeja de los avisos personales |
+| `evento_destinatario_unico` | `{ evento_id: 1, "destinatario.rol": 1, "destinatario.usuario_id": 1 }` **único** | Un mismo evento no crea dos veces el mismo aviso |
+| `caducidad` | `{ expira_en: 1 }` con `expireAfterSeconds: 0` (TTL) | Borrado automático |
+
+El esquema está en `src/datos/esquema.ts`; lo aplica `src/esquema.ts` (servicio `notificaciones-migraciones`), se puede repetir sin efecto y no cambia un índice que exista con otra definición: informa el conflicto y falla.
 
 **Decisiones de diseño**
 
@@ -63,7 +66,8 @@ Una sola colección, `notificaciones`, con un documento por aviso y destinatario
 - **El índice único reemplaza a una colección de eventos procesados.** Si el mismo evento llega dos veces, la segunda inserción choca con el índice y se descarta.
 - **Un evento puede crear varios avisos** (por ejemplo, uno para `admin_local` y otro para `cajero`): un documento por destinatario.
 - **`leida_por` dentro del documento.** Un aviso a un rol lo leen como mucho los usuarios de ese rol en un local, que son pocos, así que la lista no crece sin control. Marcar como leído es una sola operación (`$addToSet`).
-- **Validación.** La colección tiene un validador de esquema (`$jsonSchema`) que exige los campos comunes y los valores permitidos de `destinatario.tipo` y `severidad`; `datos` queda libre.
+- **Validación.** La colección tiene un validador de esquema (`$jsonSchema`, nivel `strict`, también en las actualizaciones) que exige los campos comunes, uuid en `evento_id`, `empresa_id`, `local_id` y en los usuarios, fechas como `Date`, los valores permitidos de `severidad` y de `destinatario.rol` (solo los cinco roles con bandeja) y la coherencia del destinatario: un aviso a un rol lleva `usuario_id: null` y uno personal lleva `rol: null`. `datos` queda libre.
+- **Usuario de la aplicación con un rol propio** (`notificaciones_app`, creado por `infra/mongo/notificaciones/01-usuario.js`): solo `find`, `insert`, `update` y `remove` sobre la colección `notificaciones`, el equivalente del usuario de las bases PostgreSQL. No se usa el rol predefinido `readWrite` porque permite borrar la colección, crear índices y leer otras colecciones. Tampoco puede saltarse el validador (`bypassDocumentValidation`) ni cambiarlo (`collMod`); las pruebas lo comprueban.
 - **Caducidad.** `expira_en` se calcula al crear el aviso con `DIAS_RETENCION`.
 - **Sin datos de comensales.** Los mensajes pueden nombrar al personal (quién anuló, qué mozo), nunca al cliente.
 
@@ -133,7 +137,7 @@ El propietario no tiene sede en el token: ve los avisos dirigidos al rol `propie
 | 401 | `ERR_TOKEN_INVALIDO`, `ERR_TOKEN_EXPIRADO` | Token ausente, inválido o caducado |
 | 403 | `ERR_ROL_NO_PERMITIDO`, `ERR_SEDE_NO_PERMITIDA` | Rol sin bandeja; sede distinta a la del token |
 | 422 | `ERR_PARAMETRO_INVALIDO` | `pagina` o `por_pagina` fuera de rango, o `X-Local-Id` que no es un uuid |
-| 503 | `ERR_BASE_NO_DISPONIBLE` | MongoDB no responde |
+| 503 | `ERR_BD_NO_DISPONIBLE` | MongoDB no responde |
 
 ### GET /api/v1/notificaciones/no-leidas/total
 
@@ -186,7 +190,7 @@ Cada `aviso` lleva `id:` con el id del aviso. El canal solo envía avisos **crea
 | 202 | Tipo de evento que este servicio no convierte en avisos (por ejemplo `venta.registrada`) | `{ "avisos_creados": 0, "ignorado": true }` |
 | 401 | Falta la firma, no coincide o el timestamp está fuera de los 5 minutos | `ERR_FIRMA_INVALIDA` |
 | 422 | El sobre no cumple el contrato, la `version` no es la soportada o a `datos` le falta un campo obligatorio | `ERR_EVENTO_INVALIDO` |
-| 503 | MongoDB no responde | `ERR_BASE_NO_DISPONIBLE` |
+| 503 | MongoDB no responde | `ERR_BD_NO_DISPONIBLE` |
 
 Un tipo desconocido responde 202 y no 422, para que añadir un evento al núcleo antes que a este servicio no lo marque como fallido. Si un reintento encuentra avisos creados a medias (cayó entre dos inserciones), crea los que faltan y responde 202.
 
@@ -235,8 +239,11 @@ Si ms-notificaciones cae, la operación del restaurante no se detiene: solo deja
 | Variable | Descripción |
 |---|---|
 | `PORT` | Puerto de escucha (8003) |
-| `MONGODB_URI` | Conexión a su MongoDB con el usuario de la aplicación (`readWrite` solo sobre su base, sin privilegios de administración) |
+| `MONGODB_URI` | Dirección de su MongoDB, **sin credenciales** (`mongodb://mongo-notificaciones:27017`) |
 | `MONGODB_DB` | Nombre de su base |
+| `MONGODB_USUARIO`, `MONGODB_CLAVE` | Usuario de la aplicación (rol `notificaciones_app`, sin privilegios de administración). Van aparte de la URI para que una clave con `@`, `:` o `/` no la rompa |
+| `MONGODB_AUTH_SOURCE` | Base donde está definido el usuario; por defecto, `MONGODB_DB` |
+| `MONGODB_TIMEOUT_MS` | Espera máxima para encontrar el servidor en cada operación (3000): con MongoDB caído, una petición responde 503 en ese tiempo |
 | `JWT_PUBLIC_KEY` | Clave pública PEM para validar los JWT (con `\n` literales o con saltos reales) |
 | `JWT_EMISOR`, `JWT_AUDIENCIA` | Valores esperados de `iss` y `aud` (`restaurantcloud-nucleo`, `restaurantcloud-servicios`) |
 | `JWT_TOLERANCIA_SEGUNDOS` | Tolerancia de reloj en `exp` y `nbf` (30) |
@@ -244,7 +251,7 @@ Si ms-notificaciones cae, la operación del restaurante no se detiene: solo deja
 | `DIAS_RETENCION` | Días antes de que un aviso caduque (30) |
 | `LATIDO_SEGUNDOS` | Intervalo del latido del canal SSE (25) |
 
-El esquema (validador e índices) lo crea un proceso de una sola pasada con el usuario administrador de MongoDB, como las migraciones de los servicios Python; el servicio no tiene permiso para cambiarlo.
+El esquema (validador e índices) lo crea un proceso de una sola pasada con el usuario administrador de MongoDB, como las migraciones de los servicios Python; el servicio no tiene permiso para cambiarlo. El servicio arranca aunque MongoDB todavía no responda: `/health` da 503 hasta que vuelve, y no hace falta reiniciarlo.
 
 ## 7. Decisiones
 
