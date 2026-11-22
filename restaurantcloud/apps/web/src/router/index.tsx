@@ -37,6 +37,7 @@ import { AdminPromocionesPage } from '@/modules/admin/pages/AdminPromocionesPage
 import { AdminConfiguracionKdsPage } from '@/modules/admin/pages/AdminConfiguracionKdsPage';
 import { AdminMetodosPagoPage } from '@/modules/admin/pages/AdminMetodosPagoPage';
 import { AdminFlujoCajaPage } from '@/modules/admin/pages/AdminFlujoCajaPage';
+import { AdminReportesPage } from '@/modules/admin/pages/AdminReportesPage';
 import { RegistroEmpresaPage } from '@/modules/propietario/pages/RegistroEmpresaPage';
 import { PropietarioLocalesPage } from '@/modules/propietario/pages/PropietarioLocalesPage';
 import { PropietarioAdministradoresPage } from '@/modules/propietario/pages/PropietarioAdministradoresPage';
@@ -295,23 +296,10 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
         path: 'metodos-pago',
         element: <AdminMetodosPagoPage />,
       },
-      // [PRÓXIMO ENTREGABLE - FASE 2]: Reportes de Ventas (CU-ADMIN-13)
+      // Reportes de ventas y desempeño (CU-ADMIN-13): ms-analítica por Kong
       {
         path: 'reportes/ventas',
-        element: (
-          <PlaceholderView
-            codigoCu="CU-ADMIN-13"
-            nombrePantalla="Reportes de Ventas & Productos Más Vendidos"
-            rol="administrador"
-            layoutNombre="DashboardLayout"
-            descripcion="Análisis analítico de ventas por rango de fechas, platos de mayor rotación y ticket promedio."
-            proximoEntregable={true}
-            enlacesRelacionados={[
-              { label: 'Flujo de Caja & Cierres Z', to: ROUTES.ADMIN_FLUJO_CAJA },
-              { label: 'Panel del Local', to: ROUTES.ADMIN_DASHBOARD },
-            ]}
-          />
-        ),
+        element: <AdminReportesPage />,
       },
       {
         path: 'finanzas/flujo-caja',
