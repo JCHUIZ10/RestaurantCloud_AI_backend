@@ -1,0 +1,964 @@
+<title>Reportes de ÁUREA</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Serif+Display&display=swap">
+<style>
+/* Maqueta de CU-ADMIN-13 dentro de la consola de sede: sidebar navy, lienzo marfil,
+   tarjetas blancas. Tema único claro, como las consolas de la app (darkMode: 'class'). */
+:root {
+  color-scheme: light;
+  /* Marca ÁUREA (tailwind.config.ts) */
+  --navy: #0B2340;
+  --navy-2: #163A63;
+  --cobre: #D5A06F;
+  --champan: #F4D7B0;
+  --marfil: #FFF9F0;
+  --blanco: #FFFFFF;
+  /* Texto: navy con opacidad, como las consolas */
+  --tx: #0B2340;
+  --tx-2: rgba(11, 35, 64, .72);
+  --tx-3: rgba(11, 35, 64, .62);
+  --borde: rgba(244, 215, 176, .85);
+  --borde-suave: rgba(244, 215, 176, .5);
+  --rejilla: rgba(11, 35, 64, .08);
+  /* Paleta de datos validada (dataviz: CVD ΔE ≥ 8 en adyacentes, piso normal ≥ 15) */
+  --s-azul: #2563A8;
+  --s-cobre: #D97B2B;
+  --s-turq: #0E9488;
+  --s-terra: #C24A35;
+  --s-ciruela: #8E3B8A;
+  --s-oro: #C98F12;
+  /* Estados (estado-ok/alerta/error) */
+  --ok: #047857; --ok-bg: #ECFDF5;
+  --alerta: #B45309; --alerta-bg: #FFFBEB;
+  --error: #BE123C; --error-bg: #FFF1F2;
+  --f-serif: "DM Serif Display", Georgia, serif;
+  --f-sans: "DM Sans", Arial, system-ui, sans-serif;
+  --r-tarjeta: 16px;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--marfil); color: var(--tx); font-family: var(--f-sans); font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--cobre); outline-offset: 2px; }
+.cifra { font-variant-numeric: tabular-nums; }
+svg.ic { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- Layout de consola ---------- */
+.app { display: grid; grid-template-columns: 1fr; min-height: 100dvh; }
+.sidebar { display: none; }
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; display: flex; align-items: center; gap: 12px; background: var(--navy); color: #fff; padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--navy); }
+.topbar .marca-txt { font-family: var(--f-serif); font-size: 17px; }
+.topbar .seccion { margin-left: auto; font-size: 13px; color: var(--champan); }
+@media (min-width: 1024px) {
+  .app { grid-template-columns: 256px 1fr; }
+  .topbar { display: none; }
+  .sidebar { display: flex; flex-direction: column; position: sticky; top: 0; height: 100dvh; background: var(--navy); color: #fff; }
+}
+.sb-marca { display: flex; align-items: center; gap: 10px; padding: 20px 16px 6px; }
+.sb-logo { width: 36px; height: 36px; border-radius: 10px; background: rgba(213,160,111,.2); border: 1px solid rgba(213,160,111,.4); display: grid; place-items: center; font-family: var(--f-serif); font-size: 18px; color: var(--champan); }
+.sb-marca span { font-family: var(--f-serif); font-size: 18px; letter-spacing: .02em; }
+.sb-sede { padding: 0 16px 14px 62px; font-size: 12px; color: rgba(244,215,176,.8); }
+.sb-nav { flex: 1; padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; border-top: 1px solid rgba(255,255,255,.08); }
+.sb-grupo { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: rgba(244,215,176,.6); padding: 14px 12px 6px; }
+.sb-item { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; font-size: 14px; color: rgba(255,255,255,.82); border: 0; background: none; text-align: left; }
+.sb-item svg { color: var(--cobre); }
+.sb-item:hover { background: rgba(255,255,255,.06); }
+.sb-item.activo { background: var(--champan); color: var(--navy); font-weight: 600; }
+.sb-item.activo svg { color: var(--navy); }
+.sb-pie { border-top: 1px solid rgba(255,255,255,.1); padding: 12px; display: flex; align-items: center; gap: 10px; }
+.sb-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--champan); color: var(--navy); display: grid; place-items: center; font-weight: 700; font-size: 13px; border: 1px solid rgba(213,160,111,.5); }
+.sb-pie b { display: block; font-size: 14px; }
+.sb-pie small { font-size: 12px; color: rgba(244,215,176,.8); }
+
+.main { min-width: 0; padding-block: 20px 120px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+@media (min-width: 768px) { .main { padding-block: 28px 120px; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); } }
+@media (min-width: 1280px) { .main { padding-left: 32px; padding-right: 32px; } }
+
+/* ---------- Encabezado y filtros ---------- */
+.ph { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px; justify-content: space-between; }
+.ph-titulo { display: flex; gap: 14px; align-items: center; min-width: 0; }
+.ph-icono { width: 48px; height: 48px; border-radius: 14px; background: var(--navy); color: var(--champan); display: grid; place-items: center; flex: none; }
+.ph-icono svg { width: 24px; height: 24px; }
+.ph h1 { margin: 0; font-family: var(--f-serif); font-weight: 700; font-size: 28px; line-height: 1.1; text-wrap: balance; }
+.ph p { margin: 4px 0 0; color: var(--tx-2); font-size: 14px; }
+.frescura { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--tx-2); background: var(--blanco); border: 1px solid var(--borde); border-radius: 999px; padding: 6px 12px; }
+.punto-vivo { width: 8px; height: 8px; border-radius: 50%; background: #10B981; box-shadow: 0 0 0 3px rgba(16,185,129,.18); }
+
+.filtros { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center; background: var(--blanco); border: 1px solid var(--borde); border-radius: var(--r-tarjeta); padding: 12px; box-shadow: 0 1px 2px rgba(11,35,64,.04); }
+.segmentado { display: flex; gap: 4px; background: var(--marfil); border: 1px solid var(--borde-suave); border-radius: 12px; padding: 4px; overflow-x: auto; max-width: 100%; }
+.segmentado button { border: 0; background: none; padding: 0 14px; min-height: 36px; border-radius: 9px; font-size: 14px; font-weight: 500; color: var(--tx-2); white-space: nowrap; }
+.segmentado button.activo { background: var(--navy); color: #fff; box-shadow: 0 1px 3px rgba(11,35,64,.25); }
+.rango { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--tx); }
+.rango svg { color: var(--s-cobre); }
+.rango small { color: var(--tx-3); font-size: 13px; }
+/* Un solo componente: el interruptor y, al activarlo, las fechas de inicio y fin con los días */
+.comparar { margin-left: auto; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; background: #fff; border: 1px solid var(--borde); border-radius: 14px; padding: 4px; }
+.comparar .interruptor { padding: 0 10px; color: var(--tx); font-weight: 500; }
+.comparar-rango { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 12px; border-radius: 10px; background: var(--marfil); border: 1px solid var(--borde-suave); }
+.comparar-rango .fecha small { display: block; font-size: 12px; color: var(--tx-3); line-height: 1.2; }
+.comparar-rango .fecha b { display: block; font-size: 14px; font-weight: 600; line-height: 1.3; white-space: nowrap; }
+.comparar-rango .ic { color: var(--tx-3); }
+.comparar-rango .dias { font-size: 13px; font-weight: 700; color: var(--navy); background: var(--champan); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.muestra { width: 14px; height: 14px; border-radius: 4px; flex: none; }
+.muestra.actual { background: var(--navy); }
+.muestra.previa { background: rgba(11,35,64,.22); border: 1px dashed rgba(11,35,64,.45); }
+@media (max-width: 767px) { .comparar { margin-left: 0; width: 100%; } .comparar-rango { flex: 1 1 100%; } }
+.interruptor { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; color: var(--tx-2); border: 0; background: none; min-height: 44px; }
+.interruptor .pista { width: 40px; height: 24px; border-radius: 999px; background: var(--s-turq); position: relative; transition: background .2s; }
+.interruptor .pista::after { content: ""; position: absolute; top: 3px; left: 19px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: left .2s; }
+.interruptor[aria-checked="false"] .pista { background: rgba(11,35,64,.2); }
+.interruptor[aria-checked="false"] .pista::after { left: 3px; }
+
+/* ---------- Pestañas ---------- */
+.pestanas { margin-top: 20px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.pestana { position: relative; display: flex; align-items: center; gap: 12px; text-align: left; border: 1px solid var(--borde); background: var(--blanco); border-radius: 14px; padding: 12px 14px; min-height: 64px; transition: box-shadow .15s, transform .15s; }
+.pestana:hover { box-shadow: 0 4px 14px rgba(11,35,64,.08); }
+.pestana .p-ic { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; flex: none; }
+.pestana .p-ic svg { width: 20px; height: 20px; }
+.pestana b { display: block; font-size: 15px; }
+.pestana small { display: block; font-size: 13px; color: var(--tx-3); }
+.pestana .candado { position: absolute; top: 10px; right: 10px; color: var(--tx-3); }
+.pestana.activo { background: var(--navy); border-color: var(--navy); color: #fff; box-shadow: 0 8px 22px rgba(11,35,64,.22); }
+.pestana.activo small { color: var(--champan); }
+.pestana.activo .p-ic { background: rgba(244,215,176,.16) !important; color: var(--champan) !important; }
+.pestana.activo .candado { color: var(--champan); }
+@media (max-width: 640px) {
+  .pestana { flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px; }
+  .pestana small { display: none; }
+  .pestana .p-ic { width: 32px; height: 32px; }
+}
+
+/* ---------- Tarjetas y rejillas ---------- */
+.vista { margin-top: 20px; display: flex; flex-direction: column; gap: 16px; }
+.fila { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 768px) { .fila.k4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1280px) { .fila.k4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 1024px) {
+  .fila.h-k { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+  .fila.d2-1 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  .fila.d1-1 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fila.d3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.tarjeta { background: var(--blanco); border: 1px solid var(--borde); border-radius: var(--r-tarjeta); padding: 18px; box-shadow: 0 1px 2px rgba(11,35,64,.04); min-width: 0; }
+.t-cab { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+.t-cab h2 { margin: 0; font-size: 16px; font-weight: 700; }
+.t-cab p { margin: 2px 0 0; font-size: 13px; color: var(--tx-3); }
+.etq { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
+
+/* Destacado en navy */
+.heroe { position: relative; overflow: hidden; border-radius: 20px; padding: 22px; color: #fff; background:
+  radial-gradient(120% 140% at 100% 0%, rgba(213,160,111,.38) 0%, rgba(213,160,111,0) 46%),
+  radial-gradient(90% 120% at 0% 100%, rgba(14,148,136,.28) 0%, rgba(14,148,136,0) 50%),
+  linear-gradient(135deg, var(--navy) 0%, var(--navy-2) 100%); box-shadow: 0 14px 34px rgba(11,35,64,.22); }
+.heroe .etq { color: var(--champan); }
+.heroe-valor { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.heroe-valor .moneda { font-family: var(--f-serif); font-size: 26px; color: var(--champan); }
+.heroe-valor .monto { font-family: var(--f-serif); font-weight: 700; font-size: clamp(40px, 6vw, 56px); line-height: 1; letter-spacing: -.01em; }
+.pildora-sube { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: rgba(16,185,129,.18); color: #A7F3D0; font-weight: 600; font-size: 14px; }
+.heroe .sub { margin-top: 6px; color: rgba(255,255,255,.78); font-size: 14px; }
+.comparador { margin-top: 18px; display: grid; gap: 10px; }
+.comparador .fila-c { display: grid; grid-template-columns: 92px minmax(0,1fr) auto; gap: 10px; align-items: center; font-size: 13px; }
+.comparador .barra { height: 12px; border-radius: 999px; background: rgba(255,255,255,.1); overflow: hidden; }
+.comparador .barra i { display: block; height: 100%; border-radius: 999px; }
+.comparador .lbl { color: rgba(255,255,255,.78); }
+.comparador .val { font-weight: 600; }
+.heroe-pie { margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.12); display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: rgba(255,255,255,.88); }
+.heroe-pie svg { color: var(--champan); margin-top: 2px; }
+
+/* Indicadores */
+.kpi { display: flex; flex-direction: column; gap: 6px; }
+.kpi-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.kpi-ic { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; }
+.kpi-ic svg { width: 18px; height: 18px; }
+.kpi-val { font-family: var(--f-serif); font-weight: 700; font-size: 30px; line-height: 1.1; }
+.kpi-val small { font-family: var(--f-sans); font-weight: 500; font-size: 13px; color: var(--tx-3); margin-left: 4px; }
+.kpi-det { font-size: 13px; color: var(--tx-2); }
+.var { display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.var svg { width: 14px; height: 14px; }
+.var.sube { background: var(--ok-bg); color: var(--ok); }
+.var.baja { background: var(--error-bg); color: var(--error); }
+.var.igual { background: rgba(11,35,64,.06); color: var(--tx-2); }
+.mini-comp { margin-top: 6px; display: grid; gap: 4px; }
+.mini-comp div { display: grid; grid-template-columns: 54px minmax(0,1fr); gap: 8px; align-items: center; font-size: 12px; color: var(--tx-3); }
+.mini-comp span.b { height: 6px; border-radius: 999px; background: rgba(11,35,64,.06); overflow: hidden; }
+.mini-comp span.b i { display: block; height: 100%; border-radius: 999px; }
+
+/* Leyendas y chips */
+.leyenda { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; color: var(--tx-2); }
+.leyenda span { display: inline-flex; align-items: center; gap: 6px; }
+.leyenda i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.chip svg { width: 14px; height: 14px; }
+
+.grafico { display: block; overflow: visible; max-width: none; }
+/* Los gráficos se dibujan al ancho real de su contenedor (como ResponsiveContainer de Recharts):
+   el texto conserva su tamaño en cualquier pantalla. Bajo su ancho mínimo, se desplazan dentro de la tarjeta. */
+.g-hueco { overflow-x: auto; overflow-y: hidden; }
+.tarjeta.cq { container-type: inline-size; }
+.grafico text { font-family: var(--f-sans); }
+.resumen-turnos { margin-top: 14px; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+.turno { border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 2px; }
+.turno b { font-family: var(--f-serif); font-size: 22px; font-weight: 700; }
+.turno span { font-size: 13px; color: var(--tx-2); }
+
+/* Dona */
+.dona-caja { display: flex; flex-direction: column; gap: 18px; align-items: center; }
+.dona-caja svg { width: 168px; height: 168px; flex: none; }
+.lista-medios { width: 100%; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.m-barra { display: block; height: 6px; border-radius: 999px; background: rgba(11,35,64,.06); margin-top: 6px; overflow: hidden; }
+.m-barra i { display: block; height: 100%; border-radius: 999px; }
+@container (min-width: 440px) {
+  .dona-caja { flex-direction: row; justify-content: center; gap: 28px; }
+  .lista-medios { flex: 1 1 0; max-width: 440px; }
+}
+@container (min-width: 680px) {
+  .dona-caja svg { width: 200px; height: 200px; }
+  .lista-medios { max-width: 520px; }
+}
+.medio { display: grid; grid-template-columns: 34px minmax(0,1fr) auto; gap: 10px; align-items: center; }
+.medio .m-ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; }
+.medio b { display: block; font-size: 14px; }
+.medio small { font-size: 12px; color: var(--tx-3); }
+.medio .pct { text-align: right; }
+.medio .pct strong { display: block; font-size: 16px; }
+
+/* Barra apilada 100 % */
+.apilada { display: flex; height: 18px; border-radius: 999px; overflow: hidden; gap: 2px; background: var(--blanco); }
+.apilada i { display: block; height: 100%; }
+.apilada i:first-child { border-radius: 999px 0 0 999px; }
+.apilada i:last-child { border-radius: 0 999px 999px 0; }
+.lista-tipos { margin-top: 14px; display: grid; gap: 10px; }
+.tipo { display: grid; grid-template-columns: 12px minmax(0,1fr) auto auto; gap: 10px; align-items: center; font-size: 14px; }
+.tipo i { width: 12px; height: 12px; border-radius: 4px; }
+.tipo small { color: var(--tx-3); font-size: 13px; }
+.tipo .num { font-weight: 600; text-align: right; }
+
+/* Destacados */
+.destacado { display: flex; gap: 12px; align-items: flex-start; background: linear-gradient(90deg, rgba(244,215,176,.45), rgba(244,215,176,.12)); border: 1px solid var(--borde); border-radius: 14px; padding: 14px 16px; }
+.destacado .d-ic { width: 34px; height: 34px; border-radius: 10px; background: var(--navy); color: var(--champan); display: grid; place-items: center; flex: none; }
+.destacado b { display: block; font-size: 14px; }
+.destacado p { margin: 2px 0 0; font-size: 14px; color: var(--tx-2); }
+
+/* Cuadrantes */
+.cuadrante { position: relative; overflow: hidden; border-radius: var(--r-tarjeta); padding: 16px; border: 1px solid; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cuadrante .c-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cuadrante .c-ic { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; color: #fff; }
+.cuadrante .c-ic svg { width: 20px; height: 20px; }
+.cuadrante h3 { margin: 0; font-size: 16px; }
+.cuadrante .c-num { font-family: var(--f-serif); font-weight: 700; font-size: 30px; line-height: 1; }
+.cuadrante .c-num small { font-family: var(--f-sans); font-size: 13px; font-weight: 500; color: var(--tx-2); margin-left: 4px; }
+.cuadrante p { margin: 0; font-size: 13px; color: var(--tx-2); }
+.cuadrante .c-pie { font-size: 13px; color: var(--tx); font-weight: 600; }
+.cuadrante .c-regla { align-self: flex-start; font-size: 12px; font-weight: 600; color: var(--tx); background: rgba(255,255,255,.75); border: 1px solid var(--borde-suave); border-radius: 8px; padding: 4px 8px; }
+
+/* Tabla */
+.filtro-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.filtro-chips button { border: 1px solid var(--borde); background: var(--blanco); border-radius: 999px; padding: 0 12px; min-height: 34px; font-size: 13px; font-weight: 500; color: var(--tx-2); display: inline-flex; align-items: center; gap: 6px; }
+.filtro-chips button i { width: 8px; height: 8px; border-radius: 50%; }
+.filtro-chips button.activo { background: var(--navy); color: #fff; border-color: var(--navy); }
+.tabla-caja { overflow-x: auto; margin: 0 -18px -18px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--tx-3); padding: 10px 12px; background: rgba(255,249,240,.9); border-block: 1px solid var(--borde-suave); white-space: nowrap; }
+th button { border: 0; background: none; padding: 0; font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit; display: inline-flex; gap: 4px; align-items: center; }
+th.n, td.n { text-align: right; }
+td { padding: 10px 12px; border-bottom: 1px solid var(--borde-suave); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: rgba(255,249,240,.7); }
+td .plato b { display: block; font-weight: 600; }
+td .plato small { color: var(--tx-3); font-size: 12px; }
+.barra-celda { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.barra-celda span.b { width: 72px; height: 6px; border-radius: 999px; background: rgba(11,35,64,.06); overflow: hidden; }
+.barra-celda span.b i { display: block; height: 100%; border-radius: 999px; background: var(--s-azul); }
+.pos { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; font-size: 13px; background: var(--marfil); color: var(--tx-2); }
+.estrellas { display: inline-flex; gap: 2px; vertical-align: middle; }
+.leyenda-est { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 14px; padding: 10px 12px; border-radius: 10px; background: rgba(201,143,18,.09); font-size: 13px; color: var(--tx-2); }
+.leyenda-est svg { color: #8A6208; margin-top: 2px; }
+.pag { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--borde-suave); font-size: 14px; color: var(--tx-2); }
+.pag-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.pag-ctl select { min-height: 40px; border: 1px solid var(--borde); border-radius: 10px; background: #fff; padding: 0 10px; font: inherit; color: var(--tx); }
+.pag-ctl button { min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--cobre); background: #fff; font-weight: 600; font-size: 14px; color: var(--navy); box-shadow: 0 1px 2px rgba(11,35,64,.08); }
+.pag-ctl button:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+.tabla-desk { display: none; }
+.lista-movil { display: flex; flex-direction: column; gap: 8px; }
+.item-movil { border: 1px solid var(--borde-suave); border-radius: 12px; padding: 12px; display: grid; grid-template-columns: 26px minmax(0,1fr) auto; gap: 10px; align-items: center; }
+.item-movil small { color: var(--tx-3); font-size: 12px; display: block; }
+@media (min-width: 768px) { .tabla-desk { display: block; } .lista-movil { display: none; } }
+
+/* Categorías */
+.cats { display: flex; flex-direction: column; gap: 14px; }
+.cat { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px 12px; align-items: center; font-size: 14px; }
+.cat-nombre { grid-column: 1; grid-row: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cat-nombre i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.cat-nombre b { font-weight: 600; }
+.cat-pct { grid-column: 2; grid-row: 1; font-weight: 600; text-align: right; }
+.cat-barra { grid-column: 1 / -1; grid-row: 2; height: 10px; border-radius: 999px; background: rgba(11,35,64,.06); overflow: hidden; }
+.cat-barra i { display: block; height: 100%; border-radius: 999px; }
+.cat-det { grid-column: 1 / -1; grid-row: 3; font-size: 12px; color: var(--tx-3); }
+@container (min-width: 520px) {
+  .cat { grid-template-columns: 100px minmax(0,1fr) 56px max-content; }
+  .cat-det { white-space: nowrap; }
+  .cat-nombre, .cat-pct, .cat-barra, .cat-det { grid-column: auto; grid-row: auto; }
+  .cat-det { text-align: right; font-size: 13px; }
+}
+
+/* Equipo */
+.mozo { position: relative; display: flex; flex-direction: column; gap: 14px; }
+.mozo-top { display: flex; gap: 12px; align-items: center; }
+.avatar { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 18px; flex: none; box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--borde); }
+.mozo-top h3 { margin: 0; font-size: 17px; }
+.mozo-top small { color: var(--tx-3); font-size: 13px; }
+.puesto { position: absolute; top: 16px; right: 16px; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
+.mozo-ventas { font-family: var(--f-serif); font-weight: 700; font-size: 30px; line-height: 1; }
+.cuota { display: grid; gap: 6px; }
+.cuota .b { height: 10px; border-radius: 999px; background: rgba(11,35,64,.06); overflow: hidden; }
+.cuota .b i { display: block; height: 100%; border-radius: 999px; }
+.cuota small { font-size: 13px; color: var(--tx-2); }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
+.stat { background: var(--marfil); border-radius: 12px; padding: 10px; }
+.stat small { display: block; font-size: 12px; color: var(--tx-3); }
+.stat b { font-size: 16px; }
+.mozo-pie { display: flex; gap: 8px; align-items: center; font-size: 13px; padding: 8px 10px; border-radius: 10px; }
+
+/* Estados */
+.estado { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 48px 20px; }
+.estado .e-ic { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; }
+.estado .e-ic svg { width: 30px; height: 30px; }
+.estado h2 { margin: 6px 0 0; font-family: var(--f-serif); font-weight: 700; font-size: 24px; text-wrap: balance; }
+.estado p { margin: 0; color: var(--tx-2); max-width: 46ch; }
+.btn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 12px; font-weight: 600; font-size: 14px; border: 1px solid transparent; }
+.btn.primario { background: var(--navy); color: #fff; }
+.btn.contorno { background: #fff; border-color: var(--cobre); color: var(--navy); box-shadow: 0 1px 2px rgba(11,35,64,.08); }
+.bloqueo { position: relative; }
+.bloqueo .vista-borrosa { filter: blur(6px) saturate(.8); opacity: .55; pointer-events: none; user-select: none; }
+.bloqueo .sobre { position: absolute; inset: 0; display: grid; place-items: start center; padding-top: 40px; }
+.bloqueo .panel { background: #fff; border: 1px solid var(--borde); border-radius: 20px; box-shadow: 0 20px 50px rgba(11,35,64,.18); padding: 26px; max-width: 440px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; margin-inline: 16px; }
+.bloqueo .panel ul { text-align: left; margin: 4px 0 6px; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 14px; color: var(--tx-2); }
+.bloqueo .panel li { display: flex; gap: 8px; align-items: flex-start; }
+.bloqueo .panel li svg { color: var(--ok); margin-top: 2px; }
+.esq { border-radius: 10px; background: linear-gradient(90deg, rgba(244,215,176,.35) 0%, rgba(244,215,176,.7) 50%, rgba(244,215,176,.35) 100%); background-size: 200% 100%; }
+@media (prefers-reduced-motion: no-preference) { .esq { animation: brillo 1.4s linear infinite; } }
+@keyframes brillo { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+/* Tooltip */
+.tip { position: fixed; z-index: 50; pointer-events: none; background: var(--navy); color: #fff; border-radius: 10px; padding: 8px 10px; font-size: 13px; line-height: 1.4; box-shadow: 0 10px 24px rgba(11,35,64,.3); max-width: 240px; }
+.tip b { color: var(--champan); }
+.tip .t-fila { display: flex; justify-content: space-between; gap: 14px; }
+.tip .t-fila span:first-child { color: rgba(255,255,255,.72); }
+
+/* Control de la maqueta (no forma parte de la pantalla) */
+.maqueta { position: fixed; z-index: 40; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center; background: rgba(11,35,64,.94); color: #fff; padding: 8px; border-radius: 16px; box-shadow: 0 12px 30px rgba(11,35,64,.35); width: max-content; max-width: calc(100% - 24px); }
+@media (max-width: 640px) { .maqueta { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; } .maqueta button { white-space: nowrap; } }
+.maqueta > span { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--champan); padding: 0 8px; }
+.maqueta button { border: 0; background: rgba(255,255,255,.08); color: #fff; border-radius: 10px; padding: 0 10px; min-height: 34px; font-size: 13px; }
+.maqueta button.activo { background: var(--champan); color: var(--navy); font-weight: 600; }
+</style>
+
+<div class="app">
+  <aside class="sidebar" aria-label="Menú de la sede">
+    <div class="sb-marca"><div class="sb-logo">R</div><span>RestaurantCloud</span></div>
+    <div class="sb-sede">Administración · ÁUREA Miraflores</div>
+    <nav class="sb-nav" id="sbNav"></nav>
+    <div class="sb-pie"><div class="sb-avatar">LA</div><div><b>Lucía Arce</b><small>Administradora de sede</small></div></div>
+  </aside>
+
+  <header class="topbar">
+    <span id="icMenu"></span><span class="marca-txt">RestaurantCloud</span><span class="seccion">Reportes</span>
+  </header>
+
+  <main class="main">
+    <div class="ph">
+      <div class="ph-titulo">
+        <div class="ph-icono" id="icCab"></div>
+        <div><h1>Reportes de ventas</h1><p>Cómo le va a la sede: ventas, platos y equipo de salón.</p></div>
+      </div>
+      <span class="frescura"><span class="punto-vivo"></span>Al día · última venta hoy 15:20</span>
+    </div>
+
+    <div class="filtros">
+      <div class="segmentado" role="tablist" aria-label="Periodo" id="periodos"></div>
+      <div class="rango" id="rActual"></div>
+      <div class="comparar">
+        <button class="interruptor" id="comparar" role="switch" aria-checked="true"><span class="pista"></span><span>Comparar con el periodo anterior</span></button>
+        <div class="comparar-rango" id="compararRango">
+          <span class="fecha"><small>Desde</small><b class="cifra" id="rDesde"></b></span>
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="fecha"><small>Hasta</small><b class="cifra" id="rHasta"></b></span>
+          <span class="dias cifra" id="rDias"></span>
+        </div>
+      </div>
+    </div>
+
+    <nav class="pestanas" role="tablist" aria-label="Reportes" id="pestanas"></nav>
+
+    <section class="vista" id="vista" aria-live="polite"></section>
+  </main>
+</div>
+
+<div class="maqueta" role="group" aria-label="Estados de la maqueta">
+  <span>Maqueta</span>
+  <button data-estado="datos" class="activo">Con datos</button>
+  <button data-estado="cargando">Cargando</button>
+  <button data-estado="vacio">Sin ventas</button>
+  <button data-estado="plan">Plan sin reportes avanzados</button>
+  <button data-estado="error">Sin conexión</button>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+/* ---------- Datos reales de ÁUREA (respuestas de ms-analítica, 1 al 20 nov 2026) ---------- */
+const RESUMEN = {"actual":{"ventas_total":257578.0,"comprobantes":1115,"dias_con_ventas":20,"comprobantes_por_dia":55.8,"ticket_promedio":231.01,"comensales":3510,"ticket_por_comensal":73.38,"descuentos":0.0,"anulados":{"comprobantes":1,"total":76.0},"por_medio_pago":[{"medio_pago":"tarjeta","comprobantes":470,"total":110829.0,"porcentaje":43.0},{"medio_pago":"efectivo","comprobantes":427,"total":97026.0,"porcentaje":37.7},{"medio_pago":"billetera_digital","comprobantes":218,"total":49723.0,"porcentaje":19.3}],"por_tipo":[{"tipo":"boleta","comprobantes":922,"total":212360.0},{"tipo":"factura","comprobantes":147,"total":34308.0},{"tipo":"nota_venta","comprobantes":46,"total":10910.0}]},"anterior":{"desde":"2026-10-12","hasta":"2026-10-31","ventas_total":222618.0,"comprobantes":1045,"comprobantes_por_dia":52.3,"ticket_promedio":213.03,"comensales":3161,"ticket_por_comensal":70.43,"anulados":{"comprobantes":0,"total":0.0},"por_medio_pago":[{"medio_pago":"tarjeta","porcentaje":38.4},{"medio_pago":"efectivo","porcentaje":37.8},{"medio_pago":"billetera_digital","porcentaje":23.8}]},"variacion_pct":{"ventas_total":15.7,"comprobantes":6.7,"ticket_promedio":8.4,"ticket_por_comensal":4.2}};
+const HORAS = [[12,101,22388,1119.4],[13,206,46918,2345.9],[14,197,47238,2361.9],[15,85,19216,960.8],[16,19,4727,236.35],[17,17,4537,226.85],[18,45,10921,546.05],[19,127,29496,1474.8],[20,144,33231,1661.55],[21,108,24042,1202.1],[22,66,14864,743.2]];
+const PRODUCTOS = [
+ ["Lomo Saltado Criollo","Fondos",774,32508,8.5,23.7,"estrella"],["Cerveza Cusqueña","Bebidas",764,9168,8.4,6.5,"caballito"],["Limonada Frozen","Bebidas",740,8880,8.1,9.0,"caballito"],["Inca Kola 500ml","Bebidas",736,6624,8.1,5.8,"caballito"],["Arroz con Mariscos","Fondos",636,27984,7.0,26.5,"estrella"],["Chicha Morada (jarra)","Bebidas",591,9456,6.5,12.0,"caballito"],["Jalea Mixta","Fondos",591,34278,6.5,35.0,"estrella"],["Ceviche Clásico","Entradas",586,22268,6.4,22.8,"estrella"],["Ceviche Mixto","Entradas",502,23092,5.5,27.0,"estrella"],["Chaufa de Mariscos","Fondos",442,17680,4.9,24.5,"estrella"],["Ají de Gallina","Fondos",420,13440,4.6,21.0,"estrella"],["Suspiro Limeño","Postres",420,7560,4.6,12.5,"caballito"],["Mazamorra Morada","Postres",309,3708,3.4,8.5,"rezagado"],["Tacu Tacu con Lomo","Fondos",291,13386,3.2,26.5,"puzle"],["Papa a la Huancaína","Entradas",266,4256,2.9,11.2,"rezagado"],["Agua Mineral 625ml","Bebidas",243,1458,2.7,4.2,"rezagado"],["Tiradito de Pescado","Entradas",233,8388,2.6,21.5,"puzle"],["Causa Limeña de Pollo","Entradas",207,4968,2.3,14.2,"rezagado"],["Choritos a la Chalaca","Entradas",205,5740,2.3,17.2,"rezagado"],["Leche de Tigre","Entradas",152,2736,1.7,11.8,"rezagado"]
+].map(([nombre,categoria,unidades,ingreso,part,mu,clas]) => ({nombre,categoria,unidades,ingreso,part,mu,clas}));
+const UMBRALES = { popularidad: 3.5, margen: 17.38 };
+/* Rentabilidad en estrellas: se ordenan los platos por lo que dejan en total (unidades × margen por unidad)
+   y se reparten en 5 tramos iguales: el 20 % que más deja, 5 estrellas; el 20 % que menos, 1. */
+PRODUCTOS.forEach(p => { p.ganancia = p.unidades * p.mu; });
+[...PRODUCTOS].sort((a, b) => b.ganancia - a.ganancia).forEach((p, i, todos) => { p.estrellas = 5 - Math.floor(i * 5 / todos.length); });
+const CATEGORIAS = [["Fondos",3154,139276,54.1],["Entradas",2151,71448,27.7],["Bebidas",3074,35586,13.8],["Postres",729,11268,4.4]];
+const MOZOS = [["Diego Salas",391,92138,235.65,1248,0],["Carlos Huamán",367,83873,228.54,1151,1],["Ana Ríos",357,81567,228.48,1111,0]];
+
+/* ---------- Íconos (trazos de lucide) ---------- */
+const P = {
+  barras:'<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+  platos:'<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>',
+  equipo:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  recibo:'<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/>',
+  persona:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  anulado:'<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/>',
+  ticket:'<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2M13 17v2M13 11v2"/>',
+  reloj:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  tarjeta:'<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',
+  billete:'<rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
+  celular:'<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>',
+  calendario:'<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  candado:'<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  alerta:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  recargar:'<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+  sube:'<path d="M7 17 17 7"/><path d="M7 7h10v10"/>',
+  baja:'<path d="m7 7 10 10"/><path d="M17 7v10H7"/>',
+  trofeo:'<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+  escudo:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+  estrella:'<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+  caballito:'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+  puzle:'<path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.802-.48-.968-.925a2.501 2.501 0 1 0-3.214 3.214c.446.166.855.497.925.968a.979.979 0 0 1-.276.837l-1.61 1.61a2.404 2.404 0 0 1-1.705.707 2.402 2.402 0 0 1-1.704-.706l-1.568-1.568a1.026 1.026 0 0 0-.877-.29c-.493.074-.84.504-1.02.968a2.5 2.5 0 1 1-3.237-3.237c.464-.18.894-.527.967-1.02a1.026 1.026 0 0 0-.289-.877l-1.568-1.568A2.402 2.402 0 0 1 1.998 12c0-.617.236-1.234.706-1.704L4.23 8.77c.24-.24.581-.353.917-.303.515.077.877.528 1.073 1.01a2.5 2.5 0 1 0 3.259-3.259c-.482-.196-.933-.558-1.01-1.073-.05-.336.062-.676.303-.917l1.525-1.525A2.402 2.402 0 0 1 12 1.998c.617 0 1.234.236 1.704.706l1.568 1.568c.23.23.556.338.877.29.493-.074.84-.504 1.02-.968a2.5 2.5 0 1 1 3.237 3.237c-.464.18-.894.527-.967 1.02Z"/>',
+  rezagado:'<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>',
+  foco:'<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6M10 22h4"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',
+  mesas:'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M9 21V9"/>',
+  caja:'<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/>',
+  carrito:'<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+  prediccion:'<path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>',
+  info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+  orden:'<path d="m21 16-4 4-4-4M17 20V4M3 8l4-4 4 4M7 4v16"/>'
+};
+const ic = (n, s = 16) => `<svg class="ic" viewBox="0 0 24 24" style="width:${s}px;height:${s}px" aria-hidden="true">${P[n]}</svg>`;
+
+/* ---------- Formatos ---------- */
+const nf = (n, d = 0) => n.toLocaleString('es-PE', { minimumFractionDigits: d, maximumFractionDigits: d });
+const sol = (n, d = 0) => 'S/ ' + nf(n, d);
+const pct = (n, d = 1) => nf(n, d) + ' %';
+const varPill = (v, sufijo = '%') => {
+  const cls = v > 0 ? 'sube' : v < 0 ? 'baja' : 'igual';
+  const icono = v > 0 ? ic('sube', 14) : v < 0 ? ic('baja', 14) : '';
+  return `<span class="var ${cls}">${icono}${v > 0 ? '+' : ''}${nf(v, 1)} ${sufijo}</span>`;
+};
+const tinte = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+const C = { azul:'#2563A8', cobre:'#D97B2B', turq:'#0E9488', terra:'#C24A35', ciruela:'#8E3B8A', oro:'#C98F12' };
+/* Nombres de pantalla elegidos por lo que el administrador debe hacer con cada grupo
+   (la clave interna sigue siendo la de ms-analítica: estrella, caballito, puzle, rezagado). */
+const CUAD = {
+  estrella:  { nombre:'Imprescindibles', uno:'Imprescindible', color:C.oro, icono:'trofeo', consejo:'Se piden mucho y dejan buen margen. Cuida su receta y su presentación.' },
+  caballito: { nombre:'Populares', uno:'Popular', color:C.azul, icono:'caballito', consejo:'Se piden mucho pero dejan poco. Revisa su costo o sube un poco el precio.' },
+  puzle:     { nombre:'Por impulsar', uno:'Por impulsar', color:C.turq, icono:'puzle', consejo:'Dejan buen margen pero se piden poco. Pide a los mozos que los recomienden.' },
+  rezagado:  { nombre:'Por revisar', uno:'Por revisar', color:C.terra, icono:'rezagado', consejo:'Se piden poco y dejan poco. Evalúa cambiarlos en la próxima carta.' }
+};
+/* Regla de cada grupo con los umbrales reales de la carta (ms-analítica los calcula por periodo) */
+const reglaNum = k => {
+  const pop = `${nf(UMBRALES.popularidad, 1)} %`, mar = `S/ ${nf(UMBRALES.margen, 2)}`;
+  return { estrella: `${pop} o más de las unidades y ${mar} o más por plato`, caballito: `${pop} o más de las unidades y menos de ${mar} por plato`,
+           puzle: `Menos de ${pop} de las unidades y ${mar} o más por plato`, rezagado: `Menos de ${pop} de las unidades y menos de ${mar} por plato` }[k];
+};
+
+/* ---------- Estructura fija ---------- */
+document.getElementById('icMenu').innerHTML = ic('menu', 22);
+document.getElementById('icCab').innerHTML = ic('barras', 24);
+const NAV = [['Operación',[['mesas','Plano de mesas'],['platos','Carta'],['caja','Insumos'],['carrito','Compras']]],['Análisis',[['prediccion','Planificar la semana'],['barras','Reportes',true],['anulado','Anulaciones']]],['Equipo',[['equipo','Personal'],['reloj','Horario']]]];
+document.getElementById('sbNav').innerHTML = NAV.map(([g, items]) => `<div class="sb-grupo">${g}</div>` + items.map(([i, t, a]) => `<button class="sb-item${a ? ' activo' : ''}"${a ? ' aria-current="page"' : ''}>${ic(i)}${t}</button>`).join('')).join('');
+const PERIODOS = ['Hoy', 'Ayer', 'Últimos 7 días', 'Este mes', 'Personalizado'];
+document.getElementById('periodos').innerHTML = PERIODOS.map(p => `<button role="tab" aria-selected="${p === 'Este mes'}" class="${p === 'Este mes' ? 'activo' : ''}">${p}</button>`).join('');
+/* El periodo anterior es siempre el de la misma duración justo antes (contrato de ms-analítica).
+   En la maqueta las cifras no cambian con el periodo; solo las fechas. */
+const RANGOS = {
+  'Hoy':            { act: '20 nov 2026', dias: '1 día', actCorto: '20 nov', antCorto: '19 nov', desde: '19 nov 2026', hasta: '19 nov 2026' },
+  'Ayer':           { act: '19 nov 2026', dias: '1 día', actCorto: '19 nov', antCorto: '18 nov', desde: '18 nov 2026', hasta: '18 nov 2026' },
+  'Últimos 7 días': { act: '14 – 20 nov 2026', dias: '7 días', actCorto: '14 – 20 nov', antCorto: '7 – 13 nov', desde: '7 nov 2026', hasta: '13 nov 2026' },
+  'Este mes':       { act: '1 – 20 nov 2026', dias: '20 días', actCorto: '1 – 20 nov', antCorto: '12 – 31 oct', desde: '12 oct 2026', hasta: '31 oct 2026' },
+  'Personalizado':  { act: '1 – 20 nov 2026', dias: '20 días', actCorto: '1 – 20 nov', antCorto: '12 – 31 oct', desde: '12 oct 2026', hasta: '31 oct 2026' }
+};
+let periodo = 'Este mes';
+const rango = () => RANGOS[periodo];
+const comparando = () => document.getElementById('comparar').getAttribute('aria-checked') === 'true';
+document.getElementById('periodos').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  [...e.currentTarget.children].forEach(x => { x.classList.toggle('activo', x === b); x.setAttribute('aria-selected', x === b); });
+  periodo = b.textContent; pintarRango(); render();
+});
+const pintarRango = () => {
+  const r = rango();
+  document.getElementById('rActual').innerHTML = `${ic('calendario')}<span class="cifra">${r.act} · ${r.dias}</span>`;
+  document.getElementById('rDesde').textContent = r.desde;
+  document.getElementById('rHasta').textContent = r.hasta;
+  document.getElementById('rDias').textContent = r.dias;
+  document.getElementById('compararRango').hidden = !comparando();
+};
+document.getElementById('comparar').addEventListener('click', e => {
+  const b = e.currentTarget; b.setAttribute('aria-checked', b.getAttribute('aria-checked') !== 'true'); pintarRango(); render();
+});
+pintarRango();
+
+/* ---------- Estado de la maqueta ---------- */
+let estado = 'datos';
+const TABS = [
+  { id:'ventas', nombre:'Ventas', icono:'barras', color:C.cobre, sub:'S/ 257,578 · +15.7 %', avanzado:false },
+  { id:'platos', nombre:'Platos', icono:'platos', color:C.oro, sub:'20 platos · 7 imprescindibles', avanzado:true },
+  { id:'equipo', nombre:'Equipo de salón', icono:'equipo', color:C.turq, sub:'3 mozos en el periodo', avanzado:true }
+];
+const tabActual = () => { const h = location.hash.slice(1); return TABS.some(t => t.id === h) ? h : 'ventas'; };
+const pintarTabs = () => {
+  const act = tabActual();
+  document.getElementById('pestanas').innerHTML = TABS.map(t => `
+    <button class="pestana${t.id === act ? ' activo' : ''}" role="tab" aria-selected="${t.id === act}" data-tab="${t.id}">
+      <span class="p-ic" style="background:${tinte(t.color, .12)};color:${t.color}">${ic(t.icono, 20)}</span>
+      <span><b>${t.nombre}</b><small class="cifra">${estado === 'plan' && t.avanzado ? 'Disponible en el plan Pro' : t.sub}</small></span>
+      ${estado === 'plan' && t.avanzado ? `<span class="candado">${ic('candado', 14)}</span>` : ''}
+    </button>`).join('');
+};
+document.getElementById('pestanas').addEventListener('click', e => {
+  const b = e.target.closest('[data-tab]'); if (b) location.hash = b.dataset.tab;
+});
+window.addEventListener('hashchange', render);
+document.querySelector('.maqueta').addEventListener('click', e => {
+  const b = e.target.closest('[data-estado]'); if (!b) return;
+  estado = b.dataset.estado;
+  document.querySelectorAll('.maqueta [data-estado]').forEach(x => x.classList.toggle('activo', x === b));
+  render();
+});
+
+/* ---------- Tooltip ---------- */
+const tip = document.getElementById('tip');
+document.addEventListener('pointermove', e => {
+  const el = e.target.closest('[data-tip]');
+  if (!el) { tip.hidden = true; return; }
+  tip.innerHTML = el.getAttribute('data-tip');
+  tip.hidden = false;
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = e.clientX + 14, y = e.clientY - h - 12;
+  if (x + w > innerWidth - 8) x = e.clientX - w - 14;
+  if (y < 8) y = e.clientY + 18;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+});
+const hueco = (g, min) => `<div class="g-hueco" data-g="${g}" data-min="${min}"></div>`;
+const COLS_CAT = ['#2563A8', '#D97B2B', '#0E9488', '#8E3B8A'];
+const fila = (a, b) => `<div class='t-fila'><span>${a}</span><span class='cifra'>${b}</span></div>`;
+
+/* ---------- Vista: Ventas ---------- */
+function vistaVentas() {
+  const a = RESUMEN.actual, an = RESUMEN.anterior, v = RESUMEN.variacion_pct;
+  const comp = document.getElementById('comparar').getAttribute('aria-checked') === 'true';
+  const maxV = Math.max(a.ventas_total, an.ventas_total);
+  const almuerzo = HORAS.filter(h => h[0] < 18).reduce((s, h) => s + h[2], 0);
+  const cena = HORAS.filter(h => h[0] >= 18).reduce((s, h) => s + h[2], 0);
+
+  const kpi = (icono, color, etq, valor, unidad, variacion, detalle, act, ant, fmt) => `
+    <article class="tarjeta kpi">
+      <div class="kpi-top"><span class="etq" style="color:var(--tx-2)">${etq}</span><span class="kpi-ic" style="background:${tinte(color, .12)};color:${color}">${ic(icono, 18)}</span></div>
+      <div class="kpi-val cifra">${valor}${unidad ? `<small>${unidad}</small>` : ''}</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${comp && variacion !== null ? varPill(variacion) : ''}<span class="kpi-det">${detalle}</span></div>
+      ${comp && act !== null ? `<div class="mini-comp">
+        <div><span>Actual</span><span class="b"><i style="width:${act / Math.max(act, ant) * 100}%;background:${color}"></i></span></div>
+        <div><span>Anterior</span><span class="b"><i style="width:${ant / Math.max(act, ant) * 100}%;background:${tinte(color, .35)}"></i></span></div>
+      </div>` : ''}
+    </article>`;
+
+  return `
+  <div class="destacado"><span class="d-ic">${ic('foco', 18)}</span><div><b>Lo más importante del periodo</b><p>Vendiste <b style="display:inline">${pct(v.ventas_total)} más</b> que en los 20 días anteriores. Hubo más cuentas (+${nf(v.comprobantes, 1)} %) y además cada una fue más alta (+${nf(v.ticket_promedio, 1)} %).</p></div></div>
+
+  <div class="fila h-k">
+    <article class="heroe">
+      <span class="etq">Ventas del periodo</span>
+      <div class="heroe-valor"><span class="moneda">S/</span><span class="monto cifra">${nf(a.ventas_total)}</span>${comp ? `<span class="pildora-sube">${ic('sube', 14)}+${nf(v.ventas_total, 1)} %</span>` : ''}</div>
+      <div class="sub cifra">${nf(a.comprobantes)} cuentas cobradas en ${a.dias_con_ventas} días de atención</div>
+      ${comp ? `<div class="comparador">
+        <div class="fila-c"><span class="lbl">${rango().actCorto}</span><span class="barra"><i style="width:${a.ventas_total / maxV * 100}%;background:linear-gradient(90deg,#F4D7B0,#D5A06F)"></i></span><span class="val cifra">${sol(a.ventas_total)}</span></div>
+        <div class="fila-c"><span class="lbl">${rango().antCorto}</span><span class="barra"><i style="width:${an.ventas_total / maxV * 100}%;background:rgba(255,255,255,.4)"></i></span><span class="val cifra">${sol(an.ventas_total)}</span></div>
+      </div>` : ''}
+      <div class="heroe-pie">${ic('reloj')}<span>La hora punta es a las <b>14:00</b>: se venden ${sol(2362)} por día en esa sola hora.</span></div>
+    </article>
+    <div class="fila k4" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr))">
+      ${kpi('recibo', C.azul, 'Cuentas cobradas', nf(a.comprobantes), '', v.comprobantes, `${nf(a.comprobantes_por_dia, 1)} por día`, a.comprobantes, an.comprobantes)}
+      ${kpi('ticket', C.turq, 'Ticket promedio', sol(a.ticket_promedio, 2), 'por cuenta', v.ticket_promedio, '', a.ticket_promedio, an.ticket_promedio)}
+      ${kpi('persona', C.ciruela, 'Gasto por comensal', sol(a.ticket_por_comensal, 2), '', v.ticket_por_comensal, `${nf(a.comensales)} comensales`, a.ticket_por_comensal, an.ticket_por_comensal)}
+      ${kpi('anulado', C.terra, 'Anulados', nf(a.anulados.comprobantes), a.anulados.comprobantes === 1 ? 'comprobante' : 'comprobantes', null, `${sol(a.anulados.total)} · ${nf(a.anulados.total / a.ventas_total * 100, 2)} % de las ventas`, null, null)}
+    </div>
+  </div>
+
+  <div class="fila d2-1">
+    <article class="tarjeta">
+      <div class="t-cab">
+        <div><h2>Ventas por hora del día</h2><p>Promedio por día de atención, en soles</p></div>
+        <span class="chip" style="background:${tinte(C.cobre, .12)};color:#9A4F12">${ic('reloj', 14)}Hora punta 14:00</span>
+      </div>
+      ${hueco('horas', 480)}
+      <div class="leyenda" style="margin-top:8px"><span><i style="background:${C.cobre}"></i>Almuerzo</span><span><i style="background:${C.azul}"></i>Cena</span><span style="color:var(--tx-3)">Horas del día (0 a 23)</span></div>
+      <div class="resumen-turnos">
+        <div class="turno" style="background:${tinte(C.cobre, .1)}"><span>Almuerzo · 12:00 a 17:59</span><b class="cifra">${pct(almuerzo / a.ventas_total * 100)}</b><span class="cifra">${sol(almuerzo)} en el periodo</span></div>
+        <div class="turno" style="background:${tinte(C.azul, .09)}"><span>Cena · 18:00 a 22:59</span><b class="cifra">${pct(cena / a.ventas_total * 100)}</b><span class="cifra">${sol(cena)} en el periodo</span></div>
+      </div>
+    </article>
+    <article class="tarjeta cq">
+      <div class="t-cab"><div><h2>Cómo pagan tus clientes</h2><p>Parte de las ventas por medio de pago</p></div></div>
+      ${graficoMedios(comp)}
+    </article>
+  </div>
+
+  <div class="fila d1-1">
+    <article class="tarjeta">
+      <div class="t-cab"><div><h2>Comprobantes emitidos</h2><p>Por tipo, en soles</p></div></div>
+      ${tiposComprobante()}
+    </article>
+    <article class="tarjeta">
+      <div class="t-cab"><div><h2>Descuentos y anulaciones</h2><p>Lo que dejó de entrar en el periodo</p></div></div>
+      <div style="display:grid;gap:10px">
+        <div class="medio"><span class="m-ic" style="background:${tinte(C.ciruela, .12)};color:${C.ciruela}">${ic('ticket', 18)}</span><div><b>Descuentos aplicados</b><small>Promociones y cortesías</small></div><div class="pct"><strong class="cifra">${sol(a.descuentos)}</strong><small>0 % de las ventas</small></div></div>
+        <div class="medio"><span class="m-ic" style="background:${tinte(C.terra, .12)};color:${C.terra}">${ic('anulado', 18)}</span><div><b>Comprobantes anulados</b><small>Con nota de crédito</small></div><div class="pct"><strong class="cifra">${sol(a.anulados.total)}</strong><small>${a.anulados.comprobantes} comprobante</small></div></div>
+        <div class="mozo-pie" style="background:var(--ok-bg);color:var(--ok)">${ic('escudo')}<span>Las anulaciones están por debajo del 0.1 % de las ventas.</span></div>
+      </div>
+    </article>
+  </div>`;
+}
+
+function graficoHoras(W) {
+  const horas = [11, ...HORAS.map(h => h[0]), 23];
+  const datos = horas.map(h => HORAS.find(x => x[0] === h) || [h, 0, 0, 0]);
+  const H = 260, ml = 52, mr = 8, mt = 28, mb = 30;
+  const iw = W - ml - mr, ih = H - mt - mb, max = 2500;
+  const band = iw / datos.length, bw = Math.min(band * 0.64, 48);
+  const y = v => mt + ih - v / max * ih;
+  let s = `<svg class="grafico" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Ventas promedio por hora: la hora punta es a las 14:00 con S/ 2 362 por día">`;
+  for (let t = 0; t <= max; t += 500) {
+    s += `<line x1="${ml}" x2="${W - mr}" y1="${y(t)}" y2="${y(t)}" stroke="${t === 0 ? 'rgba(11,35,64,.25)' : 'rgba(11,35,64,.08)'}" stroke-width="1"/>`;
+    s += `<text x="${ml - 8}" y="${y(t) + 4}" text-anchor="end" font-size="12" fill="rgba(11,35,64,.62)">${t === 0 ? '0' : nf(t)}</text>`;
+  }
+  datos.forEach(([h, comp, total, prom], i) => {
+    const x = ml + i * band + (band - bw) / 2;
+    const color = h < 18 ? C.cobre : C.azul;
+    const punta = h === 14;
+    if (prom > 0) {
+      const top = y(prom), alto = mt + ih - top, r = Math.min(5, alto);
+      s += `<path d="M${x},${mt + ih} V${top + r} Q${x},${top} ${x + r},${top} H${x + bw - r} Q${x + bw},${top} ${x + bw},${top + r} V${mt + ih} Z" fill="${color}" opacity="${punta ? 1 : .82}"/>`;
+    }
+    s += `<rect x="${ml + i * band}" y="${mt}" width="${band}" height="${ih}" fill="transparent" data-tip="<b>${String(h).padStart(2, '0')}:00 a ${String(h).padStart(2, '0')}:59</b>${fila('Por día', sol(prom))}${fila('Cuentas', nf(comp))}${fila('Total', sol(total))}"/>`;
+    s += `<text x="${ml + i * band + band / 2}" y="${H - 10}" text-anchor="middle" font-size="12" fill="rgba(11,35,64,.62)">${h}</text>`;
+    if (punta) {
+      s += `<text x="${x + bw / 2}" y="${y(prom) - 10}" text-anchor="middle" font-size="12" font-weight="700" fill="#0B2340">${sol(prom)}</text>`;
+    }
+  });
+  return s + '</svg>';
+}
+
+function graficoMedios(comp) {
+  const M = { tarjeta:['Tarjeta', 'tarjeta', C.azul], efectivo:['Efectivo', 'billete', C.cobre], billetera_digital:['Billetera digital', 'celular', C.turq] };
+  const lista = RESUMEN.actual.por_medio_pago;
+  const R = 62, SW = 22, circ = 2 * Math.PI * R, gap = 3;
+  let off = 0, arcos = '';
+  lista.forEach(m => {
+    const largo = m.porcentaje / 100 * circ;
+    const [nombre, , color] = M[m.medio_pago];
+    arcos += `<circle cx="80" cy="80" r="${R}" fill="none" stroke="${color}" stroke-width="${SW}" stroke-dasharray="${Math.max(largo - gap, 0)} ${circ}" stroke-dashoffset="${-off}" transform="rotate(-90 80 80)" data-tip="<b>${nombre}</b>${fila('Parte', pct(m.porcentaje))}${fila('Total', sol(m.total))}${fila('Cuentas', nf(m.comprobantes))}"/>`;
+    off += largo;
+  });
+  const dona = `<svg viewBox="0 0 160 160" role="img" aria-label="Medios de pago: tarjeta 43 %, efectivo 37,7 %, billeteras 19,3 %">${arcos}
+    <text x="80" y="76" text-anchor="middle" font-size="12" fill="rgba(11,35,64,.62)">Total</text>
+    <text x="80" y="96" text-anchor="middle" font-size="17" font-weight="700" fill="#0B2340" font-family="DM Sans">S/ 257.6 mil</text></svg>`;
+  const filas = lista.map(m => {
+    const [nombre, icono, color] = M[m.medio_pago];
+    const ant = RESUMEN.anterior.por_medio_pago.find(x => x.medio_pago === m.medio_pago).porcentaje;
+    const d = +(m.porcentaje - ant).toFixed(1);
+    return `<div class="medio"><span class="m-ic" style="background:${tinte(color, .12)};color:${color}">${ic(icono, 18)}</span>
+      <div><b>${nombre}</b><small class="cifra">${sol(m.total)} · ${nf(m.comprobantes)} cuentas</small><span class="m-barra"><i style="width:${m.porcentaje}%;background:${color}"></i></span></div>
+      <div class="pct"><strong class="cifra">${pct(m.porcentaje)}</strong>${comp ? varPill(d, 'pts') : ''}</div></div>`;
+  }).join('');
+  return `<div class="dona-caja">${dona}<div class="lista-medios">${filas}</div></div>`;
+}
+
+function tiposComprobante() {
+  const T = { boleta:['Boleta', C.ciruela], factura:['Factura', C.turq], nota_venta:['Nota de venta', C.oro] };
+  const total = RESUMEN.actual.ventas_total;
+  const lista = RESUMEN.actual.por_tipo;
+  const barra = `<div class="apilada" role="img" aria-label="Boleta 82 %, factura 13 %, nota de venta 4 %">${lista.map(t => `<i style="width:${t.total / total * 100}%;background:${T[t.tipo][1]}" data-tip="<b>${T[t.tipo][0]}</b>${fila('Parte', pct(t.total / total * 100))}${fila('Total', sol(t.total))}"></i>`).join('')}</div>`;
+  return barra + `<div class="lista-tipos">${lista.map(t => `<div class="tipo"><i style="background:${T[t.tipo][1]}"></i><span>${T[t.tipo][0]} <small class="cifra">· ${nf(t.comprobantes)}</small></span><span class="num cifra">${sol(t.total)}</span><small class="cifra" style="width:52px;text-align:right">${pct(t.total / total * 100)}</small></div>`).join('')}</div>`;
+}
+
+/* ---------- Vista: Platos ---------- */
+let filtroCuad = 'todos', ordenPor = 'ingreso', pagina = 1, tamPag = 10;
+function vistaPlatos() {
+  const totalIng = PRODUCTOS.reduce((s, p) => s + p.ingreso, 0);
+  const porCuad = k => PRODUCTOS.filter(p => p.clas === k);
+  const ing = k => porCuad(k).reduce((s, p) => s + p.ingreso, 0) / totalIng * 100;
+  const tarjetas = Object.entries(CUAD).map(([k, c]) => `
+    <article class="cuadrante" style="background:linear-gradient(160deg, ${tinte(c.color, .13)} 0%, #fff 70%);border-color:${tinte(c.color, .3)}">
+      <div class="c-top"><h3>${c.nombre}</h3><span class="c-ic" style="background:${c.color}">${ic(c.icono, 20)}</span></div>
+      <div class="c-num cifra">${porCuad(k).length}<small>platos</small></div>
+      <span class="c-regla cifra">${reglaNum(k)}</span>
+      <p>${c.consejo}</p>
+      <span class="c-pie cifra">${pct(ing(k))} de los ingresos de platos</span>
+    </article>`).join('');
+  const estrellas = porCuad('estrella'), rez = porCuad('rezagado');
+  return `
+  <div class="destacado"><span class="d-ic">${ic('foco', 18)}</span><div><b>Lo más importante del periodo</b><p>Tus <b style="display:inline">${estrellas.length} platos imprescindibles</b> traen el ${pct(ing('estrella'), 0)} de los ingresos. Los ${rez.length} platos por revisar solo aportan el ${pct(ing('rezagado'), 0)}: son candidatos a renovar en la carta.</p></div></div>
+  <div class="fila k4">${tarjetas}</div>
+  <div class="fila d2-1">
+    <article class="tarjeta">
+      <div class="t-cab"><div><h2>Mapa de la carta</h2><p>Qué tanto se pide cada plato frente a cuánto deja por unidad</p></div>
+        <div class="leyenda">${Object.values(CUAD).map(c => `<span><i style="background:${c.color};border-radius:50%"></i>${c.uno}</span>`).join('')}</div></div>
+      ${hueco('matriz', 480)}
+    </article>
+    <article class="tarjeta cq">
+      <div class="t-cab"><div><h2>Ingresos por categoría</h2><p>Parte de los ingresos de platos</p></div></div>
+      <div class="apilada" style="margin-bottom:18px" role="img" aria-label="Fondos 54 %, entradas 28 %, bebidas 14 %, postres 4 %">${CATEGORIAS.map(([n, u, i, p], idx) => `<i style="width:${p}%;background:${COLS_CAT[idx]}" data-tip="<b>${n}</b>${fila('Parte', pct(p))}${fila('Ingresos', sol(i))}"></i>`).join('')}</div>
+      <div class="cats">${CATEGORIAS.map(([n, u, i, p], idx) => `
+        <div class="cat"><span class="cat-nombre"><i style="background:${COLS_CAT[idx]}"></i><b>${n}</b></span>
+        <span class="cat-barra"><i style="width:${p / 54.1 * 100}%;background:${COLS_CAT[idx]}"></i></span>
+        <span class="cat-pct cifra">${pct(p)}</span>
+        <small class="cat-det cifra">${sol(i)} · ${nf(u)} unidades</small></div>`).join('')}</div>
+      <div class="mozo-pie" style="margin-top:16px;background:${tinte(C.azul, .07)};color:var(--tx-2)">${ic('info')}<span>Las bebidas son el 34 % de las unidades pero el 14 % de los ingresos.</span></div>
+    </article>
+  </div>
+  <article class="tarjeta">
+    <div class="t-cab"><div><h2>Ranking de platos</h2><p>Ordenado por ${{ ingreso: 'ingresos', unidades: 'unidades vendidas', margen: 'margen por unidad', ganancia: 'rentabilidad' }[ordenPor]}</p></div>
+      <div class="filtro-chips" id="filtroCuad">
+        <button data-c="todos" class="${filtroCuad === 'todos' ? 'activo' : ''}">Todos · 20</button>
+        ${Object.entries(CUAD).map(([k, c]) => `<button data-c="${k}" class="${filtroCuad === k ? 'activo' : ''}"><i style="background:${c.color}"></i>${c.nombre} · ${porCuad(k).length}</button>`).join('')}
+      </div></div>
+    <div class="leyenda-est">${ic('info')}<span><b>Rentabilidad:</b> compara cuánto deja cada plato en total (unidades × margen por unidad). El 20 % que más deja tiene 5 estrellas, el siguiente 20 % tiene 4, y así hasta 1 estrella.</span></div>
+    ${tablaRanking()}
+  </article>`;
+}
+
+function graficoMatriz(W) {
+  const H = Math.round(Math.min(440, Math.max(320, W * 0.5))), ml = 54, mr = 14, mt = 14, mb = 50;
+  const iw = W - ml - mr, ih = H - mt - mb, xmax = 10, ymax = 40;
+  const x = v => ml + v / xmax * iw, y = v => mt + ih - v / ymax * ih;
+  const ux = x(UMBRALES.popularidad), uy = y(UMBRALES.margen);
+  let s = `<svg class="grafico" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Mapa de la carta: popularidad frente a margen por unidad, con cuatro cuadrantes">`;
+  const zonas = [
+    [ux, mt, x(xmax) - ux, uy - mt, CUAD.estrella, 'end', x(xmax) - 10, mt + 20],
+    [ux, uy, x(xmax) - ux, mt + ih - uy, CUAD.caballito, 'end', x(xmax) - 10, mt + ih - 12],
+    [ml, mt, ux - ml, uy - mt, CUAD.puzle, 'start', ml + 10, mt + 20],
+    [ml, uy, ux - ml, mt + ih - uy, CUAD.rezagado, 'start', ml + 10, mt + ih - 12]
+  ];
+  zonas.forEach(([zx, zy, zw, zh, c, anc, tx, ty]) => {
+    s += `<rect x="${zx}" y="${zy}" width="${zw}" height="${zh}" fill="${tinte(c.color, .07)}"/>`;
+    s += `<text x="${tx}" y="${ty}" text-anchor="${anc}" font-size="13" font-weight="700" fill="${c.color === C.oro ? '#8A6208' : c.color}">${c.nombre}</text>`;
+  });
+  for (let t = 0; t <= ymax; t += 10) s += `<text x="${ml - 8}" y="${y(t) + 4}" text-anchor="end" font-size="12" fill="rgba(11,35,64,.62)">${t === 0 ? 'S/ 0' : 'S/ ' + t}</text>`;
+  for (let t = 0; t <= xmax; t += 2) s += `<text x="${x(t)}" y="${mt + ih + 18}" text-anchor="middle" font-size="12" fill="rgba(11,35,64,.62)">${t} %</text>`;
+  s += `<line x1="${ux}" x2="${ux}" y1="${mt}" y2="${mt + ih}" stroke="rgba(11,35,64,.35)" stroke-dasharray="4 4"/>`;
+  s += `<line x1="${ml}" x2="${W - mr}" y1="${uy}" y2="${uy}" stroke="rgba(11,35,64,.35)" stroke-dasharray="4 4"/>`;
+  s += `<line x1="${ml}" x2="${W - mr}" y1="${mt + ih}" y2="${mt + ih}" stroke="rgba(11,35,64,.25)"/>`;
+  s += `<text x="${ml + iw / 2}" y="${H - 8}" text-anchor="middle" font-size="12" fill="rgba(11,35,64,.72)">Popularidad: parte de las unidades vendidas</text>`;
+  s += `<text x="${W - mr}" y="${uy - 6}" text-anchor="end" font-size="12" fill="rgba(11,35,64,.62)">margen medio S/ ${nf(UMBRALES.margen, 2)}</text>`;
+  const etiquetas = { 'Lomo Saltado Criollo':'end', 'Jalea Mixta':'start', 'Cerveza Cusqueña':'end', 'Tacu Tacu con Lomo':'start', 'Leche de Tigre':'start' };
+  PRODUCTOS.forEach(p => {
+    const c = CUAD[p.clas], px = x(p.part), py = y(p.mu);
+    s += `<circle cx="${px}" cy="${py}" r="7" fill="${c.color}" stroke="#fff" stroke-width="2"/>`;
+    s += `<circle cx="${px}" cy="${py}" r="14" fill="transparent" data-tip="<b>${p.nombre}</b>${fila('Grupo', c.uno)}${fila('Popularidad', pct(p.part))}${fila('Margen por unidad', sol(p.mu, 2))}${fila('Unidades', nf(p.unidades))}"/>`;
+    if (etiquetas[p.nombre]) {
+      const a = etiquetas[p.nombre];
+      s += `<text x="${px + (a === 'end' ? -12 : 12)}" y="${py + 4}" text-anchor="${a}" font-size="12" font-weight="600" fill="#0B2340" stroke="#fff" stroke-width="3" paint-order="stroke">${p.nombre}</text>`;
+    }
+  });
+  s += `<text transform="translate(14 ${mt + ih / 2}) rotate(-90)" text-anchor="middle" font-size="12" fill="rgba(11,35,64,.72)">Margen por unidad</text>`;
+  return s + '</svg>';
+}
+
+function estrellasHtml(p) {
+  let s = '';
+  for (let i = 1; i <= 5; i++) {
+    const lleno = i <= p.estrellas;
+    s += `<svg viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px;fill:${lleno ? '#C98F12' : 'none'};stroke:${lleno ? '#C98F12' : 'rgba(11,35,64,.3)'};stroke-width:2;stroke-linejoin:round">${P.estrella}</svg>`;
+  }
+  return `<span class="estrellas" role="img" aria-label="${p.estrellas} de 5 estrellas" data-tip="<b>${p.nombre}</b>${fila('Rentabilidad', p.estrellas + ' de 5')}${fila('Deja en total', sol(p.ganancia))}">${s}</span>`;
+}
+function paginador(total, inicio, paginas) {
+  const fin = Math.min(inicio + tamPag, total);
+  return `<div class="pag"><span class="cifra">Mostrando ${total ? inicio + 1 : 0}–${fin} de ${total} platos</span>
+    <div class="pag-ctl"><label for="tamPag">Por página</label>
+      <select id="tamPag">${[5, 10, 20].map(n => `<option value="${n}"${n === tamPag ? ' selected' : ''}>${n}</option>`).join('')}</select>
+      <button data-pag="prev"${pagina <= 1 ? ' disabled' : ''}>Anterior</button>
+      <span class="cifra">Página ${pagina} de ${paginas}</span>
+      <button data-pag="next"${pagina >= paginas ? ' disabled' : ''}>Siguiente</button></div></div>`;
+}
+function tablaRanking() {
+  const ORDEN = { unidades: p => p.unidades, margen: p => p.mu, ganancia: p => p.ganancia, ingreso: p => p.ingreso };
+  const todos = PRODUCTOS.filter(p => filtroCuad === 'todos' || p.clas === filtroCuad).slice().sort((a, b) => ORDEN[ordenPor](b) - ORDEN[ordenPor](a));
+  const paginas = Math.max(1, Math.ceil(todos.length / tamPag));
+  pagina = Math.min(pagina, paginas);
+  const inicio = (pagina - 1) * tamPag;
+  const lista = todos.slice(inicio, inicio + tamPag);
+  const maxU = Math.max(...PRODUCTOS.map(p => p.unidades));
+  const insignia = p => { const c = CUAD[p.clas]; return `<span class="chip" style="background:${tinte(c.color, .12)};color:${c.color === C.oro ? '#8A6208' : c.color}">${ic(c.icono, 14)}${c.uno}</span>`; };
+  const cab = (k, t) => `<th class="n"><button data-orden="${k}">${t}${ordenPor === k ? ic('orden', 12) : ''}</button></th>`;
+  return `<div class="tabla-desk"><div class="tabla-caja"><table>
+    <thead><tr><th style="width:44px">#</th><th>Plato</th>${cab('unidades', 'Unidades')}${cab('ingreso', 'Ingresos')}${cab('margen', 'Margen por unidad')}${cab('ganancia', 'Rentabilidad')}<th>Grupo</th></tr></thead>
+    <tbody>${lista.map((p, i) => `<tr>
+      <td><span class="pos">${inicio + i + 1}</span></td>
+      <td><div class="plato"><b>${p.nombre}</b><small>${p.categoria}</small></div></td>
+      <td class="n"><div class="barra-celda"><span class="cifra">${nf(p.unidades)}</span><span class="b"><i style="width:${p.unidades / maxU * 100}%"></i></span></div></td>
+      <td class="n cifra" style="font-weight:600">${sol(p.ingreso)}</td>
+      <td class="n cifra">${sol(p.mu, 2)}</td>
+      <td class="n">${estrellasHtml(p)}</td>
+      <td>${insignia(p)}</td></tr>`).join('')}</tbody></table></div></div>
+    <div class="lista-movil">${lista.map((p, i) => `<div class="item-movil"><span class="pos">${inicio + i + 1}</span>
+      <div style="min-width:0"><b>${p.nombre}</b><small class="cifra">${nf(p.unidades)} u · ${sol(p.mu, 2)} por unidad</small><div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">${estrellasHtml(p)}${insignia(p)}</div></div>
+      <b class="cifra">${sol(p.ingreso)}</b></div>`).join('')}</div>${paginador(todos.length, inicio, paginas)}`;
+}
+
+/* ---------- Vista: Equipo ---------- */
+function vistaEquipo() {
+  const total = MOZOS.reduce((s, m) => s + m[2], 0);
+  const ticketLocal = RESUMEN.actual.ticket_promedio;
+  const colores = [C.azul, C.cobre, C.turq];
+  const tarjetas = MOZOS.map(([nombre, comp, ventas, ticket, comensales, anul], i) => {
+    const ini = nombre.split(' ').map(x => x[0]).join('');
+    const puesto = i === 0 ? `<span class="puesto" style="background:${tinte(C.oro, .16)};color:#8A6208">${ic('trofeo', 14)}1.º</span>` : `<span class="puesto" style="background:var(--marfil);color:var(--tx-2)">${i + 1}.º</span>`;
+    const pie = anul === 0
+      ? `<div class="mozo-pie" style="background:var(--ok-bg);color:var(--ok)">${ic('escudo')}<span>Sin anulaciones en el periodo</span></div>`
+      : `<div class="mozo-pie" style="background:var(--alerta-bg);color:var(--alerta)">${ic('alerta')}<span>${anul} comprobante anulado</span></div>`;
+    return `<article class="tarjeta mozo">${puesto}
+      <div class="mozo-top"><span class="avatar" style="background:${colores[i]}">${ini}</span><div><h3>${nombre}</h3><small>Mozo · ${nf(comp)} cuentas</small></div></div>
+      <div><span class="etq" style="color:var(--tx-2)">Ventas</span><div class="mozo-ventas cifra">${sol(ventas)}</div></div>
+      <div class="cuota"><span class="b"><i style="width:${ventas / total * 100 * 2.4}%;background:${colores[i]}"></i></span><small class="cifra">${pct(ventas / total * 100)} de las ventas de la sede</small></div>
+      <div class="stats">
+        <div class="stat"><small>Ticket</small><b class="cifra">${sol(ticket, 0)}</b></div>
+        <div class="stat"><small>Comensales</small><b class="cifra">${nf(comensales)}</b></div>
+        <div class="stat"><small>Por mesa</small><b class="cifra">${nf(comensales / comp, 1)}</b></div>
+      </div>${pie}</article>`;
+  }).join('');
+  return `
+  <div class="destacado"><span class="d-ic">${ic('foco', 18)}</span><div><b>Lo más importante del periodo</b><p><b style="display:inline">Diego Salas</b> lidera con el ${pct(MOZOS[0][2] / total * 100)} de las ventas y el ticket más alto. Los tres mozos están a menos del 3 % del ticket promedio de la sede, así que el equipo vende parejo.</p></div></div>
+  <div class="fila d3">${tarjetas}</div>
+  <div class="fila d1-1">
+    <article class="tarjeta"><div class="t-cab"><div><h2>Ventas por mozo</h2><p>En soles, en el periodo</p></div></div>${hueco('mozos', 300)}</article>
+    <article class="tarjeta"><div class="t-cab"><div><h2>Ticket promedio frente a la sede</h2><p>La línea marca el promedio de la sede: ${sol(ticketLocal, 2)}</p></div></div>${hueco('ticket', 300)}</article>
+  </div>
+  <article class="tarjeta">
+    <div class="t-cab"><div><h2>Anulaciones antes del cobro</h2><p>Platos retirados de una comanda, por mozo</p></div></div>
+    <div class="mozo-pie" style="background:var(--ok-bg);color:var(--ok)">${ic('escudo')}<span>Ningún mozo anuló platos en este periodo. Cuando ocurra, aquí verás cuántos, el monto y el costo de lo que se perdió en cocina.</span></div>
+  </article>`;
+}
+
+function barrasMozos(colores, W) {
+  const max = 100000, fh = 30, ml = 110, mr = 76, H = MOZOS.length * (fh + 16) + 8;
+  let s = `<svg class="grafico" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Ventas por mozo">`;
+  MOZOS.forEach(([n, c, v], i) => {
+    const y = 4 + i * (fh + 16), w = v / max * (W - ml - mr);
+    s += `<text x="${ml - 10}" y="${y + fh / 2 + 4}" text-anchor="end" font-size="13" fill="#0B2340">${n}</text>`;
+    s += `<rect x="${ml}" y="${y}" width="${W - ml - mr}" height="${fh}" rx="8" fill="rgba(11,35,64,.04)"/>`;
+    s += `<rect x="${ml}" y="${y}" width="${w}" height="${fh}" rx="8" fill="${colores[i]}" data-tip="<b>${n}</b>${fila('Ventas', sol(v))}${fila('Cuentas', nf(c))}"/>`;
+    s += `<text x="${ml + w + 8}" y="${y + fh / 2 + 4}" font-size="13" font-weight="700" fill="#0B2340">${sol(v / 1000, 1)} mil</text>`;
+  });
+  return s + '</svg>';
+}
+
+function ticketMozos(colores, ref, W) {
+  const ml = 110, mr = 24, fila_h = 44, H = MOZOS.length * fila_h + 36, min = 200, max = 250;
+  const x = v => ml + (v - min) / (max - min) * (W - ml - mr);
+  let s = `<svg class="grafico" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Ticket promedio por mozo frente al de la sede">`;
+  for (let t = min; t <= max; t += 10) s += `<text x="${x(t)}" y="${H - 6}" text-anchor="middle" font-size="12" fill="rgba(11,35,64,.62)">S/ ${t}</text>`;
+  s += `<line x1="${x(ref)}" x2="${x(ref)}" y1="4" y2="${H - 24}" stroke="${C.cobre}" stroke-width="2" stroke-dasharray="5 4"/>`;
+  MOZOS.forEach(([n, , , t], i) => {
+    const y = 24 + i * fila_h;
+    s += `<text x="${ml - 10}" y="${y + 4}" text-anchor="end" font-size="13" fill="#0B2340">${n}</text>`;
+    s += `<line x1="${x(ref)}" x2="${x(t)}" y1="${y}" y2="${y}" stroke="${colores[i]}" stroke-width="3" stroke-linecap="round"/>`;
+    s += `<circle cx="${x(t)}" cy="${y}" r="8" fill="${colores[i]}" stroke="#fff" stroke-width="2" data-tip="<b>${n}</b>${fila('Ticket', sol(t, 2))}${fila('Frente a la sede', (t >= ref ? '+' : '') + sol(t - ref, 2))}"/>`;
+    s += `<text x="${x(t) + (t >= ref ? 14 : -14)}" y="${y + 4}" text-anchor="${t >= ref ? 'start' : 'end'}" font-size="12" font-weight="700" fill="#0B2340">${sol(t, 2)}</text>`;
+  });
+  return s + '</svg>';
+}
+
+/* ---------- Estados ---------- */
+const esqueleto = () => `
+  <div class="esq" style="height:70px"></div>
+  <div class="fila h-k"><div class="esq" style="height:300px;border-radius:20px"></div>
+    <div class="fila k4" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr))">${'<div class="esq" style="height:142px"></div>'.repeat(4)}</div></div>
+  <div class="fila d2-1"><div class="esq" style="height:340px"></div><div class="esq" style="height:340px"></div></div>`;
+const vacio = () => `<div class="tarjeta estado">
+  <span class="e-ic" style="background:${tinte(C.cobre, .14)};color:${C.cobre}">${ic('recibo', 30)}</span>
+  <h2>Todavía no hay ventas en este periodo</h2>
+  <p>Cuando cobres la primera cuenta, aquí verás las ventas, los platos y el trabajo del equipo. Las ventas aparecen unos segundos después del cobro.</p>
+  <button class="btn contorno">${ic('calendario')}Ver el mes anterior</button></div>`;
+const error = () => `<div class="tarjeta estado">
+  <span class="e-ic" style="background:var(--error-bg);color:var(--error)">${ic('alerta', 30)}</span>
+  <h2>No pudimos cargar los reportes</h2>
+  <p>El servicio de reportes no responde en este momento. Tus ventas siguen guardándose y aparecerán aquí cuando vuelva.</p>
+  <button class="btn primario">${ic('recargar')}Reintentar</button></div>`;
+const bloqueado = (contenido, cual) => `<div class="bloqueo"><div class="vista-borrosa" aria-hidden="true">${contenido}</div>
+  <div class="sobre"><div class="panel">
+    <span class="e-ic" style="width:56px;height:56px;border-radius:18px;display:grid;place-items:center;background:${tinte(C.oro, .16)};color:#8A6208">${ic('candado', 26)}</span>
+    <h2 style="margin:4px 0 0;font-family:var(--f-serif);font-size:22px">${cual === 'platos' ? 'Descubre qué platos te hacen ganar' : 'Conoce cómo vende tu equipo'}</h2>
+    <ul>${(cual === 'platos' ? ['El mapa de la carta con tus estrellas y rezagados', 'Qué platos dejan más margen por unidad', 'Ingresos por categoría'] : ['Ventas y ticket de cada mozo', 'Comparación con el promedio de la sede', 'Anulaciones por mozo']).map(t => `<li>${ic('check')}${t}</li>`).join('')}</ul>
+    <button class="btn primario">Ver planes</button>
+    <small style="color:var(--tx-3)">Incluido en los planes Pro y Enterprise</small>
+  </div></div></div>`;
+
+/* ---------- Render ---------- */
+function render() {
+  pintarTabs();
+  const t = tabActual(), v = document.getElementById('vista');
+  if (estado === 'cargando') { v.innerHTML = esqueleto(); return; }
+  if (estado === 'vacio') { v.innerHTML = vacio(); return; }
+  if (estado === 'error') { v.innerHTML = error(); return; }
+  const html = t === 'platos' ? vistaPlatos() : t === 'equipo' ? vistaEquipo() : vistaVentas();
+  v.innerHTML = estado === 'plan' && t !== 'ventas' ? bloqueado(html, t) : html;
+  dibujarGraficos();
+}
+
+/* ---------- Gráficos al ancho real del contenedor ---------- */
+const COLORES_MOZOS = [C.azul, C.cobre, C.turq];
+const GRAF = {
+  horas: W => graficoHoras(W),
+  matriz: W => graficoMatriz(W),
+  mozos: W => barrasMozos(COLORES_MOZOS, W),
+  ticket: W => ticketMozos(COLORES_MOZOS, RESUMEN.actual.ticket_promedio, W)
+};
+function dibujarGraficos() {
+  document.querySelectorAll('.g-hueco').forEach(el => {
+    const w = Math.max(Math.floor(el.clientWidth), +el.dataset.min);
+    if (+el.dataset.w === w) return;
+    el.dataset.w = w;
+    el.innerHTML = GRAF[el.dataset.g](w);
+  });
+}
+let rafGraficos;
+new ResizeObserver(() => { cancelAnimationFrame(rafGraficos); rafGraficos = requestAnimationFrame(dibujarGraficos); })
+  .observe(document.getElementById('vista'));
+document.getElementById('vista').addEventListener('click', e => {
+  const c = e.target.closest('#filtroCuad [data-c]');
+  if (c) { filtroCuad = c.dataset.c; pagina = 1; render(); return; }
+  const o = e.target.closest('[data-orden]');
+  if (o) { ordenPor = o.dataset.orden; pagina = 1; render(); return; }
+  const g = e.target.closest('[data-pag]');
+  if (g) { pagina += g.dataset.pag === 'next' ? 1 : -1; render(); }
+});
+document.getElementById('vista').addEventListener('change', e => {
+  if (e.target.id === 'tamPag') { tamPag = +e.target.value; pagina = 1; render(); }
+});
+render();
+</script>
