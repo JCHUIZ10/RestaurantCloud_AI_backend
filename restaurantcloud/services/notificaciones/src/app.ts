@@ -5,6 +5,7 @@
 
 import Fastify, { LogController, type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import type { Db } from 'mongodb';
+import { rutasEventos } from './api/eventos.js';
 import { rutasSalud } from './api/salud.js';
 import type { Config } from './config.js';
 import { CABECERA_REQUEST_ID, generarRequestId } from './soporte/request-id.js';
@@ -42,6 +43,7 @@ export function crearApp({ config, db, logs = true }: Dependencias): FastifyInst
 
   registrarManejadores(app, config.zonaHoraria);
   rutasSalud(app, db, config.zonaHoraria);
+  rutasEventos(app, db, config);
 
   return app;
 }

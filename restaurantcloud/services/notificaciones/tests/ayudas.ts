@@ -6,6 +6,7 @@
  * el servicio funciona con sus permisos reales, sin privilegios de administración.
  */
 
+import { createHmac, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Db, MongoClient } from 'mongodb';
@@ -98,6 +99,36 @@ export function configPrueba(cambios: Partial<Config> = {}): Config {
     zonaHoraria: 'America/Lima',
     nivelLog: 'silent',
     ...cambios,
+  };
+}
+
+export const EMPRESA = '00000000-0000-4000-8000-000000000001';
+export const SEDE = '00000000-0000-4000-8000-000000000010';
+export const MOZO = '00000000-0000-4000-8000-000000000103';
+export const SECRETO = 'secreto-de-prueba';
+
+/** Sobre común del evento (doc-2u/servicios/README.md, sección 4). */
+export function sobre(tipo: string, datos: Record<string, unknown>, cambios: Record<string, unknown> = {}) {
+  return {
+    id: randomUUID(),
+    tipo,
+    version: 1,
+    ocurrido_en: '2026-11-16T21:40:11-05:00',
+    origen: 'nucleo',
+    empresa_id: EMPRESA,
+    local_id: SEDE,
+    datos,
+    ...cambios,
+  };
+}
+
+/** Cabeceras de firma como las calcula el núcleo (`App\Support\FirmaInterna`), sobre los bytes exactos. */
+export function cabecerasFirmadas(cuerpo: string, secreto = SECRETO, timestamp = Math.floor(Date.now() / 1000)) {
+  const ts = String(timestamp);
+  return {
+    'content-type': 'application/json',
+    'x-timestamp': ts,
+    'x-firma': createHmac('sha256', secreto).update(`${ts}.${cuerpo}`).digest('hex'),
   };
 }
 
