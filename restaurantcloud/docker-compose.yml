@@ -437,12 +437,68 @@ services:
       MONGO_INITDB_ROOT_USERNAME: ${NOTIFICACIONES_MONGO_USER}
       MONGO_INITDB_ROOT_PASSWORD: ${NOTIFICACIONES_MONGO_PASSWORD}
       MONGO_INITDB_DATABASE: ${NOTIFICACIONES_MONGO_DB}
+      # Los usa 01-usuario.js para crear el usuario de la aplicación (solo al inicializar el volumen).
+      NOTIFICACIONES_MONGO_APP_USER: ${NOTIFICACIONES_MONGO_APP_USER}
+      NOTIFICACIONES_MONGO_APP_PASSWORD: ${NOTIFICACIONES_MONGO_APP_PASSWORD}
     ports:
       - "${NOTIFICACIONES_MONGO_PORT:-27017}:27017"
     volumes:
       - notificaciones_data:/data/db
+      - ./infra/mongo/notificaciones:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - saas_network
+
+  # ---------------------------------------------------------------------------
+  # ms-notificaciones
+  # ---------------------------------------------------------------------------
+  # Aplica una vez el esquema (validador e índices) con el usuario administrador y termina; así las
+  # credenciales de administrador no quedan en el contenedor que atiende las peticiones.
+  notificaciones-migraciones:
+    build:
+      context: ./services/notificaciones
+    container_name: restaurantcloudIA_notificaciones_migraciones
+    restart: "no"
+    command: ["node", "dist/esquema.js"]
+    environment:
+      MONGODB_URI: mongodb://mongo-notificaciones:27017
+      MONGODB_DB: ${NOTIFICACIONES_MONGO_DB}
+      MONGODB_USUARIO: ${NOTIFICACIONES_MONGO_USER}
+      MONGODB_CLAVE: ${NOTIFICACIONES_MONGO_PASSWORD}
+      MONGODB_AUTH_SOURCE: admin
+    depends_on:
+      mongo-notificaciones:
+        condition: service_healthy
+    networks:
+      - saas_network
+
+  notificaciones:
+    build:
+      context: ./services/notificaciones
+    container_name: restaurantcloudIA_notificaciones
+    restart: unless-stopped
+    ports:
+      - "${NOTIFICACIONES_PORT:-8003}:8003"
+    environment:
+      PORT: 8003
+      MONGODB_URI: mongodb://mongo-notificaciones:27017
+      MONGODB_DB: ${NOTIFICACIONES_MONGO_DB}
+      MONGODB_USUARIO: ${NOTIFICACIONES_MONGO_APP_USER}
+      MONGODB_CLAVE: ${NOTIFICACIONES_MONGO_APP_PASSWORD}
+      SECRETO_INTERNO: ${NOTIFICACIONES_SECRETO}
+      DIAS_RETENCION: ${NOTIFICACIONES_DIAS_RETENCION:-30}
+      ZONA_HORARIA: America/Lima
+      # Clave pública con la que valida los JWT de la bandeja y del canal SSE (la misma del núcleo).
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+    depends_on:
+      notificaciones-migraciones:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8003/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 5
