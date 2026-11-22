@@ -41,7 +41,7 @@ Se contó cuántos módulos del monolito usan cada tabla:
 | `plan` | 8 | Los límites del plan se consultan en muchos módulos |
 | `caja` | 7 | Ligada al cobro |
 | `pedido` | 6 | Ligada a cobro, cocina e inventario |
-| `notificacion` | 3 | Solo se escribe; ninguna pantalla la lee. **Se retira en la etapa 7**: sus avisos pasan a ser eventos que ms-notificaciones convierte en avisos |
+| `notificacion` | 3 | Solo se escribía; ninguna pantalla la leía. **Retirada en la etapa 7** (migración `2026_11_22_000001_retirar_tabla_notificacion`): sus avisos son ahora eventos que ms-notificaciones convierte en avisos. El esquema inicial (`02_schema_ddl.sql`) la conserva y la migración la quita, como se hizo con el módulo de incidentes |
 | `snapshot_stock_diario` | 0 | Sin uso |
 
 Además, dos casos de uso están diseñados en los wireframes pero **no implementados** en el backend: **CU-ADMIN-13** (reportes de ventas y desempeño) y **CU-TRANS-01** (notificaciones del sistema). Junto con el componente de IA, son los tres microservicios.
@@ -86,7 +86,7 @@ flowchart TB
     pro -- "pide series de ventas (HTTP, síncrono)" --> ana
     api -. "eventos del outbox (HTTP, asíncrono)" .-> ana
     api -. "eventos del outbox (HTTP, asíncrono)" .-> noti
-    pro -. "pronostico.generado (asíncrono)" .-> noti
+    pro -. "pronostico.generado (futuro: no se publica hoy)" .-> noti
 ```
 
 Líneas continuas: llamadas síncronas. Líneas punteadas: comunicación asíncrona.
@@ -129,20 +129,28 @@ Líneas continuas: llamadas síncronas. Líneas punteadas: comunicación asíncr
 
 **Datos que gestiona.** Versiones del modelo, ejecuciones y predicciones. Los archivos del modelo van al almacenamiento de objetos.
 
-**Cómo se comunica.** Laravel le pide el pronóstico (síncrono). El servicio pide las series de ventas a ms-analítica (síncrono) y publica `pronostico.generado` hacia ms-notificaciones (asíncrono).
+**Cómo se comunica.** Laravel le pide el pronóstico (síncrono). El servicio pide las series de ventas a ms-analítica (síncrono) y no publica eventos: `pronostico.generado` quedó fuera de la etapa 7 (el pronóstico es síncrono y quien lo pide ya ve el resultado) y se retomará con pronósticos programados.
 
 ### 4.3 ms-notificaciones
 
 **Qué hace.** Implementa CU-TRANS-01: bandeja de avisos por usuario y rol (plato listo, anulaciones, sustituciones, producto agotado, turno previo pendiente y cierres de caja con diferencia; las reservas y el pronóstico disponible quedan para después), estado leído/no leído y entrega en tiempo real al navegador.
 
 **Por qué existe como servicio separado.**
-- Hoy `CajaController`, `CocinaController` y `MozoController` insertan directamente en la tabla `notificacion` y nada la muestra: no hay bandeja ni entrega en tiempo real. Centralizarlo completa la funcionalidad y quita esa responsabilidad del núcleo.
+- Antes de la etapa 7, `CajaController`, `CocinaController` y `MozoController` insertaban directamente en la tabla `notificacion` y nada la mostraba: no había bandeja ni entrega en tiempo real. Ahora publican eventos y este servicio los convierte en avisos, con bandeja y SSE; el núcleo ya no guarda avisos.
 - Mantiene muchas conexiones abiertas a la vez (una por usuario conectado), una carga distinta a la del resto del sistema.
 - Si se cae, el restaurante sigue operando: es un servicio de apoyo, bien aislado del proceso central.
 
 **Datos que gestiona.** Los avisos y su estado de lectura.
 
-**Cómo se comunica.** Recibe eventos del núcleo y de ms-pronóstico. Envía al navegador por Server-Sent Events (SSE) y expone la API de la bandeja.
+**Cómo se comunica.** Recibe eventos firmados del núcleo (por el outbox) y expone la bandeja y el canal Server-Sent Events (SSE) al navegador, siempre por Kong y con el JWT que emite el núcleo.
+
+**Estado (etapa 7 cerrada).** Siete tipos de aviso, bandeja con «leído» por persona, canal SSE con renovación del token y la campana en los cinco roles. Probado con 226 pruebas de vitest contra MongoDB real y con `scripts/smoke-notificaciones.sh` (129 comprobaciones de punta a punta).
+
+**Límites conocidos** (decididos, no son errores):
+- **Una sola instancia.** El reparto a las conexiones abiertas es en memoria: con más de una instancia, un aviso solo llegaría a las conexiones de la instancia que lo recibió. Para escalar haría falta un canal común (Redis o un change stream de MongoDB). No se construye.
+- **Retraso del outbox.** Del núcleo al navegador pasan entre 1 y 3 s según el ciclo del worker; el tramo servicio → navegador es inmediato. Si el servicio cae, los eventos esperan en el outbox hasta 7 días y los avisos llegan con retraso, no se pierden.
+- **Sin avisos de reservas ni de entregas fallidas.** «Reserva próxima» necesita un programador de tareas, y la alerta de entregas fallidas se lee del outbox, no de un evento.
+- **Una conexión por pestaña**, sin límite por usuario; el gateway cuenta la petición solo al abrirse.
 
 ## 5. Stack propuesto y justificación
 
@@ -239,7 +247,7 @@ Diferencias de Cloud Run frente a la VM que el diseño ya considera:
 
 - **Bases de datos:** Cloud Run no las aloja. Se usan Cloud SQL (PostgreSQL) y MongoDB Atlas.
 - **Cola y scheduler de Laravel:** son procesos permanentes. En Cloud Run se reemplazan por Cloud Scheduler llamando a un endpoint, o por Cloud Run Jobs. El despacho del outbox depende de esto.
-- **ms-notificaciones:** una conexión SSE dura como máximo 60 minutos (el navegador se reconecta solo). Con más de una instancia, los avisos deben repartirse por un canal común; al inicio se limita a una instancia.
+- **ms-notificaciones:** una petición de Cloud Run dura como máximo 60 minutos, pero el canal SSE ya se cierra antes: el servicio lo termina 30 s antes de que venza el JWT (15 minutos como máximo) con el evento `renovar`, y el navegador renueva el token y vuelve a abrirlo. Con más de una instancia, los avisos deben repartirse por un canal común; se limita a una instancia (ver 4.3).
 - **Arranque en frío:** la primera petición tras un periodo sin uso tarda unos segundos.
 
 ## 11. Seguridad multiempresa (decidido)
@@ -257,7 +265,7 @@ Diferencias de Cloud Run frente a la VM que el diseño ya considera:
 
 ## 12. Pendientes
 
-1. **Contrato de API y de eventos** de cada servicio (rutas, cuerpos, códigos de error). Es el siguiente documento.
+1. ~~**Contrato de API y de eventos** de cada servicio.~~ Hecho: una ficha por servicio y el catálogo de eventos en [servicios/](servicios/README.md), con un contrato JSON por evento.
 2. **Datos para la IA.** La base tiene 3 pedidos de un solo día. Se usarán ventas sintéticas, generadas con un script versionado y declaradas como sintéticas en el informe. Se define al llegar a la IA.
 3. **Imagen de la API de Laravel.** El `api.Dockerfile` actual no copia el código a la imagen; hay que corregirlo para publicarla en Artifact Registry.
 4. **Qué servicio va al laboratorio de GKE.**
@@ -267,7 +275,7 @@ Diferencias de Cloud Run frente a la VM que el diseño ya considera:
 1. Generalizar el outbox para publicar eventos, emitir el JWT en el login y preparar el rol `rc_app`.
 2. ms-analítica (recibe ventas y expone las series).
 3. Ventas sintéticas y ms-pronóstico con el baseline, integrado de punta a punta con la pantalla de reposición; después, el modelo definitivo.
-4. ms-notificaciones.
+4. ms-notificaciones (hecho en la etapa 7).
 5. Gateway, imágenes en Artifact Registry, VM, Cloud Run y laboratorio de GKE.
 
 ## 14. Correspondencia con la guía (sección 3.1)
@@ -276,7 +284,7 @@ Diferencias de Cloud Run frente a la VM que el diseño ya considera:
 |---|---|
 | 2. Arquitectura distribuida | Secciones 3 y 6 |
 | 3. Diseño de microservicios | Secciones 4 y 8 (se completa con las fichas de endpoints) |
-| 4. Contrato de API | Pendiente (sección 12, punto 1) |
+| 4. Contrato de API | [servicios/](servicios/README.md): fichas y catálogo de eventos |
 | 5. Contenedorización | Secciones 5 y 10; se detalla al implementar |
 | 7. Integración de IA | Sección 4.2 |
 | 10. Despliegue PaaS/Serverless | Sección 10 |

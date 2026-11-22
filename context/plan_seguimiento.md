@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 22/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está cerrada: ficha, JWT en el núcleo, validación en ms-analítica, los 4 reportes, Kong, la pantalla de reportes en React y la prueba de punta a punta del gateway. La etapa 7 (ms-notificaciones) está en curso: la ficha, el servicio, el núcleo, la bandeja, el canal SSE, Kong, la campana de React y la prueba de punta a punta (7.0 a 7.7) están cerrados; falta el cierre de la documentación (7.8).
+**Última actualización:** 22/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está cerrada: ficha, JWT en el núcleo, validación en ms-analítica, los 4 reportes, Kong, la pantalla de reportes en React y la prueba de punta a punta del gateway. La etapa 7 (ms-notificaciones) está cerrada: ficha, servicio, núcleo, bandeja, canal SSE, Kong, campana de React, prueba de punta a punta y documentación.
 
 ## Contexto
 
@@ -26,7 +26,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
 | 5B. ms-pronóstico | Cerrada salvo la revisión en navegador | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo; humo: 108 comprobaciones |
 | 6. JWT y gateway | Cerrada | JWT RS256 en todos los inicios de sesión, validado por Kong y por ms-analítica; 4 reportes de CU-ADMIN-13 en menos de 0,1 s; Kong 3.9.1 como entrada única; pantalla «Reportes de ventas» en React con 149 pruebas de vitest; `scripts/smoke-gateway.sh`: 138 comprobaciones (121 con `--rapido`) |
-| 7. ms-notificaciones | En curso (7.0 a 7.7 cerradas) | Ficha del contrato cerrada; servicio en el puerto 8003 que recibe eventos firmados y crea avisos sin duplicarlos; el núcleo publica los siete eventos y ya no guarda avisos (tabla `notificacion` retirada); 137 pruebas de vitest contra MongoDB real |
+| 7. ms-notificaciones | Cerrada | Tercer microservicio: servicio Node/Fastify con MongoDB en el puerto 8003 que convierte siete eventos del núcleo en avisos sin duplicarlos; bandeja con «leído» por persona y canal SSE por Kong; campana de React en los cinco roles; la tabla `notificacion` retirada del núcleo; 226 pruebas de vitest contra MongoDB real, 234 del frontend y `scripts/smoke-notificaciones.sh` con 129 comprobaciones |
 
 ---
 
@@ -431,7 +431,7 @@ Se divide como la 5B: primero el contrato, después cada pieza probada por sí s
 
 ---
 
-## Etapa 7. ms-notificaciones — en curso
+## Etapa 7. ms-notificaciones — cerrada
 
 Servicio Node 22, TypeScript, Fastify y MongoDB que convierte eventos del núcleo en avisos por rol o por usuario, con bandeja y entrega en tiempo real por SSE; campana en React para los cinco roles. Mismo reparto que las etapas 5B y 6: primero el contrato y después cada pieza probada por sí sola.
 
@@ -445,7 +445,7 @@ Servicio Node 22, TypeScript, Fastify y MongoDB que convierte eventos del núcle
 | 7.5 Kong | Servicio con JWT; flujo sin búfer y lectura de 16 min | Todo por el puerto 8000 | Cerrada |
 | 7.6 React | Maqueta aprobada y campana en los dos layouts | Campana en vivo en los 5 roles | Cerrada |
 | 7.7 Humo | `scripts/smoke-notificaciones.sh` | Prueba de punta a punta | Cerrada |
-| 7.8 Cierre | Fichas, README del servicio y este plan | Etapa cerrada | Pendiente |
+| 7.8 Cierre | Fichas, README del servicio y este plan | Etapa cerrada | Cerrada |
 
 ### Decisiones de la 7.0 (22/11)
 
@@ -532,13 +532,19 @@ Servicio Node 22, TypeScript, Fastify y MongoDB que convierte eventos del núcle
 - **Los demás humos siguen en verde:** `smoke-gateway.sh --rapido` (121) y `smoke-analitica.sh --rapido` (29).
 - **Latencia observada:** del núcleo al flujo, entre 0,6 y 3 s según el ciclo del worker del outbox. El «al instante» del plan vale para el tramo ms-notificaciones → navegador; el outbox del núcleo pone el resto.
 
+### Lo que dejó la 7.8 y cierre de la etapa (22/11)
+
+- **Documentación al día:** `01-arquitectura` (la tabla `notificacion` figura como retirada; 4.3 con el estado y los **límites conocidos**: una sola instancia, retraso del outbox de 1 a 3 s, sin avisos de reservas ni de entregas fallidas; el canal SSE se cierra a los 15 minutos del JWT y no a los 60 de Cloud Run; `pronostico.generado` marcado como futuro en el diagrama; el contrato de API y de eventos figura como hecho), `servicios/README` (estado real de las fichas), la ficha de ms-notificaciones (estado y decisiones de la interfaz: aviso discreto de 4 s, dónde va la campana, abrir el detalle lee el aviso, hora del hecho y retraso del TTL) y el README del servicio (estado, cómo correr el humo).
+- **Verificación final, en limpio:** servicio 226 pruebas y `tsc`; frontend 234 pruebas, `tsc -b`, `npm run build` y `check:ui` sin hallazgos en los archivos nuevos; núcleo: `EventosOutboxPublicacionTest` (18), `CajaCoreOperativoTest` (16), `CocinaDisponibilidadQuiebresTest` (5) y `MozoQuiebreSustitucionTest` (6); `scripts/schema-check.sh` (el esquema coincide con las migraciones); `smoke-notificaciones.sh` completo (129), `smoke-gateway.sh --rapido` (121) y `smoke-analitica.sh --rapido` (29). La suite completa del núcleo se corrió en la 7.3 (714 pasan, 3 fallan por la hora del día, ver Pendientes) y no hubo cambios de PHP después.
+- **Resumen de la etapa:** ms-notificaciones recibe eventos firmados por el outbox y crea avisos por rol o por persona (siete tipos), los guarda en MongoDB sin duplicados (índice único) y con caducidad (TTL de 30 días), los muestra en una bandeja con «leído» por persona y los entrega en tiempo real por SSE a través de Kong. El núcleo dejó de guardar avisos. La campana está en administración, propietario, mozo, cocina y caja.
+- **Decisiones que cambiaron o se afinaron durante la etapa** (todas en la ficha): aviso flotante discreto de 4 s para los no críticos; campana flotante de las terminales que se oculta sin avisos; abrir el detalle marca el aviso como leído sin sacarlo de la lista; el plan pedía «menos de 2 s» hasta el navegador y se mide en cambio la acción completa (menos de 10 s, 0,6 s en la corrida de referencia), porque el outbox del núcleo añade entre 0,6 y 3 s.
+
 ---
 
 ## Hoja de ruta (se detalla al llegar)
 
 | Etapa | Contenido | Requisito de la guía que cubre |
 |---|---|---|
-| 7. ms-notificaciones | Servicio Node/Fastify con MongoDB, bandeja y SSE; campana en React; el núcleo deja de insertar en `notificacion` | Tercer microservicio |
 | 8. Nube | Imagen de la API con el código dentro; imágenes en Artifact Registry; VM con todo el sistema; ms-pronóstico en Cloud Run; laboratorio de GKE | Registro, PaaS, Kubernetes |
 | 9. Seguridad | Rol `rc_app`, prueba de RLS en la base e inventario de consultas sin contexto | Seguridad y configuración |
 | 10. Informe | OpenAPI de cada servicio, diagramas exportados, protocolo experimental, plan de migración, plan hacia la semana 16 | Informe y documentación |
@@ -553,11 +559,12 @@ Orden recomendado si el tiempo aprieta: 4 → 5 → 8 antes que 6 y 7, porque IA
 - ~~**Quién envía cierres y feriados en producción.**~~ Resuelto en la 5B.0: el núcleo envía los cierres del periodo pronosticado; los del historial salen de la regla de respaldo y los feriados de `holidays` en ms-pronóstico.
 - **Demanda censurada.** Los días con platos agotados subestiman la demanda y el modelo la aprende más baja. Sin historial de disponibilidad no se puede corregir; limitación a documentar en el informe.
 - **Conciliación por jornada** (pieza 5 de la propuesta de resiliencia): ms-analítica expone totales por jornada y el núcleo reenvía lo que no cuadre. Junto con ms-pronóstico.
-- **Alerta de entregas fallidas** en ms-notificaciones (etapa 7).
+- **Fuera de la etapa 7 por decisión:** la alerta de entregas fallidas (se lee del outbox, `outbox:estado`) y el aviso de «reserva próxima» en ms-notificaciones (necesita un programador de tareas). Escalar ms-notificaciones a más de una instancia exige un canal común (Redis o un change stream de MongoDB) para repartir los avisos por SSE.
+- **Pruebas que dependen de la hora del día:** 3 pruebas de `AdminFlujoCajaTest` («periodo hoy») fallan de madrugada, con o sin los cambios de la etapa 7. Conviene fijar el reloj en ellas.
 - **Imágenes en producción:** al desplegar hay que **reconstruir** las imágenes de `api`, `queue` y `scheduler`, no solo reiniciarlas. Con una imagen antigua el worker no escucha la cola `eventos`, y los cambios de configuración (`ANALITICA_URL`) solo se aplican al recrear el contenedor.
 - **Montaje de contratos:** el contenedor `api` monta `doc-2u/servicios/contratos` solo para las pruebas; no va en `docker-compose.prod.yml`.
 - **Histórico sintético en la base de desarrollo.** `analitica_db` tiene 730 días de ÁUREA hasta 2026-11-17, y `ultimo_evento_en` de la serie vale la hora de esa carga, no la de una venta real: ms-pronóstico no debe interpretarlo como actividad reciente. Al activar datos reales se ejecuta `purgar` con el corte.
-- **Datos de la prueba de humo en la base de desarrollo:** producto, mesas y pedidos `SMOKE`, comprobantes reales y una caja que el script abrió y dejó abierta. Antes de una demostración conviene recrear la base de desarrollo.
+- **Datos de las pruebas de humo en la base de desarrollo:** producto, mesas y pedidos `SMOKE`, comprobantes reales y una caja que el script abrió y dejó abierta; `smoke-notificaciones.sh` deja una comanda y un producto `SMOKE` (anulada y desactivado), las anulaciones (inmutables) y sus eventos del outbox. Antes de una demostración conviene recrear la base de desarrollo.
 
 ## Riesgos
 

@@ -2,6 +2,8 @@
 
 Estructura y reglas comunes: [README.md](README.md).
 
+**Estado:** implementada y probada (etapa 7 cerrada). Pruebas: `services/notificaciones` (226, contra MongoDB real) y `restaurantcloud/scripts/smoke-notificaciones.sh` (129 comprobaciones de punta a punta: acciones reales del núcleo, bandeja y SSE por Kong, reenvío sin duplicados, aislamiento, tokens y firmas fuera de regla y caída del servicio).
+
 ## 1. Identificación
 
 | | |
@@ -261,6 +263,9 @@ El esquema (validador e índices) lo crea un proceso de una sola pasada con el u
 - **Una sola instancia (decidido).** El reparto es en memoria. Con más de una, un aviso solo llegaría a las conexiones de la instancia que lo recibió. Para escalar se usaría un canal común (Redis o un change stream de MongoDB); queda documentado como límite y no se construye.
 - **Tabla `notificacion` del núcleo (decidido): se retira.** El núcleo deja de insertar en ella y publica eventos; la tabla y su política RLS se eliminan. Mantener las dos escrituras daría dos fuentes de verdad, una que nadie lee. El registro de lo ocurrido queda en `outbox_event` y `log_auditoria`.
 - **Alcance de tipos (decidido).** Siete tipos de aviso sobre los eventos de la sección 4. Fuera de la etapa 7: `reserva.creada` y `reserva.cancelada`, porque el aviso útil («reserva próxima») requiere un programador de tareas; `pronostico.generado`, porque el pronóstico es síncrono y quien lo pide ya ve el resultado (queda para pronósticos programados); y la alerta por entregas fallidas, que se lee del outbox y no de un evento.
-- **Toast y severidad.** El aviso flotante lo decide la interfaz con la severidad: solo `critica`. La campana cuenta todos.
+- **Aviso flotante y severidad.** Lo decide la interfaz con la severidad: un aviso `critica` flota 6 s y se anuncia de inmediato al lector de pantalla (`role="alert"`); uno `info` o `alerta` flota 4 s de forma discreta (`role="status"`), porque el mozo necesita «Pedido listo» en el momento y la insignia sola se pierde. Con el panel abierto, los no críticos solo aparecen en la lista. La campana cuenta todos.
+- **Dónde va la campana (decidido con la maqueta).** En administración y propietario, siempre visible: en la cabecera de la barra lateral y, en tableta y teléfono, en la barra superior (se monta en un solo sitio según el ancho, para no abrir dos canales). En mozo, cocina y caja es un botón flotante que se muestra solo con avisos sin leer o con el panel abierto; `Alt+N` abre y cierra el panel aunque el botón esté oculto.
+- **Abrir el detalle lee el aviso.** El detalle desplegable lo marca como leído pero lo deja a la vista mientras se mira; «Marcar leída» lo saca de «No leídas».
+- **Retraso y orden.** `creada_en` es la hora del hecho, no la de la recepción, así que un aviso que llega tarde por una caída se ordena donde le corresponde. El índice TTL de MongoDB borra con hasta un minuto de retraso sobre `expira_en`.
 - **Sin deep links (CU-TRANS-01).** Los avisos son autocontenidos: no llevan una ruta ni obligan a navegar.
 - **Diferencias con el wireframe CU-TRANS-01**, que se escribió para un backend en Go y PostgreSQL: los endpoints son los de la sección 3 (`/{id}/leida` y `/no-leidas/total` en lugar de `/{id}/leer` y `/resumen`), la prioridad se llama `severidad` (`info`, `alerta`, `critica`, mapeada desde `baja`, `media`/`alta` y `critica`) y el estado de lectura es por usuario (`leida_por`) en lugar de una columna `leida`.

@@ -4,7 +4,7 @@ Convierte los eventos del núcleo en avisos para el personal (por rol o por pers
 
 **Stack:** Node.js 22 · TypeScript · Fastify 5 · driver oficial de MongoDB · jose (JWT) · MongoDB propio · vitest.
 
-**Estado (etapa 7.4):** recibe eventos firmados en `POST /interno/eventos` y los convierte en avisos con las reglas de la ficha (siete tipos), sin duplicarlos si llegan dos veces. El núcleo publica los siete eventos y ya no guarda avisos. También están `GET /health`, el formato de respuesta común, `X-Request-Id`, los logs JSON y el esquema de MongoDB. Desde la 7.4 también están la bandeja del navegador (5 rutas con JWT) y el canal SSE; falta publicarlos por Kong (7.5).
+**Estado (etapa 7 cerrada):** recibe eventos firmados en `POST /interno/eventos` y los convierte en avisos con las reglas de la ficha (siete tipos), sin duplicarlos si llegan dos veces. El núcleo publica los siete eventos y ya no guarda avisos. Expone la bandeja del navegador (5 rutas con JWT) y el canal SSE, ambos por Kong (`/api/v1/notificaciones`); `/interno` y `/health` no se exponen. La campana de React (`apps/web/src/components/notificaciones`) la usan los cinco roles. Límite conocido: una sola instancia, porque el reparto a las conexiones SSE es en memoria.
 
 **Quién ve qué:** `datos/bandeja.ts` es la única capa que decide qué avisos ve cada usuario. `filtroVisible` (MongoDB) y `esVisible` (memoria, para el SSE) expresan la misma regla y una prueba las compara en todas las combinaciones. `dominio/reparto.ts` guarda las conexiones SSE abiertas y reparte cada aviso recién guardado con `esVisible`; `api/notificaciones.ts` valida el JWT (`soporte/jwt.ts`), arma el contexto y abre el canal.
 
@@ -67,3 +67,14 @@ npm run typecheck  # tsc sin emitir, incluidas las pruebas
 Las pruebas usan dos conexiones: el administrador aplica el esquema y prepara datos, y el usuario de la aplicación ejecuta lo que hace el servicio, así que también comprueban sus permisos reales.
 
 Para ejecutar el servicio desde el host: `npm run dev` con las variables de `.env.example`.
+
+## Prueba de punta a punta
+
+Con todo el Compose en marcha, desde `restaurantcloud/`:
+
+```bash
+./scripts/smoke-notificaciones.sh            # completo, unos 4,5 minutos (incluye apagar y encender el servicio)
+./scripts/smoke-notificaciones.sh --rapido   # sin la caída, unos 2 minutos
+```
+
+Marca un plato como agotado y anula uno ya preparado por la API real, y comprueba el aviso en la bandeja y en un flujo `curl -N` por Kong, el reenvío sin duplicados, el aislamiento entre empresa, sede, rol y usuario, los tokens y firmas fuera de regla y la caída del servicio. Crea datos con el prefijo `SMOKE` y los limpia al salir (ver el encabezado del script). Las evidencias quedan en `doc-2u/evidencias/smoke-notificaciones/`.

@@ -11,7 +11,7 @@ Esta carpeta tiene una ficha por componente de la arquitectura descrita en [../0
 | [api-gateway.md](api-gateway.md) | Rutas y políticas de Kong |
 | [eventos.md](eventos.md) | Catálogo de eventos asíncronos |
 
-**Estado:** estructura definida. Los endpoints y eventos listados son la propuesta inicial; el detalle de cada uno (cuerpos y errores) se completa antes de implementarlo.
+**Estado:** las fichas están completas (cuerpos, errores y eventos de cada servicio) y ms-analítica, ms-pronóstico y ms-notificaciones están implementadas y probadas contra ellas. Cada cambio de contrato se refleja aquí antes de darse por cerrado.
 
 ---
 
