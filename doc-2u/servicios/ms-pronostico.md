@@ -356,9 +356,9 @@ Cómo pasa un archivo del repositorio de modelos (D-22) a una predicción:
 
 | Evento | Sentido | Efecto |
 |---|---|---|
-| [`pronostico.generado`](eventos.md) | Publica (desde la etapa 7) | ms-notificaciones avisa al administrador |
+| [`pronostico.generado`](eventos.md) | No se publica (decidido en la etapa 7) | Ninguno por ahora |
 
-No consume eventos. `pronostico.generado` no se implementa en la etapa 5B porque nadie lo consume hasta ms-notificaciones (etapa 7) y, como el pronóstico es síncrono, quien lo pide ya ve el resultado. En la etapa 7 se decide cómo publicarlo con garantía de entrega (outbox propio) o si se deja para pronósticos programados.
+No consume eventos. **`pronostico.generado` queda fuera** (decidido en la etapa 7): como el pronóstico es síncrono, quien lo pide ya ve el resultado y el aviso no aporta nada. Tendría sentido con pronósticos programados (sin nadie esperando la respuesta); entonces se publicaría con un outbox propio, con las mismas reglas de entrega del [README](README.md), sección 4.
 
 ## 5. Dependencias y fallos
 
@@ -389,7 +389,7 @@ Si ms-pronóstico cae, el salón, la cocina y la caja siguen funcionando.
 | `PAIS_FERIADOS` | País de los feriados de `holidays` (`PE`) |
 | `ZONA_HORARIA` | `America/Lima`. Solo para comprobar que `jornada_actual` es razonable y para las fechas de los logs |
 
-`NOTIFICACIONES_URL` y `NOTIFICACIONES_SECRETO` se agregan en la etapa 7, junto con `pronostico.generado`.
+Este servicio no usa `NOTIFICACIONES_URL` ni `NOTIFICACIONES_SECRETO`: no publica eventos (ver la sección 4).
 
 **Montaje en Docker Compose:** `../model-ia/repositorio:/repositorio:ro`. El servicio nunca escribe en el repositorio: publicar es tarea de `model-ia` (cuaderno 07).
 

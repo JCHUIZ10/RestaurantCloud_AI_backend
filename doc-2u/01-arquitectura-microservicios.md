@@ -41,7 +41,7 @@ Se contó cuántos módulos del monolito usan cada tabla:
 | `plan` | 8 | Los límites del plan se consultan en muchos módulos |
 | `caja` | 7 | Ligada al cobro |
 | `pedido` | 6 | Ligada a cobro, cocina e inventario |
-| `notificacion` | 3 | Solo se escribe; ninguna pantalla la lee |
+| `notificacion` | 3 | Solo se escribe; ninguna pantalla la lee. **Se retira en la etapa 7**: sus avisos pasan a ser eventos que ms-notificaciones convierte en avisos |
 | `snapshot_stock_diario` | 0 | Sin uso |
 
 Además, dos casos de uso están diseñados en los wireframes pero **no implementados** en el backend: **CU-ADMIN-13** (reportes de ventas y desempeño) y **CU-TRANS-01** (notificaciones del sistema). Junto con el componente de IA, son los tres microservicios.
@@ -133,7 +133,7 @@ Líneas continuas: llamadas síncronas. Líneas punteadas: comunicación asíncr
 
 ### 4.3 ms-notificaciones
 
-**Qué hace.** Implementa CU-TRANS-01: bandeja de avisos por usuario y rol (plato listo, anulaciones, producto agotado, reservas, cierres de caja, pronóstico disponible), estado leído/no leído y entrega en tiempo real al navegador.
+**Qué hace.** Implementa CU-TRANS-01: bandeja de avisos por usuario y rol (plato listo, anulaciones, sustituciones, producto agotado, turno previo pendiente y cierres de caja con diferencia; las reservas y el pronóstico disponible quedan para después), estado leído/no leído y entrega en tiempo real al navegador.
 
 **Por qué existe como servicio separado.**
 - Hoy `CajaController`, `CocinaController` y `MozoController` insertan directamente en la tabla `notificacion` y nada la muestra: no hay bandeja ni entrega en tiempo real. Centralizarlo completa la funcionalidad y quita esa responsabilidad del núcleo.
@@ -174,10 +174,11 @@ Eventos previstos:
 | `comprobante.anulado` | Laravel | ms-analítica, ms-notificaciones |
 | `pedido.anulado` | Laravel | ms-analítica, ms-notificaciones |
 | `plato.listo`, `producto.agotado` | Laravel (cocina) | ms-notificaciones |
-| `reserva.creada`, `reserva.cancelada` | Laravel | ms-notificaciones |
-| `pronostico.generado` | ms-pronóstico | ms-notificaciones |
+| `pedido.item_sustituido` | Laravel (mozo) | ms-notificaciones |
+| `caja.turno_previo_pendiente`, `caja.cerrada` (con diferencia) | Laravel (caja) | ms-notificaciones |
+| `reserva.creada`, `reserva.cancelada`, `pronostico.generado` | — | Fuera de la etapa 7 (ver el catálogo) |
 
-La lista se cierra en el documento del contrato de eventos.
+La lista cerrada está en el [catálogo de eventos](servicios/eventos.md).
 
 ## 7. Componentes de infraestructura
 

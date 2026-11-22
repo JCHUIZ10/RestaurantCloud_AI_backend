@@ -288,6 +288,14 @@ Publica todos los eventos de origen `nucleo` del [catálogo](eventos.md). Cada u
 
 - `PublicadorEventos::publicar` guarda el sobre completo en `outbox_event.payload` y una fila de `outbox_entrega` por destino, sin llamadas de red. `EventosNucleo` arma los `datos` de cada evento a partir de las filas ya guardadas en la transacción.
 - Puntos de emisión: `venta.registrada` en `CajaController::cobrar` (cuenta completa y subcuenta), `comprobante.anulado` en `CajaController::emitirNotaCredito` y `pedido.anulado` en cada registro de `pedido_anulacion` de `MozoController` (ítem, comanda completa, comanda vacía y sustitución por quiebre).
+- **Eventos para ms-notificaciones (etapa 7).** Cada inserción directa en la tabla `notificacion` se reemplaza por un evento publicado en la misma transacción:
+  - `producto.agotado`: `CocinaController::marcarProductoAgotado` y `resolverFuegoProducto`.
+  - `pedido.item_sustituido`: `MozoController::sustituirPlato`.
+  - `caja.turno_previo_pendiente`: `CajaController::notificarTurnoPrevioPendiente`. La deduplicación, que antes consultaba `notificacion`, consulta `log_auditoria` (acción `caja.turno_previo.aviso_administracion` del mismo `entidad_id`): se avisa una vez por turno pendiente, sin importar si alguien leyó el aviso.
+  - `plato.listo` (nuevo, sin inserción previa): `CocinaController::cambiarEstadoItem`, `despacharPedido` y `marcarListoTanda`; un evento por comanda y acción.
+  - `caja.cerrada` (nuevo): `CierreTurnoService`, solo con diferencia en el arqueo.
+  - La inserción de `MozoController::anularPorQuiebreCocina` se elimina sin evento nuevo: `registrarAnulacion` ya publica `pedido.anulado`, que avisa al administrador.
+- **Se retira la tabla `notificacion`** (migración, `02_schema_ddl.sql` y `04_rls_security.sql`, como se hizo con el módulo de incidentes). El núcleo ya no guarda avisos; el registro de lo ocurrido queda en `outbox_event` y `log_auditoria`.
 - Al confirmar la transacción se encola `EntregarEventoJob` (cola `eventos`) por cada entrega. Si eso falla, o para los reintentos, el comando `outbox:despachar-eventos` (cada minuto) encola las entregas vencidas. Cada entrega encolada queda reservada 2 minutos para no encolarla dos veces.
 - `PausaDeDestinos` lleva la pausa por destino y `MotivoFallo` clasifica los fallos.
 - Comandos de operación:
@@ -310,7 +318,7 @@ Publica todos los eventos de origen `nucleo` del [catálogo](eventos.md). Cada u
 | `PREDICCION_RESERVA_MINIMA` | Reserva mínima de la reposición en los días sin modelo, como fracción de lo más probable (0,35) |
 | `PRONOSTICO_URL`, `PRONOSTICO_SECRETO`, `PRONOSTICO_TIMEOUT_SEGUNDOS` | Dirección y secreto de ms-pronóstico, y espera máxima de su respuesta (30 s). El cliente es `PronosticoCliente`; firma con `App\Support\FirmaInterna`, la misma función que el outbox |
 | `ANALITICA_URL`, `ANALITICA_SECRETO` | Destino de eventos. Sin URL, no se crean entregas para ese servicio |
-| `NOTIFICACIONES_URL`, `NOTIFICACIONES_SECRETO` | Destino de eventos. Sin URL, no se crean entregas para ese servicio |
+| `NOTIFICACIONES_URL`, `NOTIFICACIONES_SECRETO` | Destino de eventos (en el compose, `http://notificaciones:8003`). Sin URL, no se crean entregas para ese servicio |
 | `EVENTOS_MAX_INTENTOS`, `EVENTOS_TIMEOUT_SEGUNDOS` | Fallos del receptor tolerados por entrega (8) y espera de respuesta (5 s) |
 | `EVENTOS_HORIZONTE_DIAS` | Días que se espera a un destino que no responde antes de dar la entrega por fallida (7) |
 
