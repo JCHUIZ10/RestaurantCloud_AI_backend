@@ -1,0 +1,522 @@
+<title>Campana de avisos ÁUREA</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Serif+Display&display=swap">
+<style>
+/* Maqueta de CU-TRANS-01 (etapa 7.6): la campana dentro de las pantallas reales de la app.
+   Tema único claro, como la app (tailwind darkMode: 'class', regla C5); la cocina conserva su KDS oscuro.
+   Layout: barra de controles de la maqueta arriba y, debajo, un marco con la pantalla del rol elegido. */
+:root {
+  color-scheme: light;
+  /* Marca ÁUREA (tailwind.config.ts) */
+  --navy: #0B2340;
+  --cobre: #D5A06F;
+  --champan: #F4D7B0;
+  --marfil: #FFF9F0;
+  --blanco: #FFFFFF;
+  /* Neutros tinta (derivados del navy) */
+  --t50: #F5F6F8; --t100: #E7EAEF; --t200: #C9D0DB; --t300: #9AA6B8; --t400: #6B7A91;
+  --t500: #4A5A72; --t600: #334359; --t700: #22324A; --t800: #16273F; --t950: #06162B;
+  /* Estados (estado-ok / alerta / error) */
+  --ok: #047857; --ok-bg: #ECFDF5; --ok-borde: #A7F3D0;
+  --alerta: #B45309; --alerta-bg: #FFFBEB; --alerta-borde: #FDE68A;
+  --error: #BE123C; --error-bg: #FFF1F2; --error-borde: #FECDD3;
+  --info: #334359; --info-bg: #F5F6F8; --info-borde: #C9D0DB;
+  --f-serif: "DM Serif Display", Georgia, serif;
+  --f-sans: "DM Sans", Arial, system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--t100); color: var(--navy); font-family: var(--f-sans); font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; }
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--cobre); outline-offset: 2px; }
+.cifra { font-variant-numeric: tabular-nums; }
+svg.ic { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* ---------- Controles de la maqueta (no son parte de la app) ---------- */
+.controles { background: var(--blanco); border-bottom: 1px dashed var(--t300); padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; }
+.controles h1 { margin: 0; font-family: var(--f-serif); font-weight: 400; font-size: 20px; flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.controles h1 small { font-family: var(--f-sans); font-size: 12px; color: var(--t500); }
+.grupo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.grupo > span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--t400); margin-right: 2px; }
+.seg { display: inline-flex; border: 1px solid var(--t200); border-radius: 10px; overflow: hidden; background: var(--t50); }
+.seg button { padding: 7px 12px; font-size: 13px; font-weight: 600; color: var(--t600); min-height: 36px; }
+.seg button[aria-pressed="true"] { background: var(--navy); color: var(--blanco); }
+.btn-sim { padding: 7px 12px; min-height: 36px; border-radius: 10px; border: 1px solid var(--t200); font-size: 13px; font-weight: 600; color: var(--t700); background: var(--blanco); }
+.btn-sim:hover { background: var(--t50); }
+.btn-sim.critico { border-color: var(--error-borde); color: var(--error); background: var(--error-bg); }
+
+/* ---------- Marco: la pantalla del rol ---------- */
+.marco { position: relative; margin: 16px auto 24px; width: min(1280px, calc(100% - 2 * max(16px, env(safe-area-inset-left, 0px)))); height: 760px; max-height: calc(100dvh - 140px); min-height: 560px; border-radius: 14px; overflow: hidden; box-shadow: 0 12px 40px rgba(11, 35, 64, .18); background: var(--marfil); display: flex; isolation: isolate; }
+
+/* Consola (administración y propietario) */
+.sidebar { width: 256px; background: var(--navy); color: var(--marfil); display: flex; flex-direction: column; flex: none; }
+.sb-cab { height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 12px 0 20px; border-bottom: 1px solid rgba(255,255,255,.1); }
+.marca { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.marca b { width: 36px; height: 36px; border-radius: 8px; background: rgba(213,160,111,.2); border: 1px solid rgba(213,160,111,.4); display: grid; place-items: center; font-family: var(--f-serif); font-weight: 400; font-size: 18px; color: var(--champan); flex: none; }
+.marca span { font-family: var(--f-serif); font-size: 18px; color: var(--blanco); white-space: nowrap; }
+.sb-ctx { padding: 20px 24px 4px; }
+.sb-ctx p { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--cobre); }
+.sb-ctx h2 { margin: 4px 0 0; font-family: var(--f-serif); font-weight: 400; font-size: 20px; color: var(--champan); }
+.sb-nav { padding: 12px; display: grid; gap: 2px; }
+.sb-nav a { padding: 10px 12px; border-radius: 10px; color: rgba(255,249,240,.78); text-decoration: none; font-size: 14px; }
+.sb-nav a.activo { background: rgba(213,160,111,.16); color: var(--blanco); font-weight: 600; }
+.consola { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.topbar { display: none; height: 56px; background: rgba(255,255,255,.92); border-bottom: 1px solid rgba(213,160,111,.3); align-items: center; justify-content: space-between; padding: 0 8px 0 16px; font-weight: 600; }
+.contenido { flex: 1; overflow: auto; padding: 28px 32px; min-width: 0; }
+.contenido h3 { margin: 0 0 4px; font-family: var(--f-serif); font-weight: 400; font-size: 28px; }
+.contenido .sub { margin: 0 0 20px; color: var(--t500); }
+.fantasma { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+.fantasma div { height: 120px; border-radius: 16px; background: var(--blanco); border: 1px solid rgba(244,215,176,.7); }
+.fantasma div.ancha { grid-column: 1 / -1; height: 220px; }
+
+/* Campana */
+.campana { position: relative; min-width: 44px; min-height: 44px; border-radius: 12px; display: grid; place-items: center; }
+.campana.oscura { color: var(--champan); }
+.campana.oscura:hover { background: rgba(255,255,255,.1); color: var(--blanco); }
+.campana.clara { color: var(--t600); }
+.campana.clara:hover { background: var(--t100); color: var(--navy); }
+.insignia { position: absolute; top: 4px; right: 3px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--error); color: var(--blanco); font-size: 11px; font-weight: 700; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--navy); }
+.campana.clara .insignia, .campana.flotante .insignia { box-shadow: 0 0 0 2px var(--blanco); }
+.insignia.info { background: var(--cobre); color: var(--navy); }
+.campana.latido .insignia { animation: latido .6s ease-out 2; }
+@keyframes latido { 50% { transform: scale(1.3); } }
+
+/* Terminales */
+.terminal { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.term-cab { background: var(--blanco); border-bottom: 1px solid var(--t100); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.term-cab .titulo { font-weight: 700; font-size: 15px; }
+.term-cab .derecha { display: flex; align-items: center; gap: 10px; }
+.pill { padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; border: 1px solid var(--t200); background: var(--t50); color: var(--t600); white-space: nowrap; }
+.pill.vivo { background: var(--ok-bg); border-color: var(--ok-borde); color: var(--ok); }
+.salir { min-height: 44px; padding: 0 12px; border: 1px solid var(--t200); border-radius: 10px; font-weight: 600; font-size: 13px; color: var(--t700); display: inline-flex; align-items: center; gap: 6px; }
+.mesas { flex: 1; overflow: auto; padding: 16px 20px 96px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; align-content: start; background: var(--t50); }
+.mesa { background: var(--blanco); border: 1px solid var(--t200); border-radius: 14px; padding: 12px; min-height: 120px; display: flex; flex-direction: column; justify-content: space-between; }
+.mesa b { font-size: 15px; }
+.mesa span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--t500); }
+.mesa.ocupada { border-color: var(--navy); border-width: 2px; }
+.mesa.ocupada span { color: var(--navy); }
+.terminal.kds { background: var(--t950); color: var(--t100); }
+.terminal.kds .term-cab { background: var(--t800); border-color: var(--t700); color: var(--t50); }
+.terminal.kds .pill { background: var(--t700); border-color: var(--t600); color: var(--t100); }
+.terminal.kds .salir { border-color: var(--t600); color: var(--t100); }
+.comandas { flex: 1; overflow: auto; padding: 16px 20px 96px; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; align-content: start; }
+.comanda { background: var(--t800); border: 1px solid var(--t700); border-radius: 14px; padding: 14px; display: grid; gap: 8px; }
+.comanda header { display: flex; justify-content: space-between; font-weight: 700; color: var(--blanco); }
+.comanda header span { color: var(--cobre); font-size: 13px; }
+.comanda p { margin: 0; font-size: 13px; color: var(--t200); }
+/* Campana flotante de terminal: abajo a la derecha, donde llega el pulgar, fuera de la cabecera de cada pantalla */
+.campana.flotante { position: absolute; right: 20px; bottom: 20px; width: 60px; height: 60px; border-radius: 50%; background: var(--navy); color: var(--champan); box-shadow: 0 8px 24px rgba(11,35,64,.35); z-index: 15; }
+.campana.flotante svg.ic { width: 24px; height: 24px; }
+.terminal.kds ~ .campana.flotante, .marco.es-kds .campana.flotante { background: var(--cobre); color: var(--navy); box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+.marco.es-kds .campana.flotante .insignia { box-shadow: 0 0 0 2px var(--t950); }
+.campana.flotante.aparece { animation: aparece .35s cubic-bezier(.2, 1.4, .4, 1); }
+@keyframes aparece { from { transform: scale(.4); opacity: 0; } }
+
+/* ---------- Panel lateral de 440 px ---------- */
+.velo { position: absolute; inset: 0; background: rgba(11,35,64,.35); z-index: 20; }
+.panel { position: absolute; top: 0; right: 0; bottom: 0; width: 440px; max-width: 100%; background: var(--blanco); z-index: 21; display: flex; flex-direction: column; box-shadow: -12px 0 32px rgba(11,35,64,.18); animation: entra .18s ease-out; }
+@keyframes entra { from { transform: translateX(24px); opacity: 0; } }
+.panel-cab { padding: 16px 12px 12px 20px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--t100); }
+.panel-cab h2 { margin: 0; font-size: 18px; font-weight: 700; }
+.chip-cuenta { padding: 2px 8px; border-radius: 999px; background: var(--navy); color: var(--blanco); font-size: 12px; font-weight: 700; }
+.panel-cab .acciones { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+.btn-todas { min-height: 40px; padding: 0 10px; border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--t700); display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--t200); }
+.btn-todas:hover { background: var(--t50); }
+.btn-icono { min-width: 44px; min-height: 44px; border-radius: 10px; display: grid; place-items: center; color: var(--t500); }
+.btn-icono:hover { background: var(--t100); color: var(--navy); }
+.pestanas { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--t100); }
+.pestanas button { min-height: 44px; font-size: 14px; font-weight: 600; color: var(--t500); border-bottom: 2px solid transparent; }
+.pestanas button[aria-selected="true"] { color: var(--navy); border-bottom-color: var(--navy); }
+.lista { flex: 1; overflow-y: auto; padding: 12px; display: grid; gap: 10px; align-content: start; background: var(--t50); }
+.aviso { background: var(--blanco); border: 1px solid var(--t200); border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px; }
+.aviso.no-leida { border-color: var(--t300); box-shadow: 0 1px 3px rgba(11,35,64,.08); }
+.aviso.critica.no-leida { border-color: var(--error-borde); background: linear-gradient(var(--error-bg), var(--blanco) 60%); }
+.aviso-cab { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.punto { width: 8px; height: 8px; border-radius: 50%; background: var(--navy); flex: none; }
+.sev { padding: 2px 7px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; border: 1px solid; }
+.sev.critica { color: var(--error); background: var(--error-bg); border-color: var(--error-borde); }
+.sev.alerta { color: var(--alerta); background: var(--alerta-bg); border-color: var(--alerta-borde); }
+.sev.info { color: var(--info); background: var(--info-bg); border-color: var(--info-borde); }
+.sede { font-size: 11px; font-weight: 600; color: var(--t500); padding: 2px 7px; border-radius: 6px; background: var(--t100); }
+.hace { margin-left: auto; font-size: 12px; color: var(--t400); white-space: nowrap; }
+.aviso h4 { margin: 0; font-size: 15px; font-weight: 700; text-wrap: balance; }
+.aviso p.msg { margin: 0; font-size: 13.5px; color: var(--t600); }
+.aviso-pie { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 6px; border-top: 1px dashed var(--t100); margin-top: 2px; }
+.enlace { min-height: 36px; padding: 0 6px; font-size: 13px; font-weight: 600; color: var(--t600); text-decoration: underline; text-underline-offset: 3px; display: inline-flex; align-items: center; gap: 4px; }
+.enlace:hover { color: var(--navy); }
+.leida-txt { font-size: 12px; color: var(--t400); }
+.detalle { margin: 4px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--t50); border: 1px solid var(--t100); display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 13px; }
+.detalle dt { color: var(--t500); }
+.detalle dd { margin: 0; font-weight: 600; min-width: 0; }
+.mas { justify-self: center; min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--t200); background: var(--blanco); font-weight: 600; font-size: 13px; color: var(--t700); }
+.vacio { padding: 48px 24px; text-align: center; display: grid; justify-items: center; gap: 8px; }
+.vacio .check { width: 56px; height: 56px; border-radius: 50%; background: var(--ok-bg); color: var(--ok); display: grid; place-items: center; border: 1px solid var(--ok-borde); }
+.vacio .check svg.ic { width: 28px; height: 28px; }
+.vacio h3 { margin: 6px 0 0; font-family: var(--f-serif); font-weight: 400; font-size: 24px; }
+.vacio p { margin: 0; color: var(--t500); max-width: 30ch; }
+.panel-pie { padding: 10px 16px; border-top: 1px solid var(--t100); display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--t500); flex-wrap: wrap; }
+.estado-canal { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.estado-canal i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+.estado-canal.caido { color: var(--alerta); }
+.estado-canal.caido i { background: var(--alerta); }
+.panel-pie kbd { font-family: inherit; font-size: 11px; padding: 1px 5px; border-radius: 4px; border: 1px solid var(--t200); background: var(--t50); }
+.panel-pie .atajos { margin-left: auto; }
+
+/* ---------- Avisos flotantes ---------- */
+.flotantes { position: absolute; top: 76px; right: 16px; z-index: 30; display: grid; gap: 10px; width: 380px; max-width: calc(100% - 32px); pointer-events: none; }
+.toast { pointer-events: auto; border-radius: 14px; padding: 14px 16px 12px; display: grid; gap: 6px; box-shadow: 0 14px 36px rgba(11,35,64,.3); animation: baja .2s ease-out; }
+@keyframes baja { from { transform: translateY(-10px); opacity: 0; } }
+.toast.critica { background: var(--navy); color: var(--blanco); border: 1px solid var(--error); }
+.toast.discreto { background: var(--blanco); color: var(--navy); border: 1px solid var(--t200); }
+.toast .t-cab { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.toast.critica .sev { background: var(--error); color: var(--blanco); border-color: var(--error); }
+.toast .t-cab small { margin-left: auto; opacity: .7; }
+.toast h4 { margin: 0; font-size: 15px; }
+.toast p { margin: 0; font-size: 13.5px; opacity: .88; }
+.toast .t-pie { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+.barra { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,.2); overflow: hidden; }
+.toast.discreto .barra { background: var(--t100); }
+.barra i { display: block; height: 100%; background: var(--cobre); transform-origin: left; animation: tiempo linear forwards; }
+@keyframes tiempo { to { transform: scaleX(0); } }
+.entendido { min-height: 40px; padding: 0 14px; border-radius: 10px; font-weight: 700; font-size: 13px; background: var(--blanco); color: var(--navy); }
+.toast.discreto .entendido { background: var(--t100); }
+
+/* ---------- Notas de la maqueta ---------- */
+.notas { width: min(1280px, calc(100% - 2 * max(16px, env(safe-area-inset-left, 0px)))); margin: 0 auto 40px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.nota { background: var(--blanco); border-radius: 12px; padding: 16px 18px; border: 1px solid var(--t200); min-width: 0; }
+.nota h3 { margin: 0 0 8px; font-size: 14px; }
+.nota ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; color: var(--t600); font-size: 13.5px; }
+.nota.pregunta { border-color: var(--cobre); background: var(--marfil); }
+
+/* Tableta y teléfono: la consola pierde la sidebar y la campana pasa a la barra superior */
+@media (max-width: 1023px) {
+  .sidebar { display: none; }
+  .topbar { display: flex; }
+  .contenido { padding: 20px 16px; }
+}
+@media (max-width: 520px) {
+  .marco { height: 720px; border-radius: 10px; }
+  .panel { width: 100%; }
+  .flotantes { top: 64px; right: 8px; max-width: calc(100% - 16px); }
+  .term-cab .pill { display: none; }
+  .btn-todas span { display: none; }
+}
+</style>
+
+<header class="controles" aria-label="Controles de la maqueta">
+  <h1>Campana de avisos <small>Maqueta de la etapa 7.6 (CU-TRANS-01) · los controles de esta barra no forman parte de la app</small></h1>
+  <div class="grupo"><span>Pantalla</span>
+    <div class="seg" id="seg-vista">
+      <button type="button" data-vista="admin" aria-pressed="true">Administración</button>
+      <button type="button" data-vista="propietario" aria-pressed="false">Propietario</button>
+      <button type="button" data-vista="mozo" aria-pressed="false">Mozo</button>
+      <button type="button" data-vista="cocina" aria-pressed="false">Cocina</button>
+    </div>
+  </div>
+  <div class="grupo"><span>Canal</span>
+    <div class="seg" id="seg-canal">
+      <button type="button" data-canal="vivo" aria-pressed="true">En vivo</button>
+      <button type="button" data-canal="caido" aria-pressed="false">Caído</button>
+    </div>
+  </div>
+  <div class="grupo"><span>Simular</span>
+    <button type="button" class="btn-sim critico" id="sim-critico">Llega un aviso crítico</button>
+    <button type="button" class="btn-sim" id="sim-normal">Llega un aviso normal</button>
+    <button type="button" class="btn-sim" id="sim-vaciar">Sin avisos pendientes</button>
+  </div>
+</header>
+
+<div class="marco" id="marco"></div>
+
+<section class="notas" aria-label="Notas para revisar">
+  <div class="nota">
+    <h3>Dónde va la campana</h3>
+    <ul>
+      <li><b>Administración y propietario:</b> en la cabecera de la barra lateral, donde hoy está la campana vieja. En tableta y teléfono, en la barra superior. Se monta una sola vez según el ancho.</li>
+      <li><b>Mozo, cocina y caja:</b> botón flotante abajo a la derecha, montado en el layout de terminales. Así no hay que tocar las tres cabeceras y queda al alcance del pulgar en la tableta.</li>
+      <li><b>Sin avisos pendientes, en terminales no se muestra:</b> deja libre la esquina y, cuando llega un aviso, entra animada. Pruébelo con «Sin avisos pendientes», cierre el panel y luego «Llega un aviso normal». Con el panel cerrado y todo leído, el historial queda a mano solo con <kbd>Alt</kbd>+<kbd>N</kbd>.</li>
+      <li><b>Atajos:</b> <kbd>Alt</kbd>+<kbd>N</kbd> abre y cierra; <kbd>Esc</kbd> cierra y devuelve el foco a la campana.</li>
+    </ul>
+  </div>
+  <div class="nota">
+    <h3>Cómo se comporta</h3>
+    <ul>
+      <li>Abrir el panel no cambia de pantalla: ningún aviso navega a otra ruta.</li>
+      <li>Abrir el detalle marca el aviso como leído; también «Marcar leída» y «Marcar todas leídas».</li>
+      <li>«Leído» es por persona: si un mozo lo marca, otro mozo lo sigue viendo pendiente.</li>
+      <li>Con el canal caído, el contador se revisa cada 30 s y el pie del panel lo dice.</li>
+      <li>El propietario ve el nombre de la sede en cada aviso.</li>
+    </ul>
+  </div>
+  <div class="nota pregunta">
+    <h3>Para decidir</h3>
+    <ul>
+      <li><b>Aviso flotante para lo que no es crítico.</b> El plan solo lo muestra para los críticos (6 s, se anuncia de inmediato al lector de pantalla). Propongo además uno discreto de 4 s para «Pedido listo», porque el mozo lo necesita en el momento y la insignia sola se pierde. Pruébelo con «Llega un aviso normal» en la pantalla del mozo.</li>
+      <li><b>Campana flotante en terminales</b> en lugar de ponerla junto al botón Salir de cada cabecera.</li>
+    </ul>
+  </div>
+</section>
+
+<script>
+(() => {
+  const AHORA = Date.now();
+  const min = (m) => AHORA - m * 60000;
+  const ic = {
+    campana: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
+    x: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+    check: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
+    abajo: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg>',
+    arriba: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:14px;height:14px"><path d="m18 15-6-6-6 6"/></svg>',
+    salir: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>',
+  };
+
+  // Avisos de ejemplo, con los textos de las reglas de ms-notificaciones (ficha, sección 4).
+  const SEMILLA = {
+    admin: [
+      { tipo: 'caja.cerrada', sev: 'critica', titulo: 'Cierre de caja con diferencia', msg: 'Turno #014 de Ana Torres: esperado S/ 1,250.00, contado S/ 1,120.00 (faltante de S/ 130.00).', en: min(3), det: [['Turno', '#014'], ['Cajera', 'Ana Torres'], ['Esperado', 'S/ 1,250.00'], ['Contado', 'S/ 1,120.00'], ['Diferencia', 'Faltante de S/ 130.00']] },
+      { tipo: 'pedido.anulado', sev: 'alerta', titulo: 'Plato anulado antes del cobro', msg: 'Carlos Ríos anuló 1 × Lomo saltado (S/ 38.00) de la comanda de Lucía Paredes.', en: min(12), det: [['Mesa', '4'], ['Plato', '1 × Lomo saltado'], ['Monto', 'S/ 38.00'], ['Motivo', 'Demora del cliente'], ['Espera', '12 min']] },
+      { tipo: 'producto.agotado', sev: 'alerta', titulo: 'Plato agotado: Ceviche clásico', msg: 'Rosa Huamán marcó el plato como agotado en cocina. No ofrecerlo.', en: min(25) },
+      { tipo: 'caja.turno_previo_pendiente', sev: 'alerta', titulo: 'Turno #013 pendiente de cierre', msg: 'Ana Torres no puede abrir turno: el Turno #013 de Jorge Salas sigue abierto. Resuélvelo desde Administración de caja.', en: min(95), leida: true },
+      { tipo: 'comprobante.anulado', sev: 'alerta', titulo: 'Comprobante anulado', msg: 'Carlos Ríos anuló un comprobante por S/ 75.00.', en: min(180), leida: true },
+    ],
+    propietario: [
+      { tipo: 'caja.cerrada', sev: 'critica', sede: 'Miraflores', titulo: 'Cierre de caja con diferencia', msg: 'Turno #014 de Ana Torres: esperado S/ 1,250.00, contado S/ 1,120.00 (faltante de S/ 130.00).', en: min(3), det: [['Sede', 'Miraflores'], ['Turno', '#014'], ['Diferencia', 'Faltante de S/ 130.00']] },
+      { tipo: 'caja.cerrada', sev: 'alerta', sede: 'San Isidro', titulo: 'Cierre de caja con diferencia', msg: 'Turno #022 de Pedro Vega: esperado S/ 840.00, contado S/ 852.50 (sobrante de S/ 12.50).', en: min(40) },
+      { tipo: 'caja.turno_previo_pendiente', sev: 'alerta', sede: 'San Isidro', titulo: 'Turno #021 pendiente de cierre', msg: 'Pedro Vega no puede abrir turno: el Turno #021 de Luis Ramos sigue abierto. Resuélvelo desde Administración de caja.', en: min(130), leida: true },
+    ],
+    mozo: [
+      { tipo: 'plato.listo', sev: 'info', titulo: 'Pedido listo: Mesa 4', msg: 'Listo para llevar: 2 × Lomo saltado, 1 × Ají de gallina.', en: min(1), det: [['Mesa', '4'], ['Platos', '2 × Lomo saltado · 1 × Ají de gallina'], ['Listo a las', '13:42']] },
+      { tipo: 'producto.agotado', sev: 'alerta', titulo: 'Plato agotado: Ceviche clásico', msg: 'Rosa Huamán marcó el plato como agotado en cocina. No ofrecerlo.', en: min(9) },
+      { tipo: 'plato.listo', sev: 'info', titulo: 'Pedido listo: Mesa 7', msg: 'Listo para llevar: 3 × Chicha morada.', en: min(22), leida: true },
+    ],
+    cocina: [
+      { tipo: 'pedido.item_sustituido', sev: 'critica', titulo: 'Sustitución urgente: Mesa 4', msg: 'Ceviche clásico fue sustituido por Tiradito de pescado (1 ×). Prioridad en cocina.', en: min(2), det: [['Mesa', '4'], ['Antes', 'Ceviche clásico'], ['Ahora', '1 × Tiradito de pescado']] },
+      { tipo: 'pedido.anulado', sev: 'critica', titulo: 'Plato anulado ya preparado', msg: 'Se anuló 1 × Lomo saltado que ya estaba preparado. Detener o descartar.', en: min(14), leida: true },
+    ],
+  };
+  const NUEVOS = {
+    critico: {
+      admin: { tipo: 'caja.cerrada', sev: 'critica', titulo: 'Cierre de caja con diferencia', msg: 'Turno #015 de Jorge Salas: esperado S/ 980.00, contado S/ 860.00 (faltante de S/ 120.00). Cierre forzado.' },
+      propietario: { tipo: 'caja.cerrada', sev: 'critica', sede: 'San Isidro', titulo: 'Cierre de caja con diferencia', msg: 'Turno #023 de Pedro Vega: esperado S/ 1,100.00, contado S/ 960.00 (faltante de S/ 140.00).' },
+      mozo: { tipo: 'producto.agotado', sev: 'critica', titulo: 'Plato agotado: Lomo saltado', msg: 'Rosa Huamán marcó el plato como agotado con órdenes en fuego. No ofrecerlo.' },
+      cocina: { tipo: 'pedido.anulado', sev: 'critica', titulo: 'Plato anulado ya preparado', msg: 'Se anuló 2 × Arroz con mariscos que ya estaba preparado. Detener o descartar.' },
+    },
+    normal: {
+      admin: { tipo: 'comprobante.anulado', sev: 'alerta', titulo: 'Comprobante anulado', msg: 'Carlos Ríos anuló un comprobante por S/ 42.00.' },
+      propietario: { tipo: 'caja.turno_previo_pendiente', sev: 'alerta', sede: 'Miraflores', titulo: 'Turno #015 pendiente de cierre', msg: 'Ana Torres no puede abrir turno: el Turno #015 de Jorge Salas sigue abierto.' },
+      mozo: { tipo: 'plato.listo', sev: 'info', titulo: 'Pedido listo: Mesa 2', msg: 'Listo para llevar: 2 × Causa limeña, 1 × Pisco sour.' },
+      cocina: { tipo: 'pedido.item_sustituido', sev: 'critica', titulo: 'Sustitución urgente: Mesa 9', msg: 'Seco de res fue sustituido por Ají de gallina (1 ×). Prioridad en cocina.' },
+    },
+  };
+  const ETIQ = { critica: 'Crítica', alerta: 'Alerta', info: 'Info' };
+  const HISTORIAL_EXTRA = 9; // avisos leídos más antiguos que «Cargar más» traería
+
+  let n = 0;
+  const conId = (a) => ({ ...a, id: 'a' + (++n), leida: !!a.leida, en: a.en ?? Date.now() });
+  const estado = {
+    vista: 'admin', canal: 'vivo', abierto: false, pestana: 'no-leidas', abiertos: new Set(),
+    avisos: Object.fromEntries(Object.entries(SEMILLA).map(([k, v]) => [k, v.map(conId)])),
+    latir: false,
+  };
+
+  const $ = (s, r = document) => r.querySelector(s);
+  const marco = $('#marco');
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const hace = (t) => { const m = Math.max(0, Math.round((Date.now() - t) / 60000)); return m < 1 ? 'Ahora' : m < 60 ? `Hace ${m} min` : `Hace ${Math.floor(m / 60)} h`; };
+  const lista = () => estado.avisos[estado.vista];
+  const noLeidas = () => lista().filter((a) => !a.leida);
+
+  let flotanteVisible = true;
+  function campanaHtml(clase) {
+    const pend = noLeidas();
+    if (clase === 'flotante') {
+      // En terminales solo se muestra con avisos sin leer (o con el panel abierto); al volver, entra animada.
+      const visible = pend.length > 0 || estado.abierto;
+      const entra = visible && !flotanteVisible;
+      flotanteVisible = visible;
+      if (!visible) return '';
+      if (entra) clase += ' aparece';
+    }
+    const criticas = pend.some((a) => a.sev === 'critica');
+    const etiqueta = pend.length ? `Notificaciones, ${pend.length} sin leer` : 'Notificaciones';
+    return `<button type="button" class="campana ${clase}${estado.latir ? ' latido' : ''}" data-accion="alternar" aria-label="${etiqueta}" aria-expanded="${estado.abierto}" aria-keyshortcuts="Alt+N">${ic.campana}${pend.length ? `<span class="insignia cifra${criticas ? '' : ' info'}">${pend.length > 9 ? '9+' : pend.length}</span>` : ''}</button>`;
+  }
+
+  function consolaHtml() {
+    const prop = estado.vista === 'propietario';
+    const enlaces = prop ? ['Resumen', 'Sedes', 'Reportes', 'Administradores', 'Suscripción'] : ['Inicio', 'Caja', 'Anulaciones', 'Reportes', 'Carta y stock'];
+    return `
+      <aside class="sidebar">
+        <div class="sb-cab"><div class="marca"><b>R</b><span>RestaurantCloud</span></div>${campanaHtml('oscura')}</div>
+        <div class="sb-ctx"><p>${prop ? 'Consola del propietario' : 'Administración de sede'}</p>${prop ? '' : '<h2>ÁUREA Miraflores</h2>'}</div>
+        <nav class="sb-nav">${enlaces.map((e, i) => `<a href="#" class="${i === 0 ? 'activo' : ''}" onclick="return false">${e}</a>`).join('')}</nav>
+      </aside>
+      <div class="consola">
+        <div class="topbar"><span>${prop ? 'Resumen' : 'Inicio'}</span>${campanaHtml('clara')}</div>
+        <div class="contenido">
+          <h3>${prop ? 'Resumen de la empresa' : 'Inicio de la sede'}</h3>
+          <p class="sub">${prop ? 'ÁUREA · 2 sedes' : 'Sábado 22 de noviembre · turno de tarde'}</p>
+          <div class="fantasma"><div></div><div></div><div></div><div class="ancha"></div></div>
+        </div>
+      </div>`;
+  }
+
+  function terminalHtml() {
+    if (estado.vista === 'cocina') {
+      const coms = [['Mesa 4', '6 min', ['1 × Tiradito de pescado', '2 × Lomo saltado']], ['Mesa 9', '11 min', ['1 × Ají de gallina', '1 × Seco de res']], ['Para llevar #31', '3 min', ['2 × Arroz chaufa']], ['Mesa 2', '1 min', ['2 × Causa limeña']]];
+      return `<div class="terminal kds">
+        <div class="term-cab"><span class="titulo">Cocina · Monitor de comandas</span><div class="derecha"><span class="pill">4 en fuego</span><button type="button" class="salir">${ic.salir}<span>Salir</span></button></div></div>
+        <div class="comandas">${coms.map(([m, t, it]) => `<article class="comanda"><header>${m}<span class="cifra">${t}</span></header>${it.map((x) => `<p>${x}</p>`).join('')}</article>`).join('')}</div>
+      </div>${campanaHtml('flotante')}`;
+    }
+    const mesas = Array.from({ length: 12 }, (_, i) => i + 1);
+    const ocupadas = new Set([2, 4, 7, 9]);
+    return `<div class="terminal">
+      <div class="term-cab"><span class="titulo">Salón · Piso 1</span><div class="derecha"><span class="pill vivo">8 libres · 4 ocupadas</span><button type="button" class="salir">${ic.salir}<span>Salir</span></button></div></div>
+      <div class="mesas">${mesas.map((m) => `<div class="mesa${ocupadas.has(m) ? ' ocupada' : ''}"><b>Mesa ${String(m).padStart(2, '0')}</b><span>${ocupadas.has(m) ? 'En curso' : 'Libre'}</span></div>`).join('')}</div>
+    </div>${campanaHtml('flotante')}`;
+  }
+
+  function avisoHtml(a) {
+    const abierto = estado.abiertos.has(a.id);
+    const conDetalle = !!a.det;
+    return `<article class="aviso ${a.sev}${a.leida ? '' : ' no-leida'}" aria-labelledby="t-${a.id}">
+      <div class="aviso-cab">${a.leida ? '' : '<span class="punto" title="Sin leer"></span>'}<span class="sev ${a.sev}">${ETIQ[a.sev]}</span>${a.sede ? `<span class="sede">${esc(a.sede)}</span>` : ''}<span class="hace">${hace(a.en)}</span></div>
+      <h4 id="t-${a.id}">${esc(a.titulo)}</h4>
+      <p class="msg">${esc(a.msg)}</p>
+      ${abierto ? `<dl class="detalle">${a.det.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
+      <div class="aviso-pie">
+        ${conDetalle ? `<button type="button" class="enlace" data-accion="detalle" data-id="${a.id}" aria-expanded="${abierto}">${abierto ? 'Ocultar detalle ' + ic.arriba : 'Ver detalle ' + ic.abajo}</button>` : '<span></span>'}
+        ${a.leida ? '<span class="leida-txt">Leída</span>' : `<button type="button" class="enlace" data-accion="leer" data-id="${a.id}">Marcar leída</button>`}
+      </div>
+    </article>`;
+  }
+
+  function panelHtml() {
+    const pend = noLeidas();
+    const todos = lista();
+    const visibles = estado.pestana === 'no-leidas' ? pend : todos;
+    let cuerpo;
+    if (estado.pestana === 'no-leidas' && pend.length === 0) {
+      cuerpo = `<div class="vacio"><div class="check">${ic.check}</div><h3>¡Estás al día!</h3><p>No tienes avisos pendientes. Si pasa algo en tu turno, aparecerá aquí al instante.</p><button type="button" class="mas" data-accion="pestana" data-p="todas">Ver todos los avisos</button></div>`;
+    } else {
+      cuerpo = visibles.map(avisoHtml).join('') + (estado.pestana === 'todas' ? `<button type="button" class="mas" data-accion="mas">Cargar más (${HISTORIAL_EXTRA})</button>` : '');
+    }
+    const total = todos.length + HISTORIAL_EXTRA;
+    return `<div class="velo" data-accion="cerrar"></div>
+      <section class="panel" role="dialog" aria-modal="true" aria-labelledby="panel-titulo">
+        <div class="panel-cab">
+          <h2 id="panel-titulo" tabindex="-1">Notificaciones</h2>
+          ${pend.length ? `<span class="chip-cuenta cifra">${pend.length}</span>` : ''}
+          <div class="acciones">
+            ${pend.length ? `<button type="button" class="btn-todas" data-accion="todas-leidas">${ic.check}<span>Marcar todas leídas</span></button>` : ''}
+            <button type="button" class="btn-icono" data-accion="cerrar" aria-label="Cerrar">${ic.x}</button>
+          </div>
+        </div>
+        <div class="pestanas" role="tablist">
+          <button type="button" role="tab" aria-selected="${estado.pestana === 'no-leidas'}" data-accion="pestana" data-p="no-leidas">No leídas (<span class="cifra">${pend.length}</span>)</button>
+          <button type="button" role="tab" aria-selected="${estado.pestana === 'todas'}" data-accion="pestana" data-p="todas">Todas (<span class="cifra">${total}</span>)</button>
+        </div>
+        <div class="lista" role="tabpanel">${cuerpo}</div>
+        <div class="panel-pie">
+          ${estado.canal === 'vivo'
+            ? '<span class="estado-canal"><i></i>En vivo</span>'
+            : '<span class="estado-canal caido"><i></i>Sin conexión en vivo · se revisa cada 30 s</span>'}
+          <span class="atajos"><kbd>Esc</kbd> cierra · <kbd>Alt</kbd>+<kbd>N</kbd></span>
+        </div>
+      </section>`;
+  }
+
+  let enfocarPanel = false;
+  function pintar() {
+    const terminal = estado.vista === 'mozo' || estado.vista === 'cocina';
+    marco.classList.toggle('es-kds', estado.vista === 'cocina');
+    marco.innerHTML = (terminal ? terminalHtml() : consolaHtml()) + (estado.abierto ? panelHtml() : '') + '<div class="flotantes" id="flotantes" aria-live="polite"></div>';
+    estado.latir = false;
+    if (enfocarPanel) { $('#panel-titulo', marco)?.focus(); enfocarPanel = false; }
+    pintarToasts();
+  }
+
+  // Avisos flotantes: crítico 6 s y anunciado de inmediato; normal (propuesta) 4 s y cortés.
+  const toasts = [];
+  function pintarToasts() {
+    const cont = $('#flotantes', marco);
+    if (!cont) return;
+    cont.innerHTML = toasts.map((t) => `<div class="toast ${t.sev === 'critica' ? 'critica' : 'discreto'}" role="${t.sev === 'critica' ? 'alert' : 'status'}" data-toast="${t.id}">
+      <div class="t-cab"><span class="sev ${t.sev}">${ETIQ[t.sev]}</span>${t.sede ? `<span>${esc(t.sede)}</span>` : ''}<small>Ahora</small></div>
+      <h4>${esc(t.titulo)}</h4><p>${esc(t.msg)}</p>
+      <div class="t-pie"><span class="barra"><i style="animation-duration:${t.ms}ms;animation-delay:-${Date.now() - t.desde}ms"></i></span><button type="button" class="entendido" data-accion="entendido" data-id="${t.id}">Entendido</button></div>
+    </div>`).join('');
+  }
+  function quitarToast(id) {
+    const i = toasts.findIndex((t) => t.id === id);
+    if (i >= 0) { clearTimeout(toasts[i].timer); toasts.splice(i, 1); pintarToasts(); }
+  }
+
+  function llega(clase) {
+    const a = conId({ ...NUEVOS[clase][estado.vista], en: Date.now() });
+    lista().unshift(a);
+    estado.latir = true;
+    const ms = a.sev === 'critica' ? 6000 : 4000;
+    const t = { ...a, ms, desde: Date.now() };
+    t.timer = setTimeout(() => quitarToast(a.id), ms);
+    toasts.unshift(t);
+    if (toasts.length > 3) quitarToast(toasts[toasts.length - 1].id);
+    pintar();
+  }
+
+  marco.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-accion]');
+    if (!b) return;
+    const id = b.dataset.id;
+    const aviso = id && lista().find((a) => a.id === id);
+    switch (b.dataset.accion) {
+      case 'alternar': estado.abierto = !estado.abierto; enfocarPanel = estado.abierto; break;
+      case 'cerrar': estado.abierto = false; break;
+      case 'pestana': estado.pestana = b.dataset.p; break;
+      case 'leer': aviso.leida = true; break;
+      case 'detalle':
+        if (estado.abiertos.has(id)) estado.abiertos.delete(id);
+        else { estado.abiertos.add(id); aviso.leida = true; }
+        break;
+      case 'todas-leidas': lista().forEach((a) => { a.leida = true; }); break;
+      case 'mas': b.textContent = 'No hay más avisos en esta maqueta'; b.disabled = true; return;
+      case 'entendido': quitarToast(id); return;
+    }
+    const enfocaba = b.dataset.accion;
+    pintar();
+    // Si la campana flotante se ocultó al cerrar, el foco vuelve al contenido de la pantalla.
+    if (enfocaba === 'cerrar') ($('.campana', marco) ?? $('.terminal', marco))?.focus?.();
+    else if (enfocaba === 'detalle') $(`[data-accion="detalle"][data-id="${id}"]`, marco)?.focus();
+    else if (enfocaba === 'pestana') $(`[data-p="${estado.pestana}"][role="tab"]`, marco)?.focus();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.altKey && (e.key === 'n' || e.key === 'N')) { e.preventDefault(); estado.abierto = !estado.abierto; enfocarPanel = estado.abierto; pintar(); if (!estado.abierto) $('.campana', marco)?.focus(); }
+    else if (e.key === 'Escape' && estado.abierto) { estado.abierto = false; pintar(); $('.campana', marco)?.focus(); }
+  });
+
+  for (const b of document.querySelectorAll('#seg-vista button')) b.addEventListener('click', () => {
+    estado.vista = b.dataset.vista; estado.abierto = false; estado.pestana = 'no-leidas';
+    toasts.splice(0).forEach((t) => clearTimeout(t.timer));
+    document.querySelectorAll('#seg-vista button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    pintar();
+  });
+  for (const b of document.querySelectorAll('#seg-canal button')) b.addEventListener('click', () => {
+    estado.canal = b.dataset.canal;
+    document.querySelectorAll('#seg-canal button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    pintar();
+  });
+  $('#sim-critico').addEventListener('click', () => llega('critico'));
+  $('#sim-normal').addEventListener('click', () => llega('normal'));
+  $('#sim-vaciar').addEventListener('click', () => { lista().forEach((a) => { a.leida = true; }); estado.abierto = true; estado.pestana = 'no-leidas'; pintar(); });
+
+  // Abre con el panel desplegado: es lo que se revisa.
+  estado.abierto = true;
+  pintar();
+  setInterval(() => { if (!toasts.length) pintar(); }, 60000);
+})();
+</script>
