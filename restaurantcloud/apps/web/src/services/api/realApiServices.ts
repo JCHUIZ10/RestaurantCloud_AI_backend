@@ -153,7 +153,6 @@ import type {
   ArchivoExportacionAnulaciones,
   PedidoAnulacionItemDTO,
   MarcarRevisadoRequestDTO,
-  NotificacionCampanaDTO,
 } from '@/types/admin';
 import type {
   DirectorioAdminsApiResponse,
@@ -1326,37 +1325,6 @@ export const realAdminService = {
     req?: MarcarRevisadoRequestDTO
   ): Promise<ApiEnvelope<PedidoAnulacionItemDTO>> =>
     apiPost(`/admin/anulaciones/${id}/revisar`, req ?? {}),
-
-  /**
-   * @deprecated SSE no está habilitado; el frontend utiliza polling HTTP regular.
-   */
-  subscribirNotificacionesSse: (_callback: (notif: any) => void) => {
-    return () => {};
-  },
-
-  async getNotificacionesCampana(): Promise<ApiEnvelope<NotificacionCampanaDTO[]>> {
-    return {
-      exito: true,
-      datos: [],
-      meta: { timestamp: new Date().toISOString() },
-    };
-  },
-
-  async marcarTodasNotificacionesLeidas(): Promise<ApiEnvelope<{ actualizados: number }>> {
-    return {
-      exito: true,
-      datos: { actualizados: 0 },
-      meta: { timestamp: new Date().toISOString() },
-    };
-  },
-
-  async marcarNotificacionLeida(_id: string): Promise<ApiEnvelope<{ leido: boolean }>> {
-    return {
-      exito: true,
-      datos: { leido: true },
-      meta: { timestamp: new Date().toISOString() },
-    };
-  },
 
   async getRendimientoPromocion(id: string): Promise<ApiEnvelope<PromocionRendimientoDTO>> {
     try {

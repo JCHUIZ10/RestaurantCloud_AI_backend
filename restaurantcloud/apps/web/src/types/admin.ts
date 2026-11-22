@@ -1260,19 +1260,6 @@ export interface MarcarRevisadoRequestDTO {
   notas_supervision?: string;
 }
 
-export interface NotificacionCampanaDTO {
-  id: string;
-  tipo: 'anulacion_item' | 'anulacion_comanda' | 'stock_minimo' | 'otro';
-  prioridad: 'baja' | 'media' | 'alta' | 'critica';
-  titulo: string;
-  mensaje: string;
-  leido: boolean;
-  created_at: string;
-  anulacion_id?: string;
-  mesa_numero?: string;
-  monto?: number;
-}
-
 // ============================================================================
 // CU-ADMIN-17: Gestionar Promociones del Local
 // Derivado estrictamente de la tabla `promocion` en 02_schema_ddl.sql (líneas 427-452)

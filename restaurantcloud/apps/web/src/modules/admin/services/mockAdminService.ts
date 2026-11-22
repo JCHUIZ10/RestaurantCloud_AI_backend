@@ -74,7 +74,6 @@ import {
   ResumenExportacionAnulacionesDTO,
   ArchivoExportacionAnulaciones,
   MarcarRevisadoRequestDTO,
-  NotificacionCampanaDTO,
   PromocionAdminDTO,
   EstadoVisualPromocion,
   PromocionesBandejaResponseDTO,
@@ -2759,42 +2758,6 @@ export const SEMILLAS_ANULACIONES_AUREA: PedidoAnulacionItemDTO[] = [
   },
 ];
 
-export const SEMILLAS_NOTIFICACIONES_CAMPANA: NotificacionCampanaDTO[] = [
-  {
-    id: 'notif-001',
-    tipo: 'anulacion_item',
-    prioridad: 'alta',
-    titulo: 'Anulación en Mesa 04',
-    mensaje: '1x Lomo Saltado Criollo (S/ 38.00) por Carlos Mendoza • Motivo: Demora (25m de espera)',
-    leido: false,
-    anulacion_id: 'anul-0000-0042',
-    mesa_numero: 'Mesa 04',
-    monto: 38.0,
-    created_at: '2026-10-09T14:15:30Z',
-  },
-  {
-    id: 'notif-002',
-    tipo: 'anulacion_comanda',
-    prioridad: 'critica',
-    titulo: 'Comanda Completa Anulada en Mesa 01',
-    mensaje: 'Comanda #151 (4 platos • S/ 114.00) por Ana Paredes • Motivo: Retiro sin consumo',
-    leido: false,
-    anulacion_id: 'anul-0000-0041',
-    mesa_numero: 'Mesa 01',
-    monto: 114.0,
-    created_at: '2026-10-09T13:48:10Z',
-  },
-  {
-    id: 'notif-003',
-    tipo: 'stock_minimo',
-    prioridad: 'media',
-    titulo: 'Alerta de Inventario: Stock Mínimo',
-    mensaje: 'Papa amarilla alcanzó 4.5 kg en almacén (Umbral de reposición: 10.0 kg)',
-    leido: true,
-    created_at: '2026-10-09T12:30:00Z',
-  },
-];
-
 // =============================================================================
 // SEMILLAS CANÓNICAS CU-ADMIN-17: GESTIÓN DE PROMOCIONES (02_schema_ddl.sql)
 // =============================================================================
@@ -3096,9 +3059,6 @@ class MockAdminService {
   private maxUsuariosPlan = 15;
   private planNombrePersonal = 'Plan Pro (15 cupos)';
   private anulaciones: PedidoAnulacionItemDTO[] = JSON.parse(JSON.stringify(SEMILLAS_ANULACIONES_AUREA));
-  private notificacionesCampana: NotificacionCampanaDTO[] = JSON.parse(JSON.stringify(SEMILLAS_NOTIFICACIONES_CAMPANA));
-  private seqAnulacion: number = 43;
-  private notificacionesSseListeners: Set<(notif: NotificacionCampanaDTO) => void> = new Set();
   private promociones: PromocionAdminDTO[] = JSON.parse(JSON.stringify(SEMILLAS_PROMOCIONES_AUREA));
   private seqPromo: number = 6;
   private configuracionKds: ConfiguracionKdsDTO = {
@@ -7100,139 +7060,10 @@ class MockAdminService {
       item.notas_supervision = req.notas_supervision.trim();
     }
 
-    // Marcar como leída la notificación vinculada en la campana
-    const notifVinculada = this.notificacionesCampana.find((n) => n.anulacion_id === id);
-    if (notifVinculada) {
-      notifVinculada.leido = true;
-    }
-
     return {
       exito: true,
       datos: JSON.parse(JSON.stringify(item)),
     };
-  }
-
-  /**
-   * GET /api/v1/admin/notificaciones
-   * Retorna la bandeja de notificaciones para el dropdown de la campana
-   */
-  async getNotificacionesCampana(): Promise<ApiResponse<NotificacionCampanaDTO[]>> {
-    await new Promise((r) => setTimeout(r, 40));
-    return {
-      exito: true,
-      datos: JSON.parse(JSON.stringify(this.notificacionesCampana)),
-    };
-  }
-
-  /**
-   * POST /api/v1/admin/notificaciones/marcar-todas-leidas
-   */
-  async marcarTodasNotificacionesLeidas(): Promise<ApiResponse<boolean>> {
-    this.notificacionesCampana.forEach((n) => {
-      n.leido = true;
-    });
-    return {
-      exito: true,
-      datos: true,
-    };
-  }
-
-  /**
-   * POST /api/v1/admin/notificaciones/{id}/leer
-   */
-  async marcarNotificacionLeida(id: string): Promise<ApiResponse<boolean>> {
-    const notif = this.notificacionesCampana.find((n) => n.id === id);
-    if (notif) {
-      notif.leido = true;
-    }
-    return {
-      exito: true,
-      datos: true,
-    };
-  }
-
-  /**
-   * Suscripción reactiva a notificaciones de sede (simulación mock)
-   */
-  subscribirNotificacionesSse(listener: (notif: NotificacionCampanaDTO) => void): () => void {
-    this.notificacionesSseListeners.add(listener);
-    return () => {
-      this.notificacionesSseListeners.delete(listener);
-    };
-  }
-
-  /**
-   * Simula la llegada concurrente de una anulación en salón
-   */
-  simularNuevaAnulacionSse(tipo: 'item' | 'comanda' = 'item'): NotificacionCampanaDTO {
-    const now = new Date().toISOString();
-    const codigoAnulacion = `ANUL-2026-0${this.seqAnulacion++}`;
-    const id = `anul-${Date.now()}`;
-
-    const nuevaAnulacion: PedidoAnulacionItemDTO = {
-      id,
-      codigo: codigoAnulacion,
-      local_id: CANONICAL_LOCAL_ID,
-      pedido_id: `ped-${Date.now()}`,
-      pedido_item_id: tipo === 'item' ? `item-${Date.now()}` : null,
-      tipo_anulacion: tipo === 'item' ? 'item_individual' : 'comanda_completa',
-      mesa_id: 'm1a2b3c4-0001-4000-8000-000000000004',
-      mesa_numero: tipo === 'item' ? 'Mesa 04' : 'Mesa 07',
-      producto_id: tipo === 'item' ? 'prod-0000-0003' : null,
-      producto_nombre: tipo === 'item' ? '1x Ceviche Clásico de Corvina' : 'Comanda Total #160 (3 platos)',
-      cantidad: tipo === 'item' ? 1 : 3,
-      precio_unitario: tipo === 'item' ? 45.0 : 32.0,
-      monto_total: tipo === 'item' ? 45.0 : 96.0,
-      mozo_id: '00000000-0000-4000-8000-000000000103',
-      mozo_nombre: 'Carlos Mendoza',
-      anulado_por: '00000000-0000-4000-8000-000000000103',
-      anulado_por_nombre: 'Carlos Mendoza (Mozo)',
-      motivo_categoria: tipo === 'item' ? 'demora_cliente' : 'retiro_sin_consumo',
-      motivo_detalle: tipo === 'item'
-        ? 'El comensal manifestó que debía retirarse al aeropuerto y canceló el cebiche en mesa.'
-        : 'Los comensales recibieron llamada de urgencia y desocuparon la mesa.',
-      pedido_created_at: new Date(Date.now() - 22 * 60000).toISOString(),
-      anulado_at: now,
-      minutos_espera: 22,
-      estado_anterior: 'en_preparacion',
-      es_merma: tipo === 'item',
-      costo_merma: tipo === 'item' ? 18.0 : null,
-      revisado: false,
-      revisado_por: null,
-      revisado_por_nombre: null,
-      revisado_at: null,
-      notas_supervision: null,
-      partida_cocina: 'Cocina Fría (Cebichería)',
-      created_at: now,
-    };
-
-    this.anulaciones.unshift(nuevaAnulacion);
-
-    const nuevaNotif: NotificacionCampanaDTO = {
-      id: `notif-${Date.now()}`,
-      tipo: tipo === 'item' ? 'anulacion_item' : 'anulacion_comanda',
-      prioridad: tipo === 'item' ? 'alta' : 'critica',
-      titulo: tipo === 'item' ? `Anulación en ${nuevaAnulacion.mesa_numero}` : `Comanda Completa Anulada en ${nuevaAnulacion.mesa_numero}`,
-      mensaje: `${nuevaAnulacion.producto_nombre} (S/ ${nuevaAnulacion.monto_total.toFixed(2)}) por ${nuevaAnulacion.mozo_nombre} • Motivo: Demora (22m de espera)`,
-      leido: false,
-      anulacion_id: id,
-      mesa_numero: nuevaAnulacion.mesa_numero,
-      monto: nuevaAnulacion.monto_total,
-      created_at: now,
-    };
-
-    this.notificacionesCampana.unshift(nuevaNotif);
-
-    // Notificar a todos los suscriptores activos
-    this.notificacionesSseListeners.forEach((listener) => {
-      try {
-        listener(nuevaNotif);
-      } catch (err) {
-        console.error('Error al emitir notificación:', err);
-      }
-    });
-
-    return nuevaNotif;
   }
 
   /**
@@ -7243,12 +7074,10 @@ class MockAdminService {
   }
 
   /**
-   * Restablece las semillas canónicas de anulaciones y notificaciones
+   * Restablece las semillas canónicas de anulaciones
    */
   restablecerSemillasAnulaciones(): void {
     this.anulaciones = JSON.parse(JSON.stringify(SEMILLAS_ANULACIONES_AUREA));
-    this.notificacionesCampana = JSON.parse(JSON.stringify(SEMILLAS_NOTIFICACIONES_CAMPANA));
-    this.seqAnulacion = 43;
   }
 
   // ===========================================================================

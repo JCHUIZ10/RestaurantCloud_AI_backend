@@ -28,7 +28,8 @@ import { ETIQUETA_ROL, homeDeRol, iniciales } from '@/router/accesoPorRol';
 import { useAuthStore } from '@/stores/authStore';
 import { useCerrarSesion } from '@/shared/hooks/useCerrarSesion';
 import { cn } from '@/shared/utils';
-import { DropdownCampanaNotificaciones } from '@/modules/admin/components/anulaciones/DropdownCampanaNotificaciones';
+import { CampanaNotificaciones } from '@/components/notificaciones/CampanaNotificaciones';
+import { IS_REAL_API } from '@/services/serviceAdapter';
 
 interface EnlaceMenu {
   label: string;
@@ -107,6 +108,9 @@ export const DashboardLayout: React.FC = () => {
       : rol === 'propietario' && !enAdminLocal
         ? 'Consola de propietario'
         : 'Administración de sede';
+
+  // Administración y propietario tienen bandeja; el administrador SaaS no tiene empresa ni sede. Solo con la API real.
+  const conBandeja = IS_REAL_API && (rol === 'admin_local' || rol === 'propietario');
 
   const mostrarVolverASedes = rol === 'propietario' && enAdminLocal;
   const home = homeDeRol(rol);
@@ -219,8 +223,8 @@ export const DashboardLayout: React.FC = () => {
       <aside className="hidden lg:flex lg:flex-col w-64 bg-aurea-navy text-aurea-ivory border-r border-aurea-copper/30 shrink-0 sticky top-0 h-dvh">
         <div className="h-16 flex items-center justify-between gap-2 px-5 border-b border-white/10">
           {marca}
-          {/* Notificaciones de anulaciones: solo tienen sentido en la administración de sede */}
-          {enAdminLocal && esEscritorio && <DropdownCampanaNotificaciones enFondoOscuro />}
+          {/* Avisos del personal: siempre a la vista; se monta en un solo sitio según el ancho para no abrir dos canales */}
+          {conBandeja && esEscritorio && <CampanaNotificaciones variante="oscura" />}
         </div>
         {contexto}
         {navegacion}
@@ -242,7 +246,7 @@ export const DashboardLayout: React.FC = () => {
             </button>
             <span className="font-semibold text-sm sm:text-base truncate">{seccionActual}</span>
           </div>
-          {enAdminLocal && !esEscritorio && <DropdownCampanaNotificaciones />}
+          {conBandeja && !esEscritorio && <CampanaNotificaciones variante="clara" />}
         </header>
 
         {/* Drawer móvil */}

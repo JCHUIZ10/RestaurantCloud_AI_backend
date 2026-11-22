@@ -15,7 +15,7 @@ export const clienteMicroservicios = axios.create({
 });
 
 /** Solo el propietario elige sede con `X-Local-Id`; quien tiene una sede fija ya la lleva en su JWT. */
-function localElegido(): string | null {
+export function localElegido(): string | null {
   try {
     const rol = JSON.parse(localStorage.getItem('auth_usuario') ?? 'null')?.rol;
     return rol === 'propietario' ? localStorage.getItem('active_local_id') : null;
@@ -57,8 +57,17 @@ clienteMicroservicios.interceptors.response.use(
  * Los que genera el gateway (429, 401) o la red se lanzan como excepción.
  */
 export async function microserviciosGet<T>(url: string, params?: Record<string, unknown>, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  return microserviciosPeticion<T>({ method: 'GET', url, params, ...config });
+}
+
+/** Igual que `microserviciosGet`, para las rutas que cambian algo (PATCH y POST sin cuerpo, como marcar un aviso leído). */
+export async function microserviciosEnviar<T>(metodo: 'POST' | 'PATCH', url: string, cuerpo?: unknown): Promise<ApiResponse<T>> {
+  return microserviciosPeticion<T>({ method: metodo, url, data: cuerpo });
+}
+
+async function microserviciosPeticion<T>(config: AxiosRequestConfig): Promise<ApiResponse<T>> {
   try {
-    const respuesta = await clienteMicroservicios.get<ApiResponse<T>>(url, { params, ...config });
+    const respuesta = await clienteMicroservicios.request<ApiResponse<T>>(config);
     return respuesta.data;
   } catch (error) {
     if (axios.isAxiosError(error) && error.response?.data?.exito === false) {

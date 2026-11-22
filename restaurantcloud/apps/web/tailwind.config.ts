@@ -52,6 +52,21 @@ const config: Config = {
         serif: ['"DM Serif Display"', 'Georgia', 'serif'],
         sans: ['"DM Sans"', 'Arial', 'system-ui', '-apple-system', 'sans-serif'],
       },
+      // Animaciones de la campana de avisos (CU-TRANS-01); con reduced-motion se anulan en globals.css
+      keyframes: {
+        'panel-entra': { from: { transform: 'translateX(24px)', opacity: '0' } },
+        'aviso-entra': { from: { transform: 'translateY(-10px)', opacity: '0' } },
+        'campana-aparece': { from: { transform: 'scale(.4)', opacity: '0' } },
+        'campana-latido': { '50%': { transform: 'scale(1.3)' } },
+        encoger: { to: { transform: 'scaleX(0)' } },
+      },
+      animation: {
+        'panel-entra': 'panel-entra .18s ease-out',
+        'aviso-entra': 'aviso-entra .2s ease-out',
+        'campana-aparece': 'campana-aparece .35s cubic-bezier(.2, 1.4, .4, 1)',
+        'campana-latido': 'campana-latido .6s ease-out 2',
+        encoger: 'encoger 1s linear forwards',
+      },
       screens: {
         'xs': '475px',
         // sm: 640px, md: 768px, lg: 1024px, xl: 1280px, 2xl: 1536px son nativos
