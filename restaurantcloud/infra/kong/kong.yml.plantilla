@@ -59,6 +59,75 @@ services:
           limit_by: ip
           policy: local
 
+  # ms-notificaciones: bandeja y canal SSE. /interno y /health no tienen ruta, así que Kong responde 404.
+  # Son dos servicios con el mismo destino porque los tiempos de espera son propiedades del servicio:
+  # el canal necesita una lectura larga y la bandeja, una corta. Kong elige el prefijo más largo, así que
+  # /api/v1/notificaciones/stream gana a /api/v1/notificaciones.
+  - name: notificaciones
+    url: http://notificaciones:8003
+    connect_timeout: 3000
+    read_timeout: 30000
+    write_timeout: 30000
+    retries: 1
+    routes:
+      - name: notificaciones-bandeja
+        paths: ["/api/v1/notificaciones"]
+        strip_path: false
+    plugins:
+      - name: jwt
+        config:
+          # El claim `iss` elige la credencial (consumidor `nucleo`).
+          key_claim_name: iss
+          claims_to_verify: ["exp", "nbf"]
+          # Rechaza tokens con más de 15 minutos de vida restante: el núcleo emite de 10.
+          maximum_expiration: 900
+          header_names: ["authorization"]
+          # El token solo viaja en la cabecera: ni en la URL (quedaría en los logs) ni en cookies.
+          uri_param_names: []
+          cookie_names: []
+          run_on_preflight: false
+      # Más estricto que el global; en Kong la instancia del servicio reemplaza a la global.
+      - name: rate-limiting
+        config:
+          minute: 120
+          limit_by: ip
+          policy: local
+
+  # Canal SSE de avisos. El servicio lo cierra al vencer el JWT (15 minutos como máximo), así que una lectura
+  # de 16 minutos nunca lo corta antes. Sin reintentos, para no abrir dos canales, y sin búfer de respuesta
+  # para que cada aviso llegue al instante.
+  - name: notificaciones-flujo
+    url: http://notificaciones:8003
+    connect_timeout: 3000
+    read_timeout: 960000
+    write_timeout: 30000
+    retries: 0
+    routes:
+      - name: notificaciones-stream
+        paths: ["/api/v1/notificaciones/stream"]
+        strip_path: false
+        response_buffering: false
+        request_buffering: false
+    plugins:
+      - name: jwt
+        config:
+          # El claim `iss` elige la credencial (consumidor `nucleo`).
+          key_claim_name: iss
+          claims_to_verify: ["exp", "nbf"]
+          # Rechaza tokens con más de 15 minutos de vida restante: el núcleo emite de 10.
+          maximum_expiration: 900
+          header_names: ["authorization"]
+          # El token solo viaja en la cabecera: ni en la URL (quedaría en los logs) ni en cookies.
+          uri_param_names: []
+          cookie_names: []
+          run_on_preflight: false
+      # Más estricto que el global; en Kong la instancia del servicio reemplaza a la global.
+      - name: rate-limiting
+        config:
+          minute: 120
+          limit_by: ip
+          policy: local
+
 consumers:
   - username: nucleo
     jwt_secrets:

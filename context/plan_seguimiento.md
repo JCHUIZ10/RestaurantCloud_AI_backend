@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 22/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está cerrada: ficha, JWT en el núcleo, validación en ms-analítica, los 4 reportes, Kong, la pantalla de reportes en React y la prueba de punta a punta del gateway. La etapa 7 (ms-notificaciones) está en curso: la ficha, el servicio, el núcleo, la bandeja y el canal SSE (7.0 a 7.4) están cerrados; faltan Kong, React y la prueba de punta a punta.
+**Última actualización:** 22/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está cerrada: ficha, JWT en el núcleo, validación en ms-analítica, los 4 reportes, Kong, la pantalla de reportes en React y la prueba de punta a punta del gateway. La etapa 7 (ms-notificaciones) está en curso: la ficha, el servicio, el núcleo, la bandeja, el canal SSE y Kong (7.0 a 7.5) están cerrados; faltan React y la prueba de punta a punta.
 
 ## Contexto
 
@@ -26,7 +26,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
 | 5B. ms-pronóstico | Cerrada salvo la revisión en navegador | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo; humo: 108 comprobaciones |
 | 6. JWT y gateway | Cerrada | JWT RS256 en todos los inicios de sesión, validado por Kong y por ms-analítica; 4 reportes de CU-ADMIN-13 en menos de 0,1 s; Kong 3.9.1 como entrada única; pantalla «Reportes de ventas» en React con 149 pruebas de vitest; `scripts/smoke-gateway.sh`: 138 comprobaciones (121 con `--rapido`) |
-| 7. ms-notificaciones | En curso (7.0 a 7.4 cerradas) | Ficha del contrato cerrada; servicio en el puerto 8003 que recibe eventos firmados y crea avisos sin duplicarlos; el núcleo publica los siete eventos y ya no guarda avisos (tabla `notificacion` retirada); 137 pruebas de vitest contra MongoDB real |
+| 7. ms-notificaciones | En curso (7.0 a 7.5 cerradas) | Ficha del contrato cerrada; servicio en el puerto 8003 que recibe eventos firmados y crea avisos sin duplicarlos; el núcleo publica los siete eventos y ya no guarda avisos (tabla `notificacion` retirada); 137 pruebas de vitest contra MongoDB real |
 
 ---
 
@@ -442,7 +442,7 @@ Servicio Node 22, TypeScript, Fastify y MongoDB que convierte eventos del núcle
 | 7.2 Recepción | `/interno/eventos` con firma HMAC, reglas puras, duplicado por índice único, contratos compartidos | Un evento crea avisos y un duplicado no | Cerrada |
 | 7.3 Núcleo | Eventos nuevos y sus contratos, quitar las 5 inserciones, retirar la tabla `notificacion` | Una acción real produce un aviso en Mongo | Cerrada |
 | 7.4 Bandeja y SSE | 5 rutas con JWT, filtro único, reparto en memoria, latido | `curl -N` recibe el aviso al instante | Cerrada |
-| 7.5 Kong | Servicio con JWT; flujo sin búfer y lectura de 16 min | Todo por el puerto 8000 | Pendiente |
+| 7.5 Kong | Servicio con JWT; flujo sin búfer y lectura de 16 min | Todo por el puerto 8000 | Cerrada |
 | 7.6 React | Maqueta aprobada y campana en los dos layouts | Campana en vivo en los 5 roles | Pendiente |
 | 7.7 Humo | `scripts/smoke-notificaciones.sh` | Prueba de punta a punta | Pendiente |
 | 7.8 Cierre | Fichas, README del servicio y este plan | Etapa cerrada | Pendiente |
@@ -505,6 +505,12 @@ Servicio Node 22, TypeScript, Fastify y MongoDB que convierte eventos del núcle
 - **De punta a punta:** con un JWT emitido por el núcleo (`/auth/token-servicios`), un `curl -N` al puerto 8003 recibió `conectado` y, al enviar un `plato.listo` firmado, el `aviso` al instante; el contador y `marcar-todas-leidas` respondieron bien. Datos de prueba borrados.
 - **Verificado:** 226 pruebas de vitest (89 nuevas) y `tsc` sin errores. **Mutaciones que las pruebas detectan:** quitar el filtro de empresa, de rol, de usuario o de sede (en el filtro y en `esVisible`), el leído por usuario, no fijar RS256, aceptar otra sede, aceptar un rol de sede sin sede, no repartir y no cerrar al vencer. Sin detectar: no limpiar el intervalo del latido (fuga sin efecto visible; el intervalo comprueba que la conexión siga abierta).
 - **Aviso de entorno:** en Git Bash, `vitest` falla con «failed to find the runner» si se ejecuta desde la ruta `/j/...`; desde PowerShell (`J:\...`) funciona.
+
+### Lo que dejó la 7.5 (22/11)
+
+- **Dos servicios de Kong con el mismo destino:** `notificaciones` (ruta `/api/v1/notificaciones`; conexión 3 s, lectura y escritura 30 s, 1 reintento) y `notificaciones-flujo` (ruta `/api/v1/notificaciones/stream`; lectura 16 min, sin reintentos, `response_buffering` y `request_buffering` desactivados). Los tiempos son propiedades del servicio, por eso no basta con una ruta más. Ambos llevan `jwt` (RS256, máximo 15 min) y `rate-limiting` de 120 por minuto, como ms-analítica; Kong elige el prefijo más largo.
+- **No se expone:** `/interno` y `/health` dan 404 desde Kong. Kong ahora espera a que `notificaciones` esté sano.
+- **Verificado por el puerto 8000** con un JWT real del núcleo: sin token 401 (bandeja y canal), contador 200, `/interno/eventos` y `/health` 404, y un `plato.listo` firmado llegó por `curl -N` en menos de 0.4 s, con `Transfer-Encoding: chunked` y el límite de 120 por minuto. `smoke-gateway.sh --rapido`: 121 comprobaciones correctas. El corte real a los 16 minutos no se probó; lo cubren los 15 minutos máximos del JWT y el cierre del servicio.
 
 ---
 

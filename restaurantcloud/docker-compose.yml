@@ -421,6 +421,8 @@ services:
         condition: service_started
       analitica:
         condition: service_healthy
+      notificaciones:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "kong", "health"]
       interval: 10s
