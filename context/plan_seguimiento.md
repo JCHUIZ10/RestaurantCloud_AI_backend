@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 22/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está cerrada: ficha, JWT en el núcleo, validación en ms-analítica, los 4 reportes, Kong, la pantalla de reportes en React y la prueba de punta a punta del gateway. La etapa 7 (ms-notificaciones) está en curso: la ficha, el servicio, el núcleo, la bandeja, el canal SSE, Kong y la campana de React (7.0 a 7.6) están cerrados; falta la prueba de punta a punta.
+**Última actualización:** 22/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está cerrada: ficha, JWT en el núcleo, validación en ms-analítica, los 4 reportes, Kong, la pantalla de reportes en React y la prueba de punta a punta del gateway. La etapa 7 (ms-notificaciones) está en curso: la ficha, el servicio, el núcleo, la bandeja, el canal SSE, Kong, la campana de React y la prueba de punta a punta (7.0 a 7.7) están cerrados; falta el cierre de la documentación (7.8).
 
 ## Contexto
 
@@ -26,7 +26,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
 | 5B. ms-pronóstico | Cerrada salvo la revisión en navegador | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo; humo: 108 comprobaciones |
 | 6. JWT y gateway | Cerrada | JWT RS256 en todos los inicios de sesión, validado por Kong y por ms-analítica; 4 reportes de CU-ADMIN-13 en menos de 0,1 s; Kong 3.9.1 como entrada única; pantalla «Reportes de ventas» en React con 149 pruebas de vitest; `scripts/smoke-gateway.sh`: 138 comprobaciones (121 con `--rapido`) |
-| 7. ms-notificaciones | En curso (7.0 a 7.6 cerradas) | Ficha del contrato cerrada; servicio en el puerto 8003 que recibe eventos firmados y crea avisos sin duplicarlos; el núcleo publica los siete eventos y ya no guarda avisos (tabla `notificacion` retirada); 137 pruebas de vitest contra MongoDB real |
+| 7. ms-notificaciones | En curso (7.0 a 7.7 cerradas) | Ficha del contrato cerrada; servicio en el puerto 8003 que recibe eventos firmados y crea avisos sin duplicarlos; el núcleo publica los siete eventos y ya no guarda avisos (tabla `notificacion` retirada); 137 pruebas de vitest contra MongoDB real |
 
 ---
 
@@ -444,7 +444,7 @@ Servicio Node 22, TypeScript, Fastify y MongoDB que convierte eventos del núcle
 | 7.4 Bandeja y SSE | 5 rutas con JWT, filtro único, reparto en memoria, latido | `curl -N` recibe el aviso al instante | Cerrada |
 | 7.5 Kong | Servicio con JWT; flujo sin búfer y lectura de 16 min | Todo por el puerto 8000 | Cerrada |
 | 7.6 React | Maqueta aprobada y campana en los dos layouts | Campana en vivo en los 5 roles | Cerrada |
-| 7.7 Humo | `scripts/smoke-notificaciones.sh` | Prueba de punta a punta | Pendiente |
+| 7.7 Humo | `scripts/smoke-notificaciones.sh` | Prueba de punta a punta | Cerrada |
 | 7.8 Cierre | Fichas, README del servicio y este plan | Etapa cerrada | Pendiente |
 
 ### Decisiones de la 7.0 (22/11)
@@ -522,6 +522,15 @@ Servicio Node 22, TypeScript, Fastify y MongoDB que convierte eventos del núcle
 - **Verificado:** 234 pruebas de vitest (la suite completa), `tsc -b`, `npm run build` y `check:ui` sin hallazgos en los archivos nuevos (los 4 406 del resto son anteriores). **Mutaciones detectadas:** campana flotante siempre visible o que se oculta con el panel abierto, `Alt+N`, foco que no vuelve, aviso sin deduplicar, crítico de 4 s, crítico que no se anuncia con el panel abierto, contador de críticas, marcar dos veces, reconexión sin recargar, respaldo sin contador, canal que no se cierra, `role=alert`, detalle que no marca (o que saca el aviso), trampa de foco, `renovar` sin JWT nuevo, 403 que reintenta, sin respaldo, lector que pierde el trozo incompleto y sin `X-Local-Id`. La única superviviente es equivalente (el latido ya se ignora por otra rama).
 - **Revisión con Playwright** (real, contra Kong y ms-notificaciones, con sesiones del núcleo) a 360, 768 y 1280 px en administración, propietario, mozo y cocina: la campana aparece donde corresponde, el panel cabe en la ventana (360 px ocupa todo el ancho, 440 px en el resto), no hay desbordes horizontales ni errores de consola, `Esc` lo cierra, y un aviso en vivo llegó a la pantalla en unos 160 ms.
 - **Notas:** `networkidle` nunca se alcanza con el canal abierto, así que las pruebas de navegador esperan `load`. Con firma HMAC, el cliente `curl` de Git Bash en Windows rompe el cuerpo con acentos; para firmar a mano se usa Python.
+
+### Lo que dejó la 7.7 (22/11)
+
+- **`scripts/smoke-notificaciones.sh`** con `--rapido`, `--levantar` y `--sin-evidencias`, al estilo de `smoke-gateway.sh`. Hace acciones reales contra el Compose, por Kong y con los JWT que emite el núcleo, y deja las evidencias en `doc-2u/evidencias/smoke-notificaciones/<fecha>/`. **129 comprobaciones correctas** (113 con `--rapido`, unos 2 min; completo, unos 4,5 min).
+- **Qué recorre:** (0) contenedores, worker en la cola `eventos`, `NOTIFICACIONES_URL`, secreto y clave pública iguales en todos, y los índices de MongoDB (único, TTL y validador estricto); (A) un plato marcado como agotado por cocina llega como alerta al administrador y a los mozos, y no a cocina ni al propietario; (B) un plato listo anulado por el mozo llega como alerta al administrador y como crítico a cocina; (C) un flujo `curl -N` por Kong recibe el aviso crítico (0,6 s después de la acción en la corrida de referencia) con cabeceras de SSE y sin datos internos, y el flujo del mozo no recibe nada; (D) reenviar el evento con `outbox:reenviar-eventos` no crea avisos nuevos; (E) aislamiento de empresa, sede, rol y usuario, y leído por persona (dos mozos del mismo rol, `marcar-todas-leidas` solo de quien lo hace, un solo registro de lectura por usuario); (F) 11 rechazos de Kong y 4 del servicio (con quién rechazó cada uno), `/interno` y `/health` con 404 por Kong y firma interna ausente, de otro secreto, vieja o con el cuerpo alterado; (G) con ms-notificaciones apagada: Kong da 504 en 6 s, el núcleo anula sin errores, la entrega queda pendiente y en pausa sin gastar intentos, y al encenderla los avisos llegan solos (88 s en la corrida de referencia) con la hora del hecho.
+- **Datos de prueba:** una comanda y un producto con el prefijo `SMOKE`. Al salir se anula la comanda, se desactiva el producto, se borran los avisos de MongoDB que mencionan la marca y se cierran las sesiones. Quedan los eventos del outbox y las anulaciones, que son inmutables. Si se interrumpe con el servicio apagado, lo enciende.
+- **Detalles que costaron:** el servicio de Fastify no envía la cabecera `Server` y Kong pone la suya, así que «quién respondió» se decide por el formato del cuerpo (`exito`) y no por esa cabecera. El log de Kong guarda la URL de la prueba «JWT en la URL» y el script lo tacha antes de guardarlo. `outbox:reenviar-eventos` solo toca entregas `fallido`: el script marca la suya como tal, simula primero y no reenvía si hay otras fallidas del mismo tipo.
+- **Los demás humos siguen en verde:** `smoke-gateway.sh --rapido` (121) y `smoke-analitica.sh --rapido` (29).
+- **Latencia observada:** del núcleo al flujo, entre 0,6 y 3 s según el ciclo del worker del outbox. El «al instante» del plan vale para el tramo ms-notificaciones → navegador; el outbox del núcleo pone el resto.
 
 ---
 
