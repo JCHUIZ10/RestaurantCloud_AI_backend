@@ -232,10 +232,10 @@ class CajaController extends Controller
 
         $empresaId = $user->empresa_id ?? DB::table('local')->where('id', $localId)->value('empresa_id');
 
-        $yaNotificado = DB::table('notificacion')
-            ->where('tipo', 'turno_previo_pendiente')
+        // Un solo aviso por turno pendiente: el registro de auditoría es la memoria de lo ya avisado.
+        $yaNotificado = DB::table('log_auditoria')
+            ->where('accion', 'caja.turno_previo.aviso_administracion')
             ->where('entidad_id', $turnoPendiente->id)
-            ->where('leida', false)
             ->exists();
 
         if ($yaNotificado) {
@@ -249,42 +249,28 @@ class CajaController extends Controller
             ->exists();
 
         $destinatarios = $hayAdminLocal ? ['admin_local'] : ['propietario'];
-        $turno = str_pad((string) $turnoPendiente->correlativo, 3, '0', STR_PAD_LEFT);
         $ahora = now();
 
-        foreach ($destinatarios as $rol) {
-            DB::table('notificacion')->insert([
+        DB::transaction(function () use ($turnoPendiente, $user, $hayAdminLocal, $ahora, $empresaId, $localId, $destinatarios): void {
+            // El aviso lo reparte ms-notificaciones: al administrador de la sede o, sin él, al propietario.
+            app(EventosNucleo::class)->turnoPrevioPendiente($turnoPendiente->id, $user->id, $hayAdminLocal, $ahora);
+
+            DB::table('log_auditoria')->insert([
                 'id' => Identificador::ordenado(),
                 'empresa_id' => $empresaId,
                 'local_id' => $localId,
-                'usuario_id' => null,
-                'rol_destinatario' => $rol,
-                'tipo' => 'turno_previo_pendiente',
-                'prioridad' => 'alta',
-                'titulo' => "Turno #{$turno} pendiente de cierre",
-                'mensaje' => "{$user->nombre} no puede abrir turno: el Turno #{$turno} de {$turnoPendiente->cajero_nombre} sigue abierto. Resuélvelo desde Administración de caja.",
+                'usuario_id' => $user->id,
+                'accion' => 'caja.turno_previo.aviso_administracion',
                 'entidad_tipo' => 'caja',
                 'entidad_id' => $turnoPendiente->id,
-                'leida' => false,
-                'created_at' => $ahora,
+                'detalle' => json_encode([
+                    'turno_correlativo' => (int) $turnoPendiente->correlativo,
+                    'cajero_pendiente' => $turnoPendiente->cajero_nombre,
+                    'destinatarios' => $destinatarios,
+                ]),
+                'fecha' => $ahora,
             ]);
-        }
-
-        DB::table('log_auditoria')->insert([
-            'id' => Identificador::ordenado(),
-            'empresa_id' => $empresaId,
-            'local_id' => $localId,
-            'usuario_id' => $user->id,
-            'accion' => 'caja.turno_previo.aviso_administracion',
-            'entidad_tipo' => 'caja',
-            'entidad_id' => $turnoPendiente->id,
-            'detalle' => json_encode([
-                'turno_correlativo' => (int) $turnoPendiente->correlativo,
-                'cajero_pendiente' => $turnoPendiente->cajero_nombre,
-                'destinatarios' => $destinatarios,
-            ]),
-            'fecha' => $ahora,
-        ]);
+        });
 
         return ApiResponse::ok(['notificados' => count($destinatarios), 'ya_notificado' => false]);
     }

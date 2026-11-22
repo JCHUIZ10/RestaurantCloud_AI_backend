@@ -166,6 +166,216 @@ class EventosNucleo
         );
     }
 
+    /**
+     * pedido.item_sustituido (v1): el mozo sustituyó un plato por quiebre de cocina.
+     *
+     * @param  string  $mesaNumero  Mesa como la ve el personal (con la etiqueta de unión si la hay)
+     */
+    public function pedidoItemSustituido(
+        string $pedidoId,
+        string $mesaNumero,
+        string $itemOriginalId,
+        string $itemNuevoId,
+        string $productoOriginalNombre,
+        string $productoNuevoNombre,
+        int $cantidad,
+        float $diferenciaMonto,
+        string $sustituidoPorId,
+        Carbon $fecha,
+    ): string {
+        $local = DB::table('pedido as p')
+            ->join('local as l', 'l.id', '=', 'p.local_id')
+            ->where('p.id', $pedidoId)
+            ->first(['p.local_id', 'l.empresa_id']);
+
+        return $this->publicador->publicar(
+            'pedido.item_sustituido',
+            $local->empresa_id,
+            $local->local_id,
+            'pedido_item',
+            $itemNuevoId,
+            [
+                'pedido_id' => $pedidoId,
+                'mesa_numero' => $mesaNumero,
+                'pedido_item_original_id' => $itemOriginalId,
+                'pedido_item_nuevo_id' => $itemNuevoId,
+                'producto_original_nombre' => $productoOriginalNombre,
+                'producto_nuevo_nombre' => $productoNuevoNombre,
+                'cantidad' => $cantidad,
+                'diferencia_monto' => $diferenciaMonto,
+                'sustituido_por_id' => $sustituidoPorId,
+                'sustituido_por_nombre' => DB::table('usuario')->where('id', $sustituidoPorId)->value('nombre'),
+                'fecha' => $this->instante($fecha),
+            ],
+            $fecha,
+        );
+    }
+
+    /**
+     * producto.agotado (v1): cocina marcó un producto como agotado.
+     *
+     * @param  string  $causa  `manual_cocina` o `resolucion_fuego`
+     */
+    public function productoAgotado(string $productoId, string $causa, ?string $motivo, string $marcadoPorId, Carbon $fecha): string
+    {
+        $producto = DB::table('producto as pr')
+            ->join('local as l', 'l.id', '=', 'pr.local_id')
+            ->where('pr.id', $productoId)
+            ->first(['pr.id', 'pr.nombre', 'pr.local_id', 'l.empresa_id']);
+
+        return $this->publicador->publicar(
+            'producto.agotado',
+            $producto->empresa_id,
+            $producto->local_id,
+            'producto',
+            $producto->id,
+            [
+                'producto_id' => $producto->id,
+                'producto_nombre' => $producto->nombre,
+                'causa' => $causa,
+                'motivo' => $motivo,
+                'marcado_por_id' => $marcadoPorId,
+                'marcado_por_nombre' => DB::table('usuario')->where('id', $marcadoPorId)->value('nombre'),
+                'fecha' => $this->instante($fecha),
+            ],
+            $fecha,
+        );
+    }
+
+    /**
+     * plato.listo (v1): cocina marcó platos como listos. Un evento por comanda: si los ítems son de
+     * varias comandas (listar una tanda por FIFO), se publica uno por cada una.
+     *
+     * Los ítems se leen ya guardados (estado `listo`); una comanda sin mozo no genera evento, porque
+     * no hay a quién avisar.
+     *
+     * @param  list<string>  $itemIds
+     * @return list<string> Identificadores de los eventos publicados
+     */
+    public function platoListo(array $itemIds, Carbon $fecha): array
+    {
+        if ($itemIds === []) {
+            return [];
+        }
+
+        $items = DB::table('pedido_item as pi')
+            ->join('pedido as p', 'p.id', '=', 'pi.pedido_id')
+            ->join('local as l', 'l.id', '=', 'p.local_id')
+            ->join('mesa as m', 'm.id', '=', 'p.mesa_id')
+            ->join('producto as pr', 'pr.id', '=', 'pi.producto_id')
+            ->leftJoin('usuario as u', 'u.id', '=', 'p.mozo_id')
+            ->whereIn('pi.id', $itemIds)
+            ->orderBy('pi.created_at')
+            ->orderBy('pi.id')
+            ->get([
+                'pi.id', 'pi.pedido_id', 'pi.cantidad', 'pr.nombre as producto_nombre',
+                'p.local_id', 'p.mozo_id', 'm.numero as mesa_numero', 'l.empresa_id', 'u.nombre as mozo_nombre',
+            ]);
+
+        $eventos = [];
+
+        foreach ($items->groupBy('pedido_id') as $pedidoId => $delPedido) {
+            $primero = $delPedido->first();
+            if ($primero->mozo_id === null) {
+                continue;
+            }
+
+            $eventos[] = $this->publicador->publicar(
+                'plato.listo',
+                $primero->empresa_id,
+                $primero->local_id,
+                'pedido',
+                (string) $pedidoId,
+                [
+                    'pedido_id' => (string) $pedidoId,
+                    'mesa_numero' => (string) $primero->mesa_numero,
+                    'mozo_id' => $primero->mozo_id,
+                    'mozo_nombre' => $primero->mozo_nombre,
+                    'items' => $delPedido->map(fn (object $item): array => [
+                        'pedido_item_id' => $item->id,
+                        'producto_nombre' => $item->producto_nombre,
+                        'cantidad' => (int) $item->cantidad,
+                    ])->values()->all(),
+                    'fecha' => $this->instante($fecha),
+                ],
+                $fecha,
+            );
+        }
+
+        return $eventos;
+    }
+
+    /**
+     * caja.turno_previo_pendiente (v1): un cajero no puede abrir turno porque el de otro sigue abierto.
+     */
+    public function turnoPrevioPendiente(string $cajaId, string $solicitanteId, bool $hayAdminLocal, Carbon $fecha): string
+    {
+        $caja = DB::table('caja as c')
+            ->join('local as l', 'l.id', '=', 'c.local_id')
+            ->leftJoin('usuario as u', 'u.id', '=', 'c.cajero_id')
+            ->where('c.id', $cajaId)
+            ->first(['c.id', 'c.local_id', 'c.correlativo', 'l.empresa_id', 'u.nombre as cajero_nombre']);
+
+        return $this->publicador->publicar(
+            'caja.turno_previo_pendiente',
+            $caja->empresa_id,
+            $caja->local_id,
+            'caja',
+            $caja->id,
+            [
+                'caja_id' => $caja->id,
+                'turno_correlativo' => (int) $caja->correlativo,
+                'cajero_pendiente_nombre' => $caja->cajero_nombre,
+                'solicitante_id' => $solicitanteId,
+                'solicitante_nombre' => DB::table('usuario')->where('id', $solicitanteId)->value('nombre'),
+                'hay_admin_local' => $hayAdminLocal,
+                'fecha' => $this->instante($fecha),
+            ],
+            $fecha,
+        );
+    }
+
+    /**
+     * caja.cerrada (v1): se cerró un turno con diferencia en el arqueo. Quien llama decide si hay
+     * diferencia; un cierre cuadrado no publica nada.
+     */
+    public function cajaCerrada(
+        string $cajaId,
+        string $empresaId,
+        float $efectivoEsperado,
+        float $efectivoContado,
+        bool $cierreForzado,
+        string $cerradoPorId,
+        Carbon $fecha,
+    ): string {
+        $caja = DB::table('caja as c')
+            ->leftJoin('usuario as u', 'u.id', '=', 'c.cajero_id')
+            ->where('c.id', $cajaId)
+            ->first(['c.id', 'c.local_id', 'c.correlativo', 'c.cajero_id', 'u.nombre as cajero_nombre']);
+
+        return $this->publicador->publicar(
+            'caja.cerrada',
+            $empresaId,
+            $caja->local_id,
+            'caja',
+            $caja->id,
+            [
+                'caja_id' => $caja->id,
+                'turno_correlativo' => (int) $caja->correlativo,
+                'cajero_id' => $caja->cajero_id,
+                'cajero_nombre' => $caja->cajero_nombre,
+                'efectivo_esperado' => $efectivoEsperado,
+                'efectivo_contado' => $efectivoContado,
+                'discrepancia' => round($efectivoContado - $efectivoEsperado, 2),
+                'cierre_forzado' => $cierreForzado,
+                'cerrado_por_id' => $cerradoPorId,
+                'cerrado_por_nombre' => DB::table('usuario')->where('id', $cerradoPorId)->value('nombre'),
+                'fecha' => $this->instante($fecha),
+            ],
+            $fecha,
+        );
+    }
+
     private function instante(Carbon $momento): string
     {
         return $momento->copy()->setTimezone(config('app.timezone'))->toIso8601String();

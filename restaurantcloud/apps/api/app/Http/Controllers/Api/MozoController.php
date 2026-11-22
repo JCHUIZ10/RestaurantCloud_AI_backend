@@ -3486,22 +3486,19 @@ class MozoController extends Controller
                 'fecha' => $now,
             ]);
 
-            // 5. Notificación prioritaria a Cocina
-            DB::table('notificacion')->insert([
-                'id' => Identificador::ordenado(),
-                'empresa_id' => $empresaId,
-                'local_id' => $localId,
-                'usuario_id' => null,
-                'rol_destinatario' => 'cocina',
-                'tipo' => 'sustitucion_plato_urgente',
-                'prioridad' => 'alta',
-                'titulo' => "⚡ Sustitución Urgente: Mesa {$titular->numero}",
-                'mensaje' => "El plato {$item->producto_original_nombre} fue sustituido por {$nuevoProd->nombre} ({$cantidad}x). Prioridad en cocina.",
-                'entidad_tipo' => 'pedido_item',
-                'entidad_id' => $nuevoItemId,
-                'leida' => false,
-                'created_at' => $now,
-            ]);
+            // 5. Aviso prioritario a Cocina: lo reparte ms-notificaciones a partir del evento
+            app(EventosNucleo::class)->pedidoItemSustituido(
+                $item->pedido_id,
+                (string) $titular->numero,
+                $item->id,
+                $nuevoItemId,
+                $item->producto_original_nombre,
+                $nuevoProd->nombre,
+                $cantidad,
+                $diferenciaMonto,
+                $user->id,
+                $now,
+            );
 
             return ApiResponse::ok([
                 'pedido_id' => $item->pedido_id,
@@ -3632,24 +3629,7 @@ class MozoController extends Controller
                 'fecha' => $now,
             ]);
 
-            // 4. Notificación para Administrador de Sede (CU-ADMIN-12)
-            DB::table('notificacion')->insert([
-                'id' => Identificador::ordenado(),
-                'empresa_id' => $empresaId,
-                'local_id' => $localId,
-                'usuario_id' => null,
-                'rol_destinatario' => 'admin_local',
-                'tipo' => 'anulacion_quiebre_cocina',
-                'prioridad' => 'media',
-                'titulo' => "⚠️ Anulación por Quiebre: Mesa {$titular->numero}",
-                'mensaje' => "El plato {$item->producto_nombre} fue anulado sin merma por quiebre de stock en cocina.",
-                'entidad_tipo' => 'pedido_anulacion',
-                'entidad_id' => $anulacionId,
-                'leida' => false,
-                'created_at' => $now,
-            ]);
-
-            // 5. Verificar si quedan consumos activos
+            // 4. Verificar si quedan consumos activos
             $activosRestantes = DB::table('pedido_item')
                 ->where('pedido_id', $item->pedido_id)
                 ->where('estado', '!=', 'anulado')

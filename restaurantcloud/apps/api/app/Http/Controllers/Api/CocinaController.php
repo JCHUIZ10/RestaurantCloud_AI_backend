@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Domains\Archivos\Services\TenantStorageService;
 use App\Domains\Carta\Services\CartaPublicaService;
 use App\Domains\Cocina\Services\ConfiguracionKdsService;
+use App\Domains\Eventos\Services\EventosNucleo;
 use App\Domains\Inventario\Services\StockDeduccionService;
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
@@ -298,6 +299,10 @@ class CocinaController extends Controller
                 DB::table('pedido_item')->where('id', $itemId)->update($updateData);
             }
 
+            if (! $esIdempotente && $nuevoEstado === 'listo') {
+                app(EventosNucleo::class)->platoListo([$itemId], $now);
+            }
+
             return ApiResponse::ok([
                 'item_id' => $itemId,
                 'pedido_id' => $item->pedido_id,
@@ -411,19 +416,23 @@ class CocinaController extends Controller
             ->get();
 
         $now = now();
-        foreach ($itemsToUpdate as $it) {
-            $inicio = $it->fecha_inicio_coccion ? Carbon::parse($it->fecha_inicio_coccion) : $now;
-            $listo = $inicio->gt($now) ? $inicio : $now;
+        DB::transaction(function () use ($itemsToUpdate, $now) {
+            foreach ($itemsToUpdate as $it) {
+                $inicio = $it->fecha_inicio_coccion ? Carbon::parse($it->fecha_inicio_coccion) : $now;
+                $listo = $inicio->gt($now) ? $inicio : $now;
 
-            DB::table('pedido_item')
-                ->where('id', $it->id)
-                ->update([
-                    'estado' => 'listo',
-                    'fecha_inicio_coccion' => $inicio,
-                    'fecha_listo_cocina' => $listo,
-                    'updated_at' => $now,
-                ]);
-        }
+                DB::table('pedido_item')
+                    ->where('id', $it->id)
+                    ->update([
+                        'estado' => 'listo',
+                        'fecha_inicio_coccion' => $inicio,
+                        'fecha_listo_cocina' => $listo,
+                        'updated_at' => $now,
+                    ]);
+            }
+
+            app(EventosNucleo::class)->platoListo($itemsToUpdate->pluck('id')->all(), $now);
+        });
 
         // Deducción atómica de todas las recetas culinarias pendientes de la comanda
         $deduccionBatch = app(StockDeduccionService::class)->descontarPedidoCompleto($pedidoId, $user->id);
@@ -884,6 +893,8 @@ class CocinaController extends Controller
                     break;
                 }
             }
+
+            app(EventosNucleo::class)->platoListo($itemsAfectadosIds, $now);
         });
 
         return ApiResponse::ok([
@@ -1132,26 +1143,7 @@ class CocinaController extends Controller
                     'pi.updated_at' => $now,
                 ]);
 
-            // Registro institucional en notificacion (02_schema_ddl.sql)
-            $local = DB::table('local')->where('id', $localId)->first();
-            $prod = DB::table('producto')->where('id', $productoId)->first();
-            if ($local && $prod) {
-                DB::table('notificacion')->insert([
-                    'id' => Identificador::ordenado(),
-                    'empresa_id' => $local->empresa_id,
-                    'local_id' => $localId,
-                    'usuario_id' => null,
-                    'rol_destinatario' => 'admin_local',
-                    'tipo' => 'quiebre_manual_cocina',
-                    'prioridad' => 'media',
-                    'titulo' => "⚠️ Quiebre manual en cocina: {$prod->nombre}",
-                    'mensaje' => "El cocinero {$user->nombre} marcó como agotado el plato.",
-                    'entidad_tipo' => 'producto',
-                    'entidad_id' => $productoId,
-                    'leida' => false,
-                    'created_at' => $now,
-                ]);
-            }
+            app(EventosNucleo::class)->productoAgotado($productoId, 'manual_cocina', null, $user->id, $now);
         });
 
         return ApiResponse::ok([
@@ -1222,26 +1214,8 @@ class CocinaController extends Controller
                     ]);
             }
 
-            // 4. Registrar alerta institucional
-            $local = DB::table('local')->where('id', $localId)->first();
-            $prod = DB::table('producto')->where('id', $productoId)->first();
-            if ($local && $prod) {
-                DB::table('notificacion')->insert([
-                    'id' => Identificador::ordenado(),
-                    'empresa_id' => $local->empresa_id,
-                    'local_id' => $localId,
-                    'usuario_id' => null,
-                    'rol_destinatario' => 'admin_local',
-                    'tipo' => 'quiebre_manual_cocina',
-                    'prioridad' => 'media',
-                    'titulo' => "⚠️ Quiebre manual en cocina: {$prod->nombre}",
-                    'mensaje' => "El cocinero {$user->nombre} resolvió órdenes en fuego. Motivo: {$motivo}.",
-                    'entidad_tipo' => 'producto',
-                    'entidad_id' => $productoId,
-                    'leida' => false,
-                    'created_at' => $now,
-                ]);
-            }
+            // 4. Avisar el quiebre: lo reparte ms-notificaciones a partir del evento
+            app(EventosNucleo::class)->productoAgotado($productoId, 'resolucion_fuego', $motivo, $user->id, $now);
         });
 
         return ApiResponse::ok([

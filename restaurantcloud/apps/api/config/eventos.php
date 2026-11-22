@@ -38,6 +38,11 @@ return [
         'venta.registrada' => ['ms-analitica'],
         'comprobante.anulado' => ['ms-analitica', 'ms-notificaciones'],
         'pedido.anulado' => ['ms-analitica', 'ms-notificaciones'],
+        'pedido.item_sustituido' => ['ms-notificaciones'],
+        'producto.agotado' => ['ms-notificaciones'],
+        'plato.listo' => ['ms-notificaciones'],
+        'caja.turno_previo_pendiente' => ['ms-notificaciones'],
+        'caja.cerrada' => ['ms-notificaciones'],
     ],
 
     /*

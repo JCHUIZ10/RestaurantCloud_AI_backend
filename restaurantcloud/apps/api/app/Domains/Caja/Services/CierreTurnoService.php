@@ -3,6 +3,7 @@
 namespace App\Domains\Caja\Services;
 
 use App\Domains\Caja\Exceptions\CierreTurnoException;
+use App\Domains\Eventos\Services\EventosNucleo;
 use App\Support\Identificador;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +21,7 @@ class CierreTurnoService
     public function __construct(
         private HistorialComprobantesService $historial,
         private ReporteZDigitalService $reporteZDigital,
+        private EventosNucleo $eventos,
     ) {}
 
     /**
@@ -248,6 +250,19 @@ class CierreTurnoService
                     ]),
                     'fecha' => now(),
                 ]);
+            }
+
+            // Solo un arqueo con diferencia es noticia para la administración; uno cuadrado no publica nada.
+            if (abs($discrepancia) > 0.001) {
+                $this->eventos->cajaCerrada(
+                    $caja->id,
+                    $empresaId,
+                    $efectivoEsperado,
+                    $montoRealFisico,
+                    $esForzado,
+                    $usuarioId,
+                    $cierreTime,
+                );
             }
 
             return ['reporte_z' => $reporteZ, 'empresa_id' => $empresaId, 'caja_id' => $caja->id];
