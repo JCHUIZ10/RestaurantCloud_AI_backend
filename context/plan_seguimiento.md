@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 21/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está en curso: 6.0 a 6.4 cerradas (ficha, JWT en el núcleo, validación en ms-analítica, los 4 reportes y Kong); sigue la 6.5 (pantalla de reportes en React).
+**Última actualización:** 22/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está en curso: 6.0 a 6.5 cerradas (ficha, JWT en el núcleo, validación en ms-analítica, los 4 reportes, Kong y la pantalla de reportes en React); sigue la 6.6 (prueba de punta a punta).
 
 ## Contexto
 
@@ -25,7 +25,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | 4. Datos sintéticos | Cerrada | 24 meses de ÁUREA en 3 min 45 s; 111 pruebas de ms-analítica; humo: 28 comprobaciones |
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
 | 5B. ms-pronóstico | Cerrada salvo la revisión en navegador | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo; humo: 108 comprobaciones |
-| 6. JWT y gateway | **En curso** (6.0 a 6.4 cerradas) | JWT RS256 en todos los inicios de sesión, validado por Kong y por ms-analítica; 4 reportes de CU-ADMIN-13 en menos de 0,1 s; Kong 3.9.1 como entrada única, verificado en vivo (rutas, JWT, `/interno` oculto, límites, CORS, `X-Request-Id`) |
+| 6. JWT y gateway | **En curso** (6.0 a 6.5 cerradas) | JWT RS256 en todos los inicios de sesión, validado por Kong y por ms-analítica; 4 reportes de CU-ADMIN-13 en menos de 0,1 s; Kong 3.9.1 como entrada única, verificado en vivo (rutas, JWT, `/interno` oculto, límites, CORS, `X-Request-Id`); pantalla «Reportes de ventas» en React verificada en vivo con ÁUREA a través de Kong, incluida la renovación del JWT ante un 401 real; 149 pruebas de vitest |
 
 ---
 
@@ -322,7 +322,7 @@ Se divide como la 5B: primero el contrato, después cada pieza probada por sí s
 | 6.2 JWT en ms-analítica | `soporte/jwt.py` (copiable a ms-notificaciones), dependencia de sesión con rol, empresa, sede y módulos | Pruebas de firma, caducidad, emisor, audiencia, rol y sede | Cerrada |
 | 6.3 Reportes | `ventas/resumen`, `ventas/por-hora`, `productos/ranking` (con ingeniería de menú) y `personal/desempeno`, con pytest contra PostgreSQL real | Reportes de ÁUREA con el histórico sintético | Cerrada |
 | 6.4 Kong | `infra/kong` (DB-less, plantilla con la clave pública), servicio en el compose (puerto 8000), JWT en `/api/v1/analitica`, límite de peticiones, CORS, `X-Request-Id`; Vite pasa a apuntar a Kong | Todo el tráfico del navegador entra por Kong; `/interno` no se expone | Cerrada |
-| 6.5 React | Cliente de microservicios con renovación del JWT y pantalla «Reportes» de 3 pestañas (CU-ADMIN-13) | Flujo del navegador a ms-analítica por Kong | Pendiente |
+| 6.5 React | Cliente de microservicios con renovación del JWT y pantalla «Reportes» de 3 pestañas (CU-ADMIN-13), con gráficos de Recharts | Flujo del navegador a ms-analítica por Kong | Cerrada |
 | 6.6 Humo | `scripts/smoke-gateway.sh` con evidencias | Prueba de punta a punta para el informe | Pendiente |
 
 ### Decisiones de la 6.0 (21/11)
@@ -377,6 +377,35 @@ Se divide como la 5B: primero el contrato, después cada pieza probada por sí s
 - **Hallazgo verificado (para la etapa 9):** Laravel ve la IP real del cliente detrás de Kong (172.20.0.1, no la de Kong), pero si el cliente manda su propio `X-Forwarded-For`, Kong lo deja pasar y Laravel lo toma (`203.0.113.9`), así que se podría eludir el bloqueo de login por IP. En producción el puerto de Kong no se publica y Caddy queda delante; que Caddy no confíe en el `X-Forwarded-For` del cliente se comprueba en la etapa 8. Detalle en la ficha del gateway.
 - **Límites:** el CORS con un solo origen siempre devuelve ese origen (el navegador bloquea al que no coincide); ms-analítica no escribe líneas de acceso, así que el `X-Request-Id` solo aparece en sus líneas de error.
 
+### Decisiones de la 6.5 (22/11)
+
+- **Primero una maqueta HTML aprobada** (`wireframe/administrador/CU-ADMIN-13-reportes-ventas/maqueta-reportes.html`, con los datos reales de la 6.3) y después React. En la revisión se cambió el comparador de periodos (un solo control con desde, hasta y días), la paginación del ranking y la forma de clasificar los platos.
+- **Nombres de los grupos de la ingeniería de menú:** `estrella` = Imprescindibles, `caballito` = Populares, `puzle` = Por impulsar, `rezagado` = Por revisar. Dicen qué hacer con el plato y no chocan con las estrellas. Solo cambia la pantalla: las claves del servicio son las mismas. Cada grupo muestra su regla con los umbrales reales (que ms-analítica calcula por periodo: popular desde el 70 % de la participación media, rentable desde el margen medio ponderado).
+- **Rentabilidad en estrellas, calculada en la pantalla** con el campo `margen` que el servicio ya devuelve: se ordenan los platos con costo por lo que dejan en total y se reparten en cinco tramos iguales. Con menos de 5 platos con costo no se califica, y un plato sin costo queda «sin calificar». No cambia el contrato; ya está en la ficha de ms-analítica y en `cu.md`.
+- **Plan:** las pestañas Platos y Equipo se marcan como bloqueadas desde el principio leyendo `modulos` del JWT. Es solo una pista de interfaz; quien decide es el servicio, y un 403 `ERR_MODULO_NO_INCLUIDO` muestra la misma invitación. El texto no nombra un plan concreto («los planes que incluyen reportes avanzados»), porque el código no dice cuáles son.
+- **Corte de las horas:** la curva se parte en «antes de las 18:00» y «desde las 18:00». Es una división fija de la pantalla, no el horario de la sede (los turnos quedaron fuera del alcance en la 6.0).
+
+### Lo que dejó la 6.5 (22/11)
+
+- **Cliente de microservicios** (`src/services/api/`): `jwtServicios` guarda el JWT solo en memoria, lo renueva con `POST /auth/token-servicios` cuando faltan menos de 60 s, comparte una sola renovación entre las peticiones simultáneas, lo descarta si cambia el token de sesión y mide su vencimiento con la hora del servidor (un reloj mal puesto no lo adelanta ni lo atrasa). `clienteMicroservicios` envía ese JWT, manda `X-Local-Id` solo si quien consulta es propietario (una sede elegida que quedó de otra sesión no se filtra a un administrador) y ante un 401 renueva y reintenta una sola vez. `reportesService` (en `serviceAdapter`) expone los 4 reportes.
+- **Pantalla** `/admin/reportes/ventas` (entrada «Reportes de ventas» en el menú de la sede), con la pestaña elegida en la dirección (`?pestana=`):
+  - **Periodo:** hoy, ayer, 7 días, este mes o personalizado (hasta 366 días, con los mismos límites del servicio). Un solo comparador muestra desde qué día hasta qué día se compara y cuántos días son.
+  - **Ventas:** resumen con variación, indicadores con barras «Actual» y «Anterior», curva por hora, medios de pago, tipos de comprobante, descuentos y anulaciones.
+  - **Platos:** grupos con su regla, mapa de la carta, ingresos por categoría y ranking paginado con estrellas, filtro por grupo y orden por columna.
+  - **Equipo de salón:** una tarjeta por mozo, ventas y ticket frente al promedio de la sede, y anulaciones antes del cobro.
+  - **Estados** en cada pestaña: cargando, sin ventas (con salto a un periodo más amplio), error con «Reintentar», 429 y servicio caído con mensaje propio, y plan sin reportes avanzados.
+- **Dependencias:** `recharts@2.15.4` (gráficos) y `@playwright/test` (capturas, solo desarrollo), ambas aprobadas. Las consultas de contenedor se hicieron con variantes arbitrarias de Tailwind, sin plugin nuevo.
+- **Verificado:**
+  - **Pruebas:** 83 nuevas (20 del cliente y la renovación, 40 de la lógica de periodos, estrellas y frases, 23 de la pantalla con el servicio simulado); suite del frontend completa: **149**. `tsc`, `npm run build`, `check:ui` y lint sin hallazgos en los archivos nuevos.
+  - **Mutaciones:** se rompieron a propósito nueve comportamientos (margen de renovación, tope de reintentos, `X-Local-Id` por rol, reparto de estrellas, periodo anterior, consulta sin plan, paginación, respuestas atrasadas y el límite de 366 días) y cada uno puso alguna prueba en rojo.
+  - **En vivo** con ÁUREA, Vite → Kong → ms-analítica: un solo `token-servicios` por carga y todas las llamadas en 200; con el token alterado en la primera llamada, Kong respondió **401 real**, el cliente pidió uno nuevo y reintentó sin que la pantalla lo notara. Las tres pestañas a 360, 768 y 1280 px, sin errores de consola ni scroll horizontal de página.
+- **Límites:**
+  - La rama «plan sin reportes avanzados» solo se probó con el servicio simulado: ÁUREA sí tiene el módulo.
+  - En desarrollo cada consulta se ve doble por el modo estricto de React; en producción no.
+  - `ultimo_evento_en` de ÁUREA es la hora de la carga sintética, no de una venta real (ver Pendientes).
+  - Recharts engorda el paquete principal, que ya avisaba por tamaño; partirlo en trozos queda para la etapa 8.
+  - Las pantallas de la 5B siguen sin revisarse en navegador: Playwright ya está instalado y alcanza con repetir este recorrido con ellas.
+
 ---
 
 ## Hoja de ruta (se detalla al llegar)
@@ -414,5 +443,6 @@ Orden recomendado si el tiempo aprieta: 4 → 5 → 8 antes que 6 y 7, porque IA
 
 - **Núcleo:** `docker exec restaurantcloudIA_api php artisan test --compact` (639 pruebas en la última corrida completa, 18/11, más 4 de `carta:exportar` ejecutadas aparte). Si se cambia el seed, antes `./scripts/test-db-reset.sh`.
 - **ms-analítica:** `uv run pytest` en `services/analitica`, con `TEST_DATABASE_URL` y `TEST_APP_DATABASE_URL` (111 pruebas, unos 2 minutos desde el host).
+- **Frontend:** `npm test` en `apps/web` (149 pruebas de vitest), `npm run build` y `npm run check:ui`.
 - **Integración:** `./scripts/smoke-analitica.sh` (o `--rapido`, sin el escenario de caída) y `./scripts/smoke-pronostico.sh` (o `--rapido`; ver la 5B.6).
 - **Estado de las entregas:** `docker exec restaurantcloudIA_api php artisan outbox:estado`.
