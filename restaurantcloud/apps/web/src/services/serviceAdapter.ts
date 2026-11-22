@@ -27,6 +27,7 @@ import { realPlanoService } from './api/planoService';
 import { realSaasTenantsService, type SaasTenantsService } from './api/realSaasTenantsService';
 import { realFlujoCajaService } from './api/realFlujoCajaService';
 import { realPrediccionService } from './api/realPrediccionService';
+import { realReportesService } from './api/realReportesService';
 
 export const IS_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 
@@ -38,6 +39,9 @@ export const planoService = realPlanoService;
 
 // Predicción de demanda y reposición (CU-ADMIN-07, CU-PROP-08): 100% conectado a la API de Laravel
 export const prediccionService = realPrediccionService;
+
+// Reportes de ventas y desempeño (CU-ADMIN-13): ms-analítica por Kong, con el JWT del núcleo
+export const reportesService = realReportesService;
 
 // Módulo Caja POS: 100% conectado directamente a la API de Laravel
 export const cajaService = realCajaService;
