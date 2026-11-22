@@ -1,0 +1,30 @@
+{
+  "name": "ms-notificaciones",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bandeja de avisos y entrega en tiempo real de RestaurantCloud (doc-2u/servicios/ms-notificaciones.md).",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "esquema": "node dist/esquema.js",
+    "esquema:dev": "tsx src/esquema.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "fastify": "5.12.8",
+    "jose": "6.2.15",
+    "mongodb": "7.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "5.1.0"
+  }
+}
