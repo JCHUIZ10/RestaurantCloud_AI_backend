@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 22/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está cerrada: ficha, JWT en el núcleo, validación en ms-analítica, los 4 reportes, Kong, la pantalla de reportes en React y la prueba de punta a punta del gateway. La etapa 7 (ms-notificaciones) está en curso: la ficha (7.0) está cerrada y falta el código.
+**Última actualización:** 22/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está cerrada: ficha, JWT en el núcleo, validación en ms-analítica, los 4 reportes, Kong, la pantalla de reportes en React y la prueba de punta a punta del gateway. La etapa 7 (ms-notificaciones) está en curso: la ficha, el servicio, el núcleo, la bandeja y el canal SSE (7.0 a 7.4) están cerrados; faltan Kong, React y la prueba de punta a punta.
 
 ## Contexto
 
@@ -26,7 +26,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
 | 5B. ms-pronóstico | Cerrada salvo la revisión en navegador | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo; humo: 108 comprobaciones |
 | 6. JWT y gateway | Cerrada | JWT RS256 en todos los inicios de sesión, validado por Kong y por ms-analítica; 4 reportes de CU-ADMIN-13 en menos de 0,1 s; Kong 3.9.1 como entrada única; pantalla «Reportes de ventas» en React con 149 pruebas de vitest; `scripts/smoke-gateway.sh`: 138 comprobaciones (121 con `--rapido`) |
-| 7. ms-notificaciones | En curso (7.0 a 7.3 cerradas) | Ficha del contrato cerrada; servicio en el puerto 8003 que recibe eventos firmados y crea avisos sin duplicarlos; el núcleo publica los siete eventos y ya no guarda avisos (tabla `notificacion` retirada); 137 pruebas de vitest contra MongoDB real |
+| 7. ms-notificaciones | En curso (7.0 a 7.4 cerradas) | Ficha del contrato cerrada; servicio en el puerto 8003 que recibe eventos firmados y crea avisos sin duplicarlos; el núcleo publica los siete eventos y ya no guarda avisos (tabla `notificacion` retirada); 137 pruebas de vitest contra MongoDB real |
 
 ---
 
@@ -441,7 +441,7 @@ Servicio Node 22, TypeScript, Fastify y MongoDB que convierte eventos del núcle
 | 7.1 Esqueleto | Servicio Fastify, compose (puerto 8003), usuario de Mongo sin privilegios, esquema (validador e índices con TTL) | `GET /health` y colección con sus índices | Cerrada |
 | 7.2 Recepción | `/interno/eventos` con firma HMAC, reglas puras, duplicado por índice único, contratos compartidos | Un evento crea avisos y un duplicado no | Cerrada |
 | 7.3 Núcleo | Eventos nuevos y sus contratos, quitar las 5 inserciones, retirar la tabla `notificacion` | Una acción real produce un aviso en Mongo | Cerrada |
-| 7.4 Bandeja y SSE | 5 rutas con JWT, filtro único, reparto en memoria, latido | `curl -N` recibe el aviso al instante | Pendiente |
+| 7.4 Bandeja y SSE | 5 rutas con JWT, filtro único, reparto en memoria, latido | `curl -N` recibe el aviso al instante | Cerrada |
 | 7.5 Kong | Servicio con JWT; flujo sin búfer y lectura de 16 min | Todo por el puerto 8000 | Pendiente |
 | 7.6 React | Maqueta aprobada y campana en los dos layouts | Campana en vivo en los 5 roles | Pendiente |
 | 7.7 Humo | `scripts/smoke-notificaciones.sh` | Prueba de punta a punta | Pendiente |
@@ -494,6 +494,17 @@ Servicio Node 22, TypeScript, Fastify y MongoDB que convierte eventos del núcle
 - **De punta a punta:** un `producto.agotado` publicado en el núcleo salió por el outbox (entrega `entregado` al primer intento) y creó en Mongo dos avisos, uno para el administrador y otro para los mozos. Los datos de prueba se borraron.
 - **Verificado:** 9 pruebas nuevas en `EventosOutboxPublicacionTest` y 3 pruebas existentes pasadas de comprobar la tabla a comprobar el evento; 137 pruebas de vitest y `tsc` sin errores; Pint; suite completa del núcleo: 714 pasan y 3 fallan. Los 3 fallos son de `AdminFlujoCajaTest` ("periodo hoy" a las 3 de la madrugada) y fallan igual sin estos cambios.
 - **Pendiente anotado:** esas 3 pruebas dependen de la hora del día; conviene fijar el reloj en ellas.
+
+### Lo que dejó la 7.4 (22/11)
+
+- **JWT en el servicio:** `soporte/jwt.ts` traduce el de ms-analítica con `jose`: RS256 fijo, emisor, audiencia, `exp`/`nbf` con 30 s de tolerancia, `sub`, `empresa_id` y `local_id` como uuid, y 503 `ERR_JWT_NO_CONFIGURADO` con la clave ausente o mal formada. El plan lo ubicaba en la 7.2, pero allí solo se hizo la firma interna.
+- **Una sola regla de visibilidad:** `datos/bandeja.ts` exporta `filtroVisible` (MongoDB) y `esVisible` (memoria, para el SSE). Una prueba inserta 28 avisos (2 empresas × 2 sedes × 7 destinatarios) y comprueba que ambas coinciden para 44 contextos distintos. Un rol de sede sin sede en el contexto lanza un error en vez de ampliarse a toda la empresa; el token sin sede de un rol que no es propietario se rechaza con 401.
+- **Rutas:** listado paginado (`meta.total`), `no-leidas/total` con `criticas`, `PATCH /{id}/leida`, `marcar-todas-leidas` y `stream`. Un aviso ajeno, de otra empresa o con id mal formado responde 404 igual que uno inexistente. Marcar como leído es una sola actualización atómica (`$addToSet` con la condición «aún no leído por mí»), así que repetirlo no duplica el registro.
+- **Canal SSE:** `fetch` con `Authorization: Bearer`, cabeceras `text/event-stream`, `no-cache` y `X-Accel-Buffering: no`; `conectado` al abrir, un evento `aviso` con su `id:`, latido cada 25 s y `renovar` más cierre 30 s antes de `exp`. La conexión se registra antes de enviar `conectado`, para no perder avisos entre una cosa y otra. Los errores de autenticación salen en JSON antes de abrir el canal.
+- **Apagado:** `forceCloseConnections: true` y un gancho `preClose` que termina los canales de forma ordenada. Sin lo primero, `app.close()` se quedaba esperando conexiones de clientes.
+- **De punta a punta:** con un JWT emitido por el núcleo (`/auth/token-servicios`), un `curl -N` al puerto 8003 recibió `conectado` y, al enviar un `plato.listo` firmado, el `aviso` al instante; el contador y `marcar-todas-leidas` respondieron bien. Datos de prueba borrados.
+- **Verificado:** 226 pruebas de vitest (89 nuevas) y `tsc` sin errores. **Mutaciones que las pruebas detectan:** quitar el filtro de empresa, de rol, de usuario o de sede (en el filtro y en `esVisible`), el leído por usuario, no fijar RS256, aceptar otra sede, aceptar un rol de sede sin sede, no repartir y no cerrar al vencer. Sin detectar: no limpiar el intervalo del latido (fuga sin efecto visible; el intervalo comprueba que la conexión siga abierta).
+- **Aviso de entorno:** en Git Bash, `vitest` falla con «failed to find the runner» si se ejecuta desde la ruta `/j/...`; desde PowerShell (`J:\...`) funciona.
 
 ---
 

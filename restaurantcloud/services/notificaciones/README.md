@@ -4,7 +4,9 @@ Convierte los eventos del núcleo en avisos para el personal (por rol o por pers
 
 **Stack:** Node.js 22 · TypeScript · Fastify 5 · driver oficial de MongoDB · jose (JWT) · MongoDB propio · vitest.
 
-**Estado (etapa 7.3):** recibe eventos firmados en `POST /interno/eventos` y los convierte en avisos con las reglas de la ficha (siete tipos), sin duplicarlos si llegan dos veces. El núcleo publica los siete eventos y ya no guarda avisos. También están `GET /health`, el formato de respuesta común, `X-Request-Id`, los logs JSON y el esquema de MongoDB. La bandeja y el canal SSE (7.4) vienen después.
+**Estado (etapa 7.4):** recibe eventos firmados en `POST /interno/eventos` y los convierte en avisos con las reglas de la ficha (siete tipos), sin duplicarlos si llegan dos veces. El núcleo publica los siete eventos y ya no guarda avisos. También están `GET /health`, el formato de respuesta común, `X-Request-Id`, los logs JSON y el esquema de MongoDB. Desde la 7.4 también están la bandeja del navegador (5 rutas con JWT) y el canal SSE; falta publicarlos por Kong (7.5).
+
+**Quién ve qué:** `datos/bandeja.ts` es la única capa que decide qué avisos ve cada usuario. `filtroVisible` (MongoDB) y `esVisible` (memoria, para el SSE) expresan la misma regla y una prueba las compara en todas las combinaciones. `dominio/reparto.ts` guarda las conexiones SSE abiertas y reparte cada aviso recién guardado con `esVisible`; `api/notificaciones.ts` valida el JWT (`soporte/jwt.ts`), arma el contexto y abre el canal.
 
 **Cómo se procesa un evento:** `api/eventos.ts` recibe el cuerpo como bytes y comprueba la firma (`soporte/firma.ts`) antes de leerlo; `dominio/procesador.ts` valida el sobre y los datos (`dominio/eventos.ts`, con el vocabulario de los contratos) y aplica la regla del tipo (`dominio/reglas.ts`, funciones puras); `datos/avisos.ts` inserta sin orden y trata el choque con el índice único como «ya procesado».
 
