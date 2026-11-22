@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 22/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está cerrada: ficha, JWT en el núcleo, validación en ms-analítica, los 4 reportes, Kong, la pantalla de reportes en React y la prueba de punta a punta del gateway. Sigue la etapa 7 (ms-notificaciones).
+**Última actualización:** 22/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está cerrada: ficha, JWT en el núcleo, validación en ms-analítica, los 4 reportes, Kong, la pantalla de reportes en React y la prueba de punta a punta del gateway. La etapa 7 (ms-notificaciones) está en curso: la ficha (7.0) está cerrada y falta el código.
 
 ## Contexto
 
@@ -26,6 +26,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
 | 5B. ms-pronóstico | Cerrada salvo la revisión en navegador | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo; humo: 108 comprobaciones |
 | 6. JWT y gateway | Cerrada | JWT RS256 en todos los inicios de sesión, validado por Kong y por ms-analítica; 4 reportes de CU-ADMIN-13 en menos de 0,1 s; Kong 3.9.1 como entrada única; pantalla «Reportes de ventas» en React con 149 pruebas de vitest; `scripts/smoke-gateway.sh`: 138 comprobaciones (121 con `--rapido`) |
+| 7. ms-notificaciones | En curso (7.0 cerrada) | Ficha del contrato cerrada; el resto, pendiente |
 
 ---
 
@@ -427,6 +428,36 @@ Se divide como la 5B: primero el contrato, después cada pieza probada por sí s
   - El escenario del límite deja sin respuesta (429) a las pantallas abiertas desde la misma IP hasta que se levanta, como mucho un minuto. Con `--rapido` no ocurre.
   - No prueba el hueco documentado del `X-Forwarded-For`, que es de la etapa 9, ni el flujo de notificaciones en tiempo real, que es de la etapa 7.
   - No usa un navegador: la pantalla se verificó con Playwright en la 6.5.
+
+---
+
+## Etapa 7. ms-notificaciones — en curso
+
+Servicio Node 22, TypeScript, Fastify y MongoDB que convierte eventos del núcleo en avisos por rol o por usuario, con bandeja y entrega en tiempo real por SSE; campana en React para los cinco roles. Mismo reparto que las etapas 5B y 6: primero el contrato y después cada pieza probada por sí sola.
+
+| Paso | Contenido | Demostrable | Estado |
+|---|---|---|---|
+| 7.0 Ficha | API en detalle, tabla de evento a aviso, eventos nuevos en el catálogo, decisiones cerradas | El contrato antes que el código | Cerrada |
+| 7.1 Esqueleto | Servicio Fastify, compose (puerto 8003), usuario de Mongo sin privilegios, esquema (validador e índices con TTL) | `GET /health` y colección con sus índices | Pendiente |
+| 7.2 Recepción | `/interno/eventos` con firma HMAC, reglas puras, duplicado por índice único, contratos compartidos | Un evento crea avisos y un duplicado no | Pendiente |
+| 7.3 Núcleo | Eventos nuevos y sus contratos, quitar las 5 inserciones, retirar la tabla `notificacion` | Una acción real produce un aviso en Mongo | Pendiente |
+| 7.4 Bandeja y SSE | 5 rutas con JWT, filtro único, reparto en memoria, latido | `curl -N` recibe el aviso al instante | Pendiente |
+| 7.5 Kong | Servicio con JWT; flujo sin búfer y lectura de 16 min | Todo por el puerto 8000 | Pendiente |
+| 7.6 React | Maqueta aprobada y campana en los dos layouts | Campana en vivo en los 5 roles | Pendiente |
+| 7.7 Humo | `scripts/smoke-notificaciones.sh` | Prueba de punta a punta | Pendiente |
+| 7.8 Cierre | Fichas, README del servicio y este plan | Etapa cerrada | Pendiente |
+
+### Decisiones de la 7.0 (22/11)
+
+- **Siete tipos de aviso:** `comprobante.anulado`, `pedido.anulado` (cocina también si el plato ya estaba preparado), `pedido.item_sustituido`, `producto.agotado`, `plato.listo` (aviso personal al mozo), `caja.turno_previo_pendiente` y `caja.cerrada` con diferencia (al administrador y al propietario). Cuatro eventos son nuevos en el catálogo; el texto, el destinatario y la severidad de cada uno están en la sección 4 de la ficha.
+- **Fuera de la etapa:** `reserva.creada` y `reserva.cancelada` (el aviso útil, «reserva próxima», necesita un programador de tareas), `pronostico.generado` (el pronóstico es síncrono; queda para pronósticos programados) y la alerta de entregas fallidas.
+- **La tabla `notificacion` del núcleo se retira**, no se sigue escribiendo: dos escrituras serían dos fuentes de verdad y nadie lee la tabla. El único lector, la deduplicación de `turno_previo_pendiente`, pasa a `log_auditoria`; se avisa una vez por turno pendiente.
+- **`plato.listo`:** un evento por comanda y por acción de cocina, no por ítem; así una tanda que toca varias comandas avisa a cada mozo una vez.
+- **Canal SSE:** `fetch` con lectura de flujo y `Authorization: Bearer`, sin ticket en la URL. El servidor lo cierra al vencer el JWT con el evento `renovar` y el cliente renueva y reabre. El gateway lo deja sin búfer, con lectura de 16 minutos.
+- **Quién ve qué:** una sola función compartida por la bandeja, el contador, el marcado y el SSE. Aviso personal por `sub`; aviso de rol por rol y sede del token; el propietario ve su rol en toda la empresa (`X-Local-Id` opcional). «Leído» es por usuario (`leida_por`).
+- **Una sola instancia**, con el reparto en memoria; el límite queda documentado.
+- **Diferencias con el wireframe de CU-TRANS-01** (escrito para Go y PostgreSQL) documentadas en la ficha: rutas, `severidad` en lugar de `prioridad` y lectura por usuario.
+- **Dependencias aprobadas con el plan:** `fastify`, `mongodb` (driver oficial) y `jose`; en desarrollo `typescript`, `tsx`, `vitest` y `@types/node`. Versiones exactas.
 
 ---
 
