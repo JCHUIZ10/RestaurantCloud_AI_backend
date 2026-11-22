@@ -11,6 +11,12 @@ services:
   # Núcleo Laravel: valida su propio token de sesión; Kong solo enruta.
   - name: nucleo
     url: http://api:8080
+    # Si el núcleo no responde, un error en pocos segundos (por defecto Kong espera 60 s y reintenta 5 veces).
+    # La lectura es larga a propósito: calcular un pronóstico puede tardar y el frontend espera hasta 90 s.
+    connect_timeout: 5000
+    read_timeout: 120000
+    write_timeout: 120000
+    retries: 1
     routes:
       - name: nucleo-api
         paths: ["/api/v1"]
@@ -23,6 +29,12 @@ services:
   # Kong elige el prefijo más largo: /api/v1/analitica gana a /api/v1.
   - name: analitica
     url: http://analitica:8001
+    # Si ms-analítica cae, la pantalla de reportes recibe un error en pocos segundos y no se queda colgada
+    # (por defecto Kong espera 60 s y reintenta 5 veces). Un reporte tarda décimas de segundo.
+    connect_timeout: 3000
+    read_timeout: 30000
+    write_timeout: 30000
+    retries: 1
     routes:
       - name: analitica-reportes
         paths: ["/api/v1/analitica"]
