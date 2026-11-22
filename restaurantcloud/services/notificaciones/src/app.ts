@@ -6,8 +6,10 @@
 import Fastify, { LogController, type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import type { Db } from 'mongodb';
 import { rutasEventos } from './api/eventos.js';
+import { rutasNotificaciones } from './api/notificaciones.js';
 import { rutasSalud } from './api/salud.js';
 import type { Config } from './config.js';
+import { Reparto } from './dominio/reparto.js';
 import { CABECERA_REQUEST_ID, generarRequestId } from './soporte/request-id.js';
 import { registrarManejadores } from './soporte/respuestas.js';
 
@@ -35,6 +37,8 @@ export function crearApp({ config, db, logs = true }: Dependencias): FastifyInst
     // Como ms-analítica: sin una línea por petición; se registran los errores con su request_id.
     logController: new LogController({ requestIdLogLabel: 'request_id', disableRequestLogging: true }),
     bodyLimit: 256 * 1024,
+    // Al apagar, los canales SSE abiertos no deben retener el cierre del servidor.
+    forceCloseConnections: true,
   });
 
   app.addHook('onRequest', async (request, reply) => {
@@ -43,7 +47,12 @@ export function crearApp({ config, db, logs = true }: Dependencias): FastifyInst
 
   registrarManejadores(app, config.zonaHoraria);
   rutasSalud(app, db, config.zonaHoraria);
-  rutasEventos(app, db, config);
+  const reparto = new Reparto();
+  // Un fallo al repartir por SSE nunca debe convertir en error un evento ya guardado.
+  rutasEventos(app, db, config, (avisos) =>
+    reparto.repartir(avisos, (error) => app.log.error({ err: error }, 'No se pudo repartir un aviso por SSE')),
+  );
+  rutasNotificaciones(app, db, config, reparto);
 
   return app;
 }

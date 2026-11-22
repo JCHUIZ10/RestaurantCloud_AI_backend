@@ -6,9 +6,10 @@
  * el servicio funciona con sus permisos reales, sin privilegios de administración.
  */
 
-import { createHmac, randomUUID } from 'node:crypto';
+import { createHmac, generateKeyPairSync, randomUUID, type KeyObject } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { SignJWT } from 'jose';
 import type { Db, MongoClient } from 'mongodb';
 import type { Config } from '../src/config.js';
 import { crearCliente } from '../src/datos/mongo.js';
@@ -150,4 +151,61 @@ export function avisoValido(cambios: Record<string, unknown> = {}): Record<strin
     expira_en: new Date(ahora.getTime() + 30 * 86_400_000),
     ...cambios,
   };
+}
+
+// --- JWT de prueba -----------------------------------------------------------------------------
+
+function parDeClaves() {
+  const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  return { publica: publicKey.export({ type: 'spki', format: 'pem' }).toString(), privada: privateKey as KeyObject };
+}
+
+/** Par de claves con el que se firman los tokens de las pruebas, y otro ajeno para los rechazos. */
+export const CLAVES = parDeClaves();
+export const CLAVES_AJENAS = parDeClaves();
+
+export const OTRA_EMPRESA = '00000000-0000-4000-8000-000000000002';
+export const OTRA_SEDE = '00000000-0000-4000-8000-000000000020';
+export const OTRO_MOZO = '00000000-0000-4000-8000-000000000203';
+export const ADMIN = '00000000-0000-4000-8000-000000000101';
+export const COCINERO = '00000000-0000-4000-8000-000000000104';
+export const PROPIETARIO = '00000000-0000-4000-8000-000000000100';
+
+export interface OpcionesToken {
+  sub?: string;
+  rol?: string;
+  empresa_id?: string | null;
+  local_id?: string | null;
+  /** Segundos de vigencia desde ahora (negativo: ya vencido). */
+  vigencia?: number;
+  claves?: ReturnType<typeof parDeClaves>;
+  /** Claims que se quitan del token. */
+  sin?: string[];
+}
+
+export async function emitirToken(o: OpcionesToken = {}): Promise<string> {
+  const ahora = Math.floor(Date.now() / 1000);
+  const claims: Record<string, unknown> = {
+    rol: o.rol ?? 'mozo',
+    empresa_id: o.empresa_id === undefined ? EMPRESA : o.empresa_id,
+    local_id: o.local_id === undefined ? SEDE : o.local_id,
+    modulos: [],
+  };
+  for (const quitar of o.sin ?? []) delete claims[quitar];
+  const jwt = new SignJWT(claims)
+    .setProtectedHeader({ alg: 'RS256' })
+    .setSubject(o.sub ?? MOZO)
+    .setIssuer('restaurantcloud-nucleo')
+    .setAudience('restaurantcloud-servicios')
+    .setIssuedAt(ahora)
+    .setNotBefore(ahora - 5);
+  if (!o.sin?.includes('exp')) jwt.setExpirationTime(ahora + (o.vigencia ?? 600));
+  return jwt.sign((o.claves ?? CLAVES).privada);
+}
+
+export const conBearer = (token: string) => ({ authorization: `Bearer ${token}` });
+
+/** Aviso listo para insertar; cada prueba cambia el destinatario, la sede o la empresa que necesita. */
+export function avisoDe(cambios: Record<string, unknown> = {}): Record<string, unknown> {
+  return avisoValido({ evento_id: randomUUID(), ...cambios });
 }
