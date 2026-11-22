@@ -9,18 +9,25 @@ Sobre, reglas de entrega y plantilla: [README.md](README.md), sección 4.
 | `venta.registrada` | núcleo | ✔ | | Se cobra una cuenta o subcuenta y se emite el comprobante |
 | `comprobante.anulado` | núcleo | ✔ | ✔ | Se emite una nota de crédito |
 | `pedido.anulado` | núcleo | ✔ | ✔ | Se anula un ítem o una comanda |
-| `plato.listo` | núcleo | | ✔ | Cocina marca un ítem como listo |
+| `pedido.item_sustituido` | núcleo | | ✔ | El mozo sustituye un plato por quiebre de cocina |
+| `plato.listo` | núcleo | | ✔ | Cocina marca platos de una comanda como listos |
 | `producto.agotado` | núcleo | | ✔ | Cocina marca un producto como agotado |
-| `reserva.creada` | núcleo | | ✔ | Se registra una reserva |
-| `reserva.cancelada` | núcleo | | ✔ | Se cancela una reserva o se registra un no-show |
-| `caja.cerrada` | núcleo | | ✔ | Se cierra un turno de caja con diferencia en el arqueo |
-| `pronostico.generado` | ms-pronóstico | | ✔ | Termina una ejecución de pronóstico. Se implementa con ms-notificaciones (etapa 7) |
+| `caja.turno_previo_pendiente` | núcleo | | ✔ | Un cajero no puede abrir turno porque el anterior sigue abierto |
+| `caja.cerrada` | núcleo | | ✔ | Se cierra un turno de caja **con diferencia** en el arqueo |
+| `reserva.creada`, `reserva.cancelada` | núcleo | | | Fuera de la etapa 7: el aviso útil («reserva próxima») requiere un programador de tareas |
+| `pronostico.generado` | ms-pronóstico | | | Fuera de la etapa 7: el pronóstico es síncrono, así que quien lo pide ya ve el resultado. Se retoma con pronósticos programados |
 
-La lista es la propuesta inicial. Un evento se agrega solo cuando algún servicio lo necesita.
+La lista es la propuesta inicial. Un evento se agrega solo cuando algún servicio lo necesita. Los eventos de las dos últimas filas no se publican todavía: no tienen receptor.
 
 ## Detalle
 
-Están detallados los tres eventos que alimentan a ms-analítica y, a través de ella, a la IA. Los demás se detallan al construir ms-notificaciones.
+Están detallados los tres eventos que alimentan a ms-analítica y, a través de ella, a la IA, y los cinco que alimentan a ms-notificaciones. A quién avisa cada uno y con qué texto está en la [ficha de ms-notificaciones](ms-notificaciones.md), sección 4.
+
+**Datos comunes de los eventos para ms-notificaciones**
+
+- Los nombres de personal (mozo, cajero, quien anuló) viajan en el evento para que el servicio no consulte al núcleo. Ningún evento lleva datos de comensales.
+- `mesa_numero` es el texto con que el personal ve la mesa (en una unión de mesas, la etiqueta de la unión).
+- Cada evento tiene su `id`: el índice único de avisos hace que reenviarlo no cree otro.
 
 ### venta.registrada (v1)
 
@@ -183,4 +190,111 @@ Los valores del ejemplo son ilustrativos.
 **Qué hace cada receptor**
 
 - **ms-analítica:** la registra para el reporte de desempeño (anulaciones y merma por mozo y por plato). No modifica los agregados de ventas, porque lo anulado nunca se vendió.
-- **ms-notificaciones:** avisa al administrador del local.
+- **ms-notificaciones:** avisa al administrador del local y, si el plato ya estaba preparado (`es_merma`), también a cocina con severidad crítica.
+
+### pedido.item_sustituido (v1)
+
+**Cuándo se emite:** cuando el mozo sustituye un plato por quiebre de cocina (`MozoController::sustituirPlato`), en la misma transacción que crea el ítem nuevo. El ítem original queda registrado como `pedido.anulado`, que es otro evento.
+**Emisor:** núcleo. **Receptores:** ms-notificaciones.
+
+**Datos**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `pedido_id` | uuid | Comanda |
+| `mesa_numero` | texto | Mesa, como la ve el personal |
+| `pedido_item_original_id`, `pedido_item_nuevo_id` | uuid | Ítem sustituido y su reemplazo |
+| `producto_original_nombre`, `producto_nuevo_nombre` | texto | Platos, por nombre |
+| `cantidad` | entero | Unidades sustituidas |
+| `diferencia_monto` | número | Diferencia de precio (puede ser negativa) |
+| `sustituido_por_id`, `sustituido_por_nombre` | uuid, texto | Mozo que hizo la sustitución |
+| `fecha` | fecha y hora | Momento de la sustitución |
+
+**Qué hace cada receptor**
+
+- **ms-notificaciones:** avisa a cocina, con severidad crítica, para que dé prioridad al plato nuevo.
+
+### producto.agotado (v1)
+
+**Cuándo se emite:** cuando cocina marca un producto como agotado, desde el apagado manual (`marcarProductoAgotado`) o después de resolver las órdenes en fuego (`resolverFuegoProducto`).
+**Emisor:** núcleo. **Receptores:** ms-notificaciones.
+
+**Datos**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `producto_id`, `producto_nombre` | uuid, texto | Plato agotado |
+| `causa` | texto | `manual_cocina` o `resolucion_fuego` |
+| `motivo` | texto o `null` | Motivo escrito al resolver las órdenes en fuego; `null` en el apagado manual |
+| `marcado_por_id`, `marcado_por_nombre` | uuid, texto | Cocinero |
+| `fecha` | fecha y hora | Momento del apagado |
+
+Reactivar el producto no emite evento.
+
+**Qué hace cada receptor**
+
+- **ms-notificaciones:** avisa al administrador del local y a los mozos.
+
+### plato.listo (v1)
+
+**Cuándo se emite:** cuando cocina marca como listos uno o varios platos de una comanda. **Un evento por comanda y por acción de cocina**, no por ítem: marcar un ítem (`cambiarEstadoItem`), despachar la comanda completa (`despacharPedido`) o listar una tanda (`marcarListoTanda`, que reparte por FIFO y puede tocar varias comandas, una por comanda) generan cada uno su evento. Deshacer el marcado no emite nada.
+**Emisor:** núcleo. **Receptores:** ms-notificaciones.
+
+**Datos**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `pedido_id` | uuid | Comanda |
+| `mesa_numero` | texto | Mesa, como la ve el personal |
+| `mozo_id`, `mozo_nombre` | uuid, texto | Mozo de la comanda: el destinatario |
+| `items[]` | lista | Platos marcados en esta acción |
+| `items[].pedido_item_id` | uuid | Ítem |
+| `items[].producto_nombre` | texto | Plato |
+| `items[].cantidad` | entero | Unidades listas |
+| `fecha` | fecha y hora | Momento del marcado |
+
+**Qué hace cada receptor**
+
+- **ms-notificaciones:** avisa **solo al mozo de la comanda** (aviso personal). Si el mozo no está conectado, lo verá en su bandeja al entrar.
+
+### caja.turno_previo_pendiente (v1)
+
+**Cuándo se emite:** cuando un cajero intenta abrir turno y el turno de otro sigue abierto, y el núcleo avisa a la administración (`CajaController::notificarTurnoPrevioPendiente`). Se emite **una sola vez por turno pendiente**: antes de emitirlo, el núcleo consulta en `log_auditoria` si ya avisó de ese turno (acción `caja.turno_previo.aviso_administracion`).
+**Emisor:** núcleo. **Receptores:** ms-notificaciones.
+
+**Datos**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `caja_id` | uuid | Turno que sigue abierto |
+| `turno_correlativo` | entero | Número del turno |
+| `cajero_pendiente_nombre` | texto | Cajero que lo tiene abierto |
+| `solicitante_id`, `solicitante_nombre` | uuid, texto | Cajero que intentó abrir |
+| `hay_admin_local` | booleano | Si la sede tiene un administrador activo |
+| `fecha` | fecha y hora | Momento del intento |
+
+**Qué hace cada receptor**
+
+- **ms-notificaciones:** avisa al administrador del local; si la sede no tiene uno (`hay_admin_local = false`), al propietario.
+
+### caja.cerrada (v1)
+
+**Cuándo se emite:** al cerrar un turno de caja **solo si hay diferencia** entre el efectivo esperado y el contado (`CierreTurnoService`), en la misma transacción del cierre. Un cierre cuadrado no emite nada.
+**Emisor:** núcleo. **Receptores:** ms-notificaciones.
+
+**Datos**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `caja_id` | uuid | Turno cerrado |
+| `turno_correlativo` | entero | Número del turno |
+| `cajero_id`, `cajero_nombre` | uuid, texto | Cajero del turno |
+| `efectivo_esperado`, `efectivo_contado` | número | Efectivo según el sistema y contado |
+| `discrepancia` | número | `contado − esperado`; negativo es faltante |
+| `cierre_forzado` | booleano | El cierre lo hizo la administración |
+| `cerrado_por_id`, `cerrado_por_nombre` | uuid, texto | Quien cerró (el cajero, o la administración si fue forzado) |
+| `fecha` | fecha y hora | Momento del cierre |
+
+**Qué hace cada receptor**
+
+- **ms-notificaciones:** avisa al administrador del local y al propietario. Severidad crítica si el faltante supera S/ 100.
