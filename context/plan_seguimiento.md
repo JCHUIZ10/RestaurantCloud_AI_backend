@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 22/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está en curso: 6.0 a 6.5 cerradas (ficha, JWT en el núcleo, validación en ms-analítica, los 4 reportes, Kong y la pantalla de reportes en React); sigue la 6.6 (prueba de punta a punta).
+**Última actualización:** 22/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está cerrada: ficha, JWT en el núcleo, validación en ms-analítica, los 4 reportes, Kong, la pantalla de reportes en React y la prueba de punta a punta del gateway. Sigue la etapa 7 (ms-notificaciones).
 
 ## Contexto
 
@@ -25,7 +25,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | 4. Datos sintéticos | Cerrada | 24 meses de ÁUREA en 3 min 45 s; 111 pruebas de ms-analítica; humo: 28 comprobaciones |
 | 5A. Modelo de pronóstico (`model-ia`) | Cerrada | 8 cuadernos de principio a fin sin fallar ningún `assert`; 65 pruebas de `rc_pronostico`; MAE 4,85 contra 6,24 del ingenuo en la prueba de Stuttgart |
 | 5B. ms-pronóstico | Cerrada salvo la revisión en navegador | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo; humo: 108 comprobaciones |
-| 6. JWT y gateway | **En curso** (6.0 a 6.5 cerradas) | JWT RS256 en todos los inicios de sesión, validado por Kong y por ms-analítica; 4 reportes de CU-ADMIN-13 en menos de 0,1 s; Kong 3.9.1 como entrada única, verificado en vivo (rutas, JWT, `/interno` oculto, límites, CORS, `X-Request-Id`); pantalla «Reportes de ventas» en React verificada en vivo con ÁUREA a través de Kong, incluida la renovación del JWT ante un 401 real; 149 pruebas de vitest |
+| 6. JWT y gateway | Cerrada | JWT RS256 en todos los inicios de sesión, validado por Kong y por ms-analítica; 4 reportes de CU-ADMIN-13 en menos de 0,1 s; Kong 3.9.1 como entrada única; pantalla «Reportes de ventas» en React con 149 pruebas de vitest; `scripts/smoke-gateway.sh`: 138 comprobaciones (121 con `--rapido`) |
 
 ---
 
@@ -311,7 +311,7 @@ Cómo resuelve lo que podía estropear la prueba:
 
 ---
 
-## Etapa 6. JWT y gateway — en curso
+## Etapa 6. JWT y gateway — cerrada
 
 Se divide como la 5B: primero el contrato, después cada pieza probada por sí sola y al final la prueba de punta a punta a través de Kong.
 
@@ -323,7 +323,7 @@ Se divide como la 5B: primero el contrato, después cada pieza probada por sí s
 | 6.3 Reportes | `ventas/resumen`, `ventas/por-hora`, `productos/ranking` (con ingeniería de menú) y `personal/desempeno`, con pytest contra PostgreSQL real | Reportes de ÁUREA con el histórico sintético | Cerrada |
 | 6.4 Kong | `infra/kong` (DB-less, plantilla con la clave pública), servicio en el compose (puerto 8000), JWT en `/api/v1/analitica`, límite de peticiones, CORS, `X-Request-Id`; Vite pasa a apuntar a Kong | Todo el tráfico del navegador entra por Kong; `/interno` no se expone | Cerrada |
 | 6.5 React | Cliente de microservicios con renovación del JWT y pantalla «Reportes» de 3 pestañas (CU-ADMIN-13), con gráficos de Recharts | Flujo del navegador a ms-analítica por Kong | Cerrada |
-| 6.6 Humo | `scripts/smoke-gateway.sh` con evidencias | Prueba de punta a punta para el informe | Pendiente |
+| 6.6 Humo | `scripts/smoke-gateway.sh` con evidencias | Prueba de punta a punta para el informe; 138 comprobaciones (121 con `--rapido`) en verde | Cerrada |
 
 ### Decisiones de la 6.0 (21/11)
 
@@ -406,6 +406,28 @@ Se divide como la 5B: primero el contrato, después cada pieza probada por sí s
   - Recharts engorda el paquete principal, que ya avisaba por tamaño; partirlo en trozos queda para la etapa 8.
   - Las pantallas de la 5B siguen sin revisarse en navegador: Playwright ya está instalado y alcanza con repetir este recorrido con ellas.
 
+### Lo que dejó la 6.6: prueba de punta a punta del gateway (22/11)
+
+`scripts/smoke-gateway.sh` (desde `restaurantcloud/`; opciones `--rapido`, `--levantar` y `--sin-evidencias`) recorre el camino del navegador con los servicios reales y deja evidencias en `doc-2u/evidencias/smoke-gateway/<fecha>/` (no se versiona). **138 comprobaciones en verde** (121 con `--rapido`); sin contraseñas (sesiones temporales en Redis) y sin dejar nada en la base: los reportes son de solo lectura.
+
+1. **Condiciones previas:** contenedores, Kong sano y sin API de administración, y la misma clave pública en el núcleo, Kong y ms-analítica.
+2. **Enrutamiento:** cada prefijo llega a quien debe; lo desconocido lo responde Kong con 404.
+3. **El JWT del núcleo:** emitido con la sesión, con la cabecera y los claims del contrato (RS256, `kid`, emisor, audiencia, empresa, sede, módulos del plan, vida de 600 s); Kong y ms-analítica lo aceptan; renovar no invalida la sesión ni el JWT anterior.
+4. **Los cuatro reportes:** cuadran entre sí (las 24 franjas suman el resumen, las cuentas y ventas de los mozos también, las categorías suman los platos, los medios suman 100 %, el periodo anterior dura lo mismo y termina el día antes) y responden en milisegundos.
+5. **Tokens fuera de regla**, firmados con la clave real del núcleo, con otra o con ninguna: sin token, firma alterada, clave ajena, `alg: none`, HS256 firmado con la clave pública, caducado, de 1 hora, con `nbf` futuro, de otro emisor, en la URL y el token de sesión. Todos los rechaza Kong (se distingue por `Server: kong`). La audiencia equivocada y el rol que no corresponde pasan por Kong y los rechaza el servicio con su código. Además, ms-analítica llamada directamente, sin Kong, también exige el JWT.
+6. **Permisos, sedes, empresas y plan:** sede pedida por un administrador (403), propietario sin sede (422), sede de otra empresa o inexistente (200 vacío, sin revelar si existe), un administrador de otra empresa no ve nada de ÁUREA en ninguno de los cuatro reportes, plan sin reportes avanzados (resumen sí, ranking y desempeño 403) y los límites del rango (366 días sí, 367 no).
+7. **Lo interno no se expone:** `/interno`, `/health` y el intento de subir con `../` dan 404 de Kong.
+8. **CORS y `X-Request-Id`:** la preflight no pide JWT, una sola cabecera de origen en ambos destinos, un origen ajeno no recibe el suyo, el identificador se genera o se respeta (también en los rechazos de Kong) y los límites publicados son 120 y 1 200 por minuto.
+9. **Caída de ms-analítica:** error controlado en 6 s, el núcleo sigue atendiendo, emitiendo JWT y validando sesiones, y al encenderla vuelve a responder a los 3 s.
+10. **Límite de peticiones:** 130 seguidas, las que pasan del límite dan 429 con `Retry-After`, el núcleo no se frena y el límite se levanta solo antes de terminar.
+
+- **Hallazgo y corrección:** con ms-analítica apagada, la petición a través de Kong **no respondía en 30 s**. Kong espera por defecto 60 s para conectar y reintenta 5 veces, y un contenedor detenido no contesta. Se fijaron tiempos de espera en `infra/kong/kong.yml.plantilla` (ms-analítica: conexión 3 s, 1 reintento; núcleo: conexión 5 s, lectura de 120 s para no cortar un pronóstico en cálculo). Ahora la misma caída da un 504 en 6 s, que la pantalla de reportes muestra como «el servicio no responde». Ya está en la ficha del gateway.
+- **La prueba se probó:** con Kong debilitado a propósito (sin el máximo de vida del token y con el límite subido a 5 000) falló exactamente en esas dos comprobaciones; restaurada la configuración, vuelve a pasar.
+- **Límites:**
+  - El escenario del límite deja sin respuesta (429) a las pantallas abiertas desde la misma IP hasta que se levanta, como mucho un minuto. Con `--rapido` no ocurre.
+  - No prueba el hueco documentado del `X-Forwarded-For`, que es de la etapa 9, ni el flujo de notificaciones en tiempo real, que es de la etapa 7.
+  - No usa un navegador: la pantalla se verificó con Playwright en la 6.5.
+
 ---
 
 ## Hoja de ruta (se detalla al llegar)
@@ -444,5 +466,5 @@ Orden recomendado si el tiempo aprieta: 4 → 5 → 8 antes que 6 y 7, porque IA
 - **Núcleo:** `docker exec restaurantcloudIA_api php artisan test --compact` (639 pruebas en la última corrida completa, 18/11, más 4 de `carta:exportar` ejecutadas aparte). Si se cambia el seed, antes `./scripts/test-db-reset.sh`.
 - **ms-analítica:** `uv run pytest` en `services/analitica`, con `TEST_DATABASE_URL` y `TEST_APP_DATABASE_URL` (111 pruebas, unos 2 minutos desde el host).
 - **Frontend:** `npm test` en `apps/web` (149 pruebas de vitest), `npm run build` y `npm run check:ui`.
-- **Integración:** `./scripts/smoke-analitica.sh` (o `--rapido`, sin el escenario de caída) y `./scripts/smoke-pronostico.sh` (o `--rapido`; ver la 5B.6).
+- **Integración:** `./scripts/smoke-analitica.sh` (o `--rapido`, sin el escenario de caída), `./scripts/smoke-pronostico.sh` (o `--rapido`; ver la 5B.6) y `./scripts/smoke-gateway.sh` (o `--rapido`; ver la 6.6).
 - **Estado de las entregas:** `docker exec restaurantcloudIA_api php artisan outbox:estado`.
