@@ -143,3 +143,22 @@ FROM cliente cl
 JOIN empresa c ON c.id = cl.empresa_id
 LEFT JOIN comprobante comp ON comp.cliente_id = cl.id AND comp.estado = 'emitido'
 GROUP BY cl.empresa_id, cl.id, cl.tipo_documento, cl.numero_documento, cl.nombre_identificativo;
+
+
+-- 7. DETALLE DE ANULACIONES CON LOS NOMBRES RESUELTOS (CU-ADMIN-12)
+-- security_invoker: la vista aplica la RLS de quien consulta, no la de su propietario.
+CREATE OR REPLACE VIEW v_pedido_anulacion_detalle WITH (security_invoker = true) AS
+SELECT
+    pa.*,
+    mozo.nombre AS mozo_nombre,
+    anulador.nombre AS anulador_nombre,
+    revisor.nombre AS revisor_nombre,
+    cat.nombre AS categoria_nombre,
+    l.nombre AS local_nombre
+FROM pedido_anulacion pa
+LEFT JOIN usuario mozo ON mozo.id = pa.mozo_id
+LEFT JOIN usuario anulador ON anulador.id = pa.anulado_por
+LEFT JOIN usuario revisor ON revisor.id = pa.revisado_por
+LEFT JOIN producto prod ON prod.id = pa.producto_id
+LEFT JOIN categoria_producto cat ON cat.id = prod.categoria_id
+LEFT JOIN local l ON l.id = pa.local_id;

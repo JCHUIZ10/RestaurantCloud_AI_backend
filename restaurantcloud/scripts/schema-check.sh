@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Verifica que el esquema real de una BD coincide con el que producen las migraciones.
-# Crea una BD temporal, la migra desde cero y compara ambos pg_dump --schema-only.
+# Crea una BD temporal, la migra desde cero y compara el catálogo de ambas (ver scripts/schema-catalogo.sql).
 # Uso:
 #   ./schema-check.sh                  -> compara restaurantcloud_db
 #   ./schema-check.sh <base_de_datos>  -> compara la BD indicada
@@ -15,10 +15,11 @@ DB_USER="saas_admin"
 TARGET_DB="${1:-restaurantcloud_db}"
 REF_DB="restaurantcloud_schema_ref"
 
+# Se compara el catálogo de PostgreSQL (columnas, restricciones, índices, disparadores, funciones, vistas,
+# políticas RLS y secuencias) y no el pg_dump: una base migrada tiene las columnas nuevas al final de la
+# tabla y una base creada desde los scripts las tiene en su sitio, y eso no es una diferencia de esquema.
 volcar_esquema() {
-    # Las líneas \restrict/\unrestrict llevan un token aleatorio en cada volcado
-    docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" -d "$1" --schema-only --no-owner --no-privileges \
-        | grep -vE '^.(un)?restrict '
+    docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$1" -At < "$(dirname "$0")/schema-catalogo.sql"
 }
 
 echo "[RestaurantCloud] Migrando BD de referencia $REF_DB desde cero..."

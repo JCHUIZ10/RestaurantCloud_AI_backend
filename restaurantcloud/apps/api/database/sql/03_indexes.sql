@@ -106,13 +106,6 @@ CREATE INDEX IF NOT EXISTS idx_suspension_bajas_pendientes
     ON suscripcion_suspension(fecha_eliminacion_programada) 
     WHERE estado = 'activa' AND tipo_evento = 'baja_definitiva';
 
--- 2.12 Bandeja de Notificaciones: Lectura por usuario y difusión por rol (CU-TRANS-01)
-CREATE INDEX IF NOT EXISTS idx_notificacion_usuario_leida 
-    ON notificacion(empresa_id, usuario_id, leida, created_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_notificacion_local_rol 
-    ON notificacion(empresa_id, local_id, rol_destinatario, leida, created_at DESC);
-
 -- ------------------------------------------------------------------------------
 -- 3. ÍNDICES TRIGRAM GIN PARA BÚSQUEDA RÁPIDA DE TEXTO (FUZZY SEARCH)
 -- ------------------------------------------------------------------------------
@@ -164,6 +157,12 @@ CREATE INDEX IF NOT EXISTS idx_comprobante_item_comprobante
 CREATE INDEX IF NOT EXISTS idx_caja_movimiento_caja_fecha 
     ON caja_movimiento(caja_id, created_at ASC);
 
+CREATE INDEX IF NOT EXISTS idx_caja_movimiento_ficha_compra
+    ON caja_movimiento(ficha_compra_id) WHERE ficha_compra_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_caja_movimiento_gasto_manual
+    ON caja_movimiento(gasto_manual_id) WHERE gasto_manual_id IS NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_gasto_manual_local_fecha 
     ON gasto_manual(local_id, fecha DESC);
 
@@ -172,9 +171,6 @@ CREATE INDEX IF NOT EXISTS idx_ficha_compra_local_fecha
 
 CREATE INDEX IF NOT EXISTS idx_pedido_anulacion_local_fecha 
     ON pedido_anulacion(local_id, anulado_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_incidente_local_fecha 
-    ON incidente(local_id, fecha_hora DESC);
 
 -- 4.10 Índices para el Dominio de Archivos y Metadatos MinIO S3
 CREATE INDEX IF NOT EXISTS idx_archivo_tenant_entidad 
@@ -187,3 +183,15 @@ CREATE INDEX IF NOT EXISTS idx_archivo_local
 CREATE INDEX IF NOT EXISTS idx_archivo_expiracion 
     ON archivo(expira_at) 
     WHERE expira_at IS NOT NULL AND estado = 'disponible';
+
+-- 4.11 Límites del plan por sede: conteo de pisos, mesas y usuarios activos (CU-PROP-03)
+CREATE INDEX IF NOT EXISTS idx_piso_local_estado ON piso(local_id, estado);
+CREATE INDEX IF NOT EXISTS idx_mesa_local_estado ON mesa(local_id, estado);
+CREATE INDEX IF NOT EXISTS idx_usuario_local_estado ON usuario(local_id, estado);
+
+-- 4.12 Pronóstico y reposición sugerida (CU-ADMIN-07, CU-PROP-08)
+CREATE INDEX IF NOT EXISTS ix_solicitud_pronostico_local
+    ON solicitud_pronostico (local_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS ix_recomendacion_local
+    ON recomendacion_reposicion (local_id, created_at DESC);

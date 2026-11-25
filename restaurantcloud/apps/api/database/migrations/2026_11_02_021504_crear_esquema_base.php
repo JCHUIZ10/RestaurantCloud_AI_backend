@@ -11,6 +11,11 @@ use Illuminate\Support\Facades\Schema;
  * docker-entrypoint-initdb.d). La semilla demo 07 no forma parte del esquema:
  * la carga LocalAureaDemoSeeder.
  *
+ * Los scripts reflejan el estado actual del esquema: las migraciones anteriores
+ * al 25/11/2026 se incorporaron a ellos y se retiraron. Desde ahí, cada cambio
+ * del esquema es una migración nueva Y se refleja también en los scripts, para
+ * que una base nueva y una base migrada queden iguales (scripts/schema-check.sh).
+ *
  * Una BD creada antes con initdb ya tiene el esquema: en ese caso solo se
  * registra la migración como aplicada, y los cambios posteriores llegan por
  * las migraciones siguientes.

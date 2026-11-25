@@ -35,7 +35,6 @@ BEGIN;
 -- 0. PURGA PREVENTIVA DE TRANSACCIONES OPERACIONALES PREVIAS DE LA SEDE ÁUREA
 -- Garantiza un entorno 100% limpio sin interferir con otras sedes ni datos SaaS.
 -- =============================================================================
-DELETE FROM notificacion WHERE local_id = '00000000-0000-4000-8000-000000000010';
 DELETE FROM log_auditoria WHERE local_id = '00000000-0000-4000-8000-000000000010';
 
 -- Desvincular subcuentas y notas de crédito antes de purgar comprobantes
@@ -86,7 +85,6 @@ WHERE ficha_compra_id IN (SELECT id FROM ficha_compra WHERE local_id = '00000000
 
 DELETE FROM ficha_compra WHERE local_id = '00000000-0000-4000-8000-000000000010';
 DELETE FROM auditoria_stock_ajuste WHERE local_id = '00000000-0000-4000-8000-000000000010';
-DELETE FROM snapshot_stock_diario WHERE local_id = '00000000-0000-4000-8000-000000000010';
 
 -- =============================================================================
 -- 1. IDENTIFICADORES CANÓNICOS Y ALTA DEL TENANT

@@ -107,26 +107,7 @@ CREATE POLICY p_suscripcion_suspension_isolation ON suscripcion_suspension
         OR empresa_id = NULLIF(current_setting('app.current_empresa_id', true), '')::UUID
     );
 
--- 2.7 Notificaciones del Sistema
-ALTER TABLE notificacion ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS p_notificacion_isolation ON notificacion;
-CREATE POLICY p_notificacion_isolation ON notificacion
-    FOR ALL
-    USING (
-        fn_es_admin_saas() OR (
-            empresa_id = NULLIF(current_setting('app.current_empresa_id', true), '')::UUID
-            AND (
-                usuario_id = NULLIF(current_setting('app.current_user_id', true), '')::UUID
-                OR (
-                    usuario_id IS NULL 
-                    AND (local_id IS NULL OR fn_pertenece_tenant(local_id))
-                    AND (rol_destinatario IS NULL OR rol_destinatario = NULLIF(current_setting('app.current_user_role', true), ''))
-                )
-            )
-        )
-    );
-
--- 2.8 Log de Auditoría
+-- 2.7 Log de Auditoría
 ALTER TABLE log_auditoria ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS p_log_auditoria_isolation ON log_auditoria;
 CREATE POLICY p_log_auditoria_isolation ON log_auditoria
@@ -150,7 +131,8 @@ DECLARE
         'producto', 'insumo', 'auditoria_stock_ajuste', 'proveedor',
         'ficha_compra', 'promocion', 'metodo_pago_local', 'pedido',
         'caja', 'comprobante_serie', 'gasto_manual', 'caja_movimiento',
-        'auditoria_caja_cierre', 'incidente', 'pedido_anulacion', 'snapshot_stock_diario'
+        'auditoria_caja_cierre', 'pedido_anulacion',
+        'solicitud_pronostico', 'recomendacion_reposicion'
     ];
 BEGIN
     FOREACH t IN ARRAY tables LOOP

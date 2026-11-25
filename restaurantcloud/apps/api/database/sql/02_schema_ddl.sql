@@ -70,8 +70,7 @@ CREATE TABLE IF NOT EXISTS suscripcion (
     reintentos_stripe_conteo INT NOT NULL DEFAULT 0,
     recursos_conciliados BOOL NOT NULL DEFAULT false,
     config_downgrade JSONB,
-    stripe_subscription_id VARCHAR(100),
-    stripe_schedule_id VARCHAR(100),
+    ciclo_facturacion VARCHAR(10) NOT NULL DEFAULT 'mensual' CHECK (ciclo_facturacion IN ('mensual', 'anual')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -161,6 +160,8 @@ CREATE TABLE IF NOT EXISTS suscripcion_suspension (
 );
 
 -- 1.7 Historial de Pagos de Suscripción SaaS (CU-PROP-02, CU-SAAS-01)
+CREATE SEQUENCE IF NOT EXISTS pago_numero_recibo_seq;
+
 CREATE TABLE IF NOT EXISTS pago (
     id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
     empresa_id UUID NOT NULL REFERENCES empresa(id) ON DELETE RESTRICT,
@@ -173,8 +174,11 @@ CREATE TABLE IF NOT EXISTS pago (
     stripe_payment_id VARCHAR(100),
     numero_operacion VARCHAR(100),
     nota TEXT,
+    numero_recibo VARCHAR(30) NOT NULL UNIQUE DEFAULT ('RS-' || lpad(nextval('pago_numero_recibo_seq')::text, 8, '0')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER SEQUENCE pago_numero_recibo_seq OWNED BY pago.numero_recibo;
 
 -- ------------------------------------------------------------------------------
 -- 2. OPERACIÓN DE SEDE, ESPACIOS FÍSICOS Y PARÁMETROS OPERATIVOS
@@ -803,71 +807,10 @@ CREATE TABLE IF NOT EXISTS auditoria_caja_cierre (
 );
 
 -- ------------------------------------------------------------------------------
--- 7. INCIDENTES, NOTIFICACIONES, AUDITORÍA Y ANULACIONES
+-- 7. AUDITORÍA, ANULACIONES Y EVENTOS
 -- ------------------------------------------------------------------------------
 
--- 7.1 Incidentes Internos de Sede y Supervisión Corporativa (CU-PROP-06, CU-ADMIN-11)
-CREATE TABLE IF NOT EXISTS incidente (
-    id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
-    local_id UUID NOT NULL REFERENCES local(id) ON DELETE CASCADE,
-    codigo VARCHAR(20) NOT NULL UNIQUE, -- ej. INC-2026-084
-    titulo VARCHAR(120) NOT NULL,
-    categoria VARCHAR(30) NOT NULL CHECK (categoria IN ('servicio_cliente', 'disciplinario', 'rotura_merma', 'seguridad_higiene', 'caja_dinero', 'otro')),
-    descripcion TEXT NOT NULL,
-    medidas_inmediatas TEXT,
-    fecha_hora TIMESTAMPTZ NOT NULL,
-    gravedad VARCHAR(20) NOT NULL CHECK (gravedad IN ('baja', 'media', 'alta')),
-    foto_url VARCHAR(255),
-    empleado_id UUID REFERENCES usuario(id) ON DELETE SET NULL,
-    registrado_por UUID NOT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
-    estado VARCHAR(20) NOT NULL DEFAULT 'abierto' CHECK (estado IN ('abierto', 'en_revision', 'resuelto')),
-    visto_por_propietario BOOL NOT NULL DEFAULT false,
-    fecha_visto TIMESTAMPTZ,
-    nota_propietario TEXT,
-    motivo_revision TEXT,
-    resolucion_nota TEXT,
-    resuelto_por UUID REFERENCES usuario(id) ON DELETE SET NULL,
-    fecha_resolucion TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- 7.1.1 Bitácora Cronológica de Incidentes y Trazabilidad de Directivas (CU-ADMIN-11, CU-PROP-06)
-CREATE TABLE IF NOT EXISTS incidente_bitacora (
-    id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
-    incidente_id UUID NOT NULL REFERENCES incidente(id) ON DELETE CASCADE,
-    usuario_id UUID NOT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
-    tipo_evento VARCHAR(30) NOT NULL CHECK (tipo_evento IN (
-        'apertura',
-        'directiva_propietario',
-        'indagacion',
-        'resolucion'
-    )),
-    nota TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_incidente_bitacora_incidente ON incidente_bitacora(incidente_id, created_at ASC);
-
--- 7.2 Notificaciones Transversales del Sistema (CU-TRANS-01)
-CREATE TABLE IF NOT EXISTS notificacion (
-    id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
-    empresa_id UUID NOT NULL REFERENCES empresa(id) ON DELETE CASCADE,
-    local_id UUID REFERENCES local(id) ON DELETE CASCADE,
-    usuario_id UUID REFERENCES usuario(id) ON DELETE CASCADE,
-    rol_destinatario VARCHAR(30) CHECK (rol_destinatario IN ('mozo', 'cocina', 'cajero', 'admin_local', 'propietario')),
-    tipo VARCHAR(50) NOT NULL, -- pedido_anulado, plato_agotado, plato_listo, etc.
-    prioridad VARCHAR(20) NOT NULL DEFAULT 'media' CHECK (prioridad IN ('baja', 'media', 'alta', 'critica')),
-    titulo VARCHAR(120) NOT NULL,
-    mensaje TEXT NOT NULL,
-    entidad_tipo VARCHAR(50),
-    entidad_id UUID,
-    leida BOOL NOT NULL DEFAULT false,
-    fecha_leida TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- 7.3 Log de Auditoría para Acciones Sensibles de la Plataforma
+-- 7.1 Log de Auditoría para Acciones Sensibles de la Plataforma
 CREATE TABLE IF NOT EXISTS log_auditoria (
     id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
     empresa_id UUID NOT NULL REFERENCES empresa(id) ON DELETE CASCADE,
@@ -880,7 +823,7 @@ CREATE TABLE IF NOT EXISTS log_auditoria (
     fecha TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 7.4 Registro Inmutable de Anulación de Pedidos y Mermas (CU-MOZO-06, CU-ADMIN-12)
+-- 7.2 Registro Inmutable de Anulación de Pedidos y Mermas (CU-MOZO-06, CU-ADMIN-12)
 CREATE TABLE IF NOT EXISTS pedido_anulacion (
     id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
     local_id UUID NOT NULL REFERENCES local(id) ON DELETE CASCADE,
@@ -908,23 +851,10 @@ CREATE TABLE IF NOT EXISTS pedido_anulacion (
     revisado_por UUID REFERENCES usuario(id) ON DELETE SET NULL,
     revisado_at TIMESTAMPTZ,
     notas_supervision TEXT,
-    incidente_id UUID REFERENCES incidente(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 7.5 Snapshot Diario de Existencias para Futuro Forecasting (CU-SISTEMA-01)
-CREATE TABLE IF NOT EXISTS snapshot_stock_diario (
-    id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
-    insumo_id UUID NOT NULL REFERENCES insumo(id) ON DELETE CASCADE,
-    local_id UUID NOT NULL REFERENCES local(id) ON DELETE CASCADE,
-    fecha DATE NOT NULL,
-    stock_cantidad DECIMAL(12, 3) NOT NULL,
-    estuvo_agotado BOOL NOT NULL DEFAULT false,
-    CONSTRAINT uq_snapshot_stock_diario UNIQUE (insumo_id, local_id, fecha)
-);
-
--- 7.6 Almacenamiento Centralizado de Archivos y Metadatos de MinIO (CU-SAAS-02, CU-ADMIN-04, CU-ADMIN-11, CU-CAJA-03, CU-CAJA-05)
--- 7.7 Outbox transaccional para eventos operativos asincronos (CU-CAJA-03B)
+-- 7.3 Outbox transaccional para eventos operativos asincronos (CU-CAJA-03B)
 CREATE TABLE IF NOT EXISTS outbox_event (
     id UUID PRIMARY KEY,
     empresa_id UUID NOT NULL REFERENCES empresa(id) ON DELETE CASCADE,
@@ -963,6 +893,13 @@ CREATE TABLE IF NOT EXISTS outbox_entrega (
     proximo_intento_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     ultimo_error TEXT,
     entregado_en TIMESTAMPTZ,
+    -- Clasificación del último fallo: un destino caído no gasta intentos (ver PausaDeDestinos)
+    motivo_fallo VARCHAR(20)
+        CHECK (motivo_fallo IS NULL OR motivo_fallo IN
+            ('no_disponible', 'no_autorizado', 'sin_configurar', 'error_receptor', 'rechazado')),
+    fallos_receptor SMALLINT NOT NULL DEFAULT 0,
+    fallando_desde TIMESTAMPTZ,
+    reenvios SMALLINT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (evento_id, destino)
 );
@@ -970,7 +907,50 @@ CREATE TABLE IF NOT EXISTS outbox_entrega (
 CREATE INDEX IF NOT EXISTS ix_outbox_entrega_pendiente
     ON outbox_entrega (proximo_intento_en) WHERE estado = 'pendiente';
 
--- 7.8 Almacenamiento Centralizado de Archivos y Metadatos de MinIO (CU-SAAS-02, CU-ADMIN-04, CU-ADMIN-11, CU-CAJA-03, CU-CAJA-05)
+-- Los fallidos son los que revisa y reenvía un operador.
+CREATE INDEX IF NOT EXISTS ix_outbox_entrega_fallido
+    ON outbox_entrega (destino, created_at) WHERE estado = 'fallido';
+
+-- 7.4 Solicitudes de pronóstico y reposición sugerida (CU-ADMIN-07, CU-PROP-08)
+-- El pronóstico lo calcula ms-pronóstico; el núcleo guarda cada solicitud y las cantidades sugeridas.
+CREATE TABLE IF NOT EXISTS solicitud_pronostico (
+    id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
+    local_id UUID NOT NULL REFERENCES local(id) ON DELETE CASCADE,
+    ejecucion_id UUID NOT NULL UNIQUE,
+    cobertura_dias SMALLINT NOT NULL CHECK (cobertura_dias IN (3, 5, 7)),
+    nivel SMALLINT NOT NULL CHECK (nivel BETWEEN 0 AND 3),
+    dias_con_ventas INT CHECK (dias_con_ventas >= 0),
+    modelo_version UUID,
+    solicitada_por UUID REFERENCES usuario(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS recomendacion_reposicion (
+    id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
+    local_id UUID NOT NULL REFERENCES local(id) ON DELETE CASCADE,
+    ejecucion_id UUID NOT NULL,
+    insumo_id UUID NOT NULL REFERENCES insumo(id) ON DELETE CASCADE,
+    cobertura_dias SMALLINT NOT NULL CHECK (cobertura_dias IN (3, 5, 7)),
+    consumo_previsto DECIMAL(12, 3) NOT NULL CHECK (consumo_previsto >= 0),
+    margen_seguridad DECIMAL(12, 3) NOT NULL DEFAULT 0 CHECK (margen_seguridad >= 0),
+    stock_al_calcular DECIMAL(12, 3) NOT NULL CHECK (stock_al_calcular >= 0),
+    cantidad_sugerida DECIMAL(12, 3) NOT NULL CHECK (cantidad_sugerida >= 0),
+    estado VARCHAR(12) NOT NULL DEFAULT 'pendiente'
+        CHECK (estado IN ('pendiente', 'aceptada', 'ajustada', 'descartada')),
+    cantidad_final DECIMAL(12, 3) CHECK (cantidad_final >= 0),
+    decidido_por UUID REFERENCES usuario(id) ON DELETE SET NULL,
+    decidido_en TIMESTAMPTZ,
+    prioridad VARCHAR(10) NOT NULL DEFAULT 'cubierto' CHECK (prioridad IN ('urgente', 'pronto', 'cubierto')),
+    motivo VARCHAR(12) NOT NULL DEFAULT 'consumo' CHECK (motivo IN ('consumo', 'bajo_minimo')),
+    alcanza_dias SMALLINT,
+    stock_minimo_al_calcular DECIMAL(12, 3) NOT NULL DEFAULT 0,
+    costo_unitario_al_calcular DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    proveedor_id UUID REFERENCES proveedor(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (ejecucion_id, insumo_id)
+);
+
+-- 7.5 Almacenamiento Centralizado de Archivos y Metadatos de MinIO (CU-SAAS-02, CU-ADMIN-04, CU-ADMIN-11, CU-CAJA-03, CU-CAJA-05)
 CREATE TABLE IF NOT EXISTS archivo (
     id UUID PRIMARY KEY DEFAULT fn_uuid_v8(),
     empresa_id UUID NOT NULL REFERENCES empresa(id) ON DELETE CASCADE,
@@ -982,7 +962,7 @@ CREATE TABLE IF NOT EXISTS archivo (
     tamanio_bytes BIGINT NOT NULL CHECK (tamanio_bytes >= 0),
     sha256 CHAR(64),
     visibilidad VARCHAR(20) NOT NULL CHECK (visibilidad IN ('catalogo', 'privado', 'temporal')),
-    entidad_tipo VARCHAR(50) NOT NULL, -- 'producto', 'incidente', 'comprobante', 'caja_cierre', 'portabilidad', 'gasto_manual'
+    entidad_tipo VARCHAR(50) NOT NULL, -- 'producto', 'comprobante', 'caja_cierre', 'portabilidad', 'gasto_manual'
     entidad_id UUID NOT NULL,
     estado VARCHAR(20) NOT NULL DEFAULT 'disponible' CHECK (estado IN ('pendiente', 'disponible', 'fallido', 'eliminado', 'expirado')),
     creado_por UUID REFERENCES usuario(id) ON DELETE SET NULL,

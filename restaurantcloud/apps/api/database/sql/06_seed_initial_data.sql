@@ -7,6 +7,7 @@
 SET client_encoding = 'UTF8';
 
 -- 1. CATÁLOGO COMERCIAL OFICIAL DE PLANES (CU-SAAS-03)
+-- max_pisos, max_mesas y max_usuarios son límites POR SEDE; max_locales, de la empresa.
 INSERT INTO plan (
     id, nombre, slug, descripcion, precio_mensual, precio_anual, 
     max_locales, max_pisos, max_mesas, max_usuarios, 
@@ -23,7 +24,7 @@ INSERT INTO plan (
     1, 
     1, 
     25, 
-    5, 
+    6, 
     false, 
     false, 
     false, 
@@ -39,9 +40,9 @@ INSERT INTO plan (
     80.00, 
     800.00, 
     3, 
-    6, 
-    60, 
-    15, 
+    3, 
+    40, 
+    12, 
     true, 
     true, 
     true, 
@@ -57,9 +58,9 @@ INSERT INTO plan (
     160.00, 
     1600.00, 
     10, 
-    50, 
-    600, 
-    40, 
+    5, 
+    80, 
+    25, 
     true, 
     true, 
     true, 
