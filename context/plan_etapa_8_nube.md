@@ -36,6 +36,8 @@ Resultado esperado: un tester clona el repositorio, ejecuta **un solo comando** 
 | Paso | Contenido | Demostrable |
 |---|---|---|
 | 8.0 Plan | Este documento | Decisiones aprobadas |
+| 8.A Scripts SQL | Los scripts de `database/sql` reflejan el estado final del esquema; las 18 migraciones absorbidas se retiran; se elimina `snapshot_stock_diario` | Una base nueva queda igual que una migrada (`schema-check.sh`) |
+| 8.B Correos | Envío real de los correos de activación e invitación, con Mailpit en QA | Registrar una empresa y recibir el correo en `localhost:8025` |
 | 8.1 Imágenes | API con el código dentro; web apuntando a Kong y con el paquete partido; versión en cada imagen | Las imágenes arrancan sin montar carpetas del repositorio |
 | 8.2 Compose de despliegue | Sistema completo en `docker-compose.prod.yml`, Caddy delante de Kong, solo Caddy publica puertos | `http://localhost` funciona con el compose nuevo |
 | 8.3 Configuración | Script que genera el `.env` con secretos aleatorios y claves JWT; ejemplos de QA y de producción | Un `.env` nuevo de cero, sin copiar nada a mano |
@@ -113,6 +115,21 @@ Para leerlo y ejecutarlo más adelante; en esta etapa no se ejecuta ningún coma
 - Etiquetas: versión y commit, y por qué no basta con `latest`.
 - Cómo pasa el compose de `build:` a `image:` con una variable `REGISTRO`, sin tocar el archivo.
 - Limpieza de versiones viejas y errores comunes (permisos, región, arquitectura `amd64` si se construye en una Mac con ARM).
+
+### 8.A Scripts SQL al estado final (25/11)
+
+Antes de empaquetar nada conviene que crear la base sea simple: hasta hoy había que leer 9 scripts y 18 migraciones para saber cómo es el esquema. El servidor de la Unidad I se puede recrear, así que no hay bases que conservar.
+
+- **Cómo se hizo:** se creó una base con el camino anterior (scripts más las 18 migraciones) y se guardó su catálogo de PostgreSQL como referencia; después se llevó cada cambio a los scripts hasta que una base creada solo con ellos quedó igual. La comparación es del catálogo (columnas, restricciones, índices, disparadores, funciones, vistas, políticas RLS y secuencias), no del `pg_dump`, porque una base migrada tiene las columnas nuevas al final y una nueva las tiene en su sitio.
+- **Qué entró a los scripts:** el ciclo de facturación y el número de recibo, sin los campos de Stripe; los límites de los planes por sede (el seed 06 conservaba los valores viejos); la clasificación de fallos del outbox; `solicitud_pronostico` y `recomendacion_reposicion` con sus índices y su RLS; los índices de límites por sede y de los movimientos de caja; y la vista `v_pedido_anulacion_detalle`. Salen `incidente`, `incidente_bitacora`, `notificacion` y la columna `pedido_anulacion.incidente_id`.
+- **`snapshot_stock_diario` se retira** (nadie la usaba). Una migración la elimina en las bases creadas antes; en una base nueva no hace nada. Es la única migración que queda además de la base.
+- **Datos:** el seed de ÁUREA se carga igual en ambos caminos (mismo conteo en las 49 tablas) y los tres planes quedaron idénticos.
+- **`scripts/schema-check.sh`** ahora compara ese catálogo (`scripts/schema-catalogo.sql`). Se comprobó que detecta una columna y un índice cambiados a propósito y que pasa sobre la base real.
+- **Regla desde ahora:** cada cambio de esquema es una migración nueva (idempotente) y se refleja también en los scripts; `schema-check.sh` lo vigila.
+
+### 8.B Correos de activación e invitación
+
+Hoy no se envía ninguno: el enlace solo vuelve en la respuesta de la API, aunque el mensaje dice «Invitación enviada por correo». Quedó fuera de la 8.A y se detalla al llegar.
 
 ## Riesgos
 

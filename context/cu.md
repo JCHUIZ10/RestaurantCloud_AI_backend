@@ -1865,7 +1865,7 @@ Documento de Casos de Uso — Versión Consolidada Final *Levantamiento de reque
 ### CU-SISTEMA-01: Generar snapshot diario de stock e insumos (Diferido)
 
 > [!NOTE]
-> **Diferido en la Unidad II:** ni el entrenamiento del modelo ni la recomendación usan este historial (las ventas vienen de ms-analítica y la reposición usa el stock actual). La tabla `snapshot_stock_diario` se conserva sin uso. Su valor sería corregir la demanda censurada (días con platos agotados), para lo cual haría falta además registrar los cambios de disponibilidad de los platos.
+> **Diferido en la Unidad II:** ni el entrenamiento del modelo ni la recomendación usan este historial (las ventas vienen de ms-analítica y la reposición usa el stock actual). La tabla `snapshot_stock_diario` se retiró del esquema el 25/11/2026; si se retoma, habrá que volver a crearla. Su valor sería corregir la demanda censurada (días con platos agotados), para lo cual haría falta además registrar los cambios de disponibilidad de los platos.
 
 **Actor(es):** Sistema (proceso automático, sin intervención humana)
 

@@ -139,11 +139,11 @@ Cada módulo de dominio contiene, según su necesidad: acciones o casos de uso, 
 | Proveedores y compras | `proveedor`, `ficha_compra`, `ficha_compra_detalle` |
 | Reservas y pedidos | `reserva`, `reserva_mesa`, `pedido`, `pedido_item` |
 | Promociones, caja y comprobantes | `promocion`, `caja`, `comprobante`, `gasto_manual` |
-| Incidentes, notificaciones y auditoría | `incidente`, `notificacion`, `log_auditoria` |
-| Forecasting | `snapshot_stock_diario` (histórico de ventas se calcula agregando `pedido_item` + `comprobante`, sin tabla adicional) |
+| Auditoría | `log_auditoria` (incidentes y notificaciones se retiraron del núcleo) |
+| Pronóstico | `solicitud_pronostico`, `recomendacion_reposicion` (el histórico de ventas vive en ms-analítica) |
 
 **Identificadores:** UUID en todas las tablas.
-**Recomendación de índices:** compuestos por `(local_id, fecha)` en tablas de alto volumen (`pedido`, `pedido_item`, `snapshot_stock_diario`).
+**Recomendación de índices:** compuestos por `(local_id, fecha)` en tablas de alto volumen (`pedido`, `pedido_item`).
 
 ---
 

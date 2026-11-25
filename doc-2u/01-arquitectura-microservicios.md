@@ -41,8 +41,8 @@ Se contó cuántos módulos del monolito usan cada tabla:
 | `plan` | 8 | Los límites del plan se consultan en muchos módulos |
 | `caja` | 7 | Ligada al cobro |
 | `pedido` | 6 | Ligada a cobro, cocina e inventario |
-| `notificacion` | 3 | Solo se escribía; ninguna pantalla la leía. **Retirada en la etapa 7** (migración `2026_11_22_000001_retirar_tabla_notificacion`): sus avisos son ahora eventos que ms-notificaciones convierte en avisos. El esquema inicial (`02_schema_ddl.sql`) la conserva y la migración la quita, como se hizo con el módulo de incidentes |
-| `snapshot_stock_diario` | 0 | Sin uso |
+| `notificacion` | 3 | Solo se escribía; ninguna pantalla la leía. **Retirada en la etapa 7** (migración `2026_11_22_000001_retirar_tabla_notificacion`): sus avisos son ahora eventos que ms-notificaciones convierte en avisos. El 25/11/2026 los scripts SQL se actualizaron al estado final del esquema y dejó de crearse |
+| `snapshot_stock_diario` | 0 | Sin uso. **Retirada el 25/11/2026** (migración `2026_11_25_104757_retirar_tabla_snapshot_stock_diario`, solo para bases anteriores) |
 
 Además, dos casos de uso están diseñados en los wireframes pero **no implementados** en el backend: **CU-ADMIN-13** (reportes de ventas y desempeño) y **CU-TRANS-01** (notificaciones del sistema). Junto con el componente de IA, son los tres microservicios.
 
