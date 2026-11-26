@@ -2,3 +2,5 @@
 * text=auto
 *.sh text eol=lf
 restaurantcloud/infra/kong/** text eol=lf
+restaurantcloud/infra/caddy/Caddyfile text eol=lf
+restaurantcloud/infra/docker/entrypoint.sh text eol=lf

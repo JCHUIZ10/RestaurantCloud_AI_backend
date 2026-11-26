@@ -1,45 +1,61 @@
-# Producción en VPS: solo Caddy publica puertos (80/443).
-# Uso: docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+# Compose de despliegue (QA en http://localhost y producción con TLS en Caddy).
+# Solo Caddy publica puertos web (80/443); Mailpit (8025) y consola MinIO (9001) quedan en 127.0.0.1.
+# Uso QA:         docker compose -f docker-compose.prod.yml --profile qa --env-file .env up -d --build
+# Uso producción: docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+
+name: restaurantcloud
 
 x-laravel-env: &laravel-env
-  APP_ENV: production
+  APP_ENV: ${APP_ENV:-production}
   APP_DEBUG: "false"
-  APP_URL: https://${APP_DOMAIN:?APP_DOMAIN requerido}
-  # La SPA la sirve Caddy en el mismo dominio: base de los enlaces de activación e invitación
-  FRONTEND_URL: https://${APP_DOMAIN:?APP_DOMAIN requerido}
+  APP_KEY: ${APP_KEY:?APP_KEY requerido}
+  APP_URL: ${APP_URL:-${SITIO:?SITIO requerido}}
+  # La SPA la sirve Caddy en el mismo origen: base de los enlaces de activación e invitación.
+  FRONTEND_URL: ${FRONTEND_URL:-${SITIO:?SITIO requerido}}
   LOG_LEVEL: ${LOG_LEVEL:-warning}
   REDIS_CLIENT: phpredis
   SESSION_DRIVER: redis
-  SESSION_SECURE_COOKIE: "true"
+  SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-false}
   CACHE_STORE: redis
   QUEUE_CONNECTION: redis
   DB_HOST: db
   DB_PORT: 5432
-  DB_DATABASE: ${POSTGRES_DB}
-  DB_USERNAME: ${POSTGRES_USER}
-  DB_PASSWORD: ${POSTGRES_PASSWORD}
+  DB_DATABASE: ${POSTGRES_DB:?POSTGRES_DB requerido}
+  DB_USERNAME: ${POSTGRES_USER:?POSTGRES_USER requerido}
+  DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requerido}
   REDIS_HOST: redis
   REDIS_PORT: 6379
-  REDIS_PASSWORD: ${REDIS_PASSWORD}
-  AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
-  AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+  REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD requerido}
+  AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?MINIO_ROOT_USER requerido}
+  AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD requerido}
   AWS_DEFAULT_REGION: us-east-1
   AWS_BUCKET: ${MINIO_DEFAULT_BUCKET:-restaurantcloud}
   AWS_ENDPOINT: http://minio:9000
-  AWS_URL: https://${FILES_DOMAIN:?FILES_DOMAIN requerido}/${MINIO_DEFAULT_BUCKET:-restaurantcloud}
-  AWS_TEMPORARY_URL: https://${FILES_DOMAIN:?FILES_DOMAIN requerido}
+  AWS_URL: ${AWS_URL:-${SITIO}/${MINIO_DEFAULT_BUCKET:-restaurantcloud}}
+  AWS_TEMPORARY_URL: ${AWS_TEMPORARY_URL:-${SITIO}}
   AWS_USE_PATH_STYLE_ENDPOINT: "true"
   FILESYSTEM_DISK: s3
   STRIPE_KEY: ${STRIPE_KEY:-}
   STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
   STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
   APIDEV_TOKEN: ${APIDEV_TOKEN:-}
+  ANALITICA_URL: http://analitica:8001
+  ANALITICA_SECRETO: ${ANALITICA_SECRETO:?ANALITICA_SECRETO requerido}
+  PRONOSTICO_URL: http://pronostico:8002
+  PRONOSTICO_SECRETO: ${PRONOSTICO_SECRETO:?PRONOSTICO_SECRETO requerido}
+  PREDICCION_RESERVA_MINIMA: ${PREDICCION_RESERVA_MINIMA:-0.35}
+  NOTIFICACIONES_URL: http://notificaciones:8003
+  NOTIFICACIONES_SECRETO: ${NOTIFICACIONES_SECRETO:?NOTIFICACIONES_SECRETO requerido}
+  JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?JWT_PRIVATE_KEY requerido}
+  JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY requerido}
+  JWT_MINUTOS: ${JWT_MINUTOS:-10}
   MAIL_MAILER: ${MAIL_MAILER:-log}
   MAIL_HOST: ${MAIL_HOST:-}
   MAIL_PORT: ${MAIL_PORT:-587}
   MAIL_USERNAME: ${MAIL_USERNAME:-}
   MAIL_PASSWORD: ${MAIL_PASSWORD:-}
   MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@example.com}
+  MAIL_FROM_NAME: ${MAIL_FROM_NAME:-ÁUREA}
 
 x-logging: &logging
   driver: json-file
@@ -50,8 +66,8 @@ x-logging: &logging
 services:
   db:
     image: postgres:16-alpine
-    container_name: saas_postgres_db
     restart: unless-stopped
+    mem_limit: 512m
     logging: *logging
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB requerido}
@@ -59,8 +75,6 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requerido}
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
       PGCLIENTENCODING: "UTF8"
-    ports:
-      - "127.0.0.1:5432:5432"
     command:
       - "postgres"
       - "-c"
@@ -80,9 +94,9 @@ services:
       - "-c"
       - "track_io_timing=on"
       - "-c"
-      - "shared_buffers=512MB"
+      - "shared_buffers=${POSTGRES_SHARED_BUFFERS:-256MB}"
       - "-c"
-      - "effective_cache_size=2GB"
+      - "effective_cache_size=${POSTGRES_EFFECTIVE_CACHE:-1GB}"
       - "-c"
       - "work_mem=16MB"
       - "-c"
@@ -91,7 +105,6 @@ services:
       - "max_parallel_workers_per_gather=2"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # El esquema lo crean las migraciones de Laravel al arrancar la API.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -102,10 +115,21 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: saas_redis
     restart: unless-stopped
+    mem_limit: 192m
     logging: *logging
-    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD requerido}", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-ttl", "--appendonly", "yes", "--appendfsync", "everysec"]
+    command:
+      - "redis-server"
+      - "--requirepass"
+      - "${REDIS_PASSWORD:?REDIS_PASSWORD requerido}"
+      - "--maxmemory"
+      - "${REDIS_MAXMEMORY:-128mb}"
+      - "--maxmemory-policy"
+      - "volatile-ttl"
+      - "--appendonly"
+      - "yes"
+      - "--appendfsync"
+      - "everysec"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -117,17 +141,17 @@ services:
       - saas_network
 
   minio:
-    image: cgr.dev/chainguard/minio:latest
-    container_name: saas_minio
+    image: cgr.dev/chainguard/minio@sha256:dc455cdd4db6e390b1b26514f15ff37681a777bf8dab41aac445a0259f751e56
     restart: unless-stopped
+    mem_limit: 384m
     logging: *logging
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER requerido}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD requerido}
-    # Consola solo por túnel SSH: ssh -L 9001:127.0.0.1:9001 deploy@VPS
+    # Consola en localhost (QA) o por túnel SSH en producción: ssh -L 9001:127.0.0.1:9001 deploy@VPS
     ports:
-      - "127.0.0.1:9001:9001"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - minio_data:/data
     healthcheck:
@@ -139,8 +163,10 @@ services:
       - saas_network
 
   minio-init:
-    image: cgr.dev/chainguard/minio:latest
-    container_name: saas_minio_init
+    image: cgr.dev/chainguard/minio@sha256:dc455cdd4db6e390b1b26514f15ff37681a777bf8dab41aac445a0259f751e56
+    restart: "no"
+    mem_limit: 256m
+    logging: *logging
     depends_on:
       minio:
         condition: service_healthy
@@ -159,17 +185,45 @@ services:
     build:
       context: .
       dockerfile: ./infra/docker/api.Dockerfile
-    container_name: saas_laravel_api
+      target: prod
     restart: unless-stopped
+    mem_limit: 512m
     logging: *logging
     environment:
       <<: *laravel-env
       CONTAINER_ROLE: api
       APP_SERVER: octane
-      OCTANE_WORKERS: ${OCTANE_WORKERS:-4}
-    volumes:
-      - ./apps/api:/app
+      OCTANE_WORKERS: ${OCTANE_WORKERS:-2}
     depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/up > /dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    networks:
+      - saas_network
+
+  queue:
+    build:
+      context: .
+      dockerfile: ./infra/docker/api.Dockerfile
+      target: prod
+    restart: unless-stopped
+    mem_limit: 384m
+    logging: *logging
+    environment:
+      <<: *laravel-env
+      CONTAINER_ROLE: queue
+    depends_on:
+      api:
+        condition: service_healthy
       db:
         condition: service_healthy
       redis:
@@ -179,42 +233,287 @@ services:
     networks:
       - saas_network
 
-  queue:
-    build:
-      context: .
-      dockerfile: ./infra/docker/api.Dockerfile
-    container_name: saas_laravel_queue
-    restart: unless-stopped
-    logging: *logging
-    environment:
-      <<: *laravel-env
-      CONTAINER_ROLE: queue
-    volumes:
-      - ./apps/api:/app
-    depends_on:
-      api:
-        condition: service_started
-    networks:
-      - saas_network
-
   scheduler:
     build:
       context: .
       dockerfile: ./infra/docker/api.Dockerfile
-    container_name: saas_laravel_scheduler
+      target: prod
     restart: unless-stopped
+    mem_limit: 192m
     logging: *logging
     environment:
       <<: *laravel-env
       CONTAINER_ROLE: scheduler
-    volumes:
-      - ./apps/api:/app
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - saas_network
 
+  # ---------------------------------------------------------------------------
+  # ms-analítica (PostgreSQL propio + migraciones efímeras + servicio)
+  # ---------------------------------------------------------------------------
+  db-analitica:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    mem_limit: 384m
+    logging: *logging
+    environment:
+      POSTGRES_DB: ${ANALITICA_DB_NAME:?ANALITICA_DB_NAME requerido}
+      POSTGRES_USER: ${ANALITICA_DB_USER:?ANALITICA_DB_USER requerido}
+      POSTGRES_PASSWORD: ${ANALITICA_DB_PASSWORD:?ANALITICA_DB_PASSWORD requerido}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
+      ANALITICA_DB_APP_USER: ${ANALITICA_DB_APP_USER:?ANALITICA_DB_APP_USER requerido}
+      ANALITICA_DB_APP_PASSWORD: ${ANALITICA_DB_APP_PASSWORD:?ANALITICA_DB_APP_PASSWORD requerido}
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=128MB"
+      - "-c"
+      - "work_mem=8MB"
+    volumes:
+      - analitica_data:/var/lib/postgresql/data
+      - ./infra/postgres/analitica:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ANALITICA_DB_USER} -d ${ANALITICA_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - saas_network
+
+  analitica-migraciones:
+    build:
+      context: ./services/analitica
+    restart: "no"
+    mem_limit: 256m
+    logging: *logging
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      MIGRATIONS_DATABASE_URL: postgresql+psycopg://${ANALITICA_DB_USER}:${ANALITICA_DB_PASSWORD}@db-analitica:5432/${ANALITICA_DB_NAME}
+    depends_on:
+      db-analitica:
+        condition: service_healthy
+    networks:
+      - saas_network
+
+  analitica:
+    build:
+      context: ./services/analitica
+    restart: unless-stopped
+    mem_limit: 384m
+    logging: *logging
+    environment:
+      PORT: 8001
+      DATABASE_URL: postgresql+psycopg://${ANALITICA_DB_APP_USER}:${ANALITICA_DB_APP_PASSWORD}@db-analitica:5432/${ANALITICA_DB_NAME}
+      SECRETO_INTERNO: ${ANALITICA_SECRETO:?ANALITICA_SECRETO requerido}
+      ZONA_HORARIA: America/Lima
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY requerido}
+    depends_on:
+      analitica-migraciones:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - saas_network
+
+  # ---------------------------------------------------------------------------
+  # ms-pronóstico (PostgreSQL propio + migraciones efímeras + servicio)
+  # ---------------------------------------------------------------------------
+  db-pronostico:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    mem_limit: 256m
+    logging: *logging
+    environment:
+      POSTGRES_DB: ${PRONOSTICO_DB_NAME:?PRONOSTICO_DB_NAME requerido}
+      POSTGRES_USER: ${PRONOSTICO_DB_USER:?PRONOSTICO_DB_USER requerido}
+      POSTGRES_PASSWORD: ${PRONOSTICO_DB_PASSWORD:?PRONOSTICO_DB_PASSWORD requerido}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
+      PRONOSTICO_DB_APP_USER: ${PRONOSTICO_DB_APP_USER:?PRONOSTICO_DB_APP_USER requerido}
+      PRONOSTICO_DB_APP_PASSWORD: ${PRONOSTICO_DB_APP_PASSWORD:?PRONOSTICO_DB_APP_PASSWORD requerido}
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=64MB"
+      - "-c"
+      - "work_mem=8MB"
+    volumes:
+      - pronostico_data:/var/lib/postgresql/data
+      - ./infra/postgres/pronostico:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PRONOSTICO_DB_USER} -d ${PRONOSTICO_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - saas_network
+
+  pronostico-migraciones:
+    build:
+      context: ./services/pronostico
+      additional_contexts:
+        model_ia: ../model-ia
+    restart: "no"
+    mem_limit: 512m
+    logging: *logging
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      MIGRATIONS_DATABASE_URL: postgresql+psycopg://${PRONOSTICO_DB_USER}:${PRONOSTICO_DB_PASSWORD}@db-pronostico:5432/${PRONOSTICO_DB_NAME}
+      APP_DB_USER: ${PRONOSTICO_DB_APP_USER}
+    depends_on:
+      db-pronostico:
+        condition: service_healthy
+    networks:
+      - saas_network
+
+  pronostico:
+    build:
+      context: ./services/pronostico
+      additional_contexts:
+        model_ia: ../model-ia
+    restart: unless-stopped
+    mem_limit: 768m
+    logging: *logging
+    environment:
+      PORT: 8002
+      DATABASE_URL: postgresql+psycopg://${PRONOSTICO_DB_APP_USER}:${PRONOSTICO_DB_APP_PASSWORD}@db-pronostico:5432/${PRONOSTICO_DB_NAME}
+      SECRETO_INTERNO: ${PRONOSTICO_SECRETO:?PRONOSTICO_SECRETO requerido}
+      ZONA_HORARIA: America/Lima
+      MODELOS_REPOSITORIO: ${MODELOS_REPOSITORIO:-gs://rc-modelos-demo-aurea}
+      MODELOS_GCS_ANONIMO: ${MODELOS_GCS_ANONIMO:-true}
+      ANALITICA_URL: http://analitica:8001
+      ANALITICA_SECRETO: ${ANALITICA_SECRETO:?ANALITICA_SECRETO requerido}
+    depends_on:
+      pronostico-migraciones:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - saas_network
+
+  # ---------------------------------------------------------------------------
+  # ms-notificaciones (MongoDB propio + esquema efímero + servicio)
+  # ---------------------------------------------------------------------------
+  mongo-notificaciones:
+    image: mongo:7
+    restart: unless-stopped
+    mem_limit: 512m
+    logging: *logging
+    command: ["mongod", "--wiredTigerCacheSizeGB", "${MONGO_WIREDTIGER_CACHE_GB:-0.25}"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${NOTIFICACIONES_MONGO_USER:?NOTIFICACIONES_MONGO_USER requerido}
+      MONGO_INITDB_ROOT_PASSWORD: ${NOTIFICACIONES_MONGO_PASSWORD:?NOTIFICACIONES_MONGO_PASSWORD requerido}
+      MONGO_INITDB_DATABASE: ${NOTIFICACIONES_MONGO_DB:?NOTIFICACIONES_MONGO_DB requerido}
+      NOTIFICACIONES_MONGO_APP_USER: ${NOTIFICACIONES_MONGO_APP_USER:?NOTIFICACIONES_MONGO_APP_USER requerido}
+      NOTIFICACIONES_MONGO_APP_PASSWORD: ${NOTIFICACIONES_MONGO_APP_PASSWORD:?NOTIFICACIONES_MONGO_APP_PASSWORD requerido}
+    volumes:
+      - notificaciones_data:/data/db
+      - ./infra/mongo/notificaciones:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - saas_network
+
+  notificaciones-migraciones:
+    build:
+      context: ./services/notificaciones
+    restart: "no"
+    mem_limit: 256m
+    logging: *logging
+    command: ["node", "dist/esquema.js"]
+    environment:
+      MONGODB_URI: mongodb://mongo-notificaciones:27017
+      MONGODB_DB: ${NOTIFICACIONES_MONGO_DB}
+      MONGODB_USUARIO: ${NOTIFICACIONES_MONGO_USER}
+      MONGODB_CLAVE: ${NOTIFICACIONES_MONGO_PASSWORD}
+      MONGODB_AUTH_SOURCE: admin
+    depends_on:
+      mongo-notificaciones:
+        condition: service_healthy
+    networks:
+      - saas_network
+
+  notificaciones:
+    build:
+      context: ./services/notificaciones
+    restart: unless-stopped
+    mem_limit: 256m
+    logging: *logging
+    environment:
+      PORT: 8003
+      MONGODB_URI: mongodb://mongo-notificaciones:27017
+      MONGODB_DB: ${NOTIFICACIONES_MONGO_DB}
+      MONGODB_USUARIO: ${NOTIFICACIONES_MONGO_APP_USER}
+      MONGODB_CLAVE: ${NOTIFICACIONES_MONGO_APP_PASSWORD}
+      SECRETO_INTERNO: ${NOTIFICACIONES_SECRETO:?NOTIFICACIONES_SECRETO requerido}
+      DIAS_RETENCION: ${NOTIFICACIONES_DIAS_RETENCION:-30}
+      ZONA_HORARIA: America/Lima
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY requerido}
+    depends_on:
+      notificaciones-migraciones:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8003/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - saas_network
+
+  # ---------------------------------------------------------------------------
+  # API Gateway (Kong DB-less, sin puerto publicado al host)
+  # ---------------------------------------------------------------------------
+  kong:
+    image: kong:3.9.1
+    restart: unless-stopped
+    mem_limit: 512m
+    logging: *logging
+    entrypoint: ["/bin/sh", "/kong-config/arrancar.sh"]
+    environment:
+      KONG_DATABASE: "off"
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+      KONG_ADMIN_LISTEN: "off"
+      KONG_STATUS_LISTEN: 127.0.0.1:8100
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_NGINX_WORKER_PROCESSES: "2"
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY requerido}
+      JWT_EMISOR: ${JWT_EMISOR:-restaurantcloud-nucleo}
+      KONG_CORS_ORIGENES: ${KONG_CORS_ORIGENES:-${SITIO:?SITIO requerido}}
+    volumes:
+      - ./infra/kong:/kong-config:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      analitica:
+        condition: service_healthy
+      notificaciones:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - saas_network
+
+  # ---------------------------------------------------------------------------
+  # Proxy inverso y SPA (único punto de entrada web: 80 y 443 TCP/UDP)
+  # ---------------------------------------------------------------------------
   web:
     build:
       context: .
@@ -222,12 +521,13 @@ services:
       args:
         VITE_USE_REAL_API: "true"
         VITE_STRIPE_PUBLIC_KEY: ${STRIPE_KEY:-}
-    container_name: saas_web_caddy
     restart: unless-stopped
+    mem_limit: 128m
     logging: *logging
     environment:
-      APP_DOMAIN: ${APP_DOMAIN}
-      FILES_DOMAIN: ${FILES_DOMAIN}
+      SITIO: ${SITIO:?SITIO requerido}
+      FILES_DOMAIN: ${FILES_DOMAIN:-http://127.0.0.1:8090}
+      MINIO_DEFAULT_BUCKET: ${MINIO_DEFAULT_BUCKET:-restaurantcloud}
     ports:
       - "80:80"
       - "443:443"
@@ -236,8 +536,29 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - api
-      - minio
+      kong:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:2019/config/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - saas_network
+
+  # ---------------------------------------------------------------------------
+  # Bandeja de correos en QA (solo con --profile qa)
+  # ---------------------------------------------------------------------------
+  mailpit:
+    image: axllent/mailpit:v1.24
+    profiles: ["qa"]
+    restart: unless-stopped
+    mem_limit: 128m
+    logging: *logging
+    ports:
+      - "127.0.0.1:${MAILPIT_PORT:-8025}:8025"
     networks:
       - saas_network
 
@@ -247,6 +568,9 @@ volumes:
   minio_data:
   caddy_data:
   caddy_config:
+  analitica_data:
+  pronostico_data:
+  notificaciones_data:
 
 networks:
   saas_network:
