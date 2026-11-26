@@ -1,6 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 *.sh text eol=lf
-restaurantcloud/infra/kong/** text eol=lf
-restaurantcloud/infra/caddy/Caddyfile text eol=lf
-restaurantcloud/infra/docker/entrypoint.sh text eol=lf
+*.lua text eol=lf
+*.conf text eol=lf
+restaurantcloud/infra/** text eol=lf
+restaurantcloud/docker-compose*.yml text eol=lf
+restaurantcloud/.env*.example text eol=lf
