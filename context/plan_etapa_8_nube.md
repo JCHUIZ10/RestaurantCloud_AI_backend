@@ -44,7 +44,7 @@ Resultado esperado: un tester clona el repositorio, ejecuta **un solo comando** 
 | 8.3 Configuración | Script que genera el `.env` con secretos aleatorios y claves JWT; ejemplos de QA y de producción | Un `.env` nuevo de cero, sin copiar nada a mano (cerrada) |
 | 8.4 Datos de demostración | Seed, historial sintético hasta ayer, modelo vigente, cuentas por rol; comandos para preparar y reiniciar | ÁUREA con predicción nivel 3 en una base recién creada (cerrada) |
 | 8.5 Instalación en Windows | Comando único (`.ps1` y `.sh`), requisitos, finales de línea, consumo de memoria | Clon limpio en otra carpeta → sistema arriba con un comando (cerrada) |
-| 8.6 Verificación | Los cuatro humos contra el compose de despliegue | Mismas comprobaciones en verde que en desarrollo |
+| 8.6 Verificación | Los cuatro humos contra el compose de despliegue | Mismas comprobaciones en verde que en desarrollo (cerrada) |
 | 8.7 Guía para testers | Instalar, entrar, qué probar por rol y cómo reportar un fallo | Documento listo para enviar |
 | 8.8 Manual de Artifact Registry | Cada imagen: qué contiene, cómo se construye, se etiqueta y se sube, y qué hace cada comando | Manual listo, sin ejecutar |
 | 8.9 Cierre de esta parte | `plan_seguimiento.md` y las fichas | Entorno de testers entregado |
@@ -88,11 +88,11 @@ Resultado esperado: un tester clona el repositorio, ejecuta **un solo comando** 
 - **Comprobaciones previas:** validan en lenguaje simple Docker instalado y activo, Compose v2, memoria asignada (`>= 3.7 GiB` / ~4 GiB) y puerto 80 libre (tolerando si ya lo usa el propio contenedor `web` de QA).
 - **Prueba real:** clon limpio con `git clone -c core.autocrlf=true` en carpeta temporal sin `.env` ni volúmenes; `ls-files --eol` confirmó `w/lf` en los archivos de contenedor y `.\scripts\qa.ps1 iniciar` levantó todo el stack hasta `OK: pronóstico en nivel 3 con metodo=modelo (140 filas)`. También se validó el rechazo en lenguaje simple con puerto 80 ocupado tanto en `qa.ps1` como en `qa.sh`.
 
-### 8.6 Verificación
+### 8.6 Verificación (cerrada 25/11)
 
-- **Los humos aceptan el prefijo de los contenedores** y entran por Caddy en lugar de por `localhost:8000`: `smoke-analitica`, `smoke-pronostico`, `smoke-gateway` y `smoke-notificaciones`, contra el compose de despliegue.
-- **`X-Forwarded-For`:** un valor que manda el cliente ya no llega a Laravel como IP real.
-- **Lo interno no se expone desde fuera:** ninguna base, Kong ni servicio responde en los puertos de la PC.
+- **Humos adaptados al despliegue (`--despliegue` y `--prefijo`):** `smoke-analitica.sh`, `smoke-pronostico.sh`, `smoke-gateway.sh` y `smoke-notificaciones.sh` resuelven dinámicamente los contenedores por etiqueta de Compose (`com.docker.compose.project=restaurantcloud`) o prefijo explícito, entran por Caddy (`http://localhost`) en lugar de `localhost:8000`/`8080`, y ejecutan las consultas internas (`/health`, `/interno/...`) dentro de la red Docker vía `docker exec "$API" curl`.
+- **`scripts/verificar-despliegue.sh`:** automatiza en un solo paso la comprobación de puertos internos cerrados en el host (`5432`, `5433`, `5434`, `6379`, `8000`, `8001`, `8002`, `8003`, `8080`, `9000`, `27017`), la prueba real de `X-Forwarded-For` falsificado (`198.51.100.77` sobrescrito por Caddy antes de llegar a Laravel/Redis), y la ejecución completa de los cuatro humos en `--despliegue`.
+- **Verificado:** ejecución completa en verde (`Verificación de despliegue COMPLETA EN VERDE`): puertos internos cerrados, `X-Forwarded-For` sobrescrito por Caddy, `smoke-pronostico.sh` (108 comprobaciones), `smoke-gateway.sh` (138 comprobaciones), `smoke-analitica.sh` (38 comprobaciones) y `smoke-notificaciones.sh` (129 comprobaciones).
 
 ### 8.7 Guía para testers (`docs/guia-testers.md`)
 
