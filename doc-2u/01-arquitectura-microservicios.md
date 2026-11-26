@@ -267,7 +267,7 @@ Diferencias de Cloud Run frente a la VM que el diseño ya considera:
 
 1. ~~**Contrato de API y de eventos** de cada servicio.~~ Hecho: una ficha por servicio y el catálogo de eventos en [servicios/](servicios/README.md), con un contrato JSON por evento.
 2. **Datos para la IA.** La base tiene 3 pedidos de un solo día. Se usarán ventas sintéticas, generadas con un script versionado y declaradas como sintéticas en el informe. Se define al llegar a la IA.
-3. **Imagen de la API de Laravel.** El `api.Dockerfile` actual no copia el código a la imagen; hay que corregirlo para publicarla en Artifact Registry.
+3. ~~**Imagen de la API de Laravel.**~~ Hecho en la etapa 8.1: `api.Dockerfile` con `target: prod` autocontenido (y `queue`/`scheduler`), más `web.Dockerfile` con división de paquete y Caddy.
 4. **Qué servicio va al laboratorio de GKE.**
 
 ## 13. Orden de construcción previsto

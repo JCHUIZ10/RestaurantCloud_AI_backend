@@ -327,7 +327,7 @@ Sin autenticación. Responde 200 con `{"estado": "ok", "servicio": "ms-pronostic
 
 Dos piezas con responsabilidades distintas (sección 8):
 
-- **`AlmacenArtefactos`** (puerto): lee bytes de una ruta del repositorio (`modelos/{local_id}/vigente.json`, `…/ficha.json`, `…/modelo.skops`) y dice si el repositorio responde. Tiene un adaptador por proveedor (carpeta local hoy, Cloud Storage en la etapa 8). Es lo único que cambia al cambiar de proveedor.
+- **`AlmacenArtefactos`** (puerto): lee bytes de una ruta del repositorio (`modelos/{local_id}/vigente.json`, `…/ficha.json`, `…/modelo.skops`) y dice si el repositorio responde. Tiene dos adaptadores: carpeta local (`file:///...`) y Cloud Storage (`AlmacenGcs` para `gs://...`, implementado y verificado en la etapa 8.C). Es lo único que cambia al cambiar de proveedor.
 - **`ProveedorModelos`** (servicio de aplicación): las reglas de abajo. No sabe de dónde vienen los bytes.
 
 Cómo pasa un archivo del repositorio de modelos (D-22) a una predicción:
