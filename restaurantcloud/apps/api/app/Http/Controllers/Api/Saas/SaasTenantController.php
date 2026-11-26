@@ -6,7 +6,9 @@ use App\Domains\Suscripcion\Services\CobroSuscripcionService;
 use App\Domains\Tenant\Exceptions\EnlaceActivacionException;
 use App\Domains\Tenant\Services\TenantProvisioningService;
 use App\Http\Controllers\Controller;
+use App\Mail\ActivacionCuentaMail;
 use App\Support\ApiResponse;
+use App\Support\CorreoTransaccional;
 use App\Support\Identificador;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -469,12 +471,27 @@ class SaasTenantController extends Controller
         }
 
         $frontendUrl = config('app.frontend_url');
+        $urlActivacion = "{$frontendUrl}/activar-cuenta?token={$token}";
+        $destinatarioCorreo = $propietario ? $propietario->correo : $empresa->correo_contacto;
+        $destinatarioNombre = $propietario ? $propietario->nombre : $empresa->razon_social;
+
+        CorreoTransaccional::enviarSeguro(
+            (string) $destinatarioCorreo,
+            ActivacionCuentaMail::paraRecordatorioTitular(
+                nombreDestinatario: (string) $destinatarioNombre,
+                nombreEmpresa: (string) $empresa->razon_social,
+                urlActivacion: $urlActivacion,
+                horasExpiracion: 72,
+                expiraEn: $expiraEn,
+            ),
+            ['flujo' => 'notificar_cobro_saas', 'empresa_id' => $id],
+        );
 
         return ApiResponse::ok([
             'empresa_id' => $id,
-            'correo' => $propietario ? $propietario->correo : $empresa->correo_contacto,
+            'correo' => $destinatarioCorreo,
             'invitacion_token' => $token,
-            'invitacion_url' => "{$frontendUrl}/activar-cuenta?token={$token}",
+            'invitacion_url' => $urlActivacion,
             'mensaje' => 'Recordatorio y capability token renovado por 72 horas despachado al titular.',
         ]);
     }

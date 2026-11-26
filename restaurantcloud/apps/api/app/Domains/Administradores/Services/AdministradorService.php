@@ -3,7 +3,9 @@
 namespace App\Domains\Administradores\Services;
 
 use App\Domains\Suscripcion\Services\UsoRecursosEmpresa;
+use App\Mail\ActivacionCuentaMail;
 use App\Models\Usuario;
+use App\Support\CorreoTransaccional;
 use App\Support\Identificador;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -130,7 +132,7 @@ class AdministradorService
      */
     public function invitar(string $empresaId, array $datos, ?Usuario $usuarioEjecutor = null): array
     {
-        return DB::transaction(function () use ($empresaId, $datos, $usuarioEjecutor): array {
+        $resultado = DB::transaction(function () use ($empresaId, $datos, $usuarioEjecutor): array {
             // 1. Validar cuota del plan
             $this->asegurarCupo($empresaId);
 
@@ -213,6 +215,23 @@ class AdministradorService
                 'mensaje' => 'Invitación enviada exitosamente por correo electrónico. El enlace expira en 24 horas.',
             ];
         });
+
+        $nombreEmpresa = DB::table('empresa')->where('id', $empresaId)->value('razon_social');
+
+        CorreoTransaccional::enviarSeguro(
+            $resultado['correo'],
+            ActivacionCuentaMail::paraInvitacionAdmin(
+                nombreDestinatario: $resultado['nombre'],
+                urlActivacion: $resultado['invitacion_url'],
+                esReenvio: false,
+                nombreEmpresa: $nombreEmpresa ? (string) $nombreEmpresa : null,
+                horasExpiracion: 24,
+                expiraEn: $resultado['invitacion_expira_en'],
+            ),
+            ['flujo' => 'invitar_admin', 'empresa_id' => $empresaId, 'usuario_id' => $resultado['id']],
+        );
+
+        return $resultado;
     }
 
     /**
@@ -285,6 +304,20 @@ class AdministradorService
 
         $frontendUrl = config('app.frontend_url');
         $urlActivacion = "{$frontendUrl}/activar-cuenta?token={$token}";
+        $nombreEmpresa = DB::table('empresa')->where('id', $empresaId)->value('razon_social');
+
+        CorreoTransaccional::enviarSeguro(
+            $usuario->correo,
+            ActivacionCuentaMail::paraInvitacionAdmin(
+                nombreDestinatario: $usuario->nombre,
+                urlActivacion: $urlActivacion,
+                esReenvio: true,
+                nombreEmpresa: $nombreEmpresa ? (string) $nombreEmpresa : null,
+                horasExpiracion: 24,
+                expiraEn: $expiraEn,
+            ),
+            ['flujo' => 'reenviar_invitacion_admin', 'empresa_id' => $empresaId, 'usuario_id' => $adminId],
+        );
 
         return [
             'usuario_id' => $adminId,

@@ -4,6 +4,8 @@ namespace App\Domains\Tenant\Services;
 
 use App\Domains\Archivos\Services\TenantStorageService;
 use App\Domains\Tenant\Exceptions\EnlaceActivacionException;
+use App\Mail\ActivacionCuentaMail;
+use App\Support\CorreoTransaccional;
 use App\Support\Identificador;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -270,7 +272,9 @@ class TenantProvisioningService
         $telefono = $this->localProvisioning->normalizarTelefonoPeru($datos['propietario_telefono'] ?? null);
 
         // 2. Transacción ACID para asegurar integridad referencial completa
-        return DB::transaction(function () use ($datos, $ruc, $correo, $telefono) {
+        $expiraEn = null;
+
+        $resultado = DB::transaction(function () use ($datos, $ruc, $correo, $telefono, &$expiraEn) {
             // Unicidad de RUC en empresa
             $existeRuc = DB::table('empresa')->where('ruc', $ruc)->exists();
             if ($existeRuc) {
@@ -440,5 +444,19 @@ class TenantProvisioningService
                 'invitacion_url' => $urlActivacion,
             ];
         });
+
+        CorreoTransaccional::enviarSeguro(
+            $correo,
+            ActivacionCuentaMail::paraAltaEmpresa(
+                nombreDestinatario: trim($datos['propietario_nombre']),
+                nombreEmpresa: trim($datos['razon_social']),
+                urlActivacion: $resultado['invitacion_url'],
+                horasExpiracion: 72,
+                expiraEn: $expiraEn,
+            ),
+            ['flujo' => 'alta_manual_empresa', 'empresa_id' => $resultado['empresa_id'], 'usuario_id' => $resultado['usuario_id']],
+        );
+
+        return $resultado;
     }
 }
