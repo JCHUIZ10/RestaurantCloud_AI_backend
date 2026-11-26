@@ -150,6 +150,14 @@ services:
       JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
       JWT_MINUTOS: ${JWT_MINUTOS:-10}
+      MAIL_MAILER: ${MAIL_MAILER:-smtp}
+      MAIL_HOST: ${MAIL_HOST:-mailpit}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@restaurantcloud.local}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-ÁUREA}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
     volumes:
 
       - ./apps/api:/app
@@ -196,6 +204,14 @@ services:
       ANALITICA_SECRETO: ${ANALITICA_SECRETO:-}
       NOTIFICACIONES_URL: ${NOTIFICACIONES_URL:-http://notificaciones:8003}
       NOTIFICACIONES_SECRETO: ${NOTIFICACIONES_SECRETO:-}
+      MAIL_MAILER: ${MAIL_MAILER:-smtp}
+      MAIL_HOST: ${MAIL_HOST:-mailpit}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@restaurantcloud.local}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-ÁUREA}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
     volumes:
       - ./apps/api:/app
     depends_on:
@@ -504,6 +520,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - saas_network
+
+  mailpit:
+    image: axllent/mailpit:v1.24
+    container_name: restaurantcloudIA_mailpit
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_PORT:-8025}:8025"
     networks:
       - saas_network
 
