@@ -2,4 +2,10 @@
 **/.env
 apps/web/dist
 apps/api/vendor
+apps/api/storage/logs/*
+apps/api/storage/framework/cache/*
+apps/api/storage/framework/sessions/*
+apps/api/storage/framework/views/*
+apps/api/tests
+backups
 .git

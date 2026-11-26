@@ -2,14 +2,20 @@
 	encode zstd gzip
 
 	handle /api/* {
-		reverse_proxy api:8080 {
-			# SSE (KDS): entregar eventos sin buffer.
+		reverse_proxy kong:8000 {
+			# SSE (KDS y notificaciones): entregar eventos sin buffer.
 			flush_interval -1
+			# No confiar en X-Forwarded-For enviado por el cliente.
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Real-IP {remote_host}
 		}
 	}
 
 	handle /up {
-		reverse_proxy api:8080
+		reverse_proxy kong:8000 {
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Real-IP {remote_host}
+		}
 	}
 
 	handle {

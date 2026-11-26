@@ -69,7 +69,7 @@ services:
       - saas_network
 
   minio:
-    image: cgr.dev/chainguard/minio:latest
+    image: cgr.dev/chainguard/minio@sha256:dc455cdd4db6e390b1b26514f15ff37681a777bf8dab41aac445a0259f751e56
     container_name: restaurantcloudIA_minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -90,7 +90,7 @@ services:
       - saas_network
 
   minio-init:
-    image: cgr.dev/chainguard/minio:latest
+    image: cgr.dev/chainguard/minio@sha256:dc455cdd4db6e390b1b26514f15ff37681a777bf8dab41aac445a0259f751e56
     container_name: restaurantcloudIA_minio_init
     depends_on:
       minio:
@@ -110,6 +110,7 @@ services:
     build:
       context: .
       dockerfile: ./infra/docker/api.Dockerfile
+      target: dev
     container_name: restaurantcloudIA_api
     restart: unless-stopped
     ports:
@@ -175,6 +176,7 @@ services:
     build:
       context: .
       dockerfile: ./infra/docker/api.Dockerfile
+      target: dev
     container_name: restaurantcloudIA_queue
     restart: unless-stopped
     environment:
@@ -230,6 +232,7 @@ services:
     build:
       context: .
       dockerfile: ./infra/docker/api.Dockerfile
+      target: dev
     container_name: restaurantcloudIA_scheduler
     restart: unless-stopped
     environment:
@@ -392,7 +395,8 @@ services:
       DATABASE_URL: postgresql+psycopg://${PRONOSTICO_DB_APP_USER}:${PRONOSTICO_DB_APP_PASSWORD}@db-pronostico:5432/${PRONOSTICO_DB_NAME}
       SECRETO_INTERNO: ${PRONOSTICO_SECRETO}
       ZONA_HORARIA: America/Lima
-      MODELOS_REPOSITORIO: file:///repositorio
+      MODELOS_REPOSITORIO: ${MODELOS_REPOSITORIO:-file:///repositorio}
+      MODELOS_GCS_ANONIMO: ${MODELOS_GCS_ANONIMO:-false}
       ANALITICA_URL: http://analitica:8001
       ANALITICA_SECRETO: ${ANALITICA_SECRETO}
     volumes:

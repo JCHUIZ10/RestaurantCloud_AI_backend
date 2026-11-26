@@ -1,4 +1,4 @@
-FROM node:22-alpine AS build
+FROM node:22.23.3-alpine AS build
 
 WORKDIR /web
 
@@ -18,7 +18,14 @@ ENV VITE_API_URL= \
 
 RUN npm run build
 
-FROM caddy:2.8-alpine
+FROM caddy:2.8.4-alpine
+
+ARG APP_VERSION=dev
+ARG GIT_COMMIT=unknown
+
+LABEL org.opencontainers.image.title="restaurantcloud-web" \
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.revision="${GIT_COMMIT}"
 
 COPY infra/caddy/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /web/dist /srv

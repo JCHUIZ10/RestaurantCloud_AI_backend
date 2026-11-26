@@ -4,35 +4,43 @@ set -e
 cd /app
 
 ROLE="${CONTAINER_ROLE:-api}"
+RUNTIME="${APP_RUNTIME:-dev}"
 
-if [ ! -f .env ]; then
-    echo "Copiando .env.example a .env..."
-    cp .env.example .env
-fi
-
-if [ ! -d vendor ] || [ ! -f vendor/autoload.php ]; then
-    if [ "$ROLE" = "api" ]; then
-        echo "Instalando dependencias de Composer..."
-        composer install --no-interaction --prefer-dist --optimize-autoloader
-    else
-        echo "Esperando que la API instale las dependencias de Composer..."
-        until [ -f vendor/autoload.php ]; do
-            sleep 2
-        done
+if [ "$RUNTIME" = "prod" ]; then
+    if [ -z "${APP_KEY:-}" ]; then
+        echo "ERROR: APP_KEY es obligatoria en la imagen de despliegue. Defínela en el entorno antes de iniciar el contenedor." >&2
+        exit 1
     fi
-fi
+else
+    if [ ! -f .env ]; then
+        echo "Copiando .env.example a .env..."
+        cp .env.example .env
+    fi
 
-# Solo la API genera la clave: si api, queue y scheduler ejecutan key:generate a la vez,
-# las claves se concatenan en .env y el Encrypter de Octane falla al iniciar los workers.
-if [ -z "${APP_KEY:-}" ] && { grep -qE "^APP_KEY=[[:space:]]*$" .env || grep -q "^APP_KEY= " .env; }; then
-    if [ "$ROLE" = "api" ]; then
-        echo "Generando APP_KEY..."
-        php artisan key:generate --force
-    else
-        echo "Esperando que la API genere APP_KEY..."
-        until grep -q "^APP_KEY=base64:" .env; do
-            sleep 2
-        done
+    if [ ! -d vendor ] || [ ! -f vendor/autoload.php ]; then
+        if [ "$ROLE" = "api" ]; then
+            echo "Instalando dependencias de Composer..."
+            composer install --no-interaction --prefer-dist --optimize-autoloader
+        else
+            echo "Esperando que la API instale las dependencias de Composer..."
+            until [ -f vendor/autoload.php ]; do
+                sleep 2
+            done
+        fi
+    fi
+
+    # Solo la API genera la clave: si api, queue y scheduler ejecutan key:generate a la vez,
+    # las claves se concatenan en .env y el Encrypter de Octane falla al iniciar los workers.
+    if [ -z "${APP_KEY:-}" ] && { grep -qE "^APP_KEY=[[:space:]]*$" .env || grep -q "^APP_KEY= " .env; }; then
+        if [ "$ROLE" = "api" ]; then
+            echo "Generando APP_KEY..."
+            php artisan key:generate --force
+        else
+            echo "Esperando que la API genere APP_KEY..."
+            until grep -q "^APP_KEY=base64:" .env; do
+                sleep 2
+            done
+        fi
     fi
 fi
 
@@ -42,12 +50,25 @@ until pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_DATABASE"
     sleep 2
 done
 
-case "$ROLE" in
-    api)
-        # Solo la API migra: queue y scheduler arrancan en paralelo y no deben competir.
-        # En una BD creada antes con initdb, el esquema base solo se registra como aplicado.
+if [ "$RUNTIME" = "prod" ]; then
+    # Cada contenedor tiene su /app/bootstrap/cache independiente.
+    if [ "$ROLE" = "api" ]; then
         echo "Aplicando migraciones pendientes..."
         php artisan migrate --force --no-interaction
+    fi
+    echo "Cacheando configuración, rutas y eventos..."
+    php artisan config:cache
+    php artisan route:cache
+    php artisan event:cache
+fi
+
+case "$ROLE" in
+    api)
+        if [ "$RUNTIME" != "prod" ]; then
+            # En desarrollo, solo la API migra: queue y scheduler arrancan en paralelo y no deben competir.
+            echo "Aplicando migraciones pendientes..."
+            php artisan migrate --force --no-interaction
+        fi
         SERVER="${APP_SERVER:-octane}"
         if [ "$SERVER" = "octane" ] && command -v frankenphp > /dev/null 2>&1; then
             echo "PostgreSQL listo. Iniciando API Laravel con Octane (FrankenPHP) en el puerto 8080 (Workers: ${OCTANE_WORKERS:-2})..."

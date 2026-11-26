@@ -12,6 +12,11 @@ RUN uv sync --frozen --no-dev
 
 # ---- Etapa 2: imagen final, sin uv ni herramientas de compilación ----
 FROM python:3.12-slim
+ARG APP_VERSION=dev
+ARG GIT_COMMIT=unknown
+LABEL org.opencontainers.image.title="restaurantcloud-analitica" \
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.revision="${GIT_COMMIT}"
 RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin analitica
 WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv

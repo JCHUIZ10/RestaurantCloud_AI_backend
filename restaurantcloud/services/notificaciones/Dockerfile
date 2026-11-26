@@ -12,6 +12,11 @@ RUN npm run build && npm prune --omit=dev --no-audit --no-fund
 
 # ---- Etapa 2: imagen final, sin TypeScript ni herramientas de desarrollo ----
 FROM node:22.23.3-alpine
+ARG APP_VERSION=dev
+ARG GIT_COMMIT=unknown
+LABEL org.opencontainers.image.title="restaurantcloud-notificaciones" \
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.revision="${GIT_COMMIT}"
 ENV NODE_ENV=production \
     PORT=8003
 WORKDIR /app
