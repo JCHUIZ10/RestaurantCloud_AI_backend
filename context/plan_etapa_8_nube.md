@@ -46,7 +46,7 @@ Resultado esperado: un tester clona el repositorio, ejecuta **un solo comando** 
 | 8.5 Instalación en Windows | Comando único (`.ps1` y `.sh`), requisitos, finales de línea, consumo de memoria | Clon limpio en otra carpeta → sistema arriba con un comando (cerrada) |
 | 8.6 Verificación | Los cuatro humos contra el compose de despliegue | Mismas comprobaciones en verde que en desarrollo (cerrada) |
 | 8.7 Guía para testers | Instalar, entrar, qué probar por rol y cómo reportar un fallo | Documento listo para enviar en `docs/guia/guia-testers.md` (cerrada) |
-| 8.8 Manual de Artifact Registry | Cada imagen: qué contiene, cómo se construye, se etiqueta y se sube, y qué hace cada comando | Manual listo, sin ejecutar |
+| 8.8 Manual de Artifact Registry | Cada imagen: qué contiene, cómo se construye, se etiqueta y se sube, y qué hace cada comando | Manual listo, sin ejecutar (cerrada) |
 | 8.9 Cierre de esta parte | `plan_seguimiento.md` y las fichas | Entorno de testers entregado |
 
 **Después de esta parte** (y antes del plan de producción): VM, Cloud Run (con bucket privado IAM) y laboratorio de GKE.
@@ -106,16 +106,15 @@ Creada carpeta `restaurantcloud/docs/guia/` para separar las guías operativas y
   - Cómo reportar un fallo paso a paso, incluyendo cómo copiar el `X-Request-Id` en `F12` → Red → Cabeceras de respuesta.
   - Comandos diarios (`iniciar`, `estado`, `detener`, `preparar`, `reiniciar`) y solución a problemas comunes.
 
-### 8.8 Manual de Artifact Registry (`docs/manual-artifact-registry.md`)
+### 8.8 Manual de Artifact Registry (`docs/guia/manual-artifact-registry.md`, cerrada 26/11)
 
-Para leerlo y ejecutarlo más adelante; en esta etapa no se ejecuta ningún comando de GCP.
+Para leerlo y ejecutarlo más adelante; en esta etapa no se ejecutó ningún comando de GCP.
 
-- Qué es Artifact Registry, cuánto cuesta y la estructura del nombre: `REGION-docker.pkg.dev/PROYECTO/REPOSITORIO/IMAGEN:ETIQUETA`.
-- Una sola vez: activar la API, crear el repositorio y autenticar Docker con `gcloud auth configure-docker`.
-- **Una sección por imagen:** `api` (también la usan queue y scheduler), `web` (Caddy con la SPA), `analitica`, `pronostico` (con su contexto adicional `model_ia`), `notificaciones` y la decisión sobre Kong (imagen pública con la configuración montada, o una imagen propia con la plantilla dentro). En cada una: qué contiene, el comando de construcción, `docker tag`, `docker push`, cómo comprobar que subió y qué hace cada comando.
-- Etiquetas: versión y commit, y por qué no basta con `latest`.
-- Cómo pasa el compose de `build:` a `image:` con una variable `REGISTRO`, sin tocar el archivo.
-- Limpieza de versiones viejas y errores comunes (permisos, región, arquitectura `amd64` si se construye en una Mac con ARM).
+- [`docs/guia/manual-artifact-registry.md`](../restaurantcloud/docs/guia/manual-artifact-registry.md):
+  - Qué es Artifact Registry, costos estimados y estructura `REGION-docker.pkg.dev/PROYECTO/REPOSITORIO/IMAGEN:ETIQUETA`.
+  - Configuración inicial única (`gcloud services enable`, creación de repositorio y `gcloud auth configure-docker`).
+  - Secciones individuales para `api` (compartida con `queue` y `scheduler`), `web`, `analitica`, `pronostico` (con `--build-context model_ia=../model-ia`), `notificaciones` y la comparación de opciones para `kong` (imagen pública con volumen en VM vs. imagen propia embebida para Cloud Run/GKE).
+  - Etiquetado inmutable versión + commit, override `docker-compose.registro.yml` con `REGISTRO` y `ETIQUETA` para pasar de `build:` a `image:` sin editar `docker-compose.prod.yml`, políticas de limpieza y solución a errores comunes (IAM, región y `--platform linux/amd64` desde Mac ARM).
 
 ### 8.A Scripts SQL al estado final (25/11)
 
