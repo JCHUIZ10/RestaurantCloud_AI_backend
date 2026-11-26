@@ -38,8 +38,3 @@ def test_file_uri_elige_el_almacen_local(tmp_path):
 
     assert isinstance(almacen, AlmacenLocal)
     assert almacen.disponible() is True
-
-
-def test_gs_todavia_no_tiene_adaptador_y_el_servicio_no_arranca_con_el(tmp_path):
-    with pytest.raises(RuntimeError, match="etapa 8"):
-        crear_almacen("gs://modelos-restaurantcloud")

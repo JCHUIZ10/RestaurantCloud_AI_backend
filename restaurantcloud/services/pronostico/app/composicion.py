@@ -2,6 +2,7 @@
 
 from rc_pronostico.artefacto import raiz_local
 
+from app.adaptadores.almacenamiento.gcs import AlmacenGcs, parsear_uri_gcs
 from app.adaptadores.almacenamiento.local import AlmacenLocal
 from app.adaptadores.clientes.analitica import AnaliticaHttp
 from app.adaptadores.bd.conexion import SondaBdSql, get_engine
@@ -15,16 +16,26 @@ from app.aplicacion.tipos import ParametrosPronostico
 from app.config import Settings
 
 
-def crear_almacen(uri: str) -> AlmacenArtefactos:
+def crear_almacen(
+    uri: str,
+    *,
+    gcs_anonimo: bool = False,
+    gcs_timeout: float = 10.0,
+) -> AlmacenArtefactos:
     """Elige el adaptador según el esquema de `MODELOS_REPOSITORIO`."""
     if uri.startswith("gs://"):
-        raise RuntimeError("MODELOS_REPOSITORIO con gs:// llega con la etapa 8 (no hay adaptador todavía).")
+        bucket, prefijo = parsear_uri_gcs(uri)
+        return AlmacenGcs(bucket, prefijo, anonimo=gcs_anonimo, timeout=gcs_timeout)
     return AlmacenLocal(raiz_local(uri))
 
 
 def construir_contenedor(settings: Settings) -> Contenedor:
     engine = get_engine()
-    almacen = crear_almacen(settings.modelos_repositorio)
+    almacen = crear_almacen(
+        settings.modelos_repositorio,
+        gcs_anonimo=settings.modelos_gcs_anonimo,
+        gcs_timeout=settings.modelos_gcs_timeout_segundos,
+    )
     return Contenedor(
         almacen=almacen,
         sonda_bd=SondaBdSql(engine),

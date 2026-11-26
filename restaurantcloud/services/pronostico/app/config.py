@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     firma_tolerancia_segundos: int = 300
     # Raíz del repositorio de modelos. El esquema elige el adaptador: file:// hoy, gs:// en la etapa 8.
     modelos_repositorio: str
+    # En QA con bucket público de solo lectura se activa MODELOS_GCS_ANONIMO=true;
+    # en producción (Cloud Run) permanece false para exigir credenciales IAM/ADC.
+    modelos_gcs_anonimo: bool = False
+    modelos_gcs_timeout_segundos: float = Field(default=10.0, gt=0)
     # ms-analítica: de allí sale la serie de ventas.
     analitica_url: str
     analitica_secreto: str
