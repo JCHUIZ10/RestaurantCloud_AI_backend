@@ -16,7 +16,7 @@ app/
   api/               HTTP: rutas/, esquemas/ (entrada.py valida el cuerpo, salida.py arma el JSON), errores y dependencias
   aplicacion/        qué hace el servicio: casos_de_uso/, servicios/ (proveedor_modelos), puertos, tipos, errores y contenedor
   dominio/           reglas puras: periodo, calendario (cierres y feriados), advertencias y errores de validación
-  adaptadores/       con quién habla: clientes/ (ms-analítica), almacenamiento/ (local; gs:// en la etapa 8), bd/, reloj
+  adaptadores/       con quién habla: clientes/ (ms-analítica), almacenamiento/ (local y gs://), bd/, reloj
   soporte/           firma, logs, X-Request-Id y respuestas (copiado de ms-analítica)
 migrations/          Alembic
 tests/

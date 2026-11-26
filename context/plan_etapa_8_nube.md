@@ -27,7 +27,7 @@ Resultado esperado: un tester clona el repositorio, ejecuta **un solo comando** 
 - **Un solo compose para QA y producción.** `docker-compose.prod.yml` pasa a describir el sistema completo. Lo que cambia entre ambos va en el `.env`: dominio, secretos, `OCTANE_WORKERS`, datos de demostración y correo. Así, cada prueba de un tester también prueba lo que irá a producción.
 - **QA en `http://localhost`, sin TLS.** Con `localhost`, Caddy usaría su autoridad interna y el navegador mostraría un aviso de certificado. La dirección del sitio pasa a ser una variable: `SITIO=http://localhost` en QA y el dominio en producción, donde Caddy obtiene el certificado solo. `SESSION_SECURE_COOKIE` también sale del `.env`.
 - **Camino de una petición:** navegador → Caddy (SPA y TLS) → Kong → núcleo o microservicio. Solo Caddy publica puertos. Kong deja de publicar el 8000 y Caddy no confía en el `X-Forwarded-For` que manda el cliente; esto cierra en producción el hueco que encontró la 6.4.
-- **El modelo de la demostración se versiona.** Solo el vigente de ÁUREA (2,7 MB, con su ficha y su puntero) se copia a `model-ia/repositorio-demo/`. Es una excepción documentada a D-22: el repositorio completo sigue fuera de git, y en producción el modelo vendrá de Cloud Storage.
+- **El modelo de la demostración vive en Cloud Storage (`gs://rc-modelos-demo-aurea`).** En lugar de versionar `model-ia/repositorio-demo/` en Git, se subió únicamente el modelo vigente de ÁUREA (~2,73 MB) a un bucket de demostración con lectura pública (`MODELOS_GCS_ANONIMO=true` en QA; en producción `ms-pronóstico` usará un bucket privado vía IAM en Cloud Run). Así, las imágenes de 8.1 no montan carpetas del repositorio.
 - **Correo de QA con Mailpit** (solo en QA, perfil de compose): los correos de activación e invitación se ven en `http://localhost:8025`, sin configurar SMTP. Así los testers pueden probar también el registro de una empresa nueva.
 - **Nombres:** el compose de despliegue deja de fijar `container_name` y usa el nombre de proyecto `restaurantcloud`. Los volúmenes ya se nombran por proyecto, no por contenedor, así que el servidor de la Unidad I no perdería sus datos. Se comprueba antes de cambiarlo, porque era el riesgo anotado en el plan general. Los scripts de humo reciben el prefijo de los contenedores como parámetro.
 
@@ -38,7 +38,8 @@ Resultado esperado: un tester clona el repositorio, ejecuta **un solo comando** 
 | 8.0 Plan | Este documento | Decisiones aprobadas |
 | 8.A Scripts SQL | Los scripts de `database/sql` reflejan el estado final del esquema; las 18 migraciones absorbidas se retiran; se elimina `snapshot_stock_diario` | Una base nueva queda igual que una migrada (`schema-check.sh`) |
 | 8.B Correos | Envío real de los correos de activación e invitación, con Mailpit en QA | Registrar una empresa y recibir el correo en `localhost:8025` |
-| 8.1 Imágenes | API con el código dentro; web apuntando a Kong y con el paquete partido; versión en cada imagen | Las imágenes arrancan sin montar carpetas del repositorio |
+| 8.C Modelo en GCS | Adaptador `AlmacenGcs` (`gs://`) en `ms-pronóstico` y bucket demo `rc-modelos-demo-aurea` | `ms-pronóstico` descarga y verifica el modelo vigente desde `gs://` (cerrada) |
+| 8.1 Imágenes | API con el código dentro; web apuntando a Kong y con el paquete partido; versión en cada imagen | Las imágenes arrancan sin montar carpetas del repositorio (cerrada) |
 | 8.2 Compose de despliegue | Sistema completo en `docker-compose.prod.yml`, Caddy delante de Kong, solo Caddy publica puertos | `http://localhost` funciona con el compose nuevo |
 | 8.3 Configuración | Script que genera el `.env` con secretos aleatorios y claves JWT; ejemplos de QA y de producción | Un `.env` nuevo de cero, sin copiar nada a mano |
 | 8.4 Datos de demostración | Seed, historial sintético hasta ayer, modelo vigente, cuentas por rol; comandos para preparar y reiniciar | ÁUREA con predicción nivel 3 en una base recién creada |
@@ -48,16 +49,16 @@ Resultado esperado: un tester clona el repositorio, ejecuta **un solo comando** 
 | 8.8 Manual de Artifact Registry | Cada imagen: qué contiene, cómo se construye, se etiqueta y se sube, y qué hace cada comando | Manual listo, sin ejecutar |
 | 8.9 Cierre de esta parte | `plan_seguimiento.md` y las fichas | Entorno de testers entregado |
 
-**Después de esta parte** (y antes del plan de producción): adaptador `gs://` de ms-pronóstico, VM, Cloud Run y laboratorio de GKE.
+**Después de esta parte** (y antes del plan de producción): VM, Cloud Run (con bucket privado IAM) y laboratorio de GKE.
 
-### 8.1 Imágenes autocontenidas
+### 8.1 Imágenes autocontenidas (cerrada 25/11)
 
-- **`api.Dockerfile` en dos etapas:** la primera hace `composer install --no-dev --optimize-autoloader` y la segunda copia el código y `vendor/`. `api`, `queue` y `scheduler` usan la misma imagen sin montar carpetas. El compose de desarrollo sigue montando el código, con un destino `dev` del mismo Dockerfile, para no perder la recarga en caliente.
-- **`entrypoint.sh`:** sin `composer install` ni la copia de `.env.example` en la imagen de despliegue. `APP_KEY` es obligatoria y, si falta, el contenedor se detiene con un mensaje claro. `config:cache`, `route:cache` y `event:cache` al arrancar. Solo `api` migra, como hoy.
-- **Versiones fijadas:** hoy FrankenPHP baja `latest` y MinIO usa `:latest`. Se fijan, igual que Kong (3.9.1) y Node (22.23.3).
-- **`web.Dockerfile`:** el Caddyfile envía `/api` a Kong. Recharts y las pantallas de reportes y predicción se cargan aparte (`lazy`), lo que resuelve el aviso de tamaño que quedó de la 6.5.
-- **Microservicios:** ya son autocontenidos. Se revisa que ninguno dependa de un montaje del repositorio fuera de las pruebas. Los contratos se montan solo en desarrollo, como dice Pendientes.
-- **Etiqueta de versión** en cada imagen (`org.opencontainers.image.version` y `revision` con el commit), para saber después qué se subió a Artifact Registry.
+- **`api.Dockerfile` en etapas (`base`, `dev`, `builder`, `prod`):** `builder` ejecuta `composer install --no-dev` + `dump-autoload --classmap-authoritative` + `package:discover` + `octane:install` y `prod` copia el código, `vendor/` y `frankenphp-worker.php` sin `composer` ni dependencias de desarrollo, fijando `DB_CONNECTION=pgsql` y los valores base de Laravel. El compose de desarrollo usa `target: dev` montando `./apps/api`, para no perder la recarga en caliente.
+- **`entrypoint.sh`:** diferenciado por `APP_RUNTIME` (`prod` vs `dev`). En `prod` no ejecuta `composer install` ni copia `.env.example`, exige `APP_KEY` obligatoria (detiene el contenedor con error claro si falta), aplica `migrate --force` solo en `api`, y ejecuta `config:cache`, `route:cache` y `event:cache` al arrancar.
+- **Versiones fijadas:** FrankenPHP fijado a `v1.13.5` (con soporte `x86_64`/`aarch64`), Node fijado a `22.23.3-alpine`, Caddy a `2.8.4-alpine` y MinIO fijado al digest verificado `cgr.dev/chainguard/minio@sha256:dc455cdd4db6e390b1b26514f15ff37681a777bf8dab41aac445a0259f751e56` (`RELEASE.2026-09-22T19-25-18Z`).
+- **`web.Dockerfile` y `Caddyfile`:** `Caddyfile` envía `/api/*` y `/up` a `kong:8000` (con `flush_interval -1` y `header_up X-Forwarded-For {remote_host}` para no confiar en cabeceras enviadas por el cliente). En `apps/web`, las rutas se cargaron con `React.lazy` + `<Suspense>` y `manualChunks` en `vite.config.ts`, reduciendo el chunk inicial de `3.453 kB` a `330,83 kB` (`91,58 kB` gzip) y separando Recharts (`424,76 kB`) y las pantallas de reportes y predicción.
+- **Microservicios:** `analitica`, `pronostico` y `notificaciones` ya son autocontenidos sin montajes del repositorio fuera de pruebas.
+- **Etiquetas OCI:** los cinco Dockerfiles (`api`, `web`, `analitica`, `pronostico`, `notificaciones`) incorporan `ARG APP_VERSION` y `ARG GIT_COMMIT` con `org.opencontainers.image.title`, `org.opencontainers.image.version` y `org.opencontainers.image.revision`.
 
 ### 8.2 Compose de despliegue
 

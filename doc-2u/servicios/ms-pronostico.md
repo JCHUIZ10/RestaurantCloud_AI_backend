@@ -382,7 +382,9 @@ Si ms-pronóstico cae, el salón, la cocina y la caja siguen funcionando.
 | `SECRETO_INTERNO` | Secreto HMAC para `/interno`; es el `PRONOSTICO_SECRETO` del núcleo |
 | `ANALITICA_URL`, `ANALITICA_SECRETO` | Dirección de ms-analítica y su secreto (el `SECRETO_INTERNO` de ms-analítica) |
 | `ANALITICA_TIMEOUT_SEGUNDOS` | Espera máxima de la serie (10) |
-| `MODELOS_REPOSITORIO` | Raíz del repositorio de modelos: `file:///repositorio` en local (carpeta `model-ia/repositorio/` montada de solo lectura) o `gs://…` en la nube. El esquema elige el adaptador de `AlmacenArtefactos`; un esquema sin adaptador impide arrancar |
+| `MODELOS_REPOSITORIO` | Raíz del repositorio de modelos: `file:///repositorio` en local o `gs://…` en Cloud Storage. El esquema elige el adaptador de `AlmacenArtefactos` |
+| `MODELOS_GCS_ANONIMO` | `false` por defecto (usa IAM/ADC en Cloud Run); `true` en QA cuando se lee de un bucket demo público |
+| `MODELOS_GCS_TIMEOUT_SEGUNDOS` | Espera máxima por operación en Cloud Storage (`10.0`) |
 | `MODELOS_MAX_EN_MEMORIA` | Locales con modelo cargado a la vez (50) |
 | `MODELOS_REVISAR_SEGUNDOS` | Cada cuánto, como mucho, se relee `vigente.json` de un local (60) |
 | `VENTANA_HISTORIAL_DIAS` | Días de historial que se piden a ms-analítica (365; de 70 a 730). El mínimo cubre las 8 semanas del P90 del baseline (63 días); con 20 días el pronóstico ya cambia |
@@ -444,7 +446,7 @@ app/
   dominio/                   reglas propias y puras: ventana de datos, unión de cierres, advertencias
   adaptadores/               con quién habla, agrupado por quién está al otro lado
     clientes/analitica.py    httpx y firma HMAC
-    almacenamiento/          local.py (file://); gcs.py llega en la etapa 8
+    almacenamiento/          local.py (file://) y gcs.py (gs://)
     bd/                      SQLAlchemy Core: conexión, tablas y consultas
     reloj.py
   soporte/                   firma, logs, X-Request-Id, respuestas (copiado de ms-analítica)
