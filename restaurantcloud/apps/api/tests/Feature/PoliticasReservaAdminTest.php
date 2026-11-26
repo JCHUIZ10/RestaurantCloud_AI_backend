@@ -80,10 +80,11 @@ class PoliticasReservaAdminTest extends TestCase
         $reservaId = (string) Str::uuid();
         DB::table('reserva')->insert([
             'id' => $reservaId, 'local_id' => $this->localId, 'cliente_nombre' => 'Cliente Pendiente',
-            'cliente_telefono' => '+51 987 654 321', 'fecha_hora' => Carbon::now()->addDays(2), 'num_personas' => 4,
+            'cliente_telefono' => '+51 987 654 321', 'fecha_hora' => Carbon::now()->addDays(2)->setTime(13, 0), 'num_personas' => 4,
             'estado' => $estado, 'created_at' => now(), 'updated_at' => now(),
         ]);
         DB::table('reserva_mesa')->insert(['reserva_id' => $reservaId, 'mesa_id' => $mesaId]);
+        $this->reservasCreadas[] = $reservaId;
 
         return $reservaId;
     }

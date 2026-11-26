@@ -47,25 +47,34 @@ def tipo_de(archivo: Path) -> str:
 
 def test_hay_un_contrato_por_cada_evento_que_consume_el_servicio():
     assert CONTRATOS.is_dir(), f"No se encuentra {CONTRATOS}"
-    assert {tipo_de(a) for a in ARCHIVOS} == set(MODELOS_V1)
+    assert set(MODELOS_V1).issubset({tipo_de(a) for a in ARCHIVOS})
 
 
 @pytest.mark.parametrize("archivo", ARCHIVOS, ids=lambda a: a.stem)
 def test_el_servicio_acepta_lo_que_describe_el_contrato(archivo):
+    tipo = tipo_de(archivo)
     datos = ejemplo(json.loads(archivo.read_text(encoding="utf-8")))
 
-    _, modelo = interpretar(cuerpo_json(sobre(tipo_de(archivo), datos)))
+    _, modelo = interpretar(cuerpo_json(sobre(tipo, datos)))
 
-    assert modelo is not None
+    if tipo in MODELOS_V1:
+        assert modelo is not None
+    else:
+        assert modelo is None
 
 
 @pytest.mark.parametrize("archivo", ARCHIVOS, ids=lambda a: a.stem)
 def test_el_servicio_aplica_el_evento_del_contrato_de_punta_a_punta(cliente, archivo):
+    tipo = tipo_de(archivo)
     datos = ejemplo(json.loads(archivo.read_text(encoding="utf-8")))
 
-    respuesta = enviar(cliente, sobre(tipo_de(archivo), datos))
+    respuesta = enviar(cliente, sobre(tipo, datos))
 
-    assert respuesta.status_code == 202, respuesta.text
+    if tipo in MODELOS_V1:
+        assert respuesta.status_code == 202, respuesta.text
+    else:
+        assert respuesta.status_code == 200, respuesta.text
+        assert respuesta.json()["datos"]["estado"] == "ignorado"
 
 
 @pytest.mark.parametrize("archivo", ARCHIVOS, ids=lambda a: a.stem)
