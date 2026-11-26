@@ -41,7 +41,7 @@ Resultado esperado: un tester clona el repositorio, ejecuta **un solo comando** 
 | 8.C Modelo en GCS | Adaptador `AlmacenGcs` (`gs://`) en `ms-pronóstico` y bucket demo `rc-modelos-demo-aurea` | `ms-pronóstico` descarga y verifica el modelo vigente desde `gs://` (cerrada) |
 | 8.1 Imágenes | API con el código dentro; web apuntando a Kong y con el paquete partido; versión en cada imagen | Las imágenes arrancan sin montar carpetas del repositorio (cerrada) |
 | 8.2 Compose de despliegue | Sistema completo en `docker-compose.prod.yml`, Caddy delante de Kong, solo Caddy publica puertos | `http://localhost` funciona con el compose nuevo (cerrada) |
-| 8.3 Configuración | Script que genera el `.env` con secretos aleatorios y claves JWT; ejemplos de QA y de producción | Un `.env` nuevo de cero, sin copiar nada a mano |
+| 8.3 Configuración | Script que genera el `.env` con secretos aleatorios y claves JWT; ejemplos de QA y de producción | Un `.env` nuevo de cero, sin copiar nada a mano (cerrada) |
 | 8.4 Datos de demostración | Seed, historial sintético hasta ayer, modelo vigente, cuentas por rol; comandos para preparar y reiniciar | ÁUREA con predicción nivel 3 en una base recién creada |
 | 8.5 Instalación en Windows | Comando único (`.ps1` y `.sh`), requisitos, finales de línea, consumo de memoria | Clon limpio en otra carpeta → sistema arriba con un comando |
 | 8.6 Verificación | Los cuatro humos contra el compose de despliegue | Mismas comprobaciones en verde que en desarrollo |
@@ -68,11 +68,11 @@ Resultado esperado: un tester clona el repositorio, ejecuta **un solo comando** 
 - **Salud y memoria:** `api` incorpora `healthcheck` sobre `/up` y `web` sobre `127.0.0.1:2019/config/`. Con límites `mem_limit` en todos los servicios (y `--wiredTigerCacheSizeGB 0.25` en MongoDB), la medición real con `docker stats --no-stream` sobre los 15 contenedores activos en QA dio **~1.035 MiB (~1,01 GiB)**, muy por debajo del umbral de 6 GB.
 - **Verificado:** `config` en modos `prod` y `qa`; arranque limpio (`Exited (0)` en las 4 tareas efímeras y `healthy` en todos los servicios); `200` en `/`, `/up`, `/api/v1/auth/clave-publica`, Mailpit (`8025`) y consola MinIO (`9001`); `401`/`404` de Kong en rutas protegidas/internas; descarga pública y `temporaryUrl` de MinIO por `http://localhost/restaurantcloud/...`; y consulta interna de `ms-pronóstico` a `gs://rc-modelos-demo-aurea`.
 
-### 8.3 Configuración y secretos
+### 8.3 Configuración y secretos (cerrada 25/11)
 
-- **`scripts/generar-env.sh` (y `.ps1`):** escribe un `.env` completo para `qa` o `produccion`. Los secretos se generan al azar; las claves JWT, con `php artisan jwt:claves` dentro de la imagen de la API, así que no hace falta `openssl` en la PC del tester. Los tres secretos de firma quedan iguales en los dos lados de cada canal. Nunca sobrescribe un `.env` existente.
-- **`.env.qa.example` y `.env.production.example`** con todas las variables, explicadas en grupos.
-- **Validación al arrancar:** una variable obligatoria vacía detiene el compose (`${VAR:?}`) con su nombre, como ya hace el compose de producción.
+- **`scripts/generar-env.sh` y `scripts/generar-env.ps1`:** generan un `.env` completo para `qa` o `produccion` sin sobrescribir archivos existentes. Crean al azar `APP_KEY`, contraseñas de PostgreSQL/Redis/MinIO/MongoDB y los tres secretos HMAC (`ANALITICA_SECRETO`, `PRONOSTICO_SECRETO`, `NOTIFICACIONES_SECRETO`), y generan el par RSA (`JWT_PRIVATE_KEY` y `JWT_PUBLIC_KEY`) ejecutando `php artisan jwt:claves` dentro de la imagen de la API (`restaurantcloud-api:prod`) sin requerir `openssl` en el equipo. `generar-env.sh` convierte rutas con `cygpath -w` cuando corre bajo Git Bash en Windows.
+- **`.env.qa.example` y `.env.production.example`:** documentan todas las variables del despliegue organizadas en 9 grupos. Las credenciales externas (`STRIPE_*`, `APIDEV_TOKEN`) quedan vacías; en QA se preconfigura `APIDEV_MOCK=true`, `COMPOSE_PROFILES=qa`, `SITIO=http://localhost` y Mailpit. `docker-compose.prod.yml` reenvía `APIDEV_BASE_URL` y `APIDEV_MOCK` junto a `APIDEV_TOKEN`.
+- **Verificado:** generación en modos `qa` y `produccion` con `generar-env.ps1` y en modo `qa` con `generar-env.sh` (Git Bash); rechazo sin sobrescritura cuando el archivo destino ya existe; validación `docker compose -f docker-compose.prod.yml --env-file ... config --quiet` en verde para ambos modos y fallo explícito (`required variable APP_KEY is missing a value: APP_KEY requerido`) al vaciar una variable obligatoria.
 
 ### 8.4 Datos de demostración
 
