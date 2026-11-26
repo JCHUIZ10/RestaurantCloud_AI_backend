@@ -40,17 +40,71 @@ export MSYS_NO_PATHCONV=1
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$RAIZ"
 
-API=restaurantcloudIA_api
-QUEUE=restaurantcloudIA_queue
-SCHEDULER=restaurantcloudIA_scheduler
-DB=restaurantcloudIA_db
-REDIS=restaurantcloudIA_redis
-KONG=restaurantcloudIA_kong
-ANALITICA=restaurantcloudIA_analitica
-NOTIFICACIONES=restaurantcloudIA_notificaciones
-MONGO=restaurantcloudIA_mongo
-URL_KONG=http://localhost:8000
-URL_NOTIFICACIONES=http://localhost:8003
+LEVANTAR=0
+RAPIDO=0
+EVIDENCIAS=1
+DESPLIEGUE=${SMOKE_DESPLIEGUE:-0}
+PROYECTO="${SMOKE_PROYECTO:-restaurantcloud}"
+PREFIJO="${SMOKE_PREFIJO:-}"
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --levantar) LEVANTAR=1 ;;
+        --rapido) RAPIDO=1 ;;
+        --sin-evidencias) EVIDENCIAS=0 ;;
+        --despliegue) DESPLIEGUE=1 ;;
+        --prefijo) PREFIJO="${2:-}"; shift ;;
+        -h | --help) sed -n '2,38p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) echo "Opción desconocida: $1 (use --help)"; exit 2 ;;
+    esac
+    shift
+done
+
+resolver_contenedor() {
+    local svc=$1
+    if [ -n "$PREFIJO" ]; then
+        echo "${PREFIJO}${svc}"
+    elif [ "$DESPLIEGUE" = 1 ]; then
+        local cid
+        cid=$(docker ps -a -q --filter "label=com.docker.compose.project=${PROYECTO}" --filter "label=com.docker.compose.service=${svc}" | head -n 1)
+        if [ -n "$cid" ]; then
+            docker inspect -f '{{.Name}}' "$cid" | sed 's#^/##'
+        else
+            echo "${PROYECTO}-${svc}-1"
+        fi
+    else
+        echo "restaurantcloudIA_${svc}"
+    fi
+}
+
+API=$(resolver_contenedor api)
+QUEUE=$(resolver_contenedor queue)
+SCHEDULER=$(resolver_contenedor scheduler)
+DB=$(resolver_contenedor db)
+REDIS=$(resolver_contenedor redis)
+KONG=$(resolver_contenedor kong)
+ANALITICA=$(resolver_contenedor analitica)
+NOTIFICACIONES=$(resolver_contenedor notificaciones)
+if [ "$DESPLIEGUE" = 1 ]; then
+    MONGO=$(resolver_contenedor mongo-notificaciones)
+else
+    MONGO=$(resolver_contenedor mongo)
+fi
+
+if [ "$DESPLIEGUE" = 1 ]; then
+    URL_KONG="${SMOKE_URL:-http://localhost}"
+    URL_NOTIFICACIONES="http://notificaciones:8003"
+else
+    URL_KONG="${SMOKE_URL:-http://localhost:8000}"
+    URL_NOTIFICACIONES=http://localhost:8003
+fi
+
+curl_notificaciones() {
+    if [ "$DESPLIEGUE" = 1 ]; then
+        docker exec "$API" curl "$@"
+    else
+        curl "$@"
+    fi
+}
 
 EMPRESA=00000000-0000-4000-8000-000000000001
 LOCAL=00000000-0000-4000-8000-000000000010
@@ -60,19 +114,6 @@ MOZO=00000000-0000-4000-8000-000000000103
 COCINA=00000000-0000-4000-8000-000000000104
 SEDE_AJENA=00000000-0000-4000-8000-0000000000aa
 EMPRESA_AJENA=00000000-0000-4000-8000-0000000000ff
-
-LEVANTAR=0
-RAPIDO=0
-EVIDENCIAS=1
-for argumento in "$@"; do
-    case "$argumento" in
-        --levantar) LEVANTAR=1 ;;
-        --rapido) RAPIDO=1 ;;
-        --sin-evidencias) EVIDENCIAS=0 ;;
-        -h | --help) sed -n '2,38p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
-        *) echo "Opción desconocida: $argumento (use --help)"; exit 2 ;;
-    esac
-done
 
 # ------------------------------------------------------------------ utilidades
 
@@ -386,7 +427,7 @@ done
 
 afirmar "Kong está sano" healthy "$(docker inspect -f '{{.State.Health.Status}}' "$KONG" 2>/dev/null)"
 afirmar "ms-notificaciones está sano" healthy "$(docker inspect -f '{{.State.Health.Status}}' "$NOTIFICACIONES" 2>/dev/null)"
-afirmar "ms-notificaciones responde en /health" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$URL_NOTIFICACIONES/health")"
+afirmar "ms-notificaciones responde en /health" 200 "$(curl_notificaciones -s -o /dev/null -w '%{http_code}' "$URL_NOTIFICACIONES/health")"
 
 # El worker debe escuchar la cola "eventos": con una imagen antigua solo escucha "documentos" y los eventos no salen.
 if docker exec "$QUEUE" sh -c 'ps aux | grep "queue:work" | grep -v grep' | grep -q 'eventos'; then
@@ -750,12 +791,14 @@ probar_respuesta_del_servicio "El administrador SaaS no tiene bandeja" 403 ERR_R
 probar_respuesta_del_servicio "Un rol de sede sin sede en el token no ve toda la empresa" 401 ERR_TOKEN_INVALIDO "${JWT[mozo_sin_sede]}" "" "$RUTA"
 probar_respuesta_del_servicio "Un token válido recibe su contador" 200 "" "${JWT_REAL[admin]}" "" "$RUTA"
 
-# /interno y /health no tienen ruta en Kong.
-kong POST /interno/eventos "" "" -H 'Content-Type: application/json' --data-binary '{}'
+# /interno y /health no tienen ruta en Kong (detrás de Caddy solo /api/* entra a Kong).
+RUTA_INTERNO_NO_EXP=$([ "$DESPLIEGUE" = 1 ] && echo /api/interno/eventos || echo /interno/eventos)
+RUTA_HEALTH_NO_EXP=$([ "$DESPLIEGUE" = 1 ] && echo /api/health || echo /health)
+kong POST "$RUTA_INTERNO_NO_EXP" "" "" -H 'Content-Type: application/json' --data-binary '{}'
 afirmar "/interno/eventos no se expone: Kong responde 404" "404|kong" "$HTTP_CODE|$(quien_respondio)"
 kong POST /api/v1/notificaciones/interno/eventos "${JWT_REAL[admin]}" "" -H 'Content-Type: application/json' --data-binary '{}'
 cierto "…ni colgado de la ruta de la bandeja: no llega a un evento (404)" "$([ "$HTTP_CODE" = 404 ] && echo true || echo false)"
-kong GET /health "" ""
+kong GET "$RUTA_HEALTH_NO_EXP" "" ""
 afirmar "/health de ms-notificaciones no se expone por Kong (404)" 404 "$HTTP_CODE"
 
 # Firma interna, directo al servicio (en Docker solo el núcleo lo alcanza).
@@ -766,7 +809,7 @@ firmar() { # timestamp, cuerpo, secreto
 enviar_interno() { # cabeceras de firma..., cuerpo
     local cuerpo=$1; shift
     local salida
-    salida=$(curl -s -w $'\n%{http_code}' -X POST "$URL_NOTIFICACIONES/interno/eventos" -H 'Content-Type: application/json' "$@" --data-binary "$cuerpo")
+    salida=$(curl_notificaciones -s -w $'\n%{http_code}' -X POST "$URL_NOTIFICACIONES/interno/eventos" -H 'Content-Type: application/json' "$@" --data-binary "$cuerpo")
     HTTP_CODE=${salida##*$'\n'}
     HTTP_BODY=${salida%$'\n'*}
 }

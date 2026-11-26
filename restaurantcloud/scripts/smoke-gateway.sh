@@ -36,32 +36,69 @@ export MSYS_NO_PATHCONV=1
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$RAIZ"
 
-API=restaurantcloudIA_api
-DB=restaurantcloudIA_db
-REDIS=restaurantcloudIA_redis
-KONG=restaurantcloudIA_kong
-ANALITICA=restaurantcloudIA_analitica
-URL_KONG=http://localhost:8000
-URL_ANALITICA_DIRECTA=http://localhost:8001
+LEVANTAR=0
+RAPIDO=0
+EVIDENCIAS=1
+DESPLIEGUE=${SMOKE_DESPLIEGUE:-0}
+PROYECTO="${SMOKE_PROYECTO:-restaurantcloud}"
+PREFIJO="${SMOKE_PREFIJO:-}"
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --levantar) LEVANTAR=1 ;;
+        --rapido) RAPIDO=1 ;;
+        --sin-evidencias) EVIDENCIAS=0 ;;
+        --despliegue) DESPLIEGUE=1 ;;
+        --prefijo) PREFIJO="${2:-}"; shift ;;
+        -h | --help) sed -n '2,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) echo "Opción desconocida: $1 (use --help)"; exit 2 ;;
+    esac
+    shift
+done
+
+resolver_contenedor() {
+    local svc=$1
+    if [ -n "$PREFIJO" ]; then
+        echo "${PREFIJO}${svc}"
+    elif [ "$DESPLIEGUE" = 1 ]; then
+        local cid
+        cid=$(docker ps -a -q --filter "label=com.docker.compose.project=${PROYECTO}" --filter "label=com.docker.compose.service=${svc}" | head -n 1)
+        if [ -n "$cid" ]; then
+            docker inspect -f '{{.Name}}' "$cid" | sed 's#^/##'
+        else
+            echo "${PROYECTO}-${svc}-1"
+        fi
+    else
+        echo "restaurantcloudIA_${svc}"
+    fi
+}
+
+API=$(resolver_contenedor api)
+DB=$(resolver_contenedor db)
+REDIS=$(resolver_contenedor redis)
+KONG=$(resolver_contenedor kong)
+ANALITICA=$(resolver_contenedor analitica)
+
+if [ "$DESPLIEGUE" = 1 ]; then
+    URL_KONG="${SMOKE_URL:-http://localhost}"
+    URL_ANALITICA_DIRECTA="http://analitica:8001"
+else
+    URL_KONG="${SMOKE_URL:-http://localhost:8000}"
+    URL_ANALITICA_DIRECTA=http://localhost:8001
+fi
+
+curl_analitica() {
+    if [ "$DESPLIEGUE" = 1 ]; then
+        docker exec "$API" curl "$@"
+    else
+        curl "$@"
+    fi
+}
 
 EMPRESA=00000000-0000-4000-8000-000000000001
 LOCAL=00000000-0000-4000-8000-000000000010
 PROPIETARIO=00000000-0000-4000-8000-000000000101
 ADMIN=00000000-0000-4000-8000-000000000102
 SEDE_AJENA=00000000-0000-4000-8000-0000000000aa
-
-LEVANTAR=0
-RAPIDO=0
-EVIDENCIAS=1
-for argumento in "$@"; do
-    case "$argumento" in
-        --levantar) LEVANTAR=1 ;;
-        --rapido) RAPIDO=1 ;;
-        --sin-evidencias) EVIDENCIAS=0 ;;
-        -h | --help) sed -n '2,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
-        *) echo "Opción desconocida: $argumento (use --help)"; exit 2 ;;
-    esac
-done
 
 # ------------------------------------------------------------------ utilidades
 
@@ -189,9 +226,17 @@ kong() { # método, ruta, jwt|"", local_id|"", [argumentos de curl...]
 cabecera() { grep -i "^$1:" "$TMP/cabeceras" | head -1 | cut -d: -f2- | tr -d '\r' | sed 's/^ *//'; }
 cuantas_cabeceras() { grep -ic "^$1:" "$TMP/cabeceras"; }
 
-# Las respuestas que genera Kong (401, 404, 429, 502, 504…) llevan «Server: kong/…»; las de un servicio llevan el
-# servidor de ese servicio (uvicorn, FrankenPHP).
-quien_respondio() { [[ "$(cabecera server)" == kong* ]] && echo kong || echo servicio; }
+# Las respuestas que genera Kong (401, 404, 429, 502, 504…) llevan «Server: kong/…»; detrás de Caddy el header
+# Server pasa a ser Caddy, así que se reconoce Kong por devolver {"message":...} sin latencia de upstream.
+quien_respondio() {
+    if [[ "$(cabecera server)" == kong* ]]; then
+        echo kong
+    elif [ "$DESPLIEGUE" = 1 ] && [[ "$HTTP_BODY" != *'"exito"'* ]] && { [ "$HTTP_CODE" = 502 ] || [ "$HTTP_CODE" = 503 ] || [ "$HTTP_CODE" = 504 ] || { [ -z "$(cabecera x-kong-upstream-latency)" ] && { [ -n "$(cabecera x-kong-response-latency)" ] || [[ "$HTTP_BODY" == *'"message"'* ]]; }; }; }; then
+        echo kong
+    else
+        echo servicio
+    fi
+}
 
 codigo_de_error() { php_eval "$HTTP_BODY" 'return $d["errores"][0]["codigo"] ?? "";'; }
 mensaje_de_kong() { php_eval "$HTTP_BODY" 'return $d["message"] ?? "";'; }
@@ -359,7 +404,8 @@ kong GET /api/v1/ruta-que-no-existe "" ""
 afirmar "Una ruta desconocida bajo /api/v1 la responde el núcleo (404)" 404 "$HTTP_CODE"
 afirmar "Lo responde el núcleo, no Kong" servicio "$(quien_respondio)"
 
-kong GET /otra-cosa "" ""
+RUTA_FUERA=$([ "$DESPLIEGUE" = 1 ] && echo /api/otra-cosa || echo /otra-cosa)
+kong GET "$RUTA_FUERA" "" ""
 afirmar "Una ruta fuera de todo prefijo la responde Kong con 404" 404 "$HTTP_CODE"
 afirmar "Esa respuesta es de Kong" kong "$(quien_respondio)"
 
@@ -522,7 +568,7 @@ probar_respuesta_del_servicio rol_no_permitido "Rol mozo en un reporte del admin
 directo() { # jwt|"" -> deja el código en HTTP_CODE y el cuerpo en HTTP_BODY
     local args=(-s --max-time 30 "$URL_ANALITICA_DIRECTA$R_RESUMEN" -H 'Accept: application/json' -w $'\n%{http_code}')
     [ -n "$1" ] && args+=(-H "Authorization: Bearer $1")
-    local salida; salida=$(curl "${args[@]}")
+    local salida; salida=$(curl_analitica "${args[@]}")
     HTTP_CODE=${salida##*$'\n'}
     HTTP_BODY=${salida%$'\n'*}
 }
@@ -596,6 +642,9 @@ titulo "6. Lo interno no se expone"
 sin_ruta() { # descripción, método, ruta, [argumentos de curl...]
     local descripcion=$1 metodo=$2 ruta=$3
     shift 3
+    if [ "$DESPLIEGUE" = 1 ] && [[ "$ruta" != /api/* ]]; then
+        ruta="/api$ruta"
+    fi
     kong "$metodo" "$ruta" "" "" "$@"
     if [ "$HTTP_CODE" = 404 ] && [ "$(quien_respondio)" = kong ]; then
         ok "$descripcion: 404 de Kong, no llega a ningún servicio"

@@ -34,38 +34,79 @@ export MSYS_NO_PATHCONV=1
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$RAIZ"
 
-API=restaurantcloudIA_api
-DB=restaurantcloudIA_db
-REDIS=restaurantcloudIA_redis
-ANALITICA=restaurantcloudIA_analitica
-DB_ANALITICA=restaurantcloudIA_db_analitica
-PRONOSTICO=restaurantcloudIA_pronostico
-DB_PRONOSTICO=restaurantcloudIA_db_pronostico
-URL_API=http://localhost:8080
-URL_PRONOSTICO=http://localhost:8002
+LEVANTAR=0
+RAPIDO=0
+EVIDENCIAS=1
+EXTENDER=1
+CONSERVAR=0
+DESPLIEGUE=${SMOKE_DESPLIEGUE:-0}
+PROYECTO="${SMOKE_PROYECTO:-restaurantcloud}"
+PREFIJO="${SMOKE_PREFIJO:-}"
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --levantar) LEVANTAR=1 ;;
+        --rapido) RAPIDO=1 ;;
+        --sin-extender) EXTENDER=0 ;;
+        --conservar) CONSERVAR=1 ;;
+        --sin-evidencias) EVIDENCIAS=0 ;;
+        --despliegue) DESPLIEGUE=1 ;;
+        --prefijo) PREFIJO="${2:-}"; shift ;;
+        -h | --help) sed -n '2,31p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) echo "Opción desconocida: $1 (use --help)"; exit 2 ;;
+    esac
+    shift
+done
+
+resolver_contenedor() {
+    local svc=$1
+    if [ -n "$PREFIJO" ]; then
+        echo "${PREFIJO}${svc}"
+    elif [ "$DESPLIEGUE" = 1 ]; then
+        local cid
+        cid=$(docker ps -a -q --filter "label=com.docker.compose.project=${PROYECTO}" --filter "label=com.docker.compose.service=${svc}" | head -n 1)
+        if [ -n "$cid" ]; then
+            docker inspect -f '{{.Name}}' "$cid" | sed 's#^/##'
+        else
+            echo "${PROYECTO}-${svc}-1"
+        fi
+    else
+        echo "restaurantcloudIA_${svc}"
+    fi
+}
+
+API=$(resolver_contenedor api)
+DB=$(resolver_contenedor db)
+REDIS=$(resolver_contenedor redis)
+ANALITICA=$(resolver_contenedor analitica)
+DB_ANALITICA=$(resolver_contenedor db-analitica)
+PRONOSTICO=$(resolver_contenedor pronostico)
+DB_PRONOSTICO=$(resolver_contenedor db-pronostico)
+if [ "$DESPLIEGUE" = 0 ] && [ -z "$PREFIJO" ]; then
+    DB_ANALITICA=restaurantcloudIA_db_analitica
+    DB_PRONOSTICO=restaurantcloudIA_db_pronostico
+fi
+
+if [ "$DESPLIEGUE" = 1 ]; then
+    URL_API="${SMOKE_URL:-http://localhost}"
+    URL_PRONOSTICO="http://pronostico:8002"
+else
+    URL_API="${SMOKE_URL:-http://localhost:8080}"
+    URL_PRONOSTICO=http://localhost:8002
+fi
+
+curl_pronostico() {
+    if [ "$DESPLIEGUE" = 1 ]; then
+        docker exec "$API" curl "$@"
+    else
+        curl "$@"
+    fi
+}
 
 EMPRESA=00000000-0000-4000-8000-000000000001
 LOCAL=00000000-0000-4000-8000-000000000010
 PROPIETARIO=00000000-0000-4000-8000-000000000101
 ADMIN=00000000-0000-4000-8000-000000000102
 CAJERO=00000000-0000-4000-8000-000000000105
-
-LEVANTAR=0
-RAPIDO=0
-EVIDENCIAS=1
-EXTENDER=1
-CONSERVAR=0
-for argumento in "$@"; do
-    case "$argumento" in
-        --levantar) LEVANTAR=1 ;;
-        --rapido) RAPIDO=1 ;;
-        --sin-extender) EXTENDER=0 ;;
-        --conservar) CONSERVAR=1 ;;
-        --sin-evidencias) EVIDENCIAS=0 ;;
-        -h | --help) sed -n '2,31p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
-        *) echo "Opción desconocida: $argumento (use --help)"; exit 2 ;;
-    esac
-done
 
 # ------------------------------------------------------------------ utilidades
 
@@ -230,7 +271,7 @@ firmado_pronostico() {
     local marca firma salida
     marca=$(ahora)
     firma=$(printf '%s.%s' "$marca" "$2" | openssl dgst -sha256 -hmac "$SECRETO_PRONOSTICO" | sed 's/^.* //')
-    salida=$(curl -s --max-time 30 -w $'\n%{http_code}' -H "X-Timestamp: $marca" -H "X-Firma: $firma" "$URL_PRONOSTICO$1?$2")
+    salida=$(curl_pronostico -s --max-time 30 -w $'\n%{http_code}' -H "X-Timestamp: $marca" -H "X-Firma: $firma" "$URL_PRONOSTICO$1?$2")
     HTTP_CODE=${salida##*$'\n'}
     HTTP_BODY=${salida%$'\n'*}
 }
@@ -280,10 +321,10 @@ else
     mal "El secreto de firma no coincide (ANALITICA_SECRETO de ms-pronóstico vs SECRETO_INTERNO de ms-analítica)"
 fi
 
-afirmar "ms-pronóstico responde en /health" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$URL_PRONOSTICO/health")"
+afirmar "ms-pronóstico responde en /health" 200 "$(curl_pronostico -s -o /dev/null -w '%{http_code}' "$URL_PRONOSTICO/health")"
 afirmar "El núcleo responde" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$URL_API/up")"
-afirmar "ms-pronóstico rechaza una petición sin firma" 401 "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' "$URL_PRONOSTICO/interno/pronosticos")"
-afirmar "ms-pronóstico rechaza una firma alterada" 401 "$(curl -s -o /dev/null -w '%{http_code}' -H "X-Timestamp: $(ahora)" -H 'X-Firma: 00' "$URL_PRONOSTICO/interno/modelos/vigente?empresa_id=$EMPRESA&local_id=$LOCAL")"
+afirmar "ms-pronóstico rechaza una petición sin firma" 401 "$(curl_pronostico -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' "$URL_PRONOSTICO/interno/pronosticos")"
+afirmar "ms-pronóstico rechaza una firma alterada" 401 "$(curl_pronostico -s -o /dev/null -w '%{http_code}' -H "X-Timestamp: $(ahora)" -H 'X-Firma: 00' "$URL_PRONOSTICO/interno/modelos/vigente?empresa_id=$EMPRESA&local_id=$LOCAL")"
 
 [ "$FALLOS" -gt 0 ] && { echo; echo "Las condiciones previas fallaron: no se continúa."; exit 1; }
 
@@ -644,7 +685,7 @@ else
 
     docker start "$PRONOSTICO" > /dev/null && PRONOSTICO_APAGADO_POR_EL_SCRIPT=0
     RENDIDA=$(ahora)
-    servicio_sano() { [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL_PRONOSTICO/health")" = 200 ]; }
+    servicio_sano() { [ "$(curl_pronostico -s -o /dev/null -w '%{http_code}' "$URL_PRONOSTICO/health")" = 200 ]; }
     if esperar_hasta 120 servicio_sano; then
         ok "ms-pronóstico volvió a responder en $(($(ahora) - RENDIDA)) s"
     else

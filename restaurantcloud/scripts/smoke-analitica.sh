@@ -30,32 +30,73 @@ export MSYS_NO_PATHCONV=1
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$RAIZ"
 
-API=restaurantcloudIA_api
-QUEUE=restaurantcloudIA_queue
-SCHEDULER=restaurantcloudIA_scheduler
-DB=restaurantcloudIA_db
-ANALITICA=restaurantcloudIA_analitica
-DB_ANALITICA=restaurantcloudIA_db_analitica
-URL_API=http://localhost:8080
-URL_ANALITICA=http://localhost:8001
+LEVANTAR=0
+RAPIDO=0
+EVIDENCIAS=1
+DESPLIEGUE=${SMOKE_DESPLIEGUE:-0}
+PROYECTO="${SMOKE_PROYECTO:-restaurantcloud}"
+PREFIJO="${SMOKE_PREFIJO:-}"
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --levantar) LEVANTAR=1 ;;
+        --rapido) RAPIDO=1 ;;
+        --sin-evidencias) EVIDENCIAS=0 ;;
+        --despliegue) DESPLIEGUE=1 ;;
+        --prefijo) PREFIJO="${2:-}"; shift ;;
+        -h | --help) sed -n '2,26p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) echo "Opción desconocida: $1 (use --help)"; exit 2 ;;
+    esac
+    shift
+done
+
+resolver_contenedor() {
+    local svc=$1
+    if [ -n "$PREFIJO" ]; then
+        echo "${PREFIJO}${svc}"
+    elif [ "$DESPLIEGUE" = 1 ]; then
+        local cid
+        cid=$(docker ps -a -q --filter "label=com.docker.compose.project=${PROYECTO}" --filter "label=com.docker.compose.service=${svc}" | head -n 1)
+        if [ -n "$cid" ]; then
+            docker inspect -f '{{.Name}}' "$cid" | sed 's#^/##'
+        else
+            echo "${PROYECTO}-${svc}-1"
+        fi
+    else
+        echo "restaurantcloudIA_${svc}"
+    fi
+}
+
+API=$(resolver_contenedor api)
+QUEUE=$(resolver_contenedor queue)
+SCHEDULER=$(resolver_contenedor scheduler)
+DB=$(resolver_contenedor db)
+REDIS=$(resolver_contenedor redis)
+ANALITICA=$(resolver_contenedor analitica)
+DB_ANALITICA=$(resolver_contenedor db-analitica)
+if [ "$DESPLIEGUE" = 0 ] && [ -z "$PREFIJO" ]; then
+    DB_ANALITICA=restaurantcloudIA_db_analitica
+fi
+
+if [ "$DESPLIEGUE" = 1 ]; then
+    URL_API="${SMOKE_URL:-http://localhost}"
+    URL_ANALITICA="http://analitica:8001"
+else
+    URL_API="${SMOKE_URL:-http://localhost:8080}"
+    URL_ANALITICA=http://localhost:8001
+fi
+
+curl_analitica() {
+    if [ "$DESPLIEGUE" = 1 ]; then
+        docker exec "$API" curl "$@"
+    else
+        curl "$@"
+    fi
+}
 
 EMPRESA=00000000-0000-4000-8000-000000000001
 LOCAL=00000000-0000-4000-8000-000000000010
 MOZO=00000000-0000-4000-8000-000000000103
 CAJERO=00000000-0000-4000-8000-000000000105
-
-LEVANTAR=0
-RAPIDO=0
-EVIDENCIAS=1
-for argumento in "$@"; do
-    case "$argumento" in
-        --levantar) LEVANTAR=1 ;;
-        --rapido) RAPIDO=1 ;;
-        --sin-evidencias) EVIDENCIAS=0 ;;
-        -h | --help) sed -n '2,26p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
-        *) echo "Opción desconocida: $argumento (use --help)"; exit 2 ;;
-    esac
-done
 
 # ------------------------------------------------------------------ utilidades
 
@@ -131,7 +172,7 @@ if [ "$LEVANTAR" = 1 ]; then
     sleep 15
 fi
 
-for contenedor in "$API" "$QUEUE" "$SCHEDULER" "$DB" restaurantcloudIA_redis "$DB_ANALITICA" "$ANALITICA"; do
+for contenedor in "$API" "$QUEUE" "$SCHEDULER" "$DB" "$REDIS" "$DB_ANALITICA" "$ANALITICA"; do
     if [ "$(docker inspect -f '{{.State.Running}}' "$contenedor" 2>/dev/null)" = true ]; then
         ok "Contenedor $contenedor en ejecución"
     else
@@ -164,7 +205,7 @@ else
     mal "El secreto de firma no coincide (ANALITICA_SECRETO del núcleo vs SECRETO_INTERNO de ms-analítica)"
 fi
 
-afirmar "ms-analítica responde en /health" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$URL_ANALITICA/health")"
+afirmar "ms-analítica responde en /health" 200 "$(curl_analitica -s -o /dev/null -w '%{http_code}' "$URL_ANALITICA/health")"
 afirmar "El POS (API del núcleo) responde" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$URL_API/up")"
 
 ESTADO_INICIAL=$(docker exec "$API" php artisan outbox:estado 2>&1)
@@ -247,7 +288,7 @@ unidades_en_la_serie() { # fecha -> unidades del producto de la prueba ese día
     consulta="empresa_id=$EMPRESA&local_id=$LOCAL&desde=$1&hasta=$1&producto_ids=$PRODUCTO"
     marca=$(ahora)
     firma=$(printf '%s.%s' "$marca" "$consulta" | openssl dgst -sha256 -hmac "$SECRETO_SERVICIO" | sed 's/^.* //')
-    cuerpo=$(curl -s -H "X-Timestamp: $marca" -H "X-Firma: $firma" "$URL_ANALITICA/interno/series/ventas-diarias?$consulta")
+    cuerpo=$(curl_analitica -s -H "X-Timestamp: $marca" -H "X-Firma: $firma" "$URL_ANALITICA/interno/series/ventas-diarias?$consulta")
     # Se llama dentro de $(...): la respuesta completa se deja en un archivo para guardarla como evidencia.
     printf '%s' "$cuerpo" > "$SERIE_ARCHIVO"
     echo "$cuerpo" | grep -o '"unidades":-\?[0-9]*' | head -1 | cut -d: -f2
