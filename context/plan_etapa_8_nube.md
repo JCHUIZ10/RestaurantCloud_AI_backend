@@ -45,7 +45,7 @@ Resultado esperado: un tester clona el repositorio, ejecuta **un solo comando** 
 | 8.4 Datos de demostración | Seed, historial sintético hasta ayer, modelo vigente, cuentas por rol; comandos para preparar y reiniciar | ÁUREA con predicción nivel 3 en una base recién creada (cerrada) |
 | 8.5 Instalación en Windows | Comando único (`.ps1` y `.sh`), requisitos, finales de línea, consumo de memoria | Clon limpio en otra carpeta → sistema arriba con un comando (cerrada) |
 | 8.6 Verificación | Los cuatro humos contra el compose de despliegue | Mismas comprobaciones en verde que en desarrollo (cerrada) |
-| 8.7 Guía para testers | Instalar, entrar, qué probar por rol y cómo reportar un fallo | Documento listo para enviar |
+| 8.7 Guía para testers | Instalar, entrar, qué probar por rol y cómo reportar un fallo | Documento listo para enviar en `docs/guia/guia-testers.md` (cerrada) |
 | 8.8 Manual de Artifact Registry | Cada imagen: qué contiene, cómo se construye, se etiqueta y se sube, y qué hace cada comando | Manual listo, sin ejecutar |
 | 8.9 Cierre de esta parte | `plan_seguimiento.md` y las fichas | Entorno de testers entregado |
 
@@ -94,15 +94,17 @@ Resultado esperado: un tester clona el repositorio, ejecuta **un solo comando** 
 - **`scripts/verificar-despliegue.sh`:** automatiza en un solo paso la comprobación de puertos internos cerrados en el host (`5432`, `5433`, `5434`, `6379`, `8000`, `8001`, `8002`, `8003`, `8080`, `9000`, `27017`), la prueba real de `X-Forwarded-For` falsificado (`198.51.100.77` sobrescrito por Caddy antes de llegar a Laravel/Redis), y la ejecución completa de los cuatro humos en `--despliegue`.
 - **Verificado:** ejecución completa en verde (`Verificación de despliegue COMPLETA EN VERDE`): puertos internos cerrados, `X-Forwarded-For` sobrescrito por Caddy, `smoke-pronostico.sh` (108 comprobaciones), `smoke-gateway.sh` (138 comprobaciones), `smoke-analitica.sh` (38 comprobaciones) y `smoke-notificaciones.sh` (129 comprobaciones).
 
-### 8.7 Guía para testers (`docs/guia-testers.md`)
+### 8.7 Guía para testers (`docs/guia/guia-testers.md`, cerrada 26/11)
 
-Escrita para alguien que no conoce el código:
+Creada carpeta `restaurantcloud/docs/guia/` para separar las guías operativas y de QA de la documentación de reglas de negocio (`docs/`):
 
-- Requisitos (Windows 10 u 11, Docker Desktop, RAM medida en la 8.2) e instalación paso a paso.
-- Cómo entrar y la tabla de cuentas por rol.
-- Qué probar en cada rol, con los casos de uso principales: POS y cobro, cocina y KDS, campana de avisos, reportes, predicción y reposición, cambio de plan.
-- Cómo reportar un fallo: rol, pasos, qué se esperaba, qué pasó, hora, captura y el `X-Request-Id` (dónde verlo en el navegador).
-- Reiniciar los datos, apagar y problemas comunes.
+- [`docs/guia/README.md`](../restaurantcloud/docs/guia/README.md): índice que separa la guía para testers de los manuales técnicos/operativos (como el de Artifact Registry).
+- [`docs/guia/guia-testers.md`](../restaurantcloud/docs/guia/guia-testers.md): escrita para alguien que no conoce el código:
+  - Requisitos (Windows 10/11, Docker Desktop, RAM mínima y consumo real de ~1,01 GiB medido en la 8.2, puerto 80 libre) e instalación paso a paso con `.\scripts\qa.ps1 iniciar` / `./scripts/qa.sh iniciar`.
+  - Cómo entrar (`http://localhost`, Mailpit en `http://127.0.0.1:8025`) y tabla completa de cuentas de ÁUREA por rol.
+  - Qué probar en cada rol: Mozo (POS y campana), Cocina (KDS en vivo), Caja (cobro, comprobantes y notas de crédito), Administración (reportes, invitaciones, predicción nivel 3 y reposición) y Propietario (multi-sede y cambio de plan).
+  - Cómo reportar un fallo paso a paso, incluyendo cómo copiar el `X-Request-Id` en `F12` → Red → Cabeceras de respuesta.
+  - Comandos diarios (`iniciar`, `estado`, `detener`, `preparar`, `reiniciar`) y solución a problemas comunes.
 
 ### 8.8 Manual de Artifact Registry (`docs/manual-artifact-registry.md`)
 
