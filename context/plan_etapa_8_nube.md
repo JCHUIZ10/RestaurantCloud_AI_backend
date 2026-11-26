@@ -40,7 +40,7 @@ Resultado esperado: un tester clona el repositorio, ejecuta **un solo comando** 
 | 8.B Correos | Envío real de los correos de activación e invitación, con Mailpit en QA | Registrar una empresa y recibir el correo en `localhost:8025` |
 | 8.C Modelo en GCS | Adaptador `AlmacenGcs` (`gs://`) en `ms-pronóstico` y bucket demo `rc-modelos-demo-aurea` | `ms-pronóstico` descarga y verifica el modelo vigente desde `gs://` (cerrada) |
 | 8.1 Imágenes | API con el código dentro; web apuntando a Kong y con el paquete partido; versión en cada imagen | Las imágenes arrancan sin montar carpetas del repositorio (cerrada) |
-| 8.2 Compose de despliegue | Sistema completo en `docker-compose.prod.yml`, Caddy delante de Kong, solo Caddy publica puertos | `http://localhost` funciona con el compose nuevo |
+| 8.2 Compose de despliegue | Sistema completo en `docker-compose.prod.yml`, Caddy delante de Kong, solo Caddy publica puertos | `http://localhost` funciona con el compose nuevo (cerrada) |
 | 8.3 Configuración | Script que genera el `.env` con secretos aleatorios y claves JWT; ejemplos de QA y de producción | Un `.env` nuevo de cero, sin copiar nada a mano |
 | 8.4 Datos de demostración | Seed, historial sintético hasta ayer, modelo vigente, cuentas por rol; comandos para preparar y reiniciar | ÁUREA con predicción nivel 3 en una base recién creada |
 | 8.5 Instalación en Windows | Comando único (`.ps1` y `.sh`), requisitos, finales de línea, consumo de memoria | Clon limpio en otra carpeta → sistema arriba con un comando |
@@ -60,14 +60,13 @@ Resultado esperado: un tester clona el repositorio, ejecuta **un solo comando** 
 - **Microservicios:** `analitica`, `pronostico` y `notificaciones` ya son autocontenidos sin montajes del repositorio fuera de pruebas.
 - **Etiquetas OCI:** los cinco Dockerfiles (`api`, `web`, `analitica`, `pronostico`, `notificaciones`) incorporan `ARG APP_VERSION` y `ARG GIT_COMMIT` con `org.opencontainers.image.title`, `org.opencontainers.image.version` y `org.opencontainers.image.revision`.
 
-### 8.2 Compose de despliegue
+### 8.2 Compose de despliegue (cerrada 25/11)
 
-- Los servicios de desarrollo (db, redis, minio, api, queue, scheduler, las tres bases, sus migraciones, los tres servicios y Kong) más Caddy y Mailpit (perfil `qa`).
-- **Puertos:** solo Caddy (80, y 443 en producción) y Mailpit (8025, en QA). Las bases, Redis, MinIO, Kong y los servicios no se publican; la consola de MinIO queda en `127.0.0.1`, como hoy.
-- **Caddy:** `{$SITIO}` como dirección, `/api/*` a Kong con `flush_interval -1` (necesario para el SSE de notificaciones y del KDS) y la SPA en `/`. Los archivos de MinIO se sirven en una ruta del mismo sitio en QA y con su propio dominio en producción.
-- **Kong:** CORS con el origen del sitio. Cuando la SPA y la API comparten origen el CORS no se usa, pero se deja bien configurado.
-- **Recursos:** límites de memoria por servicio y `OCTANE_WORKERS=2` en QA. Con `docker stats` se mide cuánta RAM pide el sistema completo y ese número va a la guía.
-- **Salud:** cada servicio tiene su `healthcheck` y Caddy espera a Kong.
+- **`docker-compose.prod.yml`:** renombrado con `name: restaurantcloud` y sin `container_name` (preserva los volúmenes `restaurantcloud_*` sin colisionar con desarrollo `restaurantcloudIA_*`). Incluye núcleo (`db`, `redis`, `minio`, `minio-init`, `api`, `queue`, `scheduler` con `target: prod`, `APP_KEY` obligatoria y `OCTANE_WORKERS=2` por defecto), los tres microservicios con sus bases y migraciones efímeras (`db-analitica`, `analitica`, `db-pronostico`, `pronostico`, `mongo-notificaciones`, `notificaciones`), `kong:3.9.1` (sin API de administración ni puertos publicados), `web` (Caddy `2.8.4-alpine`) y `mailpit` bajo `profiles: ["qa"]`.
+- **Puertos:** solo `web` publica `80:80`, `443:443` y `443:443/udp` (HTTP/3 en producción; con `SITIO=http://localhost` en QA Caddy opera en HTTP plano sin certificados). `mailpit` (`127.0.0.1:8025`) y la consola de `minio` (`127.0.0.1:9001`) quedan restringidos a localhost; bases, Redis, Kong y microservicios no se exponen al host.
+- **`Caddyfile`:** usa `{$SITIO}` como dirección principal y `{$FILES_DOMAIN:http://127.0.0.1:8090}` para producción. En QA enruta `/{$MINIO_DEFAULT_BUCKET:restaurantcloud}/*` hacia `minio:9000` (`header_up Host minio:9000`) porque `Storage::temporaryUrl()` de Laravel reemplaza solo esquema, host y puerto, conservando el prefijo del bucket. `.gitattributes` fija finales LF en `Caddyfile` y `entrypoint.sh`.
+- **Salud y memoria:** `api` incorpora `healthcheck` sobre `/up` y `web` sobre `127.0.0.1:2019/config/`. Con límites `mem_limit` en todos los servicios (y `--wiredTigerCacheSizeGB 0.25` en MongoDB), la medición real con `docker stats --no-stream` sobre los 15 contenedores activos en QA dio **~1.035 MiB (~1,01 GiB)**, muy por debajo del umbral de 6 GB.
+- **Verificado:** `config` en modos `prod` y `qa`; arranque limpio (`Exited (0)` en las 4 tareas efímeras y `healthy` en todos los servicios); `200` en `/`, `/up`, `/api/v1/auth/clave-publica`, Mailpit (`8025`) y consola MinIO (`9001`); `401`/`404` de Kong en rutas protegidas/internas; descarga pública y `temporaryUrl` de MinIO por `http://localhost/restaurantcloud/...`; y consulta interna de `ms-pronóstico` a `gs://rc-modelos-demo-aurea`.
 
 ### 8.3 Configuración y secretos
 
