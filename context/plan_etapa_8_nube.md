@@ -43,7 +43,7 @@ Resultado esperado: un tester clona el repositorio, ejecuta **un solo comando** 
 | 8.2 Compose de despliegue | Sistema completo en `docker-compose.prod.yml`, Caddy delante de Kong, solo Caddy publica puertos | `http://localhost` funciona con el compose nuevo (cerrada) |
 | 8.3 Configuración | Script que genera el `.env` con secretos aleatorios y claves JWT; ejemplos de QA y de producción | Un `.env` nuevo de cero, sin copiar nada a mano (cerrada) |
 | 8.4 Datos de demostración | Seed, historial sintético hasta ayer, modelo vigente, cuentas por rol; comandos para preparar y reiniciar | ÁUREA con predicción nivel 3 en una base recién creada (cerrada) |
-| 8.5 Instalación en Windows | Comando único (`.ps1` y `.sh`), requisitos, finales de línea, consumo de memoria | Clon limpio en otra carpeta → sistema arriba con un comando |
+| 8.5 Instalación en Windows | Comando único (`.ps1` y `.sh`), requisitos, finales de línea, consumo de memoria | Clon limpio en otra carpeta → sistema arriba con un comando (cerrada) |
 | 8.6 Verificación | Los cuatro humos contra el compose de despliegue | Mismas comprobaciones en verde que en desarrollo |
 | 8.7 Guía para testers | Instalar, entrar, qué probar por rol y cómo reportar un fallo | Documento listo para enviar |
 | 8.8 Manual de Artifact Registry | Cada imagen: qué contiene, cómo se construye, se etiqueta y se sube, y qué hace cada comando | Manual listo, sin ejecutar |
@@ -81,12 +81,12 @@ Resultado esperado: un tester clona el repositorio, ejecuta **un solo comando** 
 - **`scripts/qa-reiniciar.sh` y `scripts/qa-reiniciar.ps1`:** solicitan confirmación (omitible con `--si` / `-Force`), bajan el stack con volúmenes (`down -v`), lo reconstruyen/levantan (`up -d --build`) y ejecutan `qa-preparar`.
 - **Verificado:** ejecución completa desde cero con `qa-reiniciar.ps1 -Force` (730 días, 39.063 ventas, predicción nivel 3 con `metodo=modelo` en 140 filas), re-ejecución idempotente con `qa-preparar.ps1` y `qa-preparar.sh` (Git Bash), y sintaxis `bash -n` de `qa-reiniciar.sh`.
 
-### 8.5 Instalación en Windows
+### 8.5 Instalación en Windows (cerrada 25/11)
 
-- **Un solo comando:** `scripts/qa.ps1 iniciar` (PowerShell) y `scripts/qa.sh iniciar` (Git Bash, macOS y Linux). Genera el `.env` si no existe, construye, levanta, prepara los datos y muestra la URL y las cuentas.
-- **Finales de línea:** `.gitattributes` con LF para todos los `.sh`, `.lua` y archivos de configuración que entran en contenedores. Un clon con `core.autocrlf=true` no debe romper nada (ya pasó con Kong en la 6.4).
-- **Comprobaciones previas:** Docker en marcha, Compose v2, memoria asignada a Docker y el puerto 80 libre. Un fallo se explica en lenguaje simple.
-- **Prueba real:** un clon limpio en otra carpeta, sin `.env`, sin volúmenes y sin imágenes en caché.
+- **Un solo comando (`scripts/qa.ps1` y `scripts/qa.sh`):** soportan `iniciar` (por defecto), `detener`, `estado`, `preparar`, `reiniciar` y `ayuda`. `iniciar` comprueba requisitos, genera `.env` si falta (`generar-env`), construye y levanta `docker-compose.prod.yml`, ejecuta `qa-preparar` y muestra la URL y las 5 cuentas demo.
+- **Finales de línea (`.gitattributes`):** fija `eol=lf` para `*.sh`, `*.lua`, `*.conf`, `restaurantcloud/infra/**`, `restaurantcloud/docker-compose*.yml` y `restaurantcloud/.env*.example`, garantizando que clones en Windows con `core.autocrlf=true` mantengan LF.
+- **Comprobaciones previas:** validan en lenguaje simple Docker instalado y activo, Compose v2, memoria asignada (`>= 3.7 GiB` / ~4 GiB) y puerto 80 libre (tolerando si ya lo usa el propio contenedor `web` de QA).
+- **Prueba real:** clon limpio con `git clone -c core.autocrlf=true` en carpeta temporal sin `.env` ni volúmenes; `ls-files --eol` confirmó `w/lf` en los archivos de contenedor y `.\scripts\qa.ps1 iniciar` levantó todo el stack hasta `OK: pronóstico en nivel 3 con metodo=modelo (140 filas)`. También se validó el rechazo en lenguaje simple con puerto 80 ocupado tanto en `qa.ps1` como en `qa.sh`.
 
 ### 8.6 Verificación
 
