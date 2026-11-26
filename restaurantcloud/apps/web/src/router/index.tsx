@@ -1,54 +1,38 @@
+import React, { lazy, Suspense, type ComponentType } from 'react';
 import { createBrowserRouter, Navigate, useParams } from 'react-router-dom';
 import { PublicLayout } from '@/components/layout/PublicLayout';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { TerminalLayout } from '@/components/layout/TerminalLayout';
 import { SedeCustomerLayout } from '@/components/layout/SedeCustomerLayout';
-import { HomePage } from '@/modules/cliente/pages/HomePage';
 import { PlaceholderView } from '@/components/ui/PlaceholderView';
 import { ROUTES } from './routes.constants';
 import { RequireRole } from './RequireRole';
 import { ROLES_AREA } from './accesoPorRol';
 
-import { LoginPage } from '@/modules/auth/pages/LoginPage';
-import { ActivarCuentaPage } from '@/modules/auth/pages/ActivarCuentaPage';
-import { CartaDigitalPage } from '@/modules/cliente/pages/CartaDigitalPage';
-import { ComprobanteDigitalPage } from '@/modules/cliente/pages/ComprobanteDigitalPage';
-import { MozoMesasPage } from '@/modules/mozo/pages/MozoMesasPage';
-import { MozoComandaPage } from '@/modules/mozo/pages/MozoComandaPage';
-import { MozoPrecuentaPage } from '@/modules/mozo/pages/MozoPrecuentaPage';
-import { MozoReservasPage } from '@/modules/mozo/pages/MozoReservasPage';
-import { CocinaKdsPage } from '@/modules/cocina/pages/CocinaKdsPage';
-import { CocinaStockRapidoPage } from '@/modules/cocina/pages/CocinaStockRapidoPage';
-import { AdminPlanoMesasPage } from '@/modules/admin/pages/AdminPlanoMesasPage';
-import { AdminPlanificarSemanaPage } from '@/modules/admin/pages/AdminPlanificarSemanaPage';
-import { AdminPlatosSemanaPage } from '@/modules/admin/pages/AdminPlatosSemanaPage';
-import { AdminPrepararCompraPage } from '@/modules/admin/pages/AdminPrepararCompraPage';
-import { PropietarioPrediccionPage } from '@/modules/propietario/pages/PropietarioPrediccionPage';
-import { AdminCategoriasPage } from '@/modules/admin/pages/AdminCategoriasPage';
-import { AdminInsumosPage } from '@/modules/admin/pages/AdminInsumosPage';
-import { AdminProductosPage } from '@/modules/admin/pages/AdminProductosPage';
-import { AdminProveedoresPage } from '@/modules/admin/pages/AdminProveedoresPage';
-import { AdminComprasPage } from '@/modules/admin/pages/AdminComprasPage';
-import { AdminPersonalPage } from '@/modules/admin/pages/AdminPersonalPage';
-import { AdminHorarioPage } from '@/modules/admin/pages/AdminHorarioPage';
-import { AdminPoliticasReservaPage } from '@/modules/admin/pages/AdminPoliticasReservaPage';
-import { AdminAnulacionesPage } from '@/modules/admin/pages/AdminAnulacionesPage';
-import { AdminPromocionesPage } from '@/modules/admin/pages/AdminPromocionesPage';
-import { AdminConfiguracionKdsPage } from '@/modules/admin/pages/AdminConfiguracionKdsPage';
-import { AdminMetodosPagoPage } from '@/modules/admin/pages/AdminMetodosPagoPage';
-import { AdminFlujoCajaPage } from '@/modules/admin/pages/AdminFlujoCajaPage';
-import { AdminReportesPage } from '@/modules/admin/pages/AdminReportesPage';
-import { RegistroEmpresaPage } from '@/modules/propietario/pages/RegistroEmpresaPage';
-import { PropietarioLocalesPage } from '@/modules/propietario/pages/PropietarioLocalesPage';
-import { PropietarioAdministradoresPage } from '@/modules/propietario/pages/PropietarioAdministradoresPage';
-import { PropietarioSuscripcionPage } from '@/modules/propietario/pages/PropietarioSuscripcionPage';
-import { PropietarioCambiarPlanPage } from '@/modules/propietario/pages/PropietarioCambiarPlanPage';
-import { PropietarioConservarRecursosPage } from '@/modules/propietario/pages/PropietarioConservarRecursosPage';
-import { CajeroPosPage } from '@/modules/caja/pages/CajeroPosPage';
-import { CajeroTurnoCierrePage } from '@/modules/caja/pages/CajeroTurnoCierrePage';
-import { CajeroComprobantesPage } from '@/modules/caja/pages/CajeroComprobantesPage';
-import { SaasTenantsPage } from '@/modules/saas/pages/SaasTenantsPage';
-import { SaasTenantOnboardingPage } from '@/modules/saas/pages/SaasTenantOnboardingPage';
+const CargandoVista: React.FC = () => (
+  <div className="min-h-[40vh] flex items-center justify-center">
+    <div
+      role="status"
+      aria-label="Cargando vista"
+      className="w-8 h-8 rounded-full border-2 border-slate-200 border-t-amber-700 animate-spin"
+    />
+  </div>
+);
+
+function lazyPage<K extends string>(
+  loader: () => Promise<Record<K, ComponentType>>,
+  name: K,
+): React.ReactElement {
+  const Component = lazy<ComponentType>(async () => {
+    const mod = await loader();
+    return { default: mod[name] };
+  });
+  return (
+    <Suspense fallback={<CargandoVista />}>
+      <Component />
+    </Suspense>
+  );
+}
 
 // Redirección para el alias corto /m/:slug -> /sede/:slug/carta
 const ShortMenuRedirect = () => {
@@ -66,19 +50,25 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
     children: [
       {
         index: true,
-        element: <HomePage />,
+        element: lazyPage(() => import('@/modules/cliente/pages/HomePage'), 'HomePage'),
       },
       {
         path: 'login',
-        element: <LoginPage />,
+        element: lazyPage(() => import('@/modules/auth/pages/LoginPage'), 'LoginPage'),
       },
       {
         path: 'registro',
-        element: <RegistroEmpresaPage />,
+        element: lazyPage(
+          () => import('@/modules/propietario/pages/RegistroEmpresaPage'),
+          'RegistroEmpresaPage',
+        ),
       },
       {
         path: 'activar-cuenta',
-        element: <ActivarCuentaPage />,
+        element: lazyPage(
+          () => import('@/modules/auth/pages/ActivarCuentaPage'),
+          'ActivarCuentaPage',
+        ),
       },
       {
         path: 'recuperar-password',
@@ -100,7 +90,10 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
       // Búsqueda manual de comprobante Zero Dead-Ends
       {
         path: 'comprobante',
-        element: <ComprobanteDigitalPage />,
+        element: lazyPage(
+          () => import('@/modules/cliente/pages/ComprobanteDigitalPage'),
+          'ComprobanteDigitalPage',
+        ),
       },
     ],
   },
@@ -114,11 +107,17 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
     children: [
       {
         path: 'carta',
-        element: <CartaDigitalPage />,
+        element: lazyPage(
+          () => import('@/modules/cliente/pages/CartaDigitalPage'),
+          'CartaDigitalPage',
+        ),
       },
       {
         path: 'comprobante/:numero',
-        element: <ComprobanteDigitalPage />,
+        element: lazyPage(
+          () => import('@/modules/cliente/pages/ComprobanteDigitalPage'),
+          'ComprobanteDigitalPage',
+        ),
       },
     ],
   },
@@ -130,7 +129,10 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
     children: [
       {
         index: true,
-        element: <ComprobanteDigitalPage />,
+        element: lazyPage(
+          () => import('@/modules/cliente/pages/ComprobanteDigitalPage'),
+          'ComprobanteDigitalPage',
+        ),
       },
     ],
   },
@@ -176,27 +178,45 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
       },
       {
         path: 'sedes',
-        element: <PropietarioLocalesPage />,
+        element: lazyPage(
+          () => import('@/modules/propietario/pages/PropietarioLocalesPage'),
+          'PropietarioLocalesPage',
+        ),
       },
       {
         path: 'prediccion',
-        element: <PropietarioPrediccionPage />,
+        element: lazyPage(
+          () => import('@/modules/propietario/pages/PropietarioPrediccionPage'),
+          'PropietarioPrediccionPage',
+        ),
       },
       {
         path: 'administradores',
-        element: <PropietarioAdministradoresPage />,
+        element: lazyPage(
+          () => import('@/modules/propietario/pages/PropietarioAdministradoresPage'),
+          'PropietarioAdministradoresPage',
+        ),
       },
       {
         path: 'suscripcion',
-        element: <PropietarioSuscripcionPage />,
+        element: lazyPage(
+          () => import('@/modules/propietario/pages/PropietarioSuscripcionPage'),
+          'PropietarioSuscripcionPage',
+        ),
       },
       {
         path: 'cambiar-plan',
-        element: <PropietarioCambiarPlanPage />,
+        element: lazyPage(
+          () => import('@/modules/propietario/pages/PropietarioCambiarPlanPage'),
+          'PropietarioCambiarPlanPage',
+        ),
       },
       {
         path: 'suscripcion/conservar',
-        element: <PropietarioConservarRecursosPage />,
+        element: lazyPage(
+          () => import('@/modules/propietario/pages/PropietarioConservarRecursosPage'),
+          'PropietarioConservarRecursosPage',
+        ),
       },
     ],
   },
@@ -234,76 +254,130 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
       },
       {
         path: 'plano-mesas',
-        element: <AdminPlanoMesasPage />,
+        element: lazyPage(
+          () => import('@/modules/admin/pages/AdminPlanoMesasPage'),
+          'AdminPlanoMesasPage',
+        ),
       },
       {
         path: 'carta',
-        element: <AdminProductosPage />,
+        element: lazyPage(
+          () => import('@/modules/admin/pages/AdminProductosPage'),
+          'AdminProductosPage',
+        ),
       },
       {
         path: 'categorias',
-        element: <AdminCategoriasPage />,
+        element: lazyPage(
+          () => import('@/modules/admin/pages/AdminCategoriasPage'),
+          'AdminCategoriasPage',
+        ),
       },
       {
         path: 'inventario',
-        element: <AdminInsumosPage />,
+        element: lazyPage(
+          () => import('@/modules/admin/pages/AdminInsumosPage'),
+          'AdminInsumosPage',
+        ),
       },
       {
         path: 'proveedores',
-        element: <AdminProveedoresPage />,
+        element: lazyPage(
+          () => import('@/modules/admin/pages/AdminProveedoresPage'),
+          'AdminProveedoresPage',
+        ),
       },
       {
         path: 'compras',
-        element: <AdminComprasPage />,
+        element: lazyPage(
+          () => import('@/modules/admin/pages/AdminComprasPage'),
+          'AdminComprasPage',
+        ),
       },
       {
         path: 'personal',
-        element: <AdminPersonalPage />,
+        element: lazyPage(
+          () => import('@/modules/admin/pages/AdminPersonalPage'),
+          'AdminPersonalPage',
+        ),
       },
       {
         path: 'horario',
-        element: <AdminHorarioPage />,
+        element: lazyPage(
+          () => import('@/modules/admin/pages/AdminHorarioPage'),
+          'AdminHorarioPage',
+        ),
       },
       {
         path: 'politicas-reserva',
-        element: <AdminPoliticasReservaPage />,
+        element: lazyPage(
+          () => import('@/modules/admin/pages/AdminPoliticasReservaPage'),
+          'AdminPoliticasReservaPage',
+        ),
       },
       {
         path: 'anulaciones',
-        element: <AdminAnulacionesPage />,
+        element: lazyPage(
+          () => import('@/modules/admin/pages/AdminAnulacionesPage'),
+          'AdminAnulacionesPage',
+        ),
       },
       {
         path: 'planificar-semana',
-        element: <AdminPlanificarSemanaPage />,
+        element: lazyPage(
+          () => import('@/modules/admin/pages/AdminPlanificarSemanaPage'),
+          'AdminPlanificarSemanaPage',
+        ),
       },
       {
         path: 'planificar-semana/platos',
-        element: <AdminPlatosSemanaPage />,
+        element: lazyPage(
+          () => import('@/modules/admin/pages/AdminPlatosSemanaPage'),
+          'AdminPlatosSemanaPage',
+        ),
       },
       {
         path: 'planificar-semana/compra',
-        element: <AdminPrepararCompraPage />,
+        element: lazyPage(
+          () => import('@/modules/admin/pages/AdminPrepararCompraPage'),
+          'AdminPrepararCompraPage',
+        ),
       },
       {
         path: 'promociones',
-        element: <AdminPromocionesPage />,
+        element: lazyPage(
+          () => import('@/modules/admin/pages/AdminPromocionesPage'),
+          'AdminPromocionesPage',
+        ),
       },
       {
         path: 'configuracion-kds',
-        element: <AdminConfiguracionKdsPage />,
+        element: lazyPage(
+          () => import('@/modules/admin/pages/AdminConfiguracionKdsPage'),
+          'AdminConfiguracionKdsPage',
+        ),
       },
       {
         path: 'metodos-pago',
-        element: <AdminMetodosPagoPage />,
+        element: lazyPage(
+          () => import('@/modules/admin/pages/AdminMetodosPagoPage'),
+          'AdminMetodosPagoPage',
+        ),
       },
       // Reportes de ventas y desempeño (CU-ADMIN-13): ms-analítica por Kong
       {
         path: 'reportes/ventas',
-        element: <AdminReportesPage />,
+        element: lazyPage(
+          () => import('@/modules/admin/pages/AdminReportesPage'),
+          'AdminReportesPage',
+        ),
       },
       {
         path: 'finanzas/flujo-caja',
-        element: <AdminFlujoCajaPage />,
+        element: lazyPage(
+          () => import('@/modules/admin/pages/AdminFlujoCajaPage'),
+          'AdminFlujoCajaPage',
+        ),
       },
       {
         path: 'reportes/cierres-z',
@@ -329,19 +403,31 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
       },
       {
         path: 'mesas',
-        element: <MozoMesasPage />,
+        element: lazyPage(
+          () => import('@/modules/mozo/pages/MozoMesasPage'),
+          'MozoMesasPage',
+        ),
       },
       {
         path: 'mesas/:mesaId/comanda',
-        element: <MozoComandaPage />,
+        element: lazyPage(
+          () => import('@/modules/mozo/pages/MozoComandaPage'),
+          'MozoComandaPage',
+        ),
       },
       {
         path: 'mesas/:mesaId/precuenta',
-        element: <MozoPrecuentaPage />,
+        element: lazyPage(
+          () => import('@/modules/mozo/pages/MozoPrecuentaPage'),
+          'MozoPrecuentaPage',
+        ),
       },
       {
         path: 'reservas',
-        element: <MozoReservasPage />,
+        element: lazyPage(
+          () => import('@/modules/mozo/pages/MozoReservasPage'),
+          'MozoReservasPage',
+        ),
       },
     ],
   },
@@ -360,11 +446,17 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
       },
       {
         path: 'kds',
-        element: <CocinaKdsPage />,
+        element: lazyPage(
+          () => import('@/modules/cocina/pages/CocinaKdsPage'),
+          'CocinaKdsPage',
+        ),
       },
       {
         path: 'stock-rapido',
-        element: <CocinaStockRapidoPage />,
+        element: lazyPage(
+          () => import('@/modules/cocina/pages/CocinaStockRapidoPage'),
+          'CocinaStockRapidoPage',
+        ),
       },
     ],
   },
@@ -383,7 +475,10 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
       },
       {
         path: 'pos',
-        element: <CajeroPosPage />,
+        element: lazyPage(
+          () => import('@/modules/caja/pages/CajeroPosPage'),
+          'CajeroPosPage',
+        ),
       },
       {
         path: 'apertura',
@@ -391,11 +486,17 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
       },
       {
         path: 'comprobantes',
-        element: <CajeroComprobantesPage />,
+        element: lazyPage(
+          () => import('@/modules/caja/pages/CajeroComprobantesPage'),
+          'CajeroComprobantesPage',
+        ),
       },
       {
         path: 'turno',
-        element: <CajeroTurnoCierrePage />,
+        element: lazyPage(
+          () => import('@/modules/caja/pages/CajeroTurnoCierrePage'),
+          'CajeroTurnoCierrePage',
+        ),
       },
     ],
   },
@@ -417,11 +518,17 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
       },
       {
         path: 'tenants',
-        element: <SaasTenantsPage />,
+        element: lazyPage(
+          () => import('@/modules/saas/pages/SaasTenantsPage'),
+          'SaasTenantsPage',
+        ),
       },
       {
         path: 'tenants/nuevo',
-        element: <SaasTenantOnboardingPage />,
+        element: lazyPage(
+          () => import('@/modules/saas/pages/SaasTenantOnboardingPage'),
+          'SaasTenantOnboardingPage',
+        ),
       },
       // [PRÓXIMO ENTREGABLE - FASE 2]: Catálogo de Planes SaaS (CU-SAAS-03)
       {
