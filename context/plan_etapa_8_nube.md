@@ -47,7 +47,7 @@ Resultado esperado: un tester clona el repositorio, ejecuta **un solo comando** 
 | 8.6 Verificación | Los cuatro humos contra el compose de despliegue | Mismas comprobaciones en verde que en desarrollo (cerrada) |
 | 8.7 Guía para testers | Instalar, entrar, qué probar por rol y cómo reportar un fallo | Documento listo para enviar en `docs/guia/guia-testers.md` (cerrada) |
 | 8.8 Manual de Artifact Registry | Cada imagen: qué contiene, cómo se construye, se etiqueta y se sube, y qué hace cada comando | Manual listo, sin ejecutar (cerrada) |
-| 8.9 Cierre de esta parte | `plan_seguimiento.md` y las fichas | Entorno de testers entregado |
+| 8.9 Cierre de esta parte | `plan_seguimiento.md` y las fichas | Entorno de testers entregado (cerrada) |
 
 **Después de esta parte** (y antes del plan de producción): VM, Cloud Run (con bucket privado IAM) y laboratorio de GKE.
 

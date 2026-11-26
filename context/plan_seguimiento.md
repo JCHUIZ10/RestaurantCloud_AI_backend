@@ -541,11 +541,21 @@ Servicio Node 22, TypeScript, Fastify y MongoDB que convierte eventos del núcle
 
 ---
 
+### Lo que dejó la etapa 8 — empaquetado, QA y despliegue local (25–26/11)
+
+- **Esquema SQL consolidado (8.A) y correos transaccionales (8.B):** los scripts de `database/sql` reflejan el estado final del esquema (`snapshot_stock_diario` retirada), verificados con `schema-check.sh`; correos de activación e invitación interceptados con Mailpit en desarrollo y QA.
+- **Modelo en GCS (8.C):** `ms-pronóstico` incorpora el adaptador `AlmacenGcs` para leer desde `gs://rc-modelos-demo-aurea`.
+- **Imágenes autocontenidas (8.1) y Compose de despliegue (8.2):** `api.Dockerfile` (`target: prod` obligatorio con `APP_KEY`), `web.Dockerfile` (Caddy `2.8.4-alpine` + SPA con code-splitting), `docker-compose.prod.yml` (`name: restaurantcloud`, sin `container_name`, memoria total medida **~1,01 GiB** en reposo para los 15 contenedores activos de QA) y `Caddyfile` (solo Caddy publica `80`/`443`; Mailpit en `127.0.0.1:8025` y consola MinIO en `127.0.0.1:9001`).
+- **Configuración y datos demo (8.3–8.5):** `.env.qa.example` y `.env.production.example` en 9 grupos; `generar-env.sh`/`.ps1` (secretos aleatorios + RSA JWT vía `php artisan jwt:claves`); `qa-preparar.sh`/`.ps1` y `qa-reiniciar.sh`/`.ps1` (seed ÁUREA, 5 roles, historial sintético incremental hasta ayer y pronóstico nivel 3 con `metodo=modelo`); comando único `qa.ps1` / `qa.sh` con comprobaciones previas y `.gitattributes` LF verificado en clon limpio con `core.autocrlf=true`.
+- **Verificación y documentación (8.6–8.8):** los 4 humos adaptados con `--despliegue` y `verificar-despliegue.sh` en verde (`413/413` comprobaciones + aislamiento de 11 puertos internos + `X-Forwarded-For` sobrescrito por Caddy); guía para testers en `restaurantcloud/docs/guia/guia-testers.md` y manual de Artifact Registry en `restaurantcloud/docs/guia/manual-artifact-registry.md` (sin ejecutar comandos en GCP aún).
+
+---
+
 ## Hoja de ruta (se detalla al llegar)
 
 | Etapa | Contenido | Requisito de la guía que cubre |
 |---|---|---|
-| 8. Nube | Imagen de la API con el código dentro; imágenes en Artifact Registry; VM con todo el sistema; ms-pronóstico en Cloud Run; laboratorio de GKE | Registro, PaaS, Kubernetes |
+| 8. Nube | Empaquetado, QA en un comando y manuales cerrados (26/11); pendiente ejecutar en GCP: Artifact Registry, VM, Cloud Run (`ms-pronóstico`) y laboratorio de GKE | Registro, PaaS, Kubernetes |
 | 9. Seguridad | Rol `rc_app`, prueba de RLS en la base e inventario de consultas sin contexto | Seguridad y configuración |
 | 10. Informe | OpenAPI de cada servicio, diagramas exportados, protocolo experimental, plan de migración, plan hacia la semana 16 | Informe y documentación |
 
@@ -569,7 +579,7 @@ Orden recomendado si el tiempo aprieta: 4 → 5 → 8 antes que 6 y 7, porque IA
 ## Riesgos
 
 - **`CajaController::cobrar` es el punto más delicado.** La publicación del evento son dos inserciones dentro de la transacción, sin llamadas de red; cubierto por las pruebas de cobro y por la prueba de humo.
-- **`docker-compose.prod.yml` conserva los nombres `saas_*`.** Renombrarlo crearía volúmenes vacíos en el servidor desplegado; se decide en la etapa 8.
+- ~~**`docker-compose.prod.yml` conserva los nombres `saas_*`.**~~ Resuelto en la 8.2: se renombró con `name: restaurantcloud` y sin `container_name` para aislar contenedores y volúmenes de desarrollo (`restaurantcloudIA_*`).
 - **La suite completa del núcleo tarda unos 14 minutos.** Durante el desarrollo se ejecutan las clases afectadas; la suite completa, al cerrar cada etapa.
 
 ## Verificación
@@ -577,5 +587,6 @@ Orden recomendado si el tiempo aprieta: 4 → 5 → 8 antes que 6 y 7, porque IA
 - **Núcleo:** `docker exec restaurantcloudIA_api php artisan test --compact` (639 pruebas en la última corrida completa, 18/11, más 4 de `carta:exportar` ejecutadas aparte). Si se cambia el seed, antes `./scripts/test-db-reset.sh`.
 - **ms-analítica:** `uv run pytest` en `services/analitica`, con `TEST_DATABASE_URL` y `TEST_APP_DATABASE_URL` (111 pruebas, unos 2 minutos desde el host).
 - **Frontend:** `npm test` en `apps/web` (149 pruebas de vitest), `npm run build` y `npm run check:ui`.
-- **Integración:** `./scripts/smoke-analitica.sh` (o `--rapido`, sin el escenario de caída), `./scripts/smoke-pronostico.sh` (o `--rapido`; ver la 5B.6) y `./scripts/smoke-gateway.sh` (o `--rapido`; ver la 6.6).
+- **Integración:** `./scripts/smoke-analitica.sh`, `./scripts/smoke-pronostico.sh`, `./scripts/smoke-gateway.sh` y `./scripts/smoke-notificaciones.sh` (aceptan `--despliegue` contra `docker-compose.prod.yml`, y `./scripts/verificar-despliegue.sh` valida además puertos cerrados y `X-Forwarded-For`).
+- **Entorno QA local:** `./scripts/qa.ps1 iniciar` (PowerShell) o `./scripts/qa.sh iniciar` (Bash).
 - **Estado de las entregas:** `docker exec restaurantcloudIA_api php artisan outbox:estado`.
