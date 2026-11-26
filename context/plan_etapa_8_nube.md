@@ -42,7 +42,7 @@ Resultado esperado: un tester clona el repositorio, ejecuta **un solo comando** 
 | 8.1 Imágenes | API con el código dentro; web apuntando a Kong y con el paquete partido; versión en cada imagen | Las imágenes arrancan sin montar carpetas del repositorio (cerrada) |
 | 8.2 Compose de despliegue | Sistema completo en `docker-compose.prod.yml`, Caddy delante de Kong, solo Caddy publica puertos | `http://localhost` funciona con el compose nuevo (cerrada) |
 | 8.3 Configuración | Script que genera el `.env` con secretos aleatorios y claves JWT; ejemplos de QA y de producción | Un `.env` nuevo de cero, sin copiar nada a mano (cerrada) |
-| 8.4 Datos de demostración | Seed, historial sintético hasta ayer, modelo vigente, cuentas por rol; comandos para preparar y reiniciar | ÁUREA con predicción nivel 3 en una base recién creada |
+| 8.4 Datos de demostración | Seed, historial sintético hasta ayer, modelo vigente, cuentas por rol; comandos para preparar y reiniciar | ÁUREA con predicción nivel 3 en una base recién creada (cerrada) |
 | 8.5 Instalación en Windows | Comando único (`.ps1` y `.sh`), requisitos, finales de línea, consumo de memoria | Clon limpio en otra carpeta → sistema arriba con un comando |
 | 8.6 Verificación | Los cuatro humos contra el compose de despliegue | Mismas comprobaciones en verde que en desarrollo |
 | 8.7 Guía para testers | Instalar, entrar, qué probar por rol y cómo reportar un fallo | Documento listo para enviar |
@@ -74,13 +74,12 @@ Resultado esperado: un tester clona el repositorio, ejecuta **un solo comando** 
 - **`.env.qa.example` y `.env.production.example`:** documentan todas las variables del despliegue organizadas en 9 grupos. Las credenciales externas (`STRIPE_*`, `APIDEV_TOKEN`) quedan vacías; en QA se preconfigura `APIDEV_MOCK=true`, `COMPOSE_PROFILES=qa`, `SITIO=http://localhost` y Mailpit. `docker-compose.prod.yml` reenvía `APIDEV_BASE_URL` y `APIDEV_MOCK` junto a `APIDEV_TOKEN`.
 - **Verificado:** generación en modos `qa` y `produccion` con `generar-env.ps1` y en modo `qa` con `generar-env.sh` (Git Bash); rechazo sin sobrescritura cuando el archivo destino ya existe; validación `docker compose -f docker-compose.prod.yml --env-file ... config --quiet` en verde para ambos modos y fallo explícito (`required variable APP_KEY is missing a value: APP_KEY requerido`) al vaciar una variable obligatoria.
 
-### 8.4 Datos de demostración
+### 8.4 Datos de demostración (cerrada 25/11)
 
-- **Revisar primero** si las migraciones del núcleo aplican también el seed. El compose de producción dice que el esquema lo crean las migraciones, pero en desarrollo el seed entra por `initdb`.
-- **`scripts/qa-preparar`:** espera a que todo esté sano, aplica el seed de ÁUREA, genera el historial sintético hasta ayer (unos 4 minutos, dentro del contenedor y sin internet) y comprueba que la predicción responde en nivel 3 con `metodo = modelo`.
-- **`scripts/qa-reiniciar`:** baja el sistema con sus volúmenes y lo vuelve a preparar. Pide confirmación.
-- **Historial que se vence:** si un tester deja el entorno armado varios días, `qa-preparar` completa los días que faltan con `generar --incremental`, como hace `smoke-pronostico.sh`.
-- **Cuentas:** las del seed de ÁUREA, una por rol (propietario, administración, caja, mozo y cocina). Si falta alguna, se agrega solo con filas nuevas, como en la etapa 4.
+- **Revisión migraciones vs. seeders:** `entrypoint.sh` en modo `prod` ejecuta solo `migrate --force` (que carga `06_seed_initial_data.sql` y `09_seed_ubigeo_peru.sql`), sin correr `db:seed`. `LocalAureaDemoSeeder` (`07_seed_local_aurea_completo.sql`) siembra la empresa/local ÁUREA (`00000000-0000-4000-8000-000000000010`) y las cuentas por rol (`propietario`, `admin_local`, `cajero`, `mozo`, `cocina`).
+- **`scripts/qa-preparar.sh` y `scripts/qa-preparar.ps1`:** esperan a que los 12 servicios estén `healthy`/`running`, siembran ÁUREA solo si aún no existe (preservando datos si ya estaba), aseguran las 5 cuentas por rol mediante `INSERT ... WHERE NOT EXISTS` (sin borrar filas existentes), generan o completan el historial sintético hasta ayer en `America/Lima` (`carta:exportar` | `python -m app.sinteticos generar --carta - --incremental --perfil aurea_v1 --semilla 2026`), y verifican `POST /api/v1/admin/pronosticos` en **nivel 3** con `metodo = modelo`.
+- **`scripts/qa-reiniciar.sh` y `scripts/qa-reiniciar.ps1`:** solicitan confirmación (omitible con `--si` / `-Force`), bajan el stack con volúmenes (`down -v`), lo reconstruyen/levantan (`up -d --build`) y ejecutan `qa-preparar`.
+- **Verificado:** ejecución completa desde cero con `qa-reiniciar.ps1 -Force` (730 días, 39.063 ventas, predicción nivel 3 con `metodo=modelo` en 140 filas), re-ejecución idempotente con `qa-preparar.ps1` y `qa-preparar.sh` (Git Bash), y sintaxis `bash -n` de `qa-reiniciar.sh`.
 
 ### 8.5 Instalación en Windows
 
