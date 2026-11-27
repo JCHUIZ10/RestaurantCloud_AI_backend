@@ -1,6 +1,6 @@
 # Plan: construcción de la Unidad II sobre `betta`
 
-**Última actualización:** 22/11/2026. Etapas 0 a 4 y 5A cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 6 (JWT y gateway) está cerrada: ficha, JWT en el núcleo, validación en ms-analítica, los 4 reportes, Kong, la pantalla de reportes en React y la prueba de punta a punta del gateway. La etapa 7 (ms-notificaciones) está cerrada: ficha, servicio, núcleo, bandeja, canal SSE, Kong, campana de React, prueba de punta a punta y documentación.
+**Última actualización:** 27/11/2026. Etapas 0 a 4, 5A, 6 y 7 cerradas; la 5B (ms-pronóstico) está terminada salvo revisar sus pantallas en un navegador. La etapa 8 (Nube) está **en curso (no cerrada)**: se completó la primera parte (empaquetado, QA local y manual de Artifact Registry); queda pendiente la ejecución de los despliegues en GCP (Artifact Registry, VM, Cloud Run para ms-pronóstico y laboratorio GKE).
 
 ## Contexto
 
@@ -27,6 +27,7 @@ El trabajo va en etapas que dejan algo demostrable cada una. Las cerradas resume
 | 5B. ms-pronóstico | Cerrada salvo la revisión en navegador | Ficha con D-21 aplicada; servicio en el puerto 8002 que pronostica con el modelo real de la 5A (140 de 140 filas con `modelo` en ÁUREA) y reposición sugerida desde el núcleo; 201 pruebas del servicio y 24 de la reposición en el núcleo; humo: 108 comprobaciones |
 | 6. JWT y gateway | Cerrada | JWT RS256 en todos los inicios de sesión, validado por Kong y por ms-analítica; 4 reportes de CU-ADMIN-13 en menos de 0,1 s; Kong 3.9.1 como entrada única; pantalla «Reportes de ventas» en React con 149 pruebas de vitest; `scripts/smoke-gateway.sh`: 138 comprobaciones (121 con `--rapido`) |
 | 7. ms-notificaciones | Cerrada | Tercer microservicio: servicio Node/Fastify con MongoDB en el puerto 8003 que convierte siete eventos del núcleo en avisos sin duplicarlos; bandeja con «leído» por persona y canal SSE por Kong; campana de React en los cinco roles; la tabla `notificacion` retirada del núcleo; 226 pruebas de vitest contra MongoDB real, 234 del frontend y `scripts/smoke-notificaciones.sh` con 129 comprobaciones |
+| 8. Nube | En curso (no cerrada) | Primera parte completada (empaquetado prod, QA local unificado con `qa.ps1`/`qa.sh`, modelo demo en GCS y manual de Artifact Registry con 413/413 comprobaciones en verde); **pendiente ejecución en GCP** (Artifact Registry, VM, Cloud Run y laboratorio GKE) |
 
 ---
 
@@ -541,7 +542,11 @@ Servicio Node 22, TypeScript, Fastify y MongoDB que convierte eventos del núcle
 
 ---
 
-### Lo que dejó la etapa 8 — empaquetado, QA y despliegue local (25–26/11)
+## Etapa 8. Nube — en curso (no cerrada)
+
+> **Estado de la etapa:** Esta etapa **permanece en curso (abierta)**. Se completó con éxito la **primera parte** (empaquetado, QA local y manual de Artifact Registry), pero **no se considera cerrada** hasta ejecutar el despliegue real en la infraestructura de Google Cloud Platform (GCP).
+
+### Primera parte completada: empaquetado, QA y despliegue local (25–26/11)
 
 - **Esquema SQL consolidado (8.A) y correos transaccionales (8.B):** los scripts de `database/sql` reflejan el estado final del esquema (`snapshot_stock_diario` retirada), verificados con `schema-check.sh`; correos de activación e invitación interceptados con Mailpit en desarrollo y QA.
 - **Modelo en GCS (8.C):** `ms-pronóstico` incorpora el adaptador `AlmacenGcs` para leer desde `gs://rc-modelos-demo-aurea`.
@@ -549,13 +554,20 @@ Servicio Node 22, TypeScript, Fastify y MongoDB que convierte eventos del núcle
 - **Configuración y datos demo (8.3–8.5):** `.env.qa.example` y `.env.production.example` en 9 grupos; `generar-env.sh`/`.ps1` (secretos aleatorios + RSA JWT vía `php artisan jwt:claves`); `qa-preparar.sh`/`.ps1` y `qa-reiniciar.sh`/`.ps1` (seed ÁUREA, 5 roles, historial sintético incremental hasta ayer y pronóstico nivel 3 con `metodo=modelo`); comando único `qa.ps1` / `qa.sh` con comprobaciones previas y `.gitattributes` LF verificado en clon limpio con `core.autocrlf=true`.
 - **Verificación y documentación (8.6–8.8):** los 4 humos adaptados con `--despliegue` y `verificar-despliegue.sh` en verde (`413/413` comprobaciones + aislamiento de 11 puertos internos + `X-Forwarded-For` sobrescrito por Caddy); guía para testers en `restaurantcloud/docs/guia/guia-testers.md` y manual de Artifact Registry en `restaurantcloud/docs/guia/manual-artifact-registry.md` (sin ejecutar comandos en GCP aún).
 
+### Segunda parte pendiente (para el cierre definitivo de la etapa 8):
+
+- **Artifact Registry:** Creación del repositorio y subida efectiva de las imágenes etiquetadas a GCP (`REGION-docker.pkg.dev/...`).
+- **Despliegue PaaS / VM:** Puesta en marcha en una máquina virtual de producción (Compute Engine) con dominio y TLS vía Caddy.
+- **Cloud Run:** Despliegue de `ms-pronóstico` en Cloud Run conectado mediante IAM al bucket de modelos en Google Cloud Storage.
+- **Laboratorio GKE:** Despliegue del clúster de Kubernetes en Google Kubernetes Engine exigido por la guía de evaluación.
+
 ---
 
 ## Hoja de ruta (se detalla al llegar)
 
 | Etapa | Contenido | Requisito de la guía que cubre |
 |---|---|---|
-| 8. Nube | Empaquetado, QA en un comando y manuales cerrados (26/11); pendiente ejecutar en GCP: Artifact Registry, VM, Cloud Run (`ms-pronóstico`) y laboratorio de GKE | Registro, PaaS, Kubernetes |
+| 8. Nube | **En curso (abierta):** primera parte completada (empaquetado, QA local y manuales); **pendiente en GCP:** Artifact Registry, VM, Cloud Run (`ms-pronóstico`) y laboratorio de GKE | Registro, PaaS, Kubernetes |
 | 9. Seguridad | Rol `rc_app`, prueba de RLS en la base e inventario de consultas sin contexto | Seguridad y configuración |
 | 10. Informe | OpenAPI de cada servicio, diagramas exportados, protocolo experimental, plan de migración, plan hacia la semana 16 | Informe y documentación |
 
